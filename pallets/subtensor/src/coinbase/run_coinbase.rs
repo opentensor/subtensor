@@ -39,13 +39,14 @@ impl<T: Config> Pallet<T> {
         log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut total_moving_prices = U96F32::saturating_from_num(0.0);
+        let mut acc_total_moving_prices = U96F32::saturating_from_num(0.0);
         // Only get price EMA for subnets that we emit to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get and update the moving price of each subnet adding the total together.
-            total_moving_prices =
-                total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
+            acc_total_moving_prices =
+                acc_total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
         }
+        let total_moving_prices = acc_total_moving_prices;
         log::debug!("total_moving_prices: {total_moving_prices:?}");
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
@@ -183,21 +184,22 @@ impl<T: Config> Pallet<T> {
             });
         }
 
+        // Get total TAO on root.
+        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
+        log::debug!("root_tao: {root_tao:?}");
+        // Get tao_weight
+        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+        log::debug!("tao_weight: {tao_weight:?}");
+
         // --- 6. Seperate out root dividends in alpha and sell them into tao.
         // Then accumulate those dividends for later.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get remaining alpha out.
             let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0.0));
             log::debug!("alpha_out_i: {alpha_out_i:?}");
-            // Get total TAO on root.
-            let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
-            log::debug!("root_tao: {root_tao:?}");
             // Get total ALPHA on subnet.
             let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
             log::debug!("alpha_issuance: {alpha_issuance:?}");
-            // Get tao_weight
-            let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-            log::debug!("tao_weight: {tao_weight:?}");
             // Get root proportional dividends.
             let root_proportion: U96F32 = tao_weight
                 .checked_div(tao_weight.saturating_add(alpha_issuance))
@@ -239,14 +241,14 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        // --- 7 Update moving prices after using them in the emission calculation.
+        // --- 7. Update moving prices after using them in the emission calculation.
         // Only update price EMA for subnets that we emit to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Update moving prices after using them above.
             Self::update_moving_price(*netuid_i);
         }
 
-        // --- 7. Drain pending emission through the subnet based on tempo.
+        // --- 8. Drain pending emission through the subnet based on tempo.
         // Run the epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
             // Reveal matured weights.
@@ -426,6 +428,47 @@ impl<T: Config> Pallet<T> {
         (prop_alpha_dividends, tao_dividends)
     }
 
+    fn get_immune_owner_hotkeys(netuid: NetUid, coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        // Gather (block, uid, hotkey) only for hotkeys that have a UID and a registration block.
+        let mut triples: Vec<(u64, u16, T::AccountId)> = OwnedHotkeys::<T>::get(coldkey)
+            .into_iter()
+            .filter_map(|hotkey| {
+                // Uids must exist, filter_map ignores hotkeys without UID
+                Uids::<T>::get(netuid, &hotkey).map(|uid| {
+                    let block = BlockAtRegistration::<T>::get(netuid, uid);
+                    (block, uid, hotkey)
+                })
+            })
+            .collect();
+
+        // Sort by BlockAtRegistration (descending), then by uid (ascending)
+        // Recent registration is priority so that we can let older keys expire (get non-immune)
+        triples.sort_by(|(b1, u1, _), (b2, u2, _)| b2.cmp(b1).then(u1.cmp(u2)));
+
+        // Keep first ImmuneOwnerUidsLimit
+        let limit = ImmuneOwnerUidsLimit::<T>::get(netuid).into();
+        if triples.len() > limit {
+            triples.truncate(limit);
+        }
+
+        // Project to just hotkeys
+        let mut immune_hotkeys: Vec<T::AccountId> =
+            triples.into_iter().map(|(_, _, hk)| hk).collect();
+
+        // Insert subnet owner hotkey in the beginning of the list if valid and not
+        // already present
+        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+            if Uids::<T>::get(netuid, &owner_hk).is_some() && !immune_hotkeys.contains(&owner_hk) {
+                immune_hotkeys.insert(0, owner_hk);
+                if immune_hotkeys.len() > limit {
+                    immune_hotkeys.truncate(limit);
+                }
+            }
+        }
+
+        immune_hotkeys
+    }
+
     pub fn distribute_dividends_and_incentives(
         netuid: NetUid,
         owner_cut: AlphaCurrency,
@@ -454,17 +497,20 @@ impl<T: Config> Pallet<T> {
         }
 
         // Distribute mining incentives.
+        let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
+        let owner_hotkeys = Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey);
+        log::debug!("incentives: owner hotkeys: {owner_hotkeys:?}");
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {incentive:?}");
 
-            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                if hotkey == owner_hotkey {
-                    log::debug!(
-                        "incentives: hotkey: {hotkey:?} is SN owner hotkey, skipping {incentive:?}"
-                    );
-                    continue; // Skip/burn miner-emission for SN owner hotkey.
-                }
+            // Skip/burn miner-emission for immune keys
+            if owner_hotkeys.contains(&hotkey) {
+                log::debug!(
+                    "incentives: hotkey: {hotkey:?} is SN owner hotkey or associated hotkey, skipping {incentive:?}"
+                );
+                continue;
             }
+
             // Increase stake for miner.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey.clone(),

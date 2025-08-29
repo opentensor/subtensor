@@ -2637,7 +2637,8 @@ fn test_childkey_set_weights_single_parent() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid =
+            add_dynamic_network_disable_commit_reveal(&subnet_owner_hotkey, &subnet_owner_coldkey);
         Tempo::<Test>::insert(netuid, 1);
 
         // Define hotkeys
@@ -2746,7 +2747,8 @@ fn test_set_weights_no_parent() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid =
+            add_dynamic_network_disable_commit_reveal(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let hotkey: U256 = U256::from(2);
         let spare_hk: U256 = U256::from(3);
@@ -3568,7 +3570,7 @@ fn test_dividend_distribution_with_children() {
 fn test_dynamic_parent_child_relationships() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network_disable_commit_reveal(netuid, 1, 0);
 
         // Define hotkeys and coldkeys
         let parent = U256::from(1);
