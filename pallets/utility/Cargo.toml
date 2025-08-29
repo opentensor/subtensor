@@ -20,7 +20,6 @@ sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 codec = { workspace = true, features = ["derive"] }
-scale-info = { workspace = true, features = ["derive"] }
 subtensor-macros.workspace = true
 
 [dev-dependencies]
@@ -37,7 +36,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",

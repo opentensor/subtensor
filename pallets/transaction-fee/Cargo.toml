@@ -4,10 +4,8 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-codec.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
-log.workspace = true
 pallet-balances = { workspace = true, default-features = false }
 pallet-subtensor.workspace = true
 pallet-subtensor-swap.workspace = true
@@ -41,11 +39,9 @@ workspace = true
 [features]
 default = ["std"]
 std = [
-	"codec/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"pallet-crowdloan/std",
 	"pallet-drand/std",

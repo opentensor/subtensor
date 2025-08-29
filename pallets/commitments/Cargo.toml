@@ -24,7 +24,6 @@ frame-support.workspace = true
 frame-system.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
-enumflags2.workspace = true
 
 pallet-drand.workspace = true
 tle.workspace = true
@@ -36,7 +35,6 @@ sha2.workspace = true
 
 log.workspace = true
 
-pallet-subtensor.workspace = true
 subtensor-runtime-common.workspace = true
 
 [dev-dependencies]
@@ -49,7 +47,6 @@ default = ["std"]
 std = [
 	"ark-serialize/std",
 	"codec/std",
-	"enumflags2/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -57,7 +54,6 @@ std = [
 	"log/std",
 	"pallet-balances/std",
 	"pallet-drand/std",
-	"pallet-subtensor/std",
 	"rand_chacha/std",
 	"scale-info/std",
 	"sha2/std",
@@ -76,7 +72,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
-	"pallet-subtensor/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -84,5 +79,4 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-drand/try-runtime",
-	"pallet-subtensor/try-runtime",
 ]
