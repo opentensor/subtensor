@@ -1710,9 +1710,9 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_trim_to_max_allowed_uids(
-             origin: OriginFor<T>,
-             netuid: NetUid,
-             max_n: u16,
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            max_n: u16,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
             if let Ok(RawOrigin::Signed(who)) = origin.into() {
@@ -1728,7 +1728,6 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
             Ok(())
         }
-
     }
 }
 

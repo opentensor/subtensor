@@ -106,26 +106,27 @@ impl<T: Config> Pallet<T> {
         Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Bonds::<T>::remove(netuid, neuron_uid); // Remove bonds for Validator.
     }
-    
-    pub fn trim_to_max_allowed_uids(netuid: NetUid, max_n: u16) -> DispatchResult {
 
+    pub fn trim_to_max_allowed_uids(netuid: NetUid, max_n: u16) -> DispatchResult {
         // Reasonable limits
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
-        ensure!( max_n > 16, Error::<T>::InvalidValue );
-        ensure!( max_n <= Self::get_max_allowed_uids( netuid ), Error::<T>::InvalidValue );
+        ensure!(max_n > 16, Error::<T>::InvalidValue);
+        ensure!(
+            max_n <= Self::get_max_allowed_uids(netuid),
+            Error::<T>::InvalidValue
+        );
 
         // Set the value.
         MaxAllowedUids::<T>::insert(netuid, max_n);
 
         // Check if we need to trim.
         let current_n: u16 = Self::get_subnetwork_n(netuid);
-        
+
         // We need to trim, get rid of values between max_n and current_n.
         if current_n > max_n {
-        
             let ranks: Vec<u16> = Rank::<T>::get(netuid);
             let trimmed_ranks: Vec<u16> = ranks.into_iter().take(max_n as usize).collect();
             Rank::<T>::insert(netuid, trimmed_ranks);
@@ -139,7 +140,8 @@ impl<T: Config> Pallet<T> {
             Active::<T>::insert(netuid, trimmed_active);
 
             let emission: Vec<AlphaCurrency> = Emission::<T>::get(netuid);
-            let trimmed_emission: Vec<AlphaCurrency> = emission.into_iter().take(max_n as usize).collect();
+            let trimmed_emission: Vec<AlphaCurrency> =
+                emission.into_iter().take(max_n as usize).collect();
             Emission::<T>::insert(netuid, trimmed_emission);
 
             let consensus: Vec<u16> = Consensus::<T>::get(netuid);
@@ -155,11 +157,13 @@ impl<T: Config> Pallet<T> {
             Dividends::<T>::insert(netuid, trimmed_dividends);
 
             let lastupdate: Vec<u64> = LastUpdate::<T>::get(netuid);
-            let trimmed_lastupdate: Vec<u64> = lastupdate.into_iter().take(max_n as usize).collect();
+            let trimmed_lastupdate: Vec<u64> =
+                lastupdate.into_iter().take(max_n as usize).collect();
             LastUpdate::<T>::insert(netuid, trimmed_lastupdate);
 
             let pruning_scores: Vec<u16> = PruningScores::<T>::get(netuid);
-            let trimmed_pruning_scores: Vec<u16> = pruning_scores.into_iter().take(max_n as usize).collect();
+            let trimmed_pruning_scores: Vec<u16> =
+                pruning_scores.into_iter().take(max_n as usize).collect();
             PruningScores::<T>::insert(netuid, trimmed_pruning_scores);
 
             let vtrust: Vec<u16> = ValidatorTrust::<T>::get(netuid);
@@ -171,9 +175,10 @@ impl<T: Config> Pallet<T> {
             ValidatorPermit::<T>::insert(netuid, trimmed_vpermit);
 
             let stake_weight: Vec<u16> = StakeWeight::<T>::get(netuid);
-            let trimmed_stake_weight: Vec<u16> = stake_weight.into_iter().take(max_n as usize).collect();
+            let trimmed_stake_weight: Vec<u16> =
+                stake_weight.into_iter().take(max_n as usize).collect();
             StakeWeight::<T>::insert(netuid, trimmed_stake_weight);
-            
+
             // Trim UIDs and Keys by removing entries with UID >= max_n (since UIDs are 0-indexed)
             // UIDs range from 0 to current_n-1, so we remove UIDs from max_n to current_n-1
             for uid in max_n..current_n {
@@ -226,7 +231,6 @@ impl<T: Config> Pallet<T> {
         // --- Ok and done.
         Ok(())
     }
-    
 
     /// Returns true if the uid is set on the network.
     ///
