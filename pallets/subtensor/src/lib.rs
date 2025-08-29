@@ -920,6 +920,9 @@ pub mod pallet {
     /// --- ITEM --> Global weight
     pub type TaoWeight<T> = StorageValue<_, u64, ValueQuery, DefaultTaoWeight<T>>;
     #[pallet::storage]
+    /// --- ITEM --> CK burn
+    pub type CKBurn<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
     /// --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
     #[pallet::storage]

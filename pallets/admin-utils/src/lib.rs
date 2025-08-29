@@ -1703,6 +1703,24 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
             Ok(())
         }
+
+        /// The extrinsic sets the difficulty for a subnet.
+        /// It is only callable by the root account or subnet owner.
+        /// The extrinsic will call the Subtensor pallet to set the difficulty.
+        #[pallet::call_index(73)]
+        #[pallet::weight(Weight::from_parts(15_650_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_ck_burn(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            burn: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_ck_burn( burn );
+            log::debug!("CKBurnSet( burn: {burn:?} ) ");
+            Ok(())
+        }
     }
 }
 

@@ -90,6 +90,13 @@ where
         Ok(U256::from(tao_weight))
     }
 
+    #[precompile::public("getCKBurn()")]
+    #[precompile::view]
+    fn get_ck_burn(_handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+        let ck_burn = pallet_subtensor::CKBurn::<R>::get();
+        Ok(U256::from(ck_burn))
+    }
+
     #[precompile::public("simSwapTaoForAlpha(uint16,uint64)")]
     #[precompile::view]
     fn sim_swap_tao_for_alpha(

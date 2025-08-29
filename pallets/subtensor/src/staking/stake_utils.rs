@@ -96,6 +96,11 @@ impl<T: Config> Pallet<T> {
         // This ensures the result is always between 0 and 1
         weight_fixed.safe_div(U96F32::saturating_from_num(u64::MAX))
     }
+    pub fn get_ck_burn() -> U96F32 {
+        let stored_weight = CKBurn::<T>::get();
+        let weight_fixed = U96F32::saturating_from_num(stored_weight);
+        weight_fixed.safe_div(U96F32::saturating_from_num(u64::MAX))
+    }
 
     /// Sets the global global weight in storage.
     ///
@@ -116,6 +121,11 @@ impl<T: Config> Pallet<T> {
     pub fn set_tao_weight(weight: u64) {
         // Update the TaoWeight storage with the new weight value
         TaoWeight::<T>::set(weight);
+    }
+    // Set the amount burned on non owned CK
+    pub fn set_ck_burn(weight: u64) {
+        // Update the ck burn value.
+        CKBurn::<T>::set(weight);
     }
 
     /// Calculates the weighted combination of alpha and global tao for a single hotkey onet a subnet.
