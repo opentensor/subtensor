@@ -33,6 +33,7 @@ use crate::extensions::*;
 use crate::leasing::*;
 use crate::metagraph::*;
 use crate::neuron::*;
+use crate::pure_proxy::*;
 use crate::sr25519::*;
 use crate::staking::*;
 use crate::storage_query::*;
@@ -47,6 +48,7 @@ mod extensions;
 mod leasing;
 mod metagraph;
 mod neuron;
+mod pure_proxy;
 mod sr25519;
 mod staking;
 mod storage_query;
@@ -107,7 +109,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 24] {
+    pub fn used_addresses() -> [H160; 25] {
         [
             hash(1),
             hash(2),
@@ -133,6 +135,7 @@ where
             hash(AlphaPrecompile::<R>::INDEX),
             hash(CrowdloanPrecompile::<R>::INDEX),
             hash(LeasingPrecompile::<R>::INDEX),
+            hash(PureProxyPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -218,6 +221,9 @@ where
             }
             a if a == hash(LeasingPrecompile::<R>::INDEX) => {
                 LeasingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Leasing)
+            }
+            a if a == hash(PureProxyPrecompile::<R>::INDEX) => {
+                PureProxyPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::PureProxy)
             }
             _ => None,
         }

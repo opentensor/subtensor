@@ -98,7 +98,8 @@ where
         target_address: Address,
     ) -> EvmResult<()> {
         let who = handle.caller_account_id::<R>();
-        let target_address = R::AddressMapping::into_account_id(target_address.0);
+        let target_address =
+            <R as pallet_evm::Config>::AddressMapping::into_account_id(target_address.0);
         let call = pallet_crowdloan::Call::<R>::create {
             deposit,
             min_contribution,
