@@ -18,7 +18,7 @@ export const IPureProxyABI = [
         "inputs": [
             {
                 "internalType": "bytes32",
-                "name": "real",
+                "name": "proxy",
                 "type": "bytes32"
             },
             {
