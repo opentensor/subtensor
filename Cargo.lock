@@ -13723,7 +13723,6 @@ dependencies = [
  "pallet-proxy 38.0.0",
  "pallet-subtensor",
  "pallet-subtensor-swap",
- "parity-scale-codec",
  "precompile-utils",
  "sp-core",
  "sp-io",
