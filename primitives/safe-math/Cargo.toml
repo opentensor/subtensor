@@ -6,8 +6,6 @@ edition.workspace = true
 [dependencies]
 substrate-fixed.workspace = true
 sp-arithmetic.workspace = true
-sp-std.workspace = true
-num-traits = { workspace = true, features = ["libm"] }
 
 [lints]
 workspace = true
@@ -16,7 +14,5 @@ workspace = true
 default = ["std"]
 std = [
 	"substrate-fixed/std",
-	"sp-std/std",
 	"sp-arithmetic/std",
-	"num-traits/std",
 ]
