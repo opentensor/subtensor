@@ -677,12 +677,12 @@ pub mod pallet {
             ensure!(
                 min_burn < TaoCurrency::from(1_000_000_000),
                 Error::<T>::ValueNotInBounds
-            )
+            );
             // Min burn must be less than max burn
             ensure!(
-                min_burn > pallet_subtensor::Pallet::<T>::MaxBurn(netuid),
+                min_burn > pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
                 Error::<T>::ValueNotInBounds
-            )
+            );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
             log::debug!("MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) ");
             Ok(())
@@ -709,12 +709,12 @@ pub mod pallet {
             ensure!(
                 max_burn > TaoCurrency::from(100_000_000),
                 Error::<T>::ValueNotInBounds
-            )
+            );
             // Max burn must be greater than min burn
             ensure!(
-                max_burn > pallet_subtensor::Pallet::<T>::MinBurn(netuid),
+                max_burn > pallet_subtensor::Pallet::<T>::get_min_burn(netuid),
                 Error::<T>::ValueNotInBounds
-            )
+            );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
             log::debug!("MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) ");
             Ok(())
@@ -1703,6 +1703,32 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
             Ok(())
         }
+
+        /// Sets the number of immune owner neurons
+        #[pallet::call_index(74)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_trim_to_max_allowed_uids(
+             origin: OriginFor<T>,
+             netuid: NetUid,
+             max_n: u16,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            if let Ok(RawOrigin::Signed(who)) = origin.into() {
+                ensure!(
+                    pallet_subtensor::Pallet::<T>::passes_rate_limit_on_subnet(
+                        &TransactionType::SetMaxAllowedUIDS,
+                        &who,
+                        netuid,
+                    ),
+                    pallet_subtensor::Error::<T>::TxRateLimitExceeded
+                );
+            }
+            pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
+            Ok(())
+        }
+
     }
 }
 

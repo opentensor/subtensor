@@ -11,6 +11,7 @@ pub enum TransactionType {
     RegisterNetwork,
     SetWeightsVersionKey,
     SetSNOwnerHotkey,
+    SetMaxAllowedUIDS,
 }
 
 /// Implement conversion from TransactionType to u16
@@ -23,6 +24,7 @@ impl From<TransactionType> for u16 {
             TransactionType::RegisterNetwork => 3,
             TransactionType::SetWeightsVersionKey => 4,
             TransactionType::SetSNOwnerHotkey => 5,
+            TransactionType::SetMaxAllowedUIDS => 6,
         }
     }
 }
@@ -36,6 +38,7 @@ impl From<u16> for TransactionType {
             3 => TransactionType::RegisterNetwork,
             4 => TransactionType::SetWeightsVersionKey,
             5 => TransactionType::SetSNOwnerHotkey,
+            6 => TransactionType::SetMaxAllowedUIDS,
             _ => TransactionType::Unknown,
         }
     }
@@ -50,7 +53,7 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetChildren => 150, // 30 minutes
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
-
+            TransactionType::SetMaxAllowedUIDS => 7200 * 30,
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,
         }
@@ -62,7 +65,6 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetWeightsVersionKey => (Tempo::<T>::get(netuid) as u64)
                 .saturating_mul(WeightsVersionKeyRateLimit::<T>::get()),
             TransactionType::SetSNOwnerHotkey => DefaultSetSNOwnerHotkeyRateLimit::<T>::get(),
-
             _ => Self::get_rate_limit(tx_type),
         }
     }
@@ -89,7 +91,6 @@ impl<T: Config> Pallet<T> {
         let block: u64 = Self::get_current_block_as_u64();
         let limit: u64 = Self::get_rate_limit_on_subnet(tx_type, netuid);
         let last_block: u64 = Self::get_last_transaction_block_on_subnet(hotkey, netuid, tx_type);
-
         Self::check_passes_rate_limit(limit, block, last_block)
     }
 
