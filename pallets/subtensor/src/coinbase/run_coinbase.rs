@@ -39,13 +39,14 @@ impl<T: Config> Pallet<T> {
         log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut total_moving_prices = U96F32::saturating_from_num(0.0);
+        let mut acc_total_moving_prices = U96F32::saturating_from_num(0.0);
         // Only get price EMA for subnets that we emit to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get and update the moving price of each subnet adding the total together.
-            total_moving_prices =
-                total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
+            acc_total_moving_prices =
+                acc_total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
         }
+        let total_moving_prices = acc_total_moving_prices;
         log::debug!("total_moving_prices: {total_moving_prices:?}");
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
@@ -183,21 +184,22 @@ impl<T: Config> Pallet<T> {
             });
         }
 
+        // Get total TAO on root.
+        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
+        log::debug!("root_tao: {root_tao:?}");
+        // Get tao_weight
+        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+        log::debug!("tao_weight: {tao_weight:?}");
+
         // --- 6. Seperate out root dividends in alpha and sell them into tao.
         // Then accumulate those dividends for later.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get remaining alpha out.
             let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0.0));
             log::debug!("alpha_out_i: {alpha_out_i:?}");
-            // Get total TAO on root.
-            let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
-            log::debug!("root_tao: {root_tao:?}");
             // Get total ALPHA on subnet.
             let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
             log::debug!("alpha_issuance: {alpha_issuance:?}");
-            // Get tao_weight
-            let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-            log::debug!("tao_weight: {tao_weight:?}");
             // Get root proportional dividends.
             let root_proportion: U96F32 = tao_weight
                 .checked_div(tao_weight.saturating_add(alpha_issuance))
@@ -239,14 +241,14 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        // --- 7 Update moving prices after using them in the emission calculation.
+        // --- 7. Update moving prices after using them in the emission calculation.
         // Only update price EMA for subnets that we emit to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Update moving prices after using them above.
             Self::update_moving_price(*netuid_i);
         }
 
-        // --- 7. Drain pending emission through the subnet based on tempo.
+        // --- 8. Drain pending emission through the subnet based on tempo.
         // Run the epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
             // Reveal matured weights.

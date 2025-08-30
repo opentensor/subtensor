@@ -14,8 +14,6 @@ workspace = true
 [dependencies]
 sp-api.workspace = true
 sp-runtime.workspace = true
-frame-support.workspace = true
-serde = { workspace = true, features = ["derive"] }
 codec = { workspace = true, features = ["derive"] }
 subtensor-runtime-common.workspace = true
 # local
@@ -25,9 +23,7 @@ pallet-subtensor.workspace = true
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-support/std",
 	"pallet-subtensor/std",
-	"serde/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"subtensor-runtime-common/std",
