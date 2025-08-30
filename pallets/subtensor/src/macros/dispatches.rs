@@ -197,9 +197,9 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(80)]
-        #[pallet::weight((Weight::from_parts(19_330_000, 0)
-        .saturating_add(T::DbWeight::get().reads(1_u64))
-        .saturating_add(T::DbWeight::get().writes(0_u64)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(100_500_000, 0)
+        .saturating_add(T::DbWeight::get().reads(15_u64))
+        .saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
             netuids: Vec<Compact<NetUid>>,
@@ -790,7 +790,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(2)]
-        #[pallet::weight((Weight::from_parts(340_400_000, 0)
+        #[pallet::weight((Weight::from_parts(439_200_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
 		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake(
@@ -2406,7 +2406,7 @@ mod dispatches {
         /// * commit_reveal_version (`u16`):
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
-        #[pallet::weight((Weight::from_parts(64_530_000, 0)
+        #[pallet::weight((Weight::from_parts(84_020_000, 0)
 		.saturating_add(T::DbWeight::get().reads(9_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
