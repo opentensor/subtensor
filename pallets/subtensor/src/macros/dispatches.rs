@@ -120,9 +120,9 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(80)]
-        #[pallet::weight((Weight::from_parts(19_330_000, 0)
-        .saturating_add(T::DbWeight::get().reads(1_u64))
-        .saturating_add(T::DbWeight::get().writes(0_u64)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(95_140_000, 0)
+        .saturating_add(T::DbWeight::get().reads(14_u64))
+        .saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
             netuids: Vec<Compact<NetUid>>,
@@ -777,7 +777,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(40)]
-        #[pallet::weight((Weight::from_parts(41_320_000, 0)
+        #[pallet::weight((Weight::from_parts(31_440_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon_tls(
