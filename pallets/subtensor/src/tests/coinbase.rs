@@ -2444,7 +2444,7 @@ fn test_drain_pending_emission_no_miners_all_drained() {
 #[test]
 fn test_drain_pending_emission_zero_emission() {
     new_test_ext(1).execute_with(|| {
-        let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let netuid = add_dynamic_network_disable_commit_reveal(&U256::from(1), &U256::from(2));
         let hotkey = U256::from(3);
         let coldkey = U256::from(4);
         let miner_hk = U256::from(5);
@@ -2522,6 +2522,7 @@ fn test_run_coinbase_not_started() {
         let sn_owner_ck = U256::from(8);
 
         add_network_without_emission_block(netuid, tempo, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
         SubnetOwner::<Test>::insert(netuid, sn_owner_ck);
@@ -2610,6 +2611,7 @@ fn test_run_coinbase_not_started_start_after() {
         let sn_owner_ck = U256::from(8);
 
         add_network_without_emission_block(netuid, tempo, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
         SubnetOwner::<Test>::insert(netuid, sn_owner_ck);

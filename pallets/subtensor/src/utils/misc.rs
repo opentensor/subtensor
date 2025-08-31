@@ -273,7 +273,7 @@ impl<T: Config> Pallet<T> {
     pub fn burn_tokens(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
-    pub fn coinbase(amount: TaoCurrency) {
+    pub fn increase_issuance(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
 

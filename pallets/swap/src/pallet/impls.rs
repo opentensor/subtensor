@@ -885,7 +885,7 @@ impl<T: Config> Pallet<T> {
         liquidity: u64,
     ) -> Result<(Position<T>, u64, u64), Error<T>> {
         ensure!(
-            Self::count_positions(netuid, coldkey_account_id) <= T::MaxPositions::get() as usize,
+            Self::count_positions(netuid, coldkey_account_id) < T::MaxPositions::get() as usize,
             Error::<T>::MaxPositionsExceeded
         );
 
