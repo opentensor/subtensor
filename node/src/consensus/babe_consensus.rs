@@ -194,7 +194,10 @@ impl ConsensusMechanism for BabeConsensus {
 
                 self.babe_link = Some(babe_link);
                 self.babe_worker_handle = Some(babe_worker_handle);
-                Ok((import_queue, Box::new(babe_import) as BoxBlockImport<Block>))
+                Ok((
+                    import_queue,
+                    Box::new(conditional_block_import) as BoxBlockImport<Block>,
+                ))
             },
         );
 
