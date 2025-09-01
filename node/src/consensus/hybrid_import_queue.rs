@@ -63,6 +63,7 @@ pub struct HybridBlockImport {
         >,
     >,
     babe_link: BabeLink<Block>,
+    client: Arc<FullClient>,
 }
 
 impl HybridBlockImport {
@@ -92,6 +93,7 @@ impl HybridBlockImport {
             inner_aura,
             inner_babe,
             babe_link,
+            client,
         }
     }
 
@@ -108,7 +110,10 @@ impl BlockImport<Block> for HybridBlockImport {
         &self,
         block: BlockCheckParams<Block>,
     ) -> Result<ImportResult, Self::Error> {
-        self.inner_aura.check_block(block).await.map_err(Into::into)
+        // The Babe and Aura `BlockImport` implementations both defer to the inner
+        // client's `check_block` implementation defined here:
+        // https://github.com/opentensor/polkadot-sdk/blob/d13f915d8a1f55af53fd51fdb4544c47badddc7e/substrate/client/service/src/client/client.rs#L1748.
+        self.client.check_block(block).await.map_err(Into::into)
     }
 
     async fn import_block(
