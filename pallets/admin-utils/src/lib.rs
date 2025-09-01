@@ -1683,6 +1683,7 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Sets the childkey tax rate
         #[pallet::call_index(73)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0))]
         pub fn sudo_set_childkey_tax_rate(
