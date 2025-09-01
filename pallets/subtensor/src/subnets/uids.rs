@@ -193,7 +193,7 @@ impl<T: Config> Pallet<T> {
                     // Remove tao dividends for the hotkey
                     TaoDividendsPerSubnet::<T>::remove(netuid, &hotkey);
                 }
-				#[allow(unknown_lints)]
+                #[allow(unknown_lints)]
                 Keys::<T>::remove(netuid, uid);
                 // Remove block at registration for the uid
                 BlockAtRegistration::<T>::remove(netuid, uid);
