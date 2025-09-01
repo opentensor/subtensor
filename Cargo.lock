@@ -2065,7 +2065,6 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
- "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -3527,7 +3526,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c9e6a11ca8224451684bc0d7d5a7adbf8f2fd6887261a1cfc3c0432f9d4068e"
 dependencies = [
  "powerfmt",
- "serde",
 ]
 
 [[package]]
@@ -10413,7 +10411,6 @@ name = "pallet-subtensor"
 version = "4.0.0-dev"
 dependencies = [
  "approx",
- "ark-bls12-381 0.4.0",
  "ark-serialize 0.4.2",
  "frame-benchmarking",
  "frame-support",
@@ -10443,10 +10440,7 @@ dependencies = [
  "safe-math",
  "scale-info",
  "serde",
- "serde-tuple-vec-map",
- "serde_bytes",
  "serde_json",
- "serde_with",
  "sha2 0.10.9",
  "share-pool",
  "sp-core",
@@ -15511,30 +15505,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "schemars"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cd191f9397d57d581cddd31014772520aa448f65ef991055d7f61582c65165f"
-dependencies = [
- "dyn-clone",
- "ref-cast",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "schemars"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82d20c4491bc164fa2f6c5d44565947a52ad80b9505d8e36f8d54c27c739fcd0"
-dependencies = [
- "dyn-clone",
- "ref-cast",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "schnellru"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15805,15 +15775,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-tuple-vec-map"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a04d0ebe0de77d7d445bb729a895dcb0a288854b267ca85f030ce51cdc578c82"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_bytes"
 version = "0.11.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15874,38 +15835,6 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "serde_with"
-version = "3.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2c45cd61fefa9db6f254525d46e392b852e0e61d9a1fd36e5bd183450a556d5"
-dependencies = [
- "base64 0.22.1",
- "chrono",
- "hex",
- "indexmap 1.9.3",
- "indexmap 2.10.0",
- "schemars 0.9.0",
- "schemars 1.0.4",
- "serde",
- "serde_derive",
- "serde_json",
- "serde_with_macros",
- "time",
-]
-
-[[package]]
-name = "serde_with_macros"
-version = "3.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de90945e6565ce0d9a25098082ed4ee4002e047cb59892c318d66821e14bb30f"
-dependencies = [
- "darling",
- "proc-macro2",
- "quote",
- "syn 2.0.104",
 ]
 
 [[package]]
@@ -17809,12 +17738,9 @@ name = "subtensor-custom-rpc"
 version = "0.0.2"
 dependencies = [
  "jsonrpsee",
- "pallet-subtensor",
  "parity-scale-codec",
- "serde",
  "sp-api",
  "sp-blockchain",
- "sp-rpc",
  "sp-runtime",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-runtime-common",
@@ -17824,10 +17750,8 @@ dependencies = [
 name = "subtensor-custom-rpc-runtime-api"
 version = "0.0.2"
 dependencies = [
- "frame-support",
  "pallet-subtensor",
  "parity-scale-codec",
- "serde",
  "sp-api",
  "sp-runtime",
  "subtensor-runtime-common",
@@ -17874,7 +17798,6 @@ dependencies = [
  "pallet-proxy-otf",
  "pallet-subtensor",
  "pallet-subtensor-swap",
- "parity-scale-codec",
  "precompile-utils",
  "sp-core",
  "sp-io",
