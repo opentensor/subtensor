@@ -1482,6 +1482,14 @@ pub mod pallet {
     pub type ImmuneOwnerUidsLimit<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmuneOwnerUidsLimit<T>>;
 
+    #[pallet::type_value]
+    /// Default value for childkey tax rate
+    pub fn DefaultChildkeyTaxRate<T: Config>() -> u16 {
+        18
+    }
+    #[pallet::storage]
+    pub type ChildkeyTaxRate<T> = StorageValue<_, u16, ValueQuery, DefaultChildkeyTaxRate<T>>;
+
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================

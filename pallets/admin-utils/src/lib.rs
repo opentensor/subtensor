@@ -1682,6 +1682,17 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
             Ok(())
         }
+
+        #[pallet::call_index(73)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0))]
+        pub fn sudo_set_childkey_tax_rate(
+            origin: OriginFor<T>,
+            childkey_tax_rate: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_childkey_tax_rate(childkey_tax_rate)?;
+            Ok(())
+        }
     }
 }
 

@@ -829,4 +829,28 @@ impl<T: Config> Pallet<T> {
         ImmuneOwnerUidsLimit::<T>::insert(netuid, limit);
         Ok(())
     }
+
+    /// Get the childkey tax rate
+    ///
+    /// # Returns
+    /// - `u16` - The childkey tax rate.
+    pub fn get_childkey_tax_rate() -> u16 {
+        ChildkeyTaxRate::<T>::get()
+    }
+
+    /// Set the childkey tax rate
+    ///
+    /// # Arguments
+    ///
+    /// * `childkey_tax_rate` - The new childkey tax rate.
+    ///
+    /// # Returns
+    /// - `Ok(())` on success.
+    /// - `Err(Error::<T>::InvalidValue)` if `childkey_tax_rate` is outside `[0, 100]`.
+    pub fn set_childkey_tax_rate(childkey_tax_rate: u16) -> DispatchResult {
+        ensure!(childkey_tax_rate <= 100, Error::<T>::InvalidValue);
+
+        ChildkeyTaxRate::<T>::set(childkey_tax_rate);
+        Ok(())
+    }
 }
