@@ -743,6 +743,7 @@ impl<T: Config> Pallet<T> {
         // Calculate the hotkey's share of the validator emission based on its childkey take
         let validating_emission: U96F32 = U96F32::saturating_from_num(dividends);
         let mut remaining_emission: U96F32 = validating_emission;
+
         let childkey_take_proportion: U96F32 =
             U96F32::saturating_from_num(Self::get_childkey_take(hotkey, netuid))
                 .safe_div(U96F32::saturating_from_num(u16::MAX));
@@ -826,14 +827,26 @@ impl<T: Config> Pallet<T> {
                     .saturating_mul(U96F32::saturating_from_num(parent_emission))
             };
 
+            let childkey_emission_take_tax: U96F32 = child_emission_take
+                .saturating_mul(U96F32::saturating_from_num(Self::get_childkey_tax_rate()))
+                .safe_div(U96F32::saturating_from_num(u16::MAX));
+
+            let child_emission_take_after_tax: U96F32 =
+                child_emission_take.saturating_sub(childkey_emission_take_tax);
+
             // Remove the childkey take from the parent's emission.
             parent_emission = parent_emission.saturating_sub(child_emission_take);
 
             // Add the childkey take to the total childkey take tracker.
             total_child_emission_take =
-                total_child_emission_take.saturating_add(child_emission_take);
+                total_child_emission_take.saturating_add(child_emission_take_after_tax);
 
-            log::debug!("Child emission take: {child_emission_take:?} for hotkey {hotkey:?}");
+            log::debug!(
+                "Child emission take tax: {childkey_emission_take_tax:?} for hotkey {hotkey:?}"
+            );
+            log::debug!(
+                "Child emission take after tax: {child_emission_take_after_tax:?} for hotkey {hotkey:?}"
+            );
             log::debug!("Parent emission: {parent_emission:?} for hotkey {hotkey:?}");
             log::debug!("remaining emission: {remaining_emission:?}");
 

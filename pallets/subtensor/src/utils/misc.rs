@@ -848,8 +848,6 @@ impl<T: Config> Pallet<T> {
     /// - `Ok(())` on success.
     /// - `Err(Error::<T>::InvalidValue)` if `childkey_tax_rate` is outside `[0, 100]`.
     pub fn set_childkey_tax_rate(childkey_tax_rate: u16) -> DispatchResult {
-        ensure!(childkey_tax_rate <= 100, Error::<T>::InvalidValue);
-
         ChildkeyTaxRate::<T>::set(childkey_tax_rate);
         Ok(())
     }

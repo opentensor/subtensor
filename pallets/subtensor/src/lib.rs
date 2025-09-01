@@ -1483,9 +1483,9 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmuneOwnerUidsLimit<T>>;
 
     #[pallet::type_value]
-    /// Default value for childkey tax rate
+    /// Default value for childkey tax rate, 18%
     pub fn DefaultChildkeyTaxRate<T: Config>() -> u16 {
-        18
+        11_796
     }
     #[pallet::storage]
     pub type ChildkeyTaxRate<T> = StorageValue<_, u16, ValueQuery, DefaultChildkeyTaxRate<T>>;
