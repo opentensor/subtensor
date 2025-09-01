@@ -213,6 +213,12 @@ impl ConsensusMechanism for AuraConsensus {
                         // Aura Consensus uses the hybrid import queue which is able to import both
                         // Aura and Babe blocks. Wait until sync finishes before switching to the
                         // Babe service to not break warp sync.
+						//
+						// Note that although unintuitive, it is required that we wait until BOTH
+						// warp sync and state sync are finished before we can safely switch to the
+						// Babe service. If we only wait for the "warp sync" to finish while state
+						// sync is still in progress prior to switching, the warp sync will not
+						// complete successfully.
                         let syncing = sync_service.status().await.is_ok_and(|status| status.warp_sync.is_some() || status.state_sync.is_some());
                         if !c.authorities.is_empty() && !syncing {
                             log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
