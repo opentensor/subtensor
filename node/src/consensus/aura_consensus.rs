@@ -1,3 +1,4 @@
+use crate::consensus::consensus_mechanism::SpawnEssentialHandlesParams;
 use crate::consensus::hybrid_import_queue::HybridBlockImport;
 use crate::consensus::{ConsensusMechanism, StartAuthoringParams};
 use crate::{
@@ -11,7 +12,6 @@ use sc_client_api::{AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{BlockImport, BoxBlockImport};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, InherentDataProviderExt};
-use sc_network_sync::SyncingService;
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
@@ -193,15 +193,12 @@ impl ConsensusMechanism for AuraConsensus {
 
     fn spawn_essential_handles(
         &self,
-        task_manager: &mut TaskManager,
-        client: Arc<FullClient>,
-        triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
-        sync_service: Arc<SyncingService<Block>>,
+        p: SpawnEssentialHandlesParams,
     ) -> Result<(), sc_service::Error> {
-        let client_clone = client.clone();
-        let triggered_clone = triggered.clone();
-        let slot_duration = self.slot_duration(&client)?;
-        task_manager.spawn_essential_handle().spawn(
+        let client_clone = p.client.clone();
+        let triggered_clone = p.triggered.clone();
+        let slot_duration = self.slot_duration(&p.client)?;
+        p.task_manager.spawn_essential_handle().spawn(
             "babe-switch",
             None,
             Box::pin(async move {
@@ -213,7 +210,13 @@ impl ConsensusMechanism for AuraConsensus {
                         // Aura Consensus uses the hybrid import queue which is able to import both
                         // Aura and Babe blocks. Wait until sync finishes before switching to the
                         // Babe service to not break warp sync.
-                        let syncing = sync_service.status().await.is_ok_and(|status| status.warp_sync.is_some() || status.state_sync.is_some());
+						//
+						// Note that although unintuitive, it is required that we wait until BOTH
+						// warp sync and state sync are finished before we can safely switch to the
+						// Babe service. If we only wait for the "warp sync" to finish while state
+						// sync is still in progress prior to switching, the warp sync will not
+						// complete successfully.
+                        let syncing = p.sync_service.status().await.is_ok_and(|status| status.warp_sync.is_some() || status.state_sync.is_some());
                         if !c.authorities.is_empty() && !syncing {
                             log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
                             if let Some(triggered) = triggered {

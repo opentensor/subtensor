@@ -1,5 +1,6 @@
 use crate::consensus::ConsensusMechanism;
 use crate::consensus::StartAuthoringParams;
+use crate::consensus::consensus_mechanism::SpawnEssentialHandlesParams;
 use crate::{
     client::{FullBackend, FullClient},
     conditional_evm_block_import::ConditionalEVMBlockImport,
@@ -16,7 +17,6 @@ use sc_consensus_babe::{BabeLink, BabeWorkerHandle};
 use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, InherentDataProviderExt};
-use sc_network_sync::SyncingService;
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
@@ -216,10 +216,7 @@ impl ConsensusMechanism for BabeConsensus {
 
     fn spawn_essential_handles(
         &self,
-        _task_manager: &mut TaskManager,
-        _client: Arc<FullClient>,
-        _triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
-        _sync_service: Arc<SyncingService<Block>>,
+        _params: SpawnEssentialHandlesParams,
     ) -> Result<(), sc_service::Error> {
         // No additional Babe handles required.
         Ok(())
