@@ -1,6 +1,7 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use crate::consensus::ConsensusMechanism;
+use crate::consensus::SpawnEssentialHandlesParams;
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
 use sc_chain_spec::ChainType;
@@ -350,12 +351,12 @@ where
             metrics,
         })?;
 
-    consensus_mechanism.spawn_essential_handles(
+    consensus_mechanism.spawn_essential_handles(SpawnEssentialHandlesParams::new(
         &mut task_manager,
         client.clone(),
         custom_service_signal,
         sync_service.clone(),
-    )?;
+    ))?;
 
     if config.offchain_worker.enabled && config.role.is_authority() {
         let public_keys = keystore_container
