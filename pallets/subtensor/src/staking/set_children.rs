@@ -43,7 +43,7 @@ impl<T: Config> Pallet<T> {
         // Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
         log::trace!(
-            "do_set_children( coldkey:{coldkey:?} hotkey:{netuid:?} netuid:{hotkey:?} children:{children:?} )"
+            "do_set_children( coldkey:{coldkey:?} hotkey:{hotkey:?} netuid:{netuid:?} children:{children:?} )"
         );
 
         // Ensure the hotkey passes the rate limit.
