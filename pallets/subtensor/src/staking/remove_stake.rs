@@ -281,6 +281,7 @@ impl<T: Config> Pallet<T> {
             total_tao_unstaked,
             T::SwapInterface::max_price().into(),
             false, // no limit for Root subnet
+            false,
         )?;
 
         // 5. Done and ok.
