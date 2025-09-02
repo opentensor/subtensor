@@ -218,7 +218,7 @@ impl ConsensusMechanism for BabeConsensus {
         &self,
         _task_manager: &mut TaskManager,
         _client: Arc<FullClient>,
-        _triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
+        _custom_service_signal: Option<Arc<std::sync::atomic::AtomicBool>>,
         _sync_service: Arc<SyncingService<Block>>,
     ) -> Result<(), sc_service::Error> {
         // No additional Babe handles required.

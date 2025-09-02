@@ -124,7 +124,7 @@ pub trait ConsensusMechanism {
         &self,
         task_manager: &mut TaskManager,
         client: Arc<FullClient>,
-        triggered: Option<Arc<AtomicBool>>,
+        custom_service_signal: Option<Arc<AtomicBool>>,
         sync_service: Arc<SyncingService<Block>>,
     ) -> Result<(), ServiceError>;
 

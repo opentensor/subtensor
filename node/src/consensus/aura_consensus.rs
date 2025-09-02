@@ -195,18 +195,18 @@ impl ConsensusMechanism for AuraConsensus {
         &self,
         task_manager: &mut TaskManager,
         client: Arc<FullClient>,
-        triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
+        custom_service_signal: Option<Arc<std::sync::atomic::AtomicBool>>,
         sync_service: Arc<SyncingService<Block>>,
     ) -> Result<(), sc_service::Error> {
         let client_clone = client.clone();
-        let triggered_clone = triggered.clone();
+        let custom_service_signal_clone = custom_service_signal.clone();
         let slot_duration = self.slot_duration(&client)?;
         task_manager.spawn_essential_handle().spawn(
             "babe-switch",
             None,
             Box::pin(async move {
                 let client = client_clone;
-                let triggered = triggered_clone;
+                let custom_service_signal = custom_service_signal_clone;
                 loop {
                     // Check if the runtime is Babe once per block.
                     if let Ok(c) = sc_consensus_babe::configuration(&*client) {
@@ -222,8 +222,9 @@ impl ConsensusMechanism for AuraConsensus {
                         let syncing = sync_service.status().await.is_ok_and(|status| status.warp_sync.is_some() || status.state_sync.is_some());
                         if !c.authorities.is_empty() && !syncing {
                             log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
-                            if let Some(triggered) = triggered {
-                                triggered.store(true, std::sync::atomic::Ordering::SeqCst);
+							// Signal that the node stopped due to the custom service exiting.
+                            if let Some(custom_service_signal) = custom_service_signal {
+                                custom_service_signal.store(true, std::sync::atomic::Ordering::SeqCst);
                             };
                             break;
                         }
