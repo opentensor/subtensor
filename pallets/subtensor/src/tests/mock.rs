@@ -969,6 +969,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         tao_staked,
         <Test as Config>::SwapInterface::max_price().into(),
         false,
+        false,
     )
     .unwrap();
 }

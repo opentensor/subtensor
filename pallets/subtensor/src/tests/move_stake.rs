@@ -35,6 +35,7 @@ fn test_do_move_success() {
             stake_amount,
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -111,6 +112,7 @@ fn test_do_move_different_subnets() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -179,6 +181,7 @@ fn test_do_move_nonexistent_subnet() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -283,6 +286,7 @@ fn test_do_move_nonexistent_destination_hotkey() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
 
@@ -346,6 +350,7 @@ fn test_do_move_partial_stake() {
                     netuid,
                     total_stake.into(),
                     <Test as Config>::SwapInterface::max_price().into(),
+                    false,
                     false,
                 )
                 .unwrap();
@@ -414,6 +419,7 @@ fn test_do_move_multiple_times() {
             netuid,
             initial_stake.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -486,6 +492,7 @@ fn test_do_move_wrong_origin() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -552,6 +559,7 @@ fn test_do_move_same_hotkey_fails() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
         let alpha =
@@ -601,6 +609,7 @@ fn test_do_move_event_emission() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -661,6 +670,7 @@ fn test_do_move_storage_updates() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -728,6 +738,7 @@ fn test_move_full_amount_same_netuid() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
 
@@ -794,6 +805,7 @@ fn test_do_move_max_values() {
             netuid,
             max_stake.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -899,6 +911,7 @@ fn test_do_transfer_success() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1008,6 +1021,7 @@ fn test_do_transfer_insufficient_stake() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
 
@@ -1048,6 +1062,7 @@ fn test_do_transfer_wrong_origin() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
 
@@ -1084,6 +1099,7 @@ fn test_do_transfer_minimum_stake_check() {
             netuid,
             stake_amount,
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1131,6 +1147,7 @@ fn test_do_transfer_different_subnets() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1196,6 +1213,7 @@ fn test_do_swap_success() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1304,6 +1322,7 @@ fn test_do_swap_insufficient_stake() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
 
@@ -1337,6 +1356,7 @@ fn test_do_swap_wrong_origin() {
             netuid1,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1375,6 +1395,7 @@ fn test_do_swap_minimum_stake_check() {
             total_stake,
             <Test as Config>::SwapInterface::max_price().into(),
             false,
+            false,
         )
         .unwrap();
 
@@ -1409,6 +1430,7 @@ fn test_do_swap_same_subnet() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1453,6 +1475,7 @@ fn test_do_swap_partial_stake() {
             origin_netuid,
             total_stake_tao.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1504,6 +1527,7 @@ fn test_do_swap_storage_updates() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1563,6 +1587,7 @@ fn test_do_swap_multiple_times() {
             netuid1,
             initial_stake.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1633,6 +1658,7 @@ fn test_do_swap_allows_non_owned_hotkey() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1781,6 +1807,7 @@ fn test_transfer_stake_rate_limited() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
             true,
+            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1824,6 +1851,7 @@ fn test_transfer_stake_doesnt_limit_destination_coldkey() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -1869,6 +1897,7 @@ fn test_swap_stake_limits_destination_netuid() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
