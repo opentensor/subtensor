@@ -17,7 +17,7 @@
 
 use super::helper;
 use quote::ToTokens;
-use syn::{spanned::Spanned, Fields};
+use syn::{Fields, spanned::Spanned};
 
 /// List of additional token to be used for parsing.
 mod keyword {

@@ -1,15 +1,13 @@
-import * as assert from "assert";
 import { devnet, MultiAddress } from '@polkadot-api/descriptors';
-import { createClient, TypedApi, Transaction, PolkadotSigner, Binary } from 'polkadot-api';
-import { getWsProvider } from 'polkadot-api/ws-provider/web';
+import { TypedApi, Transaction, PolkadotSigner, Binary } from 'polkadot-api';
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd"
-import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy, KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getPolkadotSigner } from "polkadot-api/signer"
 import { randomBytes } from 'crypto';
 import { Keyring } from '@polkadot/keyring';
 import { SS58_PREFIX, TX_TIMEOUT } from "./config";
 import { getClient } from "./setup"
+
 let api: TypedApi<typeof devnet> | undefined = undefined
 
 // define url string as type to extend in the future
@@ -24,25 +22,35 @@ export async function getDevnetApi() {
     return api
 }
 
-export function getAlice() {
+export function getKeypairFromPath(path: string) {
     const entropy = mnemonicToEntropy(DEV_PHRASE)
     const miniSecret = entropyToMiniSecret(entropy)
     const derive = sr25519CreateDerive(miniSecret)
-    const hdkdKeyPair = derive("//Alice")
+    const hdkdKeyPair = derive(path)
 
     return hdkdKeyPair
 }
 
-export function getAliceSigner() {
-    const alice = getAlice()
+export const getAlice = () => getKeypairFromPath("//Alice")
+export const getBob = () => getKeypairFromPath("//Bob")
+export const getCharlie = () => getKeypairFromPath("//Charlie")
+export const getDave = () => getKeypairFromPath("//Dave")
+
+export function getSignerFromPath(path: string) {
+    const keypair = getKeypairFromPath(path)
     const polkadotSigner = getPolkadotSigner(
-        alice.publicKey,
+        keypair.publicKey,
         "Sr25519",
-        alice.sign,
+        keypair.sign,
     )
 
     return polkadotSigner
 }
+
+export const getAliceSigner = () => getSignerFromPath("//Alice")
+export const getBobSigner = () => getSignerFromPath("//Bob")
+export const getCharlieSigner = () => getSignerFromPath("//Charlie")
+export const getDaveSigner = () => getSignerFromPath("//Dave")
 
 export function getRandomSubstrateSigner() {
     const keypair = getRandomSubstrateKeypair();
@@ -124,25 +132,25 @@ export async function waitForTransactionWithRetry(
     api: TypedApi<typeof devnet>,
     tx: Transaction<{}, string, string, void>,
     signer: PolkadotSigner,
-  ) {
+) {
     let success = false;
     let retries = 0;
-  
+
     // set max retries times
     while (!success && retries < 5) {
-      await waitForTransactionCompletion(api, tx, signer)
-        .then(() => {success = true})
-        .catch((error) => {
-          console.log(`transaction error ${error}`);
-        });
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      retries += 1;
+        await waitForTransactionCompletion(api, tx, signer)
+            .then(() => { success = true })
+            .catch((error) => {
+                console.log(`transaction error ${error}`);
+            });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        retries += 1;
     }
-  
+
     if (!success) {
-      console.log("Transaction failed after 5 retries");
+        console.log("Transaction failed after 5 retries");
     }
-  }
+}
 
 export async function waitForTransactionCompletion(api: TypedApi<typeof devnet>, tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
     const transactionPromise = await getTransactionWatchPromise(tx, signer)
@@ -160,30 +168,31 @@ export async function waitForTransactionCompletion(api: TypedApi<typeof devnet>,
     // })
 }
 
+
 export async function getTransactionWatchPromise(tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
     return new Promise<void>((resolve, reject) => {
         // store the txHash, then use it in timeout. easier to know which tx is not finalized in time
         let txHash = ""
         const subscription = tx.signSubmitAndWatch(signer).subscribe({
             next(value) {
-                console.log("Event:", value);
                 txHash = value.txHash
 
                 // TODO investigate why finalized not for each extrinsic
                 if (value.type === "finalized") {
                     console.log("Transaction is finalized in block:", value.txHash);
                     subscription.unsubscribe();
+                    clearTimeout(timeoutId);
                     if (!value.ok) {
                         console.log("Transaction threw an error:", value.dispatchError)
                     }
                     // Resolve the promise when the transaction is finalized
                     resolve();
-
                 }
             },
             error(err) {
                 console.error("Transaction failed:", err);
                 subscription.unsubscribe();
+                clearTimeout(timeoutId);
                 // Reject the promise in case of an error
                 reject(err);
 
@@ -193,49 +202,11 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
             }
         });
 
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
             subscription.unsubscribe();
             console.log('unsubscribed because of timeout for tx {}', txHash);
             reject()
         }, TX_TIMEOUT);
-    });
-}
-
-export async function waitForFinalizedBlock(api: TypedApi<typeof devnet>) {
-    const currentBlockNumber = await api.query.System.Number.getValue()
-    return new Promise<void>((resolve, reject) => {
-
-        const subscription = api.query.System.Number.watchValue().subscribe({
-            // TODO check why the block number event just get once
-            next(value: number) {
-                console.log("Event block number is :", value);
-
-                if (value > currentBlockNumber + 6) {
-                    console.log("Transaction is finalized in block:", value);
-                    subscription.unsubscribe();
-
-                    resolve();
-
-                }
-
-            },
-            error(err: Error) {
-                console.error("Transaction failed:", err);
-                subscription.unsubscribe();
-                // Reject the promise in case of an error
-                reject(err);
-
-            },
-            complete() {
-                console.log("Subscription complete");
-            }
-        });
-
-        setTimeout(() => {
-            subscription.unsubscribe();
-            console.log('unsubscribed!');
-            resolve()
-        }, 2000);
     });
 }
 
@@ -281,14 +252,13 @@ export async function waitForNonceChange(api: TypedApi<typeof devnet>, ss58Addre
     }
 }
 
-
-// other approach to convert public key to ss58
-// export function convertPublicKeyToSs58(publicKey: Uint8Array, ss58Format: number = 42): string {
-//     // Create a keyring instance
-//     const keyring = new Keyring({ type: 'sr25519', ss58Format });
-
-//     // Add the public key to the keyring
-//     const address = keyring.encodeAddress(publicKey);
-
-//     return address
-// }
+export function waitForFinalizedBlock(api: TypedApi<typeof devnet>, end: number) {
+    return new Promise<void>((resolve) => {
+        const subscription = api.query.System.Number.watchValue("finalized").subscribe((current) => {
+            if (current > end) {
+                subscription.unsubscribe();
+                resolve();
+            }
+        })
+    })
+}

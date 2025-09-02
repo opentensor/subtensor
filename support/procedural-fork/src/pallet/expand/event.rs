@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{
-    pallet::{parse::event::PalletEventDepositAttr, Def},
     COUNTER,
+    pallet::{Def, parse::event::PalletEventDepositAttr},
 };
 use frame_support_procedural_tools::get_doc_literals;
-use syn::{spanned::Spanned, Ident};
+use syn::{Ident, spanned::Spanned};
 
 ///
 /// * Add __Ignore variant on Event

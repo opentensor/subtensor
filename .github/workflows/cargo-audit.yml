@@ -13,7 +13,7 @@ concurrency:
 jobs:
   cargo-audit:
     name: cargo audit
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx13]
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
     steps:
       - name: Check-out repositoroy under $GITHUB_WORKSPACE
@@ -21,13 +21,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: "cargo-audit"
+          key: cargo-audit
+          cache-on-failure: true
 
       - name: Install cargo-audit
         run: cargo install --force cargo-audit
@@ -37,12 +43,6 @@ jobs:
 
       - name: cargo audit
         run: |
-          cargo audit --ignore RUSTSEC-2024-0336 \
-                      --ignore RUSTSEC-2021-0127 \
-                      --ignore RUSTSEC-2024-0370 \
-                      --ignore RUSTSEC-2022-0080 \
-                      --ignore RUSTSEC-2022-0061 \
-                      --ignore RUSTSEC-2020-0168 \
-                      --ignore RUSTSEC-2024-0384 \
-                      --ignore RUSTSEC-2024-0388 \
-                      --ignore RUSTSEC-2024-0421
+          cargo audit --ignore RUSTSEC-2023-0091 \
+                      --ignore RUSTSEC-2025-0009 \
+                      --ignore RUSTSEC-2024-0438

@@ -1,5 +1,6 @@
 use codec::Encode;
 use sp_std::prelude::*;
+use subtensor_runtime_common::NetUid;
 
 #[cfg(test)]
 use crate::{
@@ -42,7 +43,7 @@ fn manual_data_type_info() {
                 .variants
                 .iter()
                 .find(|v| v.name == variant_name)
-                .unwrap_or_else(|| panic!("Expected to find variant {}", variant_name));
+                .unwrap_or_else(|| panic!("Expected to find variant {variant_name}"));
 
             let encoded = data.encode();
             assert_eq!(encoded[0], variant.index);
@@ -71,15 +72,13 @@ fn manual_data_type_info() {
                 assert_eq!(
                     encoded.len() as u32 - 1, // Subtract variant byte
                     expected_len,
-                    "Encoded length mismatch for variant {}",
-                    variant_name
+                    "Encoded length mismatch for variant {variant_name}"
                 );
             } else {
                 assert_eq!(
                     encoded.len() as u32 - 1,
                     0,
-                    "Expected no fields for {}",
-                    variant_name
+                    "Expected no fields for {variant_name}"
                 );
             }
         } else {
@@ -126,15 +125,16 @@ fn set_commitment_works() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(1),
-            1,
+            1.into(),
             info.clone()
         ));
 
-        let commitment = Pallet::<Test>::commitment_of(1, 1).expect("Expected not to panic");
+        let commitment =
+            Pallet::<Test>::commitment_of(NetUid::from(1), 1).expect("Expected not to panic");
         let initial_deposit: u64 = <Test as Config>::InitialDeposit::get();
         assert_eq!(commitment.deposit, initial_deposit);
         assert_eq!(commitment.block, 1);
-        assert_eq!(Pallet::<Test>::last_commitment(1, 1), Some(1));
+        assert_eq!(Pallet::<Test>::last_commitment(NetUid::from(1), 1), Some(1));
     });
 }
 
@@ -151,7 +151,11 @@ fn set_commitment_too_many_fields_panics() {
         });
 
         // We never get here, because the constructor panics above.
-        let _ = Pallet::<Test>::set_commitment(frame_system::RawOrigin::Signed(1).into(), 1, info);
+        let _ = Pallet::<Test>::set_commitment(
+            frame_system::RawOrigin::Signed(1).into(),
+            1.into(),
+            info,
+        );
     });
 }
 
@@ -170,14 +174,14 @@ fn set_commitment_updates_deposit() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(1),
-            1,
+            1.into(),
             info1
         ));
         let initial_deposit: u64 = <Test as Config>::InitialDeposit::get();
         let field_deposit: u64 = <Test as Config>::FieldDeposit::get();
         let expected_deposit1: u64 = initial_deposit + 2u64 * field_deposit;
         assert_eq!(
-            Pallet::<Test>::commitment_of(1, 1)
+            Pallet::<Test>::commitment_of(NetUid::from(1), 1)
                 .expect("Expected not to panic")
                 .deposit,
             expected_deposit1
@@ -185,12 +189,12 @@ fn set_commitment_updates_deposit() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(1),
-            1,
+            1.into(),
             info2
         ));
         let expected_deposit2: u64 = initial_deposit + 3u64 * field_deposit;
         assert_eq!(
-            Pallet::<Test>::commitment_of(1, 1)
+            Pallet::<Test>::commitment_of(NetUid::from(1), 1)
                 .expect("Expected not to panic")
                 .deposit,
             expected_deposit2
@@ -208,15 +212,16 @@ fn event_emission_works() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(1),
-            1,
+            1.into(),
             info
         ));
 
         let events = System::<Test>::events();
-        assert!(events.iter().any(|e| matches!(
-            &e.event,
-            RuntimeEvent::Commitments(Event::Commitment { netuid: 1, who: 1 })
-        )));
+        let expected_event = RuntimeEvent::Commitments(Event::Commitment {
+            netuid: 1.into(),
+            who: 1,
+        });
+        assert!(events.iter().any(|e| e.event == expected_event));
     });
 }
 
@@ -256,7 +261,7 @@ fn happy_path_timelock_commitments() {
         };
 
         let who = 123;
-        let netuid = 42;
+        let netuid = NetUid::from(42);
         System::<Test>::set_block_number(1);
 
         assert_ok!(Pallet::<Test>::set_commitment(
@@ -293,7 +298,7 @@ fn happy_path_timelock_commitments() {
 fn reveal_timelocked_commitment_missing_round_does_nothing() {
     new_test_ext().execute_with(|| {
         let who = 1;
-        let netuid = 2;
+        let netuid = NetUid::from(2);
         System::<Test>::set_block_number(5);
         let ciphertext = produce_ciphertext(b"My plaintext", 1000);
         let data = Data::TimelockEncrypted {
@@ -320,7 +325,7 @@ fn reveal_timelocked_commitment_missing_round_does_nothing() {
 fn reveal_timelocked_commitment_cant_deserialize_ciphertext() {
     new_test_ext().execute_with(|| {
         let who = 42;
-        let netuid = 9;
+        let netuid = NetUid::from(9);
         System::<Test>::set_block_number(10);
         let good_ct = produce_ciphertext(b"Some data", 1000);
         let mut corrupted = good_ct.into_inner();
@@ -352,7 +357,7 @@ fn reveal_timelocked_commitment_cant_deserialize_ciphertext() {
 fn reveal_timelocked_commitment_bad_signature_skips_decryption() {
     new_test_ext().execute_with(|| {
         let who = 10;
-        let netuid = 11;
+        let netuid = NetUid::from(11);
         System::<Test>::set_block_number(15);
         let real_ct = produce_ciphertext(b"A valid plaintext", 1000);
         let data = Data::TimelockEncrypted {
@@ -380,7 +385,7 @@ fn reveal_timelocked_commitment_bad_signature_skips_decryption() {
 fn reveal_timelocked_commitment_empty_decrypted_data_is_skipped() {
     new_test_ext().execute_with(|| {
         let who = 2;
-        let netuid = 3;
+        let netuid = NetUid::from(3);
         let commit_block = 100u64;
         System::<Test>::set_block_number(commit_block);
         let reveal_round = 1000;
@@ -439,7 +444,7 @@ fn reveal_timelocked_commitment_single_field_entry_is_removed_after_reveal() {
         };
 
         let who = 555;
-        let netuid = 777;
+        let netuid = NetUid::from(777);
         System::<Test>::set_block_number(1);
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(who),
@@ -539,7 +544,7 @@ fn reveal_timelocked_multiple_fields_only_correct_ones_removed() {
 
         // 5) Insert the commitment
         let who = 123;
-        let netuid = 999;
+        let netuid = NetUid::from(999);
         System::<Test>::set_block_number(1);
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(who),
@@ -602,7 +607,7 @@ fn reveal_timelocked_multiple_fields_only_correct_ones_removed() {
 #[test]
 fn test_index_lifecycle_no_timelocks_updates_in_out() {
     new_test_ext().execute_with(|| {
-        let netuid = 100;
+        let netuid = NetUid::from(100);
         let who = 999;
 
         //
@@ -667,7 +672,7 @@ fn test_index_lifecycle_no_timelocks_updates_in_out() {
 #[test]
 fn two_timelocks_partial_then_full_reveal() {
     new_test_ext().execute_with(|| {
-        let netuid_a = 1;
+        let netuid_a = NetUid::from(1);
         let who_a = 10;
         let round_1000 = 1000;
         let round_2000 = 2000;
@@ -769,7 +774,7 @@ fn two_timelocks_partial_then_full_reveal() {
 #[test]
 fn single_timelock_reveal_later_round() {
     new_test_ext().execute_with(|| {
-        let netuid_b = 2;
+        let netuid_b = NetUid::from(2);
         let who_b = 20;
         let round_2000 = 2000;
 
@@ -841,7 +846,7 @@ fn single_timelock_reveal_later_round() {
 #[test]
 fn tempo_based_space_limit_accumulates_in_same_window() {
     new_test_ext().execute_with(|| {
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let who = 100;
         let space_limit = 150;
         MaxSpace::<Test>::set(space_limit);
@@ -874,7 +879,7 @@ fn tempo_based_space_limit_accumulates_in_same_window() {
 #[test]
 fn tempo_based_space_limit_resets_after_tempo() {
     new_test_ext().execute_with(|| {
-        let netuid = 2;
+        let netuid = NetUid::from(2);
         let who = 101;
 
         MaxSpace::<Test>::set(250);
@@ -932,8 +937,8 @@ fn tempo_based_space_limit_resets_after_tempo() {
 #[test]
 fn tempo_based_space_limit_does_not_affect_different_netuid() {
     new_test_ext().execute_with(|| {
-        let netuid_a = 10;
-        let netuid_b = 20;
+        let netuid_a = NetUid::from(10);
+        let netuid_b = NetUid::from(20);
         let who = 111;
         let space_limit = 199;
         MaxSpace::<Test>::set(space_limit);
@@ -982,7 +987,7 @@ fn tempo_based_space_limit_does_not_affect_different_netuid() {
 #[test]
 fn tempo_based_space_limit_does_not_affect_different_user() {
     new_test_ext().execute_with(|| {
-        let netuid = 10;
+        let netuid = NetUid::from(10);
         let user1 = 123;
         let user2 = 456;
         let space_limit = 199;
@@ -1032,7 +1037,7 @@ fn tempo_based_space_limit_does_not_affect_different_user() {
 #[test]
 fn tempo_based_space_limit_sudo_set_max_space() {
     new_test_ext().execute_with(|| {
-        let netuid = 3;
+        let netuid = NetUid::from(3);
         let who = 15;
         MaxSpace::<Test>::set(100);
 
@@ -1069,7 +1074,7 @@ fn tempo_based_space_limit_sudo_set_max_space() {
 fn on_initialize_reveals_matured_timelocks() {
     new_test_ext().execute_with(|| {
         let who = 42;
-        let netuid = 7;
+        let netuid = NetUid::from(7);
         let reveal_round = 1000;
 
         let message_text = b"Timelock test via on_initialize";
@@ -1159,7 +1164,7 @@ fn set_commitment_unreserve_leftover_fails() {
     new_test_ext().execute_with(|| {
         use frame_system::RawOrigin;
 
-        let netuid = 999;
+        let netuid = NetUid::from(999);
         let who = 99;
 
         Balances::make_free_balance_be(&who, 10_000);
@@ -1198,7 +1203,7 @@ fn timelocked_index_complex_scenario_works() {
     new_test_ext().execute_with(|| {
         System::<Test>::set_block_number(1);
 
-        let netuid = 42;
+        let netuid = NetUid::from(42);
         let user_a = 1000;
         let user_b = 2000;
         let user_c = 3000;
@@ -1457,7 +1462,7 @@ fn reveal_timelocked_bad_timelocks_are_removed() {
         // 3) Insert the commitment
         //
         let who = 123;
-        let netuid = 777;
+        let netuid = NetUid::from(777);
         System::<Test>::set_block_number(1);
         assert_ok!(Pallet::<Test>::set_commitment(
             RawOrigin::Signed(who).into(),
@@ -1531,7 +1536,7 @@ fn reveal_timelocked_bad_timelocks_are_removed() {
 #[test]
 fn revealed_commitments_keeps_only_10_items() {
     new_test_ext().execute_with(|| {
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let who = 2;
         let reveal_round = 1000;
 
@@ -1544,7 +1549,7 @@ fn revealed_commitments_keeps_only_10_items() {
         let mut fields = Vec::with_capacity(TOTAL_TLES);
 
         for i in 0..TOTAL_TLES {
-            let plaintext = format!("TLE #{}", i).into_bytes();
+            let plaintext = format!("TLE #{i}").into_bytes();
             let ciphertext = produce_ciphertext(&plaintext, reveal_round);
             let timelock = Data::TimelockEncrypted {
                 encrypted: ciphertext,
@@ -1587,7 +1592,7 @@ fn revealed_commitments_keeps_only_10_items() {
 
             // We expect them to be TLE #2..TLE #11
             let expected_index = idx + 2; // since we dropped #0 and #1
-            let expected_str = format!("TLE #{}", expected_index);
+            let expected_str = format!("TLE #{expected_index}");
             assert_eq!(revealed_str, expected_str, "Check which TLE is kept");
 
             // Also check it was revealed at block 2
@@ -1599,7 +1604,7 @@ fn revealed_commitments_keeps_only_10_items() {
 #[test]
 fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commits() {
     new_test_ext().execute_with(|| {
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let who = 2;
         let reveal_round = 1000;
 
@@ -1612,7 +1617,7 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
         for i in 0..12 {
             System::<Test>::set_block_number(i as u64 + 1);
 
-            let plaintext = format!("TLE #{}", i).into_bytes();
+            let plaintext = format!("TLE #{i}").into_bytes();
             let ciphertext = produce_ciphertext(&plaintext, reveal_round);
 
             let new_timelock = Data::TimelockEncrypted {
@@ -1637,8 +1642,7 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
             assert_eq!(
                 revealed.len(),
                 expected_count,
-                "At iteration {}, we keep at most 10 reveals",
-                i
+                "At iteration {i}, we keep at most 10 reveals"
             );
         }
 
@@ -1655,19 +1659,17 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
             let revealed_str =
                 sp_std::str::from_utf8(revealed_bytes).expect("Should be valid UTF-8");
             let expected_i = idx + 2; // i=0 => "TLE #2", i=1 => "TLE #3", etc.
-            let expected_str = format!("TLE #{}", expected_i);
+            let expected_str = format!("TLE #{expected_i}");
 
             assert_eq!(
                 revealed_str, expected_str,
-                "Revealed data #{} should match the truncated TLE #{}",
-                idx, expected_i
+                "Revealed data #{idx} should match the truncated TLE #{expected_i}"
             );
 
             let expected_reveal_block = expected_i as u64 + 1;
             assert_eq!(
                 *reveal_block, expected_reveal_block,
-                "Check which block TLE #{} was revealed in",
-                expected_i
+                "Check which block TLE #{expected_i} was revealed in"
             );
         }
     });
@@ -1678,7 +1680,7 @@ fn usage_respects_minimum_of_100_bytes() {
     new_test_ext().execute_with(|| {
         MaxSpace::<Test>::set(1000);
 
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let who = 99;
 
         System::<Test>::set_block_number(1);
@@ -1767,12 +1769,12 @@ fn set_commitment_works_with_multiple_raw_fields() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(12345),
-            99,
+            99.into(),
             Box::new(info_multiple)
         ));
 
         let expected_deposit: BalanceOf<Test> = initial_deposit + 3u64 * field_deposit;
-        let stored = CommitmentOf::<Test>::get(99, 12345).expect("Should be stored");
+        let stored = CommitmentOf::<Test>::get(NetUid::from(99), 12345).expect("Should be stored");
         assert_eq!(
             stored.deposit, expected_deposit,
             "Deposit must equal initial + 3 * field_deposit"
@@ -1780,7 +1782,8 @@ fn set_commitment_works_with_multiple_raw_fields() {
 
         assert_eq!(stored.block, cur_block, "Stored block must match cur_block");
 
-        let usage = UsedSpaceOf::<Test>::get(99, 12345).expect("Expected to not panic");
+        let usage =
+            UsedSpaceOf::<Test>::get(NetUid::from(99), 12345).expect("Expected to not panic");
         assert_eq!(
             usage.used_space, 100,
             "Usage is clamped to 100 when sum of fields is < 100"
@@ -1796,18 +1799,19 @@ fn set_commitment_works_with_multiple_raw_fields() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(12345),
-            99,
+            99.into(),
             Box::new(info_two_fields)
         ));
 
         let expected_deposit2: BalanceOf<Test> = initial_deposit + 2u64 * field_deposit;
-        let stored2 = CommitmentOf::<Test>::get(99, 12345).expect("Should be stored");
+        let stored2 = CommitmentOf::<Test>::get(NetUid::from(99), 12345).expect("Should be stored");
         assert_eq!(
             stored2.deposit, expected_deposit2,
             "Deposit must have decreased after removing one field"
         );
 
-        let usage2 = UsedSpaceOf::<Test>::get(99, 12345).expect("Expected to not panic");
+        let usage2 =
+            UsedSpaceOf::<Test>::get(NetUid::from(99), 12345).expect("Expected to not panic");
         let expected_usage2 = 200u64;
         assert_eq!(
             usage2.used_space, expected_usage2,
@@ -1815,15 +1819,11 @@ fn set_commitment_works_with_multiple_raw_fields() {
         );
 
         let events = System::<Test>::events();
-        let found_commitment_event = events.iter().any(|e| {
-            matches!(
-                e.event,
-                RuntimeEvent::Commitments(Event::Commitment {
-                    netuid: 99,
-                    who: 12345
-                })
-            )
+        let expected_event = RuntimeEvent::Commitments(Event::Commitment {
+            netuid: 99.into(),
+            who: 12345,
         });
+        let found_commitment_event = events.iter().any(|e| e.event == expected_event);
         assert!(
             found_commitment_event,
             "Expected at least one Event::Commitment to be emitted"
@@ -1842,10 +1842,10 @@ fn multiple_timelocked_commitments_reveal_works() {
         System::<Test>::set_block_number(cur_block);
 
         let who = 123;
-        let netuid = 999;
+        let netuid = NetUid::from(999);
 
         // -------------------------------------------
-        // 2) Create multiple TLE fields referencing 
+        // 2) Create multiple TLE fields referencing
         //    two known valid Drand rounds: 1000, 2000
         // -------------------------------------------
 
@@ -2022,7 +2022,7 @@ fn mixed_timelocked_and_raw_fields_works() {
         System::<Test>::set_block_number(cur_block);
 
         let who = 77;
-        let netuid = 501;
+        let netuid = NetUid::from(501);
 
         // -------------------------------------------
         // 2) Create raw fields and timelocked fields

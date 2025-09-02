@@ -1,7 +1,3 @@
-use super::*;
-use safe_math::*;
-use substrate_fixed::types::U96F32;
-
 use frame_support::traits::{
     Imbalance,
     tokens::{
@@ -9,6 +5,12 @@ use frame_support::traits::{
         fungible::{Balanced as _, Inspect as _},
     },
 };
+use safe_math::*;
+use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_swap_interface::{OrderType, SwapHandler};
+
+use super::*;
 
 impl<T: Config> Pallet<T> {
     // Returns true if the passed hotkey allow delegative staking.
@@ -25,58 +27,71 @@ impl<T: Config> Pallet<T> {
 
     // Returns the total amount of stake in the staking table.
     //
-    pub fn get_total_stake() -> u64 {
+    pub fn get_total_stake() -> TaoCurrency {
         TotalStake::<T>::get()
     }
 
     // Increases the total amount of stake by the passed amount.
     //
-    pub fn increase_total_stake(increment: u64) {
+    pub fn increase_total_stake(increment: TaoCurrency) {
         TotalStake::<T>::put(Self::get_total_stake().saturating_add(increment));
     }
 
     // Decreases the total amount of stake by the passed amount.
     //
-    pub fn decrease_total_stake(decrement: u64) {
+    pub fn decrease_total_stake(decrement: TaoCurrency) {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
+    /// Returns the total amount of stake (in TAO) under a hotkey (delegative or otherwise)
+    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> TaoCurrency {
         Self::get_all_subnet_netuids()
-            .iter()
+            .into_iter()
             .map(|netuid| {
-                let alpha: U96F32 = U96F32::saturating_from_num(
-                    Self::get_stake_for_hotkey_on_subnet(hotkey, *netuid),
+                let alpha = U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
+                    hotkey, netuid,
+                ));
+                let alpha_price = U96F32::saturating_from_num(
+                    T::SwapInterface::current_alpha_price(netuid.into()),
                 );
-                let tao_price: U96F32 = Self::get_alpha_price(*netuid);
-                alpha.saturating_mul(tao_price).saturating_to_num::<u64>()
+                alpha.saturating_mul(alpha_price)
             })
-            .sum()
+            .sum::<U96F32>()
+            .saturating_to_num::<u64>()
+            .into()
     }
 
     // Returns the total amount of stake under a coldkey
     //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
+    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> TaoCurrency {
         let hotkeys = StakingHotkeys::<T>::get(coldkey);
         hotkeys
             .iter()
             .map(|hotkey| {
-                let mut total_stake: u64 = 0;
-                for (netuid, _) in Alpha::<T>::iter_prefix((hotkey, coldkey)) {
-                    let alpha_stake =
-                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-                    let tao_price: U96F32 = Self::get_alpha_price(netuid);
-                    total_stake = total_stake.saturating_add(
-                        U96F32::saturating_from_num(alpha_stake)
-                            .saturating_mul(tao_price)
-                            .saturating_to_num::<u64>(),
-                    );
-                }
-                total_stake
+                Alpha::<T>::iter_prefix((hotkey, coldkey))
+                    .map(|(netuid, _)| {
+                        let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                            hotkey, coldkey, netuid,
+                        );
+                        T::SwapInterface::sim_swap(
+                            netuid.into(),
+                            OrderType::Sell,
+                            alpha_stake.into(),
+                        )
+                        .map(|r| {
+                            let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
+                                .saturating_mul(T::SwapInterface::current_alpha_price(
+                                    netuid.into(),
+                                ))
+                                .saturating_to_num();
+                            r.amount_paid_out.saturating_add(fee)
+                        })
+                        .unwrap_or_default()
+                    })
+                    .sum::<u64>()
             })
             .sum::<u64>()
+            .into()
     }
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
@@ -165,22 +180,43 @@ impl<T: Config> Pallet<T> {
     pub fn clear_small_nomination_if_required(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
     ) {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
-            // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
+            // If the stake is non-zero and below the minimum required, it's considered a small nomination and needs to be cleared.
             // Log if the stake is below the minimum required
-            let stake: u64 =
+            let alpha_stake =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-            if stake < Self::get_nominator_min_required_stake() {
+            let min_alpha_stake =
+                U96F32::saturating_from_num(Self::get_nominator_min_required_stake())
+                    .safe_div(T::SwapInterface::current_alpha_price(netuid))
+                    .saturating_to_num::<u64>();
+            if alpha_stake > 0.into() && alpha_stake < min_alpha_stake.into() {
                 // Log the clearing of a small nomination
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
                 // Do not apply any fees
-                let cleared_stake = Self::unstake_from_subnet(hotkey, coldkey, netuid, stake, 0);
-                // Add the stake to the coldkey account.
-                Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
+                let maybe_cleared_stake = Self::unstake_from_subnet(
+                    hotkey,
+                    coldkey,
+                    netuid,
+                    alpha_stake,
+                    T::SwapInterface::min_price().into(),
+                    false,
+                );
+
+                if let Ok(cleared_stake) = maybe_cleared_stake {
+                    // Add the stake to the coldkey account.
+                    Self::add_balance_to_coldkey_account(coldkey, cleared_stake.into());
+                } else {
+                    // Just clear small alpha
+                    let alpha =
+                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+                    Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                        hotkey, coldkey, netuid, alpha,
+                    );
+                }
             }
         }
     }
@@ -201,7 +237,7 @@ impl<T: Config> Pallet<T> {
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
         // infallible
-        let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
+        let _ = <T as Config>::Currency::deposit(coldkey, amount, Precision::BestEffort);
     }
 
     pub fn can_remove_balance_from_coldkey_account(
@@ -215,7 +251,7 @@ impl<T: Config> Pallet<T> {
 
         // This bit is currently untested. @todo
 
-        T::Currency::can_withdraw(coldkey, amount)
+        <T as Config>::Currency::can_withdraw(coldkey, amount)
             .into_result(false)
             .is_ok()
     }
@@ -224,19 +260,23 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
     ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance
     {
-        T::Currency::reducible_balance(coldkey, Preservation::Expendable, Fortitude::Polite)
+        <T as Config>::Currency::reducible_balance(
+            coldkey,
+            Preservation::Expendable,
+            Fortitude::Polite,
+        )
     }
 
     #[must_use = "Balance must be used to preserve total issuance of token"]
     pub fn remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> Result<u64, DispatchError> {
+    ) -> Result<TaoCurrency, DispatchError> {
         if amount == 0 {
-            return Ok(0);
+            return Ok(TaoCurrency::ZERO);
         }
 
-        let credit = T::Currency::withdraw(
+        let credit = <T as Config>::Currency::withdraw(
             coldkey,
             amount,
             Precision::BestEffort,
@@ -250,7 +290,7 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 
-        Ok(credit)
+        Ok(credit.into())
     }
 
     pub fn kill_coldkey_account(
@@ -261,7 +301,7 @@ impl<T: Config> Pallet<T> {
             return Ok(0);
         }
 
-        let credit = T::Currency::withdraw(
+        let credit = <T as Config>::Currency::withdraw(
             coldkey,
             amount,
             Precision::Exact,
@@ -276,5 +316,9 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(credit)
+    }
+
+    pub fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
+        T::SwapInterface::is_user_liquidity_enabled(netuid)
     }
 }

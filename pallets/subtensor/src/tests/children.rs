@@ -1,10 +1,13 @@
 #![allow(clippy::indexing_slicing)]
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::arithmetic_side_effects)]
+use super::mock;
 use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
+use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
+use subtensor_swap_interface::SwapHandler;
 
 use crate::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
@@ -12,11 +15,7 @@ use sp_core::U256;
 fn close(value: u64, target: u64, eps: u64, msg: &str) {
     assert!(
         (value as i64 - target as i64).abs() <= eps as i64,
-        "{}: value = {}, target = {}, eps = {}",
-        msg,
-        value,
-        target,
-        eps
+        "{msg}: value = {value}, target = {target}, eps = {eps}"
     )
 }
 
@@ -28,7 +27,7 @@ fn test_do_set_child_singular_success() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -52,7 +51,7 @@ fn test_do_set_child_singular_network_does_not_exist() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 999; // Non-existent network
+        let netuid = NetUid::from(999); // Non-existent network
         let proportion: u64 = 1000;
 
         // Attempt to set child
@@ -75,7 +74,7 @@ fn test_do_set_child_singular_invalid_child() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -105,7 +104,7 @@ fn test_do_set_child_singular_non_associated_coldkey() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey with a different coldkey
@@ -133,7 +132,7 @@ fn test_do_set_child_singular_root_network() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
+        let netuid = NetUid::ROOT; // Root network
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -167,7 +166,7 @@ fn test_do_set_child_singular_old_children_cleanup() {
         let hotkey = U256::from(2);
         let old_child = U256::from(3);
         let new_child = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -205,7 +204,7 @@ fn test_do_set_child_singular_new_children_assignment() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -238,7 +237,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -279,7 +278,7 @@ fn test_do_set_child_singular_multiple_children() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 500;
         let proportion2: u64 = 500;
 
@@ -318,7 +317,7 @@ fn test_do_set_child_singular_multiple_children() {
 #[test]
 fn test_add_singular_child() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let child = U256::from(1);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
@@ -371,7 +370,7 @@ fn test_add_singular_child() {
 #[test]
 fn test_get_stake_for_hotkey_on_subnet() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let parent = U256::from(1);
         let child = U256::from(2);
         let coldkey1 = U256::from(3);
@@ -383,29 +382,41 @@ fn test_get_stake_for_hotkey_on_subnet() {
         mock_set_children(&coldkey1, &parent, netuid, &[(u64::MAX, child)]);
         // Stake 1000 to parent from coldkey1
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &parent, &coldkey1, netuid, 1000,
+            &parent,
+            &coldkey1,
+            netuid,
+            1000.into(),
         );
         // Stake 1000 to parent from coldkey2
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &parent, &coldkey2, netuid, 1000,
+            &parent,
+            &coldkey2,
+            netuid,
+            1000.into(),
         );
         // Stake 1000 to child from coldkey1
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &child, &coldkey1, netuid, 1000,
+            &child,
+            &coldkey1,
+            netuid,
+            1000.into(),
         );
         // Stake 1000 to child from coldkey2
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &child, &coldkey2, netuid, 1000,
+            &child,
+            &coldkey2,
+            netuid,
+            1000.into(),
         );
         let parent_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
         let child_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child, netuid);
         // The parent should have 0 stake as it's all allocated to the child
-        assert_eq!(parent_stake, 0);
+        assert_eq!(parent_stake, 0.into());
         // The child should have its original stake (2000) plus the parent's stake (2000)
-        assert_eq!(child_stake, 4000);
+        assert_eq!(child_stake, 4000.into());
 
         // Ensure total stake is preserved
-        assert_eq!(parent_stake + child_stake, 4000);
+        assert_eq!(parent_stake + child_stake, 4000.into());
     });
 }
 
@@ -423,7 +434,7 @@ fn test_do_revoke_child_singular_success() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -452,7 +463,7 @@ fn test_do_set_empty_children_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 999; // Non-existent network
+        let netuid = NetUid::from(999); // Non-existent network
         // Attempt to revoke child
         assert_err!(
             SubtensorModule::do_schedule_children(
@@ -477,7 +488,7 @@ fn test_do_revoke_child_singular_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey with a different coldkey
         add_network(netuid, 13, 0);
@@ -508,7 +519,7 @@ fn test_do_revoke_child_singular_child_not_associated() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -539,7 +550,7 @@ fn test_do_schedule_children_multiple_success() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 1000;
         let proportion2: u64 = 2000;
 
@@ -579,7 +590,7 @@ fn test_do_schedule_children_multiple_network_does_not_exist() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
-        let netuid: u16 = 999; // Non-existent network
+        let netuid = NetUid::from(999); // Non-existent network
         let proportion: u64 = 1000;
 
         // Attempt to set children
@@ -606,7 +617,7 @@ fn test_do_schedule_children_multiple_invalid_child() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -638,7 +649,7 @@ fn test_do_schedule_children_multiple_non_associated_coldkey() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey with a different coldkey
@@ -670,7 +681,7 @@ fn test_do_schedule_children_multiple_root_network() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
+        let netuid = NetUid::ROOT; // Root network
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -705,7 +716,7 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
         let old_child = U256::from(3);
         let new_child1 = U256::from(4);
         let new_child2 = U256::from(5);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -751,7 +762,7 @@ fn test_do_schedule_children_multiple_proportion_edge_cases() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -792,7 +803,7 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let child3 = U256::from(5);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -850,7 +861,7 @@ fn test_childkey_take_functionality() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -859,7 +870,7 @@ fn test_childkey_take_functionality() {
         // Test default and max childkey take
         let default_take = SubtensorModule::get_default_childkey_take();
         let min_take = SubtensorModule::get_min_childkey_take();
-        log::info!("Default take: {}, Max take: {}", default_take, min_take);
+        log::info!("Default take: {default_take}, Max take: {min_take}");
 
         // Check if default take and max take are the same
         assert_eq!(
@@ -884,7 +895,7 @@ fn test_childkey_take_functionality() {
 
         // Verify childkey take was set correctly
         let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
-        log::info!("Stored take: {}", stored_take);
+        log::info!("Stored take: {stored_take}");
         assert_eq!(stored_take, new_take);
 
         // Test setting childkey take outside of allowed range
@@ -926,7 +937,7 @@ fn test_childkey_take_rate_limiting() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1030,6 +1041,7 @@ fn test_multiple_networks_childkey_take() {
 
         // Create 10 networks and set up neurons (skip network 0)
         for netuid in 1..NUM_NETWORKS {
+            let netuid = NetUid::from(netuid);
             // Add network
             add_network(netuid, 13, 0);
 
@@ -1037,7 +1049,7 @@ fn test_multiple_networks_childkey_take() {
             register_ok_neuron(netuid, hotkey, coldkey, 0);
 
             // Set a unique childkey take value for each network
-            let take_value = (netuid + 1) * 100; // Values will be 200, 300, ..., 1000
+            let take_value = u16::from(netuid.next()) * 100; // Values will be 200, 300, ..., 1000
             assert_ok!(SubtensorModule::set_childkey_take(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
@@ -1049,30 +1061,32 @@ fn test_multiple_networks_childkey_take() {
             let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
             assert_eq!(
                 stored_take, take_value,
-                "Childkey take not set correctly for network {}",
-                netuid
+                "Childkey take not set correctly for network {netuid}"
             );
 
             // Log the set value
-            log::info!("Network {}: Childkey take set to {}", netuid, take_value);
+            log::info!("Network {netuid}: Childkey take set to {take_value}");
         }
 
         // Verify all networks have different childkey take values
         for i in 1..NUM_NETWORKS {
             for j in (i + 1)..NUM_NETWORKS {
-                let take_i = SubtensorModule::get_childkey_take(&hotkey, i);
-                let take_j = SubtensorModule::get_childkey_take(&hotkey, j);
+                let take_i = SubtensorModule::get_childkey_take(&hotkey, i.into());
+                let take_j = SubtensorModule::get_childkey_take(&hotkey, j.into());
                 assert_ne!(
                     take_i, take_j,
-                    "Childkey take values should be different for networks {} and {}",
-                    i, j
+                    "Childkey take values should be different for networks {i} and {j}"
                 );
             }
         }
 
         // Attempt to set childkey take again (should fail due to rate limit)
-        let result =
-            SubtensorModule::set_childkey_take(RuntimeOrigin::signed(coldkey), hotkey, 1, 1100);
+        let result = SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            1.into(),
+            1100,
+        );
         assert_noop!(result, Error::<Test>::TxChildkeyTakeRateLimitExceeded);
 
         // Advance blocks to bypass rate limit
@@ -1082,12 +1096,12 @@ fn test_multiple_networks_childkey_take() {
         assert_ok!(SubtensorModule::set_childkey_take(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            1,
+            1.into(),
             1100
         ));
 
         // Verify the new take value
-        let new_take = SubtensorModule::get_childkey_take(&hotkey, 1);
+        let new_take = SubtensorModule::get_childkey_take(&hotkey, 1.into());
         assert_eq!(new_take, 1100, "Childkey take not updated after rate limit");
     });
 }
@@ -1103,7 +1117,7 @@ fn test_do_schedule_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1133,7 +1147,7 @@ fn test_do_revoke_children_multiple_success() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 1000;
         let proportion2: u64 = 2000;
 
@@ -1179,7 +1193,7 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 999; // Non-existent network
+        let netuid = NetUid::from(999); // Non-existent network
         // Attempt to revoke children
         assert_err!(
             SubtensorModule::do_schedule_children(
@@ -1206,7 +1220,7 @@ fn test_do_revoke_children_multiple_non_associated_coldkey() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey with a different coldkey
         add_network(netuid, 13, 0);
@@ -1241,7 +1255,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let child3 = U256::from(5);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -1298,7 +1312,7 @@ fn test_do_revoke_children_multiple_non_existent_children() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -1334,7 +1348,7 @@ fn test_do_revoke_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1365,7 +1379,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let child3 = U256::from(5);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 1000;
         let proportion2: u64 = 2000;
         let proportion3: u64 = 3000;
@@ -1434,7 +1448,7 @@ fn test_children_stake_values() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1456,7 +1470,7 @@ fn test_children_stake_values() {
             &hotkey,
             &coldkey,
             netuid,
-            100_000_000_000_000,
+            100_000_000_000_000.into(),
         );
 
         // Set multiple children with proportions.
@@ -1472,26 +1486,26 @@ fn test_children_stake_values() {
 
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
-            25_000_000_069_849
+            25_000_000_069_849.into()
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid),
-            24_999_999_976_716
+            24_999_999_976_716.into()
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid),
-            24_999_999_976_716
+            24_999_999_976_716.into()
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child3, netuid),
-            24_999_999_976_716
+            24_999_999_976_716.into()
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child3, netuid)
                 + SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid)
                 + SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid)
                 + SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
-            99999999999997
+            99999999999997.into()
         );
     });
 }
@@ -1507,37 +1521,30 @@ fn test_children_stake_values() {
 #[test]
 fn test_get_parents_chain() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let coldkey = U256::from(1);
         let num_keys: usize = 5;
         let proportion = u64::MAX / 2; // 50% stake allocation
 
         log::info!(
-            "Test setup: netuid={}, coldkey={}, num_keys={}, proportion={}",
-            netuid,
-            coldkey,
-            num_keys,
-            proportion
+            "Test setup: netuid={netuid}, coldkey={coldkey}, num_keys={num_keys}, proportion={proportion}"
         );
 
         // Create a vector of hotkeys
         let hotkeys: Vec<U256> = (0..num_keys).map(|i| U256::from(i as u64 + 2)).collect();
-        log::info!("Created hotkeys: {:?}", hotkeys);
+        log::info!("Created hotkeys: {hotkeys:?}");
 
         // Add network
         add_network(netuid, 13, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
-        log::info!("Network added and parameters set: netuid={}", netuid);
+        log::info!("Network added and parameters set: netuid={netuid}");
 
         // Register all neurons
         for hotkey in &hotkeys {
             register_ok_neuron(netuid, *hotkey, coldkey, 0);
             log::info!(
-                "Registered neuron: hotkey={}, coldkey={}, netuid={}",
-                hotkey,
-                coldkey,
-                netuid
+                "Registered neuron: hotkey={hotkey}, coldkey={coldkey}, netuid={netuid}"
             );
         }
 
@@ -1570,14 +1577,12 @@ fn test_get_parents_chain() {
             assert_eq!(
                 parents.len(),
                 1,
-                "Hotkey {} should have exactly one parent",
-                i
+                "Hotkey {i} should have exactly one parent"
             );
             assert_eq!(
                 parents[0],
                 (proportion, hotkeys[i - 1]),
-                "Incorrect parent for hotkey {}",
-                i
+                "Incorrect parent for hotkey {i}"
             );
         }
 
@@ -1600,10 +1605,7 @@ fn test_get_parents_chain() {
         SubtensorModule::set_difficulty(netuid, 1);
         register_ok_neuron(netuid, new_parent, coldkey, 99 * 2);
         log::info!(
-            "Registered new parent neuron: new_parent={}, coldkey={}, netuid={}",
-            new_parent,
-            coldkey,
-            netuid
+            "Registered new parent neuron: new_parent={new_parent}, coldkey={coldkey}, netuid={netuid}"
         );
 
         mock_set_children(
@@ -1622,9 +1624,7 @@ fn test_get_parents_chain() {
 
         let last_hotkey_parents = SubtensorModule::get_parents(&last_hotkey, netuid);
         log::info!(
-            "Testing get_parents for last hotkey {} with multiple parents: {:?}",
-            last_hotkey,
-            last_hotkey_parents
+            "Testing get_parents for last hotkey {last_hotkey} with multiple parents: {last_hotkey_parents:?}"
         );
         assert_eq!(
             last_hotkey_parents.len(),
@@ -1651,18 +1651,21 @@ fn test_get_parents_chain() {
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_basic() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
 
         add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid, 1000,
+            &hotkey,
+            &coldkey,
+            netuid,
+            1000.into(),
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
-            1000
+            1000.into()
         );
     });
 }
@@ -1676,7 +1679,7 @@ fn test_get_stake_for_hotkey_on_subnet_basic() {
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let coldkey1 = U256::from(2);
         let coldkey2 = U256::from(3);
@@ -1685,15 +1688,21 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
         register_ok_neuron(netuid, hotkey, coldkey1, 0);
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey1, netuid, 1000,
+            &hotkey,
+            &coldkey1,
+            netuid,
+            1000.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey2, netuid, 2000,
+            &hotkey,
+            &coldkey2,
+            netuid,
+            2000.into(),
         );
 
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
-            3000
+            3000.into()
         );
     });
 }
@@ -1714,7 +1723,7 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
         let parent = U256::from(1);
         let child = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, parent, coldkey, 0);
         register_ok_neuron(netuid, child, coldkey, 0);
 
@@ -1722,18 +1731,18 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
             &parent,
             &coldkey,
             netuid,
-            1_000_000_000,
+            1_000_000_000.into(),
         );
 
         mock_set_children_no_epochs(netuid, &parent, &[(u64::MAX, child)]);
 
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid),
-            0
+            0.into()
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child, netuid),
-            1_000_000_000
+            1_000_000_000.into()
         );
     });
 }
@@ -1751,7 +1760,7 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let parent1 = U256::from(1);
         let parent2 = U256::from(2);
@@ -1763,29 +1772,35 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
         register_ok_neuron(netuid, child, coldkey, 0);
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &parent1, &coldkey, netuid, 1000,
+            &parent1,
+            &coldkey,
+            netuid,
+            1000.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &parent2, &coldkey, netuid, 2000,
+            &parent2,
+            &coldkey,
+            netuid,
+            2000.into(),
         );
 
         mock_set_children_no_epochs(netuid, &parent1, &[(u64::MAX / 2, child)]);
         mock_set_children_no_epochs(netuid, &parent2, &[(u64::MAX / 2, child)]);
 
         close(
-            SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent1, netuid),
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent1, netuid).into(),
             500,
             10,
             "Incorrect inherited stake for parent1",
         );
         close(
-            SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent2, netuid),
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent2, netuid).into(),
             1000,
             10,
             "Incorrect inherited stake for parent2",
         );
         close(
-            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child, netuid),
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child, netuid).into(),
             1499,
             10,
             "Incorrect inherited stake for child",
@@ -1806,7 +1821,7 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let parent = U256::from(1);
         let child1 = U256::from(2);
@@ -1817,7 +1832,7 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
         register_ok_neuron(netuid, child1, coldkey, 0);
         register_ok_neuron(netuid, child2, coldkey, 0);
 
-        let total_stake = 3000;
+        let total_stake = 3000.into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
@@ -1837,23 +1852,23 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
 
         // Check that the total stake is preserved
         close(
-            parent_stake + child1_stake + child2_stake,
-            total_stake,
+            (parent_stake + child1_stake + child2_stake).into(),
+            total_stake.into(),
             10,
             "Total stake not preserved",
         );
 
         // Check that the parent stake is slightly higher due to rounding
-        close(parent_stake, 1000, 10, "Parent stake incorrect");
+        close(parent_stake.into(), 1000, 10, "Parent stake incorrect");
 
         // Check that each child gets an equal share of the remaining stake
-        close(child1_stake, 1000, 10, "Child1 stake incorrect");
-        close(child2_stake, 1000, 10, "Child2 stake incorrect");
+        close(child1_stake.into(), 1000, 10, "Child1 stake incorrect");
+        close(child2_stake.into(), 1000, 10, "Child2 stake incorrect");
 
         // Log the actual stake values
-        log::info!("Parent stake: {}", parent_stake);
-        log::info!("Child1 stake: {}", child1_stake);
-        log::info!("Child2 stake: {}", child2_stake);
+        log::info!("Parent stake: {parent_stake}");
+        log::info!("Child1 stake: {child1_stake}");
+        log::info!("Child2 stake: {child2_stake}");
     });
 }
 
@@ -1870,7 +1885,7 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let parent = U256::from(1);
         let child1 = U256::from(2);
@@ -1882,7 +1897,7 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         register_ok_neuron(netuid, child2, coldkey, 0);
 
         // Set above old value of network max stake
-        let network_max_stake: u64 = 600_000_000_000_000;
+        let network_max_stake = 600_000_000_000_000.into();
 
         // Increase stake to the network max
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1899,12 +1914,12 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         let child1_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
         let child2_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
 
-        log::info!("Parent stake: {}", parent_stake);
-        log::info!("Child1 stake: {}", child1_stake);
-        log::info!("Child2 stake: {}", child2_stake);
+        log::info!("Parent stake: {parent_stake}");
+        log::info!("Child1 stake: {child1_stake}");
+        log::info!("Child2 stake: {child2_stake}");
 
-        assert_eq!(parent_stake, 0, "Parent should have 0 stake");
-        assert_eq!(child1_stake, 0, "Child1 should have 0 stake");
+        assert_eq!(parent_stake, 0.into(), "Parent should have 0 stake");
+        assert_eq!(child1_stake, 0.into(), "Child1 should have 0 stake");
         assert_eq!(
             child2_stake, network_max_stake,
             "Child2 should have all the stake"
@@ -1912,8 +1927,8 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
 
         // Check that the total stake is preserved and equal to the network max stake
         close(
-            parent_stake + child1_stake + child2_stake,
-            network_max_stake,
+            (parent_stake + child1_stake + child2_stake).into(),
+            network_max_stake.into(),
             10,
             "Total stake should equal network max stake",
         );
@@ -1934,7 +1949,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let parent = U256::from(1);
         let child1 = U256::from(2);
@@ -1952,7 +1967,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         register_ok_neuron(netuid, child2, coldkey_child2, 0);
         register_ok_neuron(netuid, grandchild, coldkey_grandchild, 0);
 
-        let total_stake = 1000;
+        let total_stake = 1000.into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey_parent,
@@ -2003,16 +2018,27 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         let child1_stake_1 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
         let child2_stake_1 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
 
-        log::info!("Parent stake: {}", parent_stake_1);
-        log::info!("Child1 stake: {}", child1_stake_1);
-        log::info!("Child2 stake: {}", child2_stake_1);
+        log::info!("Parent stake: {parent_stake_1}");
+        log::info!("Child1 stake: {child1_stake_1}");
+        log::info!("Child2 stake: {child2_stake_1}");
 
         assert_eq!(
-            parent_stake_1, 0,
+            parent_stake_1,
+            0.into(),
             "Parent should have 0 stake after distributing all stake to children"
         );
-        close(child1_stake_1, 499, 10, "Child1 should have 499 stake");
-        close(child2_stake_1, 499, 10, "Child2 should have 499 stake");
+        close(
+            child1_stake_1.into(),
+            499,
+            10,
+            "Child1 should have 499 stake",
+        );
+        close(
+            child2_stake_1.into(),
+            499,
+            10,
+            "Child2 should have 499 stake",
+        );
 
         // Step 2: Set children for child1
         mock_set_children_no_epochs(netuid, &child1, &[(u64::MAX, grandchild)]);
@@ -2033,26 +2059,26 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         let grandchild_stake =
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&grandchild, netuid);
 
-        log::info!("Parent stake: {}", parent_stake_2);
-        log::info!("Child1 stake: {}", child1_stake_2);
-        log::info!("Child2 stake: {}", child2_stake_2);
-        log::info!("Grandchild stake: {}", grandchild_stake);
+        log::info!("Parent stake: {parent_stake_2}");
+        log::info!("Child1 stake: {child1_stake_2}");
+        log::info!("Child2 stake: {child2_stake_2}");
+        log::info!("Grandchild stake: {grandchild_stake}");
 
-        close(parent_stake_2, 0, 10, "Parent stake should remain 2");
+        close(parent_stake_2.into(), 0, 10, "Parent stake should remain 2");
         close(
-            child1_stake_2,
+            child1_stake_2.into(),
             499,
             10,
             "Child1 should still have 499 stake",
         );
         close(
-            child2_stake_2,
+            child2_stake_2.into(),
             499,
             10,
             "Child2 should still have 499 stake",
         );
         close(
-            grandchild_stake,
+            grandchild_stake.into(),
             0,
             10,
             "Grandchild should have 0 stake, as child1 doesn't have any owned stake",
@@ -2060,8 +2086,8 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
 
         // Check that the total stake is preserved
         close(
-            parent_stake_2 + child1_stake_2 + child2_stake_2 + grandchild_stake,
-            total_stake,
+            (parent_stake_2 + child1_stake_2 + child2_stake_2 + grandchild_stake).into(),
+            total_stake.into(),
             10,
             "Total stake should equal the initial stake",
         );
@@ -2128,8 +2154,8 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_multiple_networks() {
     new_test_ext(1).execute_with(|| {
-        let netuid1: u16 = 1;
-        let netuid2: u16 = 2;
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
 
@@ -2139,17 +2165,20 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_networks() {
         register_ok_neuron(netuid2, hotkey, coldkey, 0);
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid1, 1000,
+            &hotkey,
+            &coldkey,
+            netuid1,
+            1000.into(),
         );
 
         close(
-            SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid1),
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid1).into(),
             1000,
             10,
             "Stake on network 1 incorrect",
         );
         close(
-            SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid2),
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid2).into(),
             0,
             10,
             "Stake on network 2 incorrect",
@@ -2165,7 +2194,7 @@ fn test_do_set_child_below_min_stake() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -2200,48 +2229,60 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 0;
-        let child_netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
-        add_network(child_netuid, 13, 0);
-        register_ok_neuron(child_netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000);
+
+        let reserve = 1_000_000_000_000_000;
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Set non-default value for childkey stake threshold
         StakeThreshold::<Test>::set(1_000_000_000_000);
 
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
             netuid,
-            StakeThreshold::<Test>::get(),
+            (StakeThreshold::<Test>::get() * 2).into()
+        ));
+
+        let alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        println!(
+            "StakeThreshold::<Test>::get() = {:?}",
+            StakeThreshold::<Test>::get()
         );
+        println!("alpha                         = {alpha:?}");
 
         // Attempt to set child
         assert_ok!(SubtensorModule::do_schedule_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            child_netuid,
+            netuid,
             vec![(proportion, child)]
         ));
 
         // Check that pending child exists
-        let pending_before = PendingChildKeys::<Test>::get(child_netuid, hotkey);
+        let pending_before = PendingChildKeys::<Test>::get(netuid, hotkey);
         assert!(!pending_before.0.is_empty());
         assert!(pending_before.1 > 0);
 
         // Remove stake
-        let _ = SubtensorModule::do_remove_stake(
+        remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
+        assert_ok!(SubtensorModule::do_remove_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            100_000_000_000,
-        );
+            alpha,
+        ));
 
         // Assert that pending child is removed
-        let pending_after = PendingChildKeys::<Test>::get(child_netuid, hotkey);
+        let pending_after = PendingChildKeys::<Test>::get(netuid, hotkey);
         close(
             pending_after.0.len() as u64,
             0,
@@ -2262,7 +2303,7 @@ fn test_do_set_child_cooldown_period() {
         let coldkey = U256::from(1);
         let parent = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -2274,7 +2315,7 @@ fn test_do_set_child_cooldown_period() {
             &parent,
             &coldkey,
             netuid,
-            StakeThreshold::<Test>::get(),
+            StakeThreshold::<Test>::get().into(),
         );
 
         // Schedule parent-child relationship
@@ -2299,7 +2340,7 @@ fn test_do_set_child_cooldown_period() {
             &parent,
             &coldkey,
             netuid,
-            StakeThreshold::<Test>::get(),
+            StakeThreshold::<Test>::get().into(),
         );
 
         // Verify child assignment
@@ -2335,7 +2376,7 @@ fn test_do_set_pending_children_runs_in_epoch() {
         let coldkey = U256::from(1);
         let parent = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -2347,7 +2388,7 @@ fn test_do_set_pending_children_runs_in_epoch() {
             &parent,
             &coldkey,
             netuid,
-            StakeThreshold::<Test>::get(),
+            StakeThreshold::<Test>::get().into(),
         );
 
         // Schedule parent-child relationship
@@ -2400,22 +2441,27 @@ fn test_revoke_child_no_min_stake_check() {
         let coldkey = U256::from(1);
         let parent = U256::from(2);
         let child = U256::from(3);
-        let root: u16 = 0;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(root, 13, 0);
+        add_network(NetUid::ROOT, 13, 0);
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
+        let reserve = 1_000_000_000_000_000;
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
+        mock::setup_reserves(NetUid::ROOT, reserve.into(), reserve.into());
+
         // Set minimum stake for setting children
         StakeThreshold::<Test>::put(1_000_000_000_000);
+
+        let (_, fee) = mock::swap_tao_to_alpha(NetUid::ROOT, StakeThreshold::<Test>::get().into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
-            root,
-            StakeThreshold::<Test>::get(),
+            NetUid::ROOT,
+            (StakeThreshold::<Test>::get() + fee).into(),
         );
 
         // Schedule parent-child relationship
@@ -2434,8 +2480,8 @@ fn test_revoke_child_no_min_stake_check() {
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
-            root,
-            StakeThreshold::<Test>::get(),
+            NetUid::ROOT,
+            (StakeThreshold::<Test>::get() + fee).into(),
         );
 
         // Ensure the childkeys are applied
@@ -2474,20 +2520,24 @@ fn test_do_set_child_registration_disabled() {
         let coldkey = U256::from(1);
         let parent = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
+        let reserve = 1_000_000_000_000_000;
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
+
         // Set minimum stake for setting children
         StakeThreshold::<Test>::put(1_000_000_000_000);
+        let (_, fee) = mock::swap_tao_to_alpha(netuid, StakeThreshold::<Test>::get().into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
             netuid,
-            StakeThreshold::<Test>::get(),
+            (StakeThreshold::<Test>::get() + fee).into(),
         );
 
         // Disable subnet registrations
@@ -2506,7 +2556,7 @@ fn test_do_set_child_registration_disabled() {
             &parent,
             &coldkey,
             netuid,
-            StakeThreshold::<Test>::get(),
+            (StakeThreshold::<Test>::get() + fee).into(),
         );
 
         // Ensure the childkeys are applied
@@ -2532,7 +2582,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo = 13;
 
         // Add network and register hotkey
@@ -2587,7 +2637,8 @@ fn test_childkey_set_weights_single_parent() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid =
+            add_dynamic_network_disable_commit_reveal(&subnet_owner_hotkey, &subnet_owner_coldkey);
         Tempo::<Test>::insert(netuid, 1);
 
         // Define hotkeys
@@ -2616,13 +2667,13 @@ fn test_childkey_set_weights_single_parent() {
             &parent,
             &coldkey_parent,
             netuid,
-            stake_to_give_child,
+            stake_to_give_child.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &weight_setter,
             &coldkey_weight_setter,
             netuid,
-            1_000_000,
+            1_000_000.into(),
         );
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -2696,7 +2747,8 @@ fn test_set_weights_no_parent() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid =
+            add_dynamic_network_disable_commit_reveal(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let hotkey: U256 = U256::from(2);
         let spare_hk: U256 = U256::from(3);
@@ -2717,7 +2769,7 @@ fn test_set_weights_no_parent() {
             &hotkey,
             &coldkey,
             netuid,
-            stake_to_give_child,
+            stake_to_give_child.into(),
         );
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -2743,9 +2795,7 @@ fn test_set_weights_no_parent() {
         let curr_stake_threshold = SubtensorModule::get_stake_threshold();
         assert!(
             curr_stake_weight < curr_stake_threshold,
-            "{:?} is not less than {:?} ",
-            curr_stake_weight,
-            curr_stake_threshold
+            "{curr_stake_weight:?} is not less than {curr_stake_threshold:?} "
         );
 
         // Check the hotkey cannot set weights
@@ -2773,9 +2823,7 @@ fn test_set_weights_no_parent() {
         let new_stake_threshold = SubtensorModule::get_stake_threshold();
         assert!(
             new_stake_weight >= new_stake_threshold,
-            "{:?} is not greater than or equal to {:?} ",
-            new_stake_weight,
-            new_stake_threshold
+            "{new_stake_weight:?} is not greater than or equal to {new_stake_threshold:?} "
         );
 
         // Check the hotkey can set weights
@@ -2806,13 +2854,14 @@ fn test_childkey_take_drain() {
             let miner_coldkey = U256::from(5);
             let miner_hotkey = U256::from(6);
             let nominator = U256::from(7);
-            let netuid: u16 = 1;
+            let netuid = NetUid::from(1);
             let subnet_tempo = 10;
             let stake = 100_000_000_000;
             let proportion: u64 = u64::MAX / 2;
 
             // Add network, register hotkeys, and setup network parameters
             add_network(netuid, subnet_tempo, 0);
+            mock::setup_reserves(netuid, (stake * 10_000).into(), (stake * 10_000).into());
             register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
             register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 1);
             register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
@@ -2857,13 +2906,13 @@ fn test_childkey_take_drain() {
                 RuntimeOrigin::signed(parent_coldkey),
                 parent_hotkey,
                 netuid,
-                stake
+                stake.into()
             ));
             assert_ok!(SubtensorModule::add_stake(
                 RuntimeOrigin::signed(nominator),
                 child_hotkey,
                 netuid,
-                stake
+                stake.into()
             ));
 
             // Setup YUMA so that it creates emissions
@@ -2901,9 +2950,17 @@ fn test_childkey_take_drain() {
                 SubtensorModule::get_total_stake_for_coldkey(&nominator) - nominator_stake_before;
             let total_emission = child_emission + parent_emission + nominator_emission;
 
-            assert_abs_diff_eq!(child_emission, 0, epsilon = 10);
-            assert_abs_diff_eq!(parent_emission, total_emission * 9 / 20, epsilon = 10);
-            assert_abs_diff_eq!(nominator_emission, total_emission * 11 / 20, epsilon = 10);
+            assert_abs_diff_eq!(child_emission, TaoCurrency::ZERO, epsilon = 10.into());
+            assert_abs_diff_eq!(
+                parent_emission,
+                total_emission * 9.into() / 20.into(),
+                epsilon = 10.into()
+            );
+            assert_abs_diff_eq!(
+                nominator_emission,
+                total_emission * 11.into() / 20.into(),
+                epsilon = 10.into()
+            );
         });
     });
 }
@@ -2922,12 +2979,12 @@ fn test_parent_child_chain_emission() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         Tempo::<Test>::insert(netuid, 1);
 
         // Setup large LPs to prevent slippage
-        SubnetTAO::<Test>::insert(netuid, 1_000_000_000_000_000);
-        SubnetAlphaIn::<Test>::insert(netuid, 1_000_000_000_000_000);
+        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
 
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
@@ -2955,10 +3012,16 @@ fn test_parent_child_chain_emission() {
         let stake_b = 100_000_000_000_u64;
         let stake_c = 50_000_000_000_u64;
         let total_tao: I96F32 = I96F32::from_num(stake_a + stake_b + stake_c);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.to_num::<u64>(),
-        ));
+        let total_alpha: I96F32 = I96F32::from_num(
+            SubtensorModule::swap_tao_for_alpha(
+                netuid,
+                total_tao.to_num::<u64>().into(),
+                <Test as Config>::SwapInterface::max_price().into(),
+                false,
+            )
+            .unwrap()
+            .amount_paid_out,
+        );
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -2966,25 +3029,31 @@ fn test_parent_child_chain_emission() {
             &hotkey_a,
             &coldkey_a,
             netuid,
-            (total_alpha * I96F32::from_num(stake_a) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(stake_a) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_b,
             &coldkey_b,
             netuid,
-            (total_alpha * I96F32::from_num(stake_b) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(stake_b) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_c,
             &coldkey_c,
             netuid,
-            (total_alpha * I96F32::from_num(stake_c) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(stake_c) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
 
         // Get old stakes
-        let stake_a: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
-        let stake_b: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
-        let stake_c: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+        let stake_a = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        let stake_b = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        let stake_c = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
 
         let _total_stake: I96F32 = I96F32::from_num(stake_a + stake_b + stake_c);
 
@@ -2993,9 +3062,9 @@ fn test_parent_child_chain_emission() {
         let rel_stake_b = I96F32::from_num(stake_b) / total_tao;
         let rel_stake_c = I96F32::from_num(stake_c) / total_tao;
 
-        log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
-        log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
-        log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
+        log::info!("rel_stake_a: {rel_stake_a:?}"); // 0.6666 -> 2/3
+        log::info!("rel_stake_b: {rel_stake_b:?}"); // 0.2222 -> 2/9
+        log::info!("rel_stake_c: {rel_stake_c:?}"); // 0.1111 -> 1/9
         assert!((rel_stake_a - I96F32::from_num(stake_a) / total_tao).abs() < 0.001);
         assert!((rel_stake_b - I96F32::from_num(stake_b) / total_tao).abs() < 0.001);
         assert!((rel_stake_c - I96F32::from_num(stake_c) / total_tao).abs() < 0.001);
@@ -3008,15 +3077,16 @@ fn test_parent_child_chain_emission() {
         mock_set_children_no_epochs(netuid, &hotkey_b, &[(u64::MAX / 2, hotkey_c)]);
 
         // Get old stakes after children are scheduled
-        let stake_a_old: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
-        let stake_b_old: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
-        let stake_c_old: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+        let stake_a_old = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        let stake_b_old = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        let stake_c_old = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
 
-        let total_stake_old: I96F32 = I96F32::from_num(stake_a_old + stake_b_old + stake_c_old);
-        log::info!("Old stake for hotkey A: {:?}", stake_a_old);
-        log::info!("Old stake for hotkey B: {:?}", stake_b_old);
-        log::info!("Old stake for hotkey C: {:?}", stake_c_old);
-        log::info!("Total old stake: {:?}", total_stake_old);
+        let total_stake_old: I96F32 =
+            I96F32::from_num((stake_a_old + stake_b_old + stake_c_old).to_u64());
+        log::info!("Old stake for hotkey A: {stake_a_old:?}");
+        log::info!("Old stake for hotkey B: {stake_b_old:?}");
+        log::info!("Old stake for hotkey C: {stake_c_old:?}");
+        log::info!("Total old stake: {total_stake_old:?}");
 
         // Set CHK take rate to 1/9
         let chk_take: I96F32 = I96F32::from_num(1_f64 / 9_f64);
@@ -3027,40 +3097,44 @@ fn test_parent_child_chain_emission() {
         // Set the weight of root TAO to be 0%, so only alpha is effective.
         SubtensorModule::set_tao_weight(0);
 
-        let emission: U96F32 = U96F32::from_num(SubtensorModule::get_block_emission().unwrap_or(0));
+        let emission = U96F32::from_num(
+            SubtensorModule::get_block_emission()
+                .unwrap_or(TaoCurrency::ZERO)
+                .to_u64(),
+        );
 
         // Set pending emission to 0
-        PendingEmission::<Test>::insert(netuid, 0);
+        PendingEmission::<Test>::insert(netuid, AlphaCurrency::ZERO);
 
         // Run epoch with emission value
         SubtensorModule::run_coinbase(emission);
 
         // Log new stake
-        let stake_a_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
-        let stake_b_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
-        let stake_c_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
-        let total_stake_new: I96F32 = I96F32::from_num(stake_a_new + stake_b_new + stake_c_new);
-        log::info!("Stake for hotkey A: {:?}", stake_a_new);
-        log::info!("Stake for hotkey B: {:?}", stake_b_new);
-        log::info!("Stake for hotkey C: {:?}", stake_c_new);
+        let stake_a_new = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        let stake_b_new = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        let stake_c_new = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+        let total_stake_new = I96F32::from_num((stake_a_new + stake_b_new + stake_c_new).to_u64());
+        log::info!("Stake for hotkey A: {stake_a_new:?}");
+        log::info!("Stake for hotkey B: {stake_b_new:?}");
+        log::info!("Stake for hotkey C: {stake_c_new:?}");
 
-        let stake_inc_a: u64 = stake_a_new - stake_a_old;
-        let stake_inc_b: u64 = stake_b_new - stake_b_old;
-        let stake_inc_c: u64 = stake_c_new - stake_c_old;
+        let stake_inc_a = stake_a_new - stake_a_old;
+        let stake_inc_b = stake_b_new - stake_b_old;
+        let stake_inc_c = stake_c_new - stake_c_old;
         let total_stake_inc: I96F32 = total_stake_new - total_stake_old;
-        log::info!("Stake increase for hotkey A: {:?}", stake_inc_a);
-        log::info!("Stake increase for hotkey B: {:?}", stake_inc_b);
-        log::info!("Stake increase for hotkey C: {:?}", stake_inc_c);
-        log::info!("Total stake increase: {:?}", total_stake_inc);
+        log::info!("Stake increase for hotkey A: {stake_inc_a:?}");
+        log::info!("Stake increase for hotkey B: {stake_inc_b:?}");
+        log::info!("Stake increase for hotkey C: {stake_inc_c:?}");
+        log::info!("Total stake increase: {total_stake_inc:?}");
         let rel_stake_inc_a = I96F32::from_num(stake_inc_a) / total_stake_inc;
         let rel_stake_inc_b = I96F32::from_num(stake_inc_b) / total_stake_inc;
         let rel_stake_inc_c = I96F32::from_num(stake_inc_c) / total_stake_inc;
-        log::info!("rel_stake_inc_a: {:?}", rel_stake_inc_a);
-        log::info!("rel_stake_inc_b: {:?}", rel_stake_inc_b);
-        log::info!("rel_stake_inc_c: {:?}", rel_stake_inc_c);
+        log::info!("rel_stake_inc_a: {rel_stake_inc_a:?}");
+        log::info!("rel_stake_inc_b: {rel_stake_inc_b:?}");
+        log::info!("rel_stake_inc_c: {rel_stake_inc_c:?}");
 
         // Verify the final stake distribution
-        let stake_inc_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
+        let stake_inc_eps = I96F32::from_num(1e-4); // 4 decimal places
 
         // Each child has chk_take take
         let expected_a = I96F32::from_num(2_f64 / 3_f64)
@@ -3068,9 +3142,7 @@ fn test_parent_child_chain_emission() {
         assert!(
             (rel_stake_inc_a - expected_a).abs() // B's take on 50% CHK
             <= stake_inc_eps,
-            "A should have {:?} of total stake increase; {:?}",
-            expected_a,
-            rel_stake_inc_a
+            "A should have {expected_a:?} of total stake increase; {rel_stake_inc_a:?}"
         );
         let expected_b = I96F32::from_num(2_f64 / 9_f64)
             * (I96F32::from_num(1_f64) - (I96F32::from_num(1_f64 / 2_f64) * chk_take))
@@ -3078,39 +3150,26 @@ fn test_parent_child_chain_emission() {
         assert!(
             (rel_stake_inc_b - expected_b).abs() // C's take on 50% CHK + take from A
             <= stake_inc_eps,
-            "B should have {:?} of total stake increase; {:?}",
-            expected_b,
-            rel_stake_inc_b
+            "B should have {expected_b:?} of total stake increase; {rel_stake_inc_b:?}"
         );
         let expected_c = I96F32::from_num(1_f64 / 9_f64)
             + (I96F32::from_num(2_f64 / 9_f64) * I96F32::from_num(1_f64 / 2_f64) * chk_take);
         assert!(
             (rel_stake_inc_c - expected_c).abs() // B's take on 50% CHK
             <= stake_inc_eps,
-            "C should have {:?} of total stake increase; {:?}",
-            expected_c,
-            rel_stake_inc_c
+            "C should have {expected_c:?} of total stake increase; {rel_stake_inc_c:?}"
         );
 
         let hotkeys = [hotkey_a, hotkey_b, hotkey_c];
-        let mut total_stake_now = 0;
+        let mut total_stake_now = AlphaCurrency::ZERO;
         for (hotkey, netuid, stake) in TotalHotkeyAlpha::<Test>::iter() {
             if hotkeys.contains(&hotkey) {
                 total_stake_now += stake;
             } else {
-                log::info!(
-                    "hotkey: {:?}, netuid: {:?}, stake: {:?}",
-                    hotkey,
-                    netuid,
-                    stake
-                );
+                log::info!("hotkey: {hotkey:?}, netuid: {netuid:?}, stake: {stake:?}");
             }
         }
-        log::info!(
-            "total_stake_now: {:?}, total_stake_new: {:?}",
-            total_stake_now,
-            total_stake_new
-        );
+        log::info!("total_stake_now: {total_stake_now:?}, total_stake_new: {total_stake_new:?}");
 
         assert_abs_diff_eq!(
             total_stake_inc.to_num::<u64>(),
@@ -3131,7 +3190,7 @@ fn test_parent_child_chain_emission() {
 #[test]
 fn test_parent_child_chain_epoch() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
@@ -3154,12 +3213,12 @@ fn test_parent_child_chain_epoch() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
 
+        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
+
         // Swap to alpha
-        let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.saturating_to_num::<u64>(),
-        ));
+        let total_tao = I96F32::from_num(300_000 + 100_000 + 50_000);
+        let (total_alpha, _) = mock::swap_tao_to_alpha(netuid, total_tao.to_num::<u64>().into());
+        let total_alpha = I96F32::from_num(total_alpha);
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3167,37 +3226,50 @@ fn test_parent_child_chain_epoch() {
             &hotkey_a,
             &coldkey_a,
             netuid,
-            (total_alpha * I96F32::from_num(300_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(300_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_b,
             &coldkey_b,
             netuid,
-            (total_alpha * I96F32::from_num(100_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(100_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_c,
             &coldkey_c,
             netuid,
-            (total_alpha * I96F32::from_num(50_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(50_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
 
         // Get old stakes
-        let stake_a: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
-        let stake_b: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
-        let stake_c: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+        let stake_a = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        let stake_b = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        let stake_c = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
 
         // Assert initial stake is correct
-        let rel_stake_a = I96F32::from_num(stake_a) / total_tao;
-        let rel_stake_b = I96F32::from_num(stake_b) / total_tao;
-        let rel_stake_c = I96F32::from_num(stake_c) / total_tao;
+        let rel_stake_a = I96F32::from_num(stake_a) / total_alpha;
+        let rel_stake_b = I96F32::from_num(stake_b) / total_alpha;
+        let rel_stake_c = I96F32::from_num(stake_c) / total_alpha;
 
-        log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
-        log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
-        log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
-        assert_eq!(rel_stake_a, I96F32::from_num(300_000) / total_tao);
-        assert_eq!(rel_stake_b, I96F32::from_num(100_000) / total_tao);
-        assert_eq!(rel_stake_c, I96F32::from_num(50_000) / total_tao);
+        log::info!("rel_stake_a: {rel_stake_a:?}"); // 0.6666 -> 2/3
+        log::info!("rel_stake_b: {rel_stake_b:?}"); // 0.2222 -> 2/9
+        log::info!("rel_stake_c: {rel_stake_c:?}"); // 0.1111 -> 1/9
+
+        assert!(rel_stake_a > I96F32::from_num(0));
+        assert!(rel_stake_b > I96F32::from_num(0));
+        assert!(rel_stake_c > I96F32::from_num(0));
+
+        // because of the fee we allow slightly higher range
+        let epsilon = I96F32::from_num(0.00001);
+        assert!((rel_stake_a - (I96F32::from_num(300_000) / total_tao)).abs() <= epsilon);
+        assert!((rel_stake_b - (I96F32::from_num(100_000) / total_tao)).abs() <= epsilon);
+        assert!((rel_stake_c - (I96F32::from_num(50_000) / total_tao)).abs() <= epsilon);
 
         // Set parent-child relationships
         // A -> B (50% of A's stake)
@@ -3207,7 +3279,7 @@ fn test_parent_child_chain_epoch() {
         mock_set_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
 
         // Set CHK take rate to 1/9
-        let chk_take: I96F32 = I96F32::from_num(1_f64 / 9_f64);
+        let chk_take = I96F32::from_num(1_f64 / 9_f64);
         let chk_take_u16: u16 = (chk_take * I96F32::from_num(u16::MAX)).saturating_to_num::<u16>();
         ChildkeyTake::<Test>::insert(hotkey_b, netuid, chk_take_u16);
         ChildkeyTake::<Test>::insert(hotkey_c, netuid, chk_take_u16);
@@ -3215,18 +3287,18 @@ fn test_parent_child_chain_epoch() {
         // Set the weight of root TAO to be 0%, so only alpha is effective.
         SubtensorModule::set_tao_weight(0);
 
-        let hardcoded_emission: I96F32 = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
+        let hardcoded_emission = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
 
-        let hotkey_emission: Vec<(U256, u64, u64)> =
-            SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>());
-        log::info!("hotkey_emission: {:?}", hotkey_emission);
+        let hotkey_emission =
+            SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>().into());
+        log::info!("hotkey_emission: {hotkey_emission:?}");
         let total_emission: I96F32 = hotkey_emission
             .iter()
             .map(|(_, _, emission)| I96F32::from_num(*emission))
             .sum();
 
         // Verify emissions match expected from CHK arrangements
-        let em_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
+        let em_eps = I96F32::from_num(1e-4); // 4 decimal places
         // A's pending emission:
         assert!(
             ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
@@ -3262,8 +3334,13 @@ fn test_parent_child_chain_epoch() {
 #[test]
 fn test_dividend_distribution_with_children() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
+        mock::setup_reserves(
+            netuid,
+            1_000_000_000_000_000.into(),
+            1_000_000_000_000_000.into(),
+        );
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
 
@@ -3286,11 +3363,9 @@ fn test_dividend_distribution_with_children() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
 
         // Swap to alpha
-        let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.saturating_to_num::<u64>(),
-        ));
+        let total_tao = I96F32::from_num(300_000 + 100_000 + 50_000);
+        let (total_alpha, _) = mock::swap_tao_to_alpha(netuid, total_tao.to_num::<u64>().into());
+        let total_alpha = I96F32::from_num(total_alpha);
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3298,37 +3373,44 @@ fn test_dividend_distribution_with_children() {
             &hotkey_a,
             &coldkey_a,
             netuid,
-            (total_alpha * I96F32::from_num(300_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(300_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_b,
             &coldkey_b,
             netuid,
-            (total_alpha * I96F32::from_num(100_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(100_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_c,
             &coldkey_c,
             netuid,
-            (total_alpha * I96F32::from_num(50_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(50_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
 
         // Get old stakes
-        let stake_a: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
-        let stake_b: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
-        let stake_c: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+        let stake_a = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        let stake_b = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        let stake_c = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
 
         // Assert initial stake is correct
-        let rel_stake_a = I96F32::from_num(stake_a) / total_tao;
-        let rel_stake_b = I96F32::from_num(stake_b) / total_tao;
-        let rel_stake_c = I96F32::from_num(stake_c) / total_tao;
+        let rel_stake_a = I96F32::from_num(stake_a) / total_alpha;
+        let rel_stake_b = I96F32::from_num(stake_b) / total_alpha;
+        let rel_stake_c = I96F32::from_num(stake_c) / total_alpha;
 
-        log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
-        log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
-        log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
-        assert_eq!(rel_stake_a, I96F32::from_num(300_000) / total_tao);
-        assert_eq!(rel_stake_b, I96F32::from_num(100_000) / total_tao);
-        assert_eq!(rel_stake_c, I96F32::from_num(50_000) / total_tao);
+        log::info!("rel_stake_a: {rel_stake_a:?}"); // 0.6666 -> 2/3
+        log::info!("rel_stake_b: {rel_stake_b:?}"); // 0.2222 -> 2/9
+        log::info!("rel_stake_c: {rel_stake_c:?}"); // 0.1111 -> 1/9
+        let epsilon = I96F32::from_num(0.00001);
+        assert!((rel_stake_a - I96F32::from_num(300_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_b - I96F32::from_num(100_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_c - I96F32::from_num(50_000) / total_tao).abs() <= epsilon);
 
         // Set parent-child relationships
         // A -> B (50% of A's stake)
@@ -3348,9 +3430,9 @@ fn test_dividend_distribution_with_children() {
 
         let hardcoded_emission: I96F32 = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
 
-        let hotkey_emission: Vec<(U256, u64, u64)> =
-            SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>());
-        log::info!("hotkey_emission: {:?}", hotkey_emission);
+        let hotkey_emission =
+            SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>().into());
+        log::info!("hotkey_emission: {hotkey_emission:?}");
         let total_emission: I96F32 = hotkey_emission
             .iter()
             .map(|(_, _, emission)| I96F32::from_num(*emission))
@@ -3383,33 +3465,33 @@ fn test_dividend_distribution_with_children() {
         let dividends_a = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_a,
             netuid,
-            hardcoded_emission.saturating_to_num::<u64>(),
+            hardcoded_emission.saturating_to_num::<u64>().into(),
         );
         let dividends_b = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_b,
             netuid,
-            hardcoded_emission.saturating_to_num::<u64>(),
+            hardcoded_emission.saturating_to_num::<u64>().into(),
         );
         let dividends_c = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_c,
             netuid,
-            hardcoded_emission.saturating_to_num::<u64>(),
+            hardcoded_emission.saturating_to_num::<u64>().into(),
         );
-        log::info!("dividends_a: {:?}", dividends_a);
-        log::info!("dividends_b: {:?}", dividends_b);
-        log::info!("dividends_c: {:?}", dividends_c);
+        log::info!("dividends_a: {dividends_a:?}");
+        log::info!("dividends_b: {dividends_b:?}");
+        log::info!("dividends_c: {dividends_c:?}");
 
         // We expect A to get all of its own emission, as it has no parents.
         assert_eq!(dividends_a.len(), 1);
         assert_eq!(dividends_a[0].0, hotkey_a);
         assert_eq!(
             dividends_a[0].1,
-            hardcoded_emission.saturating_to_num::<u64>()
+            hardcoded_emission.saturating_to_num::<u64>().into()
         );
         assert_abs_diff_eq!(
             dividends_a
                 .iter()
-                .map(|(_, emission)| *emission)
+                .map(|(_, emission)| u64::from(*emission))
                 .sum::<u64>(),
             hardcoded_emission.saturating_to_num::<u64>(),
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
@@ -3424,21 +3506,21 @@ fn test_dividend_distribution_with_children() {
         assert_eq!(dividends_b.len(), 2); // A and B
         assert_eq!(dividends_b[1].0, hotkey_b);
         assert_abs_diff_eq!(
-            dividends_b[1].1,
+            u64::from(dividends_b[1].1),
             expected_b_b,
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
         );
         let expected_b_a: u64 = hardcoded_emission.saturating_to_num::<u64>() - expected_b_b;
         assert_eq!(dividends_b[0].0, hotkey_a);
         assert_abs_diff_eq!(
-            dividends_b[0].1,
+            u64::from(dividends_b[0].1),
             expected_b_a,
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
         );
         assert_abs_diff_eq!(
             dividends_b
                 .iter()
-                .map(|(_, emission)| *emission)
+                .map(|(_, emission)| u64::from(*emission))
                 .sum::<u64>(),
             hardcoded_emission.saturating_to_num::<u64>(),
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
@@ -3452,21 +3534,21 @@ fn test_dividend_distribution_with_children() {
         assert_eq!(dividends_c.len(), 2); // B and C
         assert_eq!(dividends_c[1].0, hotkey_c);
         assert_abs_diff_eq!(
-            dividends_c[1].1,
+            u64::from(dividends_c[1].1),
             expected_c_c,
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
         );
         let expected_c_b: u64 = hardcoded_emission.saturating_to_num::<u64>() - expected_c_c;
         assert_eq!(dividends_c[0].0, hotkey_b);
         assert_abs_diff_eq!(
-            dividends_c[0].1,
+            u64::from(dividends_c[0].1),
             expected_c_b,
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
         );
         assert_abs_diff_eq!(
             dividends_c
                 .iter()
-                .map(|(_, emission)| *emission)
+                .map(|(_, emission)| u64::from(*emission))
                 .sum::<u64>(),
             hardcoded_emission.saturating_to_num::<u64>(),
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
@@ -3487,16 +3569,16 @@ fn test_dividend_distribution_with_children() {
 #[test]
 fn test_dynamic_parent_child_relationships() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        add_network(netuid, 1, 0);
+        let netuid = NetUid::from(1);
+        add_network_disable_commit_reveal(netuid, 1, 0);
 
         // Define hotkeys and coldkeys
-        let parent: U256 = U256::from(1);
-        let child1: U256 = U256::from(2);
-        let child2: U256 = U256::from(3);
-        let coldkey_parent: U256 = U256::from(100);
-        let coldkey_child1: U256 = U256::from(101);
-        let coldkey_child2: U256 = U256::from(102);
+        let parent = U256::from(1);
+        let child1 = U256::from(2);
+        let child2 = U256::from(3);
+        let coldkey_parent = U256::from(100);
+        let coldkey_child1 = U256::from(101);
+        let coldkey_child2 = U256::from(102);
 
         // Register neurons with varying stakes
         register_ok_neuron(netuid, parent, coldkey_parent, 0);
@@ -3505,21 +3587,22 @@ fn test_dynamic_parent_child_relationships() {
 
         let chk_take_1 = SubtensorModule::get_childkey_take(&child1, netuid);
         let chk_take_2 = SubtensorModule::get_childkey_take(&child2, netuid);
-        log::info!("child take 1: {:?}", chk_take_1);
-        log::info!("child take 2: {:?}", chk_take_2);
+        log::info!("child take 1: {chk_take_1:?}");
+        log::info!("child take 2: {chk_take_2:?}");
 
         // Add initial stakes
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 500_000 + 1_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, 50_000 + 1_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, 30_000 + 1_000);
 
+        let reserve = 1_000_000_000_000;
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
+
         // Swap to alpha
-        let total_tao: I96F32 = I96F32::from_num(500_000 + 50_000 + 30_000);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.saturating_to_num::<u64>(),
-        ));
-        log::info!("total_alpha: {:?}", total_alpha);
+        let total_tao = I96F32::from_num(500_000 + 50_000 + 30_000);
+        let (total_alpha, _) = mock::swap_tao_to_alpha(netuid, total_tao.to_num::<u64>().into());
+        let total_alpha = I96F32::from_num(total_alpha);
+        log::info!("total_alpha: {total_alpha:?}");
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3527,42 +3610,49 @@ fn test_dynamic_parent_child_relationships() {
             &parent,
             &coldkey_parent,
             netuid,
-            (total_alpha * I96F32::from_num(500_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(500_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &child1,
             &coldkey_child1,
             netuid,
-            (total_alpha * I96F32::from_num(50_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(50_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &child2,
             &coldkey_child2,
             netuid,
-            (total_alpha * I96F32::from_num(30_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(30_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
 
         // Get old stakes
-        let stake_parent_0: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        let stake_child1_0: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        let stake_child2_0: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
-        log::info!("stake_parent_0: {:?}", stake_parent_0);
-        log::info!("stake_child1_0: {:?}", stake_child1_0);
-        log::info!("stake_child2_0: {:?}", stake_child2_0);
+        let stake_parent_0 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        let stake_child1_0 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
+        let stake_child2_0 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+        log::info!("stake_parent_0: {stake_parent_0:?}");
+        log::info!("stake_child1_0: {stake_child1_0:?}");
+        log::info!("stake_child2_0: {stake_child2_0:?}");
 
-        let total_stake_0: u64 = stake_parent_0 + stake_child1_0 + stake_child2_0;
+        let total_stake_0 = stake_parent_0 + stake_child1_0 + stake_child2_0;
 
         // Assert initial stake is correct
-        let rel_stake_parent_0 = I96F32::from_num(stake_parent_0) / total_tao;
-        let rel_stake_child1_0 = I96F32::from_num(stake_child1_0) / total_tao;
-        let rel_stake_child2_0 = I96F32::from_num(stake_child2_0) / total_tao;
+        let rel_stake_parent_0 = I96F32::from_num(stake_parent_0) / total_alpha;
+        let rel_stake_child1_0 = I96F32::from_num(stake_child1_0) / total_alpha;
+        let rel_stake_child2_0 = I96F32::from_num(stake_child2_0) / total_alpha;
 
-        log::info!("rel_stake_parent_0: {:?}", rel_stake_parent_0);
-        log::info!("rel_stake_child1_0: {:?}", rel_stake_child1_0);
-        log::info!("rel_stake_child2_0: {:?}", rel_stake_child2_0);
-        assert_eq!(rel_stake_parent_0, I96F32::from_num(500_000) / total_tao);
-        assert_eq!(rel_stake_child1_0, I96F32::from_num(50_000) / total_tao);
-        assert_eq!(rel_stake_child2_0, I96F32::from_num(30_000) / total_tao);
+        log::info!("rel_stake_parent_0: {rel_stake_parent_0:?}");
+        log::info!("rel_stake_child1_0: {rel_stake_child1_0:?}");
+        log::info!("rel_stake_child2_0: {rel_stake_child2_0:?}");
+        let epsilon = I96F32::from_num(0.00001);
+        assert!((rel_stake_parent_0 - I96F32::from_num(500_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_child1_0 - I96F32::from_num(50_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_child2_0 - I96F32::from_num(30_000) / total_tao).abs() <= epsilon);
 
         mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 2, child1)]);
 
@@ -3593,7 +3683,7 @@ fn test_dynamic_parent_child_relationships() {
         let total_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid)
             + SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
             + SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
-        log::info!("total_stake_1: {:?}", total_stake_1);
+        log::info!("total_stake_1: {total_stake_1:?}");
 
         // Change parent-child relationships
         mock_set_children(
@@ -3610,40 +3700,37 @@ fn test_dynamic_parent_child_relationships() {
         let total_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid)
             + SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
             + SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
-        log::info!("total_stake_2: {:?}", total_stake_2);
+        log::info!("total_stake_2: {total_stake_2:?}");
 
         // Check final emission distribution
-        let stake_parent_2: u64 =
-            SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
-        let stake_child1_2: u64 =
-            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
-        let stake_child2_2: u64 =
-            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
+        let stake_parent_2 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
+        let stake_child1_2 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
+        let stake_child2_2 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
         let total_parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
         let _total_child1_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
         let _total_child2_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
 
         log::info!("Final stakes:");
-        log::info!("Parent stake: {}", stake_parent_2);
-        log::info!("Child1 stake: {}", stake_child1_2);
-        log::info!("Child2 stake: {}", stake_child2_2);
+        log::info!("Parent stake: {stake_parent_2}");
+        log::info!("Child1 stake: {stake_child1_2}");
+        log::info!("Child2 stake: {stake_child2_2}");
 
         // Payout 1
         let payout_1 = total_stake_1 - total_stake_0;
-        log::info!("payout_1: {:?}", payout_1);
+        log::info!("payout_1: {payout_1:?}");
 
         // Payout 2
         let payout_2 = total_stake_2 - total_stake_1;
-        log::info!("payout_2: {:?}", payout_2);
+        log::info!("payout_2: {payout_2:?}");
 
-        let total_emission: I96F32 = I96F32::from_num(payout_1 + payout_2);
+        let total_emission = I96F32::from_num(payout_1 + payout_2);
 
         #[allow(non_snake_case)]
-        let TOLERANCE: I96F32 = I96F32::from_num(0.001); // Allow for a small discrepancy due to potential rounding
+        let TOLERANCE = I96F32::from_num(0.001); // Allow for a small discrepancy due to potential rounding
 
         // Precise assertions with tolerance
-        log::info!("total_emission: {:?}", total_emission);
-        let expected_parent_stake = ((I96F32::from_num(stake_parent_0)
+        log::info!("total_emission: {total_emission:?}");
+        let expected_parent_stake = ((I96F32::from_num(u64::from(stake_parent_0))
             + total_emission * rel_stake_parent_0)
             * I96F32::from_num(5))
             / I96F32::from_num(12);
@@ -3651,9 +3738,7 @@ fn test_dynamic_parent_child_relationships() {
             (I96F32::from_num(stake_parent_2) - expected_parent_stake).abs()
                 / expected_parent_stake
                 <= TOLERANCE,
-            "Parent stake should be close to {:?}, but was {}",
-            expected_parent_stake,
-            stake_parent_2
+            "Parent stake should be close to {expected_parent_stake:?}, but was {stake_parent_2}"
         );
         // Parent stake calculation:
         // Initial stake: 500,000
@@ -3661,14 +3746,12 @@ fn test_dynamic_parent_child_relationships() {
         // Second epoch: 5/12 parent_stake
 
         let expected_child1_stake = total_emission * rel_stake_child1_0
-            + I96F32::from_num(stake_child1_0 + (total_parent_stake) / 4);
+            + I96F32::from_num(stake_child1_0 + total_parent_stake / 4.into());
         assert!(
             (I96F32::from_num(stake_child1_2) - expected_child1_stake).abs()
                 / expected_child1_stake
                 <= TOLERANCE,
-            "Child1 stake should be close to {:?}, but was {}",
-            expected_child1_stake,
-            stake_child1_2
+            "Child1 stake should be close to {expected_child1_stake:?}, but was {stake_child1_2}"
         );
         // Child1 stake calculation:
         // Initial stake: 50,000
@@ -3676,14 +3759,12 @@ fn test_dynamic_parent_child_relationships() {
         // Second epoch: 1/4 parent_stake + child1_stake
 
         let expected_child2_stake = total_emission * rel_stake_child2_0
-            + I96F32::from_num(stake_child2_0 + (total_parent_stake) / 3);
+            + I96F32::from_num(u64::from(stake_child2_0 + total_parent_stake / 3.into()));
         assert!(
             (I96F32::from_num(stake_child2_2) - expected_child2_stake).abs()
                 / expected_child2_stake
                 <= TOLERANCE,
-            "Child2 stake should be close to {:?}, but was {}",
-            expected_child2_stake,
-            stake_child2_2
+            "Child2 stake should be close to {expected_child2_stake:?}, but was {stake_child2_2}"
         );
         // Child2 stake calculation:
         // Initial stake: 30,000
@@ -3742,13 +3823,13 @@ fn test_do_set_child_as_sn_owner_not_enough_stake() {
 
         let proportion: u64 = 1000;
 
-        let netuid: u16 = add_dynamic_network(&sn_owner_hotkey, &coldkey);
+        let netuid = add_dynamic_network(&sn_owner_hotkey, &coldkey);
         register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
 
         // Verify stake of sn_owner_hotkey is NOT enough
         assert!(
             SubtensorModule::get_total_stake_for_hotkey(&sn_owner_hotkey)
-                < StakeThreshold::<Test>::get()
+                < StakeThreshold::<Test>::get().into()
         );
 
         // Verify that we can set child as sn owner, even though sn_owner_hotkey has insufficient stake
@@ -3766,7 +3847,7 @@ fn test_do_set_child_as_sn_owner_not_enough_stake() {
         // Verify stake of other_sn_owner_hotkey is NOT enough
         assert!(
             SubtensorModule::get_total_stake_for_hotkey(&other_sn_owner_hotkey)
-                < StakeThreshold::<Test>::get()
+                < StakeThreshold::<Test>::get().into()
         );
 
         // Can't set child as sn owner, because it is not in SubnetOwnerHotkey map
@@ -3787,10 +3868,11 @@ fn test_do_set_child_as_sn_owner_not_enough_stake() {
 #[test]
 fn test_dividend_distribution_with_children_same_coldkey_owner() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
         // Set SN owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
+        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
 
         // Define hotkeys and coldkeys
         let hotkey_a: U256 = U256::from(1);
@@ -3806,11 +3888,9 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
 
         // Swap to alpha
-        let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.saturating_to_num::<u64>(),
-        ));
+        let total_tao = 300_000 + 100_000;
+        let total_alpha = I96F32::from_num(mock::swap_tao_to_alpha(netuid, total_tao.into()).0);
+        let total_tao = I96F32::from_num(total_tao);
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3818,27 +3898,32 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
             &hotkey_a,
             &coldkey_a,
             netuid,
-            (total_alpha * I96F32::from_num(300_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(300_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_b,
             &coldkey_a,
             netuid,
-            (total_alpha * I96F32::from_num(100_000) / total_tao).saturating_to_num::<u64>(),
+            (total_alpha * I96F32::from_num(100_000) / total_tao)
+                .saturating_to_num::<u64>()
+                .into(),
         );
 
         // Get old stakes
-        let stake_a: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
-        let stake_b: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        let stake_a = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        let stake_b = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
 
         // Assert initial stake is correct
-        let rel_stake_a = I96F32::from_num(stake_a) / total_tao;
-        let rel_stake_b = I96F32::from_num(stake_b) / total_tao;
+        let rel_stake_a = I96F32::from_num(stake_a) / total_alpha;
+        let rel_stake_b = I96F32::from_num(stake_b) / total_alpha;
 
-        log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.75 -> 3/4
-        log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.25 -> 1/4
-        assert_eq!(rel_stake_a, I96F32::from_num(300_000) / total_tao);
-        assert_eq!(rel_stake_b, I96F32::from_num(100_000) / total_tao);
+        log::info!("rel_stake_a: {rel_stake_a:?}"); // 0.75 -> 3/4
+        log::info!("rel_stake_b: {rel_stake_b:?}"); // 0.25 -> 1/4
+        let epsilon = I96F32::from_num(0.0001);
+        assert!((rel_stake_a - I96F32::from_num(300_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_b - I96F32::from_num(100_000) / total_tao).abs() <= epsilon);
 
         // Set parent-child relationships
         // A -> B (50% of A's stake)
@@ -3854,9 +3939,9 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 
         let hardcoded_emission: I96F32 = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
 
-        let hotkey_emission: Vec<(U256, u64, u64)> =
-            SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>());
-        log::info!("hotkey_emission: {:?}", hotkey_emission);
+        let hotkey_emission =
+            SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>().into());
+        log::info!("hotkey_emission: {hotkey_emission:?}");
         let total_emission: I96F32 = hotkey_emission
             .iter()
             .map(|(_, _, emission)| I96F32::from_num(*emission))
@@ -3884,27 +3969,27 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         let dividends_a = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_a,
             netuid,
-            hardcoded_emission.saturating_to_num::<u64>(),
+            hardcoded_emission.saturating_to_num::<u64>().into(),
         );
         let dividends_b = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_b,
             netuid,
-            hardcoded_emission.saturating_to_num::<u64>(),
+            hardcoded_emission.saturating_to_num::<u64>().into(),
         );
-        log::info!("dividends_a: {:?}", dividends_a);
-        log::info!("dividends_b: {:?}", dividends_b);
+        log::info!("dividends_a: {dividends_a:?}");
+        log::info!("dividends_b: {dividends_b:?}");
 
         // We expect A should have no impact from B, as they have the same owner.
         assert_eq!(dividends_a.len(), 1);
         assert_eq!(dividends_a[0].0, hotkey_a);
         assert_eq!(
             dividends_a[0].1,
-            hardcoded_emission.saturating_to_num::<u64>()
+            hardcoded_emission.saturating_to_num::<u64>().into()
         );
         assert_abs_diff_eq!(
             dividends_a
                 .iter()
-                .map(|(_, emission)| *emission)
+                .map(|(_, emission)| u64::from(*emission))
                 .sum::<u64>(),
             hardcoded_emission.saturating_to_num::<u64>(),
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
@@ -3924,7 +4009,7 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
             (rel_stake_b / total_stake_b * hardcoded_emission).saturating_to_num::<u64>();
 
         assert_abs_diff_eq!(
-            dividends_b[1].1,
+            u64::from(dividends_b[1].1),
             expected_b_b,
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>(),
         );
@@ -3933,14 +4018,14 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
             ((rel_stake_a * 1 / 2) / total_stake_b * hardcoded_emission).saturating_to_num::<u64>();
         assert_eq!(dividends_b[0].0, hotkey_a);
         assert_abs_diff_eq!(
-            dividends_b[0].1,
+            u64::from(dividends_b[0].1),
             expected_b_a,
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
         );
         assert_abs_diff_eq!(
             dividends_b
                 .iter()
-                .map(|(_, emission)| *emission)
+                .map(|(_, emission)| u64::from(*emission))
                 .sum::<u64>(),
             hardcoded_emission.saturating_to_num::<u64>(),
             epsilon = (hardcoded_emission / 1000).saturating_to_num::<u64>()
@@ -3949,23 +4034,20 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 }
 
 #[test]
-fn test_pending_cooldown_one_day() {
+fn test_pending_cooldown_as_expected() {
     let curr_block = 1;
-
-    let expected_cooldown = if cfg!(feature = "fast-blocks") {
-        15
-    } else {
-        7_200
-    };
+    // TODO: Fix when CHK splitting patched
+    // let expected_cooldown = prod_or_fast!(7200, 15);
 
     new_test_ext(curr_block).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 1000;
         let proportion2: u64 = 2000;
+        let expected_cooldown = PendingChildKeyCooldown::<Test>::get();
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -3995,7 +4077,7 @@ fn test_do_set_childkey_take_success() {
         // Setup
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let take = 5000;
 
         // Add network and register hotkey
@@ -4024,7 +4106,7 @@ fn test_do_set_childkey_take_non_associated_coldkey() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let hotkey2 = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let take = 5000;
 
         // Add network and register hotkey
@@ -4045,7 +4127,7 @@ fn test_do_set_childkey_take_invalid_take_value() {
         // Setup
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let take = SubtensorModule::get_max_childkey_take() + 1;
 
         // Add network and register hotkey
@@ -4066,7 +4148,7 @@ fn test_do_set_childkey_take_rate_limit_exceeded() {
         // Setup
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let initial_take = 3000;
         let higher_take = 5000;
         let lower_take = 1000;

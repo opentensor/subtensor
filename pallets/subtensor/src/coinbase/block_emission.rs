@@ -5,6 +5,8 @@ use substrate_fixed::{
     transcendental::log2,
     types::{I96F32, U96F32},
 };
+use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Calculates the dynamic TAO emission for a given subnet.
@@ -29,7 +31,7 @@ impl<T: Config> Pallet<T> {
     /// It also ensures that the total amount of alpha_in_emission + alpha_out_emission sum to 2 * alpha_block_emission
     /// It also ensures that 1 < alpha_out_emission < 2 * alpha_block_emission and 0 < alpha_in_emission < alpha_block_emission.
     pub fn get_dynamic_tao_emission(
-        netuid: u16,
+        netuid: NetUid,
         tao_emission: u64,
         alpha_block_emission: u64,
     ) -> (u64, u64, u64) {
@@ -38,8 +40,8 @@ impl<T: Config> Pallet<T> {
         let float_alpha_block_emission: U96F32 = U96F32::saturating_from_num(alpha_block_emission);
 
         // Get alpha price for subnet.
-        let alpha_price: U96F32 = Self::get_alpha_price(netuid);
-        log::debug!("{:?} - alpha_price: {:?}", netuid, alpha_price);
+        let alpha_price = T::SwapInterface::current_alpha_price(netuid.into());
+        log::debug!("{netuid:?} - alpha_price: {alpha_price:?}");
 
         // Get initial alpha_in
         let mut alpha_in_emission: U96F32 = U96F32::saturating_from_num(tao_emission)
@@ -49,10 +51,7 @@ impl<T: Config> Pallet<T> {
         // Check if we are emitting too much alpha_in
         if alpha_in_emission >= float_alpha_block_emission {
             log::debug!(
-                "{:?} - alpha_in_emission: {:?} > alpha_block_emission: {:?}",
-                netuid,
-                alpha_in_emission,
-                float_alpha_block_emission
+                "{netuid:?} - alpha_in_emission: {alpha_in_emission:?} > alpha_block_emission: {float_alpha_block_emission:?}"
             );
 
             // Scale down tao_in
@@ -74,13 +73,9 @@ impl<T: Config> Pallet<T> {
         let alpha_out_emission = float_alpha_block_emission;
 
         // Log results.
-        log::debug!("{:?} - tao_in_emission: {:?}", netuid, tao_in_emission);
-        log::debug!("{:?} - alpha_in_emission: {:?}", netuid, alpha_in_emission);
-        log::debug!(
-            "{:?} - alpha_out_emission: {:?}",
-            netuid,
-            alpha_out_emission
-        );
+        log::debug!("{netuid:?} - tao_in_emission: {tao_in_emission:?}");
+        log::debug!("{netuid:?} - alpha_in_emission: {alpha_in_emission:?}");
+        log::debug!("{netuid:?} - alpha_out_emission: {alpha_out_emission:?}");
 
         // Return result.
         (
@@ -101,9 +96,9 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * 'Result<u64, &'static str>': The calculated block emission rate or error.
     ///
-    pub fn get_block_emission() -> Result<u64, &'static str> {
+    pub fn get_block_emission() -> Result<TaoCurrency, &'static str> {
         // Convert the total issuance to a fixed-point number for calculation.
-        Self::get_block_emission_for_issuance(Self::get_total_issuance())
+        Self::get_block_emission_for_issuance(Self::get_total_issuance().into()).map(Into::into)
     }
 
     /// Returns the block emission for an issuance value.

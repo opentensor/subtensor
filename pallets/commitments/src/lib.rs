@@ -11,7 +11,6 @@ pub mod types;
 pub mod weights;
 
 pub use pallet::*;
-use subtensor_macros::freeze_struct;
 pub use types::*;
 pub use weights::WeightInfo;
 
@@ -21,6 +20,7 @@ use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
+use subtensor_runtime_common::NetUid;
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,
@@ -78,7 +78,7 @@ pub mod pallet {
     /// Used to retrieve the given subnet's tempo
     pub trait GetTempoInterface {
         /// Used to retreive the epoch index for the given subnet.
-        fn get_epoch_index(netuid: u16, cur_block: u64) -> u64;
+        fn get_epoch_index(netuid: NetUid, cur_block: u64) -> u64;
     }
 
     #[pallet::event]
@@ -87,14 +87,14 @@ pub mod pallet {
         /// A commitment was set
         Commitment {
             /// The netuid of the commitment
-            netuid: u16,
+            netuid: NetUid,
             /// The account
             who: T::AccountId,
         },
         /// A timelock-encrypted commitment was set
         TimelockCommitment {
             /// The netuid of the commitment
-            netuid: u16,
+            netuid: NetUid,
             /// The account
             who: T::AccountId,
             /// The drand round to reveal
@@ -103,7 +103,7 @@ pub mod pallet {
         /// A timelock-encrypted commitment was auto-revealed
         CommitmentRevealed {
             /// The netuid of the commitment
-            netuid: u16,
+            netuid: NetUid,
             /// The account
             who: T::AccountId,
         },
@@ -125,7 +125,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn timelocked_index)]
     pub type TimelockedIndex<T: Config> =
-        StorageValue<_, BTreeSet<(u16, T::AccountId)>, ValueQuery>;
+        StorageValue<_, BTreeSet<(NetUid, T::AccountId)>, ValueQuery>;
 
     /// Identity data by account
     #[pallet::storage]
@@ -133,7 +133,7 @@ pub mod pallet {
     pub(super) type CommitmentOf<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Twox64Concat,
         T::AccountId,
         Registration<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
@@ -145,7 +145,7 @@ pub mod pallet {
     pub(super) type LastCommitment<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Twox64Concat,
         T::AccountId,
         BlockNumberFor<T>,
@@ -157,7 +157,7 @@ pub mod pallet {
     pub(super) type LastBondsReset<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Twox64Concat,
         T::AccountId,
         BlockNumberFor<T>,
@@ -169,7 +169,7 @@ pub mod pallet {
     pub(super) type RevealedCommitments<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Twox64Concat,
         T::AccountId,
         Vec<(Vec<u8>, u64)>, // Reveals<(Data, RevealBlock)>
@@ -180,8 +180,15 @@ pub mod pallet {
     /// in the RateLimit window
     #[pallet::storage]
     #[pallet::getter(fn used_space_of)]
-    pub type UsedSpaceOf<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Twox64Concat, T::AccountId, UsageTracker, OptionQuery>;
+    pub type UsedSpaceOf<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Twox64Concat,
+        T::AccountId,
+        UsageTracker,
+        OptionQuery,
+    >;
 
     #[pallet::type_value]
     /// The default Maximum Space
@@ -198,15 +205,15 @@ pub mod pallet {
         /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
-            Weight::from_parts(38_000_000, 0)
+            Weight::from_parts(33_480_000, 0)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::No
         ))]
         pub fn set_commitment(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             info: Box<CommitmentInfo<T::MaxFields>>,
         ) -> DispatchResult {
             let who = ensure_signed(origin.clone())?;
@@ -336,7 +343,7 @@ pub mod pallet {
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
         #[pallet::weight((
-            Weight::from_parts(3_556_000, 0)
+            Weight::from_parts(2_856_000, 0)
 			.saturating_add(T::DbWeight::get().reads(0_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
@@ -353,11 +360,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             if let Err(e) = Self::reveal_timelocked_commitments() {
-                log::debug!(
-                    "Failed to unveil matured commitments on block {:?}: {:?}",
-                    n,
-                    e
-                );
+                log::debug!("Failed to unveil matured commitments on block {n:?}: {e:?}");
             }
             Weight::from_parts(0, 0)
         }
@@ -366,21 +369,21 @@ pub mod pallet {
 
 // Interfaces to interact with other pallets
 pub trait CanCommit<AccountId> {
-    fn can_commit(netuid: u16, who: &AccountId) -> bool;
+    fn can_commit(netuid: NetUid, who: &AccountId) -> bool;
 }
 
 impl<A> CanCommit<A> for () {
-    fn can_commit(_: u16, _: &A) -> bool {
+    fn can_commit(_: NetUid, _: &A) -> bool {
         false
     }
 }
 
 pub trait OnMetadataCommitment<AccountId> {
-    fn on_metadata_commitment(netuid: u16, account: &AccountId);
+    fn on_metadata_commitment(netuid: NetUid, account: &AccountId);
 }
 
 impl<A> OnMetadataCommitment<A> for () {
-    fn on_metadata_commitment(_: u16, _: &A) {}
+    fn on_metadata_commitment(_: NetUid, _: &A) {}
 }
 
 /************************************************************
@@ -393,114 +396,7 @@ pub enum CallType {
     Other,
 }
 
-use {
-    frame_support::{
-        dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
-        pallet_prelude::{Decode, Encode, PhantomData, TypeInfo},
-        traits::IsSubType,
-    },
-    sp_runtime::{
-        traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
-        transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
-    },
-};
-
-#[freeze_struct("6a00398e14a8a984")]
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-pub struct CommitmentsSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
-
-impl<T: Config + Send + Sync + TypeInfo> Default for CommitmentsSignedExtension<T>
-where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo> CommitmentsSignedExtension<T>
-where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-    pub fn new() -> Self {
-        Self(Default::default())
-    }
-
-    pub fn get_priority_vanilla() -> u64 {
-        // Return high priority so that every extrinsic except set_weights function will
-        // have a higher priority than the set_weights call
-        u64::MAX
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for CommitmentsSignedExtension<T> {
-    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-        write!(f, "SignedExtension")
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo> SignedExtension for CommitmentsSignedExtension<T>
-where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-    const IDENTIFIER: &'static str = "CommitmentsSignedExtension";
-
-    type AccountId = T::AccountId;
-    type Call = T::RuntimeCall;
-    type AdditionalSigned = ();
-    type Pre = (CallType, u64, Self::AccountId);
-
-    fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-        Ok(())
-    }
-
-    fn validate(
-        &self,
-        _: &Self::AccountId,
-        call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
-        _len: usize,
-    ) -> TransactionValidity {
-        call.is_sub_type();
-        Ok(ValidTransaction {
-            priority: Self::get_priority_vanilla(),
-            ..Default::default()
-        })
-    }
-
-    // NOTE: Add later when we put in a pre and post dispatch step.
-    fn pre_dispatch(
-        self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
-        _len: usize,
-    ) -> Result<Self::Pre, TransactionValidityError> {
-        match call.is_sub_type() {
-            Some(Call::set_commitment { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetCommitment, transaction_fee, who.clone()))
-            }
-            _ => {
-                let transaction_fee = 0;
-                Ok((CallType::Other, transaction_fee, who.clone()))
-            }
-        }
-    }
-
-    fn post_dispatch(
-        _maybe_pre: Option<Self::Pre>,
-        _info: &DispatchInfoOf<Self::Call>,
-        _post_info: &PostDispatchInfoOf<Self::Call>,
-        _len: usize,
-        _result: &DispatchResult,
-    ) -> Result<(), TransactionValidityError> {
-        Ok(())
-    }
-}
+use frame_support::{dispatch::DispatchResult, pallet_prelude::TypeInfo};
 
 impl<T: Config> Pallet<T> {
     pub fn reveal_timelocked_commitments() -> DispatchResult {
@@ -545,9 +441,7 @@ impl<T: Config> Pallet<T> {
                             )
                             .map_err(|e| {
                                 log::warn!(
-                                    "Failed to deserialize drand signature for {:?}: {:?}",
-                                    who,
-                                    e
+                                    "Failed to deserialize drand signature for {who:?}: {e:?}"
                                 )
                             })
                             .ok();
@@ -560,11 +454,7 @@ impl<T: Config> Pallet<T> {
                         let reader = &mut &encrypted[..];
                         let commit = TLECiphertext::<TinyBLS381>::deserialize_compressed(reader)
                             .map_err(|e| {
-                                log::warn!(
-                                    "Failed to deserialize TLECiphertext for {:?}: {:?}",
-                                    who,
-                                    e
-                                )
+                                log::warn!("Failed to deserialize TLECiphertext for {who:?}: {e:?}")
                             })
                             .ok();
 
@@ -576,13 +466,13 @@ impl<T: Config> Pallet<T> {
                         let decrypted_bytes: Vec<u8> =
                             tld::<TinyBLS381, AESGCMStreamCipherProvider>(commit, sig)
                                 .map_err(|e| {
-                                    log::warn!("Failed to decrypt timelock for {:?}: {:?}", who, e)
+                                    log::warn!("Failed to decrypt timelock for {who:?}: {e:?}")
                                 })
                                 .ok()
                                 .unwrap_or_default();
 
                         if decrypted_bytes.is_empty() {
-                            log::warn!("Bytes were decrypted for {:?} but they are empty", who);
+                            log::warn!("Bytes were decrypted for {who:?} but they are empty");
                             continue;
                         }
 

@@ -1,7 +1,7 @@
 [package]
 name = "subtensor-custom-rpc-runtime-api"
 version = "0.0.2"
-edition = "2024"
+edition.workspace = true
 authors = ['Cameron Fairchild <https://github.com/camfairchild>']
 repository = 'https://github.com/opentensor/subtensor'
 description = "A pallet that adds a custom runtime API to Subtensor"
@@ -12,22 +12,20 @@ publish = false
 workspace = true
 
 [dependencies]
-sp-api = { workspace = true }
-sp-runtime = { workspace = true }
-frame-support = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-codec = { workspace = true }
+sp-api.workspace = true
+sp-runtime.workspace = true
+codec = { workspace = true, features = ["derive"] }
+subtensor-runtime-common.workspace = true
 # local
-pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-features = false }
+pallet-subtensor.workspace = true
 
 [features]
 default = ["std"]
 std = [
+	"codec/std",
+	"pallet-subtensor/std",
 	"sp-api/std",
 	"sp-runtime/std",
-	"frame-support/std",
-	"pallet-subtensor/std",
-	"serde/std",
-	"codec/std"
+	"subtensor-runtime-common/std",
 ]
 pow-faucet = []

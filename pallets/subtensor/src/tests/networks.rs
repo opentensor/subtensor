@@ -3,12 +3,13 @@ use crate::*;
 use frame_support::assert_ok;
 use frame_system::Config;
 use sp_core::U256;
+use subtensor_runtime_common::TaoCurrency;
 
 #[test]
 fn test_registration_ok() {
     new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
-        let netuid: u16 = 2;
+        let netuid = NetUid::from(2);
         let tempo: u16 = 13;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -45,7 +46,7 @@ fn test_registration_ok() {
 // fn test_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
 //         let block_number: u64 = 0;
-//         let netuid: u16 = 2;
+//         let netuid = NetUid::from(2);
 //         let tempo: u16 = 13;
 //         let hotkey_account_id: U256 = U256::from(1);
 //         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -97,7 +98,7 @@ fn test_registration_ok() {
 // fn test_non_owner_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
 //         let block_number: u64 = 0;
-//         let netuid: u16 = 2;
+//         let netuid = NetUid::from(2);
 //         let tempo: u16 = 13;
 //         let hotkey_account_id: U256 = U256::from(1);
 //         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -151,7 +152,7 @@ fn test_registration_ok() {
 // fn test_new_owner_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
 //         let block_number: u64 = 0;
-//         let netuid: u16 = 2;
+//         let netuid = NetUid::from(2);
 //         let tempo: u16 = 13;
 //         let hotkey_account_id: U256 = U256::from(1);
 //         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -209,7 +210,7 @@ fn test_registration_ok() {
 // fn test_schedule_dissolve_network_execution_with_coldkey_swap() {
 //     new_test_ext(1).execute_with(|| {
 //         let block_number: u64 = 0;
-//         let netuid: u16 = 2;
+//         let netuid = NetUid::from(2);
 //         let tempo: u16 = 13;
 //         let hotkey_account_id: U256 = U256::from(1);
 //         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -285,21 +286,24 @@ fn test_registration_ok() {
 #[test]
 fn test_register_subnet_low_lock_cost() {
     new_test_ext(1).execute_with(|| {
-        NetworkMinLockCost::<Test>::set(1_000);
-        NetworkLastLockCost::<Test>::set(1_000);
+        NetworkMinLockCost::<Test>::set(TaoCurrency::from(1_000));
+        NetworkLastLockCost::<Test>::set(TaoCurrency::from(1_000));
 
         // Make sure lock cost is lower than 100 TAO
         let lock_cost = SubtensorModule::get_network_lock_cost();
-        assert!(lock_cost < 100_000_000_000);
+        assert!(lock_cost < 100_000_000_000.into());
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Ensure that both Subnet TAO and Subnet Alpha In equal to (actual) lock_cost
-        assert_eq!(SubnetTAO::<Test>::get(netuid), lock_cost,);
-        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), lock_cost,);
+        assert_eq!(SubnetTAO::<Test>::get(netuid), lock_cost);
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid),
+            lock_cost.to_u64().into()
+        );
     })
 }
 
@@ -307,22 +311,25 @@ fn test_register_subnet_low_lock_cost() {
 #[test]
 fn test_register_subnet_high_lock_cost() {
     new_test_ext(1).execute_with(|| {
-        let lock_cost: u64 = 1_000_000_000_000;
+        let lock_cost = TaoCurrency::from(1_000_000_000_000);
         NetworkMinLockCost::<Test>::set(lock_cost);
         NetworkLastLockCost::<Test>::set(lock_cost);
 
         // Make sure lock cost is higher than 100 TAO
         let lock_cost = SubtensorModule::get_network_lock_cost();
-        assert!(lock_cost >= 1_000_000_000_000);
+        assert!(lock_cost >= 1_000_000_000_000.into());
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Ensure that both Subnet TAO and Subnet Alpha In equal to 100 TAO
         assert_eq!(SubnetTAO::<Test>::get(netuid), lock_cost);
-        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), lock_cost);
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid),
+            lock_cost.to_u64().into()
+        );
     })
 }
 

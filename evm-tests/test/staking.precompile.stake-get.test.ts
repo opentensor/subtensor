@@ -57,4 +57,19 @@ describe("Test staking precompile get methods", () => {
         assert.ok(alpha > 0)
 
     })
+
+    it("Get nominator min required stake", async () => {
+        const contract = new ethers.Contract(
+            ISTAKING_V2_ADDRESS,
+            IStakingV2ABI,
+            wallet1
+        );
+
+        const stake = await contract.getNominatorMinRequiredStake()
+        const stakeOnChain = await api.query.SubtensorModule.NominatorMinRequiredStake.getValue()
+
+        assert.ok(stake !== undefined)
+        assert.equal(stake.toString(), stakeOnChain.toString())
+
+    })
 })

@@ -1,12 +1,12 @@
 use super::*;
 use frame_support::{
-    pallet_prelude::*,
     storage_alias,
     traits::{Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
 use log::info;
 use sp_std::vec::Vec;
+use subtensor_runtime_common::NetUid;
 
 /// Constant for logging purposes
 const LOG_TARGET: &str = "migrate_delete_subnet_3";
@@ -50,14 +50,13 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     let onchain_version = Pallet::<T>::on_chain_storage_version();
 
     // Only proceed if current version is less than the new version and subnet 3 exists
-    if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3) {
+    if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3.into()) {
         info!(
             target: LOG_TARGET,
-            "Removing subnet 3. Current version: {:?}",
-            onchain_version
+            "Removing subnet 3. Current version: {onchain_version:?}"
         );
 
-        let netuid = 3;
+        let netuid = NetUid::from(3);
 
         // Remove network count
         SubnetworkN::<T>::remove(netuid);

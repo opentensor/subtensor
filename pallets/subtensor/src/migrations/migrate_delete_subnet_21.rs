@@ -1,12 +1,12 @@
 use super::*;
 use frame_support::{
-    pallet_prelude::*,
     storage_alias,
     traits::{Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
 use log::info;
 use sp_std::vec::Vec;
+use subtensor_runtime_common::NetUid;
 
 /// Constant for logging purposes
 const LOG_TARGET: &str = "migrate_delete_subnet_21";
@@ -50,10 +50,10 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
     let onchain_version = Pallet::<T>::on_chain_storage_version();
 
     // Only runs if we haven't already updated version past above new_storage_version and subnet 21 exists.
-    if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(21) {
-        info!(target: LOG_TARGET, ">>> Removing subnet 21 {:?}", onchain_version);
+    if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(NetUid::from(21)) {
+        info!(target: LOG_TARGET, ">>> Removing subnet 21 {onchain_version:?}");
 
-        let netuid = 21;
+        let netuid = NetUid::from(21);
 
         // We do this all manually as we don't want to call code related to giving subnet owner back their locked token cost.
         // Remove network count

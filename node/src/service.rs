@@ -1,47 +1,60 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use fp_consensus::{FindLogError, ensure_log};
-use fp_rpc::EthereumRuntimeRPCApi;
+use crate::consensus::ConsensusMechanism;
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
+use sc_chain_spec::ChainType;
 use sc_client_api::{Backend as BackendT, BlockBackend};
-use sc_consensus::{
-    BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult,
-};
+use sc_consensus::{BasicQueue, BoxBlockImport};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
+use sc_consensus_slots::SlotProportion;
+use sc_network::config::SyncMode;
 use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
-use sc_transaction_pool::FullPool;
+use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
-use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_consensus::Error as ConsensusError;
-use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
+use sp_core::H256;
+use sp_runtime::traits::{Block as BlockT, NumberFor};
+use std::collections::HashSet;
+use std::str::FromStr;
+use std::sync::atomic::AtomicBool;
 use std::{cell::RefCell, path::Path};
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
 use crate::cli::Sealing;
 use crate::client::{FullBackend, FullClient, HostFunctions, RuntimeExecutor};
 use crate::ethereum::{
-    BackendType, EthConfiguration, FrontierBackend, FrontierBlockImport, FrontierPartialComponents,
-    StorageOverride, StorageOverrideHandler, db_config_dir, new_frontier_partial,
-    spawn_frontier_tasks,
+    BackendType, EthConfiguration, FrontierBackend, FrontierPartialComponents, StorageOverride,
+    StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
-type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
-type GrandpaBlockImport =
+pub type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+pub type GrandpaBlockImport =
     sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 type GrandpaLinkHalf = sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>;
+#[allow(clippy::upper_case_acronyms)]
+pub type BIQ<'a> = Box<
+    dyn FnOnce(
+            Arc<FullClient>,
+            Arc<FullBackend>,
+            &Configuration,
+            &EthConfiguration,
+            &TaskManager,
+            Option<TelemetryHandle>,
+            GrandpaBlockImport,
+            Arc<TransactionPoolHandle<Block, FullClient>>,
+        ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), sc_service::Error>
+        + 'a,
+>;
 
-pub fn new_partial<BIQ>(
+pub fn new_partial(
     config: &Configuration,
     eth_config: &EthConfiguration,
     build_import_queue: BIQ,
@@ -51,7 +64,7 @@ pub fn new_partial<BIQ>(
         FullBackend,
         FullSelectChain,
         BasicQueue<Block>,
-        FullPool<Block, FullClient>,
+        TransactionPoolHandle<Block, FullClient>,
         (
             Option<Telemetry>,
             BoxBlockImport<Block>,
@@ -61,17 +74,7 @@ pub fn new_partial<BIQ>(
         ),
     >,
     ServiceError,
->
-where
-    BIQ: FnOnce(
-        Arc<FullClient>,
-        &Configuration,
-        &EthConfiguration,
-        &TaskManager,
-        Option<TelemetryHandle>,
-        GrandpaBlockImport,
-    ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError>,
-{
+> {
     let telemetry = config
         .telemetry_endpoints
         .clone()
@@ -101,12 +104,38 @@ where
     });
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
+
+    let skip_block_justifications = if config.chain_spec.chain_type() == ChainType::Live {
+        // Mainnet patch
+        let hash_5614869 =
+            H256::from_str("0xb49f8cd2a49b51a493fc55a8c9524ba08c3aa6b702f20af02878c1ec68e3ff5f")
+                .expect("Invalid hash string.");
+        let hash_5614888 =
+            H256::from_str("0x04c71efb77060bfacfb49cd61826d594148ccda2ee23d66c7db819b16b55911c")
+                .expect("Invalid hash string.");
+
+        Some(HashSet::from([hash_5614869, hash_5614888]))
+    } else {
+        // Testnet patch
+        let hash_4589660 =
+            H256::from_str("0x819a5e54ffa2d267d469c6da44de5e8819b1aad1717a1389c959eab4349722ca")
+                .expect("Invalid hash string.");
+
+        Some(HashSet::from([hash_4589660]))
+    };
+
+    log::warn!(
+        "Grandpa block import patch enabled. Chain type = {:?}. Skip justifications for blocks = {skip_block_justifications:?}",
+        config.chain_spec.chain_type()
+    );
+
     let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
         client.clone(),
         GRANDPA_JUSTIFICATION_PERIOD,
         &client,
         select_chain.clone(),
         telemetry.as_ref().map(|x| x.handle()),
+        skip_block_justifications,
     )?;
 
     let storage_override = Arc::new(StorageOverrideHandler::<_, _, _>::new(client.clone()));
@@ -134,27 +163,32 @@ where
                 std::num::NonZeroU32::new(eth_config.frontier_sql_backend_num_ops_timeout),
                 storage_override.clone(),
             ))
-            .unwrap_or_else(|err| panic!("failed creating sql backend: {:?}", err));
+            .unwrap_or_else(|err| panic!("failed creating sql backend: {err:?}"));
             FrontierBackend::Sql(Arc::new(backend))
         }
     };
 
+    let transaction_pool = Arc::from(
+        sc_transaction_pool::Builder::new(
+            task_manager.spawn_essential_handle(),
+            client.clone(),
+            config.role.is_authority().into(),
+        )
+        .with_options(config.transaction_pool.clone())
+        .with_prometheus(config.prometheus_registry())
+        .build(),
+    );
+
     let (import_queue, block_import) = build_import_queue(
         client.clone(),
+        backend.clone(),
         config,
         eth_config,
         &task_manager,
         telemetry.as_ref().map(|x| x.handle()),
         grandpa_block_import,
+        transaction_pool.clone(),
     )?;
-
-    let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-        config.transaction_pool.clone(),
-        config.role.is_authority().into(),
-        config.prometheus_registry(),
-        task_manager.spawn_essential_handle(),
-        client.clone(),
-    );
 
     Ok(PartialComponents {
         client,
@@ -174,167 +208,24 @@ where
     })
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("Multiple runtime Ethereum blocks, rejecting!")]
-    MultipleRuntimeLogs,
-    #[error("Runtime Ethereum block not found, rejecting!")]
-    NoRuntimeLog,
-    #[error("Cannot access the runtime at genesis, rejecting!")]
-    RuntimeApiCallFailed,
-}
-
-impl From<Error> for String {
-    fn from(error: Error) -> String {
-        error.to_string()
-    }
-}
-
-impl From<FindLogError> for Error {
-    fn from(error: FindLogError) -> Error {
-        match error {
-            FindLogError::NotFound => Error::NoRuntimeLog,
-            FindLogError::MultipleLogs => Error::MultipleRuntimeLogs,
-        }
-    }
-}
-
-impl From<Error> for ConsensusError {
-    fn from(error: Error) -> ConsensusError {
-        ConsensusError::ClientImport(error.to_string())
-    }
-}
-
-pub struct ConditionalEVMBlockImport<B: BlockT, I, F, C> {
-    inner: I,
-    frontier_block_import: F,
-    client: Arc<C>,
-    _marker: PhantomData<B>,
-}
-
-impl<B, I, F, C> Clone for ConditionalEVMBlockImport<B, I, F, C>
-where
-    B: BlockT,
-    I: Clone + BlockImport<B>,
-    F: Clone + BlockImport<B>,
-{
-    fn clone(&self) -> Self {
-        ConditionalEVMBlockImport {
-            inner: self.inner.clone(),
-            frontier_block_import: self.frontier_block_import.clone(),
-            client: self.client.clone(),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<B, I, F, C> ConditionalEVMBlockImport<B, I, F, C>
-where
-    B: BlockT,
-    I: BlockImport<B>,
-    I::Error: Into<ConsensusError>,
-    F: BlockImport<B>,
-    F::Error: Into<ConsensusError>,
-    C: ProvideRuntimeApi<B>,
-    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
-{
-    pub fn new(inner: I, frontier_block_import: F, client: Arc<C>) -> Self {
-        Self {
-            inner,
-            frontier_block_import,
-            client,
-            _marker: PhantomData,
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl<B, I, F, C> BlockImport<B> for ConditionalEVMBlockImport<B, I, F, C>
-where
-    B: BlockT,
-    I: BlockImport<B> + Send + Sync,
-    I::Error: Into<ConsensusError>,
-    F: BlockImport<B> + Send + Sync,
-    F::Error: Into<ConsensusError>,
-    C: ProvideRuntimeApi<B> + Send + Sync,
-    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
-{
-    type Error = ConsensusError;
-
-    async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
-        self.inner.check_block(block).await.map_err(Into::into)
-    }
-
-    async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
-        // Import like Frontier, but fallback to grandpa import for errors
-        match ensure_log(block.header.digest()).map_err(Error::from) {
-            Ok(()) => self.inner.import_block(block).await.map_err(Into::into),
-            _ => self.inner.import_block(block).await.map_err(Into::into),
-        }
-    }
-}
-
-/// Build the import queue for the template runtime (aura + grandpa).
-pub fn build_aura_grandpa_import_queue(
-    client: Arc<FullClient>,
-    config: &Configuration,
-    _eth_config: &EthConfiguration,
-    task_manager: &TaskManager,
-    telemetry: Option<TelemetryHandle>,
-    grandpa_block_import: GrandpaBlockImport,
-) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError>
-where
-    NumberFor<Block>: BlockNumberOps,
-{
-    let conditional_block_import = ConditionalEVMBlockImport::new(
-        grandpa_block_import.clone(),
-        FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
-        client.clone(),
-    );
-
-    let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-    let create_inherent_data_providers = move |_, ()| async move {
-        let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-        let slot =
-            sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-                *timestamp,
-                slot_duration,
-            );
-        Ok((slot, timestamp))
-    };
-
-    let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(
-        sc_consensus_aura::ImportQueueParams {
-            block_import: conditional_block_import.clone(),
-            justification_import: Some(Box::new(grandpa_block_import.clone())),
-            client,
-            create_inherent_data_providers,
-            spawner: &task_manager.spawn_essential_handle(),
-            registry: config.prometheus_registry(),
-            check_for_equivocation: Default::default(),
-            telemetry,
-            compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
-        },
-    )
-    .map_err::<ServiceError, _>(Into::into)?;
-
-    Ok((import_queue, Box::new(conditional_block_import)))
-}
-
 /// Build the import queue for the template runtime (manual seal).
+#[allow(clippy::too_many_arguments)]
+#[cfg(feature = "runtime-benchmarks")]
 pub fn build_manual_seal_import_queue(
     client: Arc<FullClient>,
+    _backend: Arc<FullBackend>,
     config: &Configuration,
     _eth_config: &EthConfiguration,
     task_manager: &TaskManager,
     _telemetry: Option<TelemetryHandle>,
     grandpa_block_import: GrandpaBlockImport,
+    _transaction_pool_handle: Arc<TransactionPoolHandle<Block, FullClient>>,
 ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError> {
-    let conditional_block_import = ConditionalEVMBlockImport::new(
-        grandpa_block_import.clone(),
-        FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
-        client,
-    );
+    let conditional_block_import =
+        crate::conditional_evm_block_import::ConditionalEVMBlockImport::new(
+            grandpa_block_import.clone(),
+            fc_consensus::FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+        );
     Ok((
         sc_consensus_manual_seal::import_queue(
             Box::new(conditional_block_import.clone()),
@@ -346,20 +237,28 @@ pub fn build_manual_seal_import_queue(
 }
 
 /// Builds a new service for a full client.
-pub async fn new_full<NB>(
+pub async fn new_full<NB, CM>(
     mut config: Configuration,
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
+    custom_service_signal: Option<Arc<AtomicBool>>,
 ) -> Result<TaskManager, ServiceError>
 where
     NumberFor<Block>: BlockNumberOps,
     NB: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
+    CM: ConsensusMechanism,
 {
-    let build_import_queue = if sealing.is_some() {
-        build_manual_seal_import_queue
-    } else {
-        build_aura_grandpa_import_queue
-    };
+    // Substrate doesn't seem to support fast sync option in our configuration.
+    if matches!(config.network.sync_mode, SyncMode::LightState { .. }) {
+        log::error!(
+            "Supported sync modes: full, warp. Provided: {:?}",
+            config.network.sync_mode
+        );
+        return Err(ServiceError::Other("Unsupported sync mode".to_string()));
+    }
+
+    let mut consensus_mechanism = CM::new();
+    let build_import_queue = consensus_mechanism.build_biq()?;
 
     let PartialComponents {
         client,
@@ -371,6 +270,12 @@ where
         transaction_pool,
         other: (mut telemetry, block_import, grandpa_link, frontier_backend, storage_override),
     } = new_partial(&config, &eth_config, build_import_queue)?;
+
+    consensus_mechanism.spawn_essential_handles(
+        &mut task_manager,
+        client.clone(),
+        custom_service_signal,
+    )?;
 
     let FrontierPartialComponents {
         filter_pool,
@@ -401,17 +306,27 @@ where
     let warp_sync_config = if sealing.is_some() {
         None
     } else {
+        let set_id: u64 = if config.chain_spec.chain_type() == ChainType::Live {
+            3 // mainnet patch
+        } else {
+            2 // testnet patch
+        };
+        log::warn!(
+            "Grandpa warp sync patch enabled. Chain type = {:?}. Set ID = {set_id}",
+            config.chain_spec.chain_type()
+        );
         net_config.add_notification_protocol(grandpa_protocol_config);
         let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
             Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
                 backend.clone(),
                 grandpa_link.shared_authority_set().clone(),
-                Vec::new(),
+                sc_consensus_grandpa::warp_proof::HardForks::new_initial_set_id(set_id),
             ));
+
         Some(WarpSyncConfig::WithProvider(warp_sync))
     };
 
-    let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+    let (network, system_rpc_tx, tx_handler_controller, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
             net_config,
@@ -440,7 +355,7 @@ where
                     log::debug!("Offchain worker key generated");
                 }
                 Err(e) => {
-                    log::error!("Failed to create SR25519 key for offchain worker: {:?}", e);
+                    log::error!("Failed to create SR25519 key for offchain worker: {e:?}");
                 }
             }
         } else {
@@ -461,7 +376,7 @@ where
                 network_provider: Arc::new(network.clone()),
                 enable_http_requests: true,
                 custom_extensions: |_| vec![],
-            })
+            })?
             .run(client.clone(), task_manager.spawn_handle())
             .boxed(),
         );
@@ -517,26 +432,20 @@ where
             prometheus_registry.clone(),
         ));
 
-        let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-        let pending_create_inherent_data_providers = move |_, ()| async move {
-            let current = sp_timestamp::InherentDataProvider::from_system_time();
-            let next_slot = current
-                .timestamp()
-                .as_millis()
-                .saturating_add(slot_duration.as_millis());
-            let timestamp = sp_timestamp::InherentDataProvider::new(next_slot.into());
-            let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-				*timestamp,
-				slot_duration,
-			);
-            Ok((slot, timestamp))
-        };
+        let slot_duration = consensus_mechanism.slot_duration(&client)?;
+        let pending_create_inherent_data_providers =
+            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
+        let rpc_methods = consensus_mechanism.rpc_methods(
+            client.clone(),
+            keystore_container.keystore(),
+            select_chain.clone(),
+        )?;
         Box::new(move |subscription_task_executor| {
             let eth_deps = crate::rpc::EthDeps {
                 client: client.clone(),
                 pool: pool.clone(),
-                graph: pool.pool().clone(),
+                graph: pool.clone(),
                 converter: Some(TransactionConverter::<Block>::default()),
                 is_authority,
                 enable_dev_signer,
@@ -570,6 +479,8 @@ where
                 deps,
                 subscription_task_executor,
                 pubsub_notification_sinks.clone(),
+                CM::frontier_consensus_data_provider(client.clone())?,
+                rpc_methods.as_slice(),
             )
             .map_err(Into::into)
         })
@@ -611,7 +522,7 @@ where
                 sealing,
                 client,
                 transaction_pool,
-                select_chain,
+                select_chain.clone(),
                 block_import,
                 &task_manager,
                 prometheus_registry.as_ref(),
@@ -619,7 +530,6 @@ where
                 commands_stream,
             )?;
 
-            network_starter.start_network();
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
         }
@@ -632,18 +542,13 @@ where
             telemetry.as_ref().map(|x| x.handle()),
         );
 
-        let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-        let create_inherent_data_providers = move |_, ()| async move {
-            let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-            let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-				*timestamp,
-				slot_duration,
-			);
-            Ok((slot, timestamp))
-        };
+        let slot_duration = consensus_mechanism.slot_duration(&client)?;
+        let create_inherent_data_providers =
+            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
-        let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _>(
-            sc_consensus_aura::StartAuraParams {
+        consensus_mechanism.start_authoring(
+            &mut task_manager,
+            crate::consensus::StartAuthoringParams {
                 slot_duration,
                 client,
                 select_chain,
@@ -655,17 +560,11 @@ where
                 force_authoring,
                 backoff_authoring_blocks,
                 keystore: keystore_container.keystore(),
-                block_proposal_slot_portion: sc_consensus_aura::SlotProportion::new(2f32 / 3f32),
+                block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
                 max_block_proposal_slot_portion: None,
                 telemetry: telemetry.as_ref().map(|x| x.handle()),
-                compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
             },
         )?;
-        // the AURA authoring task is considered essential, i.e. if it
-        // fails we take down the service with it.
-        task_manager
-            .spawn_essential_handle()
-            .spawn_blocking("aura", Some("block-authoring"), aura);
     }
 
     if enable_grandpa {
@@ -716,26 +615,38 @@ where
             .spawn_blocking("grandpa-voter", None, grandpa_voter);
     }
 
-    network_starter.start_network();
     Ok(task_manager)
 }
 
-pub async fn build_full(
+pub async fn build_full<CM: ConsensusMechanism>(
     config: Configuration,
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
+    custom_service_signal: Option<Arc<AtomicBool>>,
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
         sc_network::config::NetworkBackendType::Libp2p => {
-            new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
+            new_full::<sc_network::NetworkWorker<_, _>, CM>(
+                config,
+                eth_config,
+                sealing,
+                custom_service_signal,
+            )
+            .await
         }
         sc_network::config::NetworkBackendType::Litep2p => {
-            new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
+            new_full::<sc_network::Litep2pNetworkBackend, CM>(
+                config,
+                eth_config,
+                sealing,
+                custom_service_signal,
+            )
+            .await
         }
     }
 }
 
-pub fn new_chain_ops(
+pub fn new_chain_ops<CM: ConsensusMechanism>(
     config: &mut Configuration,
     eth_config: &EthConfiguration,
 ) -> Result<
@@ -749,6 +660,7 @@ pub fn new_chain_ops(
     ServiceError,
 > {
     config.keystore = sc_service::config::KeystoreConfig::InMemory;
+    let mut consensus_mechanism = CM::new();
     let PartialComponents {
         client,
         backend,
@@ -756,7 +668,7 @@ pub fn new_chain_ops(
         task_manager,
         other,
         ..
-    } = new_partial(config, eth_config, build_aura_grandpa_import_queue)?;
+    } = new_partial(config, eth_config, consensus_mechanism.build_biq()?)?;
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 
@@ -764,7 +676,7 @@ pub fn new_chain_ops(
 fn run_manual_seal_authorship(
     sealing: Sealing,
     client: Arc<FullClient>,
-    transaction_pool: Arc<FullPool<Block, FullClient>>,
+    transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>,
     select_chain: FullSelectChain,
     block_import: BoxBlockImport<Block>,
     task_manager: &TaskManager,
@@ -785,7 +697,7 @@ fn run_manual_seal_authorship(
     thread_local!(static TIMESTAMP: RefCell<u64> = const { RefCell::new(0) });
 
     /// Provide a mock duration starting at 0 in millisecond for timestamp inherent.
-    /// Each call will increment timestamp by slot_duration making Aura think time has passed.
+    /// Each call will increment timestamp by slot_duration making the consensus logic think time has passed.
     struct MockTimestampInherentDataProvider;
 
     #[async_trait::async_trait]

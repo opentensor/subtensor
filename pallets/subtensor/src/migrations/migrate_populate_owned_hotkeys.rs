@@ -30,7 +30,7 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
 
     // Only runs if the migration is needed
     if migrate {
-        info!(target: LOG_TARGET_1, ">>> Starting Migration: {}", migration_name);
+        info!(target: LOG_TARGET_1, ">>> Starting Migration: {migration_name}");
 
         let mut longest_hotkey_vector: usize = 0;
         let mut longest_coldkey: Option<T::AccountId> = None;
@@ -67,16 +67,15 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
         // Log migration results
         info!(
             target: LOG_TARGET_1,
-            "Migration {} finished. Keys touched: {}, Longest hotkey vector: {}, Storage reads: {}, Storage writes: {}",
-            migration_name, keys_touched, longest_hotkey_vector, storage_reads, storage_writes
+            "Migration {migration_name} finished. Keys touched: {keys_touched}, Longest hotkey vector: {longest_hotkey_vector}, Storage reads: {storage_reads}, Storage writes: {storage_writes}"
         );
         if let Some(c) = longest_coldkey {
-            info!(target: LOG_TARGET_1, "Longest hotkey vector is controlled by: {:?}", c);
+            info!(target: LOG_TARGET_1, "Longest hotkey vector is controlled by: {c:?}");
         }
 
         weight
     } else {
-        info!(target: LOG_TARGET_1, "Migration {} already done!", migration_name);
+        info!(target: LOG_TARGET_1, "Migration {migration_name} already done!");
         Weight::zero()
     }
 }

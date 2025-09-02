@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 description = "Subtensor network"
 authors = ["Opentensor Foundation <https://github.com/opentensor/>"]
 homepage = "https://opentensor.ai/"
-edition = "2024"
+edition.workspace = true
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor/"
@@ -15,120 +15,143 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[[bin]]
-name = "spec_version"
-path = "src/spec_version.rs"
-
 [dependencies]
 subtensor-macros.workspace = true
-subtensor-custom-rpc-runtime-api = { workspace = true }
-smallvec = { workspace = true }
-log = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-] }
+subtensor-custom-rpc-runtime-api.workspace = true
+smallvec.workspace = true
+log.workspace = true
+codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-aura = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-subtensor = { workspace = true }
+pallet-subtensor-swap = { workspace = true }
+pallet-subtensor-swap-runtime-api = { workspace = true }
+substrate-fixed = { workspace = true }
+subtensor-swap-interface = { workspace = true }
+subtensor-transaction-fee = { workspace = true }
 frame-support = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
 frame-system = { workspace = true }
 frame-try-runtime = { workspace = true, optional = true }
-pallet-timestamp = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-utility = { workspace = true }
-frame-executive = { workspace = true }
-frame-metadata-hash-extension = { workspace = true }
-sp-api = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-core = { workspace = true }
-sp-storage = { workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-inherents = { workspace = true }
-sp-offchain = { workspace = true }
-sp-runtime = { workspace = true }
-sp-session = { workspace = true }
-sp-std = { workspace = true }
-sp-transaction-pool = { workspace = true }
-sp-version = { workspace = true }
-subtensor-runtime-common = { workspace = true }
-subtensor-precompiles = { workspace = true }
+pallet-timestamp.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-utility.workspace = true
+frame-executive.workspace = true
+frame-metadata-hash-extension.workspace = true
+sp-api.workspace = true
+sp-block-builder.workspace = true
+sp-consensus-aura.workspace = true
+sp-consensus-babe.workspace = true
+sp-core.workspace = true
+sp-storage.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-offchain.workspace = true
+sp-runtime.workspace = true
+sp-session.workspace = true
+sp-std.workspace = true
+sp-transaction-pool.workspace = true
+sp-version.workspace = true
+sp-authority-discovery.workspace = true
+subtensor-runtime-common.workspace = true
+subtensor-precompiles.workspace = true
 
 # Temporary sudo
-pallet-sudo = { workspace = true }
+pallet-sudo.workspace = true
 
-pallet-admin-utils = { workspace = true }
+pallet-admin-utils.workspace = true
 
 # Used for sudo decentralization
-pallet-collective = { workspace = true }
-pallet-membership = { workspace = true }
+pallet-collective.workspace = true
+pallet-membership.workspace = true
 
 # Multisig
-pallet-multisig = { workspace = true }
+pallet-multisig.workspace = true
 
 # Proxy Pallet
-pallet-proxy = { workspace = true }
+pallet-proxy.workspace = true
 
 # Scheduler pallet
-pallet-scheduler = { workspace = true }
-pallet-preimage = { workspace = true }
+pallet-scheduler.workspace = true
+pallet-preimage.workspace = true
 
 # Safe mode pallet
-
-pallet-safe-mode = { workspace = true }
+pallet-safe-mode.workspace = true
 
 # Used for the node subtensor's RPCs
-frame-system-rpc-runtime-api = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
+frame-system-rpc-runtime-api.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
 
 # Used for runtime benchmarking
 frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 
 # Identity registry pallet for registering project info
-pallet-registry = { workspace = true }
+pallet-registry.workspace = true
 
 # Metadata commitment pallet
-pallet-commitments = { workspace = true }
+pallet-commitments.workspace = true
+
+# for prod_or_fast! macro
+runtime-common.workspace = true
+# NPoS
+frame-election-provider-support = { workspace = true }
+pallet-authority-discovery = { workspace = true }
+pallet-babe = { workspace = true }
+pallet-bags-list = { workspace = true }
+pallet-staking = { workspace = true }
+pallet-staking-runtime-api = { workspace = true }
+pallet-session = { workspace = true }
+pallet-fast-unstake = { workspace = true }
+pallet-nomination-pools = { workspace = true }
+pallet-nomination-pools-runtime-api = { workspace = true }
+pallet-offences = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-election-provider-multi-phase = { workspace = true }
+pallet-staking-reward-fn = { workspace = true }
+pallet-staking-reward-curve = { workspace = true }
+sp-staking = { workspace = true }
+sp-npos-elections = { workspace = true }
+sp-consensus-slots = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
 
 # Frontier
-fp-evm = { workspace = true }
-fp-rpc = { workspace = true }
-fp-self-contained = { workspace = true }
-precompile-utils = { workspace = true }
+fp-evm.workspace = true
+fp-rpc.workspace = true
+fp-self-contained = { workspace = true, features = ["serde"] }
+precompile-utils.workspace = true
 
 # Frontier FRAME
-pallet-base-fee = { workspace = true }
-pallet-ethereum = { workspace = true }
-pallet-evm = { workspace = true }
-pallet-evm-chain-id = { workspace = true }
-pallet-evm-precompile-modexp = { workspace = true }
-pallet-evm-precompile-sha3fips = { workspace = true }
-pallet-evm-precompile-simple = { workspace = true }
-pallet-hotfix-sufficients = { workspace = true }
-fp-account = { workspace = true }
+pallet-base-fee.workspace = true
+pallet-ethereum.workspace = true
+pallet-evm.workspace = true
+pallet-evm-chain-id.workspace = true
+pallet-evm-precompile-modexp.workspace = true
+pallet-evm-precompile-sha3fips.workspace = true
+pallet-evm-precompile-simple.workspace = true
+pallet-hotfix-sufficients.workspace = true
+fp-account.workspace = true
 
 #drand
-pallet-drand = { workspace = true, default-features = false }
-getrandom = { workspace = true, default-features = false }
-tle = { workspace = true }
-hex = { workspace = true }
-rand_chacha = { workspace = true }
-w3f-bls = { workspace = true }
-sha2 = { workspace = true }
-ark-serialize = { workspace = true }
+pallet-drand.workspace = true
+getrandom.workspace = true
+tle.workspace = true
+hex.workspace = true
+rand_chacha.workspace = true
+w3f-bls.workspace = true
+sha2.workspace = true
+ark-serialize = { workspace = true, features = ["derive"] }
 
 # Crowdloan
-pallet-crowdloan = { workspace = true }
+pallet-crowdloan.workspace = true
 
 [dev-dependencies]
-frame-metadata = { workspace = true }
-sp-io = { workspace = true }
-sp-tracing = { workspace = true }
+frame-metadata.workspace = true
+sp-io.workspace = true
+sp-tracing.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
@@ -136,9 +159,9 @@ substrate-wasm-builder = { workspace = true, optional = true }
 [features]
 default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
-fast-blocks = [
-	"pallet-subtensor/fast-blocks",
-	"subtensor-runtime-common/fast-blocks",
+fast-runtime = [
+	"pallet-subtensor/fast-runtime",
+	"subtensor-runtime-common/fast-runtime",
 ]
 std = [
 	"frame-try-runtime?/std",
@@ -147,13 +170,13 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"frame-executive/std",
+	"frame-metadata/std",
 	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"pallet-subtensor/std",
-	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
 	"pallet-insecure-randomness-collective-flip/std",
@@ -171,7 +194,6 @@ std = [
 	"precompile-utils/std",
 	"sp-api/std",
 	"sp-block-builder/std",
-	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
@@ -186,6 +208,7 @@ std = [
 	"pallet-registry/std",
 	"pallet-admin-utils/std",
 	"subtensor-custom-rpc-runtime-api/std",
+	"subtensor-transaction-fee/std",
 	"serde_json/std",
 	"sp-io/std",
 	"sp-tracing/std",
@@ -195,6 +218,24 @@ std = [
 	"subtensor-precompiles/std",
 	"subtensor-runtime-common/std",
 	"pallet-crowdloan/std",
+	"pallet-babe/std",
+	"pallet-session/std",
+	"pallet-staking/std",
+	"pallet-election-provider-multi-phase/std",
+	"frame-election-provider-support/std",
+	"pallet-authority-discovery/std",
+	"pallet-authorship/std",
+	"pallet-bags-list/std",
+	"pallet-fast-unstake/std",
+	"pallet-nomination-pools-runtime-api/std",
+	"pallet-nomination-pools/std",
+	"pallet-offences/std",
+	"pallet-staking-reward-fn/std",
+	"pallet-staking-runtime-api/std",
+	"sp-authority-discovery/std",
+	"sp-consensus-babe/std",
+	"sp-npos-elections/std",
+	"sp-staking/std",
 	# Frontier
 	"fp-evm/std",
 	"fp-rpc/std",
@@ -217,6 +258,15 @@ std = [
 	"rand_chacha/std",
 	"sha2/std",
 	"w3f-bls/std",
+	"runtime-common/std",
+	"pallet-aura/std",
+	"sp-consensus-aura/std",
+	"sp-consensus-grandpa/std",
+	"sp-consensus-slots/std",
+	"substrate-fixed/std",
+	"pallet-subtensor-swap/std",
+	"pallet-subtensor-swap-runtime-api/std",
+	"subtensor-swap-interface/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -241,19 +291,33 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-offences/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 
 	# EVM + Frontier
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
 	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-subtensor-swap/runtime-benchmarks",
+
+	# Smart Tx fees pallet
+	"subtensor-transaction-fee/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"frame-executive/try-runtime",
 	"frame-system/try-runtime",
 	"frame-support/try-runtime",
-	"pallet-aura/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-grandpa/try-runtime",
@@ -275,6 +339,17 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-registry/try-runtime",
 	"pallet-crowdloan/try-runtime",
+	"pallet-babe/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"pallet-authority-discovery/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-fast-unstake/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-offences/try-runtime",
 
 	# EVM + Frontier
 	"fp-self-contained/try-runtime",
@@ -283,5 +358,7 @@ try-runtime = [
 	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-drand/try-runtime",
+	"runtime-common/try-runtime",
+	"pallet-aura/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

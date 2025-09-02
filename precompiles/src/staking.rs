@@ -37,7 +37,7 @@ use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
-use subtensor_runtime_common::ProxyType;
+use subtensor_runtime_common::{Currency, NetUid, ProxyType};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -89,13 +89,13 @@ where
         netuid: U256,
     ) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
-        let amount_staked = amount_rao.unique_saturated_into();
+        let amount_staked: u64 = amount_rao.unique_saturated_into();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
         let call = pallet_subtensor::Call::<R>::add_stake {
             hotkey,
-            netuid,
-            amount_staked,
+            netuid: netuid.into(),
+            amount_staked: amount_staked.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -111,14 +111,52 @@ where
         let account_id = handle.caller_account_id::<R>();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let amount_unstaked = amount_alpha.unique_saturated_into();
+        let amount_unstaked: u64 = amount_alpha.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::remove_stake {
             hotkey,
-            netuid,
-            amount_unstaked,
+            netuid: netuid.into(),
+            amount_unstaked: amount_unstaked.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    fn call_remove_stake_full_limit(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        netuid: U256,
+        limit_price: Option<u64>,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let hotkey = R::AccountId::from(hotkey.0);
+        let netuid = try_u16_from_u256(netuid)?;
+        let call = pallet_subtensor::Call::<R>::remove_stake_full_limit {
+            hotkey,
+            netuid: netuid.into(),
+            limit_price: limit_price.map(Into::into),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("removeStakeFull(bytes32,uint256)")]
+    fn remove_stake_full(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        netuid: U256,
+    ) -> EvmResult<()> {
+        Self::call_remove_stake_full_limit(handle, hotkey, netuid, None)
+    }
+
+    #[precompile::public("removeStakeFullLimit(bytes32,uint256,uint256)")]
+    fn remove_stake_full_limit(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        netuid: U256,
+        limit_price: U256,
+    ) -> EvmResult<()> {
+        let limit_price = try_u64_from_u256(limit_price)?;
+        Self::call_remove_stake_full_limit(handle, hotkey, netuid, Some(limit_price))
     }
 
     #[precompile::public("moveStake(bytes32,bytes32,uint256,uint256,uint256)")]
@@ -135,13 +173,13 @@ where
         let destination_hotkey = R::AccountId::from(destination_hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
-        let alpha_amount = amount_alpha.unique_saturated_into();
+        let alpha_amount: u64 = amount_alpha.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::move_stake {
             origin_hotkey,
             destination_hotkey,
-            origin_netuid,
-            destination_netuid,
-            alpha_amount,
+            origin_netuid: origin_netuid.into(),
+            destination_netuid: destination_netuid.into(),
+            alpha_amount: alpha_amount.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -161,13 +199,13 @@ where
         let hotkey = R::AccountId::from(hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
-        let alpha_amount = amount_alpha.unique_saturated_into();
+        let alpha_amount: u64 = amount_alpha.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::transfer_stake {
             destination_coldkey,
             hotkey,
-            origin_netuid,
-            destination_netuid,
-            alpha_amount,
+            origin_netuid: origin_netuid.into(),
+            destination_netuid: destination_netuid.into(),
+            alpha_amount: alpha_amount.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -182,7 +220,7 @@ where
         let coldkey = R::AccountId::from(coldkey.0);
         let stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
 
-        Ok(stake.into())
+        Ok(stake.to_u64().into())
     }
 
     #[precompile::public("getTotalHotkeyStake(bytes32)")]
@@ -194,7 +232,7 @@ where
         let hotkey = R::AccountId::from(hotkey.0);
         let stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey);
 
-        Ok(stake.into())
+        Ok(stake.to_u64().into())
     }
 
     #[precompile::public("getStake(bytes32,bytes32,uint256)")]
@@ -209,10 +247,12 @@ where
         let coldkey = R::AccountId::from(coldkey.0);
         let netuid = try_u16_from_u256(netuid)?;
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid,
+            &hotkey,
+            &coldkey,
+            netuid.into(),
         );
 
-        Ok(stake.into())
+        Ok(u64::from(stake).into())
     }
 
     #[precompile::public("getAlphaStakedValidators(bytes32,uint256)")]
@@ -224,7 +264,7 @@ where
     ) -> EvmResult<Vec<H256>> {
         let hotkey = R::AccountId::from(hotkey.0);
         let mut coldkeys: Vec<H256> = vec![];
-        let netuid = try_u16_from_u256(netuid)?;
+        let netuid = NetUid::from(try_u16_from_u256(netuid)?);
         for ((coldkey, netuid_in_alpha), _) in pallet_subtensor::Alpha::<R>::iter_prefix((hotkey,))
         {
             if netuid == netuid_in_alpha {
@@ -245,7 +285,16 @@ where
     ) -> EvmResult<U256> {
         let hotkey = R::AccountId::from(hotkey.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
+        let stake =
+            pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_on_subnet(&hotkey, netuid.into());
+
+        Ok(u64::from(stake).into())
+    }
+
+    #[precompile::public("getNominatorMinRequiredStake()")]
+    #[precompile::view]
+    fn get_nominator_min_required_stake(_handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+        let stake = pallet_subtensor::Pallet::<R>::get_nominator_min_required_stake();
 
         Ok(stake.into())
     }
@@ -288,15 +337,15 @@ where
         netuid: U256,
     ) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
-        let amount_staked = amount_rao.unique_saturated_into();
-        let limit_price = limit_price_rao.unique_saturated_into();
+        let amount_staked: u64 = amount_rao.unique_saturated_into();
+        let limit_price: u64 = limit_price_rao.unique_saturated_into();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
         let call = pallet_subtensor::Call::<R>::add_stake_limit {
             hotkey,
-            netuid,
-            amount_staked,
-            limit_price,
+            netuid: netuid.into(),
+            amount_staked: amount_staked.into(),
+            limit_price: limit_price.into(),
             allow_partial,
         };
 
@@ -315,13 +364,13 @@ where
         let account_id = handle.caller_account_id::<R>();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let amount_unstaked = amount_alpha.unique_saturated_into();
-        let limit_price = limit_price_rao.unique_saturated_into();
+        let amount_unstaked: u64 = amount_alpha.unique_saturated_into();
+        let limit_price: u64 = limit_price_rao.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::remove_stake_limit {
             hotkey,
-            netuid,
-            amount_unstaked,
-            limit_price,
+            netuid: netuid.into(),
+            amount_unstaked: amount_unstaked.into(),
+            limit_price: limit_price.into(),
             allow_partial,
         };
 
@@ -383,10 +432,11 @@ where
         let amount_sub = handle.try_convert_apparent_value::<R>()?;
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
+        let amount_staked: u64 = amount_sub.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::add_stake {
             hotkey,
-            netuid,
-            amount_staked: amount_sub.unique_saturated_into(),
+            netuid: netuid.into(),
+            amount_staked: amount_staked.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -409,8 +459,8 @@ where
                 .ok_or(ExitError::OutOfFund)?;
         let call = pallet_subtensor::Call::<R>::remove_stake {
             hotkey,
-            netuid,
-            amount_unstaked,
+            netuid: netuid.into(),
+            amount_unstaked: amount_unstaked.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -425,7 +475,8 @@ where
         let coldkey = R::AccountId::from(coldkey.0);
 
         // get total stake of coldkey
-        let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
+        let total_stake =
+            pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey).to_u64();
         // Convert to EVM decimals
         let stake_u256: SubstrateBalance = total_stake.into();
         let stake_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
@@ -444,7 +495,8 @@ where
         let hotkey = R::AccountId::from(hotkey.0);
 
         // get total stake of hotkey
-        let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey);
+        let total_stake =
+            pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey).to_u64();
         // Convert to EVM decimals
         let stake_u256: SubstrateBalance = total_stake.into();
         let stake_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
@@ -466,9 +518,11 @@ where
         let coldkey = R::AccountId::from(coldkey.0);
         let netuid = try_u16_from_u256(netuid)?;
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid,
+            &hotkey,
+            &coldkey,
+            netuid.into(),
         );
-        let stake: SubstrateBalance = stake.into();
+        let stake: SubstrateBalance = u64::from(stake).into();
         let stake = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake)
             .map(|amount| amount.into_u256())
             .ok_or(ExitError::InvalidRange)?;
@@ -529,10 +583,7 @@ where
         let transfer_result = transfer_call.dispatch(RawOrigin::Signed(Self::account_id()).into());
 
         if let Err(dispatch_error) = transfer_result {
-            log::error!(
-                "Transfer back to caller failed. Error: {:?}",
-                dispatch_error
-            );
+            log::error!("Transfer back to caller failed. Error: {dispatch_error:?}");
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Transfer back to caller failed".into()),
             });
@@ -545,5 +596,11 @@ where
 fn try_u16_from_u256(value: U256) -> Result<u16, PrecompileFailure> {
     value.try_into().map_err(|_| PrecompileFailure::Error {
         exit_status: ExitError::Other("the value is outside of u16 bounds".into()),
+    })
+}
+
+fn try_u64_from_u256(value: U256) -> Result<u64, PrecompileFailure> {
+    value.try_into().map_err(|_| PrecompileFailure::Error {
+        exit_status: ExitError::Other("the value is outside of u64 bounds".into()),
     })
 }

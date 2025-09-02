@@ -10,75 +10,62 @@ concurrency:
 
 on:
   pull_request:
-    branches:
-      - devnet
-      - devnet-ready
-      - testnet
-      - testnet-ready
-      - main
+    branches: ["*"]
     types: [opened, synchronize, reopened, labeled, unlabeled]
+
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
 
 env:
   CARGO_TERM_COLOR: always
   VERBOSE: ${{ github.event.inputs.verbose }}
 
 jobs:
-  apply-label-to-new-pr:
-    runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.draft == false }}
-    outputs:
-      should_continue: ${{ steps.check.outputs.should_continue }}
-    steps:
-      - name: Check
-        id: check
-        run: |
-          ACTION="${{ github.event.action }}"
-          if [[ "$ACTION" == "opened" || "$ACTION" == "reopened" ]]; then
-            echo "should_continue=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_continue=false" >> $GITHUB_OUTPUT
-          fi
-        shell: bash
-
-      - name: Add label
-        if: steps.check.outputs.should_continue == 'true'
-        uses: actions-ecosystem/action-add-labels@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          labels: run-bittensor-e2e-tests
-
   check-label:
-    needs: apply-label-to-new-pr
-    runs-on: ubuntu-latest
-    if: always()
+    runs-on: [self-hosted, type-ccx13]
     outputs:
-      run-bittensor-e2e-tests: ${{ steps.get-labels.outputs.run-bittensor-e2e-tests }}
+      skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests }}
     steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh jq
+
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Get labels from PR
         id: get-labels
         run: |
-          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          LABELS=$(gh pr -R ${{ github.repository }} view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           echo "Current labels: $LABELS"
-          if echo "$LABELS" | grep -q "run-bittensor-e2e-tests"; then
-            echo "run-bittensor-e2e-tests=true" >> $GITHUB_ENV
-            echo "::set-output name=run-bittensor-e2e-tests::true"
+          if echo "$LABELS" | grep -q "skip-bittensor-e2e-tests"; then
+            echo "skip-bittensor-e2e-tests=true" >> $GITHUB_OUTPUT
           else
-            echo "run-bittensor-e2e-tests=false" >> $GITHUB_ENV
-            echo "::set-output name=run-bittensor-e2e-tests::false"
+            echo "skip-bittensor-e2e-tests=false" >> $GITHUB_OUTPUT
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   find-btcli-e2e-tests:
     needs: check-label
-    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
-    runs-on: ubuntu-latest
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    runs-on: [self-hosted, type-ccx13]
     outputs:
       test-files: ${{ steps.get-btcli-tests.outputs.test-files }}
     steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" jq
+
       - name: Research preparation
         working-directory: ${{ github.workspace }}
         run: git clone https://github.com/opentensor/btcli.git
@@ -87,23 +74,25 @@ jobs:
         working-directory: ${{ github.workspace }}/btcli
         run: git checkout staging
 
-      - name: Install dependencies
-        run: sudo apt-get install -y jq
-
       - name: Find e2e test files
         id: get-btcli-tests
         run: |
           test_files=$(find ${{ github.workspace }}/btcli/tests/e2e_tests -name "test*.py" | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          echo "::set-output name=test-files::$test_files"
+          echo "test-files=$test_files" >> $GITHUB_OUTPUT
         shell: bash
 
   find-sdk-e2e-tests:
     needs: check-label
-    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
-    runs-on: ubuntu-latest
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    runs-on: [self-hosted, type-ccx13]
     outputs:
       test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
     steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" jq
+
       - name: Research preparation
         working-directory: ${{ github.workspace }}
         run: git clone https://github.com/opentensor/bittensor.git
@@ -112,22 +101,27 @@ jobs:
         working-directory: ${{ github.workspace }}/bittensor
         run: git checkout staging
 
-      - name: Install dependencies
-        run: sudo apt-get install -y jq
-
       - name: Find e2e test files
         id: get-sdk-tests
         run: |
           test_files=$(find ${{ github.workspace }}/bittensor/tests/e2e_tests -name "test*.py" | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          echo "::set-output name=test-files::$test_files"
+          echo "test-files=$test_files" >> $GITHUB_OUTPUT
         shell: bash
 
   build-image-with-current-branch:
     needs: check-label
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Patch non-fast-runtime node
+        run: |
+          chmod +x ./scripts/localnet_patch.sh
+          ./scripts/localnet_patch.sh
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -153,8 +147,8 @@ jobs:
       - check-label
       - find-btcli-e2e-tests
       - build-image-with-current-branch
-    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
-    runs-on: ubuntu-latest
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    runs-on: [self-hosted, type-ccx13]
     strategy:
       fail-fast: false
       max-parallel: 16
@@ -179,13 +173,18 @@ jobs:
     steps:
       - name: Check-out repository
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: 'false'
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
-        run: uv venv ${{ github.workspace }}/venv
+        run: uv venv --seed ${{ github.workspace }}/venv
 
       - name: Clone Bittensor CLI repo
         working-directory: ${{ github.workspace }}
@@ -201,10 +200,6 @@ jobs:
           uv run --active pip install '.[dev]'
           uv run --active pip install pytest
 
-      - name: Install uv dependencies
-        working-directory: ${{ github.workspace }}/btcli
-        run: uv sync --all-extras --dev
-
       - name: Download Cached Docker Image
         uses: actions/download-artifact@v4
         with:
@@ -212,6 +207,9 @@ jobs:
 
       - name: Load Docker Image
         run: docker load -i subtensor-localnet.tar
+
+      - name: Retag Docker Image
+        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
 #      - name: Run tests
 #        working-directory: ${{ github.workspace }}/btcli
@@ -223,6 +221,7 @@ jobs:
         working-directory: ${{ github.workspace }}/btcli
         run: |
           source ${{ github.workspace }}/venv/bin/activate
+          export SKIP_PULL=1
           set +e
           for i in 1 2; do
             echo "🔁 Attempt $i: Running tests"
@@ -248,8 +247,8 @@ jobs:
       - check-label
       - find-sdk-e2e-tests
       - build-image-with-current-branch
-    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
-    runs-on: ubuntu-latest
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    runs-on: [self-hosted, type-ccx13]
     strategy:
       fail-fast: false
       max-parallel: 16
@@ -274,13 +273,18 @@ jobs:
     steps:
       - name: Check-out repository
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: 'false'
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
-        run: uv venv ${{ github.workspace }}/venv
+        run: uv venv --seed ${{ github.workspace }}/venv
 
       - name: Clone Bittensor SDK repo
         working-directory: ${{ github.workspace }}
@@ -296,10 +300,6 @@ jobs:
           uv run --active pip install '.[dev]'
           uv run --active pip install pytest
 
-      - name: Install uv dependencies
-        working-directory: ${{ github.workspace }}/bittensor
-        run: uv sync --all-extras --dev
-
       - name: Download Cached Docker Image
         uses: actions/download-artifact@v4
         with:
@@ -307,6 +307,9 @@ jobs:
 
       - name: Load Docker Image
         run: docker load -i subtensor-localnet.tar
+
+      - name: Retag Docker Image
+        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
 #      - name: Run tests
 #        working-directory: ${{ github.workspace }}/bittensor
@@ -318,6 +321,7 @@ jobs:
         working-directory: ${{ github.workspace }}/bittensor
         run: |
           source ${{ github.workspace }}/venv/bin/activate
+          export SKIP_PULL=1
           set +e
           for i in 1 2; do
             echo "🔁 Attempt $i: Running tests"

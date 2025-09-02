@@ -20,10 +20,10 @@
 use derive_syn_parse::Parse;
 use macro_magic::mm_core::ForeignPath;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use std::collections::HashSet;
 use syn::{
-    parse2, parse_quote, spanned::Spanned, token, Ident, ImplItem, ItemImpl, Path, Result, Token,
+    Ident, ImplItem, ItemImpl, Path, Result, Token, parse_quote, parse2, spanned::Spanned, token,
 };
 
 mod keyword {

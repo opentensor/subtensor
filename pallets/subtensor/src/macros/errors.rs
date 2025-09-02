@@ -216,5 +216,39 @@ mod errors {
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
+        /// The caller does not have enough balance for the operation.
+        InsufficientBalance,
+        /// Too frequent staking operations
+        StakingOperationRateLimitExceeded,
+        /// Invalid lease beneficiary to register the leased network.
+        InvalidLeaseBeneficiary,
+        /// Lease cannot end in the past.
+        LeaseCannotEndInThePast,
+        /// Couldn't find the lease netuid.
+        LeaseNetuidNotFound,
+        /// Lease does not exist.
+        LeaseDoesNotExist,
+        /// Lease has no end block.
+        LeaseHasNoEndBlock,
+        /// Lease has not ended.
+        LeaseHasNotEnded,
+        /// An overflow occurred.
+        Overflow,
+        /// Beneficiary does not own hotkey.
+        BeneficiaryDoesNotOwnHotkey,
+        /// Expected beneficiary origin.
+        ExpectedBeneficiaryOrigin,
+        /// Symbol does not exist.
+        SymbolDoesNotExist,
+        /// Symbol already in use.
+        SymbolAlreadyInUse,
+        /// Incorrect commit-reveal version.
+        IncorrectCommitRevealVersion,
+        /// Reveal period is too large.
+        RevealPeriodTooLarge,
+        /// Reveal period is too small.
+        RevealPeriodTooSmall,
+        /// Generic error for out-of-range parameter value
+        InvalidValue,
     }
 }

@@ -40,7 +40,7 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name)
         );
         return weight;
     }
@@ -73,11 +73,11 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
             let decoded_hotkey: T::AccountId = match T::AccountId::decode(&mut hotkey.as_ref()) {
                 Ok(decoded) => decoded,
                 Err(e) => {
-                    log::warn!("Failed to decode hotkey: {:?}. Skipping this delegate.", e);
+                    log::warn!("Failed to decode hotkey: {e:?}. Skipping this delegate.");
                     continue;
                 }
             };
-            log::info!("Hotkey unwrapped: {:?}", decoded_hotkey);
+            log::info!("Hotkey unwrapped: {decoded_hotkey:?}");
 
             // If we should continue with real values.
             let mut name: BoundedVec<u8, ConstU32<1024>> = BoundedVec::default();
@@ -109,7 +109,7 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
             };
 
             // Log the identity details
-            log::info!("Setting identity for hotkey: {:?}", hotkey);
+            log::info!("Setting identity for hotkey: {hotkey:?}");
             log::info!("Name: {:?}", String::from_utf8_lossy(&identity.name));
             log::info!("URL: {:?}", String::from_utf8_lossy(&identity.url));
             log::info!("Image: {:?}", String::from_utf8_lossy(&identity.image));
@@ -146,7 +146,7 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
 
             // Get the owning coldkey.
             let coldkey = Owner::<T>::get(decoded_hotkey.clone());
-            log::info!("ColdKey: {:?}", decoded_hotkey);
+            log::info!("ColdKey: {decoded_hotkey:?}");
 
             weight = weight.saturating_add(T::DbWeight::get().reads(1));
 

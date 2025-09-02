@@ -45,7 +45,7 @@ where
         limit: u16,
     ) -> EvmResult<Vec<(u16, u64)>> {
         Ok(pallet_subtensor::Pallet::<R>::uid_lookup(
-            netuid,
+            netuid.into(),
             evm_address.0,
             limit,
         ))

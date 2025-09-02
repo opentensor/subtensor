@@ -1,3 +1,4 @@
+use cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions as ProofSize;
 use node_subtensor_runtime::{RuntimeApi, opaque::Block};
 use sc_executor::WasmExecutor;
 
@@ -14,5 +15,6 @@ pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
     sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+    ProofSize,
 );
 pub type RuntimeExecutor = WasmExecutor<HostFunctions>;

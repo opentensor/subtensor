@@ -9,7 +9,7 @@ on:
 
 jobs:
   assert-clean-merges:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -34,6 +34,14 @@ jobs:
           else
             echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
           fi
+          
+      - name: Add Fork Remote and Fetch PR Branch
+        if: github.event.pull_request.head.repo.fork == true
+        run: |
+          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+          PR_FORK="${{ github.event.pull_request.head.repo.clone_url }}"
+          git remote add fork $PR_FORK
+          git fetch --no-tags --prune fork $PR_BRANCH
 
       - name: Check Merge Cleanliness
         run: |
@@ -42,25 +50,33 @@ jobs:
           echo "Fetching all branches..."
           git fetch --all --prune
 
+          if [[ "${{github.event.pull_request.head.repo.fork}}" == "true" ]]; then
+            PR_BRANCH_REF="fork/$PR_BRANCH"
+            echo "Using fork reference: $PR_BRANCH_REF"
+          else
+            PR_BRANCH_REF="origin/$PR_BRANCH"
+            echo "Using origin reference: $PR_BRANCH_REF"
+          fi
+
           echo "Checking out PR branch: $PR_BRANCH"
-          git checkout $PR_BRANCH
-          git reset --hard origin/$PR_BRANCH
+          git checkout $PR_BRANCH_REF
+          git reset --hard $PR_BRANCH_REF
 
           # Configure a temporary Git identity to allow merging
           git config --local user.email "github-actions@github.com"
           git config --local user.name "GitHub Actions"
 
           for branch in $MERGE_BRANCHES; do
-            echo "Checking merge from $branch into $PR_BRANCH..."
+            echo "Checking merge from $branch into $PR_BRANCH_REF..."
             
             # Ensure PR branch is up to date
-            git reset --hard origin/$PR_BRANCH
+            git reset --hard $PR_BRANCH_REF
 
             # Merge without committing to check for conflicts
             if git merge --no-commit --no-ff origin/$branch; then
-              echo "✅ Merge from $branch into $PR_BRANCH is clean."
+              echo "✅ Merge from $branch into $PR_BRANCH_REF is clean."
             else
-              echo "❌ Merge conflict detected when merging $branch into $PR_BRANCH"
+              echo "❌ Merge conflict detected when merging $branch into $PR_BRANCH_REF"
               exit 1
             fi
             

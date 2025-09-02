@@ -1,6 +1,6 @@
 import * as assert from "assert";
 
-import { getDevnetApi, waitForTransactionCompletion, getRandomSubstrateSigner, waitForTransactionWithRetry} from "../src/substrate"
+import { getDevnetApi, waitForTransactionCompletion, getRandomSubstrateSigner, waitForTransactionWithRetry } from "../src/substrate"
 import { getPublicClient } from "../src/utils";
 import { ETH_LOCAL_URL, IBALANCETRANSFER_ADDRESS, IBalanceTransferABI } from "../src/config";
 import { devnet, MultiAddress } from "@polkadot-api/descriptors"

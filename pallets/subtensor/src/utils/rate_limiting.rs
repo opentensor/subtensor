@@ -1,3 +1,5 @@
+use subtensor_runtime_common::NetUid;
+
 use super::*;
 
 /// Enum representing different types of transactions
@@ -54,7 +56,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_rate_limit_on_subnet(tx_type: &TransactionType, netuid: u16) -> u64 {
+    pub fn get_rate_limit_on_subnet(tx_type: &TransactionType, netuid: NetUid) -> u64 {
         #[allow(clippy::match_single_binding)]
         match tx_type {
             TransactionType::SetWeightsVersionKey => (Tempo::<T>::get(netuid) as u64)
@@ -82,7 +84,7 @@ impl<T: Config> Pallet<T> {
     pub fn passes_rate_limit_on_subnet(
         tx_type: &TransactionType,
         hotkey: &T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
     ) -> bool {
         let block: u64 = Self::get_current_block_as_u64();
         let limit: u64 = Self::get_rate_limit_on_subnet(tx_type, netuid);
@@ -95,14 +97,14 @@ impl<T: Config> Pallet<T> {
     pub fn get_last_transaction_block(key: &T::AccountId, tx_type: &TransactionType) -> u64 {
         match tx_type {
             TransactionType::RegisterNetwork => Self::get_network_last_lock_block(),
-            _ => Self::get_last_transaction_block_on_subnet(key, 0, tx_type),
+            _ => Self::get_last_transaction_block_on_subnet(key, NetUid::ROOT, tx_type),
         }
     }
 
     /// Get the block number of the last transaction for a specific hotkey, network, and transaction type
     pub fn get_last_transaction_block_on_subnet(
         hotkey: &T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         tx_type: &TransactionType,
     ) -> u64 {
         match tx_type {
@@ -120,7 +122,7 @@ impl<T: Config> Pallet<T> {
     /// Set the block number of the last transaction for a specific hotkey, network, and transaction type
     pub fn set_last_transaction_block_on_subnet(
         key: &T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         tx_type: &TransactionType,
         block: u64,
     ) {

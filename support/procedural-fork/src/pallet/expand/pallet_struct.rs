@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pallet::{expand::merge_where_clauses, Def};
+use crate::pallet::{Def, expand::merge_where_clauses};
 use frame_support_procedural_tools::get_doc_literals;
 
 ///

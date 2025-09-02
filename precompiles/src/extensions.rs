@@ -56,7 +56,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         if let Some(gas) = target_gas {
             let valid_weight =
                 <R as pallet_evm::Config>::GasWeightMapping::gas_to_weight(gas, false).ref_time();
-            if info.weight.ref_time() > valid_weight {
+            if info.call_weight.ref_time() > valid_weight {
                 return Err(PrecompileFailure::Error {
                     exit_status: ExitError::OutOfGas,
                 });
@@ -64,39 +64,39 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         }
 
         self.record_external_cost(
-            Some(info.weight.ref_time()),
-            Some(info.weight.proof_size()),
+            Some(info.call_weight.ref_time()),
+            Some(info.call_weight.proof_size()),
             None,
         )?;
 
         match call.dispatch(R::RuntimeOrigin::from(origin)) {
             Ok(post_info) => {
                 if post_info.pays_fee(&info) == Pays::Yes {
-                    let actual_weight = post_info.actual_weight.unwrap_or(info.weight);
+                    let actual_weight = post_info.actual_weight.unwrap_or(info.call_weight);
                     let cost =
                         <R as pallet_evm::Config>::GasWeightMapping::weight_to_gas(actual_weight);
                     self.record_cost(cost)?;
 
                     self.refund_external_cost(
                         Some(
-                            info.weight
+                            info.call_weight
                                 .ref_time()
                                 .saturating_sub(actual_weight.ref_time()),
                         ),
                         Some(
-                            info.weight
+                            info.call_weight
                                 .proof_size()
                                 .saturating_sub(actual_weight.proof_size()),
                         ),
                     );
                 }
 
-                log::debug!("Dispatch succeeded. Post info: {:?}", post_info);
+                log::debug!("Dispatch succeeded. Post info: {post_info:?}");
 
                 Ok(())
             }
             Err(e) => {
-                log::error!("Dispatch failed. Error: {:?}", e);
+                log::error!("Dispatch failed. Error: {e:?}");
                 log::warn!("Returning error PrecompileFailure::Error");
                 Err(PrecompileFailure::Error {
                     exit_status: ExitError::Other(
@@ -141,7 +141,7 @@ pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
         } else {
             Some(Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other(
-                    format!("Precompile {:?} is disabled", precompile_enum).into(),
+                    format!("Precompile {precompile_enum:?} is disabled").into(),
                 ),
             }))
         }

@@ -10,107 +10,104 @@ mod events {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// a new network is added.
-        NetworkAdded(u16, u16),
+        NetworkAdded(NetUid, u16),
         /// a network is removed.
-        NetworkRemoved(u16),
+        NetworkRemoved(NetUid),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
-        StakeAdded(T::AccountId, T::AccountId, u64, u64, u16, u64),
+        StakeAdded(
+            T::AccountId,
+            T::AccountId,
+            TaoCurrency,
+            AlphaCurrency,
+            NetUid,
+            u64,
+        ),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
-        StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16, u64),
-        /// stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
-        AggregatedStakeAdded(T::AccountId, T::AccountId, u16, u64),
-        /// adding aggregated stake has failed
-        FailedToAddAggregatedStake(T::AccountId, T::AccountId, u16, u64),
-        /// limited stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
-        AggregatedLimitedStakeAdded(T::AccountId, T::AccountId, u16, u64, u64, bool),
-        /// adding limited aggregated stake has failed
-        FailedToAddAggregatedLimitedStake(T::AccountId, T::AccountId, u16, u64, u64, bool),
-        /// stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
-        AggregatedStakeRemoved(T::AccountId, T::AccountId, u16, u64),
-        /// removing aggregated stake has failed
-        FailedToRemoveAggregatedStake(T::AccountId, T::AccountId, u16, u64),
-        /// aggregated limited stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
-        AggregatedLimitedStakeRemoved(T::AccountId, T::AccountId, u16, u64, u64, bool),
-        /// removing limited aggregated stake has failed
-        FailedToRemoveAggregatedLimitedStake(T::AccountId, T::AccountId, u16, u64, u64, bool),
-        ///  aggregated unstake_all operation has succeeded
-        AggregatedUnstakeAllSucceeded(T::AccountId, T::AccountId),
-        /// aggregated unstake_all operation has failed
-        AggregatedUnstakeAllFailed(T::AccountId, T::AccountId),
-        ///  aggregated unstake_all_alpha operation has succeeded
-        AggregatedUnstakeAllAlphaSucceeded(T::AccountId, T::AccountId),
-        /// aggregated unstake_all_alpha operation has failed
-        AggregatedUnstakeAllAlphaFailed(T::AccountId, T::AccountId),
+        StakeRemoved(
+            T::AccountId,
+            T::AccountId,
+            TaoCurrency,
+            AlphaCurrency,
+            NetUid,
+            u64,
+        ),
         /// stake has been moved from origin (hotkey, subnet ID) to destination (hotkey, subnet ID) of this amount (in TAO).
-        StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16, u64),
+        StakeMoved(
+            T::AccountId,
+            T::AccountId,
+            NetUid,
+            T::AccountId,
+            NetUid,
+            TaoCurrency,
+        ),
         /// a caller successfully sets their weights on a subnetwork.
-        WeightsSet(u16, u16),
+        WeightsSet(NetUid, u16),
         /// a new neuron account has been registered to the chain.
-        NeuronRegistered(u16, u16, T::AccountId),
+        NeuronRegistered(NetUid, u16, T::AccountId),
         /// multiple uids have been concurrently registered.
         BulkNeuronsRegistered(u16, u16),
         /// FIXME: Not used yet
         BulkBalancesSet(u16, u16),
         /// max allowed uids has been set for a subnetwork.
-        MaxAllowedUidsSet(u16, u16),
+        MaxAllowedUidsSet(NetUid, u16),
         /// the max weight limit has been set for a subnetwork.
-        MaxWeightLimitSet(u16, u16),
+        MaxWeightLimitSet(NetUid, u16),
         /// the difficulty has been set for a subnet.
-        DifficultySet(u16, u64),
+        DifficultySet(NetUid, u64),
         /// the adjustment interval is set for a subnet.
-        AdjustmentIntervalSet(u16, u16),
+        AdjustmentIntervalSet(NetUid, u16),
         /// registration per interval is set for a subnet.
-        RegistrationPerIntervalSet(u16, u16),
+        RegistrationPerIntervalSet(NetUid, u16),
         /// we set max registrations per block.
-        MaxRegistrationsPerBlockSet(u16, u16),
+        MaxRegistrationsPerBlockSet(NetUid, u16),
         /// an activity cutoff is set for a subnet.
-        ActivityCutoffSet(u16, u16),
+        ActivityCutoffSet(NetUid, u16),
         /// Rho value is set.
-        RhoSet(u16, u16),
+        RhoSet(NetUid, u16),
         /// steepness of the sigmoid used to compute alpha values.
-        AlphaSigmoidSteepnessSet(u16, u16),
+        AlphaSigmoidSteepnessSet(NetUid, i16),
         /// Kappa is set for a subnet.
-        KappaSet(u16, u16),
+        KappaSet(NetUid, u16),
         /// minimum allowed weight is set for a subnet.
-        MinAllowedWeightSet(u16, u16),
+        MinAllowedWeightSet(NetUid, u16),
         /// the validator pruning length has been set.
-        ValidatorPruneLenSet(u16, u64),
+        ValidatorPruneLenSet(NetUid, u64),
         /// the scaling law power has been set for a subnet.
-        ScalingLawPowerSet(u16, u16),
+        ScalingLawPowerSet(NetUid, u16),
         /// weights set rate limit has been set for a subnet.
-        WeightsSetRateLimitSet(u16, u64),
+        WeightsSetRateLimitSet(NetUid, u64),
         /// immunity period is set for a subnet.
-        ImmunityPeriodSet(u16, u16),
+        ImmunityPeriodSet(NetUid, u16),
         /// bonds moving average is set for a subnet.
-        BondsMovingAverageSet(u16, u64),
+        BondsMovingAverageSet(NetUid, u64),
         /// bonds penalty is set for a subnet.
-        BondsPenaltySet(u16, u16),
+        BondsPenaltySet(NetUid, u16),
         /// bonds reset is set for a subnet.
-        BondsResetOnSet(u16, bool),
+        BondsResetOnSet(NetUid, bool),
         /// setting the max number of allowed validators on a subnet.
-        MaxAllowedValidatorsSet(u16, u16),
+        MaxAllowedValidatorsSet(NetUid, u16),
         /// the axon server information is added to the network.
-        AxonServed(u16, T::AccountId),
+        AxonServed(NetUid, T::AccountId),
         /// the prometheus server information is added to the network.
-        PrometheusServed(u16, T::AccountId),
+        PrometheusServed(NetUid, T::AccountId),
         /// a hotkey has become a delegate.
         DelegateAdded(T::AccountId, T::AccountId, u16),
         /// the default take is set.
         DefaultTakeSet(u16),
         /// weights version key is set for a network.
-        WeightsVersionKeySet(u16, u64),
+        WeightsVersionKeySet(NetUid, u64),
         /// setting min difficulty on a network.
-        MinDifficultySet(u16, u64),
+        MinDifficultySet(NetUid, u64),
         /// setting max difficulty on a network.
-        MaxDifficultySet(u16, u64),
+        MaxDifficultySet(NetUid, u64),
         /// setting the prometheus serving rate limit.
-        ServingRateLimitSet(u16, u64),
+        ServingRateLimitSet(NetUid, u64),
         /// setting burn on a network.
-        BurnSet(u16, u64),
+        BurnSet(NetUid, TaoCurrency),
         /// setting max burn on a network.
-        MaxBurnSet(u16, u64),
+        MaxBurnSet(NetUid, TaoCurrency),
         /// setting min burn on a network.
-        MinBurnSet(u16, u64),
+        MinBurnSet(NetUid, TaoCurrency),
         /// setting the transaction rate limit.
         TxRateLimitSet(u64),
         /// setting the delegate take transaction rate limit.
@@ -126,19 +123,19 @@ mod events {
         /// a sudo call is done.
         Sudid(DispatchResult),
         /// registration is allowed/disallowed for a subnet.
-        RegistrationAllowed(u16, bool),
+        RegistrationAllowed(NetUid, bool),
         /// POW registration is allowed/disallowed for a subnet.
-        PowRegistrationAllowed(u16, bool),
+        PowRegistrationAllowed(NetUid, bool),
         /// setting tempo on a network
-        TempoSet(u16, u16),
+        TempoSet(NetUid, u16),
         /// setting the RAO recycled for registration.
-        RAORecycledForRegistrationSet(u16, u64),
+        RAORecycledForRegistrationSet(NetUid, TaoCurrency),
         /// min stake is set for validators to set weights.
         StakeThresholdSet(u64),
         /// setting the minimum required stake amount for senate registration.
         SenateRequiredStakePercentSet(u64),
         /// setting the adjustment alpha on a subnet.
-        AdjustmentAlphaSet(u16, u64),
+        AdjustmentAlphaSet(NetUid, u64),
         /// the faucet it called on the test net.
         Faucet(T::AccountId, u64),
         /// the subnet owner cut is set.
@@ -148,7 +145,7 @@ mod events {
         /// the network immunity period is set.
         NetworkImmunityPeriodSet(u64),
         /// the network minimum locking cost is set.
-        NetworkMinLockCostSet(u64),
+        NetworkMinLockCostSet(TaoCurrency),
         /// the maximum number of subnets is set
         // SubnetLimitSet(u16),
         /// the lock cost reduction is set
@@ -184,7 +181,7 @@ mod events {
             /// the account ID of new coldkey
             new_coldkey: T::AccountId,
             /// the swap cost
-            swap_cost: u64,
+            swap_cost: TaoCurrency,
         },
         /// All balance of a hotkey has been unstaked and transferred to a new coldkey
         AllBalanceUnstakedAndTransferredToNewColdkey {
@@ -206,7 +203,7 @@ mod events {
             /// The arbitration block for the coldkey swap
             execution_block: BlockNumberFor<T>,
             /// The swap cost
-            swap_cost: u64,
+            swap_cost: TaoCurrency,
         },
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {
@@ -214,9 +211,9 @@ mod events {
             coldkey: T::AccountId,
         },
         /// Setting of children of a hotkey have been scheduled
-        SetChildrenScheduled(T::AccountId, u16, u64, Vec<(u64, T::AccountId)>),
+        SetChildrenScheduled(T::AccountId, NetUid, u64, Vec<(u64, T::AccountId)>),
         /// The children of a hotkey have been set
-        SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
+        SetChildren(T::AccountId, NetUid, Vec<(u64, T::AccountId)>),
         // /// The hotkey emission tempo has been set
         // HotkeyEmissionTempoSet(u64),
         // /// The network maximum stake has been set
@@ -224,15 +221,15 @@ mod events {
         /// The identity of a coldkey has been set
         ChainIdentitySet(T::AccountId),
         /// The identity of a subnet has been set
-        SubnetIdentitySet(u16),
+        SubnetIdentitySet(NetUid),
         /// The identity of a subnet has been removed
-        SubnetIdentityRemoved(u16),
+        SubnetIdentityRemoved(NetUid),
         /// A dissolve network extrinsic scheduled.
         DissolveNetworkScheduled {
             /// The account ID schedule the dissolve network extrisnic
             account: T::AccountId,
             /// network ID will be dissolved
-            netuid: u16,
+            netuid: NetUid,
             /// extrinsic execution block number
             execution_block: BlockNumberFor<T>,
         },
@@ -245,33 +242,33 @@ mod events {
         /// - **who**: The account ID of the user committing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash representing the committed weights.
-        CRV3WeightsCommitted(T::AccountId, u16, H256),
+        CRV3WeightsCommitted(T::AccountId, NetUid, H256),
         /// Weights have been successfully committed.
         ///
         /// - **who**: The account ID of the user committing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash representing the committed weights.
-        WeightsCommitted(T::AccountId, u16, H256),
+        WeightsCommitted(T::AccountId, NetUid, H256),
 
         /// Weights have been successfully revealed.
         ///
         /// - **who**: The account ID of the user revealing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash of the revealed weights.
-        WeightsRevealed(T::AccountId, u16, H256),
+        WeightsRevealed(T::AccountId, NetUid, H256),
 
         /// Weights have been successfully batch revealed.
         ///
         /// - **who**: The account ID of the user revealing the weights.
         /// - **netuid**: The network identifier.
         /// - **revealed_hashes**: A vector of hashes representing each revealed weight set.
-        WeightsBatchRevealed(T::AccountId, u16, Vec<H256>),
+        WeightsBatchRevealed(T::AccountId, NetUid, Vec<H256>),
 
         /// A batch of weights (or commits) have been force-set.
         ///
         /// - **netuids**: The netuids these weights were successfully set/committed for.
         /// - **who**: The hotkey that set this batch.
-        BatchWeightsCompleted(Vec<Compact<u16>>, T::AccountId),
+        BatchWeightsCompleted(Vec<Compact<NetUid>>, T::AccountId),
 
         /// A batch extrinsic completed but with some errors.
         BatchCompletedWithErrors(),
@@ -284,48 +281,55 @@ mod events {
         /// Stake has been transferred from one coldkey to another on the same subnet.
         /// Parameters:
         /// (origin_coldkey, destination_coldkey, hotkey, origin_netuid, destination_netuid, amount)
-        StakeTransferred(T::AccountId, T::AccountId, T::AccountId, u16, u16, u64),
+        StakeTransferred(
+            T::AccountId,
+            T::AccountId,
+            T::AccountId,
+            NetUid,
+            NetUid,
+            TaoCurrency,
+        ),
 
         /// Stake has been swapped from one subnet to another for the same coldkey-hotkey pair.
         ///
         /// Parameters:
         /// (coldkey, hotkey, origin_netuid, destination_netuid, amount)
-        StakeSwapped(T::AccountId, T::AccountId, u16, u16, u64),
+        StakeSwapped(T::AccountId, T::AccountId, NetUid, NetUid, TaoCurrency),
 
         /// Event called when transfer is toggled on a subnet.
         ///
         /// Parameters:
         /// (netuid, bool)
-        TransferToggle(u16, bool),
+        TransferToggle(NetUid, bool),
 
         /// The owner hotkey for a subnet has been set.
         ///
         /// Parameters:
         /// (netuid, new_hotkey)
-        SubnetOwnerHotkeySet(u16, T::AccountId),
+        SubnetOwnerHotkeySet(NetUid, T::AccountId),
         /// FirstEmissionBlockNumber is set via start call extrinsic
         ///
         /// Parameters:
         /// netuid
         /// block number
-        FirstEmissionBlockNumberSet(u16, u64),
+        FirstEmissionBlockNumberSet(NetUid, u64),
 
         /// Alpha has been recycled, reducing AlphaOut on a subnet.
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaRecycled(T::AccountId, T::AccountId, u64, u16),
+        AlphaRecycled(T::AccountId, T::AccountId, AlphaCurrency, NetUid),
 
         /// Alpha have been burned without reducing AlphaOut.
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaBurned(T::AccountId, T::AccountId, u64, u16),
+        AlphaBurned(T::AccountId, T::AccountId, AlphaCurrency, NetUid),
 
         /// An EVM key has been associated with a hotkey.
         EvmKeyAssociated {
             /// The subnet that the hotkey belongs to.
-            netuid: u16,
+            netuid: NetUid,
             /// The hotkey associated with the EVM key.
             hotkey: T::AccountId,
             /// The EVM key being associated with the hotkey.
@@ -338,19 +342,19 @@ mod events {
         ///
         /// - **netuid**: The network identifier.
         /// - **who**: The account ID of the user revealing the weights.
-        CRV3WeightsRevealed(u16, T::AccountId),
+        CRV3WeightsRevealed(NetUid, T::AccountId),
 
         /// Commit-Reveal periods has been successfully set.
         ///
         /// - **netuid**: The network identifier.
         /// - **periods**: The number of epochs before the reveal.
-        CommitRevealPeriodsSet(u16, u64),
+        CommitRevealPeriodsSet(NetUid, u64),
 
         /// Commit-Reveal has been successfully toggled.
         ///
         /// - **netuid**: The network identifier.
         /// - **Enabled**: Is Commit-Reveal enabled.
-        CommitRevealEnabled(u16, bool),
+        CommitRevealEnabled(NetUid, bool),
 
         /// the hotkey is swapped
         HotkeySwappedOnSubnet {
@@ -361,7 +365,53 @@ mod events {
             /// the account ID of new hotkey
             new_hotkey: T::AccountId,
             /// the subnet ID
-            netuid: u16,
+            netuid: NetUid,
         },
+        /// A subnet lease has been created.
+        SubnetLeaseCreated {
+            /// The beneficiary of the lease.
+            beneficiary: T::AccountId,
+            /// The lease ID
+            lease_id: LeaseId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// The end block of the lease
+            end_block: Option<BlockNumberFor<T>>,
+        },
+
+        /// A subnet lease has been terminated.
+        SubnetLeaseTerminated {
+            /// The beneficiary of the lease.
+            beneficiary: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+        },
+
+        /// The symbol for a subnet has been updated.
+        SymbolUpdated {
+            /// The subnet ID
+            netuid: NetUid,
+            /// The symbol that has been updated.
+            symbol: Vec<u8>,
+        },
+
+        /// Commit Reveal Weights version has been updated.
+        ///
+        /// - **version**: The required version.
+        CommitRevealVersionSet(u16),
+
+        /// Timelocked weights have been successfully committed.
+        ///
+        /// - **who**: The account ID of the user committing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **commit_hash**: The hash representing the committed weights.
+        /// - **reveal_round**: The round at which weights can be revealed.
+        TimelockedWeightsCommitted(T::AccountId, NetUid, H256, u64),
+
+        /// Timelocked Weights have been successfully revealed.
+        ///
+        /// - **netuid**: The network identifier.
+        /// - **who**: The account ID of the user revealing the weights.
+        TimelockedWeightsRevealed(NetUid, T::AccountId),
     }
 }

@@ -1,5 +1,6 @@
 use super::*;
 use crate::{Error, system::ensure_signed};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -17,8 +18,8 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn do_recycle_alpha(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        amount: u64,
-        netuid: u16,
+        amount: AlphaCurrency,
+        netuid: NetUid,
     ) -> DispatchResult {
         let coldkey: T::AccountId = ensure_signed(origin)?;
 
@@ -28,7 +29,7 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            netuid != Self::get_root_netuid(),
+            !netuid.is_root(),
             Error::<T>::CannotBurnOrRecycleOnRootSubnet
         );
 
@@ -41,10 +42,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the hotkey has enough stake to withdraw.
-        ensure!(
-            Self::has_enough_stake_on_subnet(&hotkey, &coldkey, netuid, amount),
-            Error::<T>::NotEnoughStakeToWithdraw
-        );
+        // Cap the amount at available Alpha because user might be paying transaxtion fees
+        // in Alpha and their total is already reduced by now.
+        let alpha_available =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let amount = amount.min(alpha_available);
 
         ensure!(
             SubnetAlphaOut::<T>::get(netuid) >= amount,
@@ -86,8 +88,8 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn do_burn_alpha(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        amount: u64,
-        netuid: u16,
+        amount: AlphaCurrency,
+        netuid: NetUid,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
 
@@ -97,7 +99,7 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            netuid != Self::get_root_netuid(),
+            !netuid.is_root(),
             Error::<T>::CannotBurnOrRecycleOnRootSubnet
         );
 
@@ -110,10 +112,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the hotkey has enough stake to withdraw.
-        ensure!(
-            Self::has_enough_stake_on_subnet(&hotkey, &coldkey, netuid, amount),
-            Error::<T>::NotEnoughStakeToWithdraw
-        );
+        // Cap the amount at available Alpha because user might be paying transaxtion fees
+        // in Alpha and their total is already reduced by now.
+        let alpha_available =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let amount = amount.min(alpha_available);
 
         ensure!(
             SubnetAlphaOut::<T>::get(netuid) >= amount,

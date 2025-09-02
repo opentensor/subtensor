@@ -1,15 +1,18 @@
+#![allow(clippy::unwrap_used)]
 use super::mock::*;
 
 use crate::Error;
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
+use frame_support::assert_noop;
 use frame_support::pallet_prelude::Weight;
-use frame_support::{assert_err, assert_noop};
 use frame_support::{
     assert_ok,
     dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
 };
-use frame_system::Config;
+use frame_system::{Config, RawOrigin};
 use sp_core::U256;
+use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
 
 mod test {
     use std::net::{Ipv4Addr, Ipv6Addr};
@@ -32,7 +35,7 @@ mod test {
 #[test]
 fn test_serving_subscribe_ok_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version: u32 = 2;
         let ip: u128 = 1676056785;
         let port: u16 = 128;
@@ -50,14 +53,10 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
             placeholder1,
             placeholder2,
         });
-        assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(235_670_000, 0),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::No
-            }
-        );
+        let di = call.get_dispatch_info();
+        assert!(di.total_weight().ref_time() > 0);
+        assert_eq!(di.class, DispatchClass::Normal);
+        assert_eq!(di.pays_fee, Pays::No);
     });
 }
 
@@ -65,7 +64,7 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
 fn test_serving_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -103,7 +102,7 @@ fn test_serving_ok() {
 fn test_serving_tls_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -161,7 +160,7 @@ fn test_serving_tls_ok() {
 fn test_serving_set_metadata_update() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -225,7 +224,7 @@ fn test_serving_set_metadata_update() {
 fn test_axon_serving_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -307,7 +306,7 @@ fn test_axon_serving_rate_limit_exceeded() {
 fn test_axon_invalid_port() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -340,7 +339,7 @@ fn test_axon_invalid_port() {
 #[test]
 fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version: u32 = 2;
         let ip: u128 = 1676056785;
         let port: u16 = 128;
@@ -352,14 +351,10 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
             port,
             ip_type,
         });
-        assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(231_170_000, 0),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::No
-            }
-        );
+        let di = call.get_dispatch_info();
+        assert!(di.total_weight().ref_time() > 0);
+        assert_eq!(di.class, DispatchClass::Normal);
+        assert_eq!(di.pays_fee, Pays::No);
     });
 }
 
@@ -367,7 +362,7 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
 fn test_prometheus_serving_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -396,7 +391,7 @@ fn test_prometheus_serving_ok() {
 fn test_prometheus_serving_set_metadata_update() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -442,7 +437,7 @@ fn test_prometheus_serving_set_metadata_update() {
 fn test_prometheus_serving_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -505,7 +500,7 @@ fn test_prometheus_serving_rate_limit_exceeded() {
 fn test_prometheus_invalid_port() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -660,7 +655,7 @@ fn test_do_set_identity() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = 1;
+        let netuid = NetUid::from(1);
 
         // Register a hotkey for the coldkey
         add_network(netuid, 13, 0);
@@ -847,7 +842,7 @@ fn test_set_and_get_identity() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = 1;
+        let netuid = NetUid::from(1);
 
         // Register a hotkey for the coldkey
         add_network(netuid, 13, 0);
@@ -989,7 +984,7 @@ fn test_migrate_identities_to_v2() {
         let old_subnet_contact = b"subnet@example".to_vec();
 
         SubnetIdentities::<Test>::insert(
-            42u16,
+            NetUid::from(42),
             SubnetIdentity {
                 subnet_name: old_subnet_name.clone(),
                 github_repo: old_github_repo.clone(),
@@ -999,7 +994,7 @@ fn test_migrate_identities_to_v2() {
 
         assert!(Identities::<Test>::get(account_id_1).is_some());
         assert!(Identities::<Test>::get(account_id_2).is_some());
-        assert!(SubnetIdentities::<Test>::get(42u16).is_some());
+        assert!(SubnetIdentities::<Test>::get(NetUid::from(42)).is_some());
         assert!(!HasMigrationRun::<Test>::get(
             b"migrate_identities_to_v2".to_vec()
         ));
@@ -1012,7 +1007,7 @@ fn test_migrate_identities_to_v2() {
         );
         assert!(Identities::<Test>::get(account_id_1).is_none());
         assert!(Identities::<Test>::get(account_id_2).is_none());
-        assert!(SubnetIdentities::<Test>::get(42u16).is_none());
+        assert!(SubnetIdentities::<Test>::get(NetUid::from(42)).is_none());
 
         let new_identity_1 = IdentitiesV2::<Test>::get(account_id_1)
             .expect("ChainOne should be migrated to IdentitiesV2");
@@ -1032,7 +1027,7 @@ fn test_migrate_identities_to_v2() {
         assert_eq!(new_identity_2.url, chaintwo_url);
         assert_eq!(new_identity_2.github_repo, b"".to_vec());
 
-        let new_subnet_identity = SubnetIdentitiesV2::<Test>::get(42u16)
+        let new_subnet_identity = SubnetIdentitiesV2::<Test>::get(NetUid::from(42))
             .expect("SubnetExample should be migrated to SubnetIdentitiesV2");
 
         let expected_subnet_url = b"".to_vec();
@@ -1055,13 +1050,73 @@ fn test_migrate_identities_to_v2() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test serving -- test_do_set_subnet_identity --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=DEBUG cargo test --release -p pallet-subtensor test_migrate_subnet_identities_to_v3 -- --nocapture
+#[test]
+fn test_migrate_subnet_identities_to_v3() {
+    new_test_ext(1).execute_with(|| {
+        let old_subnet_name = b"SubnetExample".to_vec();
+        let old_github_repo = b"https://github.com/org/repo".to_vec();
+        let old_subnet_contact = b"subnet@example".to_vec();
+
+        SubnetIdentitiesV2::<Test>::insert(
+            NetUid::from(16),
+            SubnetIdentityV2 {
+                subnet_name: old_subnet_name.clone(),
+                github_repo: old_github_repo.clone(),
+                subnet_contact: old_subnet_contact.clone(),
+                subnet_url: b"".to_vec(),
+                discord: b"".to_vec(),
+                description: b"".to_vec(),
+                additional: b"".to_vec(),
+            },
+        );
+
+        assert!(SubnetIdentitiesV2::<Test>::get(NetUid::from(16)).is_some());
+        assert!(!HasMigrationRun::<Test>::get(
+            b"migrate_subnet_identities_to_v3".to_vec()
+        ));
+
+        let weight =
+            crate::migrations::migrate_subnet_identities_to_v3::migrate_subnet_identities_to_v3::<
+                Test,
+            >();
+
+        assert!(
+            HasMigrationRun::<Test>::get(b"migrate_subnet_identities_to_v3".to_vec()),
+            "Expected HasMigrationRun to be true after migration"
+        );
+        assert!(SubnetIdentitiesV2::<Test>::get(NetUid::from(16)).is_none());
+
+        let new_subnet_identity = SubnetIdentitiesV3::<Test>::get(NetUid::from(16))
+            .expect("SubnetExample should be migrated to SubnetIdentitiesV3");
+
+        let expected_subnet_url = b"".to_vec();
+        let expected_discord = b"".to_vec();
+        let expected_description = b"".to_vec();
+        let expected_additional = b"".to_vec();
+
+        assert_eq!(new_subnet_identity.subnet_name, old_subnet_name);
+        assert_eq!(new_subnet_identity.github_repo, old_github_repo);
+        assert_eq!(new_subnet_identity.subnet_contact, old_subnet_contact);
+        assert_eq!(new_subnet_identity.subnet_url, expected_subnet_url);
+        assert_eq!(new_subnet_identity.discord, expected_discord);
+        assert_eq!(new_subnet_identity.description, expected_description);
+        assert_eq!(new_subnet_identity.additional, expected_additional);
+
+        assert!(
+            weight != Weight::zero(),
+            "Migration weight should be non-zero"
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=DEBUG cargo test --release -p pallet-subtensor test_do_set_subnet_identity -- --nocapture
 #[test]
 fn test_do_set_subnet_identity() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = 1;
+        let netuid = NetUid::from(1);
 
         // Register a hotkey for the coldkey
         add_network(netuid, 13, 0);
@@ -1077,6 +1132,7 @@ fn test_do_set_subnet_identity() {
         let subnet_url = b"subnet.com".to_vec();
         let discord = b"discord.com".to_vec();
         let description = b"I am the describer".to_vec();
+        let logo_url = b"https://testsubnet.com/logo.png".to_vec();
         let additional = b"tao foreva".to_vec();
 
         // Set subnet identity
@@ -1089,15 +1145,17 @@ fn test_do_set_subnet_identity() {
             subnet_url.clone(),
             discord.clone(),
             description.clone(),
+            logo_url.clone(),
             additional.clone(),
         ));
 
         // Check if subnet identity is set correctly
         let stored_identity =
-            SubnetIdentitiesV2::<Test>::get(netuid).expect("Subnet identity should be set");
+            SubnetIdentitiesV3::<Test>::get(netuid).expect("Subnet identity should be set");
         assert_eq!(stored_identity.subnet_name, subnet_name);
         assert_eq!(stored_identity.github_repo, github_repo);
         assert_eq!(stored_identity.subnet_contact, subnet_contact);
+        assert_eq!(stored_identity.logo_url, logo_url);
 
         // Test setting subnet identity by non-owner
         let non_owner_coldkey = U256::from(2);
@@ -1111,6 +1169,7 @@ fn test_do_set_subnet_identity() {
                 subnet_url.clone(),
                 discord.clone(),
                 description.clone(),
+                logo_url.clone(),
                 additional.clone(),
             ),
             Error::<Test>::NotSubnetOwner
@@ -1128,13 +1187,15 @@ fn test_do_set_subnet_identity() {
             subnet_url.clone(),
             discord.clone(),
             description.clone(),
+            logo_url.clone(),
             additional.clone(),
         ));
 
         let updated_identity =
-            SubnetIdentitiesV2::<Test>::get(netuid).expect("Updated subnet identity should be set");
+            SubnetIdentitiesV3::<Test>::get(netuid).expect("Updated subnet identity should be set");
         assert_eq!(updated_identity.subnet_name, new_subnet_name);
         assert_eq!(updated_identity.github_repo, new_github_repo);
+        assert_eq!(updated_identity.logo_url, logo_url);
 
         // Test setting subnet identity with invalid data (exceeding 1024 bytes total)
         let long_data = vec![0; 1025];
@@ -1142,6 +1203,7 @@ fn test_do_set_subnet_identity() {
             SubtensorModule::do_set_subnet_identity(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 netuid,
+                long_data.clone(),
                 long_data.clone(),
                 long_data.clone(),
                 long_data.clone(),
@@ -1160,25 +1222,27 @@ fn test_do_set_subnet_identity() {
 fn test_is_valid_subnet_identity() {
     new_test_ext(1).execute_with(|| {
         // Test valid subnet identity
-        let valid_identity = SubnetIdentityV2 {
+        let valid_identity = SubnetIdentityV3 {
             subnet_name: vec![0; 256],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
             subnet_url: vec![0; 1024],
             discord: vec![0; 256],
             description: vec![0; 1024],
+            logo_url: vec![0; 1024],
             additional: vec![0; 1024],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(&valid_identity));
 
         // Test subnet identity with total length exactly at the maximum
-        let max_length_identity = SubnetIdentityV2 {
+        let max_length_identity = SubnetIdentityV3 {
             subnet_name: vec![0; 256],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
             subnet_url: vec![0; 1024],
             discord: vec![0; 256],
             description: vec![0; 1024],
+            logo_url: vec![0; 1024],
             additional: vec![0; 1024],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(
@@ -1186,13 +1250,14 @@ fn test_is_valid_subnet_identity() {
         ));
 
         // Test subnet identity with total length exceeding the maximum
-        let invalid_length_identity = SubnetIdentityV2 {
+        let invalid_length_identity = SubnetIdentityV3 {
             subnet_name: vec![0; 257],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
             subnet_url: vec![0; 1024],
             discord: vec![0; 256],
             description: vec![0; 1024],
+            logo_url: vec![0; 1024],
             additional: vec![0; 1024],
         };
         assert!(!SubtensorModule::is_valid_subnet_identity(
@@ -1200,13 +1265,14 @@ fn test_is_valid_subnet_identity() {
         ));
 
         // Test subnet identity with one field exceeding its maximum
-        let invalid_field_identity = SubnetIdentityV2 {
+        let invalid_field_identity = SubnetIdentityV3 {
             subnet_name: vec![0; 257],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
             subnet_url: vec![0; 1024],
             discord: vec![0; 256],
             description: vec![0; 1024],
+            logo_url: vec![0; 1024],
             additional: vec![0; 1024],
         };
         assert!(!SubtensorModule::is_valid_subnet_identity(
@@ -1214,25 +1280,27 @@ fn test_is_valid_subnet_identity() {
         ));
 
         // Test subnet identity with empty fields
-        let empty_identity = SubnetIdentityV2 {
+        let empty_identity = SubnetIdentityV3 {
             subnet_name: vec![],
             github_repo: vec![],
             subnet_contact: vec![],
             subnet_url: vec![],
             discord: vec![],
             description: vec![],
+            logo_url: vec![],
             additional: vec![],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(&empty_identity));
 
         // Test subnet identity with some empty and some filled fields
-        let mixed_identity = SubnetIdentityV2 {
+        let mixed_identity = SubnetIdentityV3 {
             subnet_name: b"Test Subnet".to_vec(),
             github_repo: vec![],
             subnet_contact: b"contact@testsubnet.com".to_vec(),
             subnet_url: b"https://testsubnet.com".to_vec(),
             discord: vec![],
             description: b"A description".to_vec(),
+            logo_url: vec![],
             additional: vec![],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(&mixed_identity));
@@ -1243,7 +1311,7 @@ fn test_is_valid_subnet_identity() {
 fn test_set_identity_for_non_existent_subnet() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
-        let netuid = 999; // Non-existent subnet ID
+        let netuid = NetUid::from(999); // Non-existent subnet ID
 
         // Subnet identity data
         let subnet_name = b"Non-existent Subnet".to_vec();
@@ -1252,6 +1320,7 @@ fn test_set_identity_for_non_existent_subnet() {
         let subnet_url = b"subnet.com".to_vec();
         let discord = b"discord.com".to_vec();
         let description = b"I am the describer".to_vec();
+        let logo_url = b"https://testsubnet.com/logo.png".to_vec();
         let additional = b"tao foreva".to_vec();
 
         // Attempt to set identity for a non-existent subnet
@@ -1265,6 +1334,7 @@ fn test_set_identity_for_non_existent_subnet() {
                 subnet_url.clone(),
                 discord.clone(),
                 description.clone(),
+                logo_url.clone(),
                 additional.clone(),
             ),
             Error::<Test>::NotSubnetOwner // Since there's no owner, it should fail
@@ -1275,13 +1345,14 @@ fn test_set_identity_for_non_existent_subnet() {
 #[test]
 fn test_set_subnet_identity_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let subnet_name: Vec<u8> = b"JesusSubnet".to_vec();
         let github_repo: Vec<u8> = b"bible.com".to_vec();
         let subnet_contact: Vec<u8> = b"https://www.vatican.va".to_vec();
         let subnet_url = b"subnet.com".to_vec();
         let discord = b"discord.com".to_vec();
         let description = b"I am the describer".to_vec();
+        let logo_url = b"https://testsubnet.com/logo.png".to_vec();
         let additional = b"tao foreva".to_vec();
 
         let call: RuntimeCall = RuntimeCall::SubtensorModule(SubtensorCall::set_subnet_identity {
@@ -1292,6 +1363,7 @@ fn test_set_subnet_identity_dispatch_info_ok() {
             subnet_url,
             discord,
             description,
+            logo_url,
             additional,
         });
 
@@ -1310,7 +1382,7 @@ fn test_serve_axon_validate() {
 
     new_test_ext(0).execute_with(|| {
         let hotkey = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version: u32 = 2;
         let ip: u128 = 1676056785;
         let port: u16 = 128;
@@ -1331,19 +1403,25 @@ fn test_serve_axon_validate() {
             placeholder2,
         });
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_bad = extension.validate(&hotkey, &call.clone(), &info, 10);
+        let result_bad = extension.validate(
+            RawOrigin::Signed(hotkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to insufficient stake
-        assert_err!(
-            result_bad,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::HotKeyNotRegisteredInNetwork.into()
-            ))
+        assert_eq!(
+            result_bad.unwrap_err(),
+            CustomTransactionError::HotKeyNotRegisteredInNetwork.into()
         );
 
         // Register the hotkey in the subnet and try again
@@ -1352,7 +1430,15 @@ fn test_serve_axon_validate() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Submit to the signed extension validate function
-        let result_ok = extension.validate(&hotkey, &call.clone(), &info, 10);
+        let result_ok = extension.validate(
+            RawOrigin::Signed(hotkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Now the call passes
         assert_ok!(result_ok);

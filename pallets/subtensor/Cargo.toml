@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 description = "FRAME pallet for runtime logic of Subtensor Blockchain."
 authors = ["Bittensor Nucleus Team"]
 homepage = "https://bittensor.com"
-edition = "2024"
+edition.workspace = true
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
@@ -17,112 +17,117 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 subtensor-macros.workspace = true
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-] }
-sp-core = { workspace = true }
-pallet-balances = { workspace = true }
+codec = { workspace = true, features = ["derive"] }
+sp-core.workspace = true
+pallet-balances.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-io = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-io.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-serde-tuple-vec-map = { workspace = true }
-serde_bytes = { workspace = true, features = ["alloc"] }
-serde_with = { workspace = true, features = ["macros"] }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-libsecp256k1 = { workspace = true }
-log = { workspace = true }
-substrate-fixed = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-utility = { workspace = true }
-ndarray = { workspace = true }
-hex = { workspace = true }
-share-pool = { default-features = false, path = "../../primitives/share-pool" }
-safe-math = { default-features = false, path = "../../primitives/safe-math" }
-approx = { workspace = true }
+serde_json.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+libsecp256k1.workspace = true
+log.workspace = true
+substrate-fixed.workspace = true
+pallet-utility.workspace = true
+hex.workspace = true
+share-pool.workspace = true
+safe-math.workspace = true
+approx.workspace = true
+subtensor-swap-interface.workspace = true
+runtime-common.workspace = true
+subtensor-runtime-common = { workspace = true, features = ["approx"] }
 
-pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
-pallet-drand = { path = "../drand", default-features = false }
-pallet-membership = { workspace = true }
-hex-literal = { workspace = true }
-num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
-tle = { workspace = true, default-features = false }
-ark-bls12-381 = { workspace = true, default-features = false }
-ark-serialize = { workspace = true, default-features = false }
-w3f-bls = { workspace = true, default-features = false }
-sha2 = { workspace = true }
-rand_chacha = { workspace = true }
+pallet-drand.workspace = true
+pallet-collective.workspace = true
+pallet-membership.workspace = true
+hex-literal.workspace = true
+num-traits = { workspace = true, features = ["libm"] }
+tle.workspace = true
+ark-serialize = { workspace = true, features = ["derive"] }
+w3f-bls.workspace = true
+sha2.workspace = true
+rand_chacha.workspace = true
+pallet-crowdloan.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
-pallet-scheduler = { workspace = true }
-sp-version = { workspace = true }
+pallet-scheduler.workspace = true
+pallet-subtensor-swap.workspace = true
+sp-version.workspace = true
 # Substrate
-sp-tracing = { workspace = true }
+sp-tracing.workspace = true
 parity-util-mem = { workspace = true, features = ["primitive-types"] }
-rand = { workspace = true }
-sp-core = { workspace = true }
-sp-std = { workspace = true }
-pallet-preimage = { workspace = true }
+rand.workspace = true
+sp-core.workspace = true
+sp-std.workspace = true
+pallet-preimage.workspace = true
 
 [features]
-default = ["std"]
 std = [
+	"ark-serialize/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
-	"pallet-collective/std",
-	"pallet-membership/std",
-	"substrate-fixed/std",
+	"hex/std",
+	"libsecp256k1/std",
+	"log/std",
+	"num-traits/std",
 	"pallet-balances/std",
+	"pallet-collective/std",
+	"pallet-drand/std",
+	"pallet-membership/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
-	"pallet-transaction-payment/std",
+	"pallet-subtensor-swap/std",
 	"pallet-utility/std",
+	"rand_chacha/std",
+	"safe-math/std",
+	"scale-info/std",
+	"serde/std",
+	"serde_json/std",
+	"sha2/std",
+	"share-pool/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-version/std",
-	"hex/std",
-	"libsecp256k1/std",
-	"log/std",
-	"ndarray/std",
-	"serde/std",
-	"serde_bytes/std",
-	"serde_with/std",
 	"substrate-fixed/std",
-	"num-traits/std",
-	"serde_json/std",
+	"substrate-fixed/std",
+	"subtensor-runtime-common/std",
+	"subtensor-swap-interface/std",
 	"tle/std",
-	"pallet-drand/std",
-	"ark-bls12-381/std",
-	"ark-serialize/std",
 	"w3f-bls/std",
 	"rand_chacha/std",
 	"safe-math/std",
 	"sha2/std",
-	"share-pool/std"
+	"share-pool/std",
+	"subtensor-runtime-common/std",
+	"pallet-crowdloan/std",
+	"runtime-common/std"
 ]
+default = ["std"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks"
+	"pallet-subtensor-swap/runtime-benchmarks",
+	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -131,11 +136,12 @@ try-runtime = [
 	"pallet-membership/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
-	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
-	"pallet-drand/try-runtime"
+	"pallet-drand/try-runtime",
+	"pallet-crowdloan/try-runtime",
+	"runtime-common/try-runtime"
 ]
 pow-faucet = []
-fast-blocks = []
+fast-runtime = ["subtensor-runtime-common/fast-runtime"]

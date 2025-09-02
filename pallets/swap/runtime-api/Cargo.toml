@@ -1,0 +1,27 @@
+[package]
+name = "pallet-subtensor-swap-runtime-api"
+version = "1.0.0"
+description = "Runtime API for the Swap pallet"
+edition.workspace = true
+
+[dependencies]
+codec = { workspace = true, features = ["derive"] }
+frame-support.workspace = true
+scale-info.workspace = true
+sp-api.workspace = true
+sp-std.workspace = true
+subtensor-macros.workspace = true
+subtensor-runtime-common = { workspace = true, default-features = false }
+subtensor-swap-interface.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "frame-support/std",
+    "scale-info/std",
+    "sp-api/std",
+    "sp-std/std",
+    "subtensor-runtime-common/std",
+    "subtensor-swap-interface/std"
+]

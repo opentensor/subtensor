@@ -18,7 +18,7 @@
 use crate::pallet::Def;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_quote, Item};
+use syn::{Item, parse_quote};
 
 ///
 /// * Generate default rust doc

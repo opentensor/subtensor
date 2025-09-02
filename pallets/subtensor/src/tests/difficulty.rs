@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use sp_core::U256;
+use subtensor_runtime_common::NetUid;
 
 use super::mock::*;
 
@@ -9,7 +10,7 @@ use super::mock::*;
 fn test_registration_difficulty_adjustment() {
     new_test_ext(1).execute_with(|| {
         // Create Net 1
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 1;
         let modality: u16 = 1;
         add_network(netuid, tempo, modality);

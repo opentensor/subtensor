@@ -7,17 +7,18 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
-#[freeze_struct("cb3ff125c0c35c9e")]
+#[freeze_struct("6fc49d5a7dc0e339")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
-    netuid: Compact<u16>,
+    netuid: Compact<NetUid>,
 
     // Name and symbol
     name: Vec<Compact<u8>>,              // name
     symbol: Vec<Compact<u8>>,            // token symbol
-    identity: Option<SubnetIdentityV2>,  // identity information.
+    identity: Option<SubnetIdentityV3>,  // identity information.
     network_registered_at: Compact<u64>, // block at registration
 
     // Keys for owner.
@@ -31,17 +32,17 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     blocks_since_last_step: Compact<u64>, // blocks since last epoch.
 
     // Subnet emission terms
-    subnet_emission: Compact<u64>,        // subnet emission via stao
-    alpha_in: Compact<u64>,               // amount of alpha in reserve
-    alpha_out: Compact<u64>,              // amount of alpha outstanding
-    tao_in: Compact<u64>,                 // amount of tao injected per block
-    alpha_out_emission: Compact<u64>,     // amount injected in alpha reserves per block
-    alpha_in_emission: Compact<u64>,      // amount injected outstanding per block
-    tao_in_emission: Compact<u64>,        // amount of tao injected per block
-    pending_alpha_emission: Compact<u64>, // pending alpha to be distributed
-    pending_root_emission: Compact<u64>,  // panding tao for root divs to be distributed
-    subnet_volume: Compact<u128>,         // volume of the subnet in TAO
-    moving_price: I96F32,                 // subnet moving price.
+    subnet_emission: Compact<u64>,     // subnet emission via stao
+    alpha_in: Compact<AlphaCurrency>,  // amount of alpha in reserve
+    alpha_out: Compact<AlphaCurrency>, // amount of alpha outstanding
+    tao_in: Compact<TaoCurrency>,      // amount of tao injected per block
+    alpha_out_emission: Compact<AlphaCurrency>, // amount injected in alpha reserves per block
+    alpha_in_emission: Compact<AlphaCurrency>, // amount injected outstanding per block
+    tao_in_emission: Compact<TaoCurrency>, // amount of tao injected per block
+    pending_alpha_emission: Compact<AlphaCurrency>, // pending alpha to be distributed
+    pending_root_emission: Compact<TaoCurrency>, // pending tao for root divs to be distributed
+    subnet_volume: Compact<u128>,      // volume of the subnet in TAO
+    moving_price: I96F32,              // subnet moving price.
 
     // Hparams for epoch
     rho: Compact<u16>,   // subnet rho param
@@ -51,34 +52,34 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     min_allowed_weights: Compact<u16>, // min allowed weights per val
     max_weights_limit: Compact<u16>,   // max allowed weights per val
     weights_version: Compact<u64>,     // allowed weights version
-    weights_rate_limit: Compact<u64>,  // rate limit on weights.
+    weights_rate_limit: Compact<u64>,  // rate limit on weights
     activity_cutoff: Compact<u16>,     // validator weights cut off period in blocks
-    max_validators: Compact<u16>,      // max allowed validators.
+    max_validators: Compact<u16>,      // max allowed validators
 
     // Registration
     num_uids: Compact<u16>,
     max_uids: Compact<u16>,
-    burn: Compact<u64>,                     // current burn cost..
-    difficulty: Compact<u64>,               // current difficulty.
-    registration_allowed: bool,             // allows registrations.
-    pow_registration_allowed: bool,         // pow registration enabled.
+    burn: Compact<TaoCurrency>,             // current burn cost
+    difficulty: Compact<u64>,               // current difficulty
+    registration_allowed: bool,             // allows registrations
+    pow_registration_allowed: bool,         // pow registration enabled
     immunity_period: Compact<u16>,          // subnet miner immunity period
     min_difficulty: Compact<u64>,           // min pow difficulty
     max_difficulty: Compact<u64>,           // max pow difficulty
-    min_burn: Compact<u64>,                 // min tao burn
-    max_burn: Compact<u64>,                 // max tao burn
-    adjustment_alpha: Compact<u64>,         // adjustment speed for registration params.
+    min_burn: Compact<TaoCurrency>,         // min tao burn
+    max_burn: Compact<TaoCurrency>,         // max tao burn
+    adjustment_alpha: Compact<u64>,         // adjustment speed for registration params
     adjustment_interval: Compact<u16>,      // pow and burn adjustment interval
     target_regs_per_interval: Compact<u16>, // target registrations per interval
-    max_regs_per_block: Compact<u16>,       // max registrations per block.
+    max_regs_per_block: Compact<u16>,       // max registrations per block
     serving_rate_limit: Compact<u64>,       // axon serving rate limit
 
     // CR
-    commit_reveal_weights_enabled: bool, // Is CR enabled.
+    commit_reveal_weights_enabled: bool, // Is CR enabled
     commit_reveal_period: Compact<u64>,  // Commit reveal interval
 
     // Bonds
-    liquid_alpha_enabled: bool,     // Bonds liquid enabled.
+    liquid_alpha_enabled: bool,     // Bonds liquid enabled
     alpha_high: Compact<u16>,       // Alpha param high
     alpha_low: Compact<u16>,        // Alpha param low
     bonds_moving_avg: Compact<u64>, // Bonds moving avg
@@ -87,61 +88,61 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     hotkeys: Vec<AccountId>,                    // hotkey per UID
     coldkeys: Vec<AccountId>,                   // coldkey per UID
     identities: Vec<Option<ChainIdentityOfV2>>, // coldkeys identities
-    axons: Vec<AxonInfo>,                       // UID axons.
+    axons: Vec<AxonInfo>,                       // UID axons
     active: Vec<bool>,                          // Avtive per UID
     validator_permit: Vec<bool>,                // Val permit per UID
     pruning_score: Vec<Compact<u16>>,           // Pruning per UID
     last_update: Vec<Compact<u64>>,             // Last update per UID
-    emission: Vec<Compact<u64>>,                // Emission per UID
+    emission: Vec<Compact<AlphaCurrency>>,      // Emission per UID
     dividends: Vec<Compact<u16>>,               // Dividends per UID
     incentives: Vec<Compact<u16>>,              // Mining incentives per UID
     consensus: Vec<Compact<u16>>,               // Consensus per UID
     trust: Vec<Compact<u16>>,                   // Trust per UID
     rank: Vec<Compact<u16>>,                    // Rank per UID
     block_at_registration: Vec<Compact<u64>>,   // Reg block per UID
-    alpha_stake: Vec<Compact<u64>>,             // Alpha staked per UID
-    tao_stake: Vec<Compact<u64>>,               // TAO staked per UID
-    total_stake: Vec<Compact<u64>>,             // Total stake per UID
+    alpha_stake: Vec<Compact<AlphaCurrency>>,   // Alpha staked per UID
+    tao_stake: Vec<Compact<TaoCurrency>>,       // TAO staked per UID
+    total_stake: Vec<Compact<TaoCurrency>>,     // Total stake per UID
 
     // Dividend break down.
-    tao_dividends_per_hotkey: Vec<(AccountId, Compact<u64>)>, // List of dividend payouts in tao via root.
-    alpha_dividends_per_hotkey: Vec<(AccountId, Compact<u64>)>, // List of dividend payout in alpha via subnet.
+    tao_dividends_per_hotkey: Vec<(AccountId, Compact<TaoCurrency>)>, // List of dividend payouts in tao via root.
+    alpha_dividends_per_hotkey: Vec<(AccountId, Compact<AlphaCurrency>)>, // List of dividend payout in alpha via subnet.
 }
 
-#[freeze_struct("2eca518cf84390fa")]
+#[freeze_struct("7604bd3817c55848")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Subnet index
-    netuid: Compact<u16>,
+    netuid: Compact<NetUid>,
 
     // Name and symbol
     name: Option<Vec<Compact<u8>>>,              // name
     symbol: Option<Vec<Compact<u8>>>,            // token symbol
-    identity: Option<Option<SubnetIdentityV2>>,  // identity information.
+    identity: Option<Option<SubnetIdentityV3>>,  // identity information
     network_registered_at: Option<Compact<u64>>, // block at registration
 
     // Keys for owner.
     owner_hotkey: Option<AccountId>,  // hotkey
-    owner_coldkey: Option<AccountId>, // coldkey.
+    owner_coldkey: Option<AccountId>, // coldkey
 
-    // Tempo terms.
-    block: Option<Compact<u64>>,                  // block at call.
+    // Tempo terms
+    block: Option<Compact<u64>>,                  // block at call
     tempo: Option<Compact<u16>>,                  // epoch tempo
     last_step: Option<Compact<u64>>,              // last epoch
-    blocks_since_last_step: Option<Compact<u64>>, // blocks since last epoch.
+    blocks_since_last_step: Option<Compact<u64>>, // blocks since last epoch
 
     // Subnet emission terms
     subnet_emission: Option<Compact<u64>>, // subnet emission via stao
-    alpha_in: Option<Compact<u64>>,        // amount of alpha in reserve
-    alpha_out: Option<Compact<u64>>,       // amount of alpha outstanding
-    tao_in: Option<Compact<u64>>,          // amount of tao injected per block
-    alpha_out_emission: Option<Compact<u64>>, // amount injected in alpha reserves per block
-    alpha_in_emission: Option<Compact<u64>>, // amount injected outstanding per block
-    tao_in_emission: Option<Compact<u64>>, // amount of tao injected per block
-    pending_alpha_emission: Option<Compact<u64>>, // pending alpha to be distributed
-    pending_root_emission: Option<Compact<u64>>, // panding tao for root divs to be distributed
-    subnet_volume: Option<Compact<u128>>,  // volume of the subnet in TAO
-    moving_price: Option<I96F32>,          // subnet moving price.
+    alpha_in: Option<Compact<AlphaCurrency>>, // amount of alpha in reserve
+    alpha_out: Option<Compact<AlphaCurrency>>, // amount of alpha outstanding
+    tao_in: Option<Compact<TaoCurrency>>,  // amount of tao injected per block
+    alpha_out_emission: Option<Compact<AlphaCurrency>>, // amount injected in alpha reserves per block
+    alpha_in_emission: Option<Compact<AlphaCurrency>>,  // amount injected outstanding per block
+    tao_in_emission: Option<Compact<TaoCurrency>>,      // amount of tao injected per block
+    pending_alpha_emission: Option<Compact<AlphaCurrency>>, // pending alpha to be distributed
+    pending_root_emission: Option<Compact<TaoCurrency>>, // panding tao for root divs to be distributed
+    subnet_volume: Option<Compact<u128>>,                // volume of the subnet in TAO
+    moving_price: Option<I96F32>,                        // subnet moving price.
 
     // Hparams for epoch
     rho: Option<Compact<u16>>,   // subnet rho param
@@ -151,36 +152,36 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     min_allowed_weights: Option<Compact<u16>>, // min allowed weights per val
     max_weights_limit: Option<Compact<u16>>,   // max allowed weights per val
     weights_version: Option<Compact<u64>>,     // allowed weights version
-    weights_rate_limit: Option<Compact<u64>>,  // rate limit on weights.
+    weights_rate_limit: Option<Compact<u64>>,  // rate limit on weights
     activity_cutoff: Option<Compact<u16>>,     // validator weights cut off period in blocks
-    max_validators: Option<Compact<u16>>,      // max allowed validators.
+    max_validators: Option<Compact<u16>>,      // max allowed validators
 
     // Registration
     num_uids: Option<Compact<u16>>,
     max_uids: Option<Compact<u16>>,
-    burn: Option<Compact<u64>>,                     // current burn cost..
-    difficulty: Option<Compact<u64>>,               // current difficulty.
-    registration_allowed: Option<bool>,             // allows registrations.
-    pow_registration_allowed: Option<bool>,         // pow registration enabled.
-    immunity_period: Option<Compact<u16>>,          // subnet miner immunity period
-    min_difficulty: Option<Compact<u64>>,           // min pow difficulty
-    max_difficulty: Option<Compact<u64>>,           // max pow difficulty
-    min_burn: Option<Compact<u64>>,                 // min tao burn
-    max_burn: Option<Compact<u64>>,                 // max tao burn
-    adjustment_alpha: Option<Compact<u64>>,         // adjustment speed for registration params.
-    adjustment_interval: Option<Compact<u16>>,      // pow and burn adjustment interval
+    burn: Option<Compact<TaoCurrency>>,        // current burn cost
+    difficulty: Option<Compact<u64>>,          // current difficulty
+    registration_allowed: Option<bool>,        // allows registrations
+    pow_registration_allowed: Option<bool>,    // pow registration enabled
+    immunity_period: Option<Compact<u16>>,     // subnet miner immunity period
+    min_difficulty: Option<Compact<u64>>,      // min pow difficulty
+    max_difficulty: Option<Compact<u64>>,      // max pow difficulty
+    min_burn: Option<Compact<TaoCurrency>>,    // min tao burn
+    max_burn: Option<Compact<TaoCurrency>>,    // max tao burn
+    adjustment_alpha: Option<Compact<u64>>,    // adjustment speed for registration params
+    adjustment_interval: Option<Compact<u16>>, // pow and burn adjustment interval
     target_regs_per_interval: Option<Compact<u16>>, // target registrations per interval
-    max_regs_per_block: Option<Compact<u16>>,       // max registrations per block.
-    serving_rate_limit: Option<Compact<u64>>,       // axon serving rate limit
+    max_regs_per_block: Option<Compact<u16>>,  // max registrations per block
+    serving_rate_limit: Option<Compact<u64>>,  // axon serving rate limit
 
     // CR
-    commit_reveal_weights_enabled: Option<bool>, // Is CR enabled.
+    commit_reveal_weights_enabled: Option<bool>, // Is CR enabled
     commit_reveal_period: Option<Compact<u64>>,  // Commit reveal interval
 
     // Bonds
-    liquid_alpha_enabled: Option<bool>, // Bonds liquid enabled.
-    alpha_high: Option<Compact<u16>>,   // Alpha param high
-    alpha_low: Option<Compact<u16>>,    // Alpha param low
+    liquid_alpha_enabled: Option<bool>,     // Bonds liquid enabled
+    alpha_high: Option<Compact<u16>>,       // Alpha param high
+    alpha_low: Option<Compact<u16>>,        // Alpha param low
     bonds_moving_avg: Option<Compact<u64>>, // Bonds moving avg
 
     // Metagraph info.
@@ -192,20 +193,20 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     validator_permit: Option<Vec<bool>>, // Val permit per UID
     pruning_score: Option<Vec<Compact<u16>>>, // Pruning per UID
     last_update: Option<Vec<Compact<u64>>>, // Last update per UID
-    emission: Option<Vec<Compact<u64>>>, // Emission per UID
+    emission: Option<Vec<Compact<AlphaCurrency>>>, // Emission per UID
     dividends: Option<Vec<Compact<u16>>>, // Dividends per UID
     incentives: Option<Vec<Compact<u16>>>, // Mining incentives per UID
     consensus: Option<Vec<Compact<u16>>>, // Consensus per UID
     trust: Option<Vec<Compact<u16>>>, // Trust per UID
     rank: Option<Vec<Compact<u16>>>,  // Rank per UID
     block_at_registration: Option<Vec<Compact<u64>>>, // Reg block per UID
-    alpha_stake: Option<Vec<Compact<u64>>>, // Alpha staked per UID
-    tao_stake: Option<Vec<Compact<u64>>>, // TAO staked per UID
-    total_stake: Option<Vec<Compact<u64>>>, // Total stake per UID
+    alpha_stake: Option<Vec<Compact<AlphaCurrency>>>, // Alpha staked per UID
+    tao_stake: Option<Vec<Compact<TaoCurrency>>>, // TAO staked per UID
+    total_stake: Option<Vec<Compact<TaoCurrency>>>, // Total stake per UID
 
     // Dividend break down.
-    tao_dividends_per_hotkey: Option<Vec<(AccountId, Compact<u64>)>>, // List of dividend payouts in tao via root.
-    alpha_dividends_per_hotkey: Option<Vec<(AccountId, Compact<u64>)>>, // List of dividend payout in alpha via subnet.
+    tao_dividends_per_hotkey: Option<Vec<(AccountId, Compact<TaoCurrency>)>>, // List of dividend payouts in tao via root
+    alpha_dividends_per_hotkey: Option<Vec<(AccountId, Compact<AlphaCurrency>)>>, // List of dividend payout in alpha via subnet
 
     // validators
     validators: Option<Vec<Compact<u16>>>, // List of validators
@@ -377,7 +378,7 @@ where
 {
     fn default() -> Self {
         Self {
-            netuid: 0.into(),
+            netuid: NetUid::ROOT.into(),
             name: None,
             symbol: None,
             identity: None,
@@ -611,7 +612,7 @@ impl SelectiveMetagraphIndex {
     }
 }
 impl<T: Config> Pallet<T> {
-    pub fn get_metagraph(netuid: u16) -> Option<Metagraph<T::AccountId>> {
+    pub fn get_metagraph(netuid: NetUid) -> Option<Metagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -631,8 +632,8 @@ impl<T: Config> Pallet<T> {
             identities.push(IdentitiesV2::<T>::get(coldkey.clone()));
             axons.push(Self::get_axon_info(netuid, &hotkey));
         }
-        let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
-        let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
+        let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoCurrency>)> = vec![];
+        let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<AlphaCurrency>)> = vec![];
         for hotkey in hotkeys.clone() {
             let tao_divs = TaoDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
             let alpha_divs = AlphaDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
@@ -658,11 +659,11 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact)
                 .collect(), // Name
-            symbol: Self::get_symbol_for_subnet(netuid)
+            symbol: TokenSymbol::<T>::get(netuid)
                 .into_iter()
                 .map(Compact)
                 .collect(), // Symbol.
-            identity: SubnetIdentitiesV2::<T>::get(netuid), // identity information.
+            identity: SubnetIdentitiesV3::<T>::get(netuid), // identity information.
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(), // block at registration
 
             // Keys for owner.
@@ -706,12 +707,12 @@ impl<T: Config> Pallet<T> {
             registration_allowed: Self::get_network_registration_allowed(netuid), // allows registrations.
             pow_registration_allowed: Self::get_network_pow_registration_allowed(netuid), // allows pow registrations.
             difficulty: Self::get_difficulty_as_u64(netuid).into(), // current difficulty.
-            burn: Self::get_burn_as_u64(netuid).into(),
+            burn: Self::get_burn(netuid).into(),
             immunity_period: Self::get_immunity_period(netuid).into(), // subnet miner immunity period
             min_difficulty: Self::get_min_difficulty(netuid).into(),   // min pow difficulty
             max_difficulty: Self::get_max_difficulty(netuid).into(),   // max pow difficulty
-            min_burn: Self::get_min_burn_as_u64(netuid).into(),        // min tao burn
-            max_burn: Self::get_max_burn_as_u64(netuid).into(),        // max tao burn
+            min_burn: Self::get_min_burn(netuid).into(),               // min tao burn
+            max_burn: Self::get_max_burn(netuid).into(),               // max tao burn
             adjustment_alpha: Self::get_adjustment_alpha(netuid).into(), // adjustment speed for registration params.
             adjustment_interval: Self::get_adjustment_interval(netuid).into(), // pow and burn adjustment interval
             target_regs_per_interval: Self::get_target_registrations_per_interval(netuid).into(), // target registrations per interval
@@ -770,16 +771,16 @@ impl<T: Config> Pallet<T> {
             block_at_registration,            // Reg block per UID
             alpha_stake: alpha_stake_fl
                 .iter()
-                .map(|xi| Compact::from(fixed64_to_u64(*xi)))
-                .collect::<Vec<Compact<u64>>>(), // Alpha staked per UID
+                .map(|xi| Compact::from(AlphaCurrency::from(fixed64_to_u64(*xi))))
+                .collect::<Vec<Compact<AlphaCurrency>>>(), // Alpha staked per UID
             tao_stake: tao_stake_fl
                 .iter()
-                .map(|xi| Compact::from(fixed64_to_u64(*xi)))
-                .collect::<Vec<Compact<u64>>>(), // TAO staked per UID
+                .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
+                .collect::<Vec<Compact<TaoCurrency>>>(), // TAO staked per UID
             total_stake: total_stake_fl
                 .iter()
-                .map(|xi| Compact::from(fixed64_to_u64(*xi)))
-                .collect::<Vec<Compact<u64>>>(), // Total stake per UID
+                .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
+                .collect::<Vec<Compact<TaoCurrency>>>(), // Total stake per UID
 
             // Dividend break down.
             tao_dividends_per_hotkey,
@@ -787,7 +788,7 @@ impl<T: Config> Pallet<T> {
         })
     }
     pub fn get_all_metagraphs() -> Vec<Option<Metagraph<T::AccountId>>> {
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let netuids = Self::get_all_subnet_netuids();
         let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
             metagraphs.push(Self::get_metagraph(*netuid));
@@ -796,7 +797,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_selective_metagraph(
-        netuid: u16,
+        netuid: NetUid,
         metagraph_indexes: Vec<u16>,
     ) -> Option<SelectiveMetagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
@@ -812,7 +813,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_single_selective_metagraph(
-        netuid: u16,
+        netuid: NetUid,
         metagraph_index: u16,
     ) -> SelectiveMetagraph<T::AccountId> {
         match SelectiveMetagraphIndex::from_index(metagraph_index as usize) {
@@ -834,7 +835,7 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::Symbol) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 symbol: Some(
-                    Self::get_symbol_for_subnet(netuid)
+                    TokenSymbol::<T>::get(netuid)
                         .into_iter()
                         .map(Compact)
                         .collect(),
@@ -843,7 +844,7 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::Identity) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                identity: Some(SubnetIdentitiesV2::<T>::get(netuid)),
+                identity: Some(SubnetIdentitiesV3::<T>::get(netuid)),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::NetworkRegisteredAt) => SelectiveMetagraph {
@@ -1023,7 +1024,7 @@ impl<T: Config> Pallet<T> {
 
             Some(SelectiveMetagraphIndex::Burn) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                burn: Some(Self::get_burn_as_u64(netuid).into()),
+                burn: Some(Self::get_burn(netuid).into()),
                 ..Default::default()
             },
 
@@ -1044,12 +1045,12 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::MinBurn) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                min_burn: Some(Self::get_min_burn_as_u64(netuid).into()),
+                min_burn: Some(Self::get_min_burn(netuid).into()),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::MaxBurn) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                max_burn: Some(Self::get_max_burn_as_u64(netuid).into()),
+                max_burn: Some(Self::get_max_burn(netuid).into()),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::AdjustmentAlpha) => SelectiveMetagraph {
@@ -1289,8 +1290,8 @@ impl<T: Config> Pallet<T> {
                     alpha_stake: Some(
                         alpha_stake_fl
                             .iter()
-                            .map(|xi| Compact::from(fixed64_to_u64(*xi)))
-                            .collect::<Vec<Compact<u64>>>(),
+                            .map(|xi| Compact::from(AlphaCurrency::from(fixed64_to_u64(*xi))))
+                            .collect::<Vec<Compact<AlphaCurrency>>>(),
                     ),
                     ..Default::default()
                 }
@@ -1303,8 +1304,8 @@ impl<T: Config> Pallet<T> {
                     tao_stake: Some(
                         tao_stake_fl
                             .iter()
-                            .map(|xi| Compact::from(fixed64_to_u64(*xi)))
-                            .collect::<Vec<Compact<u64>>>(),
+                            .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
+                            .collect::<Vec<Compact<TaoCurrency>>>(),
                     ),
                     ..Default::default()
                 }
@@ -1317,8 +1318,8 @@ impl<T: Config> Pallet<T> {
                     total_stake: Some(
                         total_stake_fl
                             .iter()
-                            .map(|xi| Compact::from(fixed64_to_u64(*xi)))
-                            .collect::<Vec<Compact<u64>>>(),
+                            .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
+                            .collect::<Vec<Compact<TaoCurrency>>>(),
                     ),
                     ..Default::default()
                 }
@@ -1332,7 +1333,8 @@ impl<T: Config> Pallet<T> {
                     let hotkey = Keys::<T>::get(netuid, uid);
                     hotkeys.push(hotkey.clone());
                 }
-                let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
+                let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoCurrency>)> =
+                    vec![];
                 for hotkey in hotkeys.clone() {
                     let tao_divs = TaoDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
                     tao_dividends_per_hotkey.push((hotkey.clone(), tao_divs.into()));
@@ -1344,7 +1346,8 @@ impl<T: Config> Pallet<T> {
                 }
             }
             Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey) => {
-                let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
+                let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<AlphaCurrency>)> =
+                    vec![];
                 let n: u16 = Self::get_subnetwork_n(netuid);
                 let mut hotkeys: Vec<T::AccountId> = vec![];
 
@@ -1372,10 +1375,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn get_validators(netuid: u16) -> SelectiveMetagraph<T::AccountId> {
+    fn get_validators(netuid: NetUid) -> SelectiveMetagraph<T::AccountId> {
         let stake_threshold = Self::get_stake_threshold();
         let hotkeys: Vec<(u16, T::AccountId)> =
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
+            <Keys<T> as IterableStorageDoubleMap<NetUid, u16, T::AccountId>>::iter_prefix(netuid)
                 .collect();
         let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
 
@@ -1416,7 +1419,7 @@ impl<T: Config> Pallet<T> {
 fn test_selective_metagraph() {
     let mut metagraph = SelectiveMetagraph::<u32>::default();
     let expected = SelectiveMetagraph::<u32> {
-        netuid: 0_u16.into(),
+        netuid: NetUid::ROOT.into(),
         name: None,
         symbol: None,
         identity: None,
@@ -1496,7 +1499,7 @@ fn test_selective_metagraph() {
 
     let wrong_index: usize = 100;
     let metagraph_name = SelectiveMetagraph::<u32> {
-        netuid: 0_u16.into(),
+        netuid: NetUid::ROOT.into(),
         name: Some(vec![1_u8].into_iter().map(Compact).collect()),
         ..Default::default()
     };
@@ -1511,7 +1514,7 @@ fn test_selective_metagraph() {
 
     let alph_low_index: usize = 50;
     let metagraph_alpha_low = SelectiveMetagraph::<u32> {
-        netuid: 0_u16.into(),
+        netuid: NetUid::ROOT.into(),
         alpha_low: Some(0_u16.into()),
         ..Default::default()
     };

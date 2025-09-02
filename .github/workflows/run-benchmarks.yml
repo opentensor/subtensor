@@ -3,10 +3,12 @@ name: Validate-Benchmarks
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
+    types: [opened, synchronize]
   workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: run-benchmarks-${{ github.ref }}
@@ -17,27 +19,33 @@ jobs:
     runs-on: Benchmarking
 
     env:
-      SKIP_BENCHMARKS: '0'
+      SKIP_BENCHMARKS: "0"
+      AUTO_COMMIT_WEIGHTS: "1"
 
     steps:
+      # ──────────────────────────────────────────────────────────────────
       - name: Check out PR branch
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: Install GitHub CLI
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gh
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
+      # (1) — first skip‑label check
       - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          labels=$(gh pr view ${{ github.event.pull_request.number }} \
+                         --repo "${{ github.repository }}" \
+                         --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "skip-validate-benchmarks label found — skipping benchmarks."
             echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
@@ -46,13 +54,16 @@ jobs:
       - name: Install system dependencies
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
 
+      # (2)
       - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          labels=$(gh pr view ${{ github.event.pull_request.number }} \
+                         --repo "${{ github.repository }}" \
+                         --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "skip-validate-benchmarks label found — skipping benchmarks."
             echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
@@ -65,10 +76,13 @@ jobs:
           profile: minimal
           toolchain: stable
 
+      # (3)
       - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          labels=$(gh pr view ${{ github.event.pull_request.number }} \
+                         --repo "${{ github.repository }}" \
+                         --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "skip-validate-benchmarks label found — skipping benchmarks."
             echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
@@ -79,11 +93,15 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: bench-${{ hashFiles('**/Cargo.lock') }}
+          cache-on-failure: true
 
+      # (4)
       - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          labels=$(gh pr view ${{ github.event.pull_request.number }} \
+                         --repo "${{ github.repository }}" \
+                         --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "skip-validate-benchmarks label found — skipping benchmarks."
             echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
@@ -94,10 +112,13 @@ jobs:
         run: |
           cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
+      # (5)
       - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          labels=$(gh pr view ${{ github.event.pull_request.number }} \
+                         --repo "${{ github.repository }}" \
+                         --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "skip-validate-benchmarks label found — skipping benchmarks."
             echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
@@ -105,14 +126,22 @@ jobs:
 
       - name: Run & validate benchmarks
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          chmod +x scripts/benchmark_action.sh
-          ./scripts/benchmark_action.sh
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 180
+          max_attempts: 3
+          retry_wait_seconds: 60
+          command: |
+            chmod +x scripts/benchmark_action.sh
+            scripts/benchmark_action.sh
 
+      # (6) — final check after run
       - name: Check skip label after run
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          labels=$(gh pr view ${{ github.event.pull_request.number }} \
+                         --repo "${{ github.repository }}" \
+                         --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "skip-validate-benchmarks label was found — but benchmarks already ran."
           fi

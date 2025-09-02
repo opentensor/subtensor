@@ -5,39 +5,39 @@
 
 #![warn(missing_docs)]
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 use futures::channel::mpsc;
-
-pub use fc_rpc::EthBlockDataCacheTask;
-pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
-use fc_storage::StorageOverride;
-use jsonrpsee::RpcModule;
-use node_subtensor_runtime::opaque::Block;
-use sc_consensus_manual_seal::EngineCommand;
-use sc_network::service::traits::NetworkService;
-use sc_network_sync::SyncingService;
-use sc_rpc::SubscriptionTaskExecutor;
-use sc_transaction_pool::{ChainApi, Pool};
-use sc_transaction_pool_api::TransactionPool;
-use sp_core::H256;
-use sp_inherents::CreateInherentDataProviders;
-use sp_runtime::traits::Block as BlockT;
-use subtensor_runtime_common::Hash;
 
 use crate::{
     client::{FullBackend, FullClient},
     ethereum::create_eth,
 };
+use fc_rpc::EthBlockDataCacheTask;
+pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
+/// Frontier DB backend type.
+pub use fc_storage::StorageOverride;
+use jsonrpsee::{Methods, RpcModule};
+use node_subtensor_runtime::opaque::Block;
+use sc_consensus_manual_seal::EngineCommand;
+use sc_network::service::traits::NetworkService;
+use sc_network_sync::SyncingService;
+use sc_rpc::SubscriptionTaskExecutor;
+use sc_transaction_pool_api::TransactionPool;
+use sp_core::H256;
+use sp_inherents::CreateInherentDataProviders;
+use sp_runtime::{OpaqueExtrinsic, traits::BlakeTwo256, traits::Block as BlockT};
+use std::collections::BTreeMap;
+use subtensor_runtime_common::Hash;
 
 /// Extra dependencies for Ethereum compatibility.
-pub struct EthDeps<P, A: ChainApi, CT, CIDP> {
+pub struct EthDeps<P, CT, CIDP> {
     /// The client instance to use.
     pub client: Arc<FullClient>,
     /// Transaction pool instance.
     pub pool: Arc<P>,
     /// Graph pool instance.
-    pub graph: Arc<Pool<A>>,
+    pub graph: Arc<P>,
     /// Ethereum transaction converter.
     pub converter: Option<CT>,
     /// The Node authority flag
@@ -84,7 +84,7 @@ impl fc_rpc::EthConfig<Block, FullClient> for DefaultEthConfig {
 }
 
 /// Full client dependencies.
-pub struct FullDeps<P, A: ChainApi, CT, CIDP> {
+pub struct FullDeps<P, CT, CIDP> {
     /// The client instance to use.
     pub client: Arc<FullClient>,
     /// Transaction pool instance.
@@ -92,25 +92,35 @@ pub struct FullDeps<P, A: ChainApi, CT, CIDP> {
     /// Manual seal command sink
     pub command_sink: Option<mpsc::Sender<EngineCommand<Hash>>>,
     /// Ethereum-compatibility specific dependencies.
-    pub eth: EthDeps<P, A, CT, CIDP>,
+    pub eth: EthDeps<P, CT, CIDP>,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<P, A, CT, CIDP>(
-    deps: FullDeps<P, A, CT, CIDP>,
+pub fn create_full<P, CT, CIDP>(
+    deps: FullDeps<P, CT, CIDP>,
     subscription_task_executor: SubscriptionTaskExecutor,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
             fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
+    frontier_pending_consensus_data_provider: Box<
+        dyn fc_rpc::pending::ConsensusDataProvider<Block>,
+    >,
+    other_methods: &[Methods],
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
+    P: TransactionPool<
+            Block = Block,
+            Hash = <sp_runtime::generic::Block<
+                sp_runtime::generic::Header<u32, BlakeTwo256>,
+                OpaqueExtrinsic,
+            > as BlockT>::Hash,
+        > + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
 {
+    use pallet_subtensor_swap_rpc::{Swap, SwapRpcApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -127,8 +137,11 @@ where
     // Custom RPC methods for Paratensor
     module.merge(SubtensorCustom::new(client.clone()).into_rpc())?;
 
+    // Swap RPC
+    module.merge(Swap::new(client.clone()).into_rpc())?;
+
     module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
-    module.merge(TransactionPayment::new(client).into_rpc())?;
+    module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 
     // Extend this RPC with a custom API by using the following syntax.
     // `YourRpcStruct` should have a reference to a client, which is needed
@@ -143,12 +156,18 @@ where
         )?;
     }
 
+    // Other methods provided by the caller
+    for m in other_methods {
+        module.merge(m.clone())?;
+    }
+
     // Ethereum compatibility RPCs
-    let module = create_eth::<_, _, _, _, DefaultEthConfig>(
+    let module = create_eth::<_, _, _, DefaultEthConfig>(
         module,
         eth,
         subscription_task_executor,
         pubsub_notification_sinks,
+        Some(frontier_pending_consensus_data_provider),
     )?;
 
     Ok(module)

@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 description = "FRAME pallet for extending admin utilities."
 authors = ["Bittensor Nucleus Team"]
 homepage = "https://bittensor.com"
-edition = "2024"
+edition.workspace = true
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
@@ -16,32 +16,35 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-subtensor-macros = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-] }
+subtensor-macros.workspace = true
+codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-runtime = { workspace = true }
-log = { workspace = true }
-pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../subtensor" }
-sp-weights = { workspace = true }
-substrate-fixed = { workspace = true }
-pallet-evm-chain-id = { workspace = true }
-pallet-drand = { workspace = true, default-features = false }
-sp-consensus-grandpa = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-runtime.workspace = true
+log.workspace = true
+pallet-subtensor.workspace = true
+sp-weights.workspace = true
+substrate-fixed.workspace = true
+pallet-evm-chain-id.workspace = true
+pallet-drand.workspace = true
+sp-consensus-grandpa.workspace = true
+subtensor-swap-interface.workspace = true
+subtensor-runtime-common.workspace = true
 
 [dev-dependencies]
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-tracing = { workspace = true }
-sp-consensus-aura = { workspace = true }
+sp-core.workspace = true
+sp-io.workspace = true
+sp-tracing.workspace = true
+sp-consensus-aura.workspace = true
 pallet-balances = { workspace = true, features = ["std"] }
-pallet-scheduler = { workspace = true }
-pallet-grandpa = { workspace = true }
-sp-std = { workspace = true }
+pallet-scheduler.workspace = true
+pallet-grandpa.workspace = true
+sp-std.workspace = true
+pallet-subtensor-swap.workspace = true
+pallet-crowdloan.workspace = true
+pallet-preimage.workspace = true
 
 [features]
 default = ["std"]
@@ -56,7 +59,10 @@ std = [
 	"pallet-evm-chain-id/std",
 	"pallet-grandpa/std",
 	"pallet-scheduler/std",
+	"pallet-subtensor-swap/std",
 	"pallet-subtensor/std",
+	"pallet-crowdloan/std",
+	"pallet-preimage/std",
 	"scale-info/std",
 	"sp-consensus-aura/std",
 	"sp-consensus-grandpa/std",
@@ -67,6 +73,8 @@ std = [
 	"sp-tracing/std",
 	"sp-weights/std",
 	"substrate-fixed/std",
+	"subtensor-swap-interface/std",
+	"subtensor-runtime-common/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -77,6 +85,9 @@ runtime-benchmarks = [
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
+	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-subtensor-swap/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -88,5 +99,7 @@ try-runtime = [
 	"pallet-grandpa/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-subtensor/try-runtime",
+	"pallet-crowdloan/try-runtime",
+	"pallet-preimage/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -9,10 +9,11 @@ volumes:
 services:
   common: &common
     image: ghcr.io/opentensor/subtensor:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: subtensor
+## Uncomment to build from scratch:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: subtensor
     cpu_count: 4
     mem_limit: 40000000000
     memswap_limit: 80000000000
@@ -31,70 +32,60 @@ services:
     <<: *common
     container_name: subtensor-mainnet-lite
     volumes:
-      - mainnet-lite-volume:/tmp/blockchain
+      - mainnet-lite-volume:/data
     command:
-      - /bin/bash
-      - -c
-      - |
-        node-subtensor \
-          --base-path /tmp/blockchain \
-          --chain raw_spec_finney.json \
-          --rpc-external --rpc-cors all \
-          --no-mdns \
-          --bootnodes /dns/bootnode.finney.chain.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC \
-          --sync warp
+      - --base-path=/data
+      - --chain=./chainspecs/raw_spec_finney.json
+      - --rpc-external
+      - --rpc-cors=all
+      - --no-mdns
+      - --bootnodes=/dns/bootnode.finney.chain.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC
+      - --sync=warp
+      - --database paritydb
+      - --db-cache 4096
+      - --trie-cache-size 2048
 
   mainnet-archive:
     <<: *common
     container_name: subtensor-mainnet-archive
     volumes:
-      - mainnet-archive-volume:/tmp/blockchain
+      - mainnet-archive-volume:/data
     command:
-      - /bin/bash
-      - -c
-      - |
-        node-subtensor \
-          --base-path /tmp/blockchain \
-          --chain raw_spec_finney.json \
-          --rpc-external --rpc-cors all \
-          --no-mdns \
-          --bootnodes /dns/bootnode.finney.chain.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC \
-          --pruning=archive
+      - --base-path=/data
+      - --chain=./chainspecs/raw_spec_finney.json
+      - --rpc-external
+      - --rpc-cors=all
+      - --no-mdns
+      - --bootnodes=/dns/bootnode.finney.chain.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC
+      - --pruning=archive
 
   testnet-lite:
     <<: *common
     container_name: subtensor-testnet-lite
     volumes:
-      - testnet-lite-volume:/tmp/blockchain
+      - testnet-lite-volume:/data
     command:
-      - /bin/bash
-      - -c
-      - |
-        node-subtensor \
-          --base-path /tmp/blockchain \
-          --chain raw_spec_testfinney.json \
-          --rpc-external --rpc-cors all \
-          --no-mdns \
-          --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
-          --sync warp
-          --reserved-nodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
-          --reserved-only
+      - --base-path=/data
+      - --chain=./chainspecs/raw_spec_testfinney.json
+      - --rpc-external
+      - --rpc-cors=all
+      - --no-mdns
+      - --bootnodes=/dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr
+      - --sync=warp
+      - --database paritydb
+      - --db-cache 4096
+      - --trie-cache-size 2048
 
   testnet-archive:
     <<: *common
     container_name: subtensor-testnet-archive
     volumes:
-      - testnet-archive-volume:/tmp/blockchain
+      - testnet-archive-volume:/data
     command:
-      - /bin/bash
-      - -c
-      - |
-        node-subtensor \
-          --base-path /tmp/blockchain \
-          --chain raw_spec_testfinney.json \
-          --rpc-external --rpc-cors all \
-          --no-mdns \
-          --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
-          --pruning=archive
-          --reserved-nodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
-          --reserved-only
+      - --base-path=/data
+      - --chain=./chainspecs/raw_spec_testfinney.json
+      - --rpc-external
+      - --rpc-cors=all
+      - --no-mdns
+      - --bootnodes=/dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr
+      - --pruning=archive

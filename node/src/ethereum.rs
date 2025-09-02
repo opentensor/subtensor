@@ -1,5 +1,4 @@
-use fc_aura::AuraConsensusDataProvider;
-pub use fc_consensus::FrontierBlockImport;
+use crate::rpc::EthDeps;
 use fc_rpc::{
     Debug, DebugApiServer, Eth, EthApiServer, EthConfig, EthDevSigner, EthFilter,
     EthFilterApiServer, EthPubSub, EthPubSubApiServer, EthSigner, EthTask, Net, NetApiServer, Web3,
@@ -17,10 +16,9 @@ use sc_client_api::client::BlockchainEvents;
 use sc_network_sync::SyncingService;
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{Configuration, TaskManager, error::Error as ServiceError};
-use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::TransactionPool;
 use sp_inherents::CreateInherentDataProviders;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::{OpaqueExtrinsic, traits::BlakeTwo256, traits::Block as BlockT};
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{
@@ -29,7 +27,6 @@ use std::{
 };
 
 use crate::client::{FullBackend, FullClient};
-use crate::rpc::EthDeps;
 
 pub type FrontierBackend = fc_db::Backend<Block, FullClient>;
 
@@ -196,13 +193,19 @@ pub async fn spawn_frontier_tasks(
     );
 }
 
-fn extend_rpc_aet_api<P, A, CT, CIDP, EC>(
+fn extend_rpc_aet_api<P, CT, CIDP, EC>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<P, A, CT, CIDP>,
+    deps: &EthDeps<P, CT, CIDP>,
+    pending_consensus_data_provider: Option<Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
+    P: TransactionPool<
+            Block = Block,
+            Hash = <sp_runtime::generic::Block<
+                sp_runtime::generic::Header<u32, BlakeTwo256>,
+                OpaqueExtrinsic,
+            > as BlockT>::Hash,
+        > + 'static,
     CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
     EC: EthConfig<Block, FullClient>,
@@ -213,7 +216,7 @@ where
     }
 
     io.merge(
-        Eth::<Block, FullClient, P, CT, FullBackend, A, CIDP, EC>::new(
+        Eth::<Block, FullClient, P, CT, FullBackend, CIDP, EC>::new(
             deps.client.clone(),
             deps.pool.clone(),
             deps.graph.clone(),
@@ -229,9 +232,7 @@ where
             deps.execute_gas_limit_multiplier,
             deps.forced_parent_hashes.clone(),
             deps.pending_create_inherent_data_providers.clone(),
-            Some(Box::new(AuraConsensusDataProvider::new(
-                deps.client.clone(),
-            ))),
+            pending_consensus_data_provider,
         )
         .replace_config::<EC>()
         .into_rpc(),
@@ -239,13 +240,18 @@ where
     Ok(())
 }
 
-fn extend_rpc_eth_filter<P, A, CT, CIDP>(
+fn extend_rpc_eth_filter<P, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<P, A, CT, CIDP>,
+    deps: &EthDeps<P, CT, CIDP>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
+    P: TransactionPool<
+            Block = Block,
+            Hash = <sp_runtime::generic::Block<
+                sp_runtime::generic::Header<u32, BlakeTwo256>,
+                OpaqueExtrinsic,
+            > as BlockT>::Hash,
+        > + 'static,
     CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
 {
@@ -267,9 +273,9 @@ where
 }
 
 // Function for EthPubSub merge
-fn extend_rpc_eth_pubsub<P, A, CT, CIDP>(
+fn extend_rpc_eth_pubsub<P, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<P, A, CT, CIDP>,
+    deps: &EthDeps<P, CT, CIDP>,
     subscription_task_executor: SubscriptionTaskExecutor,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
@@ -278,8 +284,13 @@ fn extend_rpc_eth_pubsub<P, A, CT, CIDP>(
     >,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
+    P: TransactionPool<
+            Block = Block,
+            Hash = <sp_runtime::generic::Block<
+                sp_runtime::generic::Header<u32, BlakeTwo256>,
+                OpaqueExtrinsic,
+            > as BlockT>::Hash,
+        > + 'static,
     CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
@@ -297,13 +308,18 @@ where
     Ok(())
 }
 
-fn extend_rpc_net<P, A, CT, CIDP>(
+fn extend_rpc_net<P, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<P, A, CT, CIDP>,
+    deps: &EthDeps<P, CT, CIDP>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
+    P: TransactionPool<
+            Block = Block,
+            Hash = <sp_runtime::generic::Block<
+                sp_runtime::generic::Header<u32, BlakeTwo256>,
+                OpaqueExtrinsic,
+            > as BlockT>::Hash,
+        > + 'static,
     CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
@@ -318,13 +334,18 @@ where
     Ok(())
 }
 
-fn extend_rpc_web3<P, A, CT, CIDP>(
+fn extend_rpc_web3<P, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<P, A, CT, CIDP>,
+    deps: &EthDeps<P, CT, CIDP>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
+    P: TransactionPool<
+            Block = Block,
+            Hash = <sp_runtime::generic::Block<
+                sp_runtime::generic::Header<u32, BlakeTwo256>,
+                OpaqueExtrinsic,
+            > as BlockT>::Hash,
+        > + 'static,
     CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
@@ -332,13 +353,18 @@ where
     Ok(())
 }
 
-fn extend_rpc_debug<P, A, CT, CIDP>(
+fn extend_rpc_debug<P, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<P, A, CT, CIDP>,
+    deps: &EthDeps<P, CT, CIDP>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
+    P: TransactionPool<
+            Block = Block,
+            Hash = <sp_runtime::generic::Block<
+                sp_runtime::generic::Header<u32, BlakeTwo256>,
+                OpaqueExtrinsic,
+            > as BlockT>::Hash,
+        > + 'static,
     CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
@@ -355,34 +381,40 @@ where
 }
 
 /// Extend RpcModule with Eth RPCs
-pub fn create_eth<P, A, CT, CIDP, EC>(
+pub fn create_eth<P, CT, CIDP, EC>(
     mut io: RpcModule<()>,
-    deps: EthDeps<P, A, CT, CIDP>,
+    deps: EthDeps<P, CT, CIDP>,
     subscription_task_executor: SubscriptionTaskExecutor,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
             fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
+    pending_consensus_data_provider: Option<Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
+    P: TransactionPool<
+            Block = Block,
+            Hash = <sp_runtime::generic::Block<
+                sp_runtime::generic::Header<u32, BlakeTwo256>,
+                OpaqueExtrinsic,
+            > as BlockT>::Hash,
+        > + 'static,
     CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
     EC: EthConfig<Block, FullClient>,
 {
-    extend_rpc_aet_api::<P, A, CT, CIDP, EC>(&mut io, &deps)?;
-    extend_rpc_eth_filter::<P, A, CT, CIDP>(&mut io, &deps)?;
-    extend_rpc_eth_pubsub::<P, A, CT, CIDP>(
+    extend_rpc_aet_api::<P, CT, CIDP, EC>(&mut io, &deps, pending_consensus_data_provider)?;
+    extend_rpc_eth_filter::<P, CT, CIDP>(&mut io, &deps)?;
+    extend_rpc_eth_pubsub::<P, CT, CIDP>(
         &mut io,
         &deps,
         subscription_task_executor,
         pubsub_notification_sinks,
     )?;
-    extend_rpc_net::<P, A, CT, CIDP>(&mut io, &deps)?;
-    extend_rpc_web3::<P, A, CT, CIDP>(&mut io, &deps)?;
-    extend_rpc_debug::<P, A, CT, CIDP>(&mut io, &deps)?;
+    extend_rpc_net::<P, CT, CIDP>(&mut io, &deps)?;
+    extend_rpc_web3::<P, CT, CIDP>(&mut io, &deps)?;
+    extend_rpc_debug::<P, CT, CIDP>(&mut io, &deps)?;
 
     Ok(io)
 }

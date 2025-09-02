@@ -78,10 +78,7 @@ where
 
     // Check if the migration has already run
     if HasMigrationRun::<T>::get(&migration_name) {
-        log::info!(
-            "Migration '{:?}' has already run. Skipping.",
-            migration_name
-        );
+        log::info!("Migration '{migration_name:?}' has already run. Skipping.",);
         return weight;
     }
     log::info!(
@@ -132,10 +129,7 @@ where
 
     // Check if the migration has already run
     if HasMigrationRun::<T>::get(&migration_name) {
-        log::info!(
-            "Migration '{:?}' has already run. Skipping.",
-            migration_name
-        );
+        log::info!("Migration '{migration_name:?}' has already run. Skipping.",);
         return weight;
     }
     log::info!(

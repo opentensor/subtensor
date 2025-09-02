@@ -10,7 +10,7 @@ pub fn migrate_remove_commitments_rate_limit<T: Config>() -> Weight {
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name)
         );
         return weight;
     }
@@ -37,7 +37,7 @@ pub fn migrate_remove_commitments_rate_limit<T: Config>() -> Weight {
     };
 
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries));
-    log::info!("Removed {} entries from `RateLimit`.", removed_entries);
+    log::info!("Removed {removed_entries} entries from `RateLimit`.");
 
     // -------------------------------------------------------------
     // Step 2: Mark this migration as completed

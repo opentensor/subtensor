@@ -12,7 +12,7 @@ pub fn migrate_subnet_volume<T: Config>() -> Weight {
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name)
         );
         return weight;
     }
@@ -28,7 +28,7 @@ pub fn migrate_subnet_volume<T: Config>() -> Weight {
         Some(old_value as u128) // Convert and store as u128
     });
 
-    log::info!("Migrated {} entries in SubnetVolume", migrated);
+    log::info!("Migrated {migrated} entries in SubnetVolume");
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(migrated, migrated));
 
     // Mark the migration as completed

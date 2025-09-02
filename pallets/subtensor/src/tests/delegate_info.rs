@@ -5,6 +5,7 @@ use frame_support::assert_ok;
 use scale_info::prelude::collections::HashMap;
 use sp_core::U256;
 use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::NetUid;
 
 #[test]
 fn test_return_per_1000_tao() {
@@ -28,9 +29,7 @@ fn test_return_per_1000_tao() {
     let eps: f64 = 0.0005e9; // Precision within 0.0005 TAO
     assert!(
         diff_from_expected.abs() <= eps,
-        "Difference from expected: {} is greater than precision: {}",
-        diff_from_expected,
-        eps
+        "Difference from expected: {diff_from_expected} is greater than precision: {eps}"
     );
 }
 
@@ -110,7 +109,7 @@ fn test_get_delegated() {
             delegatee_4,
         ];
         let to_stakes = [to_stake_0, to_stake_1, to_stake_2, to_stake_3, to_stake_4];
-        let mut expected_stake_map: HashMap<U256, HashMap<U256, HashMap<u16, u64>>> =
+        let mut expected_stake_map: HashMap<U256, HashMap<U256, HashMap<NetUid, u64>>> =
             HashMap::new();
 
         for (i, to_stake) in to_stakes.iter().enumerate() {
@@ -124,7 +123,7 @@ fn test_get_delegated() {
                     RuntimeOrigin::signed(*delegatee),
                     *delegate,
                     *netuid,
-                    *amount
+                    (*amount).into()
                 ));
                 let expected_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                     delegate, delegatee, *netuid,
@@ -134,7 +133,7 @@ fn test_get_delegated() {
                     .or_default()
                     .entry(*delegate)
                     .or_default();
-                stakes.insert(*netuid, expected_stake);
+                stakes.insert(*netuid, expected_stake.into());
             }
         }
 
@@ -147,15 +146,10 @@ fn test_get_delegated() {
                     if let Some(expected_under_delegate) =
                         coldkey_stakes_map.get(&delegate_info.delegate_ss58)
                     {
-                        if let Some(expected_stake) =
-                            expected_under_delegate.get(&u16::from(*netuid))
-                        {
-                            assert_eq!(u64::from(*staked), *expected_stake);
+                        if let Some(expected_stake) = expected_under_delegate.get(&netuid.0) {
+                            assert_eq!(u64::from(staked.0), *expected_stake);
                         } else {
-                            panic!(
-                                "Netuid {} not found in expected stake map",
-                                u16::from(*netuid)
-                            );
+                            panic!("Netuid {} not found in expected stake map", netuid.0);
                         };
                     } else {
                         panic!(
@@ -164,7 +158,7 @@ fn test_get_delegated() {
                         );
                     };
                 } else {
-                    panic!("Coldkey {} not found in expected stake map", coldkey);
+                    panic!("Coldkey {coldkey} not found in expected stake map");
                 }
             }
         }

@@ -6,6 +6,7 @@ use frame_support::{
     weights::Weight,
 };
 use sp_std::vec::Vec;
+use subtensor_runtime_common::NetUid;
 
 // TODO (camfairchild): TEST MIGRATION
 
@@ -39,47 +40,44 @@ pub mod deprecated_loaded_emission_format {
 /// let weight = migrate_create_root_network::<Runtime>();
 /// ```
 pub fn migrate_create_root_network<T: Config>() -> Weight {
-    // Define the root network UID
-    let root_netuid: u16 = 0;
-
     // Initialize weight counter
     let mut weight = T::DbWeight::get().reads(1);
 
     // Check if root network already exists
-    if NetworksAdded::<T>::get(root_netuid) {
+    if NetworksAdded::<T>::get(NetUid::ROOT) {
         // Return early if root network already exists
         return weight;
     }
 
     // Set the root network as added
-    NetworksAdded::<T>::insert(root_netuid, true);
+    NetworksAdded::<T>::insert(NetUid::ROOT, true);
 
     // Increment the total number of networks
     TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
 
     // Set the maximum number of UIDs to the number of senate members
-    MaxAllowedUids::<T>::insert(root_netuid, 64);
+    MaxAllowedUids::<T>::insert(NetUid::ROOT, 64);
 
     // Set the maximum number of validators to all members
-    MaxAllowedValidators::<T>::insert(root_netuid, 64);
+    MaxAllowedValidators::<T>::insert(NetUid::ROOT, 64);
 
     // Set the minimum allowed weights to zero (no weight restrictions)
-    MinAllowedWeights::<T>::insert(root_netuid, 0);
+    MinAllowedWeights::<T>::insert(NetUid::ROOT, 0);
 
     // Set the maximum weight limit to u16::MAX (no weight restrictions)
-    MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
+    MaxWeightsLimit::<T>::insert(NetUid::ROOT, u16::MAX);
 
     // Set default root tempo
-    Tempo::<T>::insert(root_netuid, 100);
+    Tempo::<T>::insert(NetUid::ROOT, 100);
 
     // Set the root network as open for registration
-    NetworkRegistrationAllowed::<T>::insert(root_netuid, true);
+    NetworkRegistrationAllowed::<T>::insert(NetUid::ROOT, true);
 
     // Set target registrations for validators as 1 per block
-    TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
+    TargetRegistrationsPerInterval::<T>::insert(NetUid::ROOT, 1);
 
     // TODO: Consider if WeightsSetRateLimit should be set
-    // WeightsSetRateLimit::<T>::insert(root_netuid, 7200);
+    // WeightsSetRateLimit::<T>::insert(NetUid::ROOT, 7200);
 
     // Accrue weight for database writes
     weight.saturating_accrue(T::DbWeight::get().writes(8));

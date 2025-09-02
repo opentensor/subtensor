@@ -9,6 +9,7 @@ use jsonrpsee::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{AccountId32, traits::Block as BlockT};
 use std::sync::Arc;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
 
 use sp_api::ProvideRuntimeApi;
 
@@ -35,39 +36,50 @@ pub trait SubtensorCustomApi<BlockHash> {
     ) -> RpcResult<Vec<u8>>;
 
     #[method(name = "neuronInfo_getNeuronsLite")]
-    fn get_neurons_lite(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_neurons_lite(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuronLite")]
-    fn get_neuron_lite(&self, netuid: u16, uid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_neuron_lite(
+        &self,
+        netuid: NetUid,
+        uid: u16,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeurons")]
-    fn get_neurons(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_neurons(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuron")]
-    fn get_neuron(&self, netuid: u16, uid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_neuron(&self, netuid: NetUid, uid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetInfo")]
-    fn get_subnet_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_subnet_info(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetsInfo")]
     fn get_subnets_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetInfo_v2")]
-    fn get_subnet_info_v2(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
-    #[method(name = "subnetInfo_getSubnetsInf_v2")]
+    fn get_subnet_info_v2(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetsInfo_v2")]
     fn get_subnets_info_v2(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetHyperparams")]
-    fn get_subnet_hyperparams(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_subnet_hyperparams(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetHyperparamsV2")]
+    fn get_subnet_hyperparams_v2(
+        &self,
+        netuid: NetUid,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getAllDynamicInfo")]
     fn get_all_dynamic_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getDynamicInfo")]
-    fn get_dynamic_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_dynamic_info(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getAllMetagraphs")]
     fn get_all_metagraphs(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getMetagraph")]
-    fn get_metagraph(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_metagraph(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
-    fn get_subnet_state(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_subnet_state(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getLockCost")]
-    fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
+    fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<TaoCurrency>;
     #[method(name = "subnetInfo_getSelectiveMetagraph")]
     fn get_selective_metagraph(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         metagraph_index: Vec<u16>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
@@ -127,7 +139,7 @@ where
         match api.get_delegates(at) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into())
+                Err(Error::RuntimeError(format!("Unable to get delegates info: {e:?}")).into())
             }
         }
     }
@@ -144,14 +156,14 @@ where
             Ok(delegate_account) => delegate_account,
             Err(e) => {
                 return Err(
-                    Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into(),
+                    Error::RuntimeError(format!("Unable to get delegates info: {e:?}")).into(),
                 );
             }
         };
         match api.get_delegate(at, delegate_account) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into())
+                Err(Error::RuntimeError(format!("Unable to get delegates info: {e:?}")).into())
             }
         }
     }
@@ -168,21 +180,21 @@ where
             Ok(delegatee_account) => delegatee_account,
             Err(e) => {
                 return Err(
-                    Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into(),
+                    Error::RuntimeError(format!("Unable to get delegates info: {e:?}")).into(),
                 );
             }
         };
         match api.get_delegated(at, delegatee_account) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into())
+                Err(Error::RuntimeError(format!("Unable to get delegates info: {e:?}")).into())
             }
         }
     }
 
     fn get_neurons_lite(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -191,14 +203,14 @@ where
         match api.get_neurons_lite(at, netuid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get neurons lite info: {:?}", e)).into())
+                Err(Error::RuntimeError(format!("Unable to get neurons lite info: {e:?}")).into())
             }
         }
     }
 
     fn get_neuron_lite(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         uid: u16,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
@@ -208,26 +220,28 @@ where
         match api.get_neuron_lite(at, netuid, uid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get neurons lite info: {:?}", e)).into())
+                Err(Error::RuntimeError(format!("Unable to get neurons lite info: {e:?}")).into())
             }
         }
     }
 
-    fn get_neurons(&self, netuid: u16, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+    fn get_neurons(
+        &self,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         match api.get_neurons(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get neurons info: {:?}", e)).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get neurons info: {e:?}")).into()),
         }
     }
 
     fn get_neuron(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         uid: u16,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
@@ -236,15 +250,13 @@ where
 
         match api.get_neuron(at, netuid, uid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get neuron info: {:?}", e)).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get neuron info: {e:?}")).into()),
         }
     }
 
     fn get_subnet_info(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -252,15 +264,13 @@ where
 
         match api.get_subnet_info(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into()),
         }
     }
 
     fn get_subnet_hyperparams(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -268,9 +278,21 @@ where
 
         match api.get_subnet_hyperparams(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into()),
+        }
+    }
+
+    fn get_subnet_hyperparams_v2(
+        &self,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_subnet_hyperparams_v2(at, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into()),
         }
     }
 
@@ -281,8 +303,7 @@ where
         match api.get_all_dynamic_info(at) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
-                "Unable to get dynamic subnets info: {:?}",
-                e
+                "Unable to get dynamic subnets info: {e:?}"
             ))
             .into()),
         }
@@ -294,13 +315,13 @@ where
 
         match api.get_all_metagraphs(at) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => Err(Error::RuntimeError(format!("Unable to get metagraps: {:?}", e)).into()),
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get metagraps: {e:?}")).into()),
         }
     }
 
     fn get_dynamic_info(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -309,8 +330,7 @@ where
         match api.get_dynamic_info(at, netuid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
-                "Unable to get dynamic subnets info: {:?}",
-                e
+                "Unable to get dynamic subnets info: {e:?}"
             ))
             .into()),
         }
@@ -318,7 +338,7 @@ where
 
     fn get_metagraph(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -326,8 +346,7 @@ where
         match api.get_metagraph(at, netuid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
-                "Unable to get dynamic subnets info: {:?}",
-                e
+                "Unable to get dynamic subnets info: {e:?}"
             ))
             .into()),
         }
@@ -335,7 +354,7 @@ where
 
     fn get_subnet_state(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -344,7 +363,7 @@ where
         match api.get_subnet_state(at, netuid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnet state info: {:?}", e)).into())
+                Err(Error::RuntimeError(format!("Unable to get subnet state info: {e:?}")).into())
             }
         }
     }
@@ -355,15 +374,13 @@ where
 
         match api.get_subnets_info(at) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnets info: {:?}", e)).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnets info: {e:?}")).into()),
         }
     }
 
     fn get_subnet_info_v2(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -371,9 +388,7 @@ where
 
         match api.get_subnet_info_v2(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into()),
         }
     }
 
@@ -383,24 +398,22 @@ where
 
         match api.get_subnets_info_v2(at) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnets info: {:?}", e)).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnets info: {e:?}")).into()),
         }
     }
 
-    fn get_network_lock_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<u64> {
+    fn get_network_lock_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<TaoCurrency> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_network_registration_cost(at).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get subnet lock cost: {:?}", e)).into()
+            Error::RuntimeError(format!("Unable to get subnet lock cost: {e:?}")).into()
         })
     }
 
     fn get_selective_metagraph(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         metagraph_index: Vec<u16>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
@@ -409,11 +422,9 @@ where
 
         match api.get_selective_metagraph(at, netuid, metagraph_index) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => Err(Error::RuntimeError(format!(
-                "Unable to get selective metagraph: {:?}",
-                e
-            ))
-            .into()),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())
+            }
         }
     }
 }

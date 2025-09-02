@@ -21,7 +21,7 @@ use crate::{
 };
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
-use syn::{punctuated::Punctuated, token, Error};
+use syn::{Error, punctuated::Punctuated, token};
 
 impl Pallet {
     pub fn try_from(
@@ -102,7 +102,7 @@ impl Pallet {
 
 #[test]
 fn pallet_parsing_works() {
-    use syn::{parse_quote, ItemType};
+    use syn::{ItemType, parse_quote};
 
     let item: ItemType = parse_quote! {
         pub type System = frame_system + Call;
@@ -131,7 +131,7 @@ fn pallet_parsing_works() {
 
 #[test]
 fn pallet_parsing_works_with_instance() {
-    use syn::{parse_quote, ItemType};
+    use syn::{ItemType, parse_quote};
 
     let item: ItemType = parse_quote! {
         pub type System = frame_system<Instance1> + Call;
@@ -160,7 +160,7 @@ fn pallet_parsing_works_with_instance() {
 
 #[test]
 fn pallet_parsing_works_with_pallet() {
-    use syn::{parse_quote, ItemType};
+    use syn::{ItemType, parse_quote};
 
     let item: ItemType = parse_quote! {
         pub type System = frame_system::Pallet<Runtime> + Call;
@@ -189,7 +189,7 @@ fn pallet_parsing_works_with_pallet() {
 
 #[test]
 fn pallet_parsing_works_with_instance_and_pallet() {
-    use syn::{parse_quote, ItemType};
+    use syn::{ItemType, parse_quote};
 
     let item: ItemType = parse_quote! {
         pub type System = frame_system::Pallet<Runtime, Instance1> + Call;

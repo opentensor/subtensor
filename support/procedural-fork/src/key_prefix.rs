@@ -17,7 +17,7 @@
 
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, ToTokens};
+use quote::{ToTokens, format_ident, quote};
 use syn::{Ident, Result};
 
 const MAX_IDENTS: usize = 18;

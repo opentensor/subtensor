@@ -28,14 +28,14 @@ use crate::pallet::parse::tests::simulate_manifest_dir;
 use derive_syn_parse::Parse;
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
+    Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Path, PathArguments,
+    Result, TypePath,
     parse::ParseStream,
     parse2,
     spanned::Spanned,
     token::{Bracket, Paren, PathSep, Pound},
-    Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Path, PathArguments,
-    Result, TypePath,
 };
 
 pub mod keywords {
@@ -299,7 +299,7 @@ impl syn::parse::Parse for TaskDef {
                     return Err(Error::new(
                         input.span(),
                         "unexpected function argument type",
-                    ))
+                    ));
                 }
             }
         }
@@ -460,7 +460,7 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskIndexAttr {
                         "`{:?}` cannot be converted to a `TaskIndexAttr`",
                         value.meta
                     ),
-                ))
+                ));
             }
         }
     }
@@ -482,7 +482,7 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskConditionAttr {
                         "`{:?}` cannot be converted to a `TaskConditionAttr`",
                         value.meta
                     ),
-                ))
+                ));
             }
         }
     }
@@ -504,7 +504,7 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskWeightAttr {
                         "`{:?}` cannot be converted to a `TaskWeightAttr`",
                         value.meta
                     ),
-                ))
+                ));
             }
         }
     }
@@ -523,7 +523,7 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskListAttr {
                 return Err(Error::new(
                     value.span(),
                     format!("`{:?}` cannot be converted to a `TaskListAttr`", value.meta),
-                ))
+                ));
             }
         }
     }

@@ -5,9 +5,14 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod config {
+
+    use subtensor_swap_interface::SwapHandler;
+
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_drand::Config {
+    pub trait Config:
+        frame_system::Config + pallet_drand::Config + pallet_crowdloan::Config
+    {
         /// call type
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
@@ -46,6 +51,12 @@ mod config {
 
         /// the preimage to store the call data.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
+        /// Swap interface.
+        type SwapInterface: SwapHandler<Self::AccountId>;
+
+        /// Interface to allow interacting with the proxy pallet.
+        type ProxyInterface: crate::ProxyInterface<Self::AccountId>;
 
         /// =================================
         /// ==== Initial Value Constants ====
@@ -107,7 +118,7 @@ mod config {
         type InitialRho: Get<u16>;
         /// AlphaSigmoidSteepness constant.
         #[pallet::constant]
-        type InitialAlphaSigmoidSteepness: Get<u16>;
+        type InitialAlphaSigmoidSteepness: Get<i16>;
         /// Kappa constant.
         #[pallet::constant]
         type InitialKappa: Get<u16>;
@@ -230,5 +241,8 @@ mod config {
         /// Block number for a coldkey swap the hotkey in specific subnet.
         #[pallet::constant]
         type HotkeySwapOnSubnetInterval: Get<u64>;
+        /// Number of blocks between dividends distribution.
+        #[pallet::constant]
+        type LeaseDividendsDistributionInterval: Get<BlockNumberFor<Self>>;
     }
 }

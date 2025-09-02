@@ -8,26 +8,27 @@ use codec::{Decode, Encode};
 use frame_support::{
     StorageHasher, Twox64Concat, assert_ok,
     storage::unhashed::{get, get_raw, put, put_raw},
+    storage_alias,
     traits::{StorageInstance, StoredMap},
     weights::Weight,
 };
 
 use crate::migrations::migrate_storage;
 use frame_system::Config;
+use pallet_drand::types::RoundNumber;
+use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
 use substrate_fixed::types::I96F32;
 use substrate_fixed::types::extra::U2;
+use subtensor_runtime_common::TaoCurrency;
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
     assert!(
         (value as i64 - target as i64).abs() < eps as i64,
-        "Assertion failed: value = {}, target = {}, eps = {}",
-        value,
-        target,
-        eps
+        "Assertion failed: value = {value}, target = {target}, eps = {eps}"
     )
 }
 
@@ -37,20 +38,19 @@ fn test_initialise_ti() {
 
     new_test_ext(1).execute_with(|| {
         pallet_balances::TotalIssuance::<Test>::put(1000);
-        crate::SubnetTAO::<Test>::insert(1, 100);
-        crate::SubnetTAO::<Test>::insert(2, 5);
+        crate::SubnetTAO::<Test>::insert(NetUid::from(1), TaoCurrency::from(100));
+        crate::SubnetTAO::<Test>::insert(NetUid::from(2), TaoCurrency::from(5));
 
         // Ensure values are NOT initialized prior to running migration
-        assert!(crate::TotalIssuance::<Test>::get() == 0);
-		assert!(crate::TotalStake::<Test>::get() == 0);
+        assert!(crate::TotalIssuance::<Test>::get().is_zero());
+		assert!(crate::TotalStake::<Test>::get().is_zero());
 
         crate::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
 
         // Ensure values were initialized correctly
-		assert!(crate::TotalStake::<Test>::get() == 105);
-        assert!(
-            crate::TotalIssuance::<Test>::get()
-                == 105u64.saturating_add(1000)
+		assert_eq!(crate::TotalStake::<Test>::get(), TaoCurrency::from(105));
+        assert_eq!(
+            crate::TotalIssuance::<Test>::get(), TaoCurrency::from(105 + 1000)
         );
     });
 }
@@ -59,19 +59,19 @@ fn test_initialise_ti() {
 fn test_migration_transfer_nets_to_foundation() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 1
-        add_network(1, 1, 0);
+        add_network(1.into(), 1, 0);
         // Create subnet 11
-        add_network(11, 1, 0);
+        add_network(11.into(), 1, 0);
 
-        log::info!("{:?}", SubtensorModule::get_subnet_owner(1));
-        //assert_eq!(SubtensorModule::<T>::get_subnet_owner(1), );
+        log::info!("{:?}", SubtensorModule::get_subnet_owner(1.into()));
+        //assert_eq!(SubtensorModule::<Test>::get_subnet_owner(1), );
 
         // Run the migration to transfer ownership
         let hex =
             hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
         crate::migrations::migrate_transfer_ownership_to_foundation::migrate_transfer_ownership_to_foundation::<Test>(hex);
 
-        log::info!("new owner: {:?}", SubtensorModule::get_subnet_owner(1));
+        log::info!("new owner: {:?}", SubtensorModule::get_subnet_owner(1.into()));
     })
 }
 
@@ -79,13 +79,13 @@ fn test_migration_transfer_nets_to_foundation() {
 fn test_migration_delete_subnet_3() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 3
-        add_network(3, 1, 0);
-        assert!(SubtensorModule::if_subnet_exist(3));
+        add_network(3.into(), 1, 0);
+        assert!(SubtensorModule::if_subnet_exist(3.into()));
 
         // Run the migration to transfer ownership
         crate::migrations::migrate_delete_subnet_3::migrate_delete_subnet_3::<Test>();
 
-        assert!(!SubtensorModule::if_subnet_exist(3));
+        assert!(!SubtensorModule::if_subnet_exist(3.into()));
     })
 }
 
@@ -93,13 +93,13 @@ fn test_migration_delete_subnet_3() {
 fn test_migration_delete_subnet_21() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 21
-        add_network(21, 1, 0);
-        assert!(SubtensorModule::if_subnet_exist(21));
+        add_network(21.into(), 1, 0);
+        assert!(SubtensorModule::if_subnet_exist(21.into()));
 
         // Run the migration to transfer ownership
         crate::migrations::migrate_delete_subnet_21::migrate_delete_subnet_21::<Test>();
 
-        assert!(!SubtensorModule::if_subnet_exist(21));
+        assert!(!SubtensorModule::if_subnet_exist(21.into()));
     })
 }
 
@@ -115,7 +115,7 @@ fn test_migrate_commit_reveal_2() {
         let storage_prefix_interval = twox_128("WeightCommitRevealInterval".as_bytes());
         let storage_prefix_commits = twox_128("WeightCommits".as_bytes());
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let interval_value: u64 = 50u64;
 
         // Construct the full key for WeightCommitRevealInterval
@@ -385,7 +385,7 @@ fn test_migrate_commit_reveal_2() {
 fn test_migrate_subnet_volume() {
     new_test_ext(1).execute_with(|| {
         // Setup initial state
-        let netuid_1: u16 = 1;
+        let netuid_1 = NetUid::from(1);
         add_network(netuid_1, 1, 0);
 
         // SubnetValue for netuid 1 key
@@ -422,7 +422,7 @@ fn test_migrate_subnet_volume() {
 #[test]
 fn test_migrate_set_first_emission_block_number() {
     new_test_ext(1).execute_with(|| {
-    let netuids: [u16; 3] = [1, 2, 3];
+    let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
     let block_number = 100;
     for netuid in netuids.iter() {
         add_network(*netuid, 1, 0);
@@ -433,7 +433,7 @@ fn test_migrate_set_first_emission_block_number() {
     let expected_weight: Weight = <Test as Config>::DbWeight::get().reads(3) + <Test as Config>::DbWeight::get().writes(netuids.len() as u64);
     assert_eq!(weight, expected_weight);
 
-    assert_eq!(FirstEmissionBlockNumber::<Test>::get(0), None);
+    assert_eq!(FirstEmissionBlockNumber::<Test>::get(NetUid::ROOT), None);
     for netuid in netuids.iter() {
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), Some(block_number));
     }
@@ -443,13 +443,13 @@ fn test_migrate_set_first_emission_block_number() {
 #[test]
 fn test_migrate_set_subtoken_enable() {
     new_test_ext(1).execute_with(|| {
-        let netuids: [u16; 3] = [1, 2, 3];
+        let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
         let block_number = 100;
         for netuid in netuids.iter() {
             add_network(*netuid, 1, 0);
         }
 
-        let new_netuid = 4;
+        let new_netuid = NetUid::from(4);
         add_network_without_emission_block(new_netuid, 1, 0);
 
         let weight =
@@ -470,17 +470,17 @@ fn test_migrate_set_subtoken_enable() {
 fn test_migrate_remove_zero_total_hotkey_alpha() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_remove_zero_total_hotkey_alpha";
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
 
         let hotkey_zero = U256::from(100u64);
         let hotkey_nonzero = U256::from(101u64);
 
         // Insert one zero-alpha entry and one non-zero entry
-        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, 0u64);
-        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, 123u64);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, AlphaCurrency::ZERO);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, AlphaCurrency::from(123));
 
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), 0u64);
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), AlphaCurrency::ZERO);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaCurrency::from(123));
 
         assert!(
             !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
@@ -499,7 +499,7 @@ fn test_migrate_remove_zero_total_hotkey_alpha() {
             "Zero-alpha entry should have been removed."
         );
 
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaCurrency::from(123));
 
         assert!(
             !weight.is_zero(),
@@ -524,7 +524,7 @@ fn test_migrate_revealed_commitments() {
         // Example keys for the DoubleMap:
         //   Key1 (netuid) uses Identity (no hash)
         //   Key2 (account) uses Twox64Concat
-        let netuid: u16 = 123;
+        let netuid = NetUid::from(123);
         let account_id: u64 = 999; // Or however your test `AccountId` is represented
 
         // Construct the full storage key for `RevealedCommitments(netuid, account_id)`
@@ -1018,5 +1018,560 @@ fn test_migrate_last_tx_block_delegate_take() {
         );
 
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
+fn test_migrate_fix_root_subnet_tao() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_fix_root_subnet_tao";
+
+        let mut expected_total_stake = 0;
+        // Seed some hotkeys with some fake stake.
+        for i in 0..100_000 {
+            Owner::<Test>::insert(U256::from(U256::from(i)), U256::from(i + 1_000_000));
+            let stake = i + 1_000_000;
+            TotalHotkeyAlpha::<Test>::insert(
+                U256::from(U256::from(i)),
+                NetUid::ROOT,
+                AlphaCurrency::from(stake),
+            );
+            expected_total_stake += stake;
+        }
+
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoCurrency::ZERO);
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<Test>();
+
+        // Verify the migration ran correctly
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT),
+            expected_total_stake.into()
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_tao_and_alpha_in --exact --show-output
+#[test]
+fn test_migrate_fix_root_tao_and_alpha_in() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_fix_root_tao_and_alpha_in";
+
+        // Set counters initially
+        let initial_value = 1_000_000_000_000;
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(initial_value));
+        SubnetAlphaIn::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));
+        SubnetAlphaOut::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));
+        SubnetVolume::<Test>::insert(NetUid::ROOT, initial_value as u128);
+        TotalStake::<Test>::set(TaoCurrency::from(initial_value));
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<Test>();
+
+        // Verify the migration ran correctly
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+
+        // Verify counters have changed
+        assert!(SubnetTAO::<Test>::get(NetUid::ROOT) != initial_value.into());
+        assert!(SubnetAlphaIn::<Test>::get(NetUid::ROOT) != initial_value.into());
+        assert!(SubnetAlphaOut::<Test>::get(NetUid::ROOT) != initial_value.into());
+        assert!(SubnetVolume::<Test>::get(NetUid::ROOT) != initial_value as u128);
+        assert!(TotalStake::<Test>::get() != initial_value.into());
+    });
+}
+
+#[test]
+fn test_migrate_subnet_symbols() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_subnet_symbols";
+
+        // Create 100 subnets
+        for i in 0..100 {
+            add_network(i.into(), 1, 0);
+        }
+
+        // Shift some symbols
+        TokenSymbol::<Test>::insert(
+            NetUid::from(21),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(142)),
+        );
+        TokenSymbol::<Test>::insert(
+            NetUid::from(42),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(184)),
+        );
+        TokenSymbol::<Test>::insert(
+            NetUid::from(83),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(242)),
+        );
+        TokenSymbol::<Test>::insert(
+            NetUid::from(99),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(284)),
+        );
+
+        // Run the migration
+        let weight = crate::migrations::migrate_subnet_symbols::migrate_subnet_symbols::<Test>();
+
+        // Check that the symbols have been corrected
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(21)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(21))
+        );
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(42)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(42))
+        );
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(83)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(83))
+        );
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(99)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(99))
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
+fn test_migrate_set_registration_enable() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_set_registration_enable";
+
+        // Create 3 subnets
+        let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
+        for netuid in netuids.iter() {
+            add_network(*netuid, 1, 0);
+            // Set registration to false to simulate the need for migration
+            SubtensorModule::set_network_registration_allowed(*netuid, false);
+            SubtensorModule::set_network_pow_registration_allowed(*netuid, false);
+        }
+
+        // Sanity check: registration is disabled before migration
+        for netuid in netuids.iter() {
+            assert!(!SubtensorModule::get_network_registration_allowed(*netuid));
+            assert!(!SubtensorModule::get_network_pow_registration_allowed(
+                *netuid
+            ));
+        }
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_set_registration_enable::migrate_set_registration_enable::<
+                Test,
+            >();
+
+        // After migration, regular registration should be enabled for all subnets except root
+        for netuid in netuids.iter() {
+            assert!(SubtensorModule::get_network_registration_allowed(*netuid));
+            assert!(!SubtensorModule::get_network_pow_registration_allowed(
+                *netuid
+            ));
+        }
+
+        // Migration should be marked as run
+        assert!(HasMigrationRun::<Test>::get(
+            MIGRATION_NAME.as_bytes().to_vec()
+        ));
+
+        // Weight should be non-zero
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
+fn test_migrate_set_nominator_min_stake() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_set_nominator_min_stake";
+
+        let min_nomination_initial = 100_000_000;
+        let min_nomination_migrated = 10_000_000;
+        NominatorMinRequiredStake::<Test>::set(min_nomination_initial);
+
+        assert_eq!(
+            NominatorMinRequiredStake::<Test>::get(),
+            min_nomination_initial
+        );
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_set_nominator_min_stake::migrate_set_nominator_min_stake::<
+                Test,
+            >();
+
+        // Verify the migration ran correctly
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+        assert_eq!(
+            NominatorMinRequiredStake::<Test>::get(),
+            min_nomination_migrated
+        );
+    });
+}
+
+#[test]
+fn test_migrate_crv3_commits_add_block() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"crv3_commits_add_block_v1";
+        let netuid = NetUid::from(99);
+        let epoch: u64 = 7;
+        let tempo: u16 = 360;
+
+        // ------------------------------
+        // 1. Create a network so helper can compute first‑block
+        // ------------------------------
+        add_network(netuid, tempo, 0);
+
+        // ------------------------------
+        // 2. Simulate OLD storage (3‑tuple)
+        // ------------------------------
+        let who: U256 = U256::from(0xdeadbeef_u64);
+        let ciphertext: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>> =
+            vec![1u8, 2, 3].try_into().unwrap();
+        let round: RoundNumber = 42;
+
+        let old_queue: VecDeque<_> = VecDeque::from(vec![(who, ciphertext.clone(), round)]);
+
+        CRV3WeightCommits::<Test>::insert(netuid, epoch, old_queue.clone());
+
+        // Sanity: entry decodes under old alias
+        assert_eq!(CRV3WeightCommits::<Test>::get(netuid, epoch), old_queue);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 3. Run migration
+        // ------------------------------
+        let w = crate::migrations::migrate_crv3_commits_add_block::migrate_crv3_commits_add_block::<
+            Test,
+        >();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 4. Verify results
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        // Old storage must be empty (drained)
+        assert!(
+            CRV3WeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            "old queue should have been drained"
+        );
+
+        let new_q = CRV3WeightCommitsV2::<Test>::get(netuid, epoch);
+        assert_eq!(new_q.len(), 1, "exactly one migrated element expected");
+
+        let (who2, commit_block, cipher2, round2) = new_q.front().cloned().unwrap();
+        assert_eq!(who2, who);
+        assert_eq!(cipher2, ciphertext);
+        assert_eq!(round2, round);
+
+        let expected_block = Pallet::<Test>::get_first_block_of_epoch(netuid, epoch);
+        assert_eq!(
+            commit_block, expected_block,
+            "commit_block should equal first block of epoch key"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_disable_commit_reveal() {
+    const MIG_NAME: &[u8] = b"disable_commit_reveal_v1";
+    let netuids = [NetUid::from(1), NetUid::from(2), NetUid::from(42)];
+
+    // ---------------------------------------------------------------------
+    // 1. build initial state ─ all nets enabled
+    // ---------------------------------------------------------------------
+    new_test_ext(1).execute_with(|| {
+        for (i, netuid) in netuids.iter().enumerate() {
+            add_network(*netuid, 5u16 + i as u16, 0);
+            CommitRevealWeightsEnabled::<Test>::insert(*netuid, true);
+        }
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME),
+            "migration flag should be unset before run"
+        );
+
+        // -----------------------------------------------------------------
+        // 2. run migration
+        // -----------------------------------------------------------------
+        let w = crate::migrations::migrate_disable_commit_reveal::migrate_disable_commit_reveal::<
+            Test,
+        >();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME),
+            "migration flag not set"
+        );
+
+        // -----------------------------------------------------------------
+        // 3. verify every netuid is now disabled and only one value exists
+        // -----------------------------------------------------------------
+        for netuid in netuids {
+            assert!(
+                !CommitRevealWeightsEnabled::<Test>::get(netuid),
+                "commit-reveal should be disabled for netuid {netuid}"
+            );
+        }
+
+        // There should be no stray keys
+        let collected: Vec<_> = CommitRevealWeightsEnabled::<Test>::iter().collect();
+        assert_eq!(collected.len(), netuids.len(), "unexpected key count");
+        for (k, v) in collected {
+            assert!(!v, "found an enabled flag after migration for netuid {k}");
+        }
+
+        // -----------------------------------------------------------------
+        // 4. running again should be a no-op
+        // -----------------------------------------------------------------
+        let w2 = crate::migrations::migrate_disable_commit_reveal::migrate_disable_commit_reveal::<
+            Test,
+        >();
+        assert_eq!(
+            w2,
+            <Test as Config>::DbWeight::get().reads(1),
+            "second run should read the flag and do nothing else"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+
+        // Set up some networks first
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
+        // Add networks to simulate existing networks
+        add_network(netuid1.into(), 1, 0);
+        add_network(netuid2.into(), 1, 0);
+
+        // Ensure the storage items use default values initially (but aren't explicitly set)
+        // Since these are ValueQuery storage items, they return defaults even when not set
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid1)), 1u64);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid2)), 1u64);
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)));
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)));
+
+        // Check migration hasn't run
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Verify RevealPeriodEpochs was set correctly
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid1)), 1u64);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid2)), 1u64);
+
+        // Verify CommitRevealWeightsEnabled was set correctly
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)));
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)));
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_already_run() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+        // Mark migration as already run
+        HasMigrationRun::<Test>::insert(MIGRATION_NAME.as_bytes().to_vec(), true);
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Should only have read weight for checking migration status
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
+        assert_eq!(weight, expected_weight);
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_no_networks() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+
+        // Check migration hasn't run
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Check that weight calculation is correct (no networks, so no additional reads/writes)
+        // 1 read for migration check + 0 reads for networks + 0 writes for storage + 1 write for migration flag
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1) + <Test as frame_system::Config>::DbWeight::get().writes(1);
+        assert_eq!(weight, expected_weight);
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_multiple_networks() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+
+        // Set up multiple networks
+        let netuids = vec![1u16, 2u16, 3u16, 10u16, 42u16];
+        for netuid in &netuids {
+            add_network((*netuid).into(), 1, 0);
+        }
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Verify all networks have correct settings
+        for netuid in &netuids {
+            assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(*netuid)), 1u64);
+            assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(*netuid)));
+        }
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_values_access() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid.into(), 1, 0);
+
+        // Run migration
+        crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Test that we can access the values using the pallet functions
+        assert_eq!(
+            SubtensorModule::get_reveal_period(NetUid::from(netuid)),
+            1u64
+        );
+
+        // Test direct storage access
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid)), 1u64);
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(
+            netuid
+        )));
+    });
+}
+
+#[test]
+fn test_migrate_crv3_v2_to_timelocked() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"crv3_v2_to_timelocked_v1";
+        let netuid = NetUid::from(99);
+        let epoch: u64 = 7;
+
+        // ------------------------------
+        // 1. Simulate OLD storage (4‑tuple; V2 layout)
+        // ------------------------------
+        let who: U256 = U256::from(0xdeadbeef_u64);
+        let commit_block: u64 = 12345;
+        let ciphertext: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>> =
+            vec![1u8, 2, 3].try_into().unwrap();
+        let round: RoundNumber = 9;
+
+        let old_queue: VecDeque<_> =
+            VecDeque::from(vec![(who, commit_block, ciphertext.clone(), round)]);
+
+        // Insert under the deprecated alias
+        CRV3WeightCommitsV2::<Test>::insert(netuid, epoch, old_queue.clone());
+
+        // Sanity: entry decodes under old alias
+        assert_eq!(
+            CRV3WeightCommitsV2::<Test>::get(netuid, epoch),
+            old_queue,
+            "pre-migration: old queue should be present"
+        );
+
+        // Destination should be empty pre-migration
+        assert!(
+            TimelockedWeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            "pre-migration: destination should be empty"
+        );
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 2. Run migration
+        // ------------------------------
+        let w = crate::migrations::migrate_crv3_v2_to_timelocked::migrate_crv3_v2_to_timelocked::<
+            Test,
+        >();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 3. Verify results
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        // Old storage must be empty (drained)
+        assert!(
+            CRV3WeightCommitsV2::<Test>::get(netuid, epoch).is_empty(),
+            "old queue should have been drained"
+        );
+
+        // New storage must match exactly
+        let new_q = TimelockedWeightCommits::<Test>::get(netuid, epoch);
+        assert_eq!(
+            new_q, old_queue,
+            "migrated queue must exactly match the old queue"
+        );
+
+        // Verify the front element matches what we inserted
+        let (who2, commit_block2, cipher2, round2) = new_q.front().cloned().unwrap();
+        assert_eq!(who2, who);
+        assert_eq!(commit_block2, commit_block);
+        assert_eq!(cipher2, ciphertext);
+        assert_eq!(round2, round);
     });
 }

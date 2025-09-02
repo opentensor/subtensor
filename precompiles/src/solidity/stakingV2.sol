@@ -196,6 +196,16 @@ interface IStaking {
     ) external view returns (uint256);
 
     /**
+     * @dev Returns the minimum required stake for a nominator.
+     *
+     * This function retrieves the minimum required stake for a nominator.
+     * It is a view function, meaning it does not modify the state of the contract and is free to call.
+     *
+     * @return The minimum required stake for a nominator.
+     */
+    function getNominatorMinRequiredStake() external view returns (uint256);
+
+    /**
      * @dev Adds a subtensor stake `amount` associated with the `hotkey` within a price limit.
      *
      * This function allows external accounts and contracts to stake TAO into the subtensor pallet,
@@ -248,5 +258,34 @@ interface IStaking {
         uint256 limit_price,
         bool allow_partial,
         uint256 netuid
+    ) external;
+
+    /**
+     * @dev Removes all stake from a hotkey on a subnet with a price limit.
+     *
+     * This function allows external accounts and contracts to remove all stake from a specified hotkey
+     * on a subnet, with an optional limit price for alpha token at which or better (higher) the staking
+     * should execute. Without a limit price, it removes all the stake similar to `removeStake` function.
+     *
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param netuid The subnet to remove stake from (uint256).
+     */
+    function removeStakeFull(bytes32 hotkey, uint256 netuid) external;
+
+    /**
+     * @dev Removes all stake from a hotkey on a subnet with a price limit.
+     *
+     * This function allows external accounts and contracts to remove all stake from a specified hotkey
+     * on a subnet, with an optional limit price for alpha token at which or better (higher) the staking
+     * should execute. Without a limit price, it removes all the stake similar to `removeStake` function.
+     *
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param netuid The subnet to remove stake from (uint256).
+     * @param limitPrice The limit price for alpha token (uint256).
+     */
+    function removeStakeFullLimit(
+        bytes32 hotkey,
+        uint256 netuid,
+        uint256 limitPrice
     ) external;
 }

@@ -18,7 +18,7 @@ LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
 
 # Rust targets
 RUN rustup update stable && \
-  rustup target add wasm32-unknown-unknown --toolchain stable
+  rustup target add wasm32v1-none --toolchain stable
 
 # Build prerequisites
 ENV RUST_BACKTRACE=1
@@ -48,6 +48,10 @@ FROM ${BASE_IMAGE} AS subtensor
 # ---- security hardening: create least-privilege user ----
 RUN addgroup --system --gid 10001 subtensor && \
   adduser  --system --uid 10001 --gid 10001 --home /home/subtensor --disabled-password subtensor
+  
+# Install gosu for privilege dropping
+RUN apt-get update && apt-get install -y gosu && \
+  rm -rf /var/lib/apt/lists/*
 
 # Writable data directory to be used as --base-path
 RUN mkdir -p /data && chown -R subtensor:subtensor /data
@@ -61,10 +65,17 @@ COPY --chown=subtensor:subtensor --from=prod_builder /build/chainspecs/*.json ./
 COPY --from=prod_builder /build/target/production/node-subtensor /usr/local/bin/
 RUN chown subtensor:subtensor /usr/local/bin/node-subtensor
 
+# Copy and prepare entrypoint
+COPY ./scripts/docker_entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 30333 9933 9944
-USER subtensor
-ENTRYPOINT ["node-subtensor"]
-CMD ["--base-path","/data"]
+
+# Run entrypoint as root to handle permissions, then drop to subtensor user 
+# in the script
+USER root
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["--base-path", "/data"]
 
 ###############################################################################
 # ---------- 4. Local build stage --------------------------------------------
@@ -84,6 +95,10 @@ FROM ${BASE_IMAGE} AS subtensor-local
 RUN addgroup --system --gid 10001 subtensor && \
   adduser  --system --uid 10001 --gid 10001 --home /home/subtensor --disabled-password subtensor
 
+# Install gosu for privilege dropping
+RUN apt-get update && apt-get install -y gosu && \
+  rm -rf /var/lib/apt/lists/*
+
 RUN mkdir -p /data && chown -R subtensor:subtensor /data
 WORKDIR /home/subtensor
 
@@ -93,11 +108,18 @@ COPY --chown=subtensor:subtensor --from=local_builder /build/chainspecs/*.json .
 COPY --from=local_builder /build/target/release/node-subtensor /usr/local/bin/
 RUN chown subtensor:subtensor /usr/local/bin/node-subtensor
 
+# Copy and prepare entrypoint
+COPY ./scripts/docker_entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Generate a local chainspec for convenience (run as root before user switch)
 RUN node-subtensor build-spec --disable-default-bootnode --raw --chain local > /localnet.json \
   && chown subtensor:subtensor /localnet.json
 
 EXPOSE 30333 9933 9944
-USER subtensor
-ENTRYPOINT ["node-subtensor"]
+
+# Run entrypoint as root to handle permissions, then drop to subtensor user
+# in the script
+USER root
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["--base-path","/data","--chain","/localnet.json"]

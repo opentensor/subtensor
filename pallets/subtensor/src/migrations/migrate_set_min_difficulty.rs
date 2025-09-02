@@ -2,6 +2,7 @@ use alloc::string::String;
 
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
+use subtensor_runtime_common::NetUid;
 
 use super::*;
 
@@ -15,7 +16,7 @@ pub fn migrate_set_min_difficulty<T: Config>() -> Weight {
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name)
         );
         return weight;
     }
@@ -24,13 +25,13 @@ pub fn migrate_set_min_difficulty<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
-    let netuids: Vec<u16> = <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
+    let netuids: Vec<NetUid> = <NetworksAdded<T> as IterableStorageMap<NetUid, bool>>::iter()
         .map(|(netuid, _)| netuid)
         .collect();
     weight = weight.saturating_add(T::DbWeight::get().reads(netuids.len() as u64));
 
-    for netuid in netuids.iter().clone() {
-        if *netuid == 0 {
+    for netuid in netuids.iter() {
+        if netuid.is_root() {
             continue;
         }
         // Set min difficulty to 10 million for all subnets

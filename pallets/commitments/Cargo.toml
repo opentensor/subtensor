@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 description = "Add the ability to commit generic hashed data for network participants."
 authors = ["Bittensor Nucleus Team"]
 homepage = "https://bittensor.com"
-edition = "2024"
+edition.workspace = true
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
@@ -17,58 +17,57 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 subtensor-macros.workspace = true
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-	"max-encoded-len",
-] }
+codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-enumflags2 = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+enumflags2.workspace = true
 
-pallet-drand = { path = "../drand", default-features = false }
-tle = { workspace = true, default-features = false }
-ark-serialize = { workspace = true, default-features = false }
-w3f-bls = { workspace = true, default-features = false }
-rand_chacha = { workspace = true }
-hex = { workspace = true }
-sha2 = { workspace = true }
+pallet-drand.workspace = true
+tle.workspace = true
+ark-serialize = { workspace = true, features = ["derive"] }
+w3f-bls.workspace = true
+rand_chacha.workspace = true
+hex.workspace = true
+sha2.workspace = true
 
-log = { workspace = true }
+log.workspace = true
 
-pallet-subtensor = { path = "../subtensor", default-features = false }
+pallet-subtensor.workspace = true
+subtensor-runtime-common.workspace = true
 
 [dev-dependencies]
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-pallet-balances = { workspace = true }
+sp-core.workspace = true
+sp-io.workspace = true
+pallet-balances.workspace = true
 
 [features]
 default = ["std"]
 std = [
+	"ark-serialize/std",
 	"codec/std",
+	"enumflags2/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
-	"sp-std/std",
-	"sp-runtime/std",
-	"enumflags2/std",
+	"hex/std",
+	"log/std",
 	"pallet-balances/std",
+	"pallet-drand/std",
+	"pallet-subtensor/std",
+	"rand_chacha/std",
+	"scale-info/std",
+	"sha2/std",
 	"sp-core/std",
 	"sp-io/std",
-	"ark-serialize/std",
-	"log/std",
-	"pallet-drand/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"subtensor-runtime-common/std",
 	"tle/std",
 	"w3f-bls/std",
-	"hex/std",
-	"rand_chacha/std",
-	"sha2/std",
-	"pallet-subtensor/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -77,7 +76,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
-	"pallet-subtensor/runtime-benchmarks"
+	"pallet-subtensor/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -85,5 +84,5 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-drand/try-runtime",
-	"pallet-subtensor/try-runtime"
+	"pallet-subtensor/try-runtime",
 ]

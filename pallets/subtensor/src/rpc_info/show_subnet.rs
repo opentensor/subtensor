@@ -4,28 +4,29 @@ use crate::epoch::math::*;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
-#[freeze_struct("7954f39fd0755b28")]
+#[freeze_struct("9354762261420485")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetState<AccountId: TypeInfo + Encode + Decode> {
-    netuid: Compact<u16>,
+    netuid: Compact<NetUid>,
     hotkeys: Vec<AccountId>,
     coldkeys: Vec<AccountId>,
     active: Vec<bool>,
     validator_permit: Vec<bool>,
     pruning_score: Vec<Compact<u16>>,
     last_update: Vec<Compact<u64>>,
-    emission: Vec<Compact<u64>>,
+    emission: Vec<Compact<AlphaCurrency>>,
     dividends: Vec<Compact<u16>>,
     incentives: Vec<Compact<u16>>,
     consensus: Vec<Compact<u16>>,
     trust: Vec<Compact<u16>>,
     rank: Vec<Compact<u16>>,
     block_at_registration: Vec<Compact<u64>>,
-    alpha_stake: Vec<Compact<u64>>,
-    tao_stake: Vec<Compact<u64>>,
-    total_stake: Vec<Compact<u64>>,
-    emission_history: Vec<Vec<Compact<u64>>>,
+    alpha_stake: Vec<Compact<AlphaCurrency>>,
+    tao_stake: Vec<Compact<TaoCurrency>>,
+    total_stake: Vec<Compact<TaoCurrency>>,
+    emission_history: Vec<Vec<Compact<AlphaCurrency>>>,
     // identities: Vec<ChainIdentityOf>,
     // tao_stake: Compact<u64>,
     // incentive: Compact<u16>,
@@ -50,12 +51,12 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `Vec<Vec<Compact<u64>>>` - A vector of vectors containing the emission history for each hotkey across all subnets.
-    pub fn get_emissions_history(hotkeys: Vec<T::AccountId>) -> Vec<Vec<Compact<u64>>> {
-        let mut result: Vec<Vec<Compact<u64>>> = vec![];
+    pub fn get_emissions_history(hotkeys: Vec<T::AccountId>) -> Vec<Vec<Compact<AlphaCurrency>>> {
+        let mut result: Vec<Vec<Compact<AlphaCurrency>>> = vec![];
         for netuid in Self::get_all_subnet_netuids() {
-            let mut hotkeys_emissions: Vec<Compact<u64>> = vec![];
+            let mut hotkeys_emissions: Vec<Compact<AlphaCurrency>> = vec![];
             for hotkey in hotkeys.clone() {
-                let last_emission: Compact<u64> =
+                let last_emission: Compact<AlphaCurrency> =
                     LastHotkeyEmissionOnNetuid::<T>::get(hotkey.clone(), netuid).into();
                 hotkeys_emissions.push(last_emission);
             }
@@ -79,7 +80,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `Option<SubnetState<T::AccountId>>` - An optional `SubnetState` struct containing the collected data for the subnet.
     ///   Returns `None` if the subnet does not exist.
-    pub fn get_subnet_state(netuid: u16) -> Option<SubnetState<T::AccountId>> {
+    pub fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -106,7 +107,7 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .map(Compact::from)
             .collect();
-        let emission: Vec<Compact<u64>> = Emission::<T>::get(netuid)
+        let emission = Emission::<T>::get(netuid)
             .into_iter()
             .map(Compact::from)
             .collect();
@@ -135,19 +136,19 @@ impl<T: Config> Pallet<T> {
             Vec<I64F64>,
             Vec<I64F64>,
         ) = Self::get_stake_weights_for_network(netuid);
-        let alpha_stake: Vec<Compact<u64>> = alpha_stake_fl
+        let alpha_stake: Vec<Compact<AlphaCurrency>> = alpha_stake_fl
             .iter()
-            .map(|xi| Compact::from(fixed64_to_u64(*xi)))
-            .collect::<Vec<Compact<u64>>>();
-        let tao_stake: Vec<Compact<u64>> = tao_stake_fl
+            .map(|xi| Compact::from(AlphaCurrency::from(fixed64_to_u64(*xi))))
+            .collect();
+        let tao_stake: Vec<Compact<TaoCurrency>> = tao_stake_fl
             .iter()
-            .map(|xi| Compact::from(fixed64_to_u64(*xi)))
-            .collect::<Vec<Compact<u64>>>();
-        let total_stake: Vec<Compact<u64>> = total_stake_fl
+            .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
+            .collect();
+        let total_stake: Vec<Compact<TaoCurrency>> = total_stake_fl
             .iter()
-            .map(|xi| Compact::from(fixed64_to_u64(*xi)))
-            .collect::<Vec<Compact<u64>>>();
-        let emission_history: Vec<Vec<Compact<u64>>> = Self::get_emissions_history(hotkeys.clone());
+            .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
+            .collect();
+        let emission_history = Self::get_emissions_history(hotkeys.clone());
         Some(SubnetState {
             netuid: netuid.into(),
             hotkeys,

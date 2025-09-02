@@ -42,6 +42,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "128"]
 
+use codec::DecodeWithMemTracking;
 use frame_support::{
     dispatch::{DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo},
     ensure,
@@ -126,7 +127,17 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
 }
 
 /// Origin for the collective module.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+    PartialEq,
+    Eq,
+    Clone,
+    RuntimeDebug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(I))]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 pub enum RawOrigin<AccountId, I> {
@@ -475,7 +486,7 @@ pub mod pallet {
 			T::WeightInfo::execute(
 				*length_bound, // B
 				T::MaxMembers::get(), // M
-			).saturating_add(proposal.get_dispatch_info().weight), // P
+			).saturating_add(proposal.get_dispatch_info().call_weight), // P
 			DispatchClass::Operational
 		))]
         pub fn execute(
@@ -934,7 +945,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             Error::<T, I>::ProposalLengthBoundLessThanProposalLength
         );
         let proposal = ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalNotExists)?;
-        let proposal_weight = proposal.get_dispatch_info().weight;
+        let proposal_weight = proposal.get_dispatch_info().call_weight;
         ensure!(
             proposal_weight.all_lte(weight_bound),
             Error::<T, I>::ProposalWeightLessThanDispatchCallWeight
@@ -964,7 +975,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     ) -> (Weight, u32) {
         Self::deposit_event(Event::Approved { proposal_hash });
 
-        let dispatch_weight = proposal.get_dispatch_info().weight;
+        let dispatch_weight = proposal.get_dispatch_info().call_weight;
         let origin = RawOrigin::Members(yes_votes, seats).into();
         let result = proposal.dispatch(origin);
         Self::deposit_event(Event::Executed {

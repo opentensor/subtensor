@@ -1,15 +1,22 @@
 use super::*;
+use alloc::string::String;
 use frame_support::pallet_prelude::Weight;
 use sp_io::KillStorageResult;
 use sp_io::hashing::twox_128;
 use sp_io::storage::clear_prefix;
 pub mod migrate_chain_identity;
 pub mod migrate_coldkey_swap_scheduled;
+pub mod migrate_commit_reveal_settings;
 pub mod migrate_commit_reveal_v2;
 pub mod migrate_create_root_network;
+pub mod migrate_crv3_commits_add_block;
+pub mod migrate_crv3_v2_to_timelocked;
 pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
+pub mod migrate_disable_commit_reveal;
 pub mod migrate_fix_is_network_member;
+pub mod migrate_fix_root_subnet_tao;
+pub mod migrate_fix_root_tao_and_alpha_in;
 pub mod migrate_identities_v2;
 pub mod migrate_init_total_issuance;
 pub mod migrate_orphaned_storage_items;
@@ -26,8 +33,12 @@ pub mod migrate_reset_max_burn;
 pub mod migrate_set_first_emission_block_number;
 pub mod migrate_set_min_burn;
 pub mod migrate_set_min_difficulty;
+pub mod migrate_set_nominator_min_stake;
+pub mod migrate_set_registration_enable;
 pub mod migrate_set_subtoken_enabled;
 pub mod migrate_stake_threshold;
+pub mod migrate_subnet_identities_to_v3;
+pub mod migrate_subnet_symbols;
 pub mod migrate_subnet_volume;
 pub mod migrate_to_v1_separate_emission;
 pub mod migrate_to_v2_fixed_total_stake;
@@ -46,12 +57,12 @@ pub(crate) fn migrate_storage<T: Config>(
     if HasMigrationRun::<T>::get(&migration_name_bytes) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name_bytes)
         );
         return weight;
     }
 
-    log::info!("Running migration '{}'", migration_name);
+    log::info!("Running migration '{migration_name}'");
 
     let pallet_name = twox_128(pallet_name.as_bytes());
     let storage_name = twox_128(storage_name.as_bytes());
@@ -60,7 +71,7 @@ pub(crate) fn migrate_storage<T: Config>(
     // Remove all entries.
     let removed_entries_count = match clear_prefix(&prefix, Some(u32::MAX)) {
         KillStorageResult::AllRemoved(removed) => {
-            log::info!("Removed all entries from {:?}.", storage_name);
+            log::info!("Removed all entries from {storage_name:?}.");
 
             // Mark migration as completed
             HasMigrationRun::<T>::insert(&migration_name_bytes, true);
@@ -69,7 +80,7 @@ pub(crate) fn migrate_storage<T: Config>(
             removed as u64
         }
         KillStorageResult::SomeRemaining(removed) => {
-            log::info!("Failed to remove all entries from {:?}", storage_name);
+            log::info!("Failed to remove all entries from {storage_name:?}");
             removed as u64
         }
     };
@@ -77,9 +88,7 @@ pub(crate) fn migrate_storage<T: Config>(
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count as u64));
 
     log::info!(
-        "Migration '{:?}' completed successfully. {:?} entries removed.",
-        migration_name,
-        removed_entries_count
+        "Migration '{migration_name:?}' completed successfully. {removed_entries_count:?} entries removed."
     );
 
     weight

@@ -1,0 +1,85 @@
+[package]
+name = "subtensor-transaction-fee"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+codec.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+log.workspace = true
+pallet-balances = { workspace = true, default-features = false }
+pallet-subtensor.workspace = true
+pallet-subtensor-swap.workspace = true
+pallet-transaction-payment.workspace = true
+smallvec.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+substrate-fixed.workspace = true
+subtensor-runtime-common.workspace = true
+subtensor-swap-interface.workspace = true
+pallet-crowdloan = { workspace = true, default-features = false }
+pallet-drand = { workspace = true, default-features = false }
+pallet-grandpa = { workspace = true, default-features = false, optional = true }
+pallet-preimage = { workspace = true, default-features = false, optional = true }
+pallet-scheduler = { workspace = true, default-features = false, optional = true }
+
+[dev-dependencies]
+frame-executive.workspace = true
+pallet-evm-chain-id.workspace = true
+scale-info.workspace = true
+sp-consensus-aura.workspace = true
+sp-consensus-grandpa.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-tracing.workspace = true
+sp-weights.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-executive/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-balances/std",
+	"pallet-crowdloan/std",
+	"pallet-drand/std",
+	"pallet-evm-chain-id/std",
+	"pallet-grandpa/std",
+	"pallet-preimage/std",
+	"pallet-scheduler/std",
+	"pallet-subtensor/std",
+	"pallet-subtensor-swap/std",
+	"pallet-transaction-payment/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-consensus-aura/std",
+	"sp-consensus-grandpa/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-tracing/std",
+	"sp-weights/std",
+	"substrate-fixed/std",
+	"subtensor-runtime-common/std",
+	"subtensor-swap-interface/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks",
+	"pallet-grandpa/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",	
+	"pallet-subtensor/runtime-benchmarks",
+	"pallet-subtensor-swap/runtime-benchmarks",
+]

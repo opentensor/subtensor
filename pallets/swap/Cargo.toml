@@ -1,0 +1,63 @@
+[package]
+name = "pallet-subtensor-swap"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+alloy-primitives.workspace = true
+approx.workspace = true
+codec = { workspace = true, features = ["derive"] }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support.workspace = true
+frame-system.workspace = true
+log.workspace = true
+safe-math.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+serde = { workspace = true, optional = true }
+sp-arithmetic.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+substrate-fixed.workspace = true
+
+pallet-subtensor-swap-runtime-api.workspace = true
+subtensor-macros.workspace = true
+subtensor-runtime-common.workspace = true
+subtensor-swap-interface.workspace = true
+
+[dev-dependencies]
+sp-tracing.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["std"]
+std = [
+	"alloy-primitives/std",
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-subtensor-swap-runtime-api/std",
+	"safe-math/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-tracing/std",
+	"sp-std/std",
+	"substrate-fixed/std",
+	"subtensor-runtime-common/std",
+	"subtensor-swap-interface/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

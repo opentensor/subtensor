@@ -2,8 +2,9 @@ use crate as pallet_commitments;
 use frame_support::{
     derive_impl,
     pallet_prelude::{Get, TypeInfo},
-    traits::{ConstU32, ConstU64},
+    traits::{ConstU32, ConstU64, InherentBuilder},
 };
+use frame_system::offchain::CreateTransactionBase;
 use sp_core::H256;
 use sp_runtime::{
     BuildStorage,
@@ -87,7 +88,7 @@ impl TypeInfo for TestMaxFields {
 
 pub struct TestCanCommit;
 impl pallet_commitments::CanCommit<u64> for TestCanCommit {
-    fn can_commit(_netuid: u16, _who: &u64) -> bool {
+    fn can_commit(_netuid: NetUid, _who: &u64) -> bool {
         true
     }
 }
@@ -106,10 +107,10 @@ impl pallet_commitments::Config for Test {
 
 pub struct MockTempoInterface;
 impl pallet_commitments::GetTempoInterface for MockTempoInterface {
-    fn get_epoch_index(netuid: u16, cur_block: u64) -> u64 {
+    fn get_epoch_index(netuid: NetUid, cur_block: u64) -> u64 {
         let tempo = 360; // TODO: configure SubtensorModule in this mock
         let tempo_plus_one: u64 = tempo.saturating_add(1);
-        let netuid_plus_one: u64 = (netuid as u64).saturating_add(1);
+        let netuid_plus_one: u64 = (u16::from(netuid) as u64).saturating_add(1);
         let block_with_offset: u64 = cur_block.saturating_add(netuid_plus_one);
 
         block_with_offset.checked_div(tempo_plus_one).unwrap_or(0)
@@ -159,30 +160,46 @@ impl frame_system::offchain::SigningTypes for Test {
     type Signature = test_crypto::Signature;
 }
 
-impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> for Test {
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: RuntimeCall,
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type RuntimeCall = RuntimeCall;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+        UncheckedExtrinsic::new_inherent(call)
+    }
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    fn create_signed_transaction<
+        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+    >(
+        call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
         _public: Self::Public,
-        account: Self::AccountId,
-        _nonce: u32,
-    ) -> Option<(
-        RuntimeCall,
-        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-    )> {
+        _account: Self::AccountId,
+        nonce: Self::Nonce,
+    ) -> Option<Self::Extrinsic> {
         // Create a dummy sr25519 signature from a raw byte array
         let dummy_raw = [0u8; 64];
         let dummy_signature = sp_core::sr25519::Signature::from(dummy_raw);
         let signature = test_crypto::Signature::from(dummy_signature);
-        Some((call, (account, signature, ())))
+        Some(UncheckedExtrinsic::new_signed(
+            call,
+            nonce.into(),
+            signature,
+            (),
+        ))
     }
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
-where
-    RuntimeCall: From<C>,
-{
-    type Extrinsic = UncheckedExtrinsic;
-    type OverarchingCall = RuntimeCall;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

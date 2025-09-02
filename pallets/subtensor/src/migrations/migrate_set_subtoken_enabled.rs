@@ -25,7 +25,7 @@ pub fn migrate_set_subtoken_enabled<T: Config>() -> Weight {
     // ------------------------------
     let netuids = Pallet::<T>::get_all_subnet_netuids();
     for netuid in netuids.iter() {
-        if *netuid != 0 {
+        if !netuid.is_root() {
             // set it as true if start call executed and value exists for first emission block number
             SubtokenEnabled::<T>::insert(
                 netuid,

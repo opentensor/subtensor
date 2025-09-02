@@ -23,11 +23,7 @@ fn remove_prefix<T: Config>(old_map: &str, weight: &mut Weight) {
         }
     };
 
-    log::info!(
-        "Removed {:?} entries from {:?} map.",
-        removed_entries_count,
-        old_map
-    );
+    log::info!("Removed {removed_entries_count:?} entries from {old_map:?} map.");
 
     *weight = (*weight).saturating_add(T::DbWeight::get().writes(removed_entries_count));
 }
@@ -39,7 +35,7 @@ pub fn migrate_remove_unused_maps_and_values<T: Config>() -> Weight {
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name)
         );
         return weight;
     }

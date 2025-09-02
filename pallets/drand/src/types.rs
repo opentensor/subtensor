@@ -15,7 +15,7 @@
  */
 
 use alloc::{string::String, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::*;
 use serde::{Deserialize, Serialize};
 use subtensor_macros::freeze_struct;
@@ -116,11 +116,12 @@ impl DrandResponseBody {
     }
 }
 /// A drand chain configuration
-#[freeze_struct("1e01e739e2a5c940")]
+#[freeze_struct("e839cb287e55b4f5")]
 #[derive(
     Clone,
     Debug,
     Decode,
+    DecodeWithMemTracking,
     Default,
     PartialEq,
     Encode,
@@ -141,8 +142,8 @@ pub struct BeaconConfiguration {
 
 /// Payload used by to hold the beacon
 /// config required to submit a transaction.
-#[freeze_struct("2b7ebe4cb969cbd3")]
-#[derive(Encode, Decode, Debug, Clone, PartialEq, scale_info::TypeInfo)]
+#[freeze_struct("aa582bfb5fcb7d4f")]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, scale_info::TypeInfo)]
 pub struct BeaconConfigurationPayload<Public, BlockNumber> {
     pub block_number: BlockNumber,
     pub config: BeaconConfiguration,
@@ -150,11 +151,12 @@ pub struct BeaconConfigurationPayload<Public, BlockNumber> {
 }
 
 /// metadata for the drand beacon configuration
-#[freeze_struct("d87f51d2ad39c10e")]
+#[freeze_struct("e4cfd191c043f56f")]
 #[derive(
     Clone,
     Debug,
     Decode,
+    DecodeWithMemTracking,
     Default,
     PartialEq,
     Encode,
@@ -168,11 +170,12 @@ pub struct Metadata {
 }
 
 /// A pulse from the drand beacon
-#[freeze_struct("de1a209f66f482b4")]
+#[freeze_struct("3836b1f8846739fc")]
 #[derive(
     Clone,
     Debug,
     Decode,
+    DecodeWithMemTracking,
     Default,
     PartialEq,
     Encode,
@@ -196,8 +199,8 @@ pub struct Pulse {
 
 /// Payload used by to hold the pulse
 /// data required to submit a transaction.
-#[freeze_struct("4a9f01b1d8fbbe89")]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[freeze_struct("d56228e0330b6598")]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct PulsesPayload<Public, BlockNumber> {
     pub block_number: BlockNumber,
     pub pulses: Vec<Pulse>,

@@ -1,20 +1,16 @@
 [package]
 name = "share-pool"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
-substrate-fixed = { workspace = true }
-sp-std = { workspace = true }
-safe-math = { default-features = false, path = "../safe-math" }
+substrate-fixed.workspace = true
+sp-std.workspace = true
+safe-math.workspace = true
 
 [lints]
 workspace = true
 
 [features]
 default = ["std"]
-std = [
-	"substrate-fixed/std",
-	"sp-std/std",
-	"safe-math/std",
-]
+std = ["substrate-fixed/std", "sp-std/std", "safe-math/std"]

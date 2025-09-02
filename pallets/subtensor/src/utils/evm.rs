@@ -1,10 +1,11 @@
 use super::*;
-
 use alloc::string::ToString;
 use frame_support::ensure;
 use frame_system::ensure_signed;
+
 use sp_core::{H160, ecdsa::Signature, hashing::keccak_256};
 use sp_std::vec::Vec;
+use subtensor_runtime_common::NetUid;
 
 const MESSAGE_PREFIX: &str = "\x19Ethereum Signed Message:\n";
 
@@ -42,18 +43,12 @@ impl<T: Config> Pallet<T> {
     /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
     pub fn do_associate_evm_key(
         origin: T::RuntimeOrigin,
-        netuid: u16,
-        hotkey: T::AccountId,
+        netuid: NetUid,
         evm_key: H160,
         block_number: u64,
         mut signature: Signature,
     ) -> dispatch::DispatchResult {
-        let coldkey = ensure_signed(origin)?;
-
-        ensure!(
-            Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
-            Error::<T>::NonAssociatedColdKey
-        );
+        let hotkey = ensure_signed(origin)?;
 
         // Normalize the v value to 0 or 1
         if signature.0[64] >= 27 {
@@ -91,7 +86,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn uid_lookup(netuid: u16, evm_key: H160, limit: u16) -> Vec<(u16, u64)> {
+    pub fn uid_lookup(netuid: NetUid, evm_key: H160, limit: u16) -> Vec<(u16, u64)> {
         let mut ret_val = AssociatedEvmAddress::<T>::iter_prefix(netuid)
             .take(limit as usize)
             .filter_map(|(uid, (stored_evm_key, block_associated))| {

@@ -44,7 +44,9 @@ mod hooks {
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are finalizing.
         fn on_finalize(_block_number: BlockNumberFor<T>) {
-            // Self::do_on_finalize(block_number);
+            for _ in StakingOperationRateLimiter::<T>::drain() {
+                // Clear all entries each block
+            }
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -118,6 +120,22 @@ mod hooks {
                 .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>())
                 // Migrate ColdkeySwapScheduled structure to new format
                 .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>())
+                // Fix the root subnet TAO storage value
+                .saturating_add(migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<T>())
+                // Fix the owner disable the registration
+                .saturating_add(migrations::migrate_set_registration_enable::migrate_set_registration_enable::<T>())
+                // Migrate Subnet Identities to V3
+                .saturating_add(migrations::migrate_subnet_identities_to_v3::migrate_subnet_identities_to_v3::<T>())
+                // Migrate subnet symbols to fix the shift after subnet 81
+                .saturating_add(migrations::migrate_subnet_symbols::migrate_subnet_symbols::<T>())
+                // Migrate CRV3 add commit_block
+                .saturating_add(migrations::migrate_crv3_commits_add_block::migrate_crv3_commits_add_block::<T>())
+                // Migrate Commit-Reveal Settings
+                .saturating_add(migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<T>())
+                //Migrate CRV3 to TimelockedCommits
+                .saturating_add(migrations::migrate_crv3_v2_to_timelocked::migrate_crv3_v2_to_timelocked::<T>())
+                // Migrate to fix root counters
+                .saturating_add(migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<T>())
                 // Migrate last block rate limiting storage items
                 .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>());
             weight
@@ -149,7 +167,8 @@ mod hooks {
             if let Some(slot) = block_number.checked_rem(hotkey_swap_on_subnet_interval) {
                 // only handle the subnet with the same residue as current block number by HotkeySwapOnSubnetInterval
                 for netuid in netuids.iter().filter(|netuid| {
-                    (**netuid as u64).checked_rem(hotkey_swap_on_subnet_interval) == Some(slot)
+                    (u16::from(**netuid) as u64).checked_rem(hotkey_swap_on_subnet_interval)
+                        == Some(slot)
                 }) {
                     // Iterate over all the coldkeys in the subnet
                     for (coldkey, swap_block_number) in

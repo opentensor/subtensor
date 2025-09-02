@@ -6,7 +6,7 @@ use node_subtensor_runtime::{
     BalancesCall, BuildStorage, Proxy, Runtime, RuntimeCall, RuntimeEvent, RuntimeGenesisConfig,
     RuntimeOrigin, SubtensorModule, System, SystemCall,
 };
-use subtensor_runtime_common::{AccountId, ProxyType};
+use subtensor_runtime_common::{AccountId, NetUid, ProxyType};
 
 const ACCOUNT: [u8; 32] = [1_u8; 32];
 const DELEGATE: [u8; 32] = [2_u8; 32];
@@ -24,6 +24,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                 (AccountId::from(DELEGATE), amount),
                 (AccountId::from(OTHER_ACCOUNT), amount),
             ],
+            dev_accounts: None,
         },
 
         triumvirate: pallet_collective::GenesisConfig {
@@ -60,7 +61,7 @@ fn call_remark() -> RuntimeCall {
 
 // owner call
 fn call_owner_util() -> RuntimeCall {
-    let netuid = 1;
+    let netuid = NetUid::from(1);
     let serving_rate_limit = 2;
     RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_serving_rate_limit {
         netuid,
@@ -70,10 +71,35 @@ fn call_owner_util() -> RuntimeCall {
 
 // sn owner hotkey call
 fn call_sn_owner_hotkey() -> RuntimeCall {
-    let netuid = 1;
+    let netuid = NetUid::from(1);
     RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_sn_owner_hotkey {
         netuid,
         hotkey: AccountId::from(ACCOUNT).into(),
+    })
+}
+
+// set subnet identity call
+fn call_set_subnet_identity() -> RuntimeCall {
+    let netuid = NetUid::from(1);
+    RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_subnet_identity {
+        netuid,
+        subnet_name: vec![],
+        github_repo: vec![],
+        subnet_contact: vec![],
+        subnet_url: vec![],
+        discord: vec![],
+        description: vec![],
+        logo_url: vec![],
+        additional: vec![],
+    })
+}
+
+// update symbol call
+fn call_update_symbol() -> RuntimeCall {
+    let netuid = NetUid::from(1);
+    RuntimeCall::SubtensorModule(pallet_subtensor::Call::update_symbol {
+        netuid,
+        symbol: vec![],
     })
 }
 
@@ -112,19 +138,19 @@ fn call_senate() -> RuntimeCall {
 
 // staking call
 fn call_add_stake() -> RuntimeCall {
-    let netuid = 1;
+    let netuid = NetUid::from(1);
     let amount_staked = 100;
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
         hotkey: AccountId::from(DELEGATE),
         netuid,
-        amount_staked,
+        amount_staked: amount_staked.into(),
     })
 }
 
 // register call, account as hotkey, delegate as coldkey
 fn call_register() -> RuntimeCall {
     let block_number: u64 = 1;
-    let netuid: u16 = 2;
+    let netuid = NetUid::from(2);
 
     // lower diff first
     SubtensorModule::set_difficulty(netuid, 100);
@@ -264,5 +290,20 @@ fn test_owner_type_cannot_set_sn_owner_hotkey() {
             }
             .into(),
         );
+    });
+}
+
+#[test]
+fn test_owner_type_can_set_subnet_identity_and_update_symbol() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(AccountId::from(ACCOUNT)),
+            AccountId::from(DELEGATE).into(),
+            ProxyType::Owner,
+            0
+        ));
+
+        verify_call_with_proxy_type(&ProxyType::Owner, &call_set_subnet_identity());
+        verify_call_with_proxy_type(&ProxyType::Owner, &call_update_symbol());
     });
 }

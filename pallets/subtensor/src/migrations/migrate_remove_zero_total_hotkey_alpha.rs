@@ -13,7 +13,7 @@ pub fn migrate_remove_zero_total_hotkey_alpha<T: Config>() -> Weight {
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name)
         );
         return weight;
     }
@@ -31,7 +31,7 @@ pub fn migrate_remove_zero_total_hotkey_alpha<T: Config>() -> Weight {
 
     // For each (hotkey, netuid, alpha) entry, remove if alpha == 0
     for (hotkey, netuid, alpha) in TotalHotkeyAlpha::<T>::iter() {
-        if alpha == 0 {
+        if alpha == 0.into() {
             TotalHotkeyAlpha::<T>::remove(&hotkey, netuid);
             removed_entries_count = removed_entries_count.saturating_add(1);
         }
@@ -40,10 +40,7 @@ pub fn migrate_remove_zero_total_hotkey_alpha<T: Config>() -> Weight {
     weight = weight.saturating_add(T::DbWeight::get().reads(removed_entries_count));
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count));
 
-    log::info!(
-        "Removed {} zero entries from TotalHotkeyAlpha.",
-        removed_entries_count
-    );
+    log::info!("Removed {removed_entries_count} zero entries from TotalHotkeyAlpha.");
 
     // ------------------------------
     // Step 2: Mark Migration as Completed

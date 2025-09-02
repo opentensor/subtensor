@@ -6,7 +6,7 @@ use core::marker::PhantomData;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use fp_evm::{ExitError, ExitSucceed, LinearCostPrecompile, PrecompileFailure};
 
-use crate::PrecompileExt;
+use crate::{PrecompileExt, parse_slice};
 
 pub(crate) struct Ed25519Verify<A>(PhantomData<A>);
 
@@ -50,23 +50,5 @@ where
         };
 
         Ok((ExitSucceed::Returned, buf.to_vec()))
-    }
-}
-
-/// Takes a slice from bytes with PrecompileFailure as Error
-fn parse_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
-    let maybe_slice = data.get(from..to);
-    if let Some(slice) = maybe_slice {
-        Ok(slice)
-    } else {
-        log::error!(
-            "fail to get slice from data, {:?}, from {}, to {}",
-            &data,
-            from,
-            to
-        );
-        Err(PrecompileFailure::Error {
-            exit_status: ExitError::InvalidRange,
-        })
     }
 }

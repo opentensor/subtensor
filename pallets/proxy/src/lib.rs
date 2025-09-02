@@ -39,18 +39,18 @@ use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::{Pays, Weight};
 use frame_support::{
+    BoundedVec,
     dispatch::GetDispatchInfo,
     ensure,
     traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
-    BoundedVec,
 };
 use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use scale_info::{prelude::cmp::Ordering, TypeInfo};
+use scale_info::{TypeInfo, prelude::cmp::Ordering};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-    traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
     DispatchError, DispatchResult, RuntimeDebug,
+    traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
 };
 use subtensor_macros::freeze_struct;
 pub use weights::WeightInfo;
@@ -197,7 +197,7 @@ pub mod pallet {
         #[pallet::weight({
 			let di = call.get_dispatch_info();
 			let inner_call_weight = match di.pays_fee {
-				Pays::Yes => di.weight,
+				Pays::Yes => di.call_weight,
 				Pays::No => Weight::zero(),
 			};
 			let base_weight = T::WeightInfo::proxy(T::MaxProxies::get())
@@ -266,7 +266,7 @@ pub mod pallet {
         ///
         /// The dispatch origin for this call must be _Signed_.
         ///
-        /// WARNING: This may be called on accounts created by `pure`, however if done, then
+        /// WARNING: This may be called on accounts created by `create_pure`, however if done, then
         /// the unreserved fees will be inaccessible. **All access to this account will be lost.**
         #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::remove_proxies(T::MaxProxies::get()))]
@@ -336,16 +336,16 @@ pub mod pallet {
         /// inaccessible.
         ///
         /// Requires a `Signed` origin, and the sender account must have been created by a call to
-        /// `pure` with corresponding parameters.
+        /// `create_pure` with corresponding parameters.
         ///
-        /// - `spawner`: The account that originally called `pure` to create this account.
-        /// - `index`: The disambiguation index originally passed to `pure`. Probably `0`.
-        /// - `proxy_type`: The proxy type originally passed to `pure`.
-        /// - `height`: The height of the chain when the call to `pure` was processed.
-        /// - `ext_index`: The extrinsic index in which the call to `pure` was processed.
+        /// - `spawner`: The account that originally called `create_pure` to create this account.
+        /// - `index`: The disambiguation index originally passed to `create_pure`. Probably `0`.
+        /// - `proxy_type`: The proxy type originally passed to `create_pure`.
+        /// - `height`: The height of the chain when the call to `create_pure` was processed.
+        /// - `ext_index`: The extrinsic index in which the call to `create_pure` was processed.
         ///
         /// Fails with `NoPermission` in case the caller is not a previously created pure
-        /// account whose `pure` call has corresponding parameters.
+        /// account whose `create_pure` call has corresponding parameters.
         #[pallet::call_index(5)]
         #[pallet::weight(T::WeightInfo::kill_pure(T::MaxProxies::get()))]
         pub fn kill_pure(
@@ -365,6 +365,13 @@ pub mod pallet {
 
             let (_, deposit) = Proxies::<T>::take(&who);
             T::Currency::unreserve(&spawner, deposit);
+
+            Self::deposit_event(Event::PureKilled {
+                pure: who,
+                spawner,
+                proxy_type,
+                disambiguation_index: index,
+            });
 
             Ok(())
         }
@@ -405,7 +412,7 @@ pub mod pallet {
                 height: system::Pallet::<T>::block_number(),
             };
 
-            Announcements::<T>::try_mutate(&who, |(ref mut pending, ref mut deposit)| {
+            Announcements::<T>::try_mutate(&who, |(pending, deposit)| {
                 pending
                     .try_push(announcement)
                     .map_err(|_| Error::<T>::TooMany)?;
@@ -503,7 +510,7 @@ pub mod pallet {
 			(T::WeightInfo::proxy_announced(T::MaxPending::get(), T::MaxProxies::get())
 				 // AccountData for inner call origin accountdata.
 				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-				.saturating_add(di.weight),
+				.saturating_add(di.call_weight),
 			di.class)
 		})]
         pub fn proxy_announced(
@@ -565,6 +572,17 @@ pub mod pallet {
             delegatee: T::AccountId,
             proxy_type: T::ProxyType,
             delay: BlockNumberFor<T>,
+        },
+        /// A pure proxy was killed by its spawner.
+        PureKilled {
+            // The pure proxy account that was destroyed.
+            pure: T::AccountId,
+            // The account that created the pure proxy.
+            spawner: T::AccountId,
+            // The proxy type of the pure proxy that was destroyed.
+            proxy_type: T::ProxyType,
+            // The index originally passed to `create_pure` when this pure proxy was created.
+            disambiguation_index: u16,
         },
     }
 
@@ -691,7 +709,7 @@ impl<T: Config> Pallet<T> {
         delay: BlockNumberFor<T>,
     ) -> DispatchResult {
         ensure!(delegator != &delegatee, Error::<T>::NoSelfProxy);
-        Proxies::<T>::try_mutate(delegator, |(ref mut proxies, ref mut deposit)| {
+        Proxies::<T>::try_mutate(delegator, |(proxies, deposit)| {
             let proxy_def = ProxyDefinition {
                 delegate: delegatee.clone(),
                 proxy_type: proxy_type.clone(),
@@ -858,8 +876,8 @@ impl<T: Config> Pallet<T> {
             match c.is_sub_type() {
                 // Proxy call cannot add or remove a proxy with more permissions than it already
                 // has.
-                Some(Call::add_proxy { ref proxy_type, .. })
-                | Some(Call::remove_proxy { ref proxy_type, .. })
+                Some(Call::add_proxy { proxy_type, .. })
+                | Some(Call::remove_proxy { proxy_type, .. })
                     if !def.proxy_type.is_superset(proxy_type) =>
                 {
                     false

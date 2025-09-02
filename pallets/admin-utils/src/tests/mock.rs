@@ -1,11 +1,12 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
+use core::num::NonZeroU64;
+
 use frame_support::{
-    assert_ok, derive_impl, parameter_types,
-    traits::{Everything, Hooks, PrivilegeCmp},
-    weights,
+    PalletId, assert_ok, derive_impl, parameter_types,
+    traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
 };
-use frame_system as system;
+use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureNever, EnsureRoot, limits};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
@@ -18,9 +19,9 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
+use subtensor_runtime_common::NetUid;
 
 type Block = frame_system::mocking::MockBlock<Test>;
-
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum Test {
@@ -32,6 +33,9 @@ frame_support::construct_runtime!(
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
         Grandpa: pallet_grandpa = 7,
         EVMChainId: pallet_evm_chain_id = 8,
+        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 9,
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
+        Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 11,
     }
 );
 
@@ -68,19 +72,21 @@ pub type Balance = u64;
 pub type BlockNumber = u64;
 
 pub type TestAuthId = test_crypto::TestAuthId;
-pub type Index = u64;
 pub type UncheckedExtrinsic = TestXt<RuntimeCall, ()>;
 
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
-    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
+        Weight::from_parts(2_000_000_000_000, u64::MAX),
+        Perbill::from_percent(75),
+    );
     pub const ExistentialDeposit: Balance = 1;
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
-    pub const InitialAlphaSigmoidSteepness: u16 = 10;
+    pub const InitialAlphaSigmoidSteepness: i16 = 1000;
     pub const InitialKappa: u16 = 32_767;
     pub const InitialTempo: u16 = 0;
     pub const SelfOwnership: u64 = 2;
@@ -142,6 +148,7 @@ parameter_types! {
     pub const DurationOfStartCall: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
     pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
     pub const HotkeySwapOnSubnetInterval: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
+    pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
 }
 
 impl pallet_subtensor::Config for Test {
@@ -211,8 +218,50 @@ impl pallet_subtensor::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
+    type ProxyInterface = ();
+    type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: Balance = 1;
+    pub const PreimageByteDeposit: Balance = 1;
+}
+
+impl pallet_preimage::Config for Test {
+    type WeightInfo = pallet_preimage::weights::SubstrateWeight<Test>;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type Consideration = ();
+}
+
+parameter_types! {
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
+    pub const MinimumDeposit: u64 = 50;
+    pub const AbsoluteMinimumContribution: u64 = 10;
+    pub const MinimumBlockDuration: u64 = 20;
+    pub const MaximumBlockDuration: u64 = 100;
+    pub const RefundContributorsLimit: u32 = 5;
+    pub const MaxContributors: u32 = 10;
+}
+
+impl pallet_crowdloan::Config for Test {
+    type PalletId = CrowdloanPalletId;
+    type Currency = Balances;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Test>;
+    type Preimages = Preimage;
+    type MinimumDeposit = MinimumDeposit;
+    type AbsoluteMinimumContribution = AbsoluteMinimumContribution;
+    type MinimumBlockDuration = MinimumBlockDuration;
+    type MaximumBlockDuration = MaximumBlockDuration;
+    type RefundContributorsLimit = RefundContributorsLimit;
+    type MaxContributors = MaxContributors;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -271,6 +320,27 @@ impl pallet_balances::Config for Test {
     type RuntimeHoldReason = ();
 }
 
+// Swap-related parameter types
+parameter_types! {
+    pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
+    pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
+    pub const SwapMinimumLiquidity: u64 = 1_000;
+    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(1_000_000).unwrap();
+}
+
+impl pallet_subtensor_swap::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SubnetInfo = SubtensorModule;
+    type BalanceOps = SubtensorModule;
+    type ProtocolId = SwapProtocolId;
+    type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
+    type MinimumLiquidity = SwapMinimumLiquidity;
+    type MinimumReserve = SwapMinimumReserve;
+    type WeightInfo = ();
+}
+
 pub struct OriginPrivilegeCmp;
 
 impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
@@ -317,6 +387,7 @@ impl pallet_scheduler::Config for Test {
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = ();
+    type BlockNumberProvider = System;
 }
 
 impl pallet_evm_chain_id::Config for Test {}
@@ -365,26 +436,37 @@ mod test_crypto {
     }
 }
 
-impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> for Test {
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: RuntimeCall,
-        _public: Self::Public,
-        _account: Self::AccountId,
-        nonce: Index,
-    ) -> Option<(
-        RuntimeCall,
-        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-    )> {
-        Some((call, (nonce, ())))
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type RuntimeCall = RuntimeCall;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+        UncheckedExtrinsic::new_inherent(call)
     }
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
 where
-    RuntimeCall: From<C>,
+    RuntimeCall: From<LocalCall>,
 {
-    type Extrinsic = UncheckedExtrinsic;
-    type OverarchingCall = RuntimeCall;
+    fn create_signed_transaction<
+        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+    >(
+        call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
+        _public: Self::Public,
+        _account: Self::AccountId,
+        nonce: Self::Nonce,
+    ) -> Option<Self::Extrinsic> {
+        Some(UncheckedExtrinsic::new_signed(call, nonce, (), ()))
+    }
 }
 
 // Build genesis storage according to the mock runtime.
@@ -412,7 +494,7 @@ pub(crate) fn run_to_block(n: u64) {
 
 #[allow(dead_code)]
 pub fn register_ok_neuron(
-    netuid: u16,
+    netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
     start_nonce: u64,
@@ -435,15 +517,12 @@ pub fn register_ok_neuron(
     );
     assert_ok!(result);
     log::info!(
-        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
-        netuid,
-        hotkey_account_id,
-        coldkey_account_id
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
     );
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: u16, tempo: u16) {
+pub fn add_network(netuid: NetUid, tempo: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);

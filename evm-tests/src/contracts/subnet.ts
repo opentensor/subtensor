@@ -923,4 +923,57 @@ export const ISubnetABI = [
         stateMutability: "payable",
         type: "function"
     },
+    {
+        inputs: [
+            {
+                internalType: "bytes32",
+                name: "hotkey",
+                type: "bytes32"
+            },
+            {
+                internalType: "string",
+                name: "subnetName",
+                type: "string"
+            },
+            {
+                internalType: "string",
+                name: "githubRepo",
+                type: "string"
+            },
+            {
+                internalType: "string",
+                name: "subnetContact",
+                type: "string"
+            },
+            {
+                internalType: "string",
+                name: "subnetUrl",
+                type: "string"
+            },
+            {
+                internalType: "string",
+                name: "discord",
+                type: "string"
+            },
+            {
+                internalType: "string",
+                name: "description",
+                type: "string"
+            },
+            {
+                internalType: "string",
+                name: "logoUrl",
+                type: "string"
+            },
+            {
+                internalType: "string",
+                name: "additional",
+                type: "string"
+            }
+        ],
+        name: "registerNetwork",
+        outputs: [],
+        stateMutability: "payable",
+        type: "function"
+    },
 ];
