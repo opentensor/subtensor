@@ -510,11 +510,16 @@ impl<T: Config> Pallet<T> {
                 );
                 continue;
             }
-
-            // Increase stake for miner.
+            let destination: T::AccountId;
+            let owner: T::AccountId = Owner::<T>::get(&hotkey);
+            if AutoStakeDestination::<T>::contains_key(&owner) {
+                destination = AutoStakeDestination::<T>::get(&owner);
+            } else {
+                destination = hotkey.clone();
+            }
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey.clone(),
-                &Owner::<T>::get(hotkey.clone()),
+                &destination,
+                &owner,
                 netuid,
                 incentive,
             );
