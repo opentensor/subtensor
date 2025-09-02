@@ -28,6 +28,8 @@ fi
 
 cd evm-tests
 
+npm install -g polkadot-api
+
 bash get-metadata.sh
 
 sleep 5
