@@ -346,5 +346,16 @@ mod benchmarks {
 		_(RawOrigin::Root, 5u16/*version*/)/*sudo_set_commit_reveal_version()*/;
     }
 
+    #[benchmark]
+    fn sudo_trim_to_max_allowed_uids() {
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16.into(), /*netuid*/
+            1u16,        /*sudo_tempo*/
+        );
+
+        #[extrinsic_call]
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 4097u16/*max_allowed_uids*/)/*sudo_trim_to_max_allowed_uids()*/;
+    }
+
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }
