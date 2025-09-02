@@ -2229,10 +2229,8 @@ mod dispatches {
             hotkey: T::AccountId,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
-            log::debug!(
-                "set_coldkey_auto_stake_hotkey( origin:{coldkey:?} hotkey:{hotkey:?} )"
-            );
-            AutoStakeDestination::<T>::insert( coldkey, hotkey.clone() );
+            log::debug!("set_coldkey_auto_stake_hotkey( origin:{coldkey:?} hotkey:{hotkey:?} )");
+            AutoStakeDestination::<T>::insert(coldkey, hotkey.clone());
             Ok(())
         }
     }
