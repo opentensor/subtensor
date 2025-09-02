@@ -680,7 +680,7 @@ pub mod pallet {
             );
             // Min burn must be less than max burn
             ensure!(
-                min_burn > pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
+                min_burn <= pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
                 Error::<T>::ValueNotInBounds
             );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
@@ -707,7 +707,7 @@ pub mod pallet {
             );
             // Max burn must be greater than 0.1 TAO.
             ensure!(
-                max_burn > TaoCurrency::from(100_000_000),
+                max_burn >= TaoCurrency::from(100_000_000),
                 Error::<T>::ValueNotInBounds
             );
             // Max burn must be greater than min burn
@@ -1704,7 +1704,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the number of immune owner neurons
+        /// Sets the maximum allowed UIDs for a subnet
         #[pallet::call_index(74)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))

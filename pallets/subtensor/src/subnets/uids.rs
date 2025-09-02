@@ -96,7 +96,8 @@ impl<T: Config> Pallet<T> {
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
     }
 
-    /// Appends the uid to the network.
+    /// Clears (sets to default) the neuron map values fot a neuron when it is 
+    /// removed from the subnet
     pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
         let neuron_index: usize = neuron_uid.into();
         Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
