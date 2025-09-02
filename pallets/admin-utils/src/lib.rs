@@ -680,7 +680,7 @@ pub mod pallet {
             );
             // Min burn must be less than max burn
             ensure!(
-                min_burn > pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
+                min_burn <= pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
                 Error::<T>::ValueNotInBounds
             );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
@@ -712,7 +712,7 @@ pub mod pallet {
             );
             // Max burn must be greater than min burn
             ensure!(
-                max_burn > pallet_subtensor::Pallet::<T>::get_min_burn(netuid),
+                max_burn >= pallet_subtensor::Pallet::<T>::get_min_burn(netuid),
                 Error::<T>::ValueNotInBounds
             );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
