@@ -328,21 +328,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// *DEPRECATED* Sudo-set the commitment rate limit
-        #[pallet::call_index(1)]
-        #[pallet::weight((
-            Weight::from_parts(3_596_000, 0)
-        	.saturating_add(T::DbWeight::get().reads(0_u64))
-        	.saturating_add(T::DbWeight::get().writes(1_u64)),
-        	DispatchClass::Operational,
-        	Pays::No
-        ))]
-        pub fn set_rate_limit(origin: OriginFor<T>, _rate_limit_blocks: u32) -> DispatchResult {
-            ensure_root(origin)?;
-            // RateLimit::<T>::set(rate_limit_blocks.into());
-            Ok(())
-        }
-
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
         #[pallet::weight((
