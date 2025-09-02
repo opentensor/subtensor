@@ -1,3 +1,3 @@
 rm -rf .papi
-npx papi add devnet -w ws://localhost:9944
+npx -y polkadot-api add devnet -w ws://localhost:9944
 
