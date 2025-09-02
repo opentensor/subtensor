@@ -154,7 +154,7 @@ pub enum ProxyType {
     Registration,
     Transfer,
     SmallTransfer,
-    RootWeights,
+    RootWeights, // deprecated
     ChildKeys,
     SudoUncheckedSetCode,
     SwapHotkey,
