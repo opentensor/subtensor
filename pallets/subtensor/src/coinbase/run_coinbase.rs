@@ -862,6 +862,7 @@ impl<T: Config> Pallet<T> {
 
         // Add the hotkey's own emission to the distribution list
         dividend_tuples.push((hotkey.clone(), child_emission));
+
         dividend_tuples
     }
 
