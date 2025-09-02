@@ -122,7 +122,10 @@ pub trait ConsensusMechanism {
     /// Spawns any consensus mechanism specific essential handles.
     fn spawn_essential_handles(
         &self,
-        params: SpawnEssentialHandlesParams,
+        task_manager: &mut TaskManager,
+        client: Arc<FullClient>,
+        triggered: Option<Arc<AtomicBool>>,
+        sync_service: Arc<SyncingService<Block>>,
     ) -> Result<(), ServiceError>;
 
     /// Returns any consensus mechanism specific rpc methods to register.
@@ -132,27 +135,4 @@ pub trait ConsensusMechanism {
         keystore: KeystorePtr,
         select_chain: FullSelectChain,
     ) -> Result<Vec<Methods>, sc_service::Error>;
-}
-
-pub struct SpawnEssentialHandlesParams<'a> {
-    pub task_manager: &'a mut TaskManager,
-    pub client: Arc<FullClient>,
-    pub triggered: Option<Arc<AtomicBool>>,
-    pub sync_service: Arc<SyncingService<Block>>,
-}
-
-impl<'a> SpawnEssentialHandlesParams<'a> {
-    pub fn new(
-        task_manager: &'a mut TaskManager,
-        client: Arc<FullClient>,
-        triggered: Option<Arc<AtomicBool>>,
-        sync_service: Arc<SyncingService<Block>>,
-    ) -> Self {
-        Self {
-            task_manager,
-            client,
-            triggered,
-            sync_service,
-        }
-    }
 }
