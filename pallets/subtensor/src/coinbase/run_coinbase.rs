@@ -818,6 +818,14 @@ impl<T: Config> Pallet<T> {
             // Remove this emission from the remaining emission.
             remaining_emission = remaining_emission.saturating_sub(parent_emission);
 
+            let parent_emission_tax = parent_emission
+                .saturating_mul(U96F32::saturating_from_num(Self::get_childkey_tax_rate()))
+                .safe_div(U96F32::saturating_from_num(u16::MAX));
+            log::debug!("Parent emission tax: {parent_emission_tax:?} for hotkey {hotkey:?}");
+
+            parent_emission = parent_emission.saturating_sub(parent_emission_tax);
+            log::debug!("Parent emission after tax: {parent_emission:?} for hotkey {hotkey:?}");
+
             // Get the childkey take for this parent.
             let child_emission_take: U96F32 = if parent_owner == childkey_owner {
                 // The parent is from the same coldkey, so we don't remove any childkey take.
@@ -827,26 +835,14 @@ impl<T: Config> Pallet<T> {
                     .saturating_mul(U96F32::saturating_from_num(parent_emission))
             };
 
-            let childkey_emission_take_tax: U96F32 = child_emission_take
-                .saturating_mul(U96F32::saturating_from_num(Self::get_childkey_tax_rate()))
-                .safe_div(U96F32::saturating_from_num(u16::MAX));
-
-            let child_emission_take_after_tax: U96F32 =
-                child_emission_take.saturating_sub(childkey_emission_take_tax);
-
             // Remove the childkey take from the parent's emission.
             parent_emission = parent_emission.saturating_sub(child_emission_take);
 
             // Add the childkey take to the total childkey take tracker.
             total_child_emission_take =
-                total_child_emission_take.saturating_add(child_emission_take_after_tax);
+                total_child_emission_take.saturating_add(child_emission_take);
 
-            log::debug!(
-                "Child emission take tax: {childkey_emission_take_tax:?} for hotkey {hotkey:?}"
-            );
-            log::debug!(
-                "Child emission take after tax: {child_emission_take_after_tax:?} for hotkey {hotkey:?}"
-            );
+            log::debug!("Child emission take: {child_emission_take:?} for hotkey {hotkey:?}");
             log::debug!("Parent emission: {parent_emission:?} for hotkey {hotkey:?}");
             log::debug!("remaining emission: {remaining_emission:?}");
 
