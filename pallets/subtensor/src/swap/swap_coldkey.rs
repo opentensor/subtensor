@@ -178,9 +178,9 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        let old_auto_stake_hotkey: T::AccountId = AutoStakeDestination::<T>::get(old_coldkey);
-        AutoStakeDestination::<T>::remove(old_coldkey);
-        AutoStakeDestination::<T>::insert(new_coldkey, old_auto_stake_hotkey);
+        if let Some(old_auto_stake_hotkey) = AutoStakeDestination::<T>::get(old_coldkey) {
+            AutoStakeDestination::<T>::insert(new_coldkey, old_auto_stake_hotkey);
+        }
 
         // 4. Swap TotalColdkeyAlpha (DEPRECATED)
         // for netuid in Self::get_all_subnet_netuids() {
