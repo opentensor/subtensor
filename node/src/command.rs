@@ -289,16 +289,21 @@ fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     //
     // Passing this atomic bool is a hacky solution, allowing the node to set it to true to indicate
     // a Babe service should be spawned on exit instead of a regular shutdown.
-    let babe_switch = Arc::new(AtomicBool::new(false));
-    let babe_switch_clone = babe_switch.clone();
+    let custom_service_signal = Arc::new(AtomicBool::new(false));
+    let custom_service_signal_clone = custom_service_signal.clone();
     match runner.run_node_until_exit(|config| async move {
         let config = customise_config(arg_matches, config);
-        service::build_full::<AuraConsensus>(config, cli.eth, cli.sealing, Some(babe_switch_clone))
-            .await
+        service::build_full::<AuraConsensus>(
+            config,
+            cli.eth,
+            cli.sealing,
+            Some(custom_service_signal_clone),
+        )
+        .await
     }) {
         Ok(()) => Ok(()),
         Err(e) => {
-            if babe_switch.load(std::sync::atomic::Ordering::Relaxed) {
+            if custom_service_signal.load(std::sync::atomic::Ordering::Relaxed) {
                 start_babe_service(arg_matches)
             } else {
                 Err(e.into())
