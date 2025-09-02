@@ -14,25 +14,20 @@ workspace = true
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
 jsonrpsee = { workspace = true, features = ["client-core", "server", "macros"] }
-serde = { workspace = true, features = ["derive"] }
 
 # Substrate packages
 sp-api.workspace = true
 sp-blockchain.workspace = true
-sp-rpc.workspace = true
 sp-runtime.workspace = true
 
 # local packages
 subtensor-runtime-common.workspace = true
 subtensor-custom-rpc-runtime-api.workspace = true
-pallet-subtensor.workspace = true
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"pallet-subtensor/std",
-	"serde/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"subtensor-custom-rpc-runtime-api/std",

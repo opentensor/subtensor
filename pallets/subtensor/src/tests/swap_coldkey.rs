@@ -2493,8 +2493,12 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             &TxBaseImplication(()),
             TransactionSource::External,
         );
-        // Should pass, not in list.
-        assert_ok!(result);
+        // Should fail
+        assert_eq!(
+            // Should get an invalid transaction error
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
+        );
 
         // Remove stake limit
         let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_limit {
@@ -2513,7 +2517,27 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             &TxBaseImplication(()),
             TransactionSource::External,
         );
-        // Should pass, not in list.
+        // Should fail
+        assert_eq!(
+            // Should get an invalid transaction error
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
+        );
+
+        // Schedule swap should succeed
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::schedule_swap_coldkey {
+            new_coldkey: hotkey,
+        });
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        // Should be ok
         assert_ok!(result);
     });
 }
