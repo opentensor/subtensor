@@ -659,8 +659,8 @@ pub mod pallet {
         /// It is only callable by root and subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum burn.
         #[pallet::call_index(22)]
-        #[pallet::weight(Weight::from_parts(15_440_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(18_870_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_burn(
             origin: OriginFor<T>,
@@ -691,7 +691,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the maximum burn.
         #[pallet::call_index(23)]
         #[pallet::weight(Weight::from_parts(15_940_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_burn(
             origin: OriginFor<T>,
