@@ -120,7 +120,7 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(80)]
-        #[pallet::weight((Weight::from_parts(19_170_000, 0)
+        #[pallet::weight((Weight::from_parts(19_330_000, 0)
         .saturating_add(T::DbWeight::get().reads(1_u64))
         .saturating_add(T::DbWeight::get().writes(0_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
