@@ -656,7 +656,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the minimum burn for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by root and subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum burn.
         #[pallet::call_index(22)]
         #[pallet::weight(Weight::from_parts(15_440_000, 0)
@@ -668,14 +668,12 @@ pub mod pallet {
             min_burn: TaoCurrency,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
-            // Allow set min_burn but only up to 1 TAO for spamming.
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
-            // Min burn must be less than 1 TAO.
             ensure!(
-                min_burn < TaoCurrency::from(1_000_000_000),
+                min_burn < T::MinBurnUpperBound::get(),
                 Error::<T>::ValueNotInBounds
             );
             // Min burn must be less than max burn
@@ -689,7 +687,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the maximum burn for a subnet.
-        /// It is only callable by the root account or subnet owner.
+        /// It is only callable by root and subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the maximum burn.
         #[pallet::call_index(23)]
         #[pallet::weight(Weight::from_parts(15_940_000, 0)
@@ -705,9 +703,8 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
-            // Max burn must be greater than 0.1 TAO.
             ensure!(
-                max_burn > TaoCurrency::from(100_000_000),
+                max_burn > T::MaxBurnLowerBound::get(),
                 Error::<T>::ValueNotInBounds
             );
             // Max burn must be greater than min burn

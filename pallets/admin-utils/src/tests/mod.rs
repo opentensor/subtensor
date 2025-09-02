@@ -1983,11 +1983,11 @@ fn test_sudo_set_min_burn() {
             TaoCurrency::from(to_be_set)
         ), DispatchError::BadOrigin);
         
-        // Above min bound
+        // Above upper bound
         assert_err!(AdminUtils::sudo_set_min_burn(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
-            TaoCurrency::from(1_000_000_000 + 1)
+            <Test as pallet_subtensor::Config>::MinBurnUpperBound::get() + 1.into()
         ), Error::<Test>::ValueNotInBounds);
         
         // Above max burn 
@@ -2030,11 +2030,11 @@ fn test_sudo_set_max_burn() {
             TaoCurrency::from(to_be_set)
         ), DispatchError::BadOrigin);
         
-        // Above min bound
+        // Below lower bound
         assert_err!(AdminUtils::sudo_set_max_burn(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
-            TaoCurrency::from(100_000_000 - 1)
+            <Test as pallet_subtensor::Config>::MaxBurnLowerBound::get() - 1.into()
         ), Error::<Test>::ValueNotInBounds);
         
         // Below min burn 
