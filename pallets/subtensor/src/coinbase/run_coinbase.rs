@@ -512,7 +512,7 @@ impl<T: Config> Pallet<T> {
             }
             let destination: T::AccountId;
             let owner: T::AccountId = Owner::<T>::get(&hotkey);
-            destination = AutoStakeDestination::<T>::get(&owner).unwrap_or_else(|| hotkey.clone());
+            destination = AutoStakeDestination::<T>::get(&owner).unwrap_or(hotkey.clone());
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination,
                 &owner,
