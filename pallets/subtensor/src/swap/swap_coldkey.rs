@@ -179,6 +179,7 @@ impl<T: Config> Pallet<T> {
         }
 
         if let Some(old_auto_stake_hotkey) = AutoStakeDestination::<T>::get(old_coldkey) {
+            AutoStakeDestination::<T>::remove(old_coldkey);
             AutoStakeDestination::<T>::insert(new_coldkey, old_auto_stake_hotkey);
         }
 
