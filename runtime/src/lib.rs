@@ -22,7 +22,7 @@ use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{Contains, InsideBoth, LinearStoragePrice, Nothing, fungible::HoldConsideration},
+    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, RawOrigin};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
@@ -1591,17 +1591,38 @@ impl pallet_crowdloan::Config for Runtime {
 }
 
 // Contracts pallet configuration
+fn contract_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedule<T> {
+    pallet_contracts::Schedule {
+        limits: pallet_contracts::Limits {
+            runtime_memory: 1024 * 1024 * 1024,
+            validator_runtime_memory: 1024 * 1024 * 1024 * 2,
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
 parameter_types! {
     pub const ContractDepositPerItem: Balance = deposit(1, 0);
     pub const ContractDepositPerByte: Balance = deposit(0, 1);
     pub const ContractDefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
-    pub ContractSchedule: pallet_contracts::Schedule<Runtime> = {
-        let mut schedule = pallet_contracts::Schedule::<Runtime>::default();
-        schedule.limits.validator_runtime_memory = 1024 * 1024 * 1024; // 1 GB
-        schedule
-    };
-    pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(10);
+    pub ContractSchedule: pallet_contracts::Schedule<Runtime> = contract_schedule::<Runtime>();
+    pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
     pub const ContractMaxDelegateDependencies: u32 = 32;
+}
+
+pub struct ContractCallFilter;
+
+/// Whitelist dispatchables that are allowed to be called from contracts
+impl Contains<RuntimeCall> for ContractCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        matches!(
+            call,
+            RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
+                | RuntimeCall::Proxy(pallet_proxy::Call::proxy { .. })
+        )
+    }
 }
 
 impl pallet_contracts::Config for Runtime {
@@ -1610,13 +1631,7 @@ impl pallet_contracts::Config for Runtime {
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
-    /// The safest default is to allow no calls at all.
-    ///
-    /// Runtimes should whitelist dispatchables that are allowed to be called from contracts
-    /// and make sure they are stable. Dispatchables exposed to contracts are not allowed to
-    /// change because that would break already deployed contracts. The `Call` structure itself
-    /// is not allowed to change the indices of existing pallets, too.
-    type CallFilter = Nothing;
+    type CallFilter = ContractCallFilter;
     type DepositPerItem = ContractDepositPerItem;
     type DepositPerByte = ContractDepositPerByte;
     type DefaultDepositLimit = ContractDefaultDepositLimit;
@@ -1626,7 +1641,7 @@ impl pallet_contracts::Config for Runtime {
     type ChainExtension = ();
     type Schedule = ContractSchedule;
     type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
-    type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
+    type MaxCodeLen = ConstU32<{ 128 * 1024 }>;
     type MaxStorageKeyLen = ConstU32<128>;
     type UnsafeUnstableInterface = ConstBool<false>;
     type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
