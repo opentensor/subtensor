@@ -198,7 +198,7 @@ mod dispatches {
         ///
         #[pallet::call_index(80)]
         #[pallet::weight((Weight::from_parts(95_460_000, 0)
-        .saturating_add(T::DbWeight::get().reads(14_u64))
+        .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
@@ -678,7 +678,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(2)]
-        #[pallet::weight((Weight::from_parts(439_200_000, 0)
+        #[pallet::weight((Weight::from_parts(340_800_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
 		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake(
@@ -999,7 +999,7 @@ mod dispatches {
 
         /// Register the hotkey to root network
         #[pallet::call_index(62)]
-        #[pallet::weight((Weight::from_parts(111_700_000, 0)
+        #[pallet::weight((Weight::from_parts(135_900_000, 0)
 		.saturating_add(T::DbWeight::get().reads(24_u64))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
