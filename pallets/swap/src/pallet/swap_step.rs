@@ -41,10 +41,7 @@ where
     final_price: SqrtPrice,
     fee: PaidIn,
 
-    // Phantom data to use T
-    _phantom: PhantomData<T>,
-    _paid_in: PhantomData<PaidIn>,
-    _paid_out: PhantomData<PaidOut>,
+    _phantom: PhantomData<(T, PaidIn, PaidOut)>,
 }
 
 impl<T, PaidIn, PaidOut, Order> BasicSwapStep<T, PaidIn, PaidOut, Order>
@@ -56,7 +53,7 @@ where
     Self: SwapStep<T, PaidIn, PaidOut, Order>,
 {
     /// Creates and initializes a new swap step
-    fn new(
+    pub(crate) fn new(
         netuid: NetUid,
         order: Order,
         amount_remaining: PaidIn,
@@ -93,8 +90,6 @@ where
             final_price: target_sqrt_price,
             fee,
             _phantom: PhantomData,
-            _paid_in: PhantomData,
-            _paid_out: PhantomData,
         }
     }
 
@@ -230,6 +225,10 @@ where
             delta_in: self.delta_in,
             delta_out,
         })
+    }
+
+    pub(crate) fn action(&self) -> SwapStepAction {
+        self.action
     }
 }
 
@@ -563,10 +562,10 @@ where
     PaidIn: Currency,
     PaidOut: Currency,
 {
-    amount_to_take: PaidIn,
-    fee_paid: PaidIn,
-    delta_in: PaidIn,
-    delta_out: PaidOut,
+    pub(crate) amount_to_take: PaidIn,
+    pub(crate) fee_paid: PaidIn,
+    pub(crate) delta_in: PaidIn,
+    pub(crate) delta_out: PaidOut,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

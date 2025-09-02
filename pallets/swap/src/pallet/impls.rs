@@ -9,12 +9,12 @@ use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
-use subtensor_swap_interface::{Order as OrderT, SwapHandler, SwapResult};
+use subtensor_swap_interface::{DefaultPriceLimit, Order as OrderT, SwapHandler, SwapResult};
 
 use super::pallet::*;
-use super::swap_step::{SwapStep, SwapStepAction};
+use super::swap_step::{BasicSwapStep, SwapStep, SwapStepAction};
 use crate::{
-    OrderType, SqrtPrice,
+    SqrtPrice,
     position::{Position, PositionId},
     tick::{ActiveTickIndexManager, Tick, TickIndex},
 };
@@ -72,7 +72,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // Initialize the v3:
-        // Reserves are re-purposed, nothing to set, just query values for liquidity and price calculation
+        // Reserves are re-purposed, nothing to set, just query values for liquidity and price
+        // calculation
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
 
@@ -168,7 +169,8 @@ impl<T: Config> Pallet<T> {
     /// - `order_type`: The type of the swap (e.g., Buy or Sell).
     /// - `amount`: The amount of tokens to swap.
     /// - `limit_sqrt_price`: A price limit (expressed as a square root) to bound the swap.
-    /// - `simulate`: If `true`, the function runs in simulation mode and does not persist any changes.
+    /// - `simulate`: If `true`, the function runs in simulation mode and does not persist any
+    /// changes.
     ///
     /// # Returns
     /// Returns a [`Result`] with a [`SwapResult`] on success, or a [`DispatchError`] on failure.
@@ -180,7 +182,8 @@ impl<T: Config> Pallet<T> {
     /// # Simulation Mode
     /// When `simulate` is set to `true`, the function:
     /// 1. Executes all logic without persisting any state changes (i.e., performs a dry run).
-    /// 2. Skips reserve checks — it may return an `amount_paid_out` greater than the available reserve.
+    /// 2. Skips reserve checks — it may return an `amount_paid_out` greater than the available
+    ///       reserve.
     ///
     /// Use simulation mode to preview the outcome of a swap without modifying the blockchain state.
     pub fn do_swap<PaidIn, PaidOut, ReserveIn, ReserveOut, Order>(
@@ -196,6 +199,7 @@ impl<T: Config> Pallet<T> {
         ReserveIn: CurrencyReserve<PaidIn>,
         ReserveOut: CurrencyReserve<PaidOut>,
         Order: OrderT<PaidIn, PaidOut>,
+        BasicSwapStep<T, PaidIn, PaidOut, Order>: SwapStep<T, PaidIn, PaidOut, Order>,
     {
         transactional::with_transaction(|| {
             let reserve = ReserveOut::reserve(netuid.into());
@@ -240,6 +244,7 @@ impl<T: Config> Pallet<T> {
         ReserveIn: CurrencyReserve<PaidIn>,
         ReserveOut: CurrencyReserve<PaidOut>,
         Order: OrderT<PaidIn, PaidOut>,
+        BasicSwapStep<T, PaidIn, PaidOut, Order>: SwapStep<T, PaidIn, PaidOut, Order>,
     {
         ensure!(
             ReserveOut::reserve(netuid).to_u64() >= T::MinimumReserve::get().get(),
@@ -255,10 +260,10 @@ impl<T: Config> Pallet<T> {
         );
 
         let mut amount_remaining = order.amount();
-        let mut amount_paid_out: u64 = 0;
+        let mut amount_paid_out = PaidOut::ZERO;
         let mut iteration_counter: u16 = 0;
-        let mut in_acc: u64 = 0;
-        let mut fee_acc: u64 = 0;
+        let mut in_acc = PaidIn::ZERO;
+        let mut fee_acc = PaidIn::ZERO;
 
         log::trace!("======== Start Swap ========");
         log::trace!("Amount Remaining: {amount_remaining}");
@@ -272,22 +277,27 @@ impl<T: Config> Pallet<T> {
             );
 
             // Create and execute a swap step
-            let mut swap_step =
-                SwapStep::<T>::new(netuid, order, amount_remaining, limit_sqrt_price, drop_fees);
+            let mut swap_step = BasicSwapStep::<T, PaidIn, PaidOut, Order>::new(
+                netuid,
+                order.clone(),
+                amount_remaining,
+                limit_sqrt_price,
+                drop_fees,
+            );
 
             let swap_result = swap_step.execute()?;
 
             in_acc = in_acc.saturating_add(swap_result.delta_in);
             fee_acc = fee_acc.saturating_add(swap_result.fee_paid);
-            amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take.into());
+            amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
             amount_paid_out = amount_paid_out.saturating_add(swap_result.delta_out);
 
-            if swap_step.action == SwapStepAction::Stop {
+            if swap_step.action() == SwapStepAction::Stop {
                 amount_remaining = PaidIn::ZERO;
             }
 
             // The swap step didn't exchange anything
-            if swap_result.amount_to_take == 0 {
+            if swap_result.amount_to_take.is_zero() {
                 amount_remaining = PaidIn::ZERO;
             }
 
@@ -302,17 +312,10 @@ impl<T: Config> Pallet<T> {
         log::trace!("\nAmount Paid Out: {amount_paid_out}");
         log::trace!("======== End Swap ========");
 
-        let (tao_reserve_delta, alpha_reserve_delta) = match order_type {
-            OrderType::Buy => (in_acc as i128, (amount_paid_out as i128).neg()),
-            OrderType::Sell => ((amount_paid_out as i128).neg(), in_acc as i128),
-        };
-
         Ok(SwapResult {
-            amount_paid_in: in_acc.into(),
-            amount_paid_out: amount_paid_out.into(),
-            fee_paid: fee_acc.into(),
-            tao_reserve_delta,
-            alpha_reserve_delta,
+            amount_paid_in: in_acc,
+            amount_paid_out,
+            fee_paid: fee_acc,
         })
     }
 
@@ -788,11 +791,22 @@ impl<T: Config> Pallet<T> {
     }
 }
 
+impl<T: Config> DefaultPriceLimit<TaoCurrency, AlphaCurrency> for Pallet<T> {
+    fn default_price_limit<C: Currency>() -> C {
+        Self::max_price_inner::<C>()
+    }
+}
+
+impl<T: Config> DefaultPriceLimit<AlphaCurrency, TaoCurrency> for Pallet<T> {
+    fn default_price_limit<C: Currency>() -> C {
+        Self::min_price_inner::<C>()
+    }
+}
+
 impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
-    fn swap<PaidIn, PaidOut, ReserveIn, ReserveOut>(
+    fn swap<PaidIn, PaidOut, ReserveIn, ReserveOut, Order>(
         netuid: NetUid,
-        order_t: OrderType,
-        amount: PaidIn,
+        order: Order,
         price_limit: TaoCurrency,
         drop_fees: bool,
         should_rollback: bool,
@@ -802,16 +816,17 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         PaidOut: Currency,
         ReserveIn: CurrencyReserve<PaidIn>,
         ReserveOut: CurrencyReserve<PaidOut>,
+        Order: OrderT<PaidIn, PaidOut>,
+        BasicSwapStep<T, PaidIn, PaidOut, Order>: SwapStep<T, PaidIn, PaidOut, Order>,
     {
         let limit_sqrt_price = SqrtPrice::saturating_from_num(price_limit.to_u64())
             .safe_div(SqrtPrice::saturating_from_num(1_000_000_000))
             .checked_sqrt(SqrtPrice::saturating_from_num(0.0000000001))
             .ok_or(Error::<T>::PriceLimitExceeded)?;
 
-        Self::do_swap::<PaidIn, PaidOut, ReserveIn, ReserveOut>(
+        Self::do_swap::<PaidIn, PaidOut, ReserveIn, ReserveOut, Order>(
             NetUid::from(netuid),
-            order_t,
-            amount,
+            order,
             limit_sqrt_price,
             drop_fees,
             should_rollback,
@@ -819,9 +834,9 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         .map_err(Into::into)
     }
 
-    fn sim_swap<PaidIn, PaidOut, ReserveIn, ReserveOut>(
+    fn sim_swap<PaidIn, PaidOut, ReserveIn, ReserveOut, Order>(
         netuid: NetUid,
-        order_t: OrderType,
+        order: Order,
         amount: PaidIn,
     ) -> Result<SwapResult<PaidIn, PaidOut>, DispatchError>
     where
@@ -829,20 +844,17 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         PaidOut: Currency,
         ReserveIn: CurrencyReserve<PaidIn>,
         ReserveOut: CurrencyReserve<PaidOut>,
+        Order: OrderT<PaidIn, PaidOut>,
+        Self: DefaultPriceLimit<PaidIn, PaidOut>,
     {
         match T::SubnetInfo::mechanism(netuid) {
             1 => {
-                let price_limit = match order_t {
-                    OrderType::Buy => Self::max_price::<TaoCurrency>(),
-                    OrderType::Sell => Self::min_price::<TaoCurrency>(),
-                }
-                .to_u64();
+                let price_limit = Self::default_price_limit::<TaoCurrency>();
 
-                Self::swap::<PaidIn, PaidOut, ReserveIn, ReserveOut>(
+                Self::swap::<PaidIn, PaidOut, ReserveIn, ReserveOut, Order>(
                     netuid,
-                    order_t,
-                    amount,
-                    price_limit.into(),
+                    order,
+                    price_limit,
                     false,
                     true,
                 )
@@ -851,8 +863,6 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
                 amount_paid_in: amount,
                 amount_paid_out: amount.to_u64().into(),
                 fee_paid: 0.into(),
-                tao_reserve_delta: 0,
-                alpha_reserve_delta: 0,
             }),
         }
     }
@@ -866,11 +876,11 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     }
 
     fn min_price<C: Currency>() -> C {
-        Self::min_price()
+        Self::min_price_inner()
     }
 
     fn max_price<C: Currency>() -> C {
-        Self::max_price()
+        Self::max_price_inner()
     }
 
     fn adjust_protocol_liquidity(

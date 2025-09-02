@@ -15,8 +15,7 @@ where
     PaidOut: Currency,
 {
     amount: PaidIn,
-    _paid_in: PhantomData<PaidIn>,
-    _paid_out: PhantomData<PaidOut>,
+    _phantom: PhantomData<(PaidIn, PaidOut)>,
 }
 
 impl Order<TaoCurrency, AlphaCurrency> for BasicOrder<TaoCurrency, AlphaCurrency> {

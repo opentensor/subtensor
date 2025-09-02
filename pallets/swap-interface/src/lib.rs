@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+use core::ops::Neg;
 
 use frame_support::pallet_prelude::*;
 use substrate_fixed::types::U96F32;
@@ -8,17 +9,10 @@ pub use order::*;
 
 mod order;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OrderType {
-    Sell,
-    Buy,
-}
-
 pub trait SwapHandler<AccountId> {
-    fn swap<PaidIn, PaidOut, ReserveIn, ReserveOut>(
+    fn swap<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>(
         netuid: NetUid,
-        order_t: OrderType,
-        amount: PaidIn,
+        order: OrderT,
         price_limit: TaoCurrency,
         drop_fees: bool,
         should_rollback: bool,
@@ -27,17 +21,20 @@ pub trait SwapHandler<AccountId> {
         PaidIn: Currency,
         PaidOut: Currency,
         ReserveIn: CurrencyReserve<PaidIn>,
-        ReserveOut: CurrencyReserve<PaidOut>;
-    fn sim_swap<PaidIn, PaidOut, ReserveIn, ReserveOut>(
+        ReserveOut: CurrencyReserve<PaidOut>,
+        OrderT: Order<PaidIn, PaidOut>;
+    fn sim_swap<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>(
         netuid: NetUid,
-        order_t: OrderType,
+        order: OrderT,
         amount: PaidIn,
     ) -> Result<SwapResult<PaidIn, PaidOut>, DispatchError>
     where
         PaidIn: Currency,
         PaidOut: Currency,
         ReserveIn: CurrencyReserve<PaidIn>,
-        ReserveOut: CurrencyReserve<PaidOut>;
+        ReserveOut: CurrencyReserve<PaidOut>,
+        OrderT: Order<PaidIn, PaidOut>,
+        Self: DefaultPriceLimit<PaidIn, PaidOut>;
     fn approx_fee_amount<T: Currency>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U96F32;
     fn max_price<C: Currency>() -> C;
@@ -50,6 +47,14 @@ pub trait SwapHandler<AccountId> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
 }
 
+pub trait DefaultPriceLimit<PaidIn, PaidOut>
+where
+    PaidIn: Currency,
+    PaidOut: Currency,
+{
+    fn default_price_limit<C: Currency>() -> C;
+}
+
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SwapResult<PaidIn, PaidOut>
 where
@@ -59,7 +64,18 @@ where
     pub amount_paid_in: PaidIn,
     pub amount_paid_out: PaidOut,
     pub fee_paid: PaidIn,
-    // For calculation of new tao/alpha reserves
-    pub tao_reserve_delta: i128,
-    pub alpha_reserve_delta: i128,
+}
+
+impl<PaidIn, PaidOut> SwapResult<PaidIn, PaidOut>
+where
+    PaidIn: Currency,
+    PaidOut: Currency,
+{
+    pub fn paid_in_reserve_delta(&self) -> i128 {
+        self.amount_paid_in.to_u64() as i128
+    }
+
+    pub fn paid_out_reserve_delta(&self) -> i128 {
+        (self.amount_paid_out.to_u64() as i128).neg()
+    }
 }
