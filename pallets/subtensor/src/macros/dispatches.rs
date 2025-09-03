@@ -120,9 +120,9 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(80)]
-        #[pallet::weight((Weight::from_parts(19_330_000, 0)
-        .saturating_add(T::DbWeight::get().reads(1_u64))
-        .saturating_add(T::DbWeight::get().writes(0_u64)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(95_310_000, 0)
+        .saturating_add(T::DbWeight::get().reads(14_u64))
+        .saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
             netuids: Vec<Compact<NetUid>>,
@@ -966,7 +966,7 @@ mod dispatches {
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(14))
+        .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
