@@ -51,6 +51,12 @@ jobs:
             exit 0
           fi
 
+          if [ -f ".bench_patch/summary.txt" ]; then
+            echo "==== summary.txt ===="
+            sed -n '1,200p' .bench_patch/summary.txt || true
+            echo "====================="
+          fi
+
           if [ ! -f ".bench_patch/benchmark_patch.diff" ]; then
             echo "No benchmark_patch.diff found (likely no auto-patch possible)."
             if [ -f ".bench_patch/summary.txt" ]; then
@@ -76,7 +82,7 @@ jobs:
 
           echo "==== diff preview ===="
           git diff --cached --stat
-          git diff --cached | head -n 100 || true
+          git diff --cached | head -n 120 || true
           echo "======================"
 
           branch=$(git symbolic-ref --quiet --short HEAD || true)

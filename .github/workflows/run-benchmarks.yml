@@ -140,7 +140,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bench-patch
-          path: .bench_patch/**
+          path: ${{ github.workspace }}/.bench_patch/**
           if-no-files-found: ignore
 
       # (6) — final check after run
