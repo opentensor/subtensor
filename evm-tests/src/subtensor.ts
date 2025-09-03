@@ -268,15 +268,6 @@ export async function setMinDelegateTake(api: TypedApi<typeof devnet>, minDelega
     assert.equal(minDelegateTake, await api.query.SubtensorModule.MinDelegateTake.getValue())
 }
 
-export async function becomeDelegate(api: TypedApi<typeof devnet>, ss58Address: string, keypair: KeyPair) {
-    const signer = getSignerFromKeypair(keypair)
-
-    const tx = api.tx.SubtensorModule.become_delegate({
-        hotkey: ss58Address
-    })
-    await waitForTransactionWithRetry(api, tx, signer)
-}
-
 export async function addStake(api: TypedApi<typeof devnet>, netuid: number, ss58Address: string, amount_staked: bigint, keypair: KeyPair) {
     const signer = getSignerFromKeypair(keypair)
     let tx = api.tx.SubtensorModule.add_stake({
