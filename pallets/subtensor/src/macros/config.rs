@@ -128,7 +128,10 @@ mod config {
         /// Kappa constant.
         #[pallet::constant]
         type InitialKappa: Get<u16>;
-        /// Max UID constant.
+        /// Initial minimum allowed network UIDs
+        #[pallet::constant]
+        type InitialMinAllowedUids: Get<u16>;
+        /// Initial maximum allowed network UIDs
         #[pallet::constant]
         type InitialMaxAllowedUids: Get<u16>;
         /// Initial validator context pruning length.
@@ -191,9 +194,6 @@ mod config {
         /// Initial network immunity period
         #[pallet::constant]
         type InitialNetworkImmunityPeriod: Get<u64>;
-        /// Initial minimum allowed network UIDs
-        #[pallet::constant]
-        type InitialNetworkMinAllowedUids: Get<u16>;
         /// Initial network minimum burn cost
         #[pallet::constant]
         type InitialNetworkMinLockCost: Get<u64>;

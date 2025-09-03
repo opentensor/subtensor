@@ -2077,57 +2077,178 @@ fn test_sudo_set_max_burn() {
 fn test_trim_to_max_allowed_uids() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
+        let sn_owner = U256::from(1);
+        let sn_owner_hotkey1 = U256::from(2);
+        let sn_owner_hotkey2 = U256::from(3);
         add_network(netuid, 10);
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+        SubnetOwnerHotkey::<Test>::insert(netuid, sn_owner_hotkey1);
         MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
         TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
+        // We set a low value here to make testing easier
+        MinAllowedUids::<Test>::set(netuid, 4);
 
         // Add some neurons
-        let max_n = 32;
+        let max_n = 16;
         for i in 1..=max_n {
             let n = i * 1000;
             register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
         }
 
-        // Run some block to ensure stake weights are set
-        run_to_block(20);
+        // Run some block to ensure stake weights are set and that we are past the immunity period
+        // for all neurons
+        run_to_block((ImmunityPeriod::<Test>::get(netuid) + 1).into());
+
+        // Set some randomized values that we can keep track of
+        let values = vec![
+            17u16, 42u16, 8u16, 56u16, 23u16, 91u16, 34u16, // owner owned
+            77u16, // temporally immune
+            12u16, 65u16, 3u16, 88u16, // owner owned
+            29u16, 51u16, 74u16, // temporally immune
+            39u16,
+        ];
+        let bool_values = vec![
+            false, false, false, true, false, true, true, // owner owned
+            true, // temporally immune
+            false, true, false, true, // owner owned
+            false, true, true, // temporally immune
+            false,
+        ];
+        let alpha_values = values.iter().map(|&v| (v as u64).into()).collect();
+        let u64_values: Vec<u64> = values.iter().map(|&v| v as u64).collect();
+
+        Emission::<Test>::set(netuid, alpha_values);
+        Rank::<Test>::insert(netuid, values.clone());
+        Trust::<Test>::insert(netuid, values.clone());
+        Consensus::<Test>::insert(netuid, values.clone());
+        Incentive::<Test>::insert(netuid, values.clone());
+        Dividends::<Test>::insert(netuid, values.clone());
+        LastUpdate::<Test>::insert(netuid, u64_values);
+        PruningScores::<Test>::insert(netuid, values.clone());
+        ValidatorTrust::<Test>::insert(netuid, values.clone());
+        StakeWeight::<Test>::insert(netuid, values);
+        ValidatorPermit::<Test>::insert(netuid, bool_values.clone());
+        Active::<Test>::insert(netuid, bool_values);
+
+        // We set some owner immune uids
+        let now = frame_system::Pallet::<Test>::block_number();
+        BlockAtRegistration::<Test>::set(netuid, 6, now);
+        BlockAtRegistration::<Test>::set(netuid, 11, now);
+
+        // And some temporally immune uids
+        Keys::<Test>::insert(netuid, 7, sn_owner_hotkey1);
+        Uids::<Test>::insert(netuid, sn_owner_hotkey1, 7);
+        Keys::<Test>::insert(netuid, 14, sn_owner_hotkey2);
+        Uids::<Test>::insert(netuid, sn_owner_hotkey2, 14);
+
+        // Populate Weights and Bonds storage items to test trimming
+        // Create weights and bonds that span across the range that will be trimmed
+        for uid in 0..max_n {
+            let mut weights = Vec::new();
+            let mut bonds = Vec::new();
+
+            // Add connections to all other uids, including those that will be trimmed
+            for target_uid in 0..max_n {
+                if target_uid != uid {
+                    // Use some non-zero values to make the test more meaningful
+                    let weight_value = ((uid + target_uid) % 1000) as u16;
+                    let bond_value = ((uid * target_uid) % 1000) as u16;
+                    weights.push((target_uid, weight_value));
+                    bonds.push((target_uid, bond_value));
+                }
+            }
+
+            Weights::<Test>::insert(netuid, uid, weights);
+            Bonds::<Test>::insert(netuid, uid, bonds);
+        }
 
         // Normal case
-        let new_max_n = 20;
+        let new_max_n = 8;
         assert_ok!(AdminUtils::sudo_trim_to_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             new_max_n
         ));
 
-        // Ensure storage has been trimmed
+        // Ensure the max allowed uids has been set correctly
         assert_eq!(MaxAllowedUids::<Test>::get(netuid), new_max_n);
-        assert_eq!(Rank::<Test>::get(netuid).len(), new_max_n as usize);
-        assert_eq!(Trust::<Test>::get(netuid).len(), new_max_n as usize);
-        assert_eq!(Active::<Test>::get(netuid).len(), new_max_n as usize);
-        assert_eq!(Emission::<Test>::get(netuid).len(), new_max_n as usize);
-        assert_eq!(Consensus::<Test>::get(netuid).len(), new_max_n as usize);
-        assert_eq!(Incentive::<Test>::get(netuid).len(), new_max_n as usize);
-        assert_eq!(Dividends::<Test>::get(netuid).len(), new_max_n as usize);
-        assert_eq!(LastUpdate::<Test>::get(netuid).len(), new_max_n as usize);
-        assert_eq!(PruningScores::<Test>::get(netuid).len(), new_max_n as usize);
-        assert_eq!(
-            ValidatorTrust::<Test>::get(netuid).len(),
-            new_max_n as usize
-        );
-        assert_eq!(
-            ValidatorPermit::<Test>::get(netuid).len(),
-            new_max_n as usize
-        );
-        assert_eq!(StakeWeight::<Test>::get(netuid).len(), new_max_n as usize);
 
-        for uid in max_n..new_max_n {
+        // Ensure the emission has been trimmed correctly, keeping the highest emitters
+        // and immune and compressed to the left
+        assert_eq!(
+            Emission::<Test>::get(netuid),
+            vec![
+                56.into(),
+                91.into(),
+                34.into(),
+                77.into(),
+                65.into(),
+                88.into(),
+                51.into(),
+                74.into()
+            ]
+        );
+        // Ensure rest of storage has been trimmed correctly
+        let expected_values = vec![56, 91, 34, 77, 65, 88, 51, 74];
+        let expected_bools = vec![true, true, true, true, true, true, true, true];
+        let expected_u64_values = vec![56, 91, 34, 77, 65, 88, 51, 74];
+        assert_eq!(Rank::<Test>::get(netuid), expected_values);
+        assert_eq!(Trust::<Test>::get(netuid), expected_values);
+        assert_eq!(Active::<Test>::get(netuid), expected_bools);
+        assert_eq!(Consensus::<Test>::get(netuid), expected_values);
+        assert_eq!(Incentive::<Test>::get(netuid), expected_values);
+        assert_eq!(Dividends::<Test>::get(netuid), expected_values);
+        assert_eq!(LastUpdate::<Test>::get(netuid), expected_u64_values);
+        assert_eq!(PruningScores::<Test>::get(netuid), expected_values);
+        assert_eq!(ValidatorTrust::<Test>::get(netuid), expected_values);
+        assert_eq!(ValidatorPermit::<Test>::get(netuid), expected_bools);
+        assert_eq!(StakeWeight::<Test>::get(netuid), expected_values);
+
+        // Ensure trimmed uids related storage has been cleared
+        for uid in new_max_n..max_n {
             assert!(!Keys::<Test>::contains_key(netuid, uid));
             assert!(!BlockAtRegistration::<Test>::contains_key(netuid, uid));
             assert!(!Weights::<Test>::contains_key(netuid, uid));
             assert!(!Bonds::<Test>::contains_key(netuid, uid));
         }
 
-        for uid in 0..max_n {
+        // Ensure trimmed uids hotkey related storage has been cleared
+        let trimmed_hotkeys = vec![
+            U256::from(1000),
+            U256::from(2000),
+            U256::from(3000),
+            U256::from(5000),
+            U256::from(9000),
+            U256::from(11000),
+            U256::from(13000),
+            U256::from(16000),
+        ];
+        for hotkey in trimmed_hotkeys {
+            assert!(!Uids::<Test>::contains_key(netuid, &hotkey));
+            assert!(!IsNetworkMember::<Test>::contains_key(&hotkey, netuid));
+            assert!(!LastHotkeyEmissionOnNetuid::<Test>::contains_key(
+                &hotkey, netuid
+            ));
+            assert!(!AlphaDividendsPerSubnet::<Test>::contains_key(
+                netuid, &hotkey
+            ));
+            assert!(!TaoDividendsPerSubnet::<Test>::contains_key(
+                netuid, &hotkey
+            ));
+            assert!(!Axons::<Test>::contains_key(netuid, &hotkey));
+            assert!(!NeuronCertificates::<Test>::contains_key(netuid, &hotkey));
+            assert!(!Prometheus::<Test>::contains_key(netuid, &hotkey));
+        }
+
+        // Ensure trimmed uids weights and bonds have been cleared
+        for uid in new_max_n..max_n {
+            assert!(!Weights::<Test>::contains_key(netuid, uid));
+            assert!(!Bonds::<Test>::contains_key(netuid, uid));
+        }
+
+        // Ensure trimmed uids weights and bonds connections have been trimmed correctly
+        for uid in 0..new_max_n {
             assert!(
                 Weights::<Test>::get(netuid, uid)
                     .iter()
@@ -2142,6 +2263,7 @@ fn test_trim_to_max_allowed_uids() {
             );
         }
 
+        // Actual number of neurons on the network updated after trimming
         assert_eq!(SubnetworkN::<Test>::get(netuid), new_max_n);
 
         // Non existent subnet
@@ -2159,7 +2281,7 @@ fn test_trim_to_max_allowed_uids() {
             AdminUtils::sudo_trim_to_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 netuid,
-                15
+                2
             ),
             pallet_subtensor::Error::<Test>::InvalidValue
         );

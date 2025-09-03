@@ -1626,7 +1626,11 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the maximum allowed UIDs for a subnet
+        /// Trims the maximum number of UIDs for a subnet.
+        ///
+        /// The trimming is done by sorting the UIDs by emission descending and then trimming
+        /// the lowest emitters while preserving temporally and owner immune UIDs. The UIDs are
+        /// then compressed to the left and storage is migrated to the new compressed UIDs.
         #[pallet::call_index(74)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))

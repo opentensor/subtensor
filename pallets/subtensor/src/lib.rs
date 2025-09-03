@@ -530,11 +530,6 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default value for network min allowed UIDs.
-    pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
-        T::InitialNetworkMinAllowedUids::get()
-    }
-    #[pallet::type_value]
     /// Default value for network min lock cost.
     pub fn DefaultNetworkMinLockCost<T: Config>() -> TaoCurrency {
         T::InitialNetworkMinLockCost::get().into()
@@ -618,6 +613,11 @@ pub mod pallet {
     /// Default value for kappa parameter.
     pub fn DefaultKappa<T: Config>() -> u16 {
         T::InitialKappa::get()
+    }
+    #[pallet::type_value]
+    /// Default value for network min allowed UIDs.
+    pub fn DefaultMinAllowedUids<T: Config>() -> u16 {
+        T::InitialMinAllowedUids::get()
     }
     #[pallet::type_value]
     /// Default maximum allowed UIDs.
@@ -1334,6 +1334,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> burn_registrations_this_interval
     pub type BurnRegistrationsThisInterval<T: Config> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> min_allowed_uids
+    pub type MinAllowedUids<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMinAllowedUids<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> max_allowed_uids
     pub type MaxAllowedUids<T> =

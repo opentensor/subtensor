@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
+use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use sp_std::vec;
 use subtensor_runtime_common::NetUid;
 
@@ -114,115 +115,187 @@ impl<T: Config> Pallet<T> {
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
-        ensure!(max_n > 16, Error::<T>::InvalidValue);
         ensure!(
-            max_n <= Self::get_max_allowed_uids(netuid),
+            max_n >= MinAllowedUids::<T>::get(netuid),
+            Error::<T>::InvalidValue
+        );
+        ensure!(
+            max_n <= MaxAllowedUids::<T>::get(netuid),
             Error::<T>::InvalidValue
         );
 
-        // Set the value.
         MaxAllowedUids::<T>::insert(netuid, max_n);
 
-        // Check if we need to trim.
-        let current_n: u16 = Self::get_subnetwork_n(netuid);
+        let owner = SubnetOwner::<T>::get(netuid);
+        let owner_uids = BTreeSet::from_iter(Self::get_immune_owner_uids(netuid, &owner));
+        let current_n = Self::get_subnetwork_n(netuid);
 
-        // We need to trim, get rid of values between max_n and current_n.
         if current_n > max_n {
-            let ranks: Vec<u16> = Rank::<T>::get(netuid);
-            let trimmed_ranks: Vec<u16> = ranks.into_iter().take(max_n as usize).collect();
+            // Get all emissions with their UIDs and sort by emission (descending)
+            // This ensures we keep the highest emitters and remove the lowest ones
+            let mut emissions = Emission::<T>::get(netuid)
+                .into_iter()
+                .enumerate()
+                .collect::<Vec<_>>();
+            emissions.sort_by_key(|(_, emission)| std::cmp::Reverse(*emission));
+
+            // Remove uids from the end (lowest emitters) until we reach the new maximum
+            let mut removed_uids = BTreeSet::new();
+            let mut uids_left_to_process = current_n;
+
+            // Iterate from the end (lowest emitters) to the beginning
+            for i in (0..current_n).rev() {
+                if uids_left_to_process == max_n {
+                    break; // We've reached the target number of UIDs
+                }
+
+                if let Some((uid, _)) = emissions.get(i as usize).cloned() {
+                    // Skip subnet owner's or temporally immune uids
+                    if owner_uids.contains(&(uid as u16))
+                        || Self::get_neuron_is_immune(netuid, uid as u16)
+                    {
+                        continue;
+                    }
+
+                    // Remove hotkey related storage items if hotkey exists
+                    if let Ok(hotkey) = Keys::<T>::try_get(netuid, uid as u16) {
+                        Uids::<T>::remove(netuid, &hotkey);
+                        IsNetworkMember::<T>::remove(&hotkey, netuid);
+                        LastHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid);
+                        AlphaDividendsPerSubnet::<T>::remove(netuid, &hotkey);
+                        TaoDividendsPerSubnet::<T>::remove(netuid, &hotkey);
+                        Axons::<T>::remove(netuid, &hotkey);
+                        NeuronCertificates::<T>::remove(netuid, &hotkey);
+                        Prometheus::<T>::remove(netuid, &hotkey);
+                    }
+
+                    // Remove all storage items associated with this uid
+                    Keys::<T>::remove(netuid, uid as u16);
+                    BlockAtRegistration::<T>::remove(netuid, uid as u16);
+                    Weights::<T>::remove(netuid, uid as u16);
+                    Bonds::<T>::remove(netuid, uid as u16);
+
+                    // Remove from emissions array and track as removed
+                    emissions.remove(i.into());
+                    removed_uids.insert(uid);
+                    uids_left_to_process = uids_left_to_process.saturating_sub(1);
+                }
+            }
+
+            // Sort remaining emissions by uid to compress uids to the left
+            // This ensures consecutive uid indices in the final arrays
+            emissions.sort_by_key(|(uid, _)| *uid);
+
+            // Extract the final uids and emissions after trimming and sorting
+            let (trimmed_uids, trimmed_emissions): (Vec<usize>, Vec<AlphaCurrency>) =
+                emissions.into_iter().unzip();
+
+            // Get all current arrays from storage
+            let ranks = Rank::<T>::get(netuid);
+            let trust = Trust::<T>::get(netuid);
+            let active = Active::<T>::get(netuid);
+            let consensus = Consensus::<T>::get(netuid);
+            let incentive = Incentive::<T>::get(netuid);
+            let dividends = Dividends::<T>::get(netuid);
+            let lastupdate = LastUpdate::<T>::get(netuid);
+            let pruning_scores = PruningScores::<T>::get(netuid);
+            let vtrust = ValidatorTrust::<T>::get(netuid);
+            let vpermit = ValidatorPermit::<T>::get(netuid);
+            let stake_weight = StakeWeight::<T>::get(netuid);
+
+            // Create trimmed arrays by extracting values for kept uids only
+            // Pre-allocate vectors with exact capacity for efficiency
+            let mut trimmed_ranks = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_trust = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_active = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_consensus = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_incentive = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_dividends = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_lastupdate = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_pruning_scores = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_vtrust = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_vpermit = Vec::with_capacity(trimmed_uids.len());
+            let mut trimmed_stake_weight = Vec::with_capacity(trimmed_uids.len());
+
+            // Single iteration to extract values for all kept uids
+            for &old_uid in &trimmed_uids {
+                trimmed_ranks.push(ranks.get(old_uid).cloned().unwrap_or_default());
+                trimmed_trust.push(trust.get(old_uid).cloned().unwrap_or_default());
+                trimmed_active.push(active.get(old_uid).cloned().unwrap_or_default());
+                trimmed_consensus.push(consensus.get(old_uid).cloned().unwrap_or_default());
+                trimmed_incentive.push(incentive.get(old_uid).cloned().unwrap_or_default());
+                trimmed_dividends.push(dividends.get(old_uid).cloned().unwrap_or_default());
+                trimmed_lastupdate.push(lastupdate.get(old_uid).cloned().unwrap_or_default());
+                trimmed_pruning_scores
+                    .push(pruning_scores.get(old_uid).cloned().unwrap_or_default());
+                trimmed_vtrust.push(vtrust.get(old_uid).cloned().unwrap_or_default());
+                trimmed_vpermit.push(vpermit.get(old_uid).cloned().unwrap_or_default());
+                trimmed_stake_weight.push(stake_weight.get(old_uid).cloned().unwrap_or_default());
+            }
+
+            // Update storage with trimmed arrays
+            Emission::<T>::insert(netuid, trimmed_emissions);
             Rank::<T>::insert(netuid, trimmed_ranks);
-
-            let trust: Vec<u16> = Trust::<T>::get(netuid);
-            let trimmed_trust: Vec<u16> = trust.into_iter().take(max_n as usize).collect();
             Trust::<T>::insert(netuid, trimmed_trust);
-
-            let active: Vec<bool> = Active::<T>::get(netuid);
-            let trimmed_active: Vec<bool> = active.into_iter().take(max_n as usize).collect();
             Active::<T>::insert(netuid, trimmed_active);
-
-            let emission: Vec<AlphaCurrency> = Emission::<T>::get(netuid);
-            let trimmed_emission: Vec<AlphaCurrency> =
-                emission.into_iter().take(max_n as usize).collect();
-            Emission::<T>::insert(netuid, trimmed_emission);
-
-            let consensus: Vec<u16> = Consensus::<T>::get(netuid);
-            let trimmed_consensus: Vec<u16> = consensus.into_iter().take(max_n as usize).collect();
             Consensus::<T>::insert(netuid, trimmed_consensus);
-
-            let incentive: Vec<u16> = Incentive::<T>::get(netuid);
-            let trimmed_incentive: Vec<u16> = incentive.into_iter().take(max_n as usize).collect();
             Incentive::<T>::insert(netuid, trimmed_incentive);
-
-            let dividends: Vec<u16> = Dividends::<T>::get(netuid);
-            let trimmed_dividends: Vec<u16> = dividends.into_iter().take(max_n as usize).collect();
             Dividends::<T>::insert(netuid, trimmed_dividends);
-
-            let lastupdate: Vec<u64> = LastUpdate::<T>::get(netuid);
-            let trimmed_lastupdate: Vec<u64> =
-                lastupdate.into_iter().take(max_n as usize).collect();
             LastUpdate::<T>::insert(netuid, trimmed_lastupdate);
-
-            let pruning_scores: Vec<u16> = PruningScores::<T>::get(netuid);
-            let trimmed_pruning_scores: Vec<u16> =
-                pruning_scores.into_iter().take(max_n as usize).collect();
             PruningScores::<T>::insert(netuid, trimmed_pruning_scores);
-
-            let vtrust: Vec<u16> = ValidatorTrust::<T>::get(netuid);
-            let trimmed_vtrust: Vec<u16> = vtrust.into_iter().take(max_n as usize).collect();
             ValidatorTrust::<T>::insert(netuid, trimmed_vtrust);
-
-            let vpermit: Vec<bool> = ValidatorPermit::<T>::get(netuid);
-            let trimmed_vpermit: Vec<bool> = vpermit.into_iter().take(max_n as usize).collect();
             ValidatorPermit::<T>::insert(netuid, trimmed_vpermit);
-
-            let stake_weight: Vec<u16> = StakeWeight::<T>::get(netuid);
-            let trimmed_stake_weight: Vec<u16> =
-                stake_weight.into_iter().take(max_n as usize).collect();
             StakeWeight::<T>::insert(netuid, trimmed_stake_weight);
 
-            for uid in max_n..current_n {
-                // Trim UIDs and Keys by removing entries with UID >= max_n (since UIDs are 0-indexed)
-                // UIDs range from 0 to current_n-1, so we remove UIDs from max_n to current_n-1
-                if let Ok(hotkey) = Keys::<T>::try_get(netuid, uid) {
-                    Uids::<T>::remove(netuid, &hotkey);
-                    // Remove IsNetworkMember association for the hotkey
-                    IsNetworkMember::<T>::remove(&hotkey, netuid);
-                    // Remove last hotkey emission for the hotkey
-                    LastHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid);
-                    // Remove alpha dividends for the hotkey
-                    AlphaDividendsPerSubnet::<T>::remove(netuid, &hotkey);
-                    // Remove tao dividends for the hotkey
-                    TaoDividendsPerSubnet::<T>::remove(netuid, &hotkey);
-                    // Trim axons, certificates, and prometheus info for removed hotkeys
-                    Axons::<T>::remove(netuid, &hotkey);
-                    NeuronCertificates::<T>::remove(netuid, &hotkey);
-                    Prometheus::<T>::remove(netuid, &hotkey);
-                }
-                #[allow(unknown_lints)]
-                Keys::<T>::remove(netuid, uid);
-                // Remove block at registration for the uid
-                BlockAtRegistration::<T>::remove(netuid, uid);
-                // Remove entire weights and bonds entries for removed UIDs
-                Weights::<T>::remove(netuid, uid);
-                Bonds::<T>::remove(netuid, uid);
+            // Create mapping from old uid to new compressed uid
+            // This is needed to update connections (weights and bonds) with correct uid references
+            let old_to_new_uid: BTreeMap<usize, usize> = trimmed_uids
+                .iter()
+                .enumerate()
+                .map(|(new_uid, &old_uid)| (old_uid, new_uid))
+                .collect();
+
+            // Update connections (weights and bonds) for each kept uid
+            // This involves three operations per uid:
+            // 1. Swap the uid storage to the new compressed position
+            // 2. Update all connections to reference the new compressed uids
+            // 3. Clear the connections to the trimmed uids
+            for (old_uid, new_uid) in &old_to_new_uid {
+                // Swap uid specific storage items to new compressed positions
+                Keys::<T>::swap(netuid, *old_uid as u16, netuid, *new_uid as u16);
+                BlockAtRegistration::<T>::swap(netuid, *old_uid as u16, netuid, *new_uid as u16);
+
+                // Swap to new position and remap all target uids
+                Weights::<T>::swap(netuid, *old_uid as u16, netuid, *new_uid as u16);
+                Weights::<T>::mutate(netuid, *new_uid as u16, |weights| {
+                    weights.retain_mut(|(target_uid, _weight)| {
+                        if let Some(new_target_uid) = old_to_new_uid.get(&(*target_uid as usize)) {
+                            *target_uid = *new_target_uid as u16;
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                });
+
+                // Swap to new position and remap all target uids
+                Bonds::<T>::swap(netuid, *old_uid as u16, netuid, *new_uid as u16);
+                Bonds::<T>::mutate(netuid, *new_uid as u16, |bonds| {
+                    bonds.retain_mut(|(target_uid, _bond)| {
+                        if let Some(new_target_uid) = old_to_new_uid.get(&(*target_uid as usize)) {
+                            *target_uid = *new_target_uid as u16;
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                });
             }
 
-            // Trim weight and bond connections to removed UIDs for remaining neurons
-            // UIDs 0 to max_n-1 are kept, so we iterate through these valid UIDs
-            for uid in 0..max_n {
-                Weights::<T>::mutate(netuid, uid, |weights| {
-                    weights.retain(|(target_uid, _)| *target_uid < max_n);
-                });
-                Bonds::<T>::mutate(netuid, uid, |bonds| {
-                    bonds.retain(|(target_uid, _)| *target_uid < max_n);
-                });
-            }
-
-            // Update the subnetwork size
+            // Update the subnet's uid count to reflect the new maximum
             SubnetworkN::<T>::insert(netuid, max_n);
         }
 
-        // --- Ok and done.
         Ok(())
     }
 
