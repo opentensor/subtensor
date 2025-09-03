@@ -854,7 +854,7 @@ mod dispatches {
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(14))
+        .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
@@ -2048,6 +2048,31 @@ mod dispatches {
                 reveal_round,
                 commit_reveal_version,
             )
+        }
+
+        /// Set the autostake destination hotkey for a coldkey.
+        ///
+        /// The caller selects a hotkey where all future rewards
+        /// will be automatically staked.  
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey account to designate as the autostake destination.
+        #[pallet::call_index(114)]
+        #[pallet::weight((Weight::from_parts(64_530_000, 0)
+		.saturating_add(T::DbWeight::get().reads(7_u64))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_coldkey_auto_stake_hotkey(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            log::debug!("set_coldkey_auto_stake_hotkey( origin:{coldkey:?} hotkey:{hotkey:?} )");
+            AutoStakeDestination::<T>::insert(coldkey, hotkey.clone());
+            Ok(())
         }
     }
 }
