@@ -1,4 +1,3 @@
-# .github/workflows/apply-benchmark-patch.yml
 name: Apply-Benchmark-Patch
 
 on:
@@ -8,7 +7,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: read  # required to list & download artifacts from another workflow
+  actions: read  # required to list & download artifacts across workflows
 
 jobs:
   apply:
@@ -29,32 +28,44 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
-      - name: Download latest bench patch artifact from failed run
+      # Look for the most recent run of the heavy workflow for this PR
+      # that actually produced an artifact named "bench-patch".
+      - name: Download latest bench patch artifact from heavy workflow
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: run-benchmarks.yml
           pr: ${{ github.event.pull_request.number }}
-          workflow_conclusion: failure
           name: bench-patch
           path: .bench_patch
           allow_forks: true
+          check_artifacts: true
+          search_artifacts: true
+          workflow_conclusion: ""
+          if_no_artifact_found: warn
 
-      - name: Apply and commit patch (if available)
+      - name: Apply and commit patch
         run: |
           set -euo pipefail
+          if [ ! -d ".bench_patch" ]; then
+            echo "No bench-patch artifact directory found."
+            exit 0
+          fi
 
           if [ ! -f ".bench_patch/benchmark_patch.diff" ]; then
-            echo "No benchmark_patch.diff found. Either no auto-patch was possible or it wasn't generated."
-            echo "See .bench_patch/summary.txt for details (if present)."
+            echo "No benchmark_patch.diff found (likely no auto-patch possible)."
+            if [ -f ".bench_patch/summary.txt" ]; then
+              echo "Summary from heavy workflow:"
+              sed -n '1,200p' .bench_patch/summary.txt || true
+            fi
             exit 0
           fi
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Attempt 3-way apply; if it fails, ask to regenerate
+          # Apply with 3-way merge to be resilient to PR changes
           if ! git apply --index --3way .bench_patch/benchmark_patch.diff; then
-            echo "Patch failed to apply cleanly. Re-run Validate-Benchmarks to regenerate the patch."
+            echo "Patch failed to apply cleanly. Please re-run Validate-Benchmarks to regenerate the patch."
             exit 1
           fi
 
@@ -65,7 +76,7 @@ jobs:
 
           echo "==== diff preview ===="
           git diff --cached --stat
-          git diff --cached | head -n 80 || true
+          git diff --cached | head -n 100 || true
           echo "======================"
 
           branch=$(git symbolic-ref --quiet --short HEAD || true)

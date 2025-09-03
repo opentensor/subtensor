@@ -128,7 +128,7 @@ jobs:
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 180
-          max_attempts: 3
+          max_attempts: 1
           retry_wait_seconds: 60
           command: |
             chmod +x scripts/benchmark_action.sh
