@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: read  # required to list & download artifacts from another workflow
 
 jobs:
   apply:
@@ -31,19 +32,20 @@ jobs:
       - name: Download latest bench patch artifact from failed run
         uses: dawidd6/action-download-artifact@v3
         with:
-          workflow: Validate-Benchmarks
+          workflow: run-benchmarks.yml
           pr: ${{ github.event.pull_request.number }}
           workflow_conclusion: failure
           name: bench-patch
           path: .bench_patch
+          allow_forks: true
 
       - name: Apply and commit patch (if available)
         run: |
           set -euo pipefail
 
           if [ ! -f ".bench_patch/benchmark_patch.diff" ]; then
-            echo "No benchmark patch artifact found for this PR."
-            echo "You may need to re-run 'Validate-Benchmarks' to generate a fresh patch."
+            echo "No benchmark_patch.diff found. Either no auto-patch was possible or it wasn't generated."
+            echo "See .bench_patch/summary.txt for details (if present)."
             exit 0
           fi
 
@@ -52,7 +54,7 @@ jobs:
 
           # Attempt 3-way apply; if it fails, ask to regenerate
           if ! git apply --index --3way .bench_patch/benchmark_patch.diff; then
-            echo "Patch failed to apply cleanly. Please re-run Validate-Benchmarks to regenerate the patch."
+            echo "Patch failed to apply cleanly. Re-run Validate-Benchmarks to regenerate the patch."
             exit 1
           fi
 
