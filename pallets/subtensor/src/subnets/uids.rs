@@ -202,7 +202,7 @@ impl<T: Config> Pallet<T> {
                 Keys::<T>::remove(netuid, uid);
                 // Remove block at registration for the uid
                 BlockAtRegistration::<T>::remove(netuid, uid);
-                // Trim weights and bonds for removed UIDs
+                // Remove entire weights and bonds entries for removed UIDs
                 Weights::<T>::remove(netuid, uid);
                 Bonds::<T>::remove(netuid, uid);
             }
