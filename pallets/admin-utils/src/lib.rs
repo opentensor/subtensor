@@ -107,8 +107,6 @@ pub mod pallet {
         BondsMovingAverageMaxReached,
         /// Only root can set negative sigmoid steepness values
         NegativeSigmoidSteepness,
-        /// Value not in allowed bounds.
-        ValueNotInBounds,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -667,21 +665,11 @@ pub mod pallet {
             netuid: NetUid,
             min_burn: TaoCurrency,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
-            // Allow set min_burn but only up to 1 TAO for spamming.
+            ensure_root(origin)?;
+
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
-            );
-            // Min burn must be less than 1 TAO.
-            ensure!(
-                min_burn < TaoCurrency::from(1_000_000_000),
-                Error::<T>::ValueNotInBounds
-            );
-            // Min burn must be less than max burn
-            ensure!(
-                min_burn <= pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
-                Error::<T>::ValueNotInBounds
             );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
             log::debug!("MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) ");
@@ -700,20 +688,11 @@ pub mod pallet {
             netuid: NetUid,
             max_burn: TaoCurrency,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            ensure_root(origin)?;
+
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
-            );
-            // Max burn must be greater than 0.1 TAO.
-            ensure!(
-                max_burn >= TaoCurrency::from(100_000_000),
-                Error::<T>::ValueNotInBounds
-            );
-            // Max burn must be greater than min burn
-            ensure!(
-                max_burn > pallet_subtensor::Pallet::<T>::get_min_burn(netuid),
-                Error::<T>::ValueNotInBounds
             );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
             log::debug!("MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) ");

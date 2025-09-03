@@ -5,7 +5,10 @@ use frame_support::{
     traits::Hooks,
 };
 use frame_system::Config;
-use pallet_subtensor::{Error as SubtensorError, SubnetOwner, Tempo, WeightsVersionKeyRateLimit};
+use pallet_subtensor::{
+    Error as SubtensorError, MaxRegistrationsPerBlock, Rank, SubnetOwner,
+    TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit, *,
+};
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -1948,6 +1951,109 @@ fn test_sudo_set_commit_reveal_version() {
         assert_eq!(
             SubtensorModule::get_commit_reveal_weights_version(),
             to_be_set
+        );
+    });
+}
+
+#[test]
+fn test_trim_to_max_allowed_uids() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10);
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
+        TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
+
+        // Add some neurons
+        let max_n = 32;
+        for i in 1..=max_n {
+            let n = i * 1000;
+            register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
+        }
+
+        // Run some block to ensure stake weights are set
+        run_to_block(20);
+
+        // Normal case
+        let new_max_n = 20;
+        assert_ok!(AdminUtils::sudo_trim_to_max_allowed_uids(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            new_max_n
+        ));
+
+        // Ensure storage has been trimmed
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), new_max_n);
+        assert_eq!(Rank::<Test>::get(netuid).len(), new_max_n as usize);
+        assert_eq!(Trust::<Test>::get(netuid).len(), new_max_n as usize);
+        assert_eq!(Active::<Test>::get(netuid).len(), new_max_n as usize);
+        assert_eq!(Emission::<Test>::get(netuid).len(), new_max_n as usize);
+        assert_eq!(Consensus::<Test>::get(netuid).len(), new_max_n as usize);
+        assert_eq!(Incentive::<Test>::get(netuid).len(), new_max_n as usize);
+        assert_eq!(Dividends::<Test>::get(netuid).len(), new_max_n as usize);
+        assert_eq!(LastUpdate::<Test>::get(netuid).len(), new_max_n as usize);
+        assert_eq!(PruningScores::<Test>::get(netuid).len(), new_max_n as usize);
+        assert_eq!(
+            ValidatorTrust::<Test>::get(netuid).len(),
+            new_max_n as usize
+        );
+        assert_eq!(
+            ValidatorPermit::<Test>::get(netuid).len(),
+            new_max_n as usize
+        );
+        assert_eq!(StakeWeight::<Test>::get(netuid).len(), new_max_n as usize);
+
+        for uid in max_n..new_max_n {
+            assert!(!Keys::<Test>::contains_key(netuid, uid));
+            assert!(!BlockAtRegistration::<Test>::contains_key(netuid, uid));
+            assert!(!Weights::<Test>::contains_key(netuid, uid));
+            assert!(!Bonds::<Test>::contains_key(netuid, uid));
+        }
+
+        for uid in 0..max_n {
+            assert!(
+                Weights::<Test>::get(netuid, uid)
+                    .iter()
+                    .all(|(target_uid, _)| *target_uid < new_max_n),
+                "Found a weight with target_uid >= new_max_n"
+            );
+            assert!(
+                Bonds::<Test>::get(netuid, uid)
+                    .iter()
+                    .all(|(target_uid, _)| *target_uid < new_max_n),
+                "Found a bond with target_uid >= new_max_n"
+            );
+        }
+
+        assert_eq!(SubnetworkN::<Test>::get(netuid), new_max_n);
+
+        // Non existent subnet
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                NetUid::from(42),
+                new_max_n
+            ),
+            pallet_subtensor::Error::<Test>::SubNetworkDoesNotExist
+        );
+
+        // New max n less than lower bound
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                15
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // New max n greater than upper bound
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_max_allowed_uids(netuid) + 1
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
         );
     });
 }

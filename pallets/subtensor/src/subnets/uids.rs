@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
     }
 
-    /// Clears (sets to default) the neuron map values fot a neuron when it is 
+    /// Clears (sets to default) the neuron map values fot a neuron when it is
     /// removed from the subnet
     pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
         let neuron_index: usize = neuron_uid.into();
@@ -180,9 +180,9 @@ impl<T: Config> Pallet<T> {
                 stake_weight.into_iter().take(max_n as usize).collect();
             StakeWeight::<T>::insert(netuid, trimmed_stake_weight);
 
-            // Trim UIDs and Keys by removing entries with UID >= max_n (since UIDs are 0-indexed)
-            // UIDs range from 0 to current_n-1, so we remove UIDs from max_n to current_n-1
             for uid in max_n..current_n {
+                // Trim UIDs and Keys by removing entries with UID >= max_n (since UIDs are 0-indexed)
+                // UIDs range from 0 to current_n-1, so we remove UIDs from max_n to current_n-1
                 if let Ok(hotkey) = Keys::<T>::try_get(netuid, uid) {
                     Uids::<T>::remove(netuid, &hotkey);
                     // Remove IsNetworkMember association for the hotkey
@@ -193,26 +193,18 @@ impl<T: Config> Pallet<T> {
                     AlphaDividendsPerSubnet::<T>::remove(netuid, &hotkey);
                     // Remove tao dividends for the hotkey
                     TaoDividendsPerSubnet::<T>::remove(netuid, &hotkey);
+                    // Trim axons, certificates, and prometheus info for removed hotkeys
+                    Axons::<T>::remove(netuid, &hotkey);
+                    NeuronCertificates::<T>::remove(netuid, &hotkey);
+                    Prometheus::<T>::remove(netuid, &hotkey);
                 }
                 #[allow(unknown_lints)]
                 Keys::<T>::remove(netuid, uid);
                 // Remove block at registration for the uid
                 BlockAtRegistration::<T>::remove(netuid, uid);
-            }
-
-            // Trim weights and bonds for removed UIDs
-            for uid in max_n..current_n {
+                // Trim weights and bonds for removed UIDs
                 Weights::<T>::remove(netuid, uid);
                 Bonds::<T>::remove(netuid, uid);
-            }
-
-            // Trim axons, certificates, and prometheus info for removed hotkeys
-            for uid in max_n..current_n {
-                if let Ok(hotkey) = Keys::<T>::try_get(netuid, uid) {
-                    Axons::<T>::remove(netuid, &hotkey);
-                    NeuronCertificates::<T>::remove(netuid, &hotkey);
-                    Prometheus::<T>::remove(netuid, &hotkey);
-                }
             }
 
             // Trim weight and bond connections to removed UIDs for remaining neurons
