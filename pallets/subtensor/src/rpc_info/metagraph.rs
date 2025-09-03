@@ -7,7 +7,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, SubId, TaoCurrency};
 
 #[freeze_struct("6fc49d5a7dc0e339")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -796,6 +796,45 @@ impl<T: Config> Pallet<T> {
         metagraphs
     }
 
+    pub fn get_submetagraph(netuid: NetUid, subid: SubId) -> Option<Metagraph<T::AccountId>> {
+        if Self::ensure_subsubnet_exists(netuid, subid).is_err() {
+            return None;
+        }
+
+        // Get netuid metagraph
+        let maybe_meta = Self::get_metagraph(netuid);
+        if let Some(mut meta) = maybe_meta {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+
+            // Update with subsubnet information
+            meta.netuid = NetUid::from(u16::from(netuid_index)).into();
+            meta.last_update = LastUpdate::<T>::get(netuid_index)
+                .into_iter()
+                .map(Compact::from)
+                .collect();
+            meta.incentives = Incentive::<T>::get(netuid_index)
+                .into_iter()
+                .map(Compact::from)
+                .collect();
+
+            Some(meta)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_all_submetagraphs() -> Vec<Option<Metagraph<T::AccountId>>> {
+        let netuids = Self::get_all_subnet_netuids();
+        let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
+        for netuid in netuids.clone().iter() {
+            let subsub_count = u8::from(SubsubnetCountCurrent::<T>::get(netuid));
+            for subid in 0..subsub_count {
+                metagraphs.push(Self::get_submetagraph(*netuid, SubId::from(subid)));
+            }
+        }
+        metagraphs
+    }
+
     pub fn get_selective_metagraph(
         netuid: NetUid,
         metagraph_indexes: Vec<u16>,
@@ -806,6 +845,23 @@ impl<T: Config> Pallet<T> {
             let mut result = SelectiveMetagraph::default();
             for index in metagraph_indexes.iter() {
                 let value = Self::get_single_selective_metagraph(netuid, *index);
+                result.merge_value(&value, *index as usize);
+            }
+            Some(result)
+        }
+    }
+
+    pub fn get_selective_submetagraph(
+        netuid: NetUid,
+        subid: SubId,
+        metagraph_indexes: Vec<u16>,
+    ) -> Option<SelectiveMetagraph<T::AccountId>> {
+        if !Self::if_subnet_exist(netuid) {
+            None
+        } else {
+            let mut result = SelectiveMetagraph::default();
+            for index in metagraph_indexes.iter() {
+                let value = Self::get_single_selective_submetagraph(netuid, subid, *index);
                 result.merge_value(&value, *index as usize);
             }
             Some(result)
@@ -1372,6 +1428,46 @@ impl<T: Config> Pallet<T> {
                 netuid: netuid.into(),
                 ..Default::default()
             },
+        }
+    }
+
+    fn get_single_selective_submetagraph(
+        netuid: NetUid,
+        subid: SubId,
+        metagraph_index: u16,
+    ) -> SelectiveMetagraph<T::AccountId> {
+        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+
+        // Default to netuid, replace as needed for subid
+        match SelectiveMetagraphIndex::from_index(metagraph_index as usize) {
+            Some(SelectiveMetagraphIndex::Incentives) => SelectiveMetagraph {
+                netuid: netuid.into(),
+                incentives: Some(
+                    Incentive::<T>::get(NetUidStorageIndex::from(netuid))
+                        .into_iter()
+                        .map(Compact::from)
+                        .collect(),
+                ),
+                ..Default::default()
+            },
+
+            Some(SelectiveMetagraphIndex::LastUpdate) => SelectiveMetagraph {
+                netuid: netuid.into(),
+                last_update: Some(
+                    LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
+                        .into_iter()
+                        .map(Compact::from)
+                        .collect(),
+                ),
+                ..Default::default()
+            },
+
+            _ => {
+                let mut meta = Self::get_single_selective_metagraph(netuid, metagraph_index);
+                // Replace netuid with index
+                meta.netuid = NetUid::from(u16::from(netuid_index)).into();
+                meta
+            }
         }
     }
 
