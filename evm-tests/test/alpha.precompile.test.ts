@@ -209,6 +209,21 @@ describe("Test Alpha Precompile", () => {
             assert.ok(typeof alphaIssuance === 'bigint', "Alpha issuance should be a bigint");
             assert.ok(alphaIssuance >= BigInt(0), "Alpha issuance should be non-negative");
         });
+
+        it("getCKBurn returns valid CK burn rate", async () => {
+            const ckBurn = await publicClient.readContract({
+                abi: IAlphaABI,
+                address: toViemAddress(IALPHA_ADDRESS),
+                functionName: "getCKBurn",
+                args: []
+            })
+
+            const ckBurnOnChain = await api.query.SubtensorModule.CKBurn.getValue()
+
+            assert.strictEqual(ckBurn, ckBurnOnChain, "CK burn should match on chain");
+            assert.ok(ckBurn !== undefined, "CK burn should be defined");
+            assert.ok(typeof ckBurn === 'bigint', "CK burn should be a bigint");
+        });
     });
 
     describe("Global Functions", () => {
