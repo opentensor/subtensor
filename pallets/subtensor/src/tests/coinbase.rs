@@ -1080,9 +1080,6 @@ fn test_drain_alpha_childkey_parentkey() {
         // Childkey take is 10%
         ChildkeyTake::<Test>::insert(child, netuid, u16::MAX / 10);
 
-        let parent_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        let child_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
-
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::drain_pending_emission(
             netuid,
