@@ -1080,6 +1080,9 @@ fn test_drain_alpha_childkey_parentkey() {
         // Childkey take is 10%
         ChildkeyTake::<Test>::insert(child, netuid, u16::MAX / 10);
 
+        let parent_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        let child_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
+
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::drain_pending_emission(
             netuid,
@@ -1099,6 +1102,7 @@ fn test_drain_alpha_childkey_parentkey() {
             expected.to_num::<u64>(),
             parent_stake_after
         );
+
         close(expected.to_num::<u64>(), parent_stake_after.into(), 10_000);
         let expected = I96F32::from_num(u64::from(pending_alpha)) / I96F32::from_num(10);
         close(expected.to_num::<u64>(), child_stake_after.into(), 10_000);
@@ -2751,5 +2755,74 @@ fn test_coinbase_v3_liquidity_update() {
         let liquidity_after = position_after.liquidity;
 
         assert!(liquidity_before < liquidity_after);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_alpha_childkey_parentkey_with_burn --exact --show-output --nocapture
+#[test]
+fn test_drain_alpha_childkey_parentkey_with_burn() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+        let parent = U256::from(1);
+        let child = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before = AlphaCurrency::from(1_000_000_000);
+        register_ok_neuron(netuid, child, coldkey, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        mock_set_children_no_epochs(netuid, &parent, &[(u64::MAX, child)]);
+
+        // Childkey take is 10%
+        ChildkeyTake::<Test>::insert(child, netuid, u16::MAX / 10);
+
+        let burn_rate = SubtensorModule::get_ck_burn();
+        let parent_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        let child_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
+
+        let pending_alpha = AlphaCurrency::from(1_000_000_000);
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            pending_alpha,
+            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
+        );
+        let parent_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        let child_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
+
+        let expected_ck_burn = I96F32::from_num(pending_alpha)
+            * I96F32::from_num(9.0 / 10.0)
+            * I96F32::from_num(burn_rate);
+
+        let expected_total = I96F32::from_num(pending_alpha) - expected_ck_burn;
+        let parent_ratio = (I96F32::from_num(pending_alpha) * I96F32::from_num(9.0 / 10.0)
+            - expected_ck_burn)
+            / expected_total;
+        let child_ratio = (I96F32::from_num(pending_alpha) / I96F32::from_num(10)) / expected_total;
+
+        let expected =
+            I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * parent_ratio;
+        log::info!(
+            "expected: {:?}, parent_stake_after: {:?}",
+            expected.to_num::<u64>(),
+            parent_stake_after
+        );
+
+        close(
+            expected.to_num::<u64>(),
+            parent_stake_after.into(),
+            3_000_000,
+        );
+        let expected = I96F32::from_num(u64::from(pending_alpha)) * child_ratio;
+        close(
+            expected.to_num::<u64>(),
+            child_stake_after.into(),
+            3_000_000,
+        );
     });
 }
