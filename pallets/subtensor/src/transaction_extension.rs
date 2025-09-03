@@ -223,13 +223,6 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
-                if Self::check_weights_min_stake(hotkey, *netuid) {
-                    Ok((Default::default(), Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
             Some(Call::commit_crv3_weights {
                 netuid,
                 reveal_round,

@@ -767,9 +767,10 @@ impl<T: Config> Pallet<T> {
         tao: TaoCurrency,
         price_limit: TaoCurrency,
         set_limit: bool,
+        drop_fees: bool,
     ) -> Result<AlphaCurrency, DispatchError> {
         // Swap the tao to alpha.
-        let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit, false)?;
+        let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit, drop_fees)?;
 
         ensure!(swap_result.amount_paid_out > 0, Error::<T>::AmountTooLow);
 
