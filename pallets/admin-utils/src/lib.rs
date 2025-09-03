@@ -1648,6 +1648,7 @@ pub mod pallet {
                 );
             }
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
+            Ok(())
         }
     }
 }
