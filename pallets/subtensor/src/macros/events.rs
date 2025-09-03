@@ -242,20 +242,20 @@ mod events {
         /// - **who**: The account ID of the user committing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash representing the committed weights.
-        CRV3WeightsCommitted(T::AccountId, NetUid, H256),
+        CRV3WeightsCommitted(T::AccountId, NetUidStorageIndex, H256),
         /// Weights have been successfully committed.
         ///
         /// - **who**: The account ID of the user committing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash representing the committed weights.
-        WeightsCommitted(T::AccountId, NetUid, H256),
+        WeightsCommitted(T::AccountId, NetUidStorageIndex, H256),
 
         /// Weights have been successfully revealed.
         ///
         /// - **who**: The account ID of the user revealing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash of the revealed weights.
-        WeightsRevealed(T::AccountId, NetUid, H256),
+        WeightsRevealed(T::AccountId, NetUidStorageIndex, H256),
 
         /// Weights have been successfully batch revealed.
         ///

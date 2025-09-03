@@ -64,6 +64,9 @@ impl<T: Config> Pallet<T> {
         subid: SubId,
         commit_hash: H256,
     ) -> DispatchResult {
+        // Ensure netuid and subid exist
+        Self::ensure_subsubnet_exists(netuid, subid)?;
+
         // Calculate subnet storage index
         let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
 
@@ -125,7 +128,7 @@ impl<T: Config> Pallet<T> {
             *maybe_commits = Some(commits);
 
             // 11. Emit the WeightsCommitted event
-            Self::deposit_event(Event::WeightsCommitted(who.clone(), netuid, commit_hash));
+            Self::deposit_event(Event::WeightsCommitted(who.clone(), netuid_index, commit_hash));
 
             // 12. Update the last commit block for the hotkey's UID.
             Self::set_last_update_for_uid(netuid_index, neuron_uid, commit_block);
@@ -293,6 +296,9 @@ impl<T: Config> Pallet<T> {
         reveal_round: u64,
         commit_reveal_version: u16,
     ) -> DispatchResult {
+        // Ensure netuid and subid exist
+        Self::ensure_subsubnet_exists(netuid, subid)?;
+
         // Calculate netuid storage index
         let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
 
@@ -476,7 +482,7 @@ impl<T: Config> Pallet<T> {
 
                 // --- 5. Hash the provided data.
                 let provided_hash: H256 =
-                    Self::get_commit_hash(&who, netuid, &uids, &values, &salt, version_key);
+                    Self::get_commit_hash(&who, netuid_index, &uids, &values, &salt, version_key);
 
                 // --- 6. After removing expired commits, check if any commits are left.
                 if commits.is_empty() {
@@ -515,16 +521,17 @@ impl<T: Config> Pallet<T> {
                     }
 
                     // --- 12. Proceed to set the revealed weights.
-                    Self::do_set_weights(
+                    Self::do_set_sub_weights(
                         origin,
                         netuid,
+                        subid,
                         uids.clone(),
                         values.clone(),
                         version_key,
                     )?;
 
                     // --- 13. Emit the WeightsRevealed event.
-                    Self::deposit_event(Event::WeightsRevealed(who.clone(), netuid, provided_hash));
+                    Self::deposit_event(Event::WeightsRevealed(who.clone(), netuid_index, provided_hash));
 
                     // --- 14. Return ok.
                     Ok(())
@@ -1085,17 +1092,20 @@ impl<T: Config> Pallet<T> {
         neuron_uid: u16,
         current_block: u64,
     ) -> bool {
-        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
-        if Self::is_uid_exist_on_network(netuid, neuron_uid) {
-            // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
-            let last_set_weights: u64 = Self::get_last_update_for_uid(netuid_index, neuron_uid);
-            if last_set_weights == 0 {
-                return true;
-            } // (Storage default) Never set weights.
-            return current_block.saturating_sub(last_set_weights)
-                >= Self::get_weights_set_rate_limit(netuid);
+        let maybe_netuid_and_subid = Self::get_netuid_and_subid(netuid_index);
+        if let Ok((netuid, _)) = maybe_netuid_and_subid {
+            if Self::is_uid_exist_on_network(netuid, neuron_uid) {
+                // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
+                let last_set_weights: u64 = Self::get_last_update_for_uid(netuid_index, neuron_uid);
+                if last_set_weights == 0 {
+                    return true;
+                } // (Storage default) Never set weights.
+                return current_block.saturating_sub(last_set_weights)
+                    >= Self::get_weights_set_rate_limit(netuid);
+            }
         }
-        // --- 3. Non registered peers cant pass.
+
+        // --- 3. Non registered peers cant pass. Neither can non-existing subid
         false
     }
 
@@ -1291,13 +1301,13 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_commit_hash(
         who: &T::AccountId,
-        netuid: NetUid,
+        netuid_index: NetUidStorageIndex,
         uids: &[u16],
         values: &[u16],
         salt: &[u16],
         version_key: u64,
     ) -> H256 {
-        BlakeTwo256::hash_of(&(who.clone(), netuid, uids, values, salt, version_key))
+        BlakeTwo256::hash_of(&(who.clone(), netuid_index, uids, values, salt, version_key))
     }
 
     pub fn find_commit_block_via_hash(hash: H256) -> Option<u64> {

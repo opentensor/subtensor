@@ -14,9 +14,13 @@
 //   - [x] Emissions are split proportionally
 //   - [x] Sum of split emissions is equal to rao_emission passed to epoch
 //   - [ ] Only subnet owner or root can set desired subsubnet count
-//   - [ ] Weights can be set/commited/revealed by subsubnet
-//   - [ ] Prevent weight setting/commitment/revealing above subsubnet_limit_in_force
-//   - [ ] When a miner is deregistered, their weights are cleaned across all subsubnets
+//   - [x] Weights can be set by subsubnet
+//   - [x] Weights can be commited/revealed by subsubnet
+//   - [x] Weights can be commited/revealed in crv3 by subsubnet
+//   - [x] Prevent weight setting/commitment/revealing above subsubnet_limit_in_force
+//   - [x] Prevent weight commitment/revealing above subsubnet_limit_in_force
+//   - [x] Prevent weight commitment/revealing in crv3 above subsubnet_limit_in_force
+//   - [x] When a miner is deregistered, their weights are cleaned across all subsubnets
 //   - [ ] Weight setting rate limiting is enforced by subsubnet
 //   - [x] Bonds are applied per subsubnet
 //   - [x] Incentives are per subsubnet
@@ -28,16 +32,32 @@
 //   - [ ] Subnet epoch terms persist in state
 //   - [x] Subsubnet epoch terms persist in state
 //   - [ ] "Yuma Emergency Mode" (consensus sum is 0 for a subsubnet), emission distributed by stake
-//   - [ ] Miner with no weights on any subsubnet receives no reward
+//   - [x] Miner with no weights on any subsubnet receives no reward
 
 use super::mock::*;
+use crate::coinbase::reveal_commits::WeightsTlockPayload;
 use crate::subnets::subsubnet::{GLOBAL_MAX_SUBNET_COUNT, MAX_SUBSUBNET_COUNT_PER_SUBNET};
 use crate::*;
 use approx::assert_abs_diff_eq;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
-use sp_core::U256;
+use frame_system::RawOrigin;
+use pallet_drand::types::Pulse;
+use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
+use sha2::Digest;
+use sp_core::{H256, U256};
+use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_std::collections::vec_deque::VecDeque;
 use subtensor_runtime_common::{NetUid, NetUidStorageIndex, SubId};
+use substrate_fixed::types::I32F32;
+use tle::{
+    curves::drand::TinyBLS381,
+    ibe::fullident::Identity,
+    stream_ciphers::AESGCMStreamCipherProvider,
+    tlock::tle,
+};
+use w3f_bls::EngineBLS;
 
 #[test]
 fn test_index_from_netuid_and_subnet() {
@@ -574,6 +594,544 @@ fn epoch_with_subsubnets_incentives_proportional_to_weights() {
             actual_incentive_sub1[2],
             expected_incentive_high,
             epsilon = 1
+        );
+    });
+}
+
+#[test]
+fn epoch_with_subsubnets_no_weight_no_incentive() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let idx0 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(0));
+        let idx1 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(1));
+        let ck0 = U256::from(1);
+        let hk0 = U256::from(2);
+        let ck1 = U256::from(3);
+        let hk1 = U256::from(4);
+        let hk2 = U256::from(5); // No weight miner
+        let emission = AlphaCurrency::from(1_000_000_000);
+
+        mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
+        mock_3_neurons(netuid, hk2);
+
+        // Need 3 neurons for this: One validator that will be setting weights to 2 miners
+        ValidatorPermit::<Test>::insert(netuid, vec![true, false, false]);
+
+        // Set no weight to uid2 on sub-subnet 0 and 1
+        Weights::<Test>::insert(idx0, 0, vec![(1u16, 1), (2u16, 0)]);
+        Weights::<Test>::insert(idx1, 0, vec![(1u16, 1), (2u16, 0)]);
+
+        SubtensorModule::epoch_with_subsubnets(netuid, emission);
+
+        let actual_incentive_sub0 = Incentive::<Test>::get(idx0);
+        let actual_incentive_sub1 = Incentive::<Test>::get(idx1);
+        let expected_incentive = 0xFFFF;
+        assert_eq!(actual_incentive_sub0[0], 0);
+        assert_eq!(actual_incentive_sub0[1], expected_incentive);
+        assert_eq!(actual_incentive_sub0[2], 0);
+        assert_eq!(actual_incentive_sub1[0], 0);
+        assert_eq!(actual_incentive_sub1[1], expected_incentive);
+        assert_eq!(actual_incentive_sub1[2], 0);
+        assert_eq!(actual_incentive_sub0.len(), 3);
+        assert_eq!(actual_incentive_sub1.len(), 3);
+    });
+}
+
+#[test]
+fn neuron_dereg_cleans_weights_across_subids() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(77u16);
+        let neuron_uid: u16 = 1; // we'll deregister UID=1
+        // two sub-subnets
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8));
+
+        // Setup initial map values
+        Emission::<Test>::insert(netuid, vec![AlphaCurrency::from(1u64), AlphaCurrency::from(9u64), AlphaCurrency::from(3u64)]);
+        Trust::<Test>::insert(netuid, vec![11u16, 99u16, 33u16]);
+        Consensus::<Test>::insert(netuid, vec![21u16, 88u16, 44u16]);
+        Dividends::<Test>::insert(netuid, vec![7u16, 77u16, 17u16]);
+
+        // Clearing per-subid maps
+        for sub in [0u8, 1u8] {
+            let idx = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(sub));
+
+            // Incentive vector: position 1 should become 0
+            Incentive::<Test>::insert(idx, vec![10u16, 20u16, 30u16]);
+
+            // Row set BY neuron_uid (to be removed)
+            Weights::<Test>::insert(idx, neuron_uid, vec![(0u16, 5u16)]);
+            Bonds::<Test>::insert(idx, neuron_uid, vec![(0u16, 6u16)]);
+
+            // Rows FOR neuron_uid inside other validators' vecs => value should be set to 0 (not removed)
+            Weights::<Test>::insert(idx, 0u16, vec![(neuron_uid, 7u16), (42u16, 3u16)]);
+            Bonds::<Test>::insert(idx, 0u16, vec![(neuron_uid, 8u16), (42u16, 4u16)]);
+        }
+
+        // Act
+        SubtensorModule::clear_neuron(netuid, neuron_uid);
+
+        // Top-level zeroed at index 1, others intact
+        let e = Emission::<Test>::get(netuid);
+        assert_eq!(e[0], 1u64.into());
+        assert_eq!(e[1], 0u64.into());
+        assert_eq!(e[2], 3u64.into());
+
+        let t = Trust::<Test>::get(netuid);
+        assert_eq!(t, vec![11, 0, 33]);
+
+        let c = Consensus::<Test>::get(netuid);
+        assert_eq!(c, vec![21, 0, 44]);
+
+        let d = Dividends::<Test>::get(netuid);
+        assert_eq!(d, vec![7, 0, 17]);
+
+        // Per-subid cleanup
+        for sub in [0u8, 1u8] {
+            let idx = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(sub));
+
+            // Incentive element at index 1 set to 0
+            let inc = Incentive::<Test>::get(idx);
+            assert_eq!(inc, vec![10, 0, 30]);
+
+            // Rows BY neuron_uid removed
+            assert!(!Weights::<Test>::contains_key(idx, neuron_uid));
+            assert!(!Bonds::<Test>::contains_key(idx, neuron_uid));
+
+            // In other rows, entries FOR neuron_uid are zeroed, others unchanged
+            let w0 = Weights::<Test>::get(idx, 0u16);
+            assert!(w0.iter().any(|&(u, w)| u == neuron_uid && w == 0));
+            assert!(w0.iter().any(|&(u, w)| u == 42 && w == 3));
+        }
+    });
+}
+
+#[test]
+fn clear_neuron_handles_absent_rows_gracefully() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(55u16);
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(1u8)); // single sub-subnet
+
+        // Minimal vectors with non-zero at index 0 (we will clear UID=0)
+        Emission::<Test>::insert(netuid, vec![AlphaCurrency::from(5u64)]);
+        Trust::<Test>::insert(netuid, vec![5u16]);
+        Consensus::<Test>::insert(netuid, vec![6u16]);
+        Dividends::<Test>::insert(netuid, vec![7u16]);
+
+        // No Weights/Bonds rows at all → function should not panic
+        let neuron_uid: u16 = 0;
+        SubtensorModule::clear_neuron(netuid, neuron_uid);
+
+        // All zeroed at index 0
+        assert_eq!(Emission::<Test>::get(netuid), vec![AlphaCurrency::from(0u64)]);
+        assert_eq!(Trust::<Test>::get(netuid), vec![0u16]);
+        assert_eq!(Consensus::<Test>::get(netuid), vec![0u16]);
+        assert_eq!(Dividends::<Test>::get(netuid), vec![0u16]);
+    });
+}
+
+#[test]
+fn test_set_sub_weights_happy_path_sets_row_under_subid() {
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 13;
+        add_network_disable_commit_reveal(netuid, tempo, 0);
+
+        // Register validator (caller) and a destination neuron
+        let hk1 = U256::from(55);
+        let ck1 = U256::from(66);
+        let hk2 = U256::from(77);
+        let ck2 = U256::from(88);
+        let hk3 = U256::from(99);
+        let ck3 = U256::from(111);
+        register_ok_neuron(netuid, hk1, ck1, 0);
+        register_ok_neuron(netuid, hk2, ck2, 0);
+        register_ok_neuron(netuid, hk3, ck3, 0);
+
+        let uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk1).expect("caller uid");
+        let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk2).expect("dest uid 1");
+        let uid3 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk3).expect("dest uid 2");
+
+        // Make caller a permitted validator with stake
+        SubtensorModule::set_stake_threshold(0);
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &ck1, netuid, 1.into());
+
+        // Have at least two sub-subnets; write under subid = 1
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8));
+        let subid = SubId::from(1u8);
+
+        // Call extrinsic
+        let dests = vec![uid2, uid3];
+        let weights = vec![88u16, 0xFFFF];
+        assert_ok!(SubtensorModule::set_sub_weights(
+            RawOrigin::Signed(hk1).into(),
+            netuid,
+            subid,
+            dests.clone(),
+            weights.clone(),
+            0, // version_key
+        ));
+
+        // Verify row exists under the chosen subid and not under a different subid
+        let idx1 = SubtensorModule::get_subsubnet_storage_index(netuid, subid);
+        assert_eq!(Weights::<Test>::get(idx1, uid1), vec![(uid2, 88u16), (uid3, 0xFFFF)]);
+
+        let idx0 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(0u8));
+        assert!(Weights::<Test>::get(idx0, uid1).is_empty());
+    });
+}
+
+#[test]
+fn test_set_sub_weights_above_subsubnet_count_fails() {
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 13;
+        add_network_disable_commit_reveal(netuid, tempo, 0);
+
+        // Register validator (caller) and a destination neuron
+        let hk1 = U256::from(55);
+        let ck1 = U256::from(66);
+        let hk2 = U256::from(77);
+        let ck2 = U256::from(88);
+        register_ok_neuron(netuid, hk1, ck1, 0);
+        register_ok_neuron(netuid, hk2, ck2, 0);
+
+        let uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk1).expect("caller uid");
+        let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk2).expect("dest uid 1");
+
+        // Make caller a permitted validator with stake
+        SubtensorModule::set_stake_threshold(0);
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &ck1, netuid, 1.into());
+
+        // Have exactly two sub-subnets; write under subid = 1
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8));
+        let subid_above = SubId::from(2u8);
+
+        // Call extrinsic
+        let dests = vec![uid2];
+        let weights = vec![88u16];
+        assert_noop!(
+            SubtensorModule::set_sub_weights(
+                RawOrigin::Signed(hk1).into(),
+                netuid,
+                subid_above,
+                dests.clone(),
+                weights.clone(),
+                0, // version_key
+            ),
+            Error::<Test>::SubNetworkDoesNotExist
+        );
+    });
+}
+
+#[test]
+fn test_commit_reveal_sub_weights_ok() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
+
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 13;
+        add_network(netuid, tempo, 0);
+
+        // Three neurons: validator (caller) + two destinations
+        let hk1 = U256::from(55); let ck1 = U256::from(66);
+        let hk2 = U256::from(77); let ck2 = U256::from(88);
+        let hk3 = U256::from(99); let ck3 = U256::from(111);
+        register_ok_neuron(netuid, hk1, ck1, 0);
+        register_ok_neuron(netuid, hk2, ck2, 0);
+        register_ok_neuron(netuid, hk3, ck3, 0);
+
+        let uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk1).unwrap(); // caller
+        let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk2).unwrap();
+        let uid3 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk3).unwrap();
+
+        // Enable commit-reveal path and make caller a validator with stake
+        SubtensorModule::set_stake_threshold(0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &ck1, netuid, 1.into());
+
+        // Ensure sub-subnet exists; write under subid = 1
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8));
+        let subid = SubId::from(1u8);
+        let idx0 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(0u8));
+        let idx1 = SubtensorModule::get_subsubnet_storage_index(netuid, subid);
+
+        // Prepare payload and commit hash (include subid!)
+        let dests = vec![uid2, uid3];
+        let weights = vec![88u16, 0xFFFFu16];
+        let salt: Vec<u16> = vec![1,2,3,4,5,6,7,8];
+        let version_key: u64 = 0;
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(hk1, idx1, dests.clone(), weights.clone(), salt.clone(), version_key));
+
+        // Commit in epoch 0
+        assert_ok!(SubtensorModule::commit_sub_weights(RuntimeOrigin::signed(hk1), netuid, subid, commit_hash));
+
+        // Advance one epoch, then reveal
+        step_epochs(1, netuid);
+        assert_ok!(SubtensorModule::reveal_sub_weights(
+            RuntimeOrigin::signed(hk1),
+            netuid,
+            subid,
+            dests.clone(),
+            weights.clone(),
+            salt,
+            version_key
+        ));
+
+        // Verify weights stored under the chosen subid (normalized keeps max=0xFFFF here)
+        assert_eq!(Weights::<Test>::get(idx1, uid1), vec![(uid2, 88u16), (uid3, 0xFFFFu16)]);
+
+        // And not under a different subid
+        assert!(Weights::<Test>::get(idx0, uid1).is_empty());
+    });
+}
+
+#[test]
+fn test_commit_reveal_above_subsubnet_count_fails() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
+
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 13;
+        add_network(netuid, tempo, 0);
+
+        // Two neurons: validator (caller) + miner
+        let hk1 = U256::from(55); let ck1 = U256::from(66);
+        let hk2 = U256::from(77); let ck2 = U256::from(88);
+        register_ok_neuron(netuid, hk1, ck1, 0);
+        register_ok_neuron(netuid, hk2, ck2, 0);
+
+        let uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk1).unwrap(); // caller
+        let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk2).unwrap();
+
+        // Enable commit-reveal path and make caller a validator with stake
+        SubtensorModule::set_stake_threshold(0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &ck1, netuid, 1.into());
+
+        // Ensure there are two subsubnets: 0 and 1
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8));
+        let subid_above = SubId::from(2u8); // non-existing sub-subnet
+        let idx2 = SubtensorModule::get_subsubnet_storage_index(netuid, subid_above);
+
+        // Prepare payload and commit hash
+        let dests = vec![uid2];
+        let weights = vec![88u16];
+        let salt: Vec<u16> = vec![1,2,3,4,5,6,7,8];
+        let version_key: u64 = 0;
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(hk1, idx2, dests.clone(), weights.clone(), salt.clone(), version_key));
+
+        // Commit in epoch 0
+        assert_noop!(
+            SubtensorModule::commit_sub_weights(RuntimeOrigin::signed(hk1), netuid, subid_above, commit_hash),
+            Error::<Test>::SubNetworkDoesNotExist
+        );
+
+        // Advance one epoch, then attempt to reveal
+        step_epochs(1, netuid);
+        assert_noop!(
+            SubtensorModule::reveal_sub_weights(
+                RuntimeOrigin::signed(hk1),
+                netuid,
+                subid_above,
+                dests.clone(),
+                weights.clone(),
+                salt,
+                version_key
+            ),
+            Error::<Test>::NoWeightsCommitFound
+        );
+
+        // Verify that weights didn't update
+        assert!(Weights::<Test>::get(idx2, uid1).is_empty());
+        assert!(Weights::<Test>::get(idx2, uid2).is_empty());
+    });
+}
+
+#[test]
+fn test_reveal_crv3_commits_sub_success() {
+    new_test_ext(100).execute_with(|| {
+        System::set_block_number(0);
+
+        let netuid = NetUid::from(1);
+        let subid  = SubId::from(1u8); // write under sub-subnet #1
+        let hotkey1: AccountId = U256::from(1);
+        let hotkey2: AccountId = U256::from(2);
+        let reveal_round: u64 = 1000;
+
+        add_network(netuid, 5, 0);
+        // ensure we actually have subid=1 available
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8));
+
+        // Register neurons and set up configs
+        register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
+        register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
+        SubtensorModule::set_stake_threshold(0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
+
+        let uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1).expect("uid1");
+        let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey2).expect("uid2");
+
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid2, true);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &U256::from(3), netuid, 1.into());
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &U256::from(4), netuid, 1.into());
+
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
+
+        // Payload (same as legacy; subid is provided to the extrinsic)
+        let payload = WeightsTlockPayload {
+            hotkey: hotkey1.encode(),
+            values: vec![10, 20],
+            uids: vec![uid1, uid2],
+            version_key,
+        };
+        let serialized_payload = payload.encode();
+
+        // Public key + encrypt
+        let esk = [2; 32];
+        let rng = ChaCha20Rng::seed_from_u64(0);
+        let pk_bytes = hex::decode("83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a").unwrap();
+        let pub_key = <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&*pk_bytes).unwrap();
+
+        let message = {
+            let mut hasher = sha2::Sha256::new();
+            hasher.update(reveal_round.to_be_bytes());
+            hasher.finalize().to_vec()
+        };
+        let identity = Identity::new(b"", vec![message]);
+
+        let ct = tle::<TinyBLS381, AESGCMStreamCipherProvider, ChaCha20Rng>(pub_key, esk, &serialized_payload, identity, rng).expect("encrypt");
+        let mut commit_bytes = Vec::new();
+        ct.serialize_compressed(&mut commit_bytes).expect("serialize");
+
+        // Commit (sub variant)
+        assert_ok!(SubtensorModule::commit_timelocked_sub_weights(
+            RuntimeOrigin::signed(hotkey1),
+            netuid,
+            subid,
+            commit_bytes.clone().try_into().expect("bounded"),
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
+        ));
+
+        // Inject drand pulse for the reveal round
+        let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39").unwrap();
+        pallet_drand::Pulses::<Test>::insert(
+            reveal_round,
+            Pulse {
+                round: reveal_round,
+                randomness: vec![0; 32].try_into().unwrap(),
+                signature: sig_bytes.try_into().unwrap(),
+            },
+        );
+
+        // Run epochs so the commit is processed
+        step_epochs(3, netuid);
+
+        // Verify weights applied under the selected subid index
+        let idx = SubtensorModule::get_subsubnet_storage_index(netuid, subid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(idx);
+        let row = weights_sparse.get(uid1 as usize).cloned().unwrap_or_default();
+        assert!(!row.is_empty(), "expected weights set for validator uid1 under subid");
+
+        // Compare rounded normalized weights to expected proportions (like legacy test)
+        let expected: Vec<(u16, I32F32)> = payload.uids.iter().zip(payload.values.iter()).map(|(&u,&v)|(u, I32F32::from_num(v))).collect();
+        let total: I32F32 = row.iter().map(|(_, w)| *w).sum();
+        let normalized: Vec<(u16, I32F32)> = row.iter().map(|&(u,w)| (u, w * I32F32::from_num(30) / total)).collect();
+
+        for ((ua, wa), (ub, wb)) in normalized.iter().zip(expected.iter()) {
+            assert_eq!(ua, ub);
+            let actual = wa.to_num::<f64>().round() as i64;
+            let expect = wb.to_num::<i64>();
+            assert_ne!(actual, 0, "actual weight for uid {} is zero", ua);
+            assert_eq!(actual, expect, "weight mismatch for uid {}", ua);
+        }
+    });
+}
+
+#[test]
+fn test_crv3_above_subsubnet_count_fails() {
+    new_test_ext(100).execute_with(|| {
+        System::set_block_number(0);
+
+        let netuid = NetUid::from(1);
+        let subid_above  = SubId::from(2u8); // non-existing sub-subnet
+        let hotkey1: AccountId = U256::from(1);
+        let hotkey2: AccountId = U256::from(2);
+        let reveal_round: u64 = 1000;
+
+        add_network(netuid, 5, 0);
+        // ensure we actually have subid=1 available
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8));
+
+        // Register neurons and set up configs
+        register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
+        register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
+        SubtensorModule::set_stake_threshold(0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
+
+        let uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1).expect("uid1");
+        let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey2).expect("uid2");
+
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &U256::from(3), netuid, 1.into());
+
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
+
+        // Payload (same as legacy; subid is provided to the extrinsic)
+        let payload = WeightsTlockPayload {
+            hotkey: hotkey1.encode(),
+            values: vec![10, 20],
+            uids: vec![uid1, uid2],
+            version_key,
+        };
+        let serialized_payload = payload.encode();
+
+        // Public key + encrypt
+        let esk = [2; 32];
+        let rng = ChaCha20Rng::seed_from_u64(0);
+        let pk_bytes = hex::decode("83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a").unwrap();
+        let pub_key = <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&*pk_bytes).unwrap();
+
+        let message = {
+            let mut hasher = sha2::Sha256::new();
+            hasher.update(reveal_round.to_be_bytes());
+            hasher.finalize().to_vec()
+        };
+        let identity = Identity::new(b"", vec![message]);
+
+        let ct = tle::<TinyBLS381, AESGCMStreamCipherProvider, ChaCha20Rng>(pub_key, esk, &serialized_payload, identity, rng).expect("encrypt");
+        let mut commit_bytes = Vec::new();
+        ct.serialize_compressed(&mut commit_bytes).expect("serialize");
+
+        // Commit (sub variant)
+        assert_noop!(
+            SubtensorModule::commit_timelocked_sub_weights(
+                RuntimeOrigin::signed(hotkey1),
+                netuid,
+                subid_above,
+                commit_bytes.clone().try_into().expect("bounded"),
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
+            ),
+            Error::<Test>::SubNetworkDoesNotExist
         );
     });
 }

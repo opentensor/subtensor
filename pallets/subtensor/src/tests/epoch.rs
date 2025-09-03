@@ -1570,6 +1570,7 @@ fn test_active_stake() {
 }
 
 // Test that epoch masks out outdated weights and bonds of validators on deregistered servers.
+// cargo test --package pallet-subtensor --lib -- tests::epoch::test_outdated_weights --exact --show-output 
 #[test]
 fn test_outdated_weights() {
     new_test_ext(1).execute_with(|| {
