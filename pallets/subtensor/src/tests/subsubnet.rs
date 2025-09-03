@@ -13,7 +13,7 @@
 //   - [x] do_set_desired tests
 //   - [x] Emissions are split proportionally
 //   - [x] Sum of split emissions is equal to rao_emission passed to epoch
-//   - [ ] Only subnet owner or root can set desired subsubnet count
+//   - [x] Only subnet owner or root can set desired subsubnet count (pallet admin test)
 //   - [x] Weights can be set by subsubnet
 //   - [x] Weights can be commited/revealed by subsubnet
 //   - [x] Weights can be commited/revealed in crv3 by subsubnet
@@ -21,7 +21,7 @@
 //   - [x] Prevent weight commitment/revealing above subsubnet_limit_in_force
 //   - [x] Prevent weight commitment/revealing in crv3 above subsubnet_limit_in_force
 //   - [x] When a miner is deregistered, their weights are cleaned across all subsubnets
-//   - [ ] Weight setting rate limiting is enforced by subsubnet
+//   - [x] Weight setting rate limiting is enforced by subsubnet
 //   - [x] Bonds are applied per subsubnet
 //   - [x] Incentives are per subsubnet
 //   - [x] Per-subsubnet incentives are distributed proportionally to miner weights
