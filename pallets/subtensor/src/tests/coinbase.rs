@@ -1099,7 +1099,6 @@ fn test_drain_alpha_childkey_parentkey() {
             expected.to_num::<u64>(),
             parent_stake_after
         );
-
         close(expected.to_num::<u64>(), parent_stake_after.into(), 10_000);
         let expected = I96F32::from_num(u64::from(pending_alpha)) / I96F32::from_num(10);
         close(expected.to_num::<u64>(), child_stake_after.into(), 10_000);
