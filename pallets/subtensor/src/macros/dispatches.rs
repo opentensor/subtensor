@@ -796,7 +796,7 @@ mod dispatches {
         #[pallet::call_index(62)]
         #[pallet::weight((Weight::from_parts(111_700_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
-		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::Yes))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
         }
@@ -855,7 +855,7 @@ mod dispatches {
         #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_parts(161_700_000, 0)
         .saturating_add(T::DbWeight::get().reads(14))
-        .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
+        .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::Yes))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
@@ -937,7 +937,7 @@ mod dispatches {
             .saturating_add(T::DbWeight::get().reads(0))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
             origin: OriginFor<T>,
@@ -965,7 +965,7 @@ mod dispatches {
             .saturating_add(T::DbWeight::get().reads(1))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn sudo_set_min_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
@@ -990,7 +990,7 @@ mod dispatches {
             .saturating_add(T::DbWeight::get().reads(1))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn sudo_set_max_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
@@ -1019,7 +1019,7 @@ mod dispatches {
         /// ## Complexity
         /// - O(1).
         #[pallet::call_index(51)]
-        #[pallet::weight((Weight::from_parts(111_100_000, 0), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(111_100_000, 0), DispatchClass::Operational, Pays::Yes))]
         pub fn sudo(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
@@ -1044,7 +1044,7 @@ mod dispatches {
         /// - O(1).
         #[allow(deprecated)]
         #[pallet::call_index(52)]
-        #[pallet::weight((*weight, call.get_dispatch_info().class, Pays::No))]
+        #[pallet::weight((*weight, call.get_dispatch_info().class, Pays::Yes))]
         pub fn sudo_unchecked_weight(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
@@ -1113,7 +1113,7 @@ mod dispatches {
         #[pallet::call_index(61)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
             coldkey: T::AccountId,
@@ -1890,7 +1890,7 @@ mod dispatches {
 
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
-        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::Yes))]
         pub fn set_pending_childkey_cooldown(
             origin: OriginFor<T>,
             cooldown: u64,
