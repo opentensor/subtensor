@@ -1570,7 +1570,7 @@ fn test_active_stake() {
 }
 
 // Test that epoch masks out outdated weights and bonds of validators on deregistered servers.
-//   
+//
 #[test]
 fn test_outdated_weights() {
     new_test_ext(1).execute_with(|| {

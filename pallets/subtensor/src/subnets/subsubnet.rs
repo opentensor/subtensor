@@ -117,7 +117,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// - This function should be called in every block in run_counbase
     /// - Cleans up all sub-subnet maps if count is reduced
-    /// - Decreases current subsubnet count by no more than `GlobalSubsubnetDecreasePerSuperblock`
+    /// - Decreases or increases current subsubnet count by no more than
+    ///   `GlobalSubsubnetDecreasePerSuperblock`
     ///
     pub fn update_subsubnet_counts_if_needed(current_block: u64) {
         // Run once per super-block
@@ -128,59 +129,113 @@ impl<T: Config> Pallet<T> {
                 if rem == 0 {
                     let old_count = u8::from(SubsubnetCountCurrent::<T>::get(netuid));
                     let desired_count = u8::from(SubsubnetCountDesired::<T>::get(netuid));
-                    let min_possible_count = old_count
+                    let min_capped_count = old_count
                         .saturating_sub(u8::from(GlobalSubsubnetDecreasePerSuperblock::<T>::get()))
                         .max(1);
-                    let new_count = desired_count.max(min_possible_count);
+                    let max_capped_count = old_count
+                        .saturating_add(u8::from(GlobalSubsubnetDecreasePerSuperblock::<T>::get()));
+                    let new_count = desired_count.max(min_capped_count).min(max_capped_count);
 
-                    if old_count > new_count {
-                        for subid in new_count..old_count {
-                            let netuid_index =
-                                Self::get_subsubnet_storage_index(*netuid, SubId::from(subid));
+                    if old_count != new_count {
+                        if old_count > new_count {
+                            for subid in new_count..old_count {
+                                let netuid_index =
+                                    Self::get_subsubnet_storage_index(*netuid, SubId::from(subid));
 
-                            // Cleanup Weights
-                            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+                                // Cleanup Weights
+                                let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
 
-                            // Cleanup Incentive
-                            Incentive::<T>::remove(netuid_index);
+                                // Cleanup Incentive
+                                Incentive::<T>::remove(netuid_index);
 
-                            // Cleanup LastUpdate
-                            LastUpdate::<T>::remove(netuid_index);
+                                // Cleanup LastUpdate
+                                LastUpdate::<T>::remove(netuid_index);
 
-                            // Cleanup Bonds
-                            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
+                                // Cleanup Bonds
+                                let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
 
-                            // Cleanup WeightCommits
-                            let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
+                                // Cleanup WeightCommits
+                                let _ =
+                                    WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
 
-                            // Cleanup TimelockedWeightCommits
-                            let _ = TimelockedWeightCommits::<T>::clear_prefix(
-                                netuid_index,
-                                u32::MAX,
-                                None,
-                            );
+                                // Cleanup TimelockedWeightCommits
+                                let _ = TimelockedWeightCommits::<T>::clear_prefix(
+                                    netuid_index,
+                                    u32::MAX,
+                                    None,
+                                );
+                            }
                         }
-                    }
 
-                    SubsubnetCountCurrent::<T>::insert(netuid, SubId::from(new_count));
+                        SubsubnetCountCurrent::<T>::insert(netuid, SubId::from(new_count));
+
+                        // Reset split back to even
+                        SubsubnetEmissionSplit::<T>::remove(netuid);
+                    }
                 }
             }
         });
     }
 
+    pub fn do_set_emission_split(netuid: NetUid, maybe_split: Option<Vec<u16>>) -> DispatchResult {
+        // Make sure the subnet exists
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+
+        if let Some(split) = maybe_split {
+            // Check the length
+            ensure!(!split.is_empty(), Error::<T>::InvalidValue);
+            ensure!(
+                split.len() <= u8::from(SubsubnetCountCurrent::<T>::get(netuid)) as usize,
+                Error::<T>::InvalidValue
+            );
+
+            // Check that values add up to 65535
+            let total: u64 = split.iter().map(|s| *s as u64).sum();
+            ensure!(total <= u16::MAX as u64, Error::<T>::InvalidValue);
+
+            SubsubnetEmissionSplit::<T>::insert(netuid, split);
+        } else {
+            SubsubnetEmissionSplit::<T>::remove(netuid);
+        }
+
+        Ok(())
+    }
+
     /// Split alpha emission in sub-subnet proportions
-    /// Currently splits evenly between sub-subnets, but the implementation
-    /// may change in the future
+    /// stored in SubsubnetEmissionSplit
     ///
     pub fn split_emissions(netuid: NetUid, alpha: AlphaCurrency) -> Vec<AlphaCurrency> {
         let subsubnet_count = u64::from(SubsubnetCountCurrent::<T>::get(netuid));
+        let maybe_split = SubsubnetEmissionSplit::<T>::get(netuid);
 
-        // If there's any rounding error, credit it to subsubnet 0
-        let per_subsubnet = u64::from(alpha).safe_div(subsubnet_count);
+        // Unset split means even distribution
+        let mut result: Vec<AlphaCurrency> = if let Some(split) = maybe_split {
+            split
+                .iter()
+                .map(|s| {
+                    AlphaCurrency::from(
+                        (u64::from(alpha) as u128)
+                            .saturating_mul(*s as u128)
+                            .safe_div(u16::MAX as u128) as u64,
+                    )
+                })
+                .collect()
+        } else {
+            let per_subsubnet = u64::from(alpha).safe_div(subsubnet_count);
+            vec![AlphaCurrency::from(per_subsubnet); subsubnet_count as usize]
+        };
+
+        // Trim / extend and pad with zeroes if result is shorter than subsubnet_count
+        if result.len() != subsubnet_count as usize {
+            result.resize(subsubnet_count as usize, 0u64.into()); // pad with AlphaCurrency::from(0)
+        }
+
+        // If there's any rounding error or lost due to truncation emission, credit it to subsubnet 0
         let rounding_err =
-            u64::from(alpha).saturating_sub(per_subsubnet.saturating_mul(subsubnet_count));
-
-        let mut result = vec![AlphaCurrency::from(per_subsubnet); subsubnet_count as usize];
+            u64::from(alpha).saturating_sub(result.iter().map(|s| u64::from(*s)).sum());
         if let Some(cell) = result.first_mut() {
             *cell = cell.saturating_add(AlphaCurrency::from(rounding_err));
         }

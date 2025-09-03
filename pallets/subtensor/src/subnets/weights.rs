@@ -128,7 +128,11 @@ impl<T: Config> Pallet<T> {
             *maybe_commits = Some(commits);
 
             // 11. Emit the WeightsCommitted event
-            Self::deposit_event(Event::WeightsCommitted(who.clone(), netuid_index, commit_hash));
+            Self::deposit_event(Event::WeightsCommitted(
+                who.clone(),
+                netuid_index,
+                commit_hash,
+            ));
 
             // 12. Update the last commit block for the hotkey's UID.
             Self::set_last_update_for_uid(netuid_index, neuron_uid, commit_block);
@@ -531,7 +535,11 @@ impl<T: Config> Pallet<T> {
                     )?;
 
                     // --- 13. Emit the WeightsRevealed event.
-                    Self::deposit_event(Event::WeightsRevealed(who.clone(), netuid_index, provided_hash));
+                    Self::deposit_event(Event::WeightsRevealed(
+                        who.clone(),
+                        netuid_index,
+                        provided_hash,
+                    ));
 
                     // --- 14. Return ok.
                     Ok(())

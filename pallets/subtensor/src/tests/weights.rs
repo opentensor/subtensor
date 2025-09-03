@@ -340,8 +340,14 @@ fn test_reveal_weights_validate() {
             version_key,
         });
 
-        let commit_hash: H256 =
-            SubtensorModule::get_commit_hash(&who, NetUidStorageIndex::from(netuid), &dests, &weights, &salt, version_key);
+        let commit_hash: H256 = SubtensorModule::get_commit_hash(
+            &who,
+            NetUidStorageIndex::from(netuid),
+            &dests,
+            &weights,
+            &salt,
+            version_key,
+        );
         let commit_block = SubtensorModule::get_current_block_as_u64();
         let (first_reveal_block, last_reveal_block) =
             SubtensorModule::get_reveal_blocks(netuid, commit_block);

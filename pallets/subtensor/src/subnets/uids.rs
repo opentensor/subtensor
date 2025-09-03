@@ -16,7 +16,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Resets the trust, emission, consensus, incentive, dividends, bonds, and weights of 
+    /// Resets the trust, emission, consensus, incentive, dividends, bonds, and weights of
     /// the neuron to default
     pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
         let neuron_index: usize = neuron_uid.into();

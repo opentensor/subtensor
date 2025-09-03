@@ -2263,7 +2263,7 @@ mod dispatches {
         ///
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
-        /// 
+        ///
         /// * `subid` (`u8`):
         ///   - The u8 subsubnet identifier.
         ///

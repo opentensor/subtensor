@@ -1835,6 +1835,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Current number of sub-subnets
     pub type SubsubnetCountCurrent<T: Config> =
         StorageMap<_, Twox64Concat, NetUid, SubId, ValueQuery, DefaultSubsubnetCount<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Normalized vector of emission split proportion between subsubnets
+    pub type SubsubnetEmissionSplit<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, Vec<u16>, OptionQuery>;
 
     /// ==================
     /// ==== Genesis =====

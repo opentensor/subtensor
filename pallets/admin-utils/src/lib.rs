@@ -9,7 +9,7 @@ pub use pallet::*;
 // - we could use a type parameter for `AuthorityId`, but there is
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
 use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::{DispatchResult, RuntimeAppPublic, traits::Member};
+use sp_runtime::{DispatchResult, RuntimeAppPublic, Vec, traits::Member};
 
 mod benchmarking;
 
@@ -1604,6 +1604,21 @@ pub mod pallet {
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             pallet_subtensor::Pallet::<T>::do_set_desired_subsubnet_count(netuid, subsub_count)?;
+            Ok(())
+        }
+
+        /// Sets the emission split between subsubnets in a subnet
+        #[pallet::call_index(74)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_subsubnet_emission_split(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            maybe_split: Option<Vec<u16>>,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
             Ok(())
         }
     }

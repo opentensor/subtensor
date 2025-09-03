@@ -1991,7 +1991,7 @@ fn test_sudo_set_desired_subsubnet_count() {
         ));
 
         assert_ok!(AdminUtils::sudo_set_desired_subsubnet_count(
-                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
             netuid,
             ss_count_ok
         ));
