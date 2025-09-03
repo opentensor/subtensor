@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    Error, RateLimitKey,
+    Error,
     system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
 };
 use safe_math::*;
@@ -14,20 +14,23 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
         o: T::RuntimeOrigin,
         netuid: NetUid,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<Option<T::AccountId>, DispatchError> {
         let coldkey = ensure_signed_or_root(o);
         match coldkey {
-            Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(Some(who)),
             Ok(Some(_)) => Err(DispatchError::BadOrigin),
-            Ok(None) => Ok(()),
+            Ok(None) => Ok(None),
             Err(x) => Err(x.into()),
         }
     }
 
-    pub fn ensure_subnet_owner(o: T::RuntimeOrigin, netuid: NetUid) -> Result<(), DispatchError> {
+    pub fn ensure_subnet_owner(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+    ) -> Result<T::AccountId, DispatchError> {
         let coldkey = ensure_signed(o);
         match coldkey {
-            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(who),
             Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
         }
@@ -44,39 +47,47 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Like `ensure_subnet_owner` but also checks transaction rate limits.
-    pub fn ensure_sn_owner_with_rate_limit(
+    /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).
+    /// - Root: only freeze window is enforced; no TransactionType checks.
+    /// - Owner (Signed): freeze window plus all rate checks in `limits` using signer extracted from
+    /// origin.
+    pub fn ensure_sn_owner_or_root_with_limits(
         o: T::RuntimeOrigin,
         netuid: NetUid,
-    ) -> Result<(), DispatchError> {
-        Self::ensure_subnet_owner(o, netuid)?;
+        limits: &[crate::utils::rate_limiting::TransactionType],
+    ) -> Result<Option<T::AccountId>, DispatchError> {
+        let maybe_who = Self::ensure_subnet_owner_or_root(o, netuid)?;
         let now = Self::get_current_block_as_u64();
-        // Disallow inside freeze window and enforce owner hyperparam rate limit
         Self::ensure_not_in_admin_freeze_window(netuid, now)?;
-        Self::ensure_owner_hparam_rate_limit(netuid, now)?;
-        Ok(())
+        if let Some(who) = maybe_who.as_ref() {
+            for tx in limits.iter() {
+                ensure!(
+                    Self::passes_rate_limit_on_subnet(tx, who, netuid),
+                    Error::<T>::TxRateLimitExceeded
+                );
+            }
+        }
+        Ok(maybe_who)
     }
 
-    /// Like `ensure_subnet_owner_or_root` but also checks transaction rate limits.
-    /// Root is not rate-limited outside the freeze window, but is also prohibited inside it.
-    pub fn ensure_sn_owner_or_root_with_rate_limit(
+    /// Ensure the caller is the subnet owner and passes all provided rate limits.
+    /// This does NOT allow root; it is strictly owner-only.
+    /// Returns the signer (owner) on success so callers may record last-blocks.
+    pub fn ensure_sn_owner_with_limits(
         o: T::RuntimeOrigin,
         netuid: NetUid,
-    ) -> Result<(), DispatchError> {
+        limits: &[crate::utils::rate_limiting::TransactionType],
+    ) -> Result<T::AccountId, DispatchError> {
+        let who = Self::ensure_subnet_owner(o, netuid)?;
         let now = Self::get_current_block_as_u64();
-
-        // If root, only enforce freeze window.
-        if ensure_root(o.clone()).is_ok() {
-            Self::ensure_not_in_admin_freeze_window(netuid, now)?;
-            return Ok(());
-        }
-
-        // Otherwise ensure subnet owner and apply both checks.
-        Self::ensure_subnet_owner(o, netuid)?;
         Self::ensure_not_in_admin_freeze_window(netuid, now)?;
-        Self::ensure_owner_hparam_rate_limit(netuid, now)?;
-
-        Ok(())
+        for tx in limits.iter() {
+            ensure!(
+                Self::passes_rate_limit_on_subnet(tx, &who, netuid),
+                Error::<T>::TxRateLimitExceeded
+            );
+        }
+        Ok(who)
     }
 
     /// Returns true if the current block is within the terminal freeze window of the tempo for the
@@ -100,18 +111,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn ensure_owner_hparam_rate_limit(netuid: NetUid, now: u64) -> Result<(), DispatchError> {
-        let limit = OwnerHyperparamRateLimit::<T>::get();
-        if limit > 0 {
-            let last =
-                Self::get_rate_limited_last_block(&RateLimitKey::OwnerHyperparamUpdate(netuid));
-            ensure!(
-                now.saturating_sub(last) >= limit || last == 0,
-                Error::<T>::TxRateLimitExceeded
-            );
-        }
-        Ok(())
-    }
+    // (Removed dedicated ensure_owner_hparam_rate_limit; OwnerHyperparamUpdate is checked via TransactionType)
 
     // === Admin freeze window accessors ===
     pub fn get_admin_freeze_window() -> u16 {
@@ -120,13 +120,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_admin_freeze_window(window: u16) {
         AdminFreezeWindow::<T>::set(window);
-    }
-
-    /// Helper to be called after a successful owner hyperparameter update.
-    /// Records the current block against the OwnerHyperparamUpdate rate limit key.
-    pub fn mark_owner_hyperparam_update(netuid: NetUid) {
-        let now = Self::get_current_block_as_u64();
-        Self::set_rate_limited_last_block(&RateLimitKey::OwnerHyperparamUpdate(netuid), now);
+        Self::deposit_event(Event::AdminFreezeWindowSet(window));
     }
 
     pub fn get_owner_hyperparam_rate_limit() -> u64 {
@@ -135,6 +129,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_owner_hyperparam_rate_limit(limit: u64) {
         OwnerHyperparamRateLimit::<T>::set(limit);
+        Self::deposit_event(Event::OwnerHyperparamRateLimitSet(limit));
     }
 
     // ========================
