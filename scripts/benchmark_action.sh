@@ -13,9 +13,12 @@ declare -A DISPATCH_PATHS=(
 
 THRESHOLD=20
 MAX_RETRIES=3
-AUTO_COMMIT="${AUTO_COMMIT_WEIGHTS:-0}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
+
+PATCH_DIR="$SCRIPT_DIR/../.bench_patch"
+mkdir -p "$PATCH_DIR"
 
 die()          { echo "❌ $1" >&2; exit 1; }
 digits_only()  { echo "${1//[^0-9]/}"; }
@@ -62,25 +65,27 @@ patch_reads_writes() {
   after=$(sha1sum "$4" | cut -d' ' -f1); [[ "$before" != "$after" ]]
 }
 
-git_commit_and_push() {
-  local msg="$1"
-  local branch; branch=$(git symbolic-ref --quiet --short HEAD || true)
-  [[ -z "$branch" ]] && die "Not on a branch - cannot push"
-
-  git config user.name  "github-actions[bot]"
-  git config user.email "github-actions[bot]@users.noreply.github.com"
-  git add "${PATCHED_FILES[@]}" || true
-
-  if git diff --cached --quiet; then
-    echo "ℹ️  No staged changes after patching."; git status --short; return
+write_patch_artifacts_and_fail() {
+  if [ ${#PATCHED_FILES[@]} -eq 0 ]; then
+    die "Benchmark drift detected but no files were patched."
   fi
 
-  echo "==== diff preview ===="; git diff --cached --stat
-  git diff --cached | head -n 40 || true
-  echo "======================"
+  git add "${PATCHED_FILES[@]}" || true
 
-  git commit -m "$msg"
-  git push origin "HEAD:$branch" || die "Push to '${branch}' failed."
+  {
+    echo "Head SHA: $(git rev-parse HEAD)"
+    echo
+    echo "==== Diffstat ===="
+    git diff --cached --stat || true
+  } > "$PATCH_DIR/summary.txt"
+
+  git diff --cached --binary > "$PATCH_DIR/benchmark_patch.diff"
+
+  echo "📦 Prepared patch at: $PATCH_DIR/benchmark_patch.diff"
+  echo "ℹ️  Add the 'apply-benchmark-patch' label to this PR to have CI apply & commit it."
+
+  # Fail the job so the PR is blocked until the label is set and the apply workflow runs.
+  exit 2
 }
 
 echo "Building runtime-benchmarks…"
@@ -155,13 +160,13 @@ for pallet in "${PALLET_LIST[@]}"; do
     done < "$TMP"; flush
 
     echo; printf '  %s\n' "${summary[@]}"
+
     (( fail == 0 )) && { echo "✅ '$pallet' within tolerance."; break; }
 
     printf '  ❌ %s\n' "${failures[@]}"
     (( attempt < MAX_RETRIES )) && { echo "→ Retrying …"; (( attempt++ )); continue; }
 
-    echo "❌ '$pallet' still failing; patching …"
-    [[ "$AUTO_COMMIT" != "1" ]] && die "AUTO_COMMIT_WEIGHTS disabled."
+    echo "❌ '$pallet' still failing; patching (prepare-only) …"
 
     changed=0
     for fn in $(printf "%s\n" "${!new_weight[@]}" "${!new_reads[@]}" "${!new_writes[@]}" | sort -u); do
@@ -179,11 +184,10 @@ for pallet in "${PALLET_LIST[@]}"; do
 done
 
 ################################################################################
-# Commit & push patches
+# Commit & push? No — prepare artifact and fail.
 ################################################################################
 if (( ${#PATCHED_FILES[@]} )); then
-  echo -e "\n📦  Committing patched files …"
-  git_commit_and_push "auto-update benchmark weights"
+  write_patch_artifacts_and_fail
 fi
 
 echo -e "\n══════════════════════════════════════"

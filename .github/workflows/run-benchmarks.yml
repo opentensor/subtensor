@@ -20,7 +20,6 @@ jobs:
 
     env:
       SKIP_BENCHMARKS: "0"
-      AUTO_COMMIT_WEIGHTS: "1"
 
     steps:
       # ──────────────────────────────────────────────────────────────────
@@ -134,6 +133,15 @@ jobs:
           command: |
             chmod +x scripts/benchmark_action.sh
             scripts/benchmark_action.sh
+
+      # Persist the prepared patch even if the previous step failed.
+      - name: Upload patch artifact (if prepared)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-patch
+          path: .bench_patch/**
+          if-no-files-found: ignore
 
       # (6) — final check after run
       - name: Check skip label after run

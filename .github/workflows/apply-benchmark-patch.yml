@@ -1,0 +1,83 @@
+# .github/workflows/apply-benchmark-patch.yml
+name: Apply-Benchmark-Patch
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  apply:
+    if: ${{ github.event.label.name == 'apply-benchmark-patch' }}
+    runs-on: Benchmarking
+
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Install GitHub CLI
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Download latest bench patch artifact from failed run
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: Validate-Benchmarks
+          pr: ${{ github.event.pull_request.number }}
+          workflow_conclusion: failure
+          name: bench-patch
+          path: .bench_patch
+
+      - name: Apply and commit patch (if available)
+        run: |
+          set -euo pipefail
+
+          if [ ! -f ".bench_patch/benchmark_patch.diff" ]; then
+            echo "No benchmark patch artifact found for this PR."
+            echo "You may need to re-run 'Validate-Benchmarks' to generate a fresh patch."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Attempt 3-way apply; if it fails, ask to regenerate
+          if ! git apply --index --3way .bench_patch/benchmark_patch.diff; then
+            echo "Patch failed to apply cleanly. Please re-run Validate-Benchmarks to regenerate the patch."
+            exit 1
+          fi
+
+          if git diff --cached --quiet; then
+            echo "Patch applied but produced no changes (already up to date)."
+            exit 0
+          fi
+
+          echo "==== diff preview ===="
+          git diff --cached --stat
+          git diff --cached | head -n 80 || true
+          echo "======================"
+
+          branch=$(git symbolic-ref --quiet --short HEAD || true)
+          if [ -z "$branch" ]; then
+            echo "Not on a branch - cannot push" >&2
+            exit 1
+          fi
+
+          git commit -m "auto-update benchmark weights"
+          git push origin "HEAD:${branch}"
+
+      - name: Remove apply-benchmark-patch label
+        if: ${{ success() }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --repo "${{ github.repository }}" \
+            --remove-label "apply-benchmark-patch" || true
