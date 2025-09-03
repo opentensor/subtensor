@@ -1612,6 +1612,20 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Sets the childkey burn for a subnet.
+        /// It is only callable by the root account.
+        /// The extrinsic will call the Subtensor pallet to set the childkey burn.
+        #[pallet::call_index(73)]
+        #[pallet::weight(Weight::from_parts(15_650_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_ck_burn(origin: OriginFor<T>, burn: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_ck_burn(burn);
+            log::debug!("CKBurnSet( burn: {burn:?} ) ");
+            Ok(())
+        }
+
         /// Sets the maximum allowed UIDs for a subnet
         #[pallet::call_index(74)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
@@ -1634,7 +1648,6 @@ pub mod pallet {
                 );
             }
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
-            Ok(())
         }
     }
 }

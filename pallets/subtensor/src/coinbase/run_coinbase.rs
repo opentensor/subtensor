@@ -744,10 +744,11 @@ impl<T: Config> Pallet<T> {
         // Calculate the hotkey's share of the validator emission based on its childkey take
         let validating_emission: U96F32 = U96F32::saturating_from_num(dividends);
         let mut remaining_emission: U96F32 = validating_emission;
-        let childkey_take_proportion: U96F32 =
+        let burn_take_proportion: U96F32 = Self::get_ck_burn();
+        let child_take_proportion: U96F32 =
             U96F32::saturating_from_num(Self::get_childkey_take(hotkey, netuid))
                 .safe_div(U96F32::saturating_from_num(u16::MAX));
-        log::debug!("Childkey take proportion: {childkey_take_proportion:?} for hotkey {hotkey:?}");
+        log::debug!("Childkey take proportion: {child_take_proportion:?} for hotkey {hotkey:?}");
         // NOTE: Only the validation emission should be split amongst parents.
 
         // Grab the owner of the childkey.
@@ -755,7 +756,7 @@ impl<T: Config> Pallet<T> {
 
         // Initialize variables to track emission distribution
         let mut to_parents: u64 = 0;
-        let mut total_child_emission_take: U96F32 = U96F32::saturating_from_num(0);
+        let mut total_child_take: U96F32 = U96F32::saturating_from_num(0);
 
         // Initialize variables to calculate total stakes from parents
         let mut total_contribution: U96F32 = U96F32::saturating_from_num(0);
@@ -819,23 +820,26 @@ impl<T: Config> Pallet<T> {
             remaining_emission = remaining_emission.saturating_sub(parent_emission);
 
             // Get the childkey take for this parent.
-            let child_emission_take: U96F32 = if parent_owner == childkey_owner {
-                // The parent is from the same coldkey, so we don't remove any childkey take.
-                U96F32::saturating_from_num(0)
-            } else {
-                childkey_take_proportion
-                    .saturating_mul(U96F32::saturating_from_num(parent_emission))
+            let mut burn_take: U96F32 = U96F32::saturating_from_num(0);
+            let mut child_take: U96F32 = U96F32::saturating_from_num(0);
+            if parent_owner != childkey_owner {
+                // The parent is from a different coldkey, we burn some proportion
+                burn_take = burn_take_proportion.saturating_mul(parent_emission);
+                child_take = child_take_proportion.saturating_mul(parent_emission);
+                parent_emission = parent_emission.saturating_sub(burn_take);
+                parent_emission = parent_emission.saturating_sub(child_take);
+                total_child_take = total_child_take.saturating_add(child_take);
+
+                Self::burn_subnet_alpha(
+                    netuid,
+                    AlphaCurrency::from(burn_take.saturating_to_num::<u64>()),
+                );
             };
+            log::debug!("burn_takee: {burn_take:?} for hotkey {hotkey:?}");
+            log::debug!("child_take: {child_take:?} for hotkey {hotkey:?}");
+            log::debug!("parent_emission: {parent_emission:?} for hotkey {hotkey:?}");
+            log::debug!("total_child_take: {total_child_take:?} for hotkey {hotkey:?}");
 
-            // Remove the childkey take from the parent's emission.
-            parent_emission = parent_emission.saturating_sub(child_emission_take);
-
-            // Add the childkey take to the total childkey take tracker.
-            total_child_emission_take =
-                total_child_emission_take.saturating_add(child_emission_take);
-
-            log::debug!("Child emission take: {child_emission_take:?} for hotkey {hotkey:?}");
-            log::debug!("Parent emission: {parent_emission:?} for hotkey {hotkey:?}");
             log::debug!("remaining emission: {remaining_emission:?}");
 
             // Add the parent's emission to the distribution list
@@ -853,7 +857,7 @@ impl<T: Config> Pallet<T> {
         // Calculate the final emission for the hotkey itself.
         // This includes the take left from the parents and the self contribution.
         let child_emission = remaining_emission
-            .saturating_add(total_child_emission_take)
+            .saturating_add(total_child_take)
             .saturating_to_num::<u64>()
             .into();
 

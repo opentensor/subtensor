@@ -867,6 +867,12 @@ pub mod pallet {
         50400
     }
 
+    #[pallet::type_value]
+    /// Default value for ck burn, 18%.
+    pub fn DefaultCKBurn<T: Config>() -> u64 {
+        u64::MAX / 100 * 18
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -919,6 +925,9 @@ pub mod pallet {
     #[pallet::storage]
     /// --- ITEM --> Global weight
     pub type TaoWeight<T> = StorageValue<_, u64, ValueQuery, DefaultTaoWeight<T>>;
+    #[pallet::storage]
+    /// --- ITEM --> CK burn
+    pub type CKBurn<T> = StorageValue<_, u64, ValueQuery, DefaultCKBurn<T>>;
     #[pallet::storage]
     /// --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
