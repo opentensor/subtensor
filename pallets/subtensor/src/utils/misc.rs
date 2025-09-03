@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    Error,
+    Error, RateLimitKey,
     system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
 };
 use safe_math::*;
@@ -31,6 +31,110 @@ impl<T: Config> Pallet<T> {
             Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
         }
+    }
+
+    /// Like `ensure_root` but also prohibits calls during the last N blocks of the tempo.
+    pub fn ensure_root_with_rate_limit(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+    ) -> Result<(), DispatchError> {
+        ensure_root(o)?;
+        let now = Self::get_current_block_as_u64();
+        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+        Ok(())
+    }
+
+    /// Like `ensure_subnet_owner` but also checks transaction rate limits.
+    pub fn ensure_sn_owner_with_rate_limit(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+    ) -> Result<(), DispatchError> {
+        Self::ensure_subnet_owner(o, netuid)?;
+        let now = Self::get_current_block_as_u64();
+        // Disallow inside freeze window and enforce owner hyperparam rate limit
+        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+        Self::ensure_owner_hparam_rate_limit(netuid, now)?;
+        Ok(())
+    }
+
+    /// Like `ensure_subnet_owner_or_root` but also checks transaction rate limits.
+    /// Root is not rate-limited outside the freeze window, but is also prohibited inside it.
+    pub fn ensure_sn_owner_or_root_with_rate_limit(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+    ) -> Result<(), DispatchError> {
+        let now = Self::get_current_block_as_u64();
+
+        // If root, only enforce freeze window.
+        if ensure_root(o.clone()).is_ok() {
+            Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+            return Ok(());
+        }
+
+        // Otherwise ensure subnet owner and apply both checks.
+        Self::ensure_subnet_owner(o, netuid)?;
+        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+        Self::ensure_owner_hparam_rate_limit(netuid, now)?;
+
+        Ok(())
+    }
+
+    /// Returns true if the current block is within the terminal freeze window of the tempo for the
+    /// given subnet. During this window, admin ops are prohibited to avoid interference with
+    /// validator weight submissions.
+    pub fn is_in_admin_freeze_window(netuid: NetUid, current_block: u64) -> bool {
+        let tempo = Self::get_tempo(netuid);
+        if tempo == 0 {
+            return false;
+        }
+        let remaining = Self::blocks_until_next_epoch(netuid, tempo, current_block);
+        let window = AdminFreezeWindow::<T>::get() as u64;
+        remaining < window
+    }
+
+    fn ensure_not_in_admin_freeze_window(netuid: NetUid, now: u64) -> Result<(), DispatchError> {
+        ensure!(
+            !Self::is_in_admin_freeze_window(netuid, now),
+            Error::<T>::AdminActionProhibitedDuringWeightsWindow
+        );
+        Ok(())
+    }
+
+    fn ensure_owner_hparam_rate_limit(netuid: NetUid, now: u64) -> Result<(), DispatchError> {
+        let limit = OwnerHyperparamRateLimit::<T>::get();
+        if limit > 0 {
+            let last =
+                Self::get_rate_limited_last_block(&RateLimitKey::OwnerHyperparamUpdate(netuid));
+            ensure!(
+                now.saturating_sub(last) >= limit || last == 0,
+                Error::<T>::TxRateLimitExceeded
+            );
+        }
+        Ok(())
+    }
+
+    // === Admin freeze window accessors ===
+    pub fn get_admin_freeze_window() -> u16 {
+        AdminFreezeWindow::<T>::get()
+    }
+
+    pub fn set_admin_freeze_window(window: u16) {
+        AdminFreezeWindow::<T>::set(window);
+    }
+
+    /// Helper to be called after a successful owner hyperparameter update.
+    /// Records the current block against the OwnerHyperparamUpdate rate limit key.
+    pub fn mark_owner_hyperparam_update(netuid: NetUid) {
+        let now = Self::get_current_block_as_u64();
+        Self::set_rate_limited_last_block(&RateLimitKey::OwnerHyperparamUpdate(netuid), now);
+    }
+
+    pub fn get_owner_hyperparam_rate_limit() -> u64 {
+        OwnerHyperparamRateLimit::<T>::get()
+    }
+
+    pub fn set_owner_hyperparam_rate_limit(limit: u64) {
+        OwnerHyperparamRateLimit::<T>::set(limit);
     }
 
     // ========================
