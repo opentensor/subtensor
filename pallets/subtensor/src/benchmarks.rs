@@ -99,33 +99,6 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn become_delegate() {
-        let netuid = NetUid::from(1);
-        let tempo: u16 = 1;
-
-        Subtensor::<T>::init_new_network(netuid, tempo);
-        SubtokenEnabled::<T>::insert(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1.into());
-        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
-        Subtensor::<T>::set_network_registration_allowed(netuid, true);
-
-        let seed: u32 = 1;
-        let coldkey: T::AccountId = account("Test", 0, seed);
-        let hotkey: T::AccountId = account("Alice", 0, seed);
-        let amount_to_be_staked: u64 = 1_000_000_000;
-
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount_to_be_staked);
-        assert_ok!(Subtensor::<T>::do_burned_registration(
-            RawOrigin::Signed(coldkey.clone()).into(),
-            netuid,
-            hotkey.clone()
-        ));
-
-        #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
-    }
-
-    #[benchmark]
     fn add_stake() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;
@@ -1073,6 +1046,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
 
         let reg_fee = Subtensor::<T>::get_burn(netuid);
         Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.to_u64().saturating_mul(2));
@@ -1276,27 +1250,6 @@ mod pallet_benchmarks {
             descr.clone(),
             logo_url.clone(),
             add.clone(),
-        );
-    }
-
-    #[benchmark]
-    fn set_tao_weights() {
-        let netuid = NetUid::from(1);
-        let hotkey: T::AccountId = account("A", 0, 6);
-        let dests = vec![0u16];
-        let weights = vec![0u16];
-        let version: u64 = 1;
-
-        Subtensor::<T>::init_new_network(netuid, 1);
-
-        #[extrinsic_call]
-        _(
-            RawOrigin::None,
-            netuid,
-            hotkey.clone(),
-            dests.clone(),
-            weights.clone(),
-            version,
         );
     }
 
@@ -1634,5 +1587,14 @@ mod pallet_benchmarks {
             round,
             Subtensor::<T>::get_commit_reveal_weights_version(),
         );
+    }
+
+    #[benchmark]
+    fn set_coldkey_auto_stake_hotkey() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        let hot: T::AccountId = account("A", 0, 1);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), hot.clone());
     }
 }

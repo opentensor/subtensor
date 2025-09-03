@@ -98,6 +98,12 @@ mod config {
         /// Initial Min Burn.
         #[pallet::constant]
         type InitialMinBurn: Get<u64>;
+        /// Min  burn upper bound.
+        #[pallet::constant]
+        type MinBurnUpperBound: Get<TaoCurrency>;
+        /// Max burn lower bound.
+        #[pallet::constant]
+        type MaxBurnLowerBound: Get<TaoCurrency>;
         /// Initial adjustment interval.
         #[pallet::constant]
         type InitialAdjustmentInterval: Get<u16>;
