@@ -1,4 +1,3 @@
-# .github/workflows/benchmarks.yml
 name: Validate-Benchmarks
 
 on:
@@ -22,7 +21,6 @@ jobs:
       SKIP_BENCHMARKS: "0"
 
     steps:
-      # ──────────────────────────────────────────────────────────────────
       - name: Check out PR branch
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: actions/checkout@v4
@@ -123,25 +121,35 @@ jobs:
             echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
           fi
 
-      - name: Run & validate benchmarks
+      - name: Ensure artifact folder exists
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 180
-          max_attempts: 1
-          retry_wait_seconds: 60
-          command: |
-            chmod +x scripts/benchmark_action.sh
-            scripts/benchmark_action.sh
+        run: mkdir -p .bench_patch
 
-      # Persist the prepared patch even if the previous step failed.
+      - name: Run & validate benchmarks (script controls retries)
+        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        timeout-minutes: 180
+        run: |
+          chmod +x scripts/benchmark_action.sh
+          scripts/benchmark_action.sh
+
+      - name: List artifact contents (for debugging)
+        if: ${{ always() }}
+        run: |
+          echo "Workspace: $GITHUB_WORKSPACE"
+          if [ -d ".bench_patch" ]; then
+            echo "== .bench_patch =="
+            ls -la .bench_patch || true
+          else
+            echo ".bench_patch directory is missing"
+          fi
+
       - name: Upload patch artifact (if prepared)
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: bench-patch
-          path: ${{ github.workspace }}/.bench_patch/**
-          if-no-files-found: ignore
+          path: ./.bench_patch
+          # Omit if-no-files-found so we fail loudly if missing unexpectedly
 
       # (6) — final check after run
       - name: Check skip label after run
