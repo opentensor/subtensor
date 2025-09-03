@@ -2062,16 +2062,17 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
-        #[pallet::weight((Weight::from_parts(64_530_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7_u64))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(
+            Weight::from_parts(5_170_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
+        )]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
-            log::debug!("set_coldkey_auto_stake_hotkey( origin:{coldkey:?} hotkey:{hotkey:?} )");
+
             AutoStakeDestination::<T>::insert(coldkey, hotkey.clone());
+
             Ok(())
         }
     }
