@@ -1951,3 +1951,121 @@ fn test_sudo_set_commit_reveal_version() {
         );
     });
 }
+
+#[test]
+fn test_sudo_set_min_burn() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let to_be_set = TaoCurrency::from(1_000_000);
+        add_network(netuid, 10);
+        let init_value = SubtensorModule::get_min_burn(netuid);
+
+        // Simple case
+        assert_ok!(AdminUtils::sudo_set_min_burn(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            TaoCurrency::from(to_be_set)
+        ));
+        assert_ne!(SubtensorModule::get_min_burn(netuid), init_value);
+        assert_eq!(SubtensorModule::get_min_burn(netuid), to_be_set);
+
+        // Unknown subnet
+        assert_err!(
+            AdminUtils::sudo_set_min_burn(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                NetUid::from(42),
+                TaoCurrency::from(to_be_set)
+            ),
+            Error::<Test>::SubnetDoesNotExist
+        );
+
+        // Non subnet owner
+        assert_err!(
+            AdminUtils::sudo_set_min_burn(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                TaoCurrency::from(to_be_set)
+            ),
+            DispatchError::BadOrigin
+        );
+
+        // Above upper bound
+        assert_err!(
+            AdminUtils::sudo_set_min_burn(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                <Test as pallet_subtensor::Config>::MinBurnUpperBound::get() + 1.into()
+            ),
+            Error::<Test>::ValueNotInBounds
+        );
+
+        // Above max burn
+        assert_err!(
+            AdminUtils::sudo_set_min_burn(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_max_burn(netuid) + 1.into()
+            ),
+            Error::<Test>::ValueNotInBounds
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_max_burn() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let to_be_set = TaoCurrency::from(100_000_001);
+        add_network(netuid, 10);
+        let init_value = SubtensorModule::get_max_burn(netuid);
+
+        // Simple case
+        assert_ok!(AdminUtils::sudo_set_max_burn(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            TaoCurrency::from(to_be_set)
+        ));
+        assert_ne!(SubtensorModule::get_max_burn(netuid), init_value);
+        assert_eq!(SubtensorModule::get_max_burn(netuid), to_be_set);
+
+        // Unknown subnet
+        assert_err!(
+            AdminUtils::sudo_set_max_burn(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                NetUid::from(42),
+                TaoCurrency::from(to_be_set)
+            ),
+            Error::<Test>::SubnetDoesNotExist
+        );
+
+        // Non subnet owner
+        assert_err!(
+            AdminUtils::sudo_set_max_burn(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                TaoCurrency::from(to_be_set)
+            ),
+            DispatchError::BadOrigin
+        );
+
+        // Below lower bound
+        assert_err!(
+            AdminUtils::sudo_set_max_burn(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                <Test as pallet_subtensor::Config>::MaxBurnLowerBound::get() - 1.into()
+            ),
+            Error::<Test>::ValueNotInBounds
+        );
+
+        // Below min burn
+        assert_err!(
+            AdminUtils::sudo_set_max_burn(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_min_burn(netuid) - 1.into()
+            ),
+            Error::<Test>::ValueNotInBounds
+        );
+    });
+}
