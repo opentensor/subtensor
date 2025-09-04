@@ -306,19 +306,18 @@ impl<T: Config> Pallet<T> {
                 .fold(BTreeMap::new(), |mut acc, (hotkey, (terms, sub_weight))| {
                     acc.entry(hotkey)
                         .and_modify(|acc_terms| {
+                            // Server and validator emission come from subsubnet emission and need to be added up
+                            acc_terms.validator_emission = acc_terms
+                                .validator_emission
+                                .saturating_add(terms.validator_emission);
+                            acc_terms.server_emission = acc_terms
+                                .server_emission
+                                .saturating_add(terms.server_emission);
+
+                            // The rest of the terms need to be aggregated as weighted sum
                             acc_terms.dividend = Self::weighted_acc_u16(
                                 acc_terms.dividend,
                                 terms.dividend,
-                                sub_weight,
-                            );
-                            acc_terms.validator_emission = Self::weighted_acc_alpha(
-                                acc_terms.validator_emission,
-                                terms.validator_emission,
-                                sub_weight,
-                            );
-                            acc_terms.server_emission = Self::weighted_acc_alpha(
-                                acc_terms.server_emission,
-                                terms.server_emission,
                                 sub_weight,
                             );
                             acc_terms.stake_weight = Self::weighted_acc_u16(
@@ -359,16 +358,8 @@ impl<T: Config> Pallet<T> {
                                 uid: terms.uid,
                                 dividend: Self::weighted_acc_u16(0, terms.dividend, sub_weight),
                                 incentive: Self::weighted_acc_u16(0, terms.incentive, sub_weight),
-                                validator_emission: Self::weighted_acc_alpha(
-                                    0u64.into(),
-                                    terms.validator_emission,
-                                    sub_weight,
-                                ),
-                                server_emission: Self::weighted_acc_alpha(
-                                    0u64.into(),
-                                    terms.server_emission,
-                                    sub_weight,
-                                ),
+                                validator_emission: terms.validator_emission,
+                                server_emission: terms.server_emission,
                                 stake_weight: Self::weighted_acc_u16(
                                     0,
                                     terms.stake_weight,

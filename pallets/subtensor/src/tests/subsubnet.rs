@@ -729,17 +729,17 @@ fn epoch_with_subsubnets_persists_and_aggregates_all_terms() {
         let terms0 = |hk: &U256| out0.0.get(hk).unwrap();
         let terms1 = |hk: &U256| out1.0.get(hk).unwrap();
 
-        // Returned aggregated emissions match weighted sums
+        // Returned aggregated emissions match plain sums of subsubnet emissions
         for hk in [&hk1, &hk2] {
             let (got_se, got_ve) = agg_map.get(hk).cloned().expect("present");
             let t0 = terms0(hk);
             let t1 = terms1(hk);
-            let exp_se = (U64F64::saturating_from_num(u64::from(t0.server_emission)) * w0
-                + U64F64::saturating_from_num(u64::from(t1.server_emission)) * w1)
-                .saturating_to_num::<u64>();
-            let exp_ve = (U64F64::saturating_from_num(u64::from(t0.validator_emission)) * w0
-                + U64F64::saturating_from_num(u64::from(t1.validator_emission)) * w1)
-                .saturating_to_num::<u64>();
+            let exp_se = (U64F64::saturating_from_num(u64::from(t0.server_emission))
+                + U64F64::saturating_from_num(u64::from(t1.server_emission)))
+            .saturating_to_num::<u64>();
+            let exp_ve = (U64F64::saturating_from_num(u64::from(t0.validator_emission))
+                + U64F64::saturating_from_num(u64::from(t1.validator_emission)))
+            .saturating_to_num::<u64>();
             assert_abs_diff_eq!(u64::from(got_se), exp_se, epsilon = 1);
             assert_abs_diff_eq!(u64::from(got_ve), exp_ve, epsilon = 1);
         }
