@@ -66,7 +66,6 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetWeightsVersionKey => (Tempo::<T>::get(netuid) as u64)
                 .saturating_mul(WeightsVersionKeyRateLimit::<T>::get()),
             TransactionType::SetSNOwnerHotkey => DefaultSetSNOwnerHotkeyRateLimit::<T>::get(),
-            TransactionType::OwnerHyperparamUpdate => OwnerHyperparamRateLimit::<T>::get(),
 
             _ => Self::get_rate_limit(tx_type),
         }
@@ -135,7 +134,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Set the block number of the last transaction for a specific hotkey, network, and transaction type
+    /// Set the block number of the last transaction for a specific hotkey, network, and transaction
+    /// type
     pub fn set_last_transaction_block_on_subnet(
         key: &T::AccountId,
         netuid: NetUid,

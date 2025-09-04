@@ -175,7 +175,7 @@ fn test_sudo_set_weights_version_key_rate_limit() {
         SubnetOwner::<Test>::insert(netuid, sn_owner);
 
         let rate_limit = WeightsVersionKeyRateLimit::<Test>::get();
-        let tempo: u16 = Tempo::<Test>::get(netuid);
+        let tempo = Tempo::<Test>::get(netuid);
 
         let rate_limit_period = rate_limit * (tempo as u64);
 
@@ -205,7 +205,7 @@ fn test_sudo_set_weights_version_key_rate_limit() {
         );
 
         // Wait for rate limit to pass
-        run_to_block(rate_limit_period + 2);
+        run_to_block(rate_limit_period + 1);
         assert!(SubtensorModule::passes_rate_limit_on_subnet(
             &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
             &sn_owner,
@@ -1949,5 +1949,131 @@ fn test_sudo_set_commit_reveal_version() {
             SubtensorModule::get_commit_reveal_weights_version(),
             to_be_set
         );
+    });
+}
+
+#[test]
+fn test_sudo_set_admin_freeze_window_and_rate() {
+    new_test_ext().execute_with(|| {
+        // Non-root fails
+        assert_eq!(
+            AdminUtils::sudo_set_admin_freeze_window(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                7
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        // Root succeeds
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            7
+        ));
+        assert_eq!(SubtensorModule::get_admin_freeze_window(), 7);
+
+        // Owner hyperparam rate limit setter
+        assert_eq!(
+            AdminUtils::sudo_set_owner_hparam_rate_limit(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                5
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_ok!(AdminUtils::sudo_set_owner_hparam_rate_limit(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            5
+        ));
+        assert_eq!(SubtensorModule::get_owner_hyperparam_rate_limit(), 5);
+    });
+}
+
+#[test]
+fn test_freeze_window_blocks_root_and_owner() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let tempo = 10;
+        // Create subnet with tempo 10
+        add_network(netuid, tempo);
+        // Set freeze window to 3 blocks
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            3
+        ));
+        // Advance to a block where remaining < 3
+        run_to_block((tempo - 2).into());
+
+        // Root should be blocked during freeze window
+        assert_noop!(
+            AdminUtils::sudo_set_min_burn(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                123.into()
+            ),
+            SubtensorError::<Test>::AdminActionProhibitedDuringWeightsWindow
+        );
+
+        // Owner should be blocked during freeze window as well
+        // Set owner
+        let owner: U256 = U256::from(9);
+        SubnetOwner::<Test>::insert(netuid, owner);
+        assert_noop!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                77
+            ),
+            SubtensorError::<Test>::AdminActionProhibitedDuringWeightsWindow
+        );
+    });
+}
+
+#[test]
+fn test_owner_hyperparam_update_rate_limit_enforced() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10);
+        // Set owner
+        let owner: U256 = U256::from(5);
+        SubnetOwner::<Test>::insert(netuid, owner);
+
+        // Configure owner hyperparam RL to 2 blocks
+        assert_ok!(AdminUtils::sudo_set_owner_hparam_rate_limit(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            2
+        ));
+
+        // First update succeeds
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            11
+        ));
+        // Immediate second update fails due to TxRateLimitExceeded
+        assert_noop!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                12
+            ),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // Advance less than limit still fails
+        run_to_block(SubtensorModule::get_current_block_as_u64() + 1);
+        assert_noop!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                13
+            ),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // Advance one more block to pass the limit; should succeed
+        run_to_block(SubtensorModule::get_current_block_as_u64() + 1);
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            14
+        ));
     });
 }
