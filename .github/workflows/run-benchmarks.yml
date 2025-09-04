@@ -126,7 +126,7 @@ jobs:
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: mkdir -p .bench_patch
 
-      - name: Run & validate benchmarks (script controls retries)
+      - name: Run & validate benchmarks
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         timeout-minutes: 180
         run: |
