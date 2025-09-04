@@ -32,14 +32,14 @@ jobs:
       - name: Download latest bench patch artifact from heavy workflow
         uses: dawidd6/action-download-artifact@v3
         with:
-          workflow: run-benchmarks.yml     # heavy workflow FILE name
+          workflow: run-benchmarks.yml
           pr: ${{ github.event.pull_request.number }}
           name: bench-patch
           path: .
           allow_forks: true
           check_artifacts: true
           search_artifacts: true
-          workflow_conclusion: ""          # accept any conclusion
+          workflow_conclusion: ""
           if_no_artifact_found: warn
 
       - name: Extract bench patch archive

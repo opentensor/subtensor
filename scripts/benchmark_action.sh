@@ -12,7 +12,7 @@ declare -A DISPATCH_PATHS=(
 )
 
 THRESHOLD=20
-MAX_RETRIES=1
+MAX_RETRIES=3
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
