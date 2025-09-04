@@ -32,7 +32,7 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
 // force set balance for a ss58 address
 export async function forceSetBalanceToSs58Address(api: TypedApi<typeof devnet>, ss58Address: string) {
     const alice = getAliceSigner()
-    const balance = tao(1e8)
+    const balance = tao(1e10)
     const internalCall = api.tx.Balances.force_set_balance({ who: MultiAddress.Id(ss58Address), new_free: balance })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
@@ -266,15 +266,6 @@ export async function setMinDelegateTake(api: TypedApi<typeof devnet>, minDelega
 
     await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(minDelegateTake, await api.query.SubtensorModule.MinDelegateTake.getValue())
-}
-
-export async function becomeDelegate(api: TypedApi<typeof devnet>, ss58Address: string, keypair: KeyPair) {
-    const signer = getSignerFromKeypair(keypair)
-
-    const tx = api.tx.SubtensorModule.become_delegate({
-        hotkey: ss58Address
-    })
-    await waitForTransactionWithRetry(api, tx, signer)
 }
 
 export async function addStake(api: TypedApi<typeof devnet>, netuid: number, ss58Address: string, amount_staked: bigint, keypair: KeyPair) {

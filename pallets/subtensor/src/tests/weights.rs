@@ -2,6 +2,7 @@
 
 use ark_serialize::CanonicalDeserialize;
 use ark_serialize::CanonicalSerialize;
+use frame_support::dispatch::DispatchInfo;
 use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
@@ -13,6 +14,7 @@ use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
 use sp_core::Encode;
 use sp_core::{Get, H256, U256};
+use sp_runtime::traits::{DispatchInfoOf, TransactionExtension};
 use sp_runtime::{
     BoundedVec, DispatchError,
     traits::{BlakeTwo256, ConstU32, Hash, TxBaseImplication},
@@ -32,8 +34,8 @@ use w3f_bls::EngineBLS;
 use super::mock;
 use super::mock::*;
 use crate::coinbase::reveal_commits::{LegacyWeightsTlockPayload, WeightsTlockPayload};
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
-
 /***************************
   pub fn set_weights() tests
 *****************************/
@@ -57,119 +59,6 @@ fn test_set_weights_dispatch_info_ok() {
 
         assert_eq!(dispatch_info.class, DispatchClass::Normal);
         assert_eq!(dispatch_info.pays_fee, Pays::No);
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_rootweights_validate --exact --show-output --nocapture
-#[test]
-fn test_set_rootweights_validate() {
-    // Testing the signed extension validate function
-    // correctly filters this transaction.
-
-    new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid = NetUid::from(1);
-        let version_key: u64 = 0;
-        let coldkey = U256::from(0);
-        let hotkey: U256 = U256::from(1); // Add the hotkey field
-        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
-
-        let who = coldkey; // The coldkey signs this transaction
-
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_tao_weights {
-            netuid,
-            dests,
-            weights,
-            version_key,
-            hotkey, // Include the hotkey field
-        });
-
-        // Create netuid
-        add_network(netuid, 1, 0);
-        // Register the hotkey
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        crate::Owner::<Test>::insert(hotkey, coldkey);
-
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
-
-        let min_stake = TaoCurrency::from(500_000_000_000);
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake.into());
-
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // Should fail
-        assert_eq!(
-            // Should get an invalid transaction error
-            result_no_stake.unwrap_err(),
-            CustomTransactionError::StakeAmountTooLow.into()
-        );
-
-        // Increase the stake to be equal to the minimum
-        assert_ok!(SubtensorModule::do_add_stake(
-            RuntimeOrigin::signed(hotkey),
-            hotkey,
-            netuid,
-            min_stake + fee.into()
-        ));
-
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
-
-        // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // Now the call should pass
-        assert_ok!(result_min_stake);
-
-        // Try with more stake than minimum
-        assert_ok!(SubtensorModule::do_add_stake(
-            RuntimeOrigin::signed(hotkey),
-            hotkey,
-            netuid,
-            DefaultMinStake::<Test>::get() * 10.into()
-        ));
-
-        // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
-
-        let result_more_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // The call should still pass
-        assert_ok!(result_more_stake);
     });
 }
 
@@ -250,8 +139,8 @@ fn test_commit_weights_validate() {
         SubtensorModule::set_stake_threshold(min_stake_with_slippage.to_u64() + 1);
 
         // Submit to the signed extension validate function
-        let info = crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let info = DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -371,10 +260,10 @@ fn test_set_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -472,10 +361,10 @@ fn test_reveal_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -654,9 +543,9 @@ fn test_batch_reveal_weights_validate() {
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake.into());
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorTransactionExtension::<Test>::new();
 
         // Test 1: StakeAmountTooLow - Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -812,6 +701,7 @@ fn test_set_weights_is_root_error() {
         let weights = vec![1];
         let version_key: u64 = 0;
         let hotkey = U256::from(1);
+        SubtensorModule::set_commit_reveal_weights_enabled(NetUid::ROOT, false);
 
         assert_err!(
             SubtensorModule::set_weights(
@@ -834,7 +724,7 @@ fn test_weights_err_no_validator_permit() {
         let hotkey_account_id = U256::from(55);
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
@@ -882,7 +772,7 @@ fn test_set_stake_threshold_failed() {
         let hotkey = U256::from(0);
         let coldkey = U256::from(0);
 
-        add_network(netuid, 1, 0);
+        add_network_disable_commit_reveal(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
         SubtensorModule::set_stake_threshold(20_000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
@@ -944,8 +834,8 @@ fn test_weights_version_key() {
         let netuid0 = NetUid::from(1);
         let netuid1 = NetUid::from(2);
 
-        add_network(netuid0, 1, 0);
-        add_network(netuid1, 1, 0);
+        add_network_disable_commit_reveal(netuid0, 1, 0);
+        add_network_disable_commit_reveal(netuid1, 1, 0);
         register_ok_neuron(netuid0, hotkey, coldkey, 2143124);
         register_ok_neuron(netuid1, hotkey, coldkey, 3124124);
 
@@ -1020,7 +910,7 @@ fn test_weights_err_setting_weights_too_fast() {
         let hotkey_account_id = U256::from(55);
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
@@ -1173,7 +1063,7 @@ fn test_weights_err_max_weight_limit() {
         // Add network.
         let netuid = NetUid::from(1);
         let tempo: u16 = 100;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
 
         // Set params.
         SubtensorModule::set_max_allowed_uids(netuid, 5);
@@ -1262,6 +1152,7 @@ fn test_no_signature() {
     new_test_ext(0).execute_with(|| {
         let uids: Vec<u16> = vec![];
         let values: Vec<u16> = vec![];
+        SubtensorModule::set_commit_reveal_weights_enabled(1.into(), false);
         let result = SubtensorModule::set_weights(RuntimeOrigin::none(), 1.into(), uids, values, 0);
         assert_eq!(result, Err(DispatchError::BadOrigin));
     });
@@ -1346,7 +1237,7 @@ fn test_set_weight_not_enough_values() {
         let tempo: u16 = 13;
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let account_id = U256::from(1);
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
 
         register_ok_neuron(netuid, account_id, U256::from(2), 100000);
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
@@ -1409,7 +1300,7 @@ fn test_set_weight_too_many_uids() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
 
         register_ok_neuron(1.into(), U256::from(1), U256::from(2), 100_000);
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
@@ -3194,10 +3085,10 @@ fn test_reveal_at_exact_epoch() {
             1.into(),
         );
 
-        let reveal_periods: Vec<u64> = vec![0, 1, 2, 7, 40, 86, 100];
+        let reveal_periods: Vec<u64> = vec![1, 2, 7, 40, 86, 100];
 
         for &reveal_period in &reveal_periods {
-            SubtensorModule::set_reveal_period(netuid, reveal_period);
+            assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal_period));
 
             let salt: Vec<u16> = vec![42; 8];
             let commit_hash: H256 = BlakeTwo256::hash_of(&(
@@ -3333,7 +3224,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         let initial_tempo: u16 = 100;
         let initial_reveal_period: u64 = 1;
         add_network(netuid, initial_tempo, 0);
-        SubtensorModule::set_reveal_period(netuid, initial_reveal_period);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, initial_reveal_period));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -3377,7 +3268,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         let new_tempo: u16 = 50;
         let new_reveal_period: u64 = 2;
         SubtensorModule::set_tempo(netuid, new_tempo);
-        SubtensorModule::set_reveal_period(netuid, new_reveal_period);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, new_reveal_period));
         log::info!(
             "Changed tempo to {new_tempo} and reveal period to {new_reveal_period}"
         );
@@ -3431,10 +3322,11 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         let new_tempo_after_reveal: u16 = 200;
         let new_reveal_period_after_reveal: u64 = 1;
         SubtensorModule::set_tempo(netuid, new_tempo_after_reveal);
-        SubtensorModule::set_reveal_period(netuid, new_reveal_period_after_reveal);
-        log::info!(
-            "Changed tempo to {new_tempo_after_reveal} and reveal period to {new_reveal_period_after_reveal} after reveal"
-        );
+        assert_ok!(SubtensorModule::set_reveal_period(
+            netuid,
+            new_reveal_period_after_reveal
+        ));
+        log::info!("Changed tempo to {new_tempo_after_reveal} and reveal period to {new_reveal_period_after_reveal} after reveal");
 
         // Step 5: Commit again
         let new_salt: Vec<u16> = vec![43; 8];
@@ -3621,7 +3513,7 @@ fn test_reveal_at_exact_block() {
         let tempo: u16 = 360;
 
         System::set_block_number(0);
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
 
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -3631,24 +3523,10 @@ fn test_reveal_at_exact_block() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        let reveal_periods: Vec<u64> = vec![
-            0,
-            1,
-            2,
-            5,
-            19,
-            21,
-            30,
-            77,
-            104,
-            833,
-            1999,
-            36398,
-            u32::MAX as u64,
-        ];
+        let reveal_periods: Vec<u64> = vec![1, 2, 5, 19, 21, 30, 77];
 
         for &reveal_period in &reveal_periods {
-            SubtensorModule::set_reveal_period(netuid, reveal_period);
+            assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal_period));
 
             // Step 1: Commit weights
             let salt: Vec<u16> = vec![42 + (reveal_period % 100) as u16; 8];
@@ -4401,7 +4279,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         add_network(netuid, initial_tempo, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-        SubtensorModule::set_reveal_period(netuid, initial_reveal_period);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, initial_reveal_period));
         SubtensorModule::set_max_registrations_per_block(netuid, u16::MAX);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
 
@@ -4512,7 +4390,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
 
         // ==== Modify Network Parameters During Commits ====
         SubtensorModule::set_tempo(netuid, 150);
-        SubtensorModule::set_reveal_period(netuid, 7);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 7));
         log::info!("Changed tempo to 150 and reveal_period to 7 during commits.");
 
         step_epochs(3, netuid);
@@ -4558,7 +4436,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
 
         // ==== Change Network Parameters Again ====
         SubtensorModule::set_tempo(netuid, 200);
-        SubtensorModule::set_reveal_period(netuid, 10);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 10));
         log::info!("Changed tempo to 200 and reveal_period to 10 after initial reveals.");
 
         step_epochs(10, netuid);
@@ -5011,7 +4889,7 @@ fn test_reveal_crv3_commits_success() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 3);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
 
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1");
@@ -5163,7 +5041,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 3);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
 
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1");
@@ -5303,7 +5181,7 @@ fn test_do_commit_crv3_weights_success() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
+        let commits = TimelockedWeightCommits::<Test>::get(netuid, cur_epoch);
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].0, hotkey);
         assert_eq!(commits[0].2, commit_data);
@@ -5619,7 +5497,7 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
         register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
         register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 1);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 1));
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Prepare a valid payload for hotkey1
@@ -5742,7 +5620,7 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 3);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Prepare payload with mismatched uids and values lengths
@@ -5828,7 +5706,7 @@ fn test_reveal_crv3_commits_payload_decoding_failure() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 3);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         let invalid_payload = vec![0u8; 10]; // Not a valid encoding of WeightsTlockPayload
@@ -5906,7 +5784,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 3);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);
@@ -6052,7 +5930,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 1);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 1));
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Prepare a valid payload but use incorrect identity message during encryption
@@ -6140,7 +6018,7 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 1);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 1));
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         for i in 0..10 {
@@ -6158,7 +6036,7 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
+        let commits = TimelockedWeightCommits::<Test>::get(netuid, cur_epoch);
         assert_eq!(
             commits.len(),
             10,
@@ -6178,7 +6056,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         add_network(netuid, /*tempo*/ 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 1); // reveal_period = 1 epoch
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 1)); // reveal_period = 1 epoch
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // ---------------------------------------------------------------------
@@ -6192,7 +6070,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         for &epoch in &[past_epoch, reveal_epoch] {
             let bounded_commit = vec![epoch as u8; 5].try_into().expect("bounded vec");
 
-            assert_ok!(CRV3WeightCommitsV2::<Test>::try_mutate(
+            assert_ok!(TimelockedWeightCommits::<Test>::try_mutate(
                 netuid,
                 epoch,
                 |q| -> DispatchResult {
@@ -6203,8 +6081,8 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         }
 
         // Sanity – both epochs presently hold a commit.
-        assert!(!CRV3WeightCommitsV2::<Test>::get(netuid, past_epoch).is_empty());
-        assert!(!CRV3WeightCommitsV2::<Test>::get(netuid, reveal_epoch).is_empty());
+        assert!(!TimelockedWeightCommits::<Test>::get(netuid, past_epoch).is_empty());
+        assert!(!TimelockedWeightCommits::<Test>::get(netuid, reveal_epoch).is_empty());
 
         // ---------------------------------------------------------------------
         // Run the reveal pass WITHOUT a pulse – only expiry housekeeping runs.
@@ -6213,13 +6091,13 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
 
         // past_epoch (< reveal_epoch) must be gone
         assert!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, past_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(netuid, past_epoch).is_empty(),
             "expired epoch {past_epoch} should be cleared"
         );
 
         // reveal_epoch queue is *kept* because its commit could still be revealed later.
         assert!(
-            !CRV3WeightCommitsV2::<Test>::get(netuid, reveal_epoch).is_empty(),
+            !TimelockedWeightCommits::<Test>::get(netuid, reveal_epoch).is_empty(),
             "reveal-epoch {reveal_epoch} must be retained until commit can be revealed"
         );
     });
@@ -6235,7 +6113,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
         // ───── network parameters ───────────────────────────────────────────
         add_network(netuid, 5, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 1);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 1));
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_max_registrations_per_block(netuid, 100);
@@ -6351,7 +6229,7 @@ fn test_reveal_crv3_commits_max_neurons() {
         // ───── network parameters ───────────────────────────────────────────
         add_network(netuid, 5, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 1);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 1));
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_max_registrations_per_block(netuid, 10_000);
@@ -6580,7 +6458,7 @@ fn test_reveal_crv3_commits_hotkey_check() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 3);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
 
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1");
@@ -6697,7 +6575,7 @@ fn test_reveal_crv3_commits_hotkey_check() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 3);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
 
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1");
@@ -6846,7 +6724,7 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(3), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 3);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_stake_threshold(0);
 
@@ -6895,7 +6773,7 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         ));
 
         // epoch in which commit was stored
-        let stored_epoch = CRV3WeightCommitsV2::<Test>::iter_prefix(netuid)
+        let stored_epoch = TimelockedWeightCommits::<Test>::iter_prefix(netuid)
             .next()
             .map(|(e, _)| e)
             .expect("commit stored");
@@ -6909,7 +6787,7 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         // run *one* block inside reveal epoch without pulse → commit should stay queued
         step_block(1);
         assert!(
-            !CRV3WeightCommitsV2::<Test>::get(netuid, stored_epoch).is_empty(),
+            !TimelockedWeightCommits::<Test>::get(netuid, stored_epoch).is_empty(),
             "commit must remain queued when pulse is missing"
         );
 
@@ -6937,7 +6815,7 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         assert!(!weights.is_empty(), "weights must be set after pulse");
 
         assert!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, stored_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(netuid, stored_epoch).is_empty(),
             "queue should be empty after successful reveal"
         );
     });
@@ -6961,7 +6839,7 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::set_reveal_period(netuid, 3);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
 
         let uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1).unwrap();
         let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey2).unwrap();
@@ -7080,7 +6958,7 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
 
         // commit should be gone
         assert!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, commit_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(netuid, commit_epoch).is_empty(),
             "commit storage should be cleaned after reveal"
         );
     });

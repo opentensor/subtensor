@@ -81,7 +81,7 @@ impl<T: Config> Pallet<T> {
         // 1. Get the next uid. This is always equal to subnetwork_n.
         let next_uid: u16 = Self::get_subnetwork_n(netuid);
         log::debug!(
-            "append_neuron( netuid: {netuid:?} | next_uid: {new_hotkey:?} | new_hotkey: {next_uid:?} ) "
+            "append_neuron( netuid: {netuid:?} | next_uid: {next_uid:?} | new_hotkey: {new_hotkey:?} ) "
         );
 
         // 2. Get and increase the uid count.
