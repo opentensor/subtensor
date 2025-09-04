@@ -23,7 +23,7 @@ pallet-evm-precompile-modexp.workspace = true
 pallet-evm-precompile-sha3fips.workspace = true
 pallet-evm-precompile-simple.workspace = true
 pallet-evm-precompile-bn128.workspace = true
-pallet-proxy-otf.workspace = true
+pallet-subtensor-proxy.workspace = true
 precompile-utils.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
@@ -57,7 +57,7 @@ std = [
 	"pallet-evm-precompile-bn128/std",
 	"pallet-evm/std",
 	"pallet-crowdloan/std",
-	"pallet-proxy-otf/std",
+	"pallet-subtensor-proxy/std",
 	"pallet-subtensor/std",
 	"pallet-subtensor-swap/std",
 	"precompile-utils/std",
@@ -68,5 +68,5 @@ std = [
 	"substrate-fixed/std",
 	"subtensor-runtime-common/std",
 	"subtensor-swap-interface/std",
-	"pallet-proxy-otf/std",
+	"pallet-subtensor-proxy/std",
 ]

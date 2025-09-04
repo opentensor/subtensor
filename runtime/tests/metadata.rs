@@ -7,7 +7,7 @@ use scale_info::TypeDef;
 fn is_pallet_error(segments: &[String]) -> bool {
     let pallet_list: Vec<&str> = vec![
         "pallet_admin_utils",
-        "pallet_collective_otf",
+        "pallet_subtensor_collective",
         "pallet_commitments",
         "pallet_registry",
         "pallet_subtensor",

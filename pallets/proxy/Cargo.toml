@@ -1,5 +1,5 @@
 [package]
-name = "pallet-proxy-otf"
+name = "pallet-subtensor-proxy"
 version = "38.0.0"
 authors = ["Bittensor Nucleus Team"]
 edition.workspace = true
@@ -26,7 +26,7 @@ subtensor-macros.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-pallet-utility-otf = { workspace = true, default-features = true }
+pallet-subtensor-utility = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 
 [features]
@@ -46,12 +46,12 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-utility-otf/runtime-benchmarks",
+	"pallet-subtensor-utility/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-utility-otf/try-runtime",
+	"pallet-subtensor-utility/try-runtime",
 ]

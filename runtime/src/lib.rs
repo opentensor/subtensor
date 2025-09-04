@@ -29,11 +29,9 @@ use frame_support::{
     traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
-use pallet_collective_otf as pallet_collective;
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_election_provider_multi_phase::GeometricDepositBase;
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
-use pallet_proxy_otf as pallet_proxy;
 use pallet_registry::CanRegisterIdentity;
 use pallet_session::historical as session_historical;
 use pallet_staking::UseValidatorsMap;
@@ -46,8 +44,10 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
+use pallet_subtensor_collective as pallet_collective;
+use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::SimSwapResult;
-use pallet_utility_otf as pallet_utility;
+use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;

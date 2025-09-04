@@ -50,7 +50,7 @@ useless_conversion = "allow"     # until polkadot is patched
 [workspace.dependencies]
 node-subtensor-runtime = { path = "runtime", default-features = false }
 pallet-admin-utils = { path = "pallets/admin-utils", default-features = false }
-pallet-collective-otf = { path = "pallets/collective", default-features = false }
+pallet-subtensor-collective = { path = "pallets/collective", default-features = false }
 pallet-commitments = { path = "pallets/commitments", default-features = false }
 pallet-registry = { path = "pallets/registry", default-features = false }
 pallet-crowdloan = { path = "pallets/crowdloan", default-features = false }
@@ -124,8 +124,8 @@ frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-s
 frame-try-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-metadata = { version = "20.0.0", default-features = false }
 
-pallet-proxy-otf = { path = "pallets/proxy", default-features = false }
-pallet-utility-otf = { path = "pallets/utility", default-features = false }
+pallet-subtensor-proxy = { path = "pallets/proxy", default-features = false }
+pallet-subtensor-utility = { path = "pallets/utility", default-features = false }
 pallet-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }

@@ -6,8 +6,8 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::Config;
 use frame_system::pallet_prelude::*;
 use frame_system::{EventRecord, Phase};
-use pallet_collective_otf as pallet_collective;
-use pallet_collective_otf::Event as CollectiveEvent;
+use pallet_subtensor_collective as pallet_collective;
+use pallet_subtensor_collective::Event as CollectiveEvent;
 use sp_core::{Get, H256, U256, bounded_vec};
 use sp_runtime::{
     BuildStorage,
