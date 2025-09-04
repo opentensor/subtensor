@@ -27,15 +27,15 @@
 //   - [x] Per-subsubnet incentives are distributed proportionally to miner weights
 //   - [x] Subsubnet limit can be set up to 8 (with admin pallet)
 //   - [x] When subsubnet limit is reduced, reduction is GlobalSubsubnetDecreasePerSuperblock per super-block
-//   - [ ] When subsubnet limit is increased, increase is GlobalSubsubnetDecreasePerSuperblock per super-block
+//   - [x] When subsubnet limit is increased, increase is GlobalSubsubnetDecreasePerSuperblock per super-block
 //   - [x] When reduction of subsubnet limit occurs, Weights, Incentive, LastUpdate, Bonds, and WeightCommits are cleared
 //   - [ ] Epoch terms of subnet are weighted sum (or logical OR) of all subsubnet epoch terms
 //   - [ ] Subnet epoch terms persist in state
 //   - [x] Subsubnet epoch terms persist in state
 //   - [ ] "Yuma Emergency Mode" (consensus sum is 0 for a subsubnet), emission distributed by stake
 //   - [x] Miner with no weights on any subsubnet receives no reward
-//   - [ ] SubsubnetEmissionSplit is reset on super-block on subsubnet count increase
-//   - [ ] SubsubnetEmissionSplit is reset on super-block on subsubnet count decrease
+//   - [x] SubsubnetEmissionSplit is reset on super-block on subsubnet count increase
+//   - [x] SubsubnetEmissionSplit is reset on super-block on subsubnet count decrease
 
 use super::mock::*;
 use crate::coinbase::reveal_commits::WeightsTlockPayload;
@@ -289,8 +289,9 @@ fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
 
         // super_block = SuperBlockTempos() * Tempo(netuid) - netuid
         Tempo::<Test>::insert(netuid, 360u16);
-        let super_block =
-            u64::from(SuperBlockTempos::<Test>::get()) * u64::from(Tempo::<Test>::get(netuid)) - u16::from(netuid) as u64;
+        let super_block = u64::from(SuperBlockTempos::<Test>::get())
+            * u64::from(Tempo::<Test>::get(netuid))
+            - u16::from(netuid) as u64;
 
         // Choose counts so result is deterministic for ANY decrease-per-superblock.
         // Let dec = GlobalSubsubnetDecreasePerSuperblock(); set old = dec + 3.
@@ -300,6 +301,9 @@ fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
         // min_capped = max(old - dec, 1) = 3 => new_count = 3
         SubsubnetCountCurrent::<Test>::insert(netuid, old);
         SubsubnetCountDesired::<Test>::insert(netuid, desired);
+
+        // Set non-default subnet emission split
+        SubsubnetEmissionSplit::<Test>::insert(netuid, vec![123u16, 234u16, 345u16]);
 
         // Seed data at a kept subid (2) and a removed subid (3)
         let idx_keep = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(2u8));
@@ -360,6 +364,9 @@ fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
         assert!(!TimelockedWeightCommits::<Test>::contains_key(
             idx_rm3, 1u64
         ));
+
+        // SubsubnetEmissionSplit is reset on super-block
+        assert!(SubsubnetEmissionSplit::<Test>::get(netuid).is_none());
     });
 }
 
@@ -372,8 +379,9 @@ fn update_subsubnet_counts_increases_on_superblock() {
 
         // super_block = SuperBlockTempos() * Tempo(netuid) - netuid
         Tempo::<Test>::insert(netuid, 360u16);
-        let super_block =
-            u64::from(SuperBlockTempos::<Test>::get()) * u64::from(Tempo::<Test>::get(netuid)) - u16::from(netuid) as u64;
+        let super_block = u64::from(SuperBlockTempos::<Test>::get())
+            * u64::from(Tempo::<Test>::get(netuid))
+            - u16::from(netuid) as u64;
 
         // Choose counts so result is deterministic for ANY increase-per-superblock.
         let inc: u8 = u8::from(GlobalSubsubnetDecreasePerSuperblock::<Test>::get());
@@ -382,11 +390,20 @@ fn update_subsubnet_counts_increases_on_superblock() {
         SubsubnetCountCurrent::<Test>::insert(netuid, old);
         SubsubnetCountDesired::<Test>::insert(netuid, desired);
 
+        // Set non-default subnet emission split
+        SubsubnetEmissionSplit::<Test>::insert(netuid, vec![123u16, 234u16, 345u16]);
+
         // Act exactly on a super-block boundary
         SubtensorModule::update_subsubnet_counts_if_needed(super_block);
 
         // New count is old + inc
-        assert_eq!(SubsubnetCountCurrent::<Test>::get(netuid), SubId::from(1 + inc));
+        assert_eq!(
+            SubsubnetCountCurrent::<Test>::get(netuid),
+            SubId::from(1 + inc)
+        );
+
+        // SubsubnetEmissionSplit is reset on super-block
+        assert!(SubsubnetEmissionSplit::<Test>::get(netuid).is_none());
     });
 }
 

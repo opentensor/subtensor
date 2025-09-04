@@ -125,7 +125,10 @@ impl<T: Config> Pallet<T> {
         let super_block_tempos = u64::from(SuperBlockTempos::<T>::get());
         Self::get_all_subnet_netuids().iter().for_each(|netuid| {
             let super_block = super_block_tempos.saturating_mul(u64::from(Tempo::<T>::get(netuid)));
-            if let Some(rem) = current_block.saturating_add(u16::from(*netuid) as u64).checked_rem(super_block) {
+            if let Some(rem) = current_block
+                .saturating_add(u16::from(*netuid) as u64)
+                .checked_rem(super_block)
+            {
                 if rem == 0 {
                     let old_count = u8::from(SubsubnetCountCurrent::<T>::get(netuid));
                     let desired_count = u8::from(SubsubnetCountDesired::<T>::get(netuid));
