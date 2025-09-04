@@ -94,7 +94,7 @@ mod dispatches {
             }
         }
 
-        /// --- Sets the caller weights for the incentive mechanism for subsubnets. The call 
+        /// --- Sets the caller weights for the incentive mechanism for subsubnets. The call
         /// can be made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
         /// checks that the passed weights meet the requirements. Stored as u16s they represent
@@ -113,7 +113,7 @@ mod dispatches {
         ///
         /// * `netuid` (u16):
         /// 	- The network uid we are setting these weights on.
-        /// 
+        ///
         /// * `subid` (`u8`):
         ///   - The u8 subsubnet identifier.
         ///
@@ -251,7 +251,7 @@ mod dispatches {
         ///
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
-        /// 
+        ///
         /// * `subid` (`u8`):
         ///   - The u8 subsubnet identifier.
         ///
@@ -372,7 +372,7 @@ mod dispatches {
         ///
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
-        /// 
+        ///
         /// * `subid` (`u8`):
         ///   - The u8 subsubnet identifier.
         ///
@@ -470,7 +470,7 @@ mod dispatches {
         ///
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
-        /// 
+        ///
         /// * `subid` (`u8`):
         ///   - The u8 subsubnet identifier.
         ///
@@ -2293,7 +2293,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed for 
+        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed for
         /// a subsubnet.
         ///
         /// # Args:
