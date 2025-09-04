@@ -1556,4 +1556,13 @@ mod pallet_benchmarks {
             Subtensor::<T>::get_commit_reveal_weights_version(),
         );
     }
+
+    #[benchmark]
+    fn set_coldkey_auto_stake_hotkey() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        let hot: T::AccountId = account("A", 0, 1);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), hot.clone());
+    }
 }

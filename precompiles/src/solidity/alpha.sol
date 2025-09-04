@@ -94,4 +94,8 @@ interface IAlpha {
     /// @dev Returns the sum of alpha prices for all subnets.
     /// @return The sum of alpha prices.
     function getSumAlphaPrice() external view returns (uint256);
+
+    /// @dev Returns the CK burn rate.
+    /// @return The CK burn rate.
+    function getCKBurn() external view returns (uint256);
 }
