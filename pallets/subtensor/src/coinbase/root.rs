@@ -565,10 +565,10 @@ impl<T: Config> Pallet<T> {
         NetworkLastLockCost::<T>::get()
     }
     pub fn get_network_last_lock_block() -> u64 {
-        NetworkLastRegistered::<T>::get()
+        Self::get_rate_limited_last_block(&RateLimitKey::NetworkLastRegistered)
     }
     pub fn set_network_last_lock_block(block: u64) {
-        NetworkLastRegistered::<T>::set(block);
+        Self::set_rate_limited_last_block(&RateLimitKey::NetworkLastRegistered, block);
     }
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);
@@ -588,10 +588,13 @@ impl<T: Config> Pallet<T> {
         let halved_interval: I64F64 = interval.saturating_mul(halving);
         halved_interval.saturating_to_num::<u64>()
     }
-    pub fn get_rate_limited_last_block(rate_limit_key: &RateLimitKey) -> u64 {
+    pub fn get_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>) -> u64 {
         LastRateLimitedBlock::<T>::get(rate_limit_key)
     }
-    pub fn set_rate_limited_last_block(rate_limit_key: &RateLimitKey, block: u64) {
-        LastRateLimitedBlock::<T>::set(rate_limit_key, block);
+    pub fn set_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>, block: u64) {
+        LastRateLimitedBlock::<T>::insert(rate_limit_key, block);
+    }
+    pub fn remove_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>) {
+        LastRateLimitedBlock::<T>::remove(rate_limit_key);
     }
 }

@@ -822,6 +822,206 @@ fn test_migrate_remove_commitments_rate_limit() {
 }
 
 #[test]
+fn test_migrate_network_last_registered() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_network_last_registered";
+
+        let pallet_name = "SubtensorModule";
+        let storage_name = "NetworkLastRegistered";
+        let pallet_name_hash = twox_128(pallet_name.as_bytes());
+        let storage_name_hash = twox_128(storage_name.as_bytes());
+        let prefix = [pallet_name_hash, storage_name_hash].concat();
+
+        let mut full_key = prefix.clone();
+
+        let original_value: u64 = 123;
+        put_raw(&full_key, &original_value.encode());
+
+        let stored_before = get_raw(&full_key).expect("Expected RateLimit to exist");
+        assert_eq!(
+            u64::decode(&mut &stored_before[..]).expect("Failed to decode RateLimit"),
+            original_value
+        );
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
+        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_network_last_lock_block(),
+            original_value
+        );
+        assert_eq!(
+            get_raw(&full_key),
+            None,
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[allow(deprecated)]
+#[test]
+fn test_migrate_last_block_tx() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_last_tx_block";
+
+        let test_account: U256 = U256::from(1);
+        let original_value: u64 = 123;
+
+        LastTxBlock::<Test>::insert(test_account, original_value);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
+        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block(&test_account),
+            original_value
+        );
+        assert!(
+            !LastTxBlock::<Test>::contains_key(test_account),
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[allow(deprecated)]
+#[test]
+fn test_migrate_last_tx_block_childkey_take() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_last_tx_block_childkey_take";
+
+        let test_account: U256 = U256::from(1);
+        let original_value: u64 = 123;
+
+        LastTxBlockChildKeyTake::<Test>::insert(test_account, original_value);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
+        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_childkey_take(&test_account),
+            original_value
+        );
+        assert!(
+            !LastTxBlockChildKeyTake::<Test>::contains_key(test_account),
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[allow(deprecated)]
+#[test]
+fn test_migrate_last_tx_block_delegate_take() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_last_tx_block_delegate_take";
+
+        let test_account: U256 = U256::from(1);
+        let original_value: u64 = 123;
+
+        LastTxBlockDelegateTake::<Test>::insert(test_account, original_value);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
+        migrate_last_tx_block_delegate_take::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_delegate_take(&test_account),
+            original_value
+        );
+        assert!(
+            !LastTxBlockDelegateTake::<Test>::contains_key(test_account),
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
 fn test_migrate_fix_root_subnet_tao() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_fix_root_subnet_tao";
