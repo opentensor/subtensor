@@ -8113,7 +8113,6 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-base-fee",
- "pallet-collective-otf",
  "pallet-commitments",
  "pallet-crowdloan",
  "pallet-drand",
@@ -8134,7 +8133,6 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-preimage",
- "pallet-proxy-otf",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
@@ -8144,13 +8142,15 @@ dependencies = [
  "pallet-staking-reward-fn",
  "pallet-staking-runtime-api",
  "pallet-subtensor",
+ "pallet-subtensor-collective",
+ "pallet-subtensor-proxy",
  "pallet-subtensor-swap",
  "pallet-subtensor-swap-runtime-api",
+ "pallet-subtensor-utility",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-utility-otf",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "precompile-utils",
@@ -9078,23 +9078,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-collective-otf"
-version = "4.0.0-dev"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "subtensor-macros",
-]
-
-[[package]]
 name = "pallet-commitments"
 version = "4.0.0-dev"
 dependencies = [
@@ -9955,23 +9938,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-proxy-otf"
-version = "38.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "pallet-utility-otf",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "subtensor-macros",
-]
-
-[[package]]
 name = "pallet-ranked-collective"
 version = "40.1.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=d13f915d8a1f55af53fd51fdb4544c47badddc7e#d13f915d8a1f55af53fd51fdb4544c47badddc7e"
@@ -10422,16 +10388,16 @@ dependencies = [
  "ndarray",
  "num-traits",
  "pallet-balances",
- "pallet-collective-otf",
  "pallet-crowdloan",
  "pallet-drand",
  "pallet-membership",
  "pallet-preimage",
- "pallet-proxy-otf",
  "pallet-scheduler",
+ "pallet-subtensor-collective",
+ "pallet-subtensor-proxy",
  "pallet-subtensor-swap",
+ "pallet-subtensor-utility",
  "pallet-transaction-payment",
- "pallet-utility-otf",
  "parity-scale-codec",
  "parity-util-mem",
  "polkadot-runtime-common",
@@ -10455,6 +10421,40 @@ dependencies = [
  "subtensor-swap-interface",
  "tle",
  "w3f-bls",
+]
+
+[[package]]
+name = "pallet-subtensor-collective"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "subtensor-macros",
+]
+
+[[package]]
+name = "pallet-subtensor-proxy"
+version = "38.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-subtensor-utility",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -10510,6 +10510,25 @@ dependencies = [
  "subtensor-macros",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
+]
+
+[[package]]
+name = "pallet-subtensor-utility"
+version = "38.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-root-testing",
+ "pallet-subtensor-collective",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -10687,25 +10706,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
-]
-
-[[package]]
-name = "pallet-utility-otf"
-version = "38.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "pallet-collective-otf",
- "pallet-root-testing",
- "pallet-timestamp",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "subtensor-macros",
 ]
 
 [[package]]
@@ -17795,8 +17795,8 @@ dependencies = [
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
- "pallet-proxy-otf",
  "pallet-subtensor",
+ "pallet-subtensor-proxy",
  "pallet-subtensor-swap",
  "precompile-utils",
  "sp-core",

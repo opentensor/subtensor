@@ -133,8 +133,8 @@ impl Config for Test {
 use super::{Call as ProxyCall, Event as ProxyEvent};
 use frame_system::Call as SystemCall;
 use pallet_balances::{Call as BalancesCall, Event as BalancesEvent};
-use pallet_utility_otf as pallet_utility;
-use pallet_utility_otf::{Call as UtilityCall, Event as UtilityEvent};
+use pallet_subtensor_utility as pallet_utility;
+use pallet_subtensor_utility::{Call as UtilityCall, Event as UtilityEvent};
 
 type SystemError = frame_system::Error<Test>;
 
