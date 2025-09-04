@@ -343,6 +343,8 @@ impl<T: Config> Pallet<T> {
             "do_remove_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid: {netuid:?}, alpha_unstaked:{alpha_unstaked:?} )"
         );
 
+        Self::ensure_subtoken_enabled(netuid)?;
+
         // 2. Calculate the maximum amount that can be executed with price limit
         let max_amount = Self::get_max_amount_remove(netuid, limit_price)?;
         let mut possible_alpha = alpha_unstaked;
@@ -429,6 +431,8 @@ impl<T: Config> Pallet<T> {
         limit_price: Option<TaoCurrency>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin.clone())?;
+
+        Self::ensure_subtoken_enabled(netuid)?;
 
         let alpha_unstaked =
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);

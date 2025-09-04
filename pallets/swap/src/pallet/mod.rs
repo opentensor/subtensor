@@ -269,6 +269,9 @@ mod pallet {
 
         /// User liquidity operations are disabled for this subnet
         UserLiquidityDisabled,
+
+        /// The subnet does not have subtoken enabled
+        SubtokenDisabled,
     }
 
     #[pallet::call]
@@ -366,6 +369,11 @@ mod pallet {
                 Error::<T>::SubNetworkDoesNotExist
             );
 
+            ensure!(
+                T::SubnetInfo::is_subtoken_enabled(netuid.into()),
+                Error::<T>::SubtokenDisabled
+            );
+
             let (position_id, tao, alpha) = Self::do_add_liquidity(
                 netuid.into(),
                 &coldkey,
@@ -429,6 +437,11 @@ mod pallet {
                 Error::<T>::SubNetworkDoesNotExist
             );
 
+            ensure!(
+                T::SubnetInfo::is_subtoken_enabled(netuid.into()),
+                Error::<T>::SubtokenDisabled
+            );
+
             // Remove liquidity
             let result = Self::do_remove_liquidity(netuid, &coldkey, position_id)?;
 
@@ -487,6 +500,11 @@ mod pallet {
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
                 Error::<T>::SubNetworkDoesNotExist
+            );
+
+            ensure!(
+                T::SubnetInfo::is_subtoken_enabled(netuid.into()),
+                Error::<T>::SubtokenDisabled
             );
 
             // Add or remove liquidity
