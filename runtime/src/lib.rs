@@ -223,7 +223,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 307,
+    spec_version: 309,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -426,7 +426,6 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::SubtensorModule(
                     pallet_subtensor::Call::set_weights { .. }
-                        | pallet_subtensor::Call::set_tao_weights { .. }
                         | pallet_subtensor::Call::serve_axon { .. }
                 )
                 | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
@@ -761,7 +760,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
                     | RuntimeCall::Sudo(..)
             ),
             ProxyType::Triumvirate => matches!(
@@ -799,10 +797,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
             ),
-            ProxyType::RootWeights => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
-            ),
+            ProxyType::RootWeights => false, // deprecated
             ProxyType::ChildKeys => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
@@ -1165,6 +1160,8 @@ parameter_types! {
     pub const SubtensorInitialBurn: u64 = 100_000_000; // 0.1 tao
     pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
@@ -1238,6 +1235,8 @@ impl pallet_subtensor::Config for Runtime {
     type InitialBurn = SubtensorInitialBurn;
     type InitialMaxBurn = SubtensorInitialMaxBurn;
     type InitialMinBurn = SubtensorInitialMinBurn;
+    type MinBurnUpperBound = MinBurnUpperBound;
+    type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
     type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
