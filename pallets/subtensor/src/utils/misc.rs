@@ -50,7 +50,7 @@ impl<T: Config> Pallet<T> {
     /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).
     /// - Root: only freeze window is enforced; no TransactionType checks.
     /// - Owner (Signed): freeze window plus all rate checks in `limits` using signer extracted from
-    /// origin.
+    ///   origin.
     pub fn ensure_sn_owner_or_root_with_limits(
         o: T::RuntimeOrigin,
         netuid: NetUid,

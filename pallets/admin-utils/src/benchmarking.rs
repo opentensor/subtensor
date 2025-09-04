@@ -346,5 +346,17 @@ mod benchmarks {
 		_(RawOrigin::Root, 5u16/*version*/)/*sudo_set_commit_reveal_version()*/;
     }
 
+    #[benchmark]
+    fn sudo_set_admin_freeze_window() {
+        #[extrinsic_call]
+		_(RawOrigin::Root, 5u16/*window*/)/*sudo_set_admin_freeze_window*/;
+    }
+
+    #[benchmark]
+    fn sudo_set_owner_hparam_rate_limit() {
+        #[extrinsic_call]
+		_(RawOrigin::Root, 10u64/*limit*/)/*sudo_set_owner_hparam_rate_limit*/;
+    }
+
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }
