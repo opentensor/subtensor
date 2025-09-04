@@ -21,7 +21,10 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::run_coinbase(block_emission);
         // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
-        // Return ok.
+
+        // Clear small batch of Alpha map entries if they are insignificant
+        Self::clear_small_nominations_batch();
+
         Ok(())
     }
 

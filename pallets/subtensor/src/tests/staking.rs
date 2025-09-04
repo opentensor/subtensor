@@ -1611,6 +1611,113 @@ fn test_faucet_ok() {
     });
 }
 
+#[test]
+fn test_clear_small_nominations_batches() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(3);
+        let netuid: u16 = 1;
+        let low_amount = U64F64::saturating_from_num(MIN_ALPHA.saturating_sub(1));
+        let enough_amount = U64F64::saturating_from_num(MIN_ALPHA);
+
+        // Set alpha to clear
+        for i in 0..ALPHA_MAP_CLEAN_BATCH_SIZE + 1 {
+            let hot = U256::from(i);
+            let key = (hot, cold, netuid);
+            Alpha::<Test>::insert(key, low_amount);
+        }
+
+        let keys = Alpha::<Test>::iter_keys().collect::<Vec<_>>();
+        assert_eq!(keys.len(), ALPHA_MAP_CLEAN_BATCH_SIZE + 1);
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_none());
+
+        SubtensorModule::clear_small_nominations_batch();
+
+        let keys = Alpha::<Test>::iter_keys().collect::<Vec<_>>();
+        // First batch cleared
+        assert_eq!(keys.len(), 1);
+        // Pagination set
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_some());
+
+        SubtensorModule::clear_small_nominations_batch();
+
+        let keys = Alpha::<Test>::iter_keys().collect::<Vec<_>>();
+        // Last batch cleared
+        assert_eq!(keys.len(), 0);
+        // Pagination removed (start over)
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_none());
+
+        // Set alpha to keep
+        for i in 0..ALPHA_MAP_CLEAN_BATCH_SIZE + 1 {
+            let hot = U256::from(i);
+            let key = (hot, cold, netuid);
+            Alpha::<Test>::insert(key, enough_amount);
+        }
+
+        let keys = Alpha::<Test>::iter_keys().collect::<Vec<_>>();
+        assert_eq!(keys.len(), ALPHA_MAP_CLEAN_BATCH_SIZE + 1);
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_none());
+
+        SubtensorModule::clear_small_nominations_batch();
+
+        let keys = Alpha::<Test>::iter_keys().collect::<Vec<_>>();
+        // First batch kept
+        assert_eq!(keys.len(), ALPHA_MAP_CLEAN_BATCH_SIZE + 1);
+        // Pagination set
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_some());
+
+        SubtensorModule::clear_small_nominations_batch();
+
+        let keys = Alpha::<Test>::iter_keys().collect::<Vec<_>>();
+        // Last batch kept
+        assert_eq!(keys.len(), ALPHA_MAP_CLEAN_BATCH_SIZE + 1);
+        // Pagination removed (start over)
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_none());
+    });
+}
+
+#[test]
+fn test_clear_small_nominations_batches_by_blocks() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(3);
+        let netuid: u16 = 1;
+        let low_amount = U64F64::saturating_from_num(MIN_ALPHA.saturating_sub(1));
+        let enough_amount = U64F64::saturating_from_num(MIN_ALPHA);
+
+        // Set alpha to keep and to remove
+        let extra = 5usize;
+        for i in 1..=(ALPHA_MAP_CLEAN_BATCH_SIZE * 2) {
+            let hot1 = U256::from(i);
+            let hot2 = U256::from(i * 100);
+            let key1 = (hot1, cold, netuid);
+            let key2 = (hot2, cold, netuid);
+            Alpha::<Test>::insert(key1, low_amount);
+            Alpha::<Test>::insert(key2, enough_amount);
+        }
+
+        for i in 1..=extra {
+            let hot = U256::from(i * 100000);
+            let key = (hot, cold, netuid);
+            Alpha::<Test>::insert(key, enough_amount);
+        }
+
+        // Check preconditions
+        let keys = Alpha::<Test>::iter_keys().collect::<Vec<_>>();
+        assert_eq!(keys.len(), ALPHA_MAP_CLEAN_BATCH_SIZE * 4 + extra);
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_none());
+
+        run_to_block(4);
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_some());
+        run_to_block(5);
+
+        let keys = Alpha::<Test>::iter_keys().collect::<Vec<_>>();
+        assert_eq!(keys.len(), 2 * ALPHA_MAP_CLEAN_BATCH_SIZE + extra);
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_none());
+
+        run_to_block(6);
+        assert!(AlphaMapCleanLastKey::<Test>::get().is_some());
+    });
+}
+
 /// This test ensures that the clear_small_nominations function works as expected.
 /// It creates a network with two hotkeys and two coldkeys, and then registers a nominator account for each hotkey.
 /// When we call set_nominator_min_required_stake, it should clear all small nominations that are below the minimum required stake.
