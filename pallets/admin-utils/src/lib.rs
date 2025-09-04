@@ -378,13 +378,11 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the adjustment alpha.
         #[pallet::call_index(9)]
-        #[pallet::weight((
+        #[pallet::weight(
             Weight::from_parts(14_000_000, 0)
                 .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
-                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1)),
-            DispatchClass::Operational,
-            Pays::No
-        ))]
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1))
+        )]
         pub fn sudo_set_adjustment_alpha(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -604,12 +602,10 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the network PoW registration allowed.
         #[pallet::call_index(20)]
-        #[pallet::weight((
+        #[pallet::weight(
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
-			DispatchClass::Operational,
-			Pays::No
-		))]
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+		)]
         pub fn sudo_set_network_pow_registration_allowed(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1113,7 +1109,7 @@ pub mod pallet {
         /// # Weight
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(50)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((1_000_000, DispatchClass::Normal, Pays::Yes))] // TODO: add proper weights
         pub fn sudo_set_liquid_alpha_enabled(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1127,7 +1123,7 @@ pub mod pallet {
 
         /// Sets values for liquid alpha
         #[pallet::call_index(51)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((1_000_000, DispatchClass::Normal, Pays::Yes))] // TODO: add proper weights
         pub fn sudo_set_alpha_values(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1306,7 +1302,7 @@ pub mod pallet {
         /// # Weight
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(61)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((1_000_000, DispatchClass::Normal, Pays::Yes))] // TODO: add proper weights
         pub fn sudo_set_toggle_transfer(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1436,7 +1432,7 @@ pub mod pallet {
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(68)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((1_000_000, DispatchClass::Normal, Pays::Yes))] // TODO: add proper weights
         pub fn sudo_set_alpha_sigmoid_steepness(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1471,7 +1467,7 @@ pub mod pallet {
         /// # Weight
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(69)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((1_000_000, DispatchClass::Normal, Pays::Yes))] // TODO: add proper weights
         pub fn sudo_set_yuma3_enabled(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1495,7 +1491,7 @@ pub mod pallet {
         /// # Weight
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(70)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((1_000_000, DispatchClass::Normal, Pays::Yes))] // TODO: add proper weights
         pub fn sudo_set_bonds_reset_enabled(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1540,7 +1536,7 @@ pub mod pallet {
         /// # Rate Limiting
         /// This function is rate-limited to one call per subnet per interval (e.g., one week).
         #[pallet::call_index(67)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((1_000_000, DispatchClass::Normal, Pays::Yes))] // TODO: add proper weights
         pub fn sudo_set_sn_owner_hotkey(
             origin: OriginFor<T>,
             netuid: NetUid,
