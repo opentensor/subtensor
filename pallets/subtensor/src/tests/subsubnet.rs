@@ -287,17 +287,17 @@ fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
         let netuid = NetUid::from(42u16);
         NetworksAdded::<Test>::insert(NetUid::from(42u16), true);
 
-        // super_block = SuperBlockTempos() * Tempo(netuid)
-        Tempo::<Test>::insert(netuid, 1u16);
+        // super_block = SuperBlockTempos() * Tempo(netuid) - netuid
+        Tempo::<Test>::insert(netuid, 360u16);
         let super_block =
-            u64::from(SuperBlockTempos::<Test>::get()) * u64::from(Tempo::<Test>::get(netuid));
+            u64::from(SuperBlockTempos::<Test>::get()) * u64::from(Tempo::<Test>::get(netuid)) - u16::from(netuid) as u64;
 
         // Choose counts so result is deterministic for ANY decrease-per-superblock.
         // Let dec = GlobalSubsubnetDecreasePerSuperblock(); set old = dec + 3.
         let dec: u8 = u8::from(GlobalSubsubnetDecreasePerSuperblock::<Test>::get());
-        let old = SubId::from(dec.saturating_add(3)); // ≥3
+        let old = SubId::from(dec.saturating_add(3));
         let desired = SubId::from(1u8);
-        // min_possible = max(old - dec, 1) = 3 → new_count = 3
+        // min_capped = max(old - dec, 1) = 3 => new_count = 3
         SubsubnetCountCurrent::<Test>::insert(netuid, old);
         SubsubnetCountDesired::<Test>::insert(netuid, desired);
 
@@ -336,7 +336,7 @@ fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
         );
 
         // Act exactly on a super-block boundary
-        SubtensorModule::update_subsubnet_counts_if_needed(2 * super_block);
+        SubtensorModule::update_subsubnet_counts_if_needed(super_block);
 
         // New count is 3
         assert_eq!(SubsubnetCountCurrent::<Test>::get(netuid), SubId::from(3u8));
@@ -360,6 +360,33 @@ fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
         assert!(!TimelockedWeightCommits::<Test>::contains_key(
             idx_rm3, 1u64
         ));
+    });
+}
+
+#[test]
+fn update_subsubnet_counts_increases_on_superblock() {
+    new_test_ext(1).execute_with(|| {
+        // Base subnet exists
+        let netuid = NetUid::from(42u16);
+        NetworksAdded::<Test>::insert(NetUid::from(42u16), true);
+
+        // super_block = SuperBlockTempos() * Tempo(netuid) - netuid
+        Tempo::<Test>::insert(netuid, 360u16);
+        let super_block =
+            u64::from(SuperBlockTempos::<Test>::get()) * u64::from(Tempo::<Test>::get(netuid)) - u16::from(netuid) as u64;
+
+        // Choose counts so result is deterministic for ANY increase-per-superblock.
+        let inc: u8 = u8::from(GlobalSubsubnetDecreasePerSuperblock::<Test>::get());
+        let old = SubId::from(1u8);
+        let desired = SubId::from(5u8);
+        SubsubnetCountCurrent::<Test>::insert(netuid, old);
+        SubsubnetCountDesired::<Test>::insert(netuid, desired);
+
+        // Act exactly on a super-block boundary
+        SubtensorModule::update_subsubnet_counts_if_needed(super_block);
+
+        // New count is old + inc
+        assert_eq!(SubsubnetCountCurrent::<Test>::get(netuid), SubId::from(1 + inc));
     });
 }
 
