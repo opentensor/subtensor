@@ -1060,7 +1060,7 @@ impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
         let subsub_count = SubtensorModule::get_current_subsubnet_count(netuid);
         for subid in 0..u8::from(subsub_count) {
             let netuid_index = SubtensorModule::get_subsubnet_storage_index(netuid, subid.into());
-            let _ = SubtensorModule::do_reset_bonds(netuid, address);
+            let _ = SubtensorModule::do_reset_bonds(netuid_index, address);
         }
     }
 
