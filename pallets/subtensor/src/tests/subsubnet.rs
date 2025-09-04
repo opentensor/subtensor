@@ -29,10 +29,10 @@
 //   - [x] When subsubnet limit is reduced, reduction is GlobalSubsubnetDecreasePerSuperblock per super-block
 //   - [x] When subsubnet limit is increased, increase is GlobalSubsubnetDecreasePerSuperblock per super-block
 //   - [x] When reduction of subsubnet limit occurs, Weights, Incentive, LastUpdate, Bonds, and WeightCommits are cleared
-//   - [ ] Epoch terms of subnet are weighted sum (or logical OR) of all subsubnet epoch terms
-//   - [ ] Subnet epoch terms persist in state
+//   - [x] Epoch terms of subnet are weighted sum (or logical OR) of all subsubnet epoch terms
+//   - [x] Subnet epoch terms persist in state
 //   - [x] Subsubnet epoch terms persist in state
-//   - [ ] "Yuma Emergency Mode" (consensus sum is 0 for a subsubnet), emission distributed by stake
+//   - [x] "Yuma Emergency Mode" (consensus sum is 0 for a subsubnet), emission distributed by stake
 //   - [x] Miner with no weights on any subsubnet receives no reward
 //   - [x] SubsubnetEmissionSplit is reset on super-block on subsubnet count increase
 //   - [x] SubsubnetEmissionSplit is reset on super-block on subsubnet count decrease
@@ -41,6 +41,7 @@ use super::mock::*;
 use crate::coinbase::reveal_commits::WeightsTlockPayload;
 use crate::subnets::subsubnet::{GLOBAL_MAX_SUBNET_COUNT, MAX_SUBSUBNET_COUNT_PER_SUBNET};
 use crate::*;
+use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use codec::Encode;
@@ -52,7 +53,7 @@ use sha2::Digest;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_std::collections::vec_deque::VecDeque;
-use substrate_fixed::types::I32F32;
+use substrate_fixed::types::{I32F32, U64F64};
 use subtensor_runtime_common::{NetUid, NetUidStorageIndex, SubId};
 use tle::{
     curves::drand::TinyBLS381, ibe::fullident::Identity,
@@ -660,6 +661,190 @@ fn epoch_with_subsubnets_incentives_proportional_to_weights() {
             expected_incentive_high,
             epsilon = 1
         );
+    });
+}
+
+#[test]
+fn epoch_with_subsubnets_persists_and_aggregates_all_terms() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let idx0 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(0));
+        let idx1 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(1));
+
+        // Three neurons: validator (uid=0) + two miners (uid=1,2)
+        let ck0 = U256::from(1);
+        let hk0 = U256::from(2);
+        let ck1 = U256::from(3);
+        let hk1 = U256::from(4);
+        let hk2 = U256::from(6);
+        let emission = AlphaCurrency::from(1_000_000_000u64);
+
+        // Healthy minimal state and 3rd neuron
+        mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
+        mock_3_neurons(netuid, hk2);
+        let uid0 = 0_usize;
+        let uid1 = 1_usize;
+        let uid2 = 2_usize;
+
+        // Two sub-subnets with non-equal split (~25% / 75%)
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8));
+        let split0 = u16::MAX / 4;
+        let split1 = u16::MAX - split0;
+        SubsubnetEmissionSplit::<Test>::insert(netuid, vec![split0, split1]);
+
+        // One validator; skew weights differently per sub-subnet
+        ValidatorPermit::<Test>::insert(netuid, vec![true, false, false]);
+        // sub 0: uid1 heavy, uid2 light
+        Weights::<Test>::insert(
+            idx0,
+            0,
+            vec![(1u16, 0xFFFF / 5 * 3), (2u16, 0xFFFF / 5 * 2)],
+        );
+        // sub 1: uid1 light, uid2 heavy
+        Weights::<Test>::insert(idx1, 0, vec![(1u16, 0xFFFF / 5), (2u16, 0xFFFF / 5 * 4)]);
+
+        // Per-sub emissions (and weights used for aggregation)
+        let subsubnet_emissions = SubtensorModule::split_emissions(netuid, emission);
+        let w0 = U64F64::from_num(u64::from(subsubnet_emissions[0]))
+            / U64F64::from_num(u64::from(emission));
+        let w1 = U64F64::from_num(u64::from(subsubnet_emissions[1]))
+            / U64F64::from_num(u64::from(emission));
+        assert_abs_diff_eq!(w0.to_num::<f64>(), 0.25, epsilon = 0.0001);
+        assert_abs_diff_eq!(w1.to_num::<f64>(), 0.75, epsilon = 0.0001);
+
+        // Get per-subsubnet epoch outputs to build expectations
+        let out0 = SubtensorModule::epoch_subsubnet(netuid, SubId::from(0), subsubnet_emissions[0]);
+        let out1 = SubtensorModule::epoch_subsubnet(netuid, SubId::from(1), subsubnet_emissions[1]);
+
+        // Now run the real aggregated path (also persists terms)
+        let agg = SubtensorModule::epoch_with_subsubnets(netuid, emission);
+
+        // hotkey -> (server_emission_u64, validator_emission_u64)
+        let agg_map: BTreeMap<U256, (u64, u64)> = agg
+            .into_iter()
+            .map(|(hk, se, ve)| (hk, (u64::from(se), u64::from(ve))))
+            .collect();
+
+        // Helper to fetch per-sub terms by hotkey
+        let terms0 = |hk: &U256| out0.0.get(hk).unwrap();
+        let terms1 = |hk: &U256| out1.0.get(hk).unwrap();
+
+        // Returned aggregated emissions match weighted sums
+        for hk in [&hk1, &hk2] {
+            let (got_se, got_ve) = agg_map.get(hk).cloned().expect("present");
+            let t0 = terms0(hk);
+            let t1 = terms1(hk);
+            let exp_se = (U64F64::saturating_from_num(u64::from(t0.server_emission)) * w0
+                + U64F64::saturating_from_num(u64::from(t1.server_emission)) * w1)
+                .saturating_to_num::<u64>();
+            let exp_ve = (U64F64::saturating_from_num(u64::from(t0.validator_emission)) * w0
+                + U64F64::saturating_from_num(u64::from(t1.validator_emission)) * w1)
+                .saturating_to_num::<u64>();
+            assert_abs_diff_eq!(u64::from(got_se), exp_se, epsilon = 1);
+            assert_abs_diff_eq!(u64::from(got_ve), exp_ve, epsilon = 1);
+        }
+
+        // Persisted per-subsubnet Incentive vectors match per-sub terms
+        let inc0 = Incentive::<Test>::get(idx0);
+        let inc1 = Incentive::<Test>::get(idx1);
+        let exp_inc0 = {
+            let mut v = vec![0u16; 3];
+            v[terms0(&hk0).uid] = terms0(&hk0).incentive;
+            v[terms0(&hk1).uid] = terms0(&hk1).incentive;
+            v[terms0(&hk2).uid] = terms0(&hk2).incentive;
+            v
+        };
+        let exp_inc1 = {
+            let mut v = vec![0u16; 3];
+            v[terms1(&hk0).uid] = terms1(&hk0).incentive;
+            v[terms1(&hk1).uid] = terms1(&hk1).incentive;
+            v[terms1(&hk2).uid] = terms1(&hk2).incentive;
+            v
+        };
+        for (a, e) in inc0.iter().zip(exp_inc0.iter()) {
+            assert_abs_diff_eq!(*a, *e, epsilon = 1);
+        }
+        for (a, e) in inc1.iter().zip(exp_inc1.iter()) {
+            assert_abs_diff_eq!(*a, *e, epsilon = 1);
+        }
+
+        // Persisted Bonds for validator (uid0) exist and mirror per-sub terms
+        let b0 = Bonds::<Test>::get(idx0, 0u16);
+        let b1 = Bonds::<Test>::get(idx1, 0u16);
+        let exp_b0 = &terms0(&hk0).bond;
+        let exp_b1 = &terms1(&hk0).bond;
+
+        assert!(!b0.is_empty(), "bonds sub0 empty");
+        assert!(!b1.is_empty(), "bonds sub1 empty");
+        assert_eq!(b0.len(), exp_b0.len());
+        assert_eq!(b1.len(), exp_b1.len());
+        for ((u_a, w_a), (u_e, w_e)) in b0.iter().zip(exp_b0.iter()) {
+            assert_eq!(u_a, u_e);
+            assert_abs_diff_eq!(*w_a, *w_e, epsilon = 1);
+        }
+        for ((u_a, w_a), (u_e, w_e)) in b1.iter().zip(exp_b1.iter()) {
+            assert_eq!(u_a, u_e);
+            assert_abs_diff_eq!(*w_a, *w_e, epsilon = 1);
+        }
+
+        // Persisted subnet-level terms are weighted/OR aggregates of sub-subnets
+        // Fetch persisted vectors
+        let active = Active::<Test>::get(netuid);
+        let emission_v = Emission::<Test>::get(netuid);
+        let rank_v = Rank::<Test>::get(netuid);
+        let trust_v = Trust::<Test>::get(netuid);
+        let cons_v = Consensus::<Test>::get(netuid);
+        let div_v = Dividends::<Test>::get(netuid);
+        let prun_v = PruningScores::<Test>::get(netuid);
+        let vtrust_v = ValidatorTrust::<Test>::get(netuid);
+        let vperm_v = ValidatorPermit::<Test>::get(netuid);
+
+        // Helpers for weighted u16 / u64
+        let wu16 = |a: u16, b: u16| -> u16 {
+            (U64F64::saturating_from_num(a) * w0 + U64F64::saturating_from_num(b) * w1)
+                .saturating_to_num::<u16>()
+        };
+        let wu64 = |a: u64, b: u64| -> u64 {
+            (U64F64::saturating_from_num(a) * w0 + U64F64::saturating_from_num(b) * w1)
+                .saturating_to_num::<u64>()
+        };
+
+        // For each UID, compute expected aggregate from out0/out1 terms
+        let check_uid = |uid: usize, hk: &U256| {
+            let t0 = terms0(hk);
+            let t1 = terms1(hk);
+
+            // Active & ValidatorPermit are OR-aggregated
+            assert_eq!(active[uid], t0.active || t1.active);
+            assert_eq!(
+                vperm_v[uid],
+                t0.new_validator_permit || t1.new_validator_permit
+            );
+
+            // Emission (u64)
+            let exp_em = wu64(u64::from(t0.emission), u64::from(t1.emission));
+            assert_abs_diff_eq!(u64::from(emission_v[uid]), exp_em, epsilon = 1);
+
+            // u16 terms
+            assert_abs_diff_eq!(rank_v[uid], wu16(t0.rank, t1.rank), epsilon = 1);
+            assert_abs_diff_eq!(trust_v[uid], wu16(t0.trust, t1.trust), epsilon = 1);
+            assert_abs_diff_eq!(cons_v[uid], wu16(t0.consensus, t1.consensus), epsilon = 1);
+            assert_abs_diff_eq!(div_v[uid], wu16(t0.dividend, t1.dividend), epsilon = 1);
+            assert_abs_diff_eq!(
+                prun_v[uid],
+                wu16(t0.pruning_score, t1.pruning_score),
+                epsilon = 1
+            );
+            assert_abs_diff_eq!(
+                vtrust_v[uid],
+                wu16(t0.validator_trust, t1.validator_trust),
+                epsilon = 1
+            );
+        };
+
+        check_uid(uid0, &hk0);
+        check_uid(uid1, &hk1);
+        check_uid(uid2, &hk2);
     });
 }
 
@@ -1358,5 +1543,109 @@ fn test_do_commit_crv3_sub_weights_committing_too_fast() {
             reveal_round,
             SubtensorModule::get_commit_reveal_weights_version()
         ));
+    });
+}
+
+#[test]
+fn epoch_subsubnet_emergency_mode_distributes_by_stake() {
+    new_test_ext(1).execute_with(|| {
+        // setup a single sub-subnet where consensus sum becomes 0
+        let netuid = NetUid::from(1u16);
+        let subid = SubId::from(1u8);
+        let idx = SubtensorModule::get_subsubnet_storage_index(netuid, subid);
+        let tempo: u16 = 5;
+        add_network(netuid, tempo, 0);
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8)); // allow subids {0,1}
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 4);
+
+        // three neurons: make ALL permitted validators so active_stake is non-zero
+        let hk0 = U256::from(10);
+        let ck0 = U256::from(11);
+        let hk1 = U256::from(20);
+        let ck1 = U256::from(21);
+        let hk2 = U256::from(30);
+        let ck2 = U256::from(31);
+        let hk3 = U256::from(40); // miner
+        let ck3 = U256::from(41);
+        register_ok_neuron(netuid, hk0, ck0, 0);
+        register_ok_neuron(netuid, hk1, ck1, 0);
+        register_ok_neuron(netuid, hk2, ck2, 0);
+        register_ok_neuron(netuid, hk3, ck3, 0);
+
+        // active + recent updates so they're all active
+        let now = SubtensorModule::get_current_block_as_u64();
+        ActivityCutoff::<Test>::insert(netuid, 1_000u16);
+        LastUpdate::<Test>::insert(idx, vec![now, now, now, now]);
+
+        // All staking validators permitted => active_stake = stake
+        ValidatorPermit::<Test>::insert(netuid, vec![true, true, true, false]);
+        SubtensorModule::set_stake_threshold(0);
+
+        // force ZERO consensus/incentive path: no weights/bonds
+        // (leave Weights/Bonds empty for all rows on this sub-subnet)
+
+        // stake proportions: uid0:uid1:uid2 = 10:30:60
+        SubtensorModule::add_balance_to_coldkey_account(&ck0, 10);
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 30);
+        SubtensorModule::add_balance_to_coldkey_account(&ck2, 60);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk0,
+            &ck0,
+            netuid,
+            AlphaCurrency::from(10),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk1,
+            &ck1,
+            netuid,
+            AlphaCurrency::from(30),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk2,
+            &ck2,
+            netuid,
+            AlphaCurrency::from(60),
+        );
+
+        let emission = AlphaCurrency::from(1_000_000u64);
+
+        // --- act: run epoch on this sub-subnet only ---
+        let out = SubtensorModule::epoch_subsubnet(netuid, subid, emission);
+
+        // collect validator emissions per hotkey
+        let t0 = out.0.get(&hk0).unwrap();
+        let t1 = out.0.get(&hk1).unwrap();
+        let t2 = out.0.get(&hk2).unwrap();
+        let t3 = out.0.get(&hk3).unwrap();
+
+        // In emergency mode (consensus sum == 0):
+        //  - validator_emission is distributed by (active) stake proportions
+        //  - server_emission remains zero (incentive path is zero)
+        assert_eq!(u64::from(t0.server_emission), 0);
+        assert_eq!(u64::from(t1.server_emission), 0);
+        assert_eq!(u64::from(t2.server_emission), 0);
+        assert_eq!(u64::from(t3.server_emission), 0);
+
+        // expected splits by stake: 10%, 30%, 60% of total emission
+        let e = u64::from(emission);
+        let exp0 = e / 10; // 10%
+        let exp1 = e * 3 / 10; // 30%
+        let exp2 = e * 6 / 10; // 60%
+
+        // allow tiny rounding drift from fixed-point conversions
+        assert_abs_diff_eq!(u64::from(t0.validator_emission), exp0, epsilon = 2);
+        assert_abs_diff_eq!(u64::from(t1.validator_emission), exp1, epsilon = 2);
+        assert_abs_diff_eq!(u64::from(t2.validator_emission), exp2, epsilon = 2);
+        assert_eq!(u64::from(t3.validator_emission), 0);
+
+        // all emission goes to validators
+        assert_abs_diff_eq!(
+            u64::from(t0.validator_emission)
+                + u64::from(t1.validator_emission)
+                + u64::from(t2.validator_emission),
+            e,
+            epsilon = 2
+        );
     });
 }

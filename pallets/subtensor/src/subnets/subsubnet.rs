@@ -286,8 +286,11 @@ impl<T: Config> Pallet<T> {
 
                     // Calculate subsubnet weight from the split emission (not the other way because preserving
                     // emission accuracy is the priority)
-                    let sub_weight = U64F64::saturating_from_num(sub_emission)
-                        .safe_div(U64F64::saturating_from_num(rao_emission));
+                    // For zero emission the first subsubnet gets full weight
+                    let sub_weight = U64F64::saturating_from_num(sub_emission).safe_div_or(
+                        U64F64::saturating_from_num(rao_emission),
+                        U64F64::saturating_from_num(if sub_id_u8 == 0 { 1 } else { 0 }),
+                    );
 
                     // Produce an iterator of (hotkey, (terms, sub_weight)) tuples
                     epoch_output
@@ -346,7 +349,50 @@ impl<T: Config> Pallet<T> {
                             );
                             acc_terms.new_validator_permit |= terms.new_validator_permit;
                         })
-                        .or_insert(terms);
+                        .or_insert_with(|| {
+                            // weighted insert for the first sub-subnet seen for this hotkey
+                            EpochTerms {
+                                uid: terms.uid,
+                                dividend: Self::weighted_acc_u16(0, terms.dividend, sub_weight),
+                                incentive: Self::weighted_acc_u16(0, terms.incentive, sub_weight),
+                                validator_emission: Self::weighted_acc_alpha(
+                                    0u64.into(),
+                                    terms.validator_emission,
+                                    sub_weight,
+                                ),
+                                server_emission: Self::weighted_acc_alpha(
+                                    0u64.into(),
+                                    terms.server_emission,
+                                    sub_weight,
+                                ),
+                                stake_weight: Self::weighted_acc_u16(
+                                    0,
+                                    terms.stake_weight,
+                                    sub_weight,
+                                ),
+                                active: terms.active, // booleans are ORed across subs
+                                emission: Self::weighted_acc_alpha(
+                                    0u64.into(),
+                                    terms.emission,
+                                    sub_weight,
+                                ),
+                                rank: Self::weighted_acc_u16(0, terms.rank, sub_weight),
+                                trust: Self::weighted_acc_u16(0, terms.trust, sub_weight),
+                                consensus: Self::weighted_acc_u16(0, terms.consensus, sub_weight),
+                                pruning_score: Self::weighted_acc_u16(
+                                    0,
+                                    terms.pruning_score,
+                                    sub_weight,
+                                ),
+                                validator_trust: Self::weighted_acc_u16(
+                                    0,
+                                    terms.validator_trust,
+                                    sub_weight,
+                                ),
+                                new_validator_permit: terms.new_validator_permit,
+                                bond: Vec::new(), // aggregated map doesn’t use bonds; keep empty
+                            }
+                        });
                     acc
                 });
 

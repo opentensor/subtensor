@@ -2441,6 +2441,7 @@ fn test_drain_pending_emission_no_miners_all_drained() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_pending_emission_zero_emission --exact --show-output
 #[test]
 fn test_drain_pending_emission_zero_emission() {
     new_test_ext(1).execute_with(|| {
