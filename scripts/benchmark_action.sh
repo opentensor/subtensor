@@ -218,5 +218,5 @@ if (( ANY_FAILURE )); then
 fi
 
 echo -e "\n══════════════════════════════════════"
-echo "All pallets processed ✔ (no drift)"
+echo "All pallets processed ✔"
 echo "══════════════════════════════════════"

@@ -1598,7 +1598,7 @@ pub mod pallet {
         /// Sets the number of immune owner neurons
         #[pallet::call_index(72)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_owner_immune_neuron_limit(
             origin: OriginFor<T>,
