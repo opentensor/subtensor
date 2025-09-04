@@ -1056,7 +1056,12 @@ pub struct ResetBondsOnCommit;
 impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
-        let _ = SubtensorModule::do_reset_bonds(netuid, address);
+        // Reset bonds for each subsubnet of this subnet
+        let subsub_count = SubtensorModule::get_current_subsubnet_count(netuid);
+        for subid in 0..u8::from(subsub_count) {
+            let netuid_index = SubtensorModule::get_subsubnet_storage_index(netuid, subid.into());
+            let _ = SubtensorModule::do_reset_bonds(netuid, address);
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]

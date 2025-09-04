@@ -67,6 +67,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn get_current_subsubnet_count(netuid: NetUid) -> SubId {
+        SubsubnetCountCurrent::<T>::get(netuid)
+    }
+
     pub fn ensure_subsubnet_exists(netuid: NetUid, sub_id: SubId) -> DispatchResult {
         // Make sure the base subnet exists
         ensure!(
