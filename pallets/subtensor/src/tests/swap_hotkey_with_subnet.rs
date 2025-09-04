@@ -1033,7 +1033,7 @@ fn test_swap_hotkey_error_cases() {
         // Set up initial state
         Owner::<Test>::insert(old_hotkey, coldkey);
         TotalNetworks::<Test>::put(1);
-        LastTxBlock::<Test>::insert(coldkey, 0);
+        SubtensorModule::set_last_tx_block(&coldkey, 0);
 
         // Test not enough balance
         let swap_cost = SubtensorModule::get_key_swap_cost();
@@ -1444,11 +1444,11 @@ fn test_swap_hotkey_swap_rate_limits() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         // Set the last tx block for the old hotkey
-        LastTxBlock::<Test>::insert(old_hotkey, last_tx_block);
+        SubtensorModule::set_last_tx_block(&old_hotkey, last_tx_block);
         // Set the last delegate take block for the old hotkey
-        LastTxBlockDelegateTake::<Test>::insert(old_hotkey, delegate_take_block);
+        SubtensorModule::set_last_tx_block_delegate_take(&old_hotkey, delegate_take_block);
         // Set last childkey take block for the old hotkey
-        LastTxBlockChildKeyTake::<Test>::insert(old_hotkey, child_key_take_block);
+        SubtensorModule::set_last_tx_block_childkey(&old_hotkey, child_key_take_block);
 
         // Perform the swap
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -1460,13 +1460,16 @@ fn test_swap_hotkey_swap_rate_limits() {
         ),);
 
         // Check for new hotkey
-        assert_eq!(LastTxBlock::<Test>::get(new_hotkey), last_tx_block);
         assert_eq!(
-            LastTxBlockDelegateTake::<Test>::get(new_hotkey),
+            SubtensorModule::get_last_tx_block(&new_hotkey),
+            last_tx_block
+        );
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_delegate_take(&new_hotkey),
             delegate_take_block
         );
         assert_eq!(
-            LastTxBlockChildKeyTake::<Test>::get(new_hotkey),
+            SubtensorModule::get_last_tx_block_childkey_take(&new_hotkey),
             child_key_take_block
         );
     });
@@ -1564,7 +1567,6 @@ fn test_swap_hotkey_registered_on_other_subnet() {
         // Set up initial state
         Owner::<Test>::insert(old_hotkey, coldkey);
         TotalNetworks::<Test>::put(1);
-        LastTxBlock::<Test>::insert(coldkey, 0);
 
         let initial_balance = SubtensorModule::get_key_swap_cost().to_u64() + 1000;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);

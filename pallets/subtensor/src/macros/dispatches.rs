@@ -94,8 +94,8 @@ mod dispatches {
             }
         }
 
-        /// --- Sets the caller weights for the incentive mechanism. The call can be
-        /// made from the hotkey account so is potentially insecure, however, the damage
+        /// --- Sets the caller weights for the incentive mechanism for subsubnets. The call 
+        /// can be made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
         /// checks that the passed weights meet the requirements. Stored as u16s they represent
         /// rational values in the range [0,1] which sum to 1 and can be interpreted as
@@ -113,6 +113,9 @@ mod dispatches {
         ///
         /// * `netuid` (u16):
         /// 	- The network uid we are setting these weights on.
+        /// 
+        /// * `subid` (`u8`):
+        ///   - The u8 subsubnet identifier.
         ///
         /// * `dests` (Vec<u16>):
         /// 	- The edge endpoint for the weight, i.e. j for w_ij.
@@ -240,7 +243,7 @@ mod dispatches {
             Self::do_commit_weights(origin, netuid, commit_hash)
         }
 
-        /// ---- Used to commit a hash of your weight values to later be revealed.
+        /// ---- Used to commit a hash of your weight values to later be revealed for subsubnets.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -248,6 +251,9 @@ mod dispatches {
         ///
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
+        /// 
+        /// * `subid` (`u8`):
+        ///   - The u8 subsubnet identifier.
         ///
         /// * `commit_hash` (`H256`):
         ///   - The hash representing the committed weights.
@@ -358,7 +364,7 @@ mod dispatches {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
-        /// ---- Used to reveal the weights for a previously committed hash.
+        /// ---- Used to reveal the weights for a previously committed hash for subsubnets.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -366,6 +372,9 @@ mod dispatches {
         ///
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
+        /// 
+        /// * `subid` (`u8`):
+        ///   - The u8 subsubnet identifier.
         ///
         /// * `uids` (`Vec<u16>`):
         ///   - The uids for the weights being revealed.
@@ -453,7 +462,7 @@ mod dispatches {
             Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
         }
 
-        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
+        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed for subsubnets.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -461,6 +470,9 @@ mod dispatches {
         ///
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
+        /// 
+        /// * `subid` (`u8`):
+        ///   - The u8 subsubnet identifier.
         ///
         /// * `commit` (`Vec<u8>`):
         ///   - The encrypted compressed commit.
@@ -1059,7 +1071,7 @@ mod dispatches {
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(14))
+        .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
@@ -2192,7 +2204,7 @@ mod dispatches {
         #[pallet::call_index(112)]
         #[pallet::weight((
             Weight::from_parts(26_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn update_symbol(
@@ -2236,8 +2248,8 @@ mod dispatches {
         /// * commit_reveal_version (`u16`):
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
-        #[pallet::weight((Weight::from_parts(84_020_000, 0)
-		.saturating_add(T::DbWeight::get().reads(9_u64))
+        #[pallet::weight((Weight::from_parts(80_690_000, 0)
+		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
             origin: T::RuntimeOrigin,
@@ -2255,7 +2267,34 @@ mod dispatches {
             )
         }
 
-        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed.
+        /// Set the autostake destination hotkey for a coldkey.
+        ///
+        /// The caller selects a hotkey where all future rewards
+        /// will be automatically staked.  
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey account to designate as the autostake destination.
+        #[pallet::call_index(114)]
+        #[pallet::weight(
+            Weight::from_parts(5_170_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
+        )]
+        pub fn set_coldkey_auto_stake_hotkey(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+
+            AutoStakeDestination::<T>::insert(coldkey, hotkey.clone());
+
+            Ok(())
+        }
+
+        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed for 
+        /// a subsubnet.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
