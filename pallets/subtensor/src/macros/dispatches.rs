@@ -155,7 +155,7 @@ mod dispatches {
         ///
         /// * 'MaxWeightExceeded':
         /// 	- Attempting to set weights with max value exceeding limit.
-        #[pallet::call_index(114)]
+        #[pallet::call_index(119)]
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(4111))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]

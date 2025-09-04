@@ -1955,6 +1955,7 @@ fn test_sudo_set_commit_reveal_version() {
     });
 }
 
+#[test]
 fn test_sudo_set_min_burn() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
