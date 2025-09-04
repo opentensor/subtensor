@@ -115,6 +115,10 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
     fn is_owner(account_id: &AccountId, _netuid: NetUid) -> bool {
         *account_id != NOT_SUBNET_OWNER
     }
+
+    fn is_subtoken_enabled(_netuid: NetUid) -> bool {
+        true
+    }
 }
 
 pub struct MockBalanceOps;
