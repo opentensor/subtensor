@@ -513,7 +513,6 @@ impl<T: Config> Pallet<T> {
         MaxBurn::<T>::remove(netuid);
         MinDifficulty::<T>::remove(netuid);
         MaxDifficulty::<T>::remove(netuid);
-        LastAdjustmentBlock::<T>::remove(netuid);
         RegistrationsThisBlock::<T>::remove(netuid);
         EMAPriceHalvingBlocks::<T>::remove(netuid);
         RAORecycledForRegistration::<T>::remove(netuid);
