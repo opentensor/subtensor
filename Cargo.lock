@@ -11479,7 +11479,7 @@ dependencies = [
 [[package]]
 name = "sc-transaction-pool"
 version = "39.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+source = "git+https://github.com/opentensor/transaction-pool.git?rev=5cc8837d4c237d02c013c50b0a0eb70fdcba75bf#5cc8837d4c237d02c013c50b0a0eb70fdcba75bf"
 dependencies = [
  "async-trait",
  "futures",
