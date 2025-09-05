@@ -2137,6 +2137,38 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
     });
 }
 
+// Verifies that when the owner hyperparameter rate limit is left at its default (0), hyperparameter
+// updates are not blocked until a non-zero value is set.
+#[test]
+fn test_hyperparam_rate_limit_not_blocking_with_default() {
+    new_test_ext().execute_with(|| {
+        // Setup subnet and owner
+        let netuid = NetUid::from(42);
+        add_network(netuid, 10);
+        let owner: U256 = U256::from(77);
+        SubnetOwner::<Test>::insert(netuid, owner);
+
+        // Read the default (unset) owner hyperparam rate limit
+        let default_limit = SubtensorModule::get_owner_hyperparam_rate_limit();
+
+        assert_eq!(default_limit, 0);
+
+        // First owner update should always succeed
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            1
+        ));
+
+        // With default == 0, second immediate update should also pass (no rate limiting)
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            2
+        ));
+    });
+}
+
 #[test]
 fn test_sudo_set_max_burn() {
     new_test_ext().execute_with(|| {
