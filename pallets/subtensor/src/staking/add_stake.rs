@@ -137,8 +137,6 @@ impl<T: Config> Pallet<T> {
             "do_add_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid:{netuid:?}, stake_to_be_added:{stake_to_be_added:?} )"
         );
 
-        Self::ensure_subtoken_enabled(netuid)?;
-
         // 2. Calculate the maximum amount that can be executed with price limit
         let max_amount: TaoCurrency = Self::get_max_amount_add(netuid, limit_price)?.into();
         let mut possible_stake = stake_to_be_added;
