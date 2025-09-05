@@ -1,6 +1,8 @@
 use super::*;
 use crate::epoch::math::*;
+use crate::{Error, MAX_COMMIT_REVEAL_PEROIDS, MIN_COMMIT_REVEAL_PEROIDS};
 use codec::Compact;
+use frame_support::dispatch::DispatchResult;
 use safe_math::*;
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
@@ -9,7 +11,6 @@ use sp_runtime::{
 };
 use sp_std::{collections::vec_deque::VecDeque, vec};
 use subtensor_runtime_common::NetUid;
-
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for committing weight hashes.
     ///
@@ -1062,9 +1063,21 @@ impl<T: Config> Pallet<T> {
         (first_reveal_block, last_reveal_block)
     }
 
-    pub fn set_reveal_period(netuid: NetUid, reveal_period: u64) {
+    pub fn set_reveal_period(netuid: NetUid, reveal_period: u64) -> DispatchResult {
+        ensure!(
+            reveal_period <= MAX_COMMIT_REVEAL_PEROIDS,
+            Error::<T>::RevealPeriodTooLarge
+        );
+
+        ensure!(
+            reveal_period >= MIN_COMMIT_REVEAL_PEROIDS,
+            Error::<T>::RevealPeriodTooSmall
+        );
+
         RevealPeriodEpochs::<T>::insert(netuid, reveal_period);
+
         Self::deposit_event(Event::CommitRevealPeriodsSet(netuid, reveal_period));
+        Ok(())
     }
     pub fn get_reveal_period(netuid: NetUid) -> u64 {
         RevealPeriodEpochs::<T>::get(netuid)

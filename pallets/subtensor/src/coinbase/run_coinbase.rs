@@ -39,13 +39,14 @@ impl<T: Config> Pallet<T> {
         log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut total_moving_prices = U96F32::saturating_from_num(0.0);
+        let mut acc_total_moving_prices = U96F32::saturating_from_num(0.0);
         // Only get price EMA for subnets that we emit to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get and update the moving price of each subnet adding the total together.
-            total_moving_prices =
-                total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
+            acc_total_moving_prices =
+                acc_total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
         }
+        let total_moving_prices = acc_total_moving_prices;
         log::debug!("total_moving_prices: {total_moving_prices:?}");
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
@@ -183,21 +184,22 @@ impl<T: Config> Pallet<T> {
             });
         }
 
+        // Get total TAO on root.
+        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
+        log::debug!("root_tao: {root_tao:?}");
+        // Get tao_weight
+        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+        log::debug!("tao_weight: {tao_weight:?}");
+
         // --- 6. Seperate out root dividends in alpha and sell them into tao.
         // Then accumulate those dividends for later.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get remaining alpha out.
             let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0.0));
             log::debug!("alpha_out_i: {alpha_out_i:?}");
-            // Get total TAO on root.
-            let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
-            log::debug!("root_tao: {root_tao:?}");
             // Get total ALPHA on subnet.
             let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
             log::debug!("alpha_issuance: {alpha_issuance:?}");
-            // Get tao_weight
-            let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-            log::debug!("tao_weight: {tao_weight:?}");
             // Get root proportional dividends.
             let root_proportion: U96F32 = tao_weight
                 .checked_div(tao_weight.saturating_add(alpha_issuance))
@@ -239,14 +241,14 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        // --- 7 Update moving prices after using them in the emission calculation.
+        // --- 7. Update moving prices after using them in the emission calculation.
         // Only update price EMA for subnets that we emit to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Update moving prices after using them above.
             Self::update_moving_price(*netuid_i);
         }
 
-        // --- 7. Drain pending emission through the subnet based on tempo.
+        // --- 8. Drain pending emission through the subnet based on tempo.
         // Run the epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
             // Reveal matured weights.
@@ -509,10 +511,11 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            // Increase stake for miner.
+            let owner: T::AccountId = Owner::<T>::get(&hotkey);
+            let destination = AutoStakeDestination::<T>::get(&owner).unwrap_or(hotkey.clone());
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey.clone(),
-                &Owner::<T>::get(hotkey.clone()),
+                &destination,
+                &owner,
                 netuid,
                 incentive,
             );
@@ -741,10 +744,11 @@ impl<T: Config> Pallet<T> {
         // Calculate the hotkey's share of the validator emission based on its childkey take
         let validating_emission: U96F32 = U96F32::saturating_from_num(dividends);
         let mut remaining_emission: U96F32 = validating_emission;
-        let childkey_take_proportion: U96F32 =
+        let burn_take_proportion: U96F32 = Self::get_ck_burn();
+        let child_take_proportion: U96F32 =
             U96F32::saturating_from_num(Self::get_childkey_take(hotkey, netuid))
                 .safe_div(U96F32::saturating_from_num(u16::MAX));
-        log::debug!("Childkey take proportion: {childkey_take_proportion:?} for hotkey {hotkey:?}");
+        log::debug!("Childkey take proportion: {child_take_proportion:?} for hotkey {hotkey:?}");
         // NOTE: Only the validation emission should be split amongst parents.
 
         // Grab the owner of the childkey.
@@ -752,7 +756,7 @@ impl<T: Config> Pallet<T> {
 
         // Initialize variables to track emission distribution
         let mut to_parents: u64 = 0;
-        let mut total_child_emission_take: U96F32 = U96F32::saturating_from_num(0);
+        let mut total_child_take: U96F32 = U96F32::saturating_from_num(0);
 
         // Initialize variables to calculate total stakes from parents
         let mut total_contribution: U96F32 = U96F32::saturating_from_num(0);
@@ -816,23 +820,26 @@ impl<T: Config> Pallet<T> {
             remaining_emission = remaining_emission.saturating_sub(parent_emission);
 
             // Get the childkey take for this parent.
-            let child_emission_take: U96F32 = if parent_owner == childkey_owner {
-                // The parent is from the same coldkey, so we don't remove any childkey take.
-                U96F32::saturating_from_num(0)
-            } else {
-                childkey_take_proportion
-                    .saturating_mul(U96F32::saturating_from_num(parent_emission))
+            let mut burn_take: U96F32 = U96F32::saturating_from_num(0);
+            let mut child_take: U96F32 = U96F32::saturating_from_num(0);
+            if parent_owner != childkey_owner {
+                // The parent is from a different coldkey, we burn some proportion
+                burn_take = burn_take_proportion.saturating_mul(parent_emission);
+                child_take = child_take_proportion.saturating_mul(parent_emission);
+                parent_emission = parent_emission.saturating_sub(burn_take);
+                parent_emission = parent_emission.saturating_sub(child_take);
+                total_child_take = total_child_take.saturating_add(child_take);
+
+                Self::burn_subnet_alpha(
+                    netuid,
+                    AlphaCurrency::from(burn_take.saturating_to_num::<u64>()),
+                );
             };
+            log::debug!("burn_takee: {burn_take:?} for hotkey {hotkey:?}");
+            log::debug!("child_take: {child_take:?} for hotkey {hotkey:?}");
+            log::debug!("parent_emission: {parent_emission:?} for hotkey {hotkey:?}");
+            log::debug!("total_child_take: {total_child_take:?} for hotkey {hotkey:?}");
 
-            // Remove the childkey take from the parent's emission.
-            parent_emission = parent_emission.saturating_sub(child_emission_take);
-
-            // Add the childkey take to the total childkey take tracker.
-            total_child_emission_take =
-                total_child_emission_take.saturating_add(child_emission_take);
-
-            log::debug!("Child emission take: {child_emission_take:?} for hotkey {hotkey:?}");
-            log::debug!("Parent emission: {parent_emission:?} for hotkey {hotkey:?}");
             log::debug!("remaining emission: {remaining_emission:?}");
 
             // Add the parent's emission to the distribution list
@@ -850,7 +857,7 @@ impl<T: Config> Pallet<T> {
         // Calculate the final emission for the hotkey itself.
         // This includes the take left from the parents and the self contribution.
         let child_emission = remaining_emission
-            .saturating_add(total_child_emission_take)
+            .saturating_add(total_child_take)
             .saturating_to_num::<u64>()
             .into();
 

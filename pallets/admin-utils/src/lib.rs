@@ -107,8 +107,8 @@ pub mod pallet {
         BondsMovingAverageMaxReached,
         /// Only root can set negative sigmoid steepness values
         NegativeSigmoidSteepness,
-        /// Reveal Peroid is not within the valid range.
-        RevealPeriodOutOfBounds,
+        /// Value not in allowed bounds.
+        ValueNotInBounds,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -657,22 +657,30 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the minimum burn for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by root and subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum burn.
         #[pallet::call_index(22)]
-        #[pallet::weight(Weight::from_parts(15_440_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(18_870_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_burn(
             origin: OriginFor<T>,
             netuid: NetUid,
             min_burn: TaoCurrency,
         ) -> DispatchResult {
-            ensure_root(origin)?;
-
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(
+                min_burn < T::MinBurnUpperBound::get(),
+                Error::<T>::ValueNotInBounds
+            );
+            // Min burn must be less than max burn
+            ensure!(
+                min_burn < pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
+                Error::<T>::ValueNotInBounds
             );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
             log::debug!("MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) ");
@@ -680,22 +688,30 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the maximum burn for a subnet.
-        /// It is only callable by the root account or subnet owner.
+        /// It is only callable by root and subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the maximum burn.
         #[pallet::call_index(23)]
         #[pallet::weight(Weight::from_parts(15_940_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_burn(
             origin: OriginFor<T>,
             netuid: NetUid,
             max_burn: TaoCurrency,
         ) -> DispatchResult {
-            ensure_root(origin)?;
-
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(
+                max_burn > T::MaxBurnLowerBound::get(),
+                Error::<T>::ValueNotInBounds
+            );
+            // Max burn must be greater than min burn
+            ensure!(
+                max_burn > pallet_subtensor::Pallet::<T>::get_min_burn(netuid),
+                Error::<T>::ValueNotInBounds
             );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
             log::debug!("MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) ");
@@ -965,21 +981,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the subnet limit for the network.
-        /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the subnet limit.
-        #[pallet::call_index(37)]
-        #[pallet::weight((
-			Weight::from_parts(14_000_000, 0)
-				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
-			DispatchClass::Operational,
-			Pays::No
-		))]
-        pub fn sudo_set_subnet_limit(origin: OriginFor<T>, _max_subnets: u16) -> DispatchResult {
-            ensure_root(origin)?;
-            Ok(())
-        }
-
         /// The extrinsic sets the lock reduction interval for the network.
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the lock reduction interval.
@@ -1108,26 +1109,6 @@ pub mod pallet {
             Ok(())
         }
 
-        // The extrinsic sets the target stake per interval.
-        // It is only callable by the root account.
-        // The extrinsic will call the Subtensor pallet to set target stake per interval.
-        // #[pallet::call_index(47)]
-        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        // pub fn sudo_set_target_stakes_per_interval(
-        //     origin: OriginFor<T>,
-        //     target_stakes_per_interval: u64,
-        // ) -> DispatchResult {
-        //     ensure_root(origin)?;
-        //     pallet_subtensor::Pallet::<T>::set_target_stakes_per_interval(
-        //         target_stakes_per_interval,
-        //     );
-        //     log::debug!(
-        //         "TxTargetStakesPerIntervalSet( set_target_stakes_per_interval: {:?} ) ",
-        //         target_stakes_per_interval
-        //     ); (DEPRECATED)
-        //     Ok(())
-        // } (DEPRECATED)
-
         /// The extrinsic enabled/disables commit/reaveal for a given subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the value.
@@ -1198,62 +1179,6 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::do_set_alpha_values(
                 origin, netuid, alpha_low, alpha_high,
             )
-        }
-
-        // DEPRECATED
-        // #[pallet::call_index(52)]
-        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        // pub fn sudo_set_hotkey_emission_tempo(
-        //     origin: OriginFor<T>,
-        //     emission_tempo: u64,
-        // ) -> DispatchResult {
-        //     ensure_root(origin)?;
-        //     pallet_subtensor::Pallet::<T>::set_hotkey_emission_tempo(emission_tempo);
-        //     log::debug!(
-        //         "HotkeyEmissionTempoSet( emission_tempo: {:?} )",
-        //         emission_tempo
-        //     );
-        //     Ok(())
-        // }
-
-        /// Sets the maximum stake allowed for a specific network.
-        ///
-        /// This function allows the root account to set the maximum stake for a given network.
-        /// It updates the network's maximum stake value and logs the change.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - The origin of the call, which must be the root account.
-        /// * `netuid` - The unique identifier of the network.
-        /// * `max_stake` - The new maximum stake value to set.
-        ///
-        /// # Returns
-        ///
-        /// Returns `Ok(())` if the operation is successful, or an error if it fails.
-        ///
-        /// # Example
-        ///
-        ///
-        /// # Notes
-        ///
-        /// - This function can only be called by the root account.
-        /// - The `netuid` should correspond to an existing network.
-        ///
-        /// # TODO
-        ///
-        // - Consider adding a check to ensure the `netuid` corresponds to an existing network.
-        // - Implement a mechanism to gradually adjust the max stake to prevent sudden changes.
-        // #[pallet::weight(<T as Config>::WeightInfo::sudo_set_network_max_stake())]
-        #[pallet::call_index(53)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_network_max_stake(
-            origin: OriginFor<T>,
-            _netuid: NetUid,
-            _max_stake: u64,
-        ) -> DispatchResult {
-            // Ensure the call is made by the root account
-            ensure_root(origin)?;
-            Ok(())
         }
 
         /// Sets the duration of the coldkey swap schedule.
@@ -1362,14 +1287,10 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
 
-            const MAX_COMMIT_REVEAL_PEROIDS: u64 = 100;
-            ensure!(
-                interval <= MAX_COMMIT_REVEAL_PEROIDS,
-                Error::<T>::RevealPeriodOutOfBounds
-            );
-
-            pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval);
             log::debug!("SetWeightCommitInterval( netuid: {netuid:?}, interval: {interval:?} ) ");
+
+            pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval)?;
+
             Ok(())
         }
 
@@ -1784,6 +1705,20 @@ pub mod pallet {
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
+            Ok(())
+        }
+
+        /// Sets the childkey burn for a subnet.
+        /// It is only callable by the root account.
+        /// The extrinsic will call the Subtensor pallet to set the childkey burn.
+        #[pallet::call_index(73)]
+        #[pallet::weight(Weight::from_parts(15_650_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_ck_burn(origin: OriginFor<T>, burn: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_ck_burn(burn);
+            log::debug!("CKBurnSet( burn: {burn:?} ) ");
             Ok(())
         }
     }

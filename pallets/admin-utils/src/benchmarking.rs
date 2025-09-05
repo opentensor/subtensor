@@ -267,7 +267,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 10.into()/*max_burn*/)/*sudo_set_max_burn*/;
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 2_000_000_000.into()/*max_burn*/)/*sudo_set_max_burn*/;
     }
 
     #[benchmark]

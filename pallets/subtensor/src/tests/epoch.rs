@@ -159,7 +159,7 @@ fn init_run_epochs(
     bonds_penalty: u16,
 ) {
     // === Create the network
-    add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+    add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
 
     // === Set bonds penalty
     SubtensorModule::set_bonds_penalty(netuid, bonds_penalty);
@@ -560,7 +560,7 @@ fn test_1_graph() {
         let hotkey = U256::from(0);
         let uid: u16 = 0;
         let stake_amount: u64 = 1_000_000_000;
-        add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+        add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
@@ -630,7 +630,7 @@ fn test_10_graph() {
         // each with 1 stake and self weights.
         let n: usize = 10;
         let netuid = NetUid::from(1);
-        add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+        add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, n as u16);
         for i in 0..10 {
             add_node(netuid, U256::from(i), U256::from(i), i as u16, 1)
@@ -1004,7 +1004,7 @@ fn test_bonds() {
 		let max_stake: u64 = 4;
 		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
         let block_number = System::block_number();
-		add_network(netuid, tempo, 0);
+		add_network_disable_commit_reveal(netuid, tempo, 0);
 		SubtensorModule::set_max_allowed_uids( netuid, n );
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		SubtensorModule::set_max_registrations_per_block( netuid, n );
@@ -1351,7 +1351,7 @@ fn test_active_stake() {
         let tempo: u16 = 1;
         let block_number: u64 = System::block_number();
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1567,7 +1567,7 @@ fn test_outdated_weights() {
         let tempo: u16 = 0;
         let mut block_number: u64 = System::block_number();
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1757,7 +1757,7 @@ fn test_zero_weights() {
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
         let mut block_number: u64 = 0;
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1960,7 +1960,7 @@ fn test_deregistered_miner_bonds() {
         let high_tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
 
         let stake: u64 = 1;
-        add_network(netuid, high_tempo, 0);
+        add_network_disable_commit_reveal(netuid, high_tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -2669,7 +2669,7 @@ pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
 fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
     let block_number = System::block_number();
     let tempo: u16 = 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-    add_network(netuid, tempo, 0);
+    add_network_disable_commit_reveal(netuid, tempo, 0);
 
     SubtensorModule::set_max_allowed_uids(netuid, n);
     assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
@@ -3567,7 +3567,7 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
         let reveal: u64 = 2;
 
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_reveal_period(netuid, reveal);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
@@ -3709,7 +3709,7 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
         let reveal: u16 = 2;
 
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_reveal_period(netuid, reveal as u64);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal as u64));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
 
