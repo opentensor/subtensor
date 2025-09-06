@@ -1,6 +1,7 @@
 use super::*;
 use sp_core::Get;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of subnets.
@@ -101,23 +102,23 @@ impl<T: Config> Pallet<T> {
     /// Facilitates user registration of a new subnetwork.
     ///
     /// ### Args
-    /// * **`origin`** – `T::RuntimeOrigin` &nbsp;Must be **signed** by the coldkey.  
-    /// * **`hotkey`** – `&T::AccountId` &nbsp;First neuron of the new subnet.  
-    /// * **`mechid`** – `u16` &nbsp;Only the dynamic mechanism (`1`) is currently supported.  
+    /// * **`origin`** – `T::RuntimeOrigin` &nbsp;Must be **signed** by the coldkey.
+    /// * **`hotkey`** – `&T::AccountId` &nbsp;First neuron of the new subnet.
+    /// * **`mechid`** – `u16` &nbsp;Only the dynamic mechanism (`1`) is currently supported.
     /// * **`identity`** – `Option<SubnetIdentityOfV3>` &nbsp;Optional metadata for the subnet.
     ///
     /// ### Events
-    /// * `NetworkAdded(netuid, mechid)` – always.  
-    /// * `SubnetIdentitySet(netuid)`   – when a custom identity is supplied.  
+    /// * `NetworkAdded(netuid, mechid)` – always.
+    /// * `SubnetIdentitySet(netuid)`   – when a custom identity is supplied.
     /// * `NetworkRemoved(netuid)`      – when a subnet is pruned to make room.
     ///
     /// ### Errors
-    /// * `NonAssociatedColdKey`            – `hotkey` already belongs to another coldkey.  
-    /// * `MechanismDoesNotExist`           – unsupported `mechid`.  
-    /// * `NetworkTxRateLimitExceeded`      – caller hit the register-network rate limit.  
-    /// * `SubnetLimitReached`              – limit hit **and** no eligible subnet to prune.  
-    /// * `CannotAffordLockCost`            – caller lacks the lock cost.  
-    /// * `BalanceWithdrawalError`          – failed to lock balance.  
+    /// * `NonAssociatedColdKey`            – `hotkey` already belongs to another coldkey.
+    /// * `MechanismDoesNotExist`           – unsupported `mechid`.
+    /// * `NetworkTxRateLimitExceeded`      – caller hit the register-network rate limit.
+    /// * `SubnetLimitReached`              – limit hit **and** no eligible subnet to prune.
+    /// * `CannotAffordLockCost`            – caller lacks the lock cost.
+    /// * `BalanceWithdrawalError`          – failed to lock balance.
     /// * `InvalidIdentity`                 – supplied `identity` failed validation.
     ///
     pub fn do_register_network(
@@ -254,6 +255,8 @@ impl<T: Config> Pallet<T> {
             SubnetIdentitiesV3::<T>::insert(netuid_to_register, identity_value);
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
+
+        T::SwapInterface::try_initialize_v3(netuid_to_register)?;
 
         // --- 18. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");

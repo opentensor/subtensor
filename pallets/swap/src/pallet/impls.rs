@@ -1575,6 +1575,9 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
         Self::do_dissolve_all_liquidity_providers(netuid)
     }
+    fn try_initialize_v3(netuid: NetUid) -> DispatchResult {
+        Self::maybe_initialize_v3(netuid).map_err(|e| e.into())
+    }
 }
 
 #[derive(Debug, PartialEq)]
