@@ -10,6 +10,7 @@ use pallet_subtensor_swap::Call as SwapCall;
 use pallet_subtensor_swap::tick::TickIndex;
 use safe_math::FixedExt;
 use sp_core::{Get, H256, U256};
+use sp_runtime::traits::Dispatchable;
 use substrate_fixed::traits::FromFixed;
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, TaoCurrency};
@@ -862,6 +863,7 @@ fn test_remove_stake_insufficient_liquidity() {
             netuid,
             amount_staked.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -4480,6 +4482,7 @@ fn test_stake_into_subnet_ok() {
             amount.into(),
             TaoCurrency::MAX,
             false,
+            false,
         ));
         let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
             / u16::MAX as f64;
@@ -4533,6 +4536,7 @@ fn test_stake_into_subnet_low_amount() {
             amount.into(),
             TaoCurrency::MAX,
             false,
+            false,
         ));
         let expected_stake = AlphaCurrency::from(((amount as f64) * 0.997 / current_price) as u64);
 
@@ -4579,6 +4583,7 @@ fn test_unstake_from_subnet_low_amount() {
             netuid,
             amount.into(),
             TaoCurrency::MAX,
+            false,
             false,
         ));
 
@@ -4693,6 +4698,7 @@ fn test_unstake_from_subnet_prohibitive_limit() {
             amount.into(),
             TaoCurrency::MAX,
             false,
+            false,
         ));
 
         // Remove stake
@@ -4767,6 +4773,7 @@ fn test_unstake_full_amount() {
             netuid,
             amount.into(),
             TaoCurrency::MAX,
+            false,
             false,
         ));
 

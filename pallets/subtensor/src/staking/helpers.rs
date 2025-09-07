@@ -184,7 +184,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
-            // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
+            // If the stake is non-zero and below the minimum required, it's considered a small nomination and needs to be cleared.
             // Log if the stake is below the minimum required
             let alpha_stake =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
@@ -192,7 +192,7 @@ impl<T: Config> Pallet<T> {
                 U96F32::saturating_from_num(Self::get_nominator_min_required_stake())
                     .safe_div(T::SwapInterface::current_alpha_price(netuid))
                     .saturating_to_num::<u64>();
-            if alpha_stake < min_alpha_stake.into() {
+            if alpha_stake > 0.into() && alpha_stake < min_alpha_stake.into() {
                 // Log the clearing of a small nomination
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
@@ -320,5 +320,11 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
         T::SwapInterface::is_user_liquidity_enabled(netuid)
+    }
+
+    pub fn burn_subnet_alpha(netuid: NetUid, amount: AlphaCurrency) {
+        SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(amount);
+        });
     }
 }

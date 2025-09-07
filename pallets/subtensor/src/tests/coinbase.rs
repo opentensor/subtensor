@@ -1063,6 +1063,7 @@ fn test_drain_alpha_childkey_parentkey() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
+        SubtensorModule::set_ck_burn(0);
         let parent = U256::from(1);
         let child = U256::from(2);
         let coldkey = U256::from(3);
@@ -1238,6 +1239,7 @@ fn test_get_root_children_drain() {
         let alpha = NetUid::from(1);
         add_network(NetUid::ROOT, 1, 0);
         add_network(alpha, 1, 0);
+        SubtensorModule::set_ck_burn(0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
@@ -1399,6 +1401,7 @@ fn test_get_root_children_drain_half_proportion() {
         let alpha = NetUid::from(1);
         add_network(NetUid::ROOT, 1, 0);
         add_network(alpha, 1, 0);
+        SubtensorModule::set_ck_burn(0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
@@ -1576,6 +1579,7 @@ fn test_get_root_children_drain_with_half_take() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
+        SubtensorModule::set_ck_burn(0);
         // Create keys.
         let cold_alice = U256::from(0);
         let cold_bob = U256::from(1);
@@ -1759,6 +1763,7 @@ fn test_incentive_to_subnet_owner_is_burned() {
 
         let other_ck = U256::from(2);
         let other_hk = U256::from(3);
+        Owner::<Test>::insert(other_hk, other_ck);
 
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
 
@@ -1795,6 +1800,195 @@ fn test_incentive_to_subnet_owner_is_burned() {
         assert_eq!(subnet_owner_stake_after, 0.into());
         let other_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
         assert!(other_stake_after > 0.into());
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_incentive_to_subnet_owners_hotkey_is_burned --exact --show-output --nocapture
+#[test]
+fn test_incentive_to_subnet_owners_hotkey_is_burned() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        // Other hk owned by owner
+        let other_hk = U256::from(3);
+        Owner::<Test>::insert(other_hk, subnet_owner_ck);
+        OwnedHotkeys::<Test>::insert(subnet_owner_ck, vec![subnet_owner_hk, other_hk]);
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        Uids::<Test>::insert(netuid, other_hk, 1);
+
+        // Set the burn key limit to 2
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
+
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha = AlphaCurrency::ZERO; // None to valis
+        let owner_cut = AlphaCurrency::ZERO;
+        let mut incentives: BTreeMap<U256, AlphaCurrency> = BTreeMap::new();
+
+        // Give incentive to other_hk
+        incentives.insert(other_hk, 10_000_000.into());
+
+        // Give incentives to subnet_owner_hk
+        incentives.insert(subnet_owner_hk, 10_000_000.into());
+
+        // Verify stake before
+        let subnet_owner_stake_before =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_before, 0.into());
+        let other_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+        assert_eq!(other_stake_before, 0.into());
+
+        // Distribute dividends and incentives
+        SubtensorModule::distribute_dividends_and_incentives(
+            netuid,
+            owner_cut,
+            incentives,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        );
+
+        // Verify stake after
+        let subnet_owner_stake_after =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_after, 0.into());
+        let other_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+        assert_eq!(other_stake_after, 0.into());
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_incentive_to_subnet_owners_hotkey_is_burned_with_limit --exact --show-output --nocapture
+#[test]
+fn test_incentive_to_subnet_owners_hotkey_is_burned_with_limit() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        // Other hk owned by owner
+        let other_hk = U256::from(3);
+        Owner::<Test>::insert(other_hk, subnet_owner_ck);
+        OwnedHotkeys::<Test>::insert(subnet_owner_ck, vec![subnet_owner_hk, other_hk]);
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        Uids::<Test>::insert(netuid, other_hk, 1);
+
+        // Set the burn key limit to 1 - testing the limits
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 1);
+
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha = AlphaCurrency::ZERO; // None to valis
+        let owner_cut = AlphaCurrency::ZERO;
+        let mut incentives: BTreeMap<U256, AlphaCurrency> = BTreeMap::new();
+
+        // Give incentive to other_hk
+        incentives.insert(other_hk, 10_000_000.into());
+
+        // Give incentives to subnet_owner_hk
+        incentives.insert(subnet_owner_hk, 10_000_000.into());
+
+        // Verify stake before
+        let subnet_owner_stake_before =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_before, 0.into());
+        let other_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+        assert_eq!(other_stake_before, 0.into());
+
+        // Distribute dividends and incentives
+        SubtensorModule::distribute_dividends_and_incentives(
+            netuid,
+            owner_cut,
+            incentives,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        );
+
+        // Verify stake after
+        let subnet_owner_stake_after =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_after, 0.into());
+        let other_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+
+        // Testing the limit - should be not burned
+        assert!(other_stake_after > 0.into());
+    });
+}
+
+// Test that if number of sn owner hotkeys is greater than ImmuneOwnerUidsLimit, then the ones with
+// higher BlockAtRegistration are used to burn
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_burn_key_sorting --exact --show-output --nocapture
+#[test]
+fn test_burn_key_sorting() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        // Other hk owned by owner
+        let other_hk_1 = U256::from(3);
+        let other_hk_2 = U256::from(4);
+        let other_hk_3 = U256::from(5);
+        Owner::<Test>::insert(other_hk_1, subnet_owner_ck);
+        Owner::<Test>::insert(other_hk_2, subnet_owner_ck);
+        Owner::<Test>::insert(other_hk_3, subnet_owner_ck);
+        OwnedHotkeys::<Test>::insert(
+            subnet_owner_ck,
+            vec![subnet_owner_hk, other_hk_1, other_hk_2, other_hk_3],
+        );
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        // Set block of registration and UIDs for other hotkeys
+        // HK1 has block of registration 2
+        // HK2 and HK3 have the same block of registration 1, so they are sorted by UID
+        // Set HK2 UID = 3 and HK3 UID = 2 so that HK3 is burned and HK2 is not
+        // Summary: HK1 and HK3 should be burned, HK2 should be not.
+        // Let's test it now.
+        BlockAtRegistration::<Test>::insert(netuid, 1, 2);
+        BlockAtRegistration::<Test>::insert(netuid, 3, 1);
+        BlockAtRegistration::<Test>::insert(netuid, 2, 1);
+        Uids::<Test>::insert(netuid, other_hk_1, 1);
+        Uids::<Test>::insert(netuid, other_hk_2, 3);
+        Uids::<Test>::insert(netuid, other_hk_3, 2);
+
+        // Set the burn key limit to 3 because we also have sn owner
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 3);
+
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha = AlphaCurrency::ZERO; // None to valis
+        let owner_cut = AlphaCurrency::ZERO;
+        let mut incentives: BTreeMap<U256, AlphaCurrency> = BTreeMap::new();
+
+        // Give incentive to hotkeys
+        incentives.insert(other_hk_1, 10_000_000.into());
+        incentives.insert(other_hk_2, 10_000_000.into());
+        incentives.insert(other_hk_3, 10_000_000.into());
+
+        // Give incentives to subnet_owner_hk
+        incentives.insert(subnet_owner_hk, 10_000_000.into());
+
+        // Distribute dividends and incentives
+        SubtensorModule::distribute_dividends_and_incentives(
+            netuid,
+            owner_cut,
+            incentives,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        );
+
+        // SN owner is burned
+        let subnet_owner_stake_after =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_after, 0.into());
+
+        // Testing the limits - HK1 and HK3 should be burned, HK2 should be not burned
+        let other_stake_after_1 =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk_1, netuid);
+        let other_stake_after_2 =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk_2, netuid);
+        let other_stake_after_3 =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk_3, netuid);
+        assert_eq!(other_stake_after_1, 0.into());
+        assert!(other_stake_after_2 > 0.into());
+        assert_eq!(other_stake_after_3, 0.into());
     });
 }
 
@@ -2254,7 +2448,7 @@ fn test_drain_pending_emission_no_miners_all_drained() {
 #[test]
 fn test_drain_pending_emission_zero_emission() {
     new_test_ext(1).execute_with(|| {
-        let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let netuid = add_dynamic_network_disable_commit_reveal(&U256::from(1), &U256::from(2));
         let hotkey = U256::from(3);
         let coldkey = U256::from(4);
         let miner_hk = U256::from(5);
@@ -2332,6 +2526,7 @@ fn test_run_coinbase_not_started() {
         let sn_owner_ck = U256::from(8);
 
         add_network_without_emission_block(netuid, tempo, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
         SubnetOwner::<Test>::insert(netuid, sn_owner_ck);
@@ -2420,6 +2615,7 @@ fn test_run_coinbase_not_started_start_after() {
         let sn_owner_ck = U256::from(8);
 
         add_network_without_emission_block(netuid, tempo, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
         SubnetOwner::<Test>::insert(netuid, sn_owner_ck);
@@ -2555,5 +2751,175 @@ fn test_coinbase_v3_liquidity_update() {
         let liquidity_after = position_after.liquidity;
 
         assert!(liquidity_before < liquidity_after);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_alpha_childkey_parentkey_with_burn --exact --show-output --nocapture
+#[test]
+fn test_drain_alpha_childkey_parentkey_with_burn() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+        let parent = U256::from(1);
+        let child = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before = AlphaCurrency::from(1_000_000_000);
+        register_ok_neuron(netuid, child, coldkey, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        mock_set_children_no_epochs(netuid, &parent, &[(u64::MAX, child)]);
+
+        // Childkey take is 10%
+        ChildkeyTake::<Test>::insert(child, netuid, u16::MAX / 10);
+
+        let burn_rate = SubtensorModule::get_ck_burn();
+        let parent_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        let child_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
+
+        let pending_alpha = AlphaCurrency::from(1_000_000_000);
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            pending_alpha,
+            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
+        );
+        let parent_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        let child_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
+
+        let expected_ck_burn = I96F32::from_num(pending_alpha)
+            * I96F32::from_num(9.0 / 10.0)
+            * I96F32::from_num(burn_rate);
+
+        let expected_total = I96F32::from_num(pending_alpha) - expected_ck_burn;
+        let parent_ratio = (I96F32::from_num(pending_alpha) * I96F32::from_num(9.0 / 10.0)
+            - expected_ck_burn)
+            / expected_total;
+        let child_ratio = (I96F32::from_num(pending_alpha) / I96F32::from_num(10)) / expected_total;
+
+        let expected =
+            I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * parent_ratio;
+        log::info!(
+            "expected: {:?}, parent_stake_after: {:?}",
+            expected.to_num::<u64>(),
+            parent_stake_after
+        );
+
+        close(
+            expected.to_num::<u64>(),
+            parent_stake_after.into(),
+            3_000_000,
+        );
+        let expected = I96F32::from_num(u64::from(pending_alpha)) * child_ratio;
+        close(
+            expected.to_num::<u64>(),
+            child_stake_after.into(),
+            3_000_000,
+        );
+    });
+}
+
+#[test]
+fn test_incentive_is_autostaked_to_owner_destination() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        let miner_ck = U256::from(10);
+        let miner_hk = U256::from(11);
+        let dest_hk = U256::from(12);
+
+        Owner::<Test>::insert(miner_hk, miner_ck);
+        Owner::<Test>::insert(dest_hk, miner_ck);
+        OwnedHotkeys::<Test>::insert(miner_ck, vec![miner_hk, dest_hk]);
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        Uids::<Test>::insert(netuid, miner_hk, 1);
+        Uids::<Test>::insert(netuid, dest_hk, 2);
+
+        // Set autostake destination for the miner's coldkey
+        assert_ok!(SubtensorModule::set_coldkey_auto_stake_hotkey(
+            RuntimeOrigin::signed(miner_ck),
+            dest_hk,
+        ));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&miner_hk, netuid),
+            0.into()
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&dest_hk, netuid),
+            0.into()
+        );
+
+        // Distribute an incentive to the miner hotkey
+        let mut incentives: BTreeMap<U256, AlphaCurrency> = BTreeMap::new();
+        let incentive: AlphaCurrency = 10_000_000u64.into();
+        incentives.insert(miner_hk, incentive);
+
+        SubtensorModule::distribute_dividends_and_incentives(
+            netuid,
+            AlphaCurrency::ZERO, // owner_cut
+            incentives,
+            BTreeMap::new(), // alpha_dividends
+            BTreeMap::new(), // tao_dividends
+        );
+
+        // Expect the stake to land on the destination hotkey (not the original miner hotkey)
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&miner_hk, netuid),
+            0.into()
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&dest_hk, netuid),
+            incentive
+        );
+    });
+}
+
+#[test]
+fn test_incentive_goes_to_hotkey_when_no_autostake_destination() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        let miner_ck = U256::from(20);
+        let miner_hk = U256::from(21);
+
+        Owner::<Test>::insert(miner_hk, miner_ck);
+        OwnedHotkeys::<Test>::insert(miner_ck, vec![miner_hk]);
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        Uids::<Test>::insert(netuid, miner_hk, 1);
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&miner_hk, netuid),
+            0.into()
+        );
+
+        // Distribute an incentive to the miner hotkey
+        let mut incentives: BTreeMap<U256, AlphaCurrency> = BTreeMap::new();
+        let incentive: AlphaCurrency = 5_000_000u64.into();
+        incentives.insert(miner_hk, incentive);
+
+        SubtensorModule::distribute_dividends_and_incentives(
+            netuid,
+            AlphaCurrency::ZERO, // owner_cut
+            incentives,
+            BTreeMap::new(), // alpha_dividends
+            BTreeMap::new(), // tao_dividends
+        );
+
+        // With no autostake destination, the incentive should be staked to the original hotkey
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&miner_hk, netuid),
+            incentive
+        );
     });
 }

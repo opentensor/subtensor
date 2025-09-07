@@ -173,12 +173,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
         // --- 12. Set the creation terms.
-        Self::set_last_transaction_block_on_subnet(
-            &coldkey,
-            netuid_to_register,
-            &TransactionType::RegisterNetwork,
-            current_block,
-        );
+        Self::set_network_last_lock_block(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 13. Set the symbol.

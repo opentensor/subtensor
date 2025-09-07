@@ -885,7 +885,7 @@ impl<T: Config> Pallet<T> {
         liquidity: u64,
     ) -> Result<(Position<T>, u64, u64), Error<T>> {
         ensure!(
-            Self::count_positions(netuid, coldkey_account_id) <= T::MaxPositions::get() as usize,
+            Self::count_positions(netuid, coldkey_account_id) < T::MaxPositions::get() as usize,
             Error::<T>::MaxPositionsExceeded
         );
 
@@ -1253,13 +1253,20 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
 
                 Self::swap(netuid, order_t, amount, price_limit, false, true)
             }
-            _ => Ok(SwapResult {
-                amount_paid_in: amount,
-                amount_paid_out: amount,
-                fee_paid: 0,
-                tao_reserve_delta: 0,
-                alpha_reserve_delta: 0,
-            }),
+            _ => {
+                let actual_amount = if T::SubnetInfo::exists(netuid) {
+                    amount
+                } else {
+                    0
+                };
+                Ok(SwapResult {
+                    amount_paid_in: actual_amount,
+                    amount_paid_out: actual_amount,
+                    fee_paid: 0,
+                    tao_reserve_delta: 0,
+                    alpha_reserve_delta: 0,
+                })
+            }
         }
     }
 

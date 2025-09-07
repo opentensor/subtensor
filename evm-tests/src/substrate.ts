@@ -168,30 +168,31 @@ export async function waitForTransactionCompletion(api: TypedApi<typeof devnet>,
     // })
 }
 
+
 export async function getTransactionWatchPromise(tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
     return new Promise<void>((resolve, reject) => {
         // store the txHash, then use it in timeout. easier to know which tx is not finalized in time
         let txHash = ""
         const subscription = tx.signSubmitAndWatch(signer).subscribe({
             next(value) {
-                console.log("Event:", value);
                 txHash = value.txHash
 
                 // TODO investigate why finalized not for each extrinsic
                 if (value.type === "finalized") {
                     console.log("Transaction is finalized in block:", value.txHash);
                     subscription.unsubscribe();
+                    clearTimeout(timeoutId);
                     if (!value.ok) {
                         console.log("Transaction threw an error:", value.dispatchError)
                     }
                     // Resolve the promise when the transaction is finalized
                     resolve();
-
                 }
             },
             error(err) {
                 console.error("Transaction failed:", err);
                 subscription.unsubscribe();
+                clearTimeout(timeoutId);
                 // Reject the promise in case of an error
                 reject(err);
 
@@ -201,7 +202,7 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
             }
         });
 
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
             subscription.unsubscribe();
             console.log('unsubscribed because of timeout for tx {}', txHash);
             reject()
