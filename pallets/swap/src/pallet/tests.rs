@@ -1944,3 +1944,40 @@ fn test_less_price_movement() {
         });
     });
 }
+
+#[test]
+fn test_swap_subtoken_disabled() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(SUBTOKEN_DISABLED_NETUID); // Use a netuid not used elsewhere
+        let price_low = 0.1;
+        let price_high = 0.2;
+        let tick_low = price_to_tick(price_low);
+        let tick_high = price_to_tick(price_high);
+        let liquidity = 1_000_000_u64;
+
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+        assert_noop!(
+            Pallet::<Test>::add_liquidity(
+                RuntimeOrigin::signed(OK_COLDKEY_ACCOUNT_ID),
+                OK_HOTKEY_ACCOUNT_ID,
+                netuid,
+                tick_low,
+                tick_high,
+                liquidity,
+            ),
+            Error::<Test>::SubtokenDisabled
+        );
+
+        assert_noop!(
+            Pallet::<Test>::modify_position(
+                RuntimeOrigin::signed(OK_COLDKEY_ACCOUNT_ID),
+                OK_HOTKEY_ACCOUNT_ID,
+                netuid,
+                PositionId::from(0),
+                liquidity as i64,
+            ),
+            Error::<Test>::SubtokenDisabled
+        );
+    });
+}

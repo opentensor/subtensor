@@ -1020,7 +1020,7 @@ mod dispatches {
 
         /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_parts(60_720_000, 0)
+        #[pallet::weight((Weight::from_parts(58_980_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(4)), DispatchClass::Normal, Pays::Yes))]
         pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -1899,7 +1899,7 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(377_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(30))
+		.saturating_add(T::DbWeight::get().reads(30_u64))
 		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
