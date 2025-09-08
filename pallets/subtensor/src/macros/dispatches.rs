@@ -761,7 +761,7 @@ mod dispatches {
 
         /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_parts(75_430_000, 0)
+        #[pallet::weight((Weight::from_parts(58_980_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(4)), DispatchClass::Normal, Pays::Yes))]
         pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
