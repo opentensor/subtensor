@@ -2,7 +2,7 @@ use super::*;
 use crate::HasMigrationRun;
 use frame_support::{
     storage_alias,
-    traits::{Get, StorageVersion},
+    traits::Get,
     weights::Weight,
 };
 use scale_info::prelude::string::String;
