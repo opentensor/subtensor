@@ -491,11 +491,6 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default value for modality.
-    pub fn DefaultModality<T: Config>() -> u16 {
-        0
-    }
-    #[pallet::type_value]
     /// Default value for hotkeys.
     pub fn DefaultHotkeys<T: Config>() -> Vec<u16> {
         vec![]
