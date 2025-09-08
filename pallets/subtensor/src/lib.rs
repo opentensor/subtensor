@@ -2049,6 +2049,10 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn is_owner(account_id: &T::AccountId, netuid: NetUid) -> bool {
         SubnetOwner::<T>::get(netuid) == *account_id
     }
+
+    fn is_subtoken_enabled(netuid: NetUid) -> bool {
+        SubtokenEnabled::<T>::get(netuid)
+    }
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
