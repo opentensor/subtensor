@@ -141,7 +141,7 @@ impl<T: Config> Pallet<T> {
         let max_allowed_uids = Self::get_max_allowed_uids(netuid);
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
-        let network_modality = <NetworkModality<T>>::get(netuid);
+        let network_modality = DefaultModality::<T>::get();
         let burn = Compact::from(Self::get_burn(netuid));
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
@@ -210,7 +210,7 @@ impl<T: Config> Pallet<T> {
         let max_allowed_uids = Self::get_max_allowed_uids(netuid);
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
-        let network_modality = <NetworkModality<T>>::get(netuid);
+        let network_modality = DefaultModality::<T>::get();
         let burn = Compact::from(Self::get_burn(netuid));
         let identity: Option<SubnetIdentityV3> = SubnetIdentitiesV3::<T>::get(netuid);
 

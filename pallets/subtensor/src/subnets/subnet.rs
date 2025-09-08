@@ -238,7 +238,7 @@ impl<T: Config> Pallet<T> {
         Tempo::<T>::insert(netuid, tempo);
 
         // --- 4 Fill modality item.
-        NetworkModality::<T>::insert(netuid, 0);
+        // NetworkModality::<T>::insert(netuid, 0);
 
         // --- 5. Increase total network count.
         TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));

@@ -60,7 +60,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         SubnetworkN::<T>::remove(netuid);
 
         // Remove network modality storage
-        NetworkModality::<T>::remove(netuid);
+        // NetworkModality::<T>::remove(netuid);
 
         // Remove netuid from added networks
         NetworksAdded::<T>::remove(netuid);

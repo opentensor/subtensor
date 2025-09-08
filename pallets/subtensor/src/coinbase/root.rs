@@ -415,7 +415,7 @@ impl<T: Config> Pallet<T> {
         SubnetworkN::<T>::remove(netuid);
 
         // --- 3. Remove network modality storage.
-        NetworkModality::<T>::remove(netuid);
+        // NetworkModality::<T>::remove(netuid);
 
         // --- 4. Remove netuid from added networks.
         NetworksAdded::<T>::remove(netuid);
