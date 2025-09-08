@@ -10,6 +10,7 @@ use pallet_subtensor_swap::Call as SwapCall;
 use pallet_subtensor_swap::tick::TickIndex;
 use safe_math::FixedExt;
 use sp_core::{Get, H256, U256};
+use sp_runtime::traits::Dispatchable;
 use substrate_fixed::traits::FromFixed;
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, TaoCurrency};
@@ -862,6 +863,7 @@ fn test_remove_stake_insufficient_liquidity() {
             netuid,
             amount_staked.into(),
             <Test as Config>::SwapInterface::max_price().into(),
+            false,
             false,
         )
         .unwrap();
@@ -4480,6 +4482,7 @@ fn test_stake_into_subnet_ok() {
             amount.into(),
             TaoCurrency::MAX,
             false,
+            false,
         ));
         let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
             / u16::MAX as f64;
@@ -4533,6 +4536,7 @@ fn test_stake_into_subnet_low_amount() {
             amount.into(),
             TaoCurrency::MAX,
             false,
+            false,
         ));
         let expected_stake = AlphaCurrency::from(((amount as f64) * 0.997 / current_price) as u64);
 
@@ -4579,6 +4583,7 @@ fn test_unstake_from_subnet_low_amount() {
             netuid,
             amount.into(),
             TaoCurrency::MAX,
+            false,
             false,
         ));
 
@@ -4693,6 +4698,7 @@ fn test_unstake_from_subnet_prohibitive_limit() {
             amount.into(),
             TaoCurrency::MAX,
             false,
+            false,
         ));
 
         // Remove stake
@@ -4767,6 +4773,7 @@ fn test_unstake_full_amount() {
             netuid,
             amount.into(),
             TaoCurrency::MAX,
+            false,
             false,
         ));
 
@@ -5423,5 +5430,125 @@ fn test_stake_rate_limits() {
         assert!(!StakingOperationRateLimiter::<Test>::contains_key((
             hot1, cold1, netuid
         )));
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_root_updates_counters --exact --show-output
+#[test]
+fn test_add_root_updates_counters() {
+    new_test_ext(0).execute_with(|| {
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        add_network(NetUid::ROOT, 10, 0);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey_account_id).clone(),
+            hotkey_account_id,
+        ));
+        let stake_amount = 1_000_000_000;
+
+        // Give it some $$$ in his coldkey balance
+        let initial_balance = stake_amount + ExistentialDeposit::get();
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
+
+        // Setup SubnetAlphaIn (because we are going to stake)
+        SubnetAlphaIn::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(stake_amount));
+
+        // Stake to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            NetUid::ROOT,
+            stake_amount.into()
+        ));
+
+        // Check if stake has increased
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        assert_eq!(new_stake, stake_amount.into());
+
+        // Check if total stake has increased accordingly.
+        assert_eq!(SubtensorModule::get_total_stake(), stake_amount.into());
+
+        // SubnetTAO updated
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), stake_amount.into());
+
+        // SubnetAlphaIn updated
+        assert_eq!(SubnetAlphaIn::<Test>::get(NetUid::ROOT), 0.into());
+
+        // SubnetAlphaOut updated
+        assert_eq!(
+            SubnetAlphaOut::<Test>::get(NetUid::ROOT),
+            stake_amount.into()
+        );
+
+        // SubnetVolume updated
+        assert_eq!(
+            SubnetVolume::<Test>::get(NetUid::ROOT),
+            stake_amount as u128
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_root_updates_counters --exact --show-output
+#[test]
+fn test_remove_root_updates_counters() {
+    new_test_ext(0).execute_with(|| {
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        add_network(NetUid::ROOT, 10, 0);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey_account_id).clone(),
+            hotkey_account_id,
+        ));
+        let stake_amount = 1_000_000_000;
+
+        // Give it some $$$ in his coldkey balance
+        let initial_balance = stake_amount + ExistentialDeposit::get();
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
+
+        // Setup existing stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            NetUid::ROOT,
+            stake_amount.into(),
+        );
+
+        // Setup TotalStake, SubnetAlphaOut and SubnetTAO (because we are going to unstake)
+        TotalStake::<Test>::set(TaoCurrency::from(stake_amount));
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(stake_amount));
+        SubnetAlphaOut::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(stake_amount));
+
+        // Stake to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            NetUid::ROOT,
+            stake_amount.into()
+        ));
+
+        // Check if stake has been decreased
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        assert_eq!(new_stake, 0.into());
+
+        // Check if total stake has decreased accordingly.
+        assert_eq!(SubtensorModule::get_total_stake(), 0.into());
+
+        // SubnetTAO updated
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), 0.into());
+
+        // SubnetAlphaIn updated
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(NetUid::ROOT),
+            stake_amount.into()
+        );
+
+        // SubnetAlphaOut updated
+        assert_eq!(SubnetAlphaOut::<Test>::get(NetUid::ROOT), 0.into());
+
+        // SubnetVolume updated
+        assert_eq!(
+            SubnetVolume::<Test>::get(NetUid::ROOT),
+            stake_amount as u128
+        );
     });
 }
