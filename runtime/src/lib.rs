@@ -491,7 +491,9 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
+use pallet_subtensor::{
+    CollectiveInterface, CommitmentsInterface, MemberManagement, ProxyInterface,
+};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -915,6 +917,13 @@ impl ProxyInterface<AccountId> for Proxier {
     }
 }
 
+pub struct CommitmentsI;
+impl CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(netuid: NetUid) {
+        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid);
+    }
+}
+
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
         BlockWeights::get().max_block;
@@ -1239,6 +1248,7 @@ impl pallet_subtensor::Config for Runtime {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = Proxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 parameter_types! {

@@ -223,6 +223,7 @@ impl pallet_subtensor::Config for Test {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 parameter_types! {
@@ -347,6 +348,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
         None
     }
+}
+
+pub struct CommitmentsI;
+impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(netuid: NetUid) {}
 }
 
 pub struct GrandpaInterfaceImpl;

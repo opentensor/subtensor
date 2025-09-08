@@ -454,6 +454,7 @@ impl crate::Config for Test {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = FakeProxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 // Swap-related parameter types
@@ -483,6 +484,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
         Some(Ordering::Less)
     }
+}
+
+pub struct CommitmentsI;
+impl CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(netuid: NetUid) {}
 }
 
 parameter_types! {

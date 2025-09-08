@@ -2164,3 +2164,8 @@ impl<T> ProxyInterface<T> for () {
         Ok(())
     }
 }
+
+/// Pallets that hold per-subnet commitments implement this to purge all state for `netuid`.
+pub trait CommitmentsInterface {
+    fn purge_netuid(netuid: NetUid);
+}

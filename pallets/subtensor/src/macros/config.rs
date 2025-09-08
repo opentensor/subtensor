@@ -6,6 +6,7 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod config {
 
+    use crate::CommitmentsInterface;
     use subtensor_swap_interface::SwapHandler;
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -57,6 +58,9 @@ mod config {
 
         /// Interface to allow interacting with the proxy pallet.
         type ProxyInterface: crate::ProxyInterface<Self::AccountId>;
+
+        ///  Interface to clean commitments on network dissolution.
+        type CommitmentsInterface: CommitmentsInterface;
 
         /// =================================
         /// ==== Initial Value Constants ====

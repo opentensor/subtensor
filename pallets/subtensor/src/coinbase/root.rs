@@ -16,6 +16,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
+use crate::CommitmentsInterface;
 use frame_support::{dispatch::Pays, weights::Weight};
 use safe_math::*;
 use sp_core::Get;
@@ -374,6 +375,7 @@ impl<T: Config> Pallet<T> {
         // 2. --- Perform the cleanup before removing the network.
         T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
+        T::CommitmentsInterface::purge_netuid(netuid);
 
         // 3. --- Remove the network
         Self::remove_network(netuid);

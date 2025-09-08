@@ -537,4 +537,16 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    pub fn purge_netuid(netuid: NetUid) {
+        let _ = CommitmentOf::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = LastCommitment::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = LastBondsReset::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = RevealedCommitments::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = UsedSpaceOf::<T>::clear_prefix(netuid, u32::MAX, None);
+
+        TimelockedIndex::<T>::mutate(|index| {
+            index.retain(|(n, _)| *n != netuid);
+        });
+    }
 }
