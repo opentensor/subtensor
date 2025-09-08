@@ -866,7 +866,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for ck burn, 18%.
     pub fn DefaultCKBurn<T: Config>() -> u64 {
-        u64::MAX / 100 * 18
+        0
     }
 
     #[pallet::storage]
@@ -2048,6 +2048,10 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 
     fn is_owner(account_id: &T::AccountId, netuid: NetUid) -> bool {
         SubnetOwner::<T>::get(netuid) == *account_id
+    }
+
+    fn is_subtoken_enabled(netuid: NetUid) -> bool {
+        SubtokenEnabled::<T>::get(netuid)
     }
 }
 
