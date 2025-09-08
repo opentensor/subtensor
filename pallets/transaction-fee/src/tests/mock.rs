@@ -422,7 +422,7 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 
 pub struct CommitmentsI;
 impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(netuid: NetUid) {}
+    fn purge_netuid(_netuid: NetUid) {}
 }
 
 parameter_types! {

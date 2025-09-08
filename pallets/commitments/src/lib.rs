@@ -566,16 +566,6 @@ impl<T: Config> Pallet<T> {
             .collect();
         commitments
     }
-}
-
-pub trait GetCommitments<AccountId> {
-    fn get_commitments(netuid: NetUid) -> Vec<(AccountId, Vec<u8>)>;
-}
-
-impl<AccountId> GetCommitments<AccountId> for () {
-    fn get_commitments(_netuid: NetUid) -> Vec<(AccountId, Vec<u8>)> {
-        Vec::new()
-    }
 
     pub fn purge_netuid(netuid: NetUid) {
         let _ = CommitmentOf::<T>::clear_prefix(netuid, u32::MAX, None);
@@ -587,5 +577,15 @@ impl<AccountId> GetCommitments<AccountId> for () {
         TimelockedIndex::<T>::mutate(|index| {
             index.retain(|(n, _)| *n != netuid);
         });
+    }
+}
+
+pub trait GetCommitments<AccountId> {
+    fn get_commitments(netuid: NetUid) -> Vec<(AccountId, Vec<u8>)>;
+}
+
+impl<AccountId> GetCommitments<AccountId> for () {
+    fn get_commitments(_netuid: NetUid) -> Vec<(AccountId, Vec<u8>)> {
+        Vec::new()
     }
 }

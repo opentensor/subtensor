@@ -195,7 +195,6 @@ impl<T: Config> Pallet<T> {
         log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
         // --- 14. Set the creation terms.
-        NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 15. Set the symbol.
