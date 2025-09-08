@@ -1,10 +1,6 @@
 use super::*;
 use crate::HasMigrationRun;
-use frame_support::{
-    storage_alias,
-    traits::Get,
-    weights::Weight,
-};
+use frame_support::{storage_alias, traits::Get, weights::Weight};
 use scale_info::prelude::string::String;
 use sp_std::vec::Vec;
 
