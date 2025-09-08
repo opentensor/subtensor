@@ -186,7 +186,7 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(82_010_000, 0)
+        #[pallet::weight((Weight::from_parts(100_500_000, 0)
         .saturating_add(T::DbWeight::get().reads(8))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
@@ -761,7 +761,7 @@ mod dispatches {
 
         /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_parts(75_430_000, 0)
+        #[pallet::weight((Weight::from_parts(58_850_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(4)), DispatchClass::Normal, Pays::Yes))]
         pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -891,7 +891,7 @@ mod dispatches {
         ///
         #[pallet::call_index(69)]
         #[pallet::weight((
-            Weight::from_parts(7_394_000, 0)
+            Weight::from_parts(5_660_000, 0)
             .saturating_add(T::DbWeight::get().reads(0))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
