@@ -2074,7 +2074,7 @@ fn test_sudo_set_max_burn() {
 }
 
 #[test]
-fn test_sudo_set_desired_subsubnet_count() {
+fn test_sudo_set_subsubnet_count() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
         let ss_count_ok = SubId::from(8);
@@ -2086,7 +2086,7 @@ fn test_sudo_set_desired_subsubnet_count() {
         SubnetOwner::<Test>::insert(netuid, sn_owner);
 
         assert_eq!(
-            AdminUtils::sudo_set_desired_subsubnet_count(
+            AdminUtils::sudo_set_subsubnet_count(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 ss_count_ok
@@ -2094,21 +2094,17 @@ fn test_sudo_set_desired_subsubnet_count() {
             Err(DispatchError::BadOrigin)
         );
         assert_noop!(
-            AdminUtils::sudo_set_desired_subsubnet_count(
-                RuntimeOrigin::root(),
-                netuid,
-                ss_count_bad
-            ),
+            AdminUtils::sudo_set_subsubnet_count(RuntimeOrigin::root(), netuid, ss_count_bad),
             pallet_subtensor::Error::<Test>::InvalidValue
         );
 
-        assert_ok!(AdminUtils::sudo_set_desired_subsubnet_count(
+        assert_ok!(AdminUtils::sudo_set_subsubnet_count(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             ss_count_ok
         ));
 
-        assert_ok!(AdminUtils::sudo_set_desired_subsubnet_count(
+        assert_ok!(AdminUtils::sudo_set_subsubnet_count(
             <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
             netuid,
             ss_count_ok
