@@ -36,7 +36,7 @@ pub const OK_HOTKEY_ACCOUNT_ID_RICH: AccountId = 1005;
 pub const NOT_SUBNET_OWNER: AccountId = 666;
 pub const NON_EXISTENT_NETUID: u16 = 999;
 pub const WRAPPING_FEES_NETUID: u16 = 124;
-
+pub const SUBTOKEN_DISABLED_NETUID: u16 = 13579;
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
@@ -114,6 +114,11 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
 
     fn is_owner(account_id: &AccountId, _netuid: NetUid) -> bool {
         *account_id != NOT_SUBNET_OWNER
+    }
+
+    // Only disable one subnet for testing
+    fn is_subtoken_enabled(netuid: NetUid) -> bool {
+        netuid.inner() != SUBTOKEN_DISABLED_NETUID
     }
 
     fn get_owned_hotkeys(_coldkey: &AccountId) -> Vec<AccountId> {

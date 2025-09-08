@@ -6,6 +6,7 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod config {
 
+    use pallet_commitments::GetCommitments;
     use crate::CommitmentsInterface;
     use subtensor_swap_interface::SwapHandler;
 
@@ -59,6 +60,9 @@ mod config {
         /// Interface to allow interacting with the proxy pallet.
         type ProxyInterface: crate::ProxyInterface<Self::AccountId>;
 
+        /// Interface to get commitments.
+        type GetCommitments: GetCommitments<Self::AccountId>;
+
         ///  Interface to clean commitments on network dissolution.
         type CommitmentsInterface: CommitmentsInterface;
 
@@ -102,6 +106,12 @@ mod config {
         /// Initial Min Burn.
         #[pallet::constant]
         type InitialMinBurn: Get<u64>;
+        /// Min  burn upper bound.
+        #[pallet::constant]
+        type MinBurnUpperBound: Get<TaoCurrency>;
+        /// Max burn lower bound.
+        #[pallet::constant]
+        type MaxBurnLowerBound: Get<TaoCurrency>;
         /// Initial adjustment interval.
         #[pallet::constant]
         type InitialAdjustmentInterval: Get<u16>;

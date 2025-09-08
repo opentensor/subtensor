@@ -154,7 +154,7 @@ pub enum ProxyType {
     Registration,
     Transfer,
     SmallTransfer,
-    RootWeights,
+    RootWeights, // deprecated
     ChildKeys,
     SudoUncheckedSetCode,
     SwapHotkey,
@@ -174,6 +174,7 @@ pub trait SubnetInfo<AccountId> {
     fn exists(netuid: NetUid) -> bool;
     fn mechanism(netuid: NetUid) -> u16;
     fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
+    fn is_subtoken_enabled(netuid: NetUid) -> bool;
     fn get_owned_hotkeys(coldkey: &AccountId) -> Vec<AccountId>;
 }
 

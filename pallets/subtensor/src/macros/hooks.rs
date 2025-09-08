@@ -136,11 +136,12 @@ mod hooks {
                 .saturating_add(migrations::migrate_crv3_v2_to_timelocked::migrate_crv3_v2_to_timelocked::<T>())
                 // Migrate to fix root counters
                 .saturating_add(migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<T>())
+                // Migrate last block rate limiting storage items
+                .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>())
                 // Migrate Immunity Period
                 .saturating_add(migrations::migrate_network_immunity_period::migrate_network_immunity_period::<T>())
                 // Migrate Subnet Limit
                 .saturating_add(migrations::migrate_subnet_limit_to_default::migrate_subnet_limit_to_default::<T>());
-
             weight
         }
 

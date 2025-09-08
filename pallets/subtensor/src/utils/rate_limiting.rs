@@ -119,14 +119,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Set the block number of the last transaction for a specific key, and transaction type
-    pub fn set_last_transaction_block(key: &T::AccountId, tx_type: &TransactionType, block: u64) {
-        match tx_type {
-            TransactionType::RegisterNetwork => Self::set_network_last_lock_block(block),
-            _ => Self::set_last_transaction_block_on_subnet(key, NetUid::ROOT, tx_type, block),
-        }
-    }
-
     /// Set the block number of the last transaction for a specific hotkey, network, and transaction type
     pub fn set_last_transaction_block_on_subnet(
         key: &T::AccountId,
@@ -146,20 +138,39 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn remove_last_tx_block(key: &T::AccountId) {
+        Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlock(key.clone()))
+    }
     pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
-        LastTxBlock::<T>::insert(key, block)
+        Self::set_rate_limited_last_block(&RateLimitKey::LastTxBlock(key.clone()), block);
     }
     pub fn get_last_tx_block(key: &T::AccountId) -> u64 {
-        LastTxBlock::<T>::get(key)
+        Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlock(key.clone()))
+    }
+
+    pub fn remove_last_tx_block_delegate_take(key: &T::AccountId) {
+        Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlockDelegateTake(key.clone()))
     }
     pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
-        LastTxBlockDelegateTake::<T>::insert(key, block)
+        Self::set_rate_limited_last_block(
+            &RateLimitKey::LastTxBlockDelegateTake(key.clone()),
+            block,
+        );
     }
     pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
-        LastTxBlockDelegateTake::<T>::get(key)
+        Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlockDelegateTake(key.clone()))
     }
     pub fn get_last_tx_block_childkey_take(key: &T::AccountId) -> u64 {
-        LastTxBlockChildKeyTake::<T>::get(key)
+        Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlockChildKeyTake(key.clone()))
+    }
+    pub fn remove_last_tx_block_childkey(key: &T::AccountId) {
+        Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlockChildKeyTake(key.clone()))
+    }
+    pub fn set_last_tx_block_childkey(key: &T::AccountId, block: u64) {
+        Self::set_rate_limited_last_block(
+            &RateLimitKey::LastTxBlockChildKeyTake(key.clone()),
+            block,
+        );
     }
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();

@@ -23,6 +23,7 @@ pub mod migrate_network_immunity_period;
 pub mod migrate_orphaned_storage_items;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_rao;
+pub mod migrate_rate_limiting_last_blocks;
 pub mod migrate_remove_commitments_rate_limit;
 pub mod migrate_remove_stake_map;
 pub mod migrate_remove_total_hotkey_coldkey_stakes_this_interval;
