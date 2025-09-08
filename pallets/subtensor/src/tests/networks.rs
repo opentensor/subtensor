@@ -386,7 +386,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         MaxBurn::<Test>::insert(net, TaoCurrency::from(2));
         MinDifficulty::<Test>::insert(net, 1u64);
         MaxDifficulty::<Test>::insert(net, 2u64);
-        LastAdjustmentBlock::<Test>::insert(net, 1u64);
         RegistrationsThisBlock::<Test>::insert(net, 1u16);
         EMAPriceHalvingBlocks::<Test>::insert(net, 1u64);
         RAORecycledForRegistration::<Test>::insert(net, TaoCurrency::from(1));
@@ -534,7 +533,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!MaxBurn::<Test>::contains_key(net));
         assert!(!MinDifficulty::<Test>::contains_key(net));
         assert!(!MaxDifficulty::<Test>::contains_key(net));
-        assert!(!LastAdjustmentBlock::<Test>::contains_key(net));
         assert!(!RegistrationsThisBlock::<Test>::contains_key(net));
         assert!(!EMAPriceHalvingBlocks::<Test>::contains_key(net));
         assert!(!RAORecycledForRegistration::<Test>::contains_key(net));

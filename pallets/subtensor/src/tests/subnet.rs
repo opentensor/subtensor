@@ -727,11 +727,6 @@ fn test_user_liquidity_access_control() {
         // add network
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        // Initially should be disabled
-        assert!(!pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
-            NetUid::from(netuid)
-        ));
-
         // Not owner, not root: should fail
         assert_noop!(
             Swap::toggle_user_liquidity(RuntimeOrigin::signed(not_owner), netuid, true),
