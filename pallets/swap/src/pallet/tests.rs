@@ -1970,16 +1970,6 @@ fn test_swap_subtoken_disabled() {
         );
 
         assert_noop!(
-            Pallet::<Test>::remove_liquidity(
-                RuntimeOrigin::signed(OK_COLDKEY_ACCOUNT_ID),
-                OK_HOTKEY_ACCOUNT_ID,
-                netuid,
-                PositionId::from(0),
-            ),
-            Error::<Test>::SubtokenDisabled
-        );
-
-        assert_noop!(
             Pallet::<Test>::modify_position(
                 RuntimeOrigin::signed(OK_COLDKEY_ACCOUNT_ID),
                 OK_HOTKEY_ACCOUNT_ID,

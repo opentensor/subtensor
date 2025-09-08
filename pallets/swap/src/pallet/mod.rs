@@ -437,11 +437,6 @@ mod pallet {
                 Error::<T>::SubNetworkDoesNotExist
             );
 
-            ensure!(
-                T::SubnetInfo::is_subtoken_enabled(netuid.into()),
-                Error::<T>::SubtokenDisabled
-            );
-
             // Remove liquidity
             let result = Self::do_remove_liquidity(netuid, &coldkey, position_id)?;
 
