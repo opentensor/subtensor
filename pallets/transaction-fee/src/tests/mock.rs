@@ -175,6 +175,8 @@ parameter_types! {
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
+    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
@@ -263,6 +265,8 @@ impl pallet_subtensor::Config for Test {
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
+    type MinBurnUpperBound = MinBurnUpperBound;
+    type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
