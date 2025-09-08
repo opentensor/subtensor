@@ -4,17 +4,6 @@ use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
-    /// Fetches the total count of subnets.
-    ///
-    /// This function retrieves the total number of subnets present on the chain.
-    ///
-    /// # Returns:
-    /// * 'u16': The total number of subnets.
-    ///
-    pub fn get_num_subnets() -> u16 {
-        TotalNetworks::<T>::get()
-    }
-
     /// Returns true if the subnetwork exists.
     ///
     /// This function checks if a subnetwork with the given UID exists.
@@ -256,8 +245,7 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        T::SwapInterface::try_initialize_v3(netuid_to_register)?;
-
+        T::SwapInterface::toggle_user_liquidity(netuid_to_register, true);
         // --- 18. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));

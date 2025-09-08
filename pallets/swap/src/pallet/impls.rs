@@ -1360,14 +1360,10 @@ impl<T: Config> Pallet<T> {
     /// - **V2 / non‑V3 path**:
     ///   * No per‑position records exist; still defensively clear the same V3 storages (safe no‑ops).
     pub fn do_dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
-        let mechid = T::SubnetInfo::mechanism(netuid.into());
-        let v3_initialized = SwapV3Initialized::<T>::get(netuid);
         let user_lp_enabled =
         <Self as subtensor_swap_interface::SwapHandler<T::AccountId>>::is_user_liquidity_enabled(netuid);
 
-        let is_v3_mode = mechid == 1 && v3_initialized;
-
-        if is_v3_mode {
+        if SwapV3Initialized::<T>::get(netuid) {
             // -------- V3: close every position, aggregate refunds, clear state --------
 
             // 1) Snapshot all (owner, position_id).
@@ -1575,8 +1571,8 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
         Self::do_dissolve_all_liquidity_providers(netuid)
     }
-    fn try_initialize_v3(netuid: NetUid) -> DispatchResult {
-        Self::maybe_initialize_v3(netuid).map_err(|e| e.into())
+    fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
+        EnabledUserLiquidity::<T>::insert(netuid, enabled)
     }
 }
 
