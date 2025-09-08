@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
             max_allowed_uids: max_allowed_uids.into(),
             blocks_since_last_step: blocks_since_last_step.into(),
             tempo: tempo.into(),
-            network_modality: 0_u16.into();
+            network_modality: 0_u16.into(),
             network_connect,
             emission_values: 0.into(),
             burn,
