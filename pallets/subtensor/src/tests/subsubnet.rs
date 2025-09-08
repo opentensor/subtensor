@@ -26,16 +26,14 @@
 //   - [x] Incentives are per subsubnet
 //   - [x] Per-subsubnet incentives are distributed proportionally to miner weights
 //   - [x] Subsubnet limit can be set up to 8 (with admin pallet)
-//   - [x] When subsubnet limit is reduced, reduction is GlobalSubsubnetDecreasePerSuperblock per super-block
-//   - [x] When subsubnet limit is increased, increase is GlobalSubsubnetDecreasePerSuperblock per super-block
 //   - [x] When reduction of subsubnet limit occurs, Weights, Incentive, LastUpdate, Bonds, and WeightCommits are cleared
 //   - [x] Epoch terms of subnet are weighted sum (or logical OR) of all subsubnet epoch terms
 //   - [x] Subnet epoch terms persist in state
 //   - [x] Subsubnet epoch terms persist in state
 //   - [x] "Yuma Emergency Mode" (consensus sum is 0 for a subsubnet), emission distributed by stake
 //   - [x] Miner with no weights on any subsubnet receives no reward
-//   - [x] SubsubnetEmissionSplit is reset on super-block on subsubnet count increase
-//   - [x] SubsubnetEmissionSplit is reset on super-block on subsubnet count decrease
+//   - [x] SubsubnetEmissionSplit is reset on subsubnet count increase
+//   - [x] SubsubnetEmissionSplit is reset on subsubnet count decrease
 
 use super::mock::*;
 use crate::coinbase::reveal_commits::WeightsTlockPayload;
@@ -189,22 +187,22 @@ fn ensure_subsubnet_fails_when_subid_out_of_range() {
 }
 
 #[test]
-fn do_set_desired_subsubnet_count_ok_minimal() {
+fn do_set_subsubnet_count_ok_minimal() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(3u16);
         NetworksAdded::<Test>::insert(NetUid::from(3u16), true); // base subnet exists
 
-        assert_ok!(SubtensorModule::do_set_desired_subsubnet_count(
+        assert_ok!(SubtensorModule::do_set_subsubnet_count(
             netuid,
             SubId::from(1u8)
         ));
 
-        assert_eq!(SubsubnetCountDesired::<Test>::get(netuid), SubId::from(1u8));
+        assert_eq!(SubsubnetCountCurrent::<Test>::get(netuid), SubId::from(1u8));
     });
 }
 
 #[test]
-fn do_set_desired_subsubnet_count_ok_at_effective_cap() {
+fn do_set_subsubnet_count_ok_at_effective_cap() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(4u16);
         NetworksAdded::<Test>::insert(NetUid::from(4u16), true); // base subnet exists
@@ -218,69 +216,67 @@ fn do_set_desired_subsubnet_count_ok_at_effective_cap() {
             compile_cap
         };
 
-        assert_ok!(SubtensorModule::do_set_desired_subsubnet_count(
-            netuid, bound
-        ));
-        assert_eq!(SubsubnetCountDesired::<Test>::get(netuid), bound);
+        assert_ok!(SubtensorModule::do_set_subsubnet_count(netuid, bound));
+        assert_eq!(SubsubnetCountCurrent::<Test>::get(netuid), bound);
     });
 }
 
 #[test]
-fn do_set_desired_fails_when_base_subnet_missing() {
+fn do_set_fails_when_base_subnet_missing() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(7u16);
         // No NetworksAdded insert => base subnet absent
 
         assert_noop!(
-            SubtensorModule::do_set_desired_subsubnet_count(netuid, SubId::from(1u8)),
+            SubtensorModule::do_set_subsubnet_count(netuid, SubId::from(1u8)),
             Error::<Test>::SubNetworkDoesNotExist
         );
     });
 }
 
 #[test]
-fn do_set_desired_fails_for_zero() {
+fn do_set_fails_for_zero() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(9u16);
         NetworksAdded::<Test>::insert(NetUid::from(9u16), true); // base subnet exists
 
         assert_noop!(
-            SubtensorModule::do_set_desired_subsubnet_count(netuid, SubId::from(0u8)),
+            SubtensorModule::do_set_subsubnet_count(netuid, SubId::from(0u8)),
             Error::<Test>::InvalidValue
         );
     });
 }
 
 #[test]
-fn do_set_desired_fails_when_over_runtime_cap() {
+fn do_set_fails_when_over_runtime_cap() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(11u16);
         NetworksAdded::<Test>::insert(NetUid::from(11u16), true); // base subnet exists
 
         // Runtime cap is 8 (per function), so 9 must fail
         assert_noop!(
-            SubtensorModule::do_set_desired_subsubnet_count(netuid, SubId::from(9u8)),
+            SubtensorModule::do_set_subsubnet_count(netuid, SubId::from(9u8)),
             Error::<Test>::InvalidValue
         );
     });
 }
 
 #[test]
-fn do_set_desired_fails_when_over_compile_time_cap() {
+fn do_set_fails_when_over_compile_time_cap() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(12u16);
         NetworksAdded::<Test>::insert(NetUid::from(12u16), true); // base subnet exists
 
         let too_big = SubId::from(MAX_SUBSUBNET_COUNT_PER_SUBNET + 1);
         assert_noop!(
-            SubtensorModule::do_set_desired_subsubnet_count(netuid, too_big),
+            SubtensorModule::do_set_subsubnet_count(netuid, too_big),
             Error::<Test>::InvalidValue
         );
     });
 }
 
 #[test]
-fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
+fn update_subsubnet_counts_decreases_and_cleans() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
 
@@ -288,27 +284,17 @@ fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
         let netuid = NetUid::from(42u16);
         NetworksAdded::<Test>::insert(NetUid::from(42u16), true);
 
-        // super_block = SuperBlockTempos() * Tempo(netuid) - netuid
-        Tempo::<Test>::insert(netuid, 360u16);
-        let super_block = u64::from(SuperBlockTempos::<Test>::get())
-            * u64::from(Tempo::<Test>::get(netuid))
-            - u16::from(netuid) as u64;
-
-        // Choose counts so result is deterministic for ANY decrease-per-superblock.
-        // Let dec = GlobalSubsubnetDecreasePerSuperblock(); set old = dec + 3.
-        let dec: u8 = u8::from(GlobalSubsubnetDecreasePerSuperblock::<Test>::get());
-        let old = SubId::from(dec.saturating_add(3));
-        let desired = SubId::from(1u8);
-        // min_capped = max(old - dec, 1) = 3 => new_count = 3
+        // Choose counts so result is deterministic.
+        let old = SubId::from(3);
+        let desired = SubId::from(2u8);
         SubsubnetCountCurrent::<Test>::insert(netuid, old);
-        SubsubnetCountDesired::<Test>::insert(netuid, desired);
 
         // Set non-default subnet emission split
         SubsubnetEmissionSplit::<Test>::insert(netuid, vec![123u16, 234u16, 345u16]);
 
-        // Seed data at a kept subid (2) and a removed subid (3)
-        let idx_keep = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(2u8));
-        let idx_rm3 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(3u8));
+        // Seed data at a kept subid (1) and a removed subid (2)
+        let idx_keep = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(1u8));
+        let idx_rm3 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(2u8));
 
         Weights::<Test>::insert(idx_keep, 0u16, vec![(1u16, 1u16)]);
         Incentive::<Test>::insert(idx_keep, vec![1u16]);
@@ -340,11 +326,11 @@ fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
             VecDeque::from([(hotkey, 1u64, Default::default(), Default::default())]),
         );
 
-        // Act exactly on a super-block boundary
-        SubtensorModule::update_subsubnet_counts_if_needed(super_block);
+        // Act
+        SubtensorModule::update_subsubnet_counts_if_needed(netuid, desired);
 
-        // New count is 3
-        assert_eq!(SubsubnetCountCurrent::<Test>::get(netuid), SubId::from(3u8));
+        // New count is as desired
+        assert_eq!(SubsubnetCountCurrent::<Test>::get(netuid), desired);
 
         // Kept prefix intact
         assert_eq!(Incentive::<Test>::get(idx_keep), vec![1u16]);
@@ -366,75 +352,34 @@ fn update_subsubnet_counts_decreases_and_cleans_on_superblock() {
             idx_rm3, 1u64
         ));
 
-        // SubsubnetEmissionSplit is reset on super-block
+        // SubsubnetEmissionSplit is reset
         assert!(SubsubnetEmissionSplit::<Test>::get(netuid).is_none());
     });
 }
 
 #[test]
-fn update_subsubnet_counts_increases_on_superblock() {
+fn update_subsubnet_counts_increases() {
     new_test_ext(1).execute_with(|| {
         // Base subnet exists
         let netuid = NetUid::from(42u16);
         NetworksAdded::<Test>::insert(NetUid::from(42u16), true);
 
-        // super_block = SuperBlockTempos() * Tempo(netuid) - netuid
-        Tempo::<Test>::insert(netuid, 360u16);
-        let super_block = u64::from(SuperBlockTempos::<Test>::get())
-            * u64::from(Tempo::<Test>::get(netuid))
-            - u16::from(netuid) as u64;
-
-        // Choose counts so result is deterministic for ANY increase-per-superblock.
-        let inc: u8 = u8::from(GlobalSubsubnetDecreasePerSuperblock::<Test>::get());
+        // Choose counts
         let old = SubId::from(1u8);
-        let desired = SubId::from(5u8);
+        let desired = SubId::from(2u8);
         SubsubnetCountCurrent::<Test>::insert(netuid, old);
-        SubsubnetCountDesired::<Test>::insert(netuid, desired);
 
         // Set non-default subnet emission split
         SubsubnetEmissionSplit::<Test>::insert(netuid, vec![123u16, 234u16, 345u16]);
 
-        // Act exactly on a super-block boundary
-        SubtensorModule::update_subsubnet_counts_if_needed(super_block);
+        // Act
+        SubtensorModule::update_subsubnet_counts_if_needed(netuid, desired);
 
-        // New count is old + inc
-        assert_eq!(
-            SubsubnetCountCurrent::<Test>::get(netuid),
-            SubId::from(1 + inc)
-        );
+        // New count is as desired
+        assert_eq!(SubsubnetCountCurrent::<Test>::get(netuid), desired);
 
-        // SubsubnetEmissionSplit is reset on super-block
+        // SubsubnetEmissionSplit is reset
         assert!(SubsubnetEmissionSplit::<Test>::get(netuid).is_none());
-    });
-}
-
-#[test]
-fn update_subsubnet_counts_no_change_when_not_superblock() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(100u16);
-        NetworksAdded::<Test>::insert(NetUid::from(100u16), true);
-
-        Tempo::<Test>::insert(netuid, 1u16);
-        let super_block =
-            u64::from(SuperBlockTempos::<Test>::get()) * u64::from(Tempo::<Test>::get(netuid));
-
-        // Setup counts as in the previous test
-        let dec: u8 = u8::from(GlobalSubsubnetDecreasePerSuperblock::<Test>::get());
-        let old = SubId::from(dec.saturating_add(3));
-        let desired = SubId::from(1u8);
-        SubsubnetCountCurrent::<Test>::insert(netuid, old);
-        SubsubnetCountDesired::<Test>::insert(netuid, desired);
-
-        // Marker value at a subid that would be kept if a change happened
-        let idx_mark = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(2u8));
-        Incentive::<Test>::insert(idx_mark, vec![77u16]);
-
-        // Act on a non-boundary
-        SubtensorModule::update_subsubnet_counts_if_needed(super_block - 1);
-
-        // Nothing changes
-        assert_eq!(SubsubnetCountCurrent::<Test>::get(netuid), old);
-        assert_eq!(Incentive::<Test>::get(idx_mark), vec![77u16]);
     });
 }
 

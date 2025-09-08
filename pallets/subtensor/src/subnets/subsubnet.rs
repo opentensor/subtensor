@@ -88,10 +88,7 @@ impl<T: Config> Pallet<T> {
 
     /// Set the desired valus of sub-subnet count for a subnet identified
     /// by netuid
-    pub fn do_set_desired_subsubnet_count(
-        netuid: NetUid,
-        subsubnet_count: SubId,
-    ) -> DispatchResult {
+    pub fn do_set_subsubnet_count(netuid: NetUid, subsubnet_count: SubId) -> DispatchResult {
         // Make sure the subnet exists
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -113,75 +110,49 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidValue
         );
 
-        SubsubnetCountDesired::<T>::insert(netuid, subsubnet_count);
+        Self::update_subsubnet_counts_if_needed(netuid, subsubnet_count);
+
         Ok(())
     }
 
     /// Update current count for a subnet identified by netuid
-    ///
-    /// - This function should be called in every block in run_counbase
     /// - Cleans up all sub-subnet maps if count is reduced
-    /// - Decreases or increases current subsubnet count by no more than
-    ///   `GlobalSubsubnetDecreasePerSuperblock`
     ///
-    pub fn update_subsubnet_counts_if_needed(current_block: u64) {
-        // Run once per super-block
-        let super_block_tempos = u64::from(SuperBlockTempos::<T>::get());
-        Self::get_all_subnet_netuids().iter().for_each(|netuid| {
-            let super_block = super_block_tempos.saturating_mul(u64::from(Tempo::<T>::get(netuid)));
-            if let Some(rem) = current_block
-                .saturating_add(u16::from(*netuid) as u64)
-                .checked_rem(super_block)
-            {
-                if rem == 0 {
-                    let old_count = u8::from(SubsubnetCountCurrent::<T>::get(netuid));
-                    let desired_count = u8::from(SubsubnetCountDesired::<T>::get(netuid));
-                    let min_capped_count = old_count
-                        .saturating_sub(u8::from(GlobalSubsubnetDecreasePerSuperblock::<T>::get()))
-                        .max(1);
-                    let max_capped_count = old_count
-                        .saturating_add(u8::from(GlobalSubsubnetDecreasePerSuperblock::<T>::get()));
-                    let new_count = desired_count.max(min_capped_count).min(max_capped_count);
+    pub fn update_subsubnet_counts_if_needed(netuid: NetUid, new_count: SubId) {
+        let old_count = u8::from(SubsubnetCountCurrent::<T>::get(netuid));
+        let new_count_u8 = u8::from(new_count);
+        if old_count != new_count_u8 {
+            if old_count > new_count_u8 {
+                for subid in new_count_u8..old_count {
+                    let netuid_index =
+                        Self::get_subsubnet_storage_index(netuid, SubId::from(subid));
 
-                    if old_count != new_count {
-                        if old_count > new_count {
-                            for subid in new_count..old_count {
-                                let netuid_index =
-                                    Self::get_subsubnet_storage_index(*netuid, SubId::from(subid));
+                    // Cleanup Weights
+                    let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
 
-                                // Cleanup Weights
-                                let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+                    // Cleanup Incentive
+                    Incentive::<T>::remove(netuid_index);
 
-                                // Cleanup Incentive
-                                Incentive::<T>::remove(netuid_index);
+                    // Cleanup LastUpdate
+                    LastUpdate::<T>::remove(netuid_index);
 
-                                // Cleanup LastUpdate
-                                LastUpdate::<T>::remove(netuid_index);
+                    // Cleanup Bonds
+                    let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
 
-                                // Cleanup Bonds
-                                let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
+                    // Cleanup WeightCommits
+                    let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
 
-                                // Cleanup WeightCommits
-                                let _ =
-                                    WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
-
-                                // Cleanup TimelockedWeightCommits
-                                let _ = TimelockedWeightCommits::<T>::clear_prefix(
-                                    netuid_index,
-                                    u32::MAX,
-                                    None,
-                                );
-                            }
-                        }
-
-                        SubsubnetCountCurrent::<T>::insert(netuid, SubId::from(new_count));
-
-                        // Reset split back to even
-                        SubsubnetEmissionSplit::<T>::remove(netuid);
-                    }
+                    // Cleanup TimelockedWeightCommits
+                    let _ =
+                        TimelockedWeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
                 }
             }
-        });
+
+            SubsubnetCountCurrent::<T>::insert(netuid, SubId::from(new_count));
+
+            // Reset split back to even
+            SubsubnetEmissionSplit::<T>::remove(netuid);
+        }
     }
 
     pub fn do_set_emission_split(netuid: NetUid, maybe_split: Option<Vec<u16>>) -> DispatchResult {

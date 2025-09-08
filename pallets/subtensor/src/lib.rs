@@ -1829,15 +1829,6 @@ pub mod pallet {
     pub fn SuperBlockTempos<T: Config>() -> u16 {
         20
     }
-    #[pallet::type_value]
-    /// -- ITEM (Maximum allowed sub-subnet count decrease per super-block)
-    pub fn GlobalSubsubnetDecreasePerSuperblock<T: Config>() -> SubId {
-        SubId::from(1)
-    }
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> Number of sub-subnets desired by root or subnet owner.
-    pub type SubsubnetCountDesired<T: Config> =
-        StorageMap<_, Twox64Concat, NetUid, SubId, ValueQuery, DefaultSubsubnetCount<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Current number of sub-subnets
     pub type SubsubnetCountCurrent<T: Config> =
