@@ -1236,10 +1236,6 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
     pub type SubnetworkN<T: Config> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultN<T>>;
-    // #[pallet::storage]
-    // /// --- MAP ( netuid ) --> modality   TEXT: 0, IMAGE: 1, TENSOR: 2
-    // pub type NetworkModality<T> =
-    //     StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultModality<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> network_is_added
     pub type NetworksAdded<T: Config> =
