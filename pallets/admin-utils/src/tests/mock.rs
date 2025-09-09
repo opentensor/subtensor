@@ -16,6 +16,7 @@ use sp_runtime::{
     BuildStorage, KeyTypeId, Perbill,
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
+    Percent,
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
@@ -151,6 +152,7 @@ parameter_types! {
     pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
     pub const HotkeySwapOnSubnetInterval: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
+    pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
 }
 
 impl pallet_subtensor::Config for Test {
@@ -228,6 +230,7 @@ impl pallet_subtensor::Config for Test {
     type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = ();
+    type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
 }
 
 parameter_types! {

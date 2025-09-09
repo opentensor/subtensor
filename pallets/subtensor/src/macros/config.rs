@@ -254,5 +254,8 @@ mod config {
         /// Number of blocks between dividends distribution.
         #[pallet::constant]
         type LeaseDividendsDistributionInterval: Get<BlockNumberFor<Self>>;
+        /// Maximum percentage of immune UIDs.
+        #[pallet::constant]
+        type MaxImmuneUidsPercentage: Get<Percent>;
     }
 }

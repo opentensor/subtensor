@@ -223,6 +223,7 @@ parameter_types! {
     pub const HotkeySwapOnSubnetInterval: u64 = 15; // 15 block, should be bigger than subnet number, then trigger clean up for all subnets
     pub const MaxContributorsPerLeaseToRemove: u32 = 3;
     pub const LeaseDividendsDistributionInterval: u32 = 100;
+    pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
 }
 
 // Configure collective pallet for council
@@ -459,6 +460,7 @@ impl crate::Config for Test {
     type ProxyInterface = FakeProxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = ();
+    type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
 }
 
 // Swap-related parameter types

@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
+use sp_runtime::Percent;
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use sp_std::{cmp, vec};
 use subtensor_runtime_common::NetUid;
@@ -131,6 +132,20 @@ impl<T: Config> Pallet<T> {
         let current_n = Self::get_subnetwork_n(netuid);
 
         if current_n > max_n {
+            // Count the number of immune UIDs
+            let mut immune_count = 0;
+            for uid in 0..current_n {
+                if owner_uids.contains(&(uid as u16))
+                    || Self::get_neuron_is_immune(netuid, uid as u16)
+                {
+                    immune_count += 1;
+                }
+            }
+
+            // Ensure the number of immune UIDs is less than 80%
+            let immune_percentage = Percent::from_rational(immune_count, max_n);
+            ensure!(immune_percentage < T::MaxImmuneUidsPercentage::get(), Error::<T>::InvalidValue);
+
             // Get all emissions with their UIDs and sort by emission (descending)
             // This ensures we keep the highest emitters and remove the lowest ones
             let mut emissions = Emission::<T>::get(netuid)

@@ -2297,6 +2297,101 @@ fn test_trim_to_max_allowed_uids() {
 }
 
 #[test]
+fn test_trim_to_max_allowed_uids_too_many_immune() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
+        TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
+        MinAllowedUids::<Test>::set(netuid, 4);
+
+        // Add 5 neurons
+        let max_n = 5;
+        for i in 1..=max_n {
+            let n = i * 1000;
+            register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
+        }
+
+        // Run some blocks to ensure stake weights are set
+        run_to_block((ImmunityPeriod::<Test>::get(netuid) + 1).into());
+
+        // Set owner immune uids (2 UIDs) by adding them to OwnedHotkeys
+        let owner_hotkey1 = U256::from(1000);
+        let owner_hotkey2 = U256::from(2000);
+        OwnedHotkeys::<Test>::insert(sn_owner, vec![owner_hotkey1, owner_hotkey2]);
+        Keys::<Test>::insert(netuid, 0, owner_hotkey1);
+        Uids::<Test>::insert(netuid, owner_hotkey1, 0);
+        Keys::<Test>::insert(netuid, 1, owner_hotkey2);
+        Uids::<Test>::insert(netuid, owner_hotkey2, 1);
+
+        // Set temporally immune uids (2 UIDs) to make total immune count 4 out of 5 (80%)
+        // Set their registration block to current block to make them temporally immune
+        let current_block = frame_system::Pallet::<Test>::block_number();
+        for uid in 2..4 {
+            let hotkey = U256::from(uid * 1000 + 1000);
+            Keys::<Test>::insert(netuid, uid, hotkey);
+            Uids::<Test>::insert(netuid, hotkey, uid);
+            BlockAtRegistration::<Test>::insert(netuid, uid, current_block);
+        }
+
+        // Try to trim to 4 UIDs - this should fail because 4/4 = 100% immune (>= 80%)
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                4
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // Try to trim to 3 UIDs - this should also fail because 4/3 > 80% immune (>= 80%)
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                3
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // Now test a scenario where trimming should succeed
+        // Remove one immune UID to make it 3 immune out of 4 total
+        let uid_to_remove = 3;
+        let hotkey_to_remove = U256::from(uid_to_remove * 1000 + 1000);
+        #[allow(unknown_lints)]
+        Keys::<Test>::remove(netuid, uid_to_remove);
+        Uids::<Test>::remove(netuid, hotkey_to_remove);
+        BlockAtRegistration::<Test>::remove(netuid, uid_to_remove);
+
+        // Now we have 3 immune out of 4 total UIDs
+        // Try to trim to 3 UIDs - this should succeed because 3/3 = 100% immune, but that's exactly 80%
+        // Wait, 100% is > 80%, so this should fail. Let me test with a scenario where we have fewer immune UIDs
+
+        // Remove another immune UID to make it 2 immune out of 3 total
+        let uid_to_remove2 = 2;
+        let hotkey_to_remove2 = U256::from(uid_to_remove2 * 1000 + 1000);
+        #[allow(unknown_lints)]
+        Keys::<Test>::remove(netuid, uid_to_remove2);
+        Uids::<Test>::remove(netuid, hotkey_to_remove2);
+        BlockAtRegistration::<Test>::remove(netuid, uid_to_remove2);
+
+        // Now we have 2 immune out of 2 total UIDs
+        // Try to trim to 1 UID - this should fail because 2/1 is impossible, but the check prevents it
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                1
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+    });
+}
+
+#[test]
 fn test_sudo_set_min_allowed_uids() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
