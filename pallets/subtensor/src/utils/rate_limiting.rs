@@ -53,7 +53,7 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetChildren => 150, // 30 minutes
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
-            TransactionType::SubsubnetParameterUpdate => SetSubsubnetCountRateLimit::<T>::get(),
+            TransactionType::SubsubnetParameterUpdate => SubsubnetCountSetRateLimit::<T>::get(),
 
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,

@@ -1826,8 +1826,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// -- ITEM (Rate limit for subsubnet count updates)
-    pub fn SetSubsubnetCountRateLimit<T: Config>() -> u64 {
-        7200
+    pub fn SubsubnetCountSetRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(7_200, 0)
     }
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Current number of sub-subnets
