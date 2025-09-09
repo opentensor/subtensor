@@ -1968,7 +1968,7 @@ fn test_sudo_set_admin_freeze_window_and_rate() {
             <<Test as Config>::RuntimeOrigin>::root(),
             7
         ));
-        assert_eq!(SubtensorModule::get_admin_freeze_window(), 7);
+        assert_eq!(pallet_subtensor::AdminFreezeWindow::<Test>::get(), 7);
 
         // Owner hyperparam rate limit setter
         assert_eq!(
@@ -1982,7 +1982,7 @@ fn test_sudo_set_admin_freeze_window_and_rate() {
             <<Test as Config>::RuntimeOrigin>::root(),
             5
         ));
-        assert_eq!(SubtensorModule::get_owner_hyperparam_rate_limit(), 5);
+        assert_eq!(pallet_subtensor::OwnerHyperparamRateLimit::<Test>::get(), 5);
     });
 }
 
@@ -2149,7 +2149,7 @@ fn test_hyperparam_rate_limit_not_blocking_with_default() {
         SubnetOwner::<Test>::insert(netuid, owner);
 
         // Read the default (unset) owner hyperparam rate limit
-        let default_limit = SubtensorModule::get_owner_hyperparam_rate_limit();
+        let default_limit = pallet_subtensor::OwnerHyperparamRateLimit::<Test>::get();
 
         assert_eq!(default_limit, 0);
 

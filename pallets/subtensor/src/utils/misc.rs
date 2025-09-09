@@ -111,25 +111,28 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // (Removed dedicated ensure_owner_hparam_rate_limit; OwnerHyperparamUpdate is checked via TransactionType)
-
-    // === Admin freeze window accessors ===
-    pub fn get_admin_freeze_window() -> u16 {
-        AdminFreezeWindow::<T>::get()
-    }
-
     pub fn set_admin_freeze_window(window: u16) {
         AdminFreezeWindow::<T>::set(window);
         Self::deposit_event(Event::AdminFreezeWindowSet(window));
     }
 
-    pub fn get_owner_hyperparam_rate_limit() -> u64 {
-        OwnerHyperparamRateLimit::<T>::get()
-    }
-
     pub fn set_owner_hyperparam_rate_limit(limit: u64) {
         OwnerHyperparamRateLimit::<T>::set(limit);
         Self::deposit_event(Event::OwnerHyperparamRateLimitSet(limit));
+    }
+
+    /// If owner is `Some`, record last-blocks for the provided `TransactionType`s.
+    pub fn record_owner_rl(
+        maybe_owner: Option<<T as frame_system::Config>::AccountId>,
+        netuid: NetUid,
+        txs: &[TransactionType],
+    ) {
+        if let Some(who) = maybe_owner {
+            let now = Self::get_current_block_as_u64();
+            for tx in txs {
+                Self::set_last_transaction_block_on_subnet(&who, netuid, tx, now);
+            }
+        }
     }
 
     // ========================

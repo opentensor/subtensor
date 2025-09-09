@@ -220,7 +220,7 @@ pub mod pallet {
             )?;
             pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, serving_rate_limit);
             log::debug!("ServingRateLimitSet( serving_rate_limit: {serving_rate_limit:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -279,7 +279,7 @@ pub mod pallet {
             log::debug!(
                 "MaxDifficultySet( netuid: {netuid:?} max_difficulty: {max_difficulty:?} ) "
             );
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -313,7 +313,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
 
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[
@@ -407,7 +407,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_adjustment_alpha(netuid, adjustment_alpha);
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -439,7 +439,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_weight_limit(netuid, max_weight_limit);
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -473,7 +473,7 @@ pub mod pallet {
             );
 
             pallet_subtensor::Pallet::<T>::set_immunity_period(netuid, immunity_period);
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -510,7 +510,7 @@ pub mod pallet {
             log::debug!(
                 "MinAllowedWeightSet( netuid: {netuid:?} min_allowed_weights: {min_allowed_weights:?} ) "
             );
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -566,7 +566,7 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_kappa(netuid, kappa);
             log::debug!("KappaSet( netuid: {netuid:?} kappa: {kappa:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -594,7 +594,7 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_rho(netuid, rho);
             log::debug!("RhoSet( netuid: {netuid:?} rho: {rho:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -634,7 +634,7 @@ pub mod pallet {
             log::debug!(
                 "ActivityCutoffSet( netuid: {netuid:?} activity_cutoff: {activity_cutoff:?} ) "
             );
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -695,7 +695,7 @@ pub mod pallet {
             log::debug!(
                 "NetworkPowRegistrationAllowed( registration_allowed: {registration_allowed:?} ) "
             );
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -763,7 +763,7 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
             log::debug!("MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -803,7 +803,7 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
             log::debug!("MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -898,7 +898,7 @@ pub mod pallet {
             log::debug!(
                 "BondsMovingAverageSet( netuid: {netuid:?} bonds_moving_average: {bonds_moving_average:?} ) "
             );
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -930,7 +930,7 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_bonds_penalty(netuid, bonds_penalty);
             log::debug!("BondsPenalty( netuid: {netuid:?} bonds_penalty: {bonds_penalty:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -1215,7 +1215,7 @@ pub mod pallet {
 
             pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_enabled(netuid, enabled);
             log::debug!("ToggleSetWeightsCommitReveal( netuid: {netuid:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -1246,7 +1246,7 @@ pub mod pallet {
             )?;
             pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
             log::debug!("LiquidAlphaEnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -1272,7 +1272,7 @@ pub mod pallet {
                 origin, netuid, alpha_low, alpha_high,
             );
             if res.is_ok() {
-                Self::record_owner_rl(
+                pallet_subtensor::Pallet::<T>::record_owner_rl(
                     maybe_owner,
                     netuid,
                     &[TransactionType::OwnerHyperparamUpdate],
@@ -1384,7 +1384,7 @@ pub mod pallet {
             log::debug!("SetWeightCommitInterval( netuid: {netuid:?}, interval: {interval:?} ) ");
 
             pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval)?;
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -1469,7 +1469,7 @@ pub mod pallet {
             )?;
             let res = pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle);
             if res.is_ok() {
-                Self::record_owner_rl(
+                pallet_subtensor::Pallet::<T>::record_owner_rl(
                     maybe_owner,
                     netuid,
                     &[TransactionType::OwnerHyperparamUpdate],
@@ -1624,7 +1624,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_alpha_sigmoid_steepness(netuid, steepness);
 
             log::debug!("AlphaSigmoidSteepnessSet( netuid: {netuid:?}, steepness: {steepness:?} )");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -1657,7 +1657,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::Yuma3EnableToggled { netuid, enabled });
             log::debug!("Yuma3EnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -1690,7 +1690,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::BondsResetToggled { netuid, enabled });
             log::debug!("BondsResetToggled( netuid: {netuid:?} bonds_reset: {enabled:?} ) ");
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -1800,7 +1800,7 @@ pub mod pallet {
                 &[TransactionType::OwnerHyperparamUpdate],
             )?;
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
-            Self::record_owner_rl(
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
                 &[TransactionType::OwnerHyperparamUpdate],
@@ -1845,24 +1845,6 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_owner_hyperparam_rate_limit(limit);
             log::debug!("OwnerHyperparamRateLimitSet( limit: {limit:?} ) ");
             Ok(())
-        }
-    }
-
-    impl<T: Config> Pallet<T> {
-        // Helper: if owner path, record last-blocks for the provided TransactionTypes
-        fn record_owner_rl(
-            maybe_owner: Option<<T as frame_system::Config>::AccountId>,
-            netuid: NetUid,
-            txs: &[TransactionType],
-        ) {
-            if let Some(who) = maybe_owner {
-                let now = pallet_subtensor::Pallet::<T>::get_current_block_as_u64();
-                for tx in txs {
-                    pallet_subtensor::Pallet::<T>::set_last_transaction_block_on_subnet(
-                        &who, netuid, tx, now,
-                    );
-                }
-            }
         }
     }
 }
