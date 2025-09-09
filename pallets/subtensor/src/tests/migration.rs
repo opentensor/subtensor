@@ -1587,3 +1587,120 @@ fn test_migrate_crv3_v2_to_timelocked() {
         assert_eq!(round2, round);
     });
 }
+
+#[test]
+fn test_migrate_remove_network_modality() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_remove_network_modality";
+
+        // Create multiple networks to test
+        let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
+        for netuid in netuids.iter() {
+            add_network(*netuid, 1, 0);
+        }
+
+        // Set initial storage version to 7 (below target)
+        StorageVersion::new(7).put::<Pallet<Test>>();
+        assert_eq!(
+            Pallet::<Test>::on_chain_storage_version(),
+            StorageVersion::new(7)
+        );
+
+        // ------------------------------
+        // 1. Simulate NetworkModality entries using deprecated storage alias
+        // ------------------------------
+        // We need to manually create storage entries that would exist for NetworkModality
+        // Since NetworkModality was a StorageMap<_, Identity, NetUid, u16>, we simulate this
+        let pallet_prefix = twox_128("SubtensorModule".as_bytes());
+        let storage_prefix = twox_128("NetworkModality".as_bytes());
+
+        // Create NetworkModality entries for each network
+        for (i, netuid) in netuids.iter().enumerate() {
+            let mut key = Vec::new();
+            key.extend_from_slice(&pallet_prefix);
+            key.extend_from_slice(&storage_prefix);
+            // Identity encoding for netuid
+            key.extend_from_slice(&netuid.encode());
+
+            let modality_value: u16 = (i as u16) + 1; // Different values for testing
+            put_raw(&key, &modality_value.encode());
+
+            // Verify the entry was created
+            let stored_value = get_raw(&key).expect("NetworkModality entry should exist");
+            assert_eq!(
+                u16::decode(&mut &stored_value[..]).expect("Failed to decode modality"),
+                modality_value
+            );
+        }
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // 2. Run migration
+        // ------------------------------
+        let weight =
+            crate::migrations::migrate_remove_network_modality::migrate_remove_network_modality::<
+                Test,
+            >();
+
+        // ------------------------------
+        // 3. Verify migration effects
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+
+        // Verify weight is non-zero
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+
+        // Verify weight calculation: 1 read (version check) + 1 read (total networks) + N writes (removal) + 1 write (version update)
+        let expected_weight = <Test as Config>::DbWeight::get().reads(2)
+            + <Test as Config>::DbWeight::get().writes(netuids.len() as u64 + 1);
+        assert_eq!(
+            weight, expected_weight,
+            "Weight calculation should be correct"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_remove_network_modality_already_run() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_remove_network_modality";
+
+        // Mark migration as already run
+        HasMigrationRun::<Test>::insert(MIGRATION_NAME.as_bytes().to_vec(), true);
+
+        // Set storage version to 8 (target version)
+        StorageVersion::new(8).put::<Pallet<Test>>();
+        assert_eq!(
+            Pallet::<Test>::on_chain_storage_version(),
+            StorageVersion::new(8)
+        );
+
+        // Run migration
+        let weight =
+            crate::migrations::migrate_remove_network_modality::migrate_remove_network_modality::<
+                Test,
+            >();
+
+        // Should only have read weight for checking migration status
+        let expected_weight = <Test as Config>::DbWeight::get().reads(1);
+        assert_eq!(
+            weight, expected_weight,
+            "Second run should only read the migration flag"
+        );
+
+        // Verify migration is still marked as run
+        assert!(HasMigrationRun::<Test>::get(
+            MIGRATION_NAME.as_bytes().to_vec()
+        ));
+    });
+}

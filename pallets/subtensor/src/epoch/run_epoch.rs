@@ -105,6 +105,13 @@ impl<T: Config> Pallet<T> {
             .collect::<sp_std::vec::Vec<_>>();
 
         Incentive::<T>::insert(netuid_index, incentive);
+
+        let server_emission = extract_from_sorted_terms!(terms_sorted, server_emission);
+        Self::deposit_event(Event::IncentiveAlphaEmittedToMiners {
+            netuid,
+            emissions: server_emission,
+        });
+
         bonds
             .into_iter()
             .enumerate()
