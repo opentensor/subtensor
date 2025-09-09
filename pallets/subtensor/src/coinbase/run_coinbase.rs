@@ -514,13 +514,13 @@ impl<T: Config> Pallet<T> {
             let owner: T::AccountId = Owner::<T>::get(&hotkey);
             let destination = AutoStakeDestination::<T>::get(&owner).unwrap_or(hotkey.clone());
 
-            Self::deposit_event(Event::<T>::AutoStakeAdded(
+            Self::deposit_event(Event::<T>::AutoStakeAdded {
                 netuid,
-                destination.clone(),
+                destination: destination.clone(),
                 hotkey,
-                owner.clone(),
+                owner: owner.clone(),
                 incentive,
-            ));
+            });
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination,
                 &owner,

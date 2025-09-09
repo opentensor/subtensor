@@ -415,16 +415,25 @@ mod events {
         TimelockedWeightsRevealed(NetUid, T::AccountId),
 
         /// Auto-staking hotkey received stake
-        AutoStakeAdded(
-            NetUid,
-            T::AccountId,
-            T::AccountId,
-            T::AccountId,
-            AlphaCurrency,
-        ),
-        /// EpochIncentives
-        IncentiveAlphaEmittedToMiners {
+        AutoStakeAdded {
+            /// Subnet identifier.
             netuid: NetUid,
+            /// Destination account that received the auto-staked funds.
+            destination: T::AccountId,
+            /// Hotkey account whose stake was auto-staked.
+            hotkey: T::AccountId,
+            /// Owner (coldkey) account associated with the hotkey.
+            owner: T::AccountId,
+            /// Amount of alpha auto-staked.
+            incentive: AlphaCurrency,
+        },
+
+        /// End-of-epoch miner incentive alpha by UID (server emission).
+        /// `emissions[uid]` = alpha emitted to that UID (0..n-1).
+        IncentiveAlphaEmittedToMiners {
+            /// Subnet identifier.
+            netuid: NetUid,
+            /// UID-indexed array of miner incentive alpha; index equals UID.
             emissions: Vec<AlphaCurrency>,
         },
     }
