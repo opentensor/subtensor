@@ -170,6 +170,7 @@ impl<T: Config> Pallet<T> {
                     }
 
                     // Remove all storage items associated with this uid
+                    #[allow(unknown_lints)]
                     Keys::<T>::remove(netuid, uid as u16);
                     BlockAtRegistration::<T>::remove(netuid, uid as u16);
                     Weights::<T>::remove(netuid, uid as u16);
