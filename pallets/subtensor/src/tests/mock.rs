@@ -19,9 +19,8 @@ use pallet_collective::MemberCount;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
-    BuildStorage,
+    BuildStorage, Percent,
     traits::{BlakeTwo256, IdentityLookup},
-    Percent,
 };
 use sp_std::{cell::RefCell, cmp::Ordering};
 use subtensor_runtime_common::{NetUid, TaoCurrency};

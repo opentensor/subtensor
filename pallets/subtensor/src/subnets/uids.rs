@@ -135,16 +135,17 @@ impl<T: Config> Pallet<T> {
             // Count the number of immune UIDs
             let mut immune_count: u16 = 0;
             for uid in 0..current_n {
-                if owner_uids.contains(&{ uid })
-                    || Self::get_neuron_is_immune(netuid, uid)
-                {
+                if owner_uids.contains(&{ uid }) || Self::get_neuron_is_immune(netuid, uid) {
                     immune_count = immune_count.saturating_add(1);
                 }
             }
 
             // Ensure the number of immune UIDs is less than 80%
             let immune_percentage = Percent::from_rational(immune_count, max_n);
-            ensure!(immune_percentage < T::MaxImmuneUidsPercentage::get(), Error::<T>::InvalidValue);
+            ensure!(
+                immune_percentage < T::MaxImmuneUidsPercentage::get(),
+                Error::<T>::InvalidValue
+            );
 
             // Get all emissions with their UIDs and sort by emission (descending)
             // This ensures we keep the highest emitters and remove the lowest ones

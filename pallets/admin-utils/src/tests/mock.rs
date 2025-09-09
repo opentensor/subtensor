@@ -13,10 +13,9 @@ use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
-    BuildStorage, KeyTypeId, Perbill,
+    BuildStorage, KeyTypeId, Perbill, Percent,
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    Percent,
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
