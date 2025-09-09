@@ -50,6 +50,7 @@ use sp_core::{
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::{
+    Percent,
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,

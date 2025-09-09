@@ -21,6 +21,7 @@ use sp_runtime::Perbill;
 use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
+    Percent,
 };
 use sp_std::{cell::RefCell, cmp::Ordering};
 use subtensor_runtime_common::{NetUid, TaoCurrency};

@@ -18,6 +18,7 @@ use sp_runtime::{
     BuildStorage, KeyTypeId, Perbill,
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup, One},
+    Percent,
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
