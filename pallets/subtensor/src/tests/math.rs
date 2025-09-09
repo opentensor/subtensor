@@ -417,6 +417,15 @@ fn vec_to_sparse_mat_fixed(
     rows: usize,
     transpose: bool,
 ) -> Vec<Vec<(u16, I32F32)>> {
+    _vec_to_sparse_mat_fixed(vector, rows, transpose, true)
+}
+
+fn _vec_to_sparse_mat_fixed(
+    vector: &[f32],
+    rows: usize,
+    transpose: bool,
+    filter_zeros: bool,
+) -> Vec<Vec<(u16, I32F32)>> {
     assert!(
         vector.len() % rows == 0,
         "Vector of len {:?} cannot reshape to {rows} rows.",
@@ -428,7 +437,7 @@ fn vec_to_sparse_mat_fixed(
         for col in 0..cols {
             let mut row_vec: Vec<(u16, I32F32)> = vec![];
             for row in 0..rows {
-                if vector[row * cols + col] > 0. {
+                if !filter_zeros || vector[row * cols + col] > 0. {
                     row_vec.push((row as u16, I32F32::from_num(vector[row * cols + col])));
                 }
             }
@@ -438,7 +447,7 @@ fn vec_to_sparse_mat_fixed(
         for row in 0..rows {
             let mut row_vec: Vec<(u16, I32F32)> = vec![];
             for col in 0..cols {
-                if vector[row * cols + col] > 0. {
+                if !filter_zeros || vector[row * cols + col] > 0. {
                     row_vec.push((col as u16, I32F32::from_num(vector[row * cols + col])));
                 }
             }
@@ -1021,6 +1030,48 @@ fn test_math_inplace_mask_rows() {
     assert_mat_compare(
         &mat,
         &vec_to_mat_fixed(&target, 3, false),
+        I32F32::from_num(0),
+    );
+}
+
+#[test]
+fn test_math_inplace_mask_rows_sparse() {
+    let input: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
+    let mask: Vec<bool> = vec![false, false, false];
+    let target: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
+    let mut mat = _vec_to_sparse_mat_fixed(&input, 3, false, false);
+    inplace_mask_rows_sparse(&mask, &mut mat);
+    assert_sparse_mat_compare(
+        &mat,
+        &_vec_to_sparse_mat_fixed(&target, 3, false, false),
+        I32F32::from_num(0),
+    );
+    let mask: Vec<bool> = vec![true, true, true];
+    let target: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0.];
+    let mut mat = _vec_to_sparse_mat_fixed(&input, 3, false, false);
+    inplace_mask_rows_sparse(&mask, &mut mat);
+    assert_sparse_mat_compare(
+        &mat,
+        &_vec_to_sparse_mat_fixed(&target, 3, false, false),
+        I32F32::from_num(0),
+    );
+    let mask: Vec<bool> = vec![true, false, true];
+    let target: Vec<f32> = vec![0., 0., 0., 4., 5., 6., 0., 0., 0.];
+    let mut mat = _vec_to_sparse_mat_fixed(&input, 3, false, false);
+    inplace_mask_rows_sparse(&mask, &mut mat);
+    assert_sparse_mat_compare(
+        &mat,
+        &_vec_to_sparse_mat_fixed(&target, 3, false, false),
+        I32F32::from_num(0),
+    );
+    let input: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0.];
+    let mut mat = _vec_to_sparse_mat_fixed(&input, 3, false, false);
+    let mask: Vec<bool> = vec![false, false, false];
+    let target: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0.];
+    inplace_mask_rows_sparse(&mask, &mut mat);
+    assert_sparse_mat_compare(
+        &mat,
+        &_vec_to_sparse_mat_fixed(&target, 3, false, false),
         I32F32::from_num(0),
     );
 }

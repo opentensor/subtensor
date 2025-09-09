@@ -565,6 +565,22 @@ pub fn inplace_mask_rows(mask: &[bool], matrix: &mut [Vec<I32F32>]) {
         });
 }
 
+// Apply row mask to sparse matrix, mask=true will set the values on that row to to 0
+#[allow(dead_code)]
+pub fn inplace_mask_rows_sparse(mask: &[bool], sparse_matrix: &mut [Vec<(u16, I32F32)>]) {
+    assert_eq!(sparse_matrix.len(), mask.len());
+    sparse_matrix
+        .iter_mut()
+        .zip(mask)
+        .for_each(|(sparse_row, mask_row)| {
+            if *mask_row {
+                sparse_row.iter_mut().for_each(|(_j, value)| {
+                    *value = I32F32::saturating_from_num(0);
+                });
+            }
+        });
+}
+
 // Apply column mask to matrix, mask=true will mask out, i.e. set to 0.
 // Assumes each column has the same length.
 #[allow(dead_code)]

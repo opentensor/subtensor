@@ -2776,6 +2776,75 @@ fn set_yuma_3_weights(netuid: NetUid, weights: Vec<Vec<u16>>, indices: Vec<u16>)
 }
 
 #[test]
+fn test_yuma_3_inactive_bonds() {
+    // Test how bonds change over epochs for active vs inactive validators
+    for sparse in [true, false].iter() {
+        new_test_ext(1).execute_with(|| {
+            let n: u16 = 4; // 2 validators, 2 servers
+            let netuid = NetUid::from(1);
+            let max_stake: u64 = 8;
+            let stakes: Vec<u64> = vec![5, 5, 0, 0];
+            let weights_to_set: Vec<u16> = vec![u16::MAX, 0];
+            let miner_indices: Vec<u16> = vec![2, 3];
+
+            setup_yuma_3_scenario(netuid, n, *sparse, max_stake, stakes);
+
+            // at epoch 4 validator will go inactive if weights not set
+            SubtensorModule::set_activity_cutoff(netuid, 3);
+
+            // set initial weights
+            set_yuma_3_weights(
+                netuid,
+                vec![weights_to_set.clone(); 2],
+                miner_indices.clone(),
+            );
+
+            let all_targets_bonds = [
+                vec![vec![0.101319, 0.0000], vec![0.101319, 0.0000]],
+                vec![vec![0.192370, 0.0000], vec![0.192370, 0.0000]],
+                vec![vec![0.274204, 0.0000], vec![0.274204, 0.0000]],
+                vec![vec![0.241580, 0.0000], vec![0.347737, 0.0000]],
+                vec![vec![0.214023, 0.0000], vec![0.413824, 0.0000]],
+                vec![vec![0.293659, 0.0000], vec![0.473212, 0.0000]],
+                vec![vec![0.365224, 0.0000], vec![0.526588, 0.0000]],
+                vec![vec![0.429541, 0.0000], vec![0.574547, 0.0000]],
+            ];
+
+            for (epoch, target_bonds) in all_targets_bonds.iter().enumerate() {
+                if epoch == 2 {
+                    // Set weight only on validator 1 and let the other become inactive
+                    assert_ok!(SubtensorModule::set_weights(
+                        RuntimeOrigin::signed(U256::from(1)),
+                        netuid,
+                        miner_indices.clone(),
+                        weights_to_set.clone(),
+                        0
+                    ));
+                }
+                if epoch == 5 {
+                    // all 2 validators are active again
+                    set_yuma_3_weights(
+                        netuid,
+                        vec![weights_to_set.clone(); 2],
+                        miner_indices.clone(),
+                    );
+                }
+                run_epoch(netuid, *sparse);
+
+                // Check bonds values
+                let bonds = SubtensorModule::get_bonds_fixed_proportion(netuid);
+                for (bond, target_bond) in bonds.iter().zip(target_bonds.iter()) {
+                    // skip the 2 validators bonds 0 values
+                    for (b, t) in bond.iter().skip(2).zip(target_bond) {
+                        assert_approx_eq(*b, fixed(*t), I32F32::from_num(1e-3));
+                    }
+                }
+            }
+        });
+    }
+}
+
+#[test]
 fn test_yuma_3_kappa_moves_first() {
     for sparse in [true, false].iter() {
         new_test_ext(1).execute_with(|| {

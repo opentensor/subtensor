@@ -215,7 +215,7 @@ impl<T: Config> Pallet<T> {
         // Calculate weights for bonds, apply bonds penalty to weights.
         // bonds_penalty = 0: weights_for_bonds = weights.clone()
         // bonds_penalty = 1: weights_for_bonds = clipped_weights.clone()
-        let weights_for_bonds: Vec<Vec<I32F32>> =
+        let mut weights_for_bonds: Vec<Vec<I32F32>> =
             interpolate(&weights, &clipped_weights, bonds_penalty);
 
         let mut dividends: Vec<I32F32>;
@@ -225,6 +225,13 @@ impl<T: Config> Pallet<T> {
             let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds_fixed_proportion(netuid);
             inplace_mask_cols(&recently_registered, &mut bonds); // mask outdated bonds
             log::trace!("B: {:?}", &bonds);
+
+            // Inactive neurons bonds are computed assuming 0 weights.
+            inplace_mask_rows(&inactive, &mut weights_for_bonds);
+            log::trace!(
+                "Weights for bonds (active neurons): {:?}",
+                &weights_for_bonds
+            );
 
             // Compute the Exponential Moving Average (EMA) of bonds.
             ema_bonds = Self::compute_bonds(netuid, &weights_for_bonds, &bonds, &consensus);
@@ -681,7 +688,7 @@ impl<T: Config> Pallet<T> {
         // Calculate weights for bonds, apply bonds penalty to weights.
         // bonds_penalty = 0: weights_for_bonds = weights.clone()
         // bonds_penalty = 1: weights_for_bonds = clipped_weights.clone()
-        let weights_for_bonds: Vec<Vec<(u16, I32F32)>> =
+        let mut weights_for_bonds: Vec<Vec<(u16, I32F32)>> =
             interpolate_sparse(&weights, &clipped_weights, n, bonds_penalty);
 
         let mut dividends: Vec<I32F32>;
@@ -703,8 +710,16 @@ impl<T: Config> Pallet<T> {
             );
             log::trace!("Bonds: (mask) {:?}", &bonds);
 
-            // Compute the Exponential Moving Average (EMA) of bonds.
+            // Inactive neurons bonds are computed assuming 0 weights.
+            // for this is necessary to keep (index, 0) entries in the sparse matrix.
             log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
+            inplace_mask_rows_sparse(&inactive, &mut weights_for_bonds);
+            log::trace!(
+                "Weights for bonds (active neurons): {:?}",
+                &weights_for_bonds
+            );
+
+            // Compute the Exponential Moving Average (EMA) of bonds.
             ema_bonds = Self::compute_bonds_sparse(netuid, &weights_for_bonds, &bonds, &consensus);
             log::trace!("emaB: {:?}", &ema_bonds);
 
