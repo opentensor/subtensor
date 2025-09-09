@@ -1630,8 +1630,19 @@ pub mod pallet {
             netuid: NetUid,
             subsub_count: SubId,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            )?;
+
             pallet_subtensor::Pallet::<T>::do_set_subsubnet_count(netuid, subsub_count)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            );
             Ok(())
         }
 
@@ -1645,8 +1656,19 @@ pub mod pallet {
             netuid: NetUid,
             maybe_split: Option<Vec<u16>>,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            )?;
+
             pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            );
             Ok(())
         }
     }

@@ -1825,9 +1825,9 @@ pub mod pallet {
         SubId::from(8)
     }
     #[pallet::type_value]
-    /// -- ITEM (Number of tempos in subnet super-block)
-    pub fn SuperBlockTempos<T: Config>() -> u16 {
-        20
+    /// -- ITEM (Rate limit for subsubnet count updates)
+    pub fn SetSubsubnetCountRateLimit<T: Config>() -> u64 {
+        7200
     }
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Current number of sub-subnets

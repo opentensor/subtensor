@@ -11,6 +11,7 @@ pub enum TransactionType {
     RegisterNetwork,
     SetWeightsVersionKey,
     SetSNOwnerHotkey,
+    SubsubnetParameterUpdate,
 }
 
 /// Implement conversion from TransactionType to u16
@@ -23,6 +24,7 @@ impl From<TransactionType> for u16 {
             TransactionType::RegisterNetwork => 3,
             TransactionType::SetWeightsVersionKey => 4,
             TransactionType::SetSNOwnerHotkey => 5,
+            TransactionType::SubsubnetParameterUpdate => 7,
         }
     }
 }
@@ -36,6 +38,7 @@ impl From<u16> for TransactionType {
             3 => TransactionType::RegisterNetwork,
             4 => TransactionType::SetWeightsVersionKey,
             5 => TransactionType::SetSNOwnerHotkey,
+            7 => TransactionType::SubsubnetParameterUpdate,
             _ => TransactionType::Unknown,
         }
     }
@@ -50,6 +53,7 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetChildren => 150, // 30 minutes
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
+            TransactionType::SubsubnetParameterUpdate => SetSubsubnetCountRateLimit::<T>::get(),
 
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,
