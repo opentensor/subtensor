@@ -108,7 +108,7 @@ impl<T: Config> Pallet<T> {
 
         let server_emission = extract_from_sorted_terms!(terms_sorted, server_emission);
         Self::deposit_event(Event::IncentiveAlphaEmittedToMiners {
-            netuid,
+            netuid: netuid_index,
             emissions: server_emission,
         });
 
