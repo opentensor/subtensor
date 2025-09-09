@@ -428,8 +428,7 @@ mod events {
             incentive: AlphaCurrency,
         },
 
-        /// End-of-epoch miner incentive alpha by UID (server emission).
-        /// `emissions[uid]` = alpha emitted to that UID (0..n-1).
+        /// End-of-epoch miner incentive alpha by UID
         IncentiveAlphaEmittedToMiners {
             /// Subnet identifier.
             netuid: NetUid,
