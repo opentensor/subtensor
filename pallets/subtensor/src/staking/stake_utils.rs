@@ -734,6 +734,12 @@ impl<T: Config> Pallet<T> {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
         }
 
+        // If this is a root-stake
+        if netuid == NetUid::ROOT {
+            // Adjust root debt for this hotkey and coldkey.
+            Self::remove_stake_adjust_debt_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
+        }
+
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO const: fix.
         // if Self::get_stake(hotkey, coldkey) == 0 {
@@ -817,6 +823,13 @@ impl<T: Config> Pallet<T> {
 
         if set_limit {
             Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
+        }
+
+        // If this is a root-stake
+        if netuid == NetUid::ROOT {
+            // Adjust root debt for this hotkey and coldkey.
+            let alpha = swap_result.amount_paid_out.into();
+            Self::add_stake_adjust_debt_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
         }
 
         // Deposit and log the staking event.

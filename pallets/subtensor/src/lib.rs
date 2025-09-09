@@ -307,6 +307,62 @@ pub mod pallet {
     /// ==== Staking + Accounts ====
     /// ============================
 
+    #[derive(
+        Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
+    )]
+    /// Enum for the per-coldkey root claim setting.
+    pub enum RootClaimTypeEnum {
+        /// Swap any alpha emission for TAO.
+        #[default]
+        Swap,
+        /// Keep all alpha emission.
+        Keep,
+    }
+
+    /// Enum for the per-coldkey root claim frequency setting.
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum RootClaimFrequencyEnum {
+        /// Claim automatically.
+        #[default]
+        Auto,
+        /// Only claim manually; Never automatically.
+        Manual,
+    }
+
+    #[pallet::type_value]
+    /// Default minimum root claim amount.
+    /// This is the minimum amount of root claim that can be made.
+    /// Any amount less than this will not be claimed.
+    pub fn DefaultMinRootClaimAmount<T: Config>() -> u64 {
+        500_000
+    }
+
+    #[pallet::type_value]
+    /// Default root claim type.
+    /// This is the type of root claim that will be made.
+    /// This is set by the user. Either swap to TAO or keep as alpha.
+    pub fn DefaultRootClaimType<T: Config>() -> RootClaimTypeEnum {
+        RootClaimTypeEnum::default()
+    }
+
+    #[pallet::type_value]
+    /// Default root claim frequency.
+    /// This is the frequency of root claims for a coldkey.
+    /// This is set by the user. Either auto or manual.
+    pub fn DefaultRootClaimFrequency<T: Config>() -> RootClaimFrequencyEnum {
+        RootClaimFrequencyEnum::default()
+    }
+
+    #[pallet::type_value]
+    /// Default number of root claims per claim call.
+    /// Ideally this is calculated using the number of staking coldkey
+    /// and the block time.
+    pub fn DefaultNumRootClaim<T: Config>() -> u64 {
+        // TODO: replace with size of staking coldkeys / 7200
+        // i.e. once per day
+        15
+    }
+
     #[pallet::type_value]
     /// Default value for zero.
     pub fn DefaultZeroU64<T: Config>() -> u64 {
@@ -1768,6 +1824,55 @@ pub mod pallet {
         bool,
         ValueQuery,
     >;
+
+    #[pallet::storage] // --- DMAP ( hot, netuid ) --> claimable_dividends | Root claimable dividends.
+    pub type RootClaimable<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        NetUid,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
+    >;
+    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> claimable_debt | Returns a keys debt for claimable divs.
+    pub type RootDebt<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        I96F32, // Shares
+        ValueQuery,
+    >;
+    #[pallet::storage] // -- MAP ( cold ) --> root_claim_type enum
+    pub type RootClaimType<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        RootClaimTypeEnum,
+        ValueQuery,
+        DefaultRootClaimType<T>,
+    >;
+    #[pallet::storage] // -- MAP ( cold ) --> root_claim_frequency enum
+    pub type RootClaimFrequency<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        RootClaimFrequencyEnum,
+        ValueQuery,
+        DefaultRootClaimFrequency<T>,
+    >;
+
+    #[pallet::storage] // --- MAP ( u64 ) --> coldkey | Maps coldkeys that have stake to an index
+    pub type StakingColdkeys<T: Config> = StorageMap<_, Identity, u64, T::AccountId, OptionQuery>;
+
+    #[pallet::storage] // --- Value --> num_staking_coldkeys
+    pub type NumStakingColdkeys<T: Config> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- Value --> num_root_claim | Number of coldkeys to claim each auto-claim.
+    pub type NumRootClaim<T: Config> = StorageValue<_, u64, ValueQuery, DefaultNumRootClaim<T>>;
 
     /// =============================
     /// ==== EVM related storage ====

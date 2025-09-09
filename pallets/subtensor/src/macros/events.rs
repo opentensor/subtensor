@@ -413,5 +413,35 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **who**: The account ID of the user revealing the weights.
         TimelockedWeightsRevealed(NetUid, T::AccountId),
+
+        /// Root emissions have been claimed for a coldkey on all subnets and hotkeys.
+        /// Parameters:
+        /// (coldkey)
+        RootClaimed {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+        },
+
+        /// Root claim type for a coldkey has been set.
+        /// Parameters:
+        /// (coldkey, u8)
+        RootClaimTypeSet {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+
+            /// Claim type
+            root_claim_type: RootClaimTypeEnum,
+        },
+
+        /// Root claim frequency for a coldkey has been set.
+        /// Parameters:
+        /// (coldkey, u8)
+        RootClaimFrequencySet {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+
+            /// Claim type
+            root_claim_type: RootClaimTypeEnum,
+        },
     }
 }
