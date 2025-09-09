@@ -413,5 +413,13 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **who**: The account ID of the user revealing the weights.
         TimelockedWeightsRevealed(NetUid, T::AccountId),
+
+        /// Auto-staking hotkey received stake
+        AutoStakeAdded(NetUid, T::AccountId, T::AccountId, AlphaCurrency),
+        /// EpochIncentives
+        IncentiveAlphaEmittedToMiners {
+            netuid: NetUid,
+            emissions: Vec<AlphaCurrency>,
+        },
     }
 }
