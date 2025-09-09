@@ -26,7 +26,7 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xCF\x80",    // π (Pi, 16)
     b"\xCF\x81",    // ρ (Rho, 17)
     b"\xCF\x83",    // σ (Sigma, 18)
-    b"\x74",        // t (Tau, 19)
+    b"t",           // t (Tau, 19)
     b"\xCF\x85",    // υ (Upsilon, 20)
     b"\xCF\x86",    // φ (Phi, 21)
     b"\xCF\x87",    // χ (Chi, 22)
