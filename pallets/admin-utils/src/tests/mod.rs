@@ -2152,8 +2152,8 @@ fn test_trim_to_max_allowed_uids() {
             for target_uid in 0..max_n {
                 if target_uid != uid {
                     // Use some non-zero values to make the test more meaningful
-                    let weight_value = ((uid + target_uid) % 1000) as u16;
-                    let bond_value = ((uid * target_uid) % 1000) as u16;
+                    let weight_value = (uid + target_uid) % 1000;
+                    let bond_value = (uid * target_uid) % 1000;
                     weights.push((target_uid, weight_value));
                     bonds.push((target_uid, bond_value));
                 }
@@ -2225,20 +2225,20 @@ fn test_trim_to_max_allowed_uids() {
             U256::from(16000),
         ];
         for hotkey in trimmed_hotkeys {
-            assert!(!Uids::<Test>::contains_key(netuid, &hotkey));
-            assert!(!IsNetworkMember::<Test>::contains_key(&hotkey, netuid));
+            assert!(!Uids::<Test>::contains_key(netuid, hotkey));
+            assert!(!IsNetworkMember::<Test>::contains_key(hotkey, netuid));
             assert!(!LastHotkeyEmissionOnNetuid::<Test>::contains_key(
-                &hotkey, netuid
+                hotkey, netuid
             ));
             assert!(!AlphaDividendsPerSubnet::<Test>::contains_key(
-                netuid, &hotkey
+                netuid, hotkey
             ));
             assert!(!TaoDividendsPerSubnet::<Test>::contains_key(
-                netuid, &hotkey
+                netuid, hotkey
             ));
-            assert!(!Axons::<Test>::contains_key(netuid, &hotkey));
-            assert!(!NeuronCertificates::<Test>::contains_key(netuid, &hotkey));
-            assert!(!Prometheus::<Test>::contains_key(netuid, &hotkey));
+            assert!(!Axons::<Test>::contains_key(netuid, hotkey));
+            assert!(!NeuronCertificates::<Test>::contains_key(netuid, hotkey));
+            assert!(!Prometheus::<Test>::contains_key(netuid, hotkey));
         }
 
         // Ensure trimmed uids weights and bonds have been cleared
