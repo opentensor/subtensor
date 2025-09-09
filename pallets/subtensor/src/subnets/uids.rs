@@ -135,8 +135,8 @@ impl<T: Config> Pallet<T> {
             // Count the number of immune UIDs
             let mut immune_count = 0;
             for uid in 0..current_n {
-                if owner_uids.contains(&(uid as u16))
-                    || Self::get_neuron_is_immune(netuid, uid as u16)
+                if owner_uids.contains(&{ uid })
+                    || Self::get_neuron_is_immune(netuid, uid)
                 {
                     immune_count += 1;
                 }
