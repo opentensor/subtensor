@@ -249,48 +249,6 @@ mod dispatches {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
-        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
-        ///
-        /// # Args:
-        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
-        ///   - The committing hotkey.
-        ///
-        /// * `netuid` (`u16`):
-        ///   - The u16 network identifier.
-        ///
-        /// * `commit` (`Vec<u8>`):
-        ///   - The encrypted compressed commit.
-        ///     The steps for this are:
-        ///     1. Instantiate [`WeightsTlockPayload`]
-        ///     2. Serialize it using the `parity_scale_codec::Encode` trait
-        ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
-        ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
-        ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
-        ///
-        /// * reveal_round (`u64`):
-        ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
-        ///      epoch.
-        ///
-        /// # Raises:
-        /// * `CommitRevealV3Disabled`:
-        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
-        ///
-        /// * `TooManyUnrevealedCommits`:
-        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
-        ///
-        #[pallet::call_index(99)]
-        #[pallet::weight((Weight::from_parts(77_750_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7_u64))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_crv3_weights(
-            origin: T::RuntimeOrigin,
-            netuid: NetUid,
-            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
-            reveal_round: u64,
-        ) -> DispatchResult {
-            Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
-        }
-
         /// ---- The implementation for batch revealing committed weights.
         ///
         /// # Args:
@@ -665,7 +623,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(40)]
-        #[pallet::weight((Weight::from_parts(32_310_000, 0)
+        #[pallet::weight((Weight::from_parts(41_240_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon_tls(
@@ -803,7 +761,7 @@ mod dispatches {
 
         /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_parts(60_720_000, 0)
+        #[pallet::weight((Weight::from_parts(58_980_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(4)), DispatchClass::Normal, Pays::Yes))]
         pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -1682,7 +1640,7 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(377_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(30))
+		.saturating_add(T::DbWeight::get().reads(30_u64))
 		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
@@ -2062,9 +2020,9 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
-        #[pallet::weight(
-            Weight::from_parts(5_170_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
-        )]
+        #[pallet::weight((Weight::from_parts(5_170_000, 0)
+		.saturating_add(T::DbWeight::get().reads(0_u64))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
