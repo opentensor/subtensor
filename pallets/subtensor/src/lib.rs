@@ -868,7 +868,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for ck burn, 18%.
     pub fn DefaultCKBurn<T: Config>() -> u64 {
-        u64::MAX / 100 * 18
+        0
     }
 
     #[pallet::storage]

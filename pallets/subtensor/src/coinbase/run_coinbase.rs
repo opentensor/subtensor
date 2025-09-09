@@ -830,7 +830,7 @@ impl<T: Config> Pallet<T> {
                 parent_emission = parent_emission.saturating_sub(child_take);
                 total_child_take = total_child_take.saturating_add(child_take);
 
-                Self::burn_subnet_alpha(
+                Self::recycle_subnet_alpha(
                     netuid,
                     AlphaCurrency::from(burn_take.saturating_to_num::<u64>()),
                 );
