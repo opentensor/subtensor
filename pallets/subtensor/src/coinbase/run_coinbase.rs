@@ -516,8 +516,9 @@ impl<T: Config> Pallet<T> {
 
             Self::deposit_event(Event::<T>::AutoStakeAdded(
                 netuid,
-                destination,
-                owner,
+                destination.clone(),
+                hotkey,
+                owner.clone(),
                 incentive,
             ));
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(

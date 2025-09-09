@@ -415,7 +415,13 @@ mod events {
         TimelockedWeightsRevealed(NetUid, T::AccountId),
 
         /// Auto-staking hotkey received stake
-        AutoStakeAdded(NetUid, T::AccountId, T::AccountId, AlphaCurrency),
+        AutoStakeAdded(
+            NetUid,
+            T::AccountId,
+            T::AccountId,
+            T::AccountId,
+            AlphaCurrency,
+        ),
         /// EpochIncentives
         IncentiveAlphaEmittedToMiners {
             netuid: NetUid,
