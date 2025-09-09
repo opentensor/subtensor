@@ -322,7 +322,7 @@ impl<T: Config> Pallet<T> {
         T::SwapInterface::is_user_liquidity_enabled(netuid)
     }
 
-    pub fn burn_subnet_alpha(netuid: NetUid, amount: AlphaCurrency) {
+    pub fn recycle_subnet_alpha(netuid: NetUid, amount: AlphaCurrency) {
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(amount);
         });
