@@ -356,7 +356,7 @@ mod benchmarks {
         #[extrinsic_call]
 		_(RawOrigin::Root, 5u16/*version*/)/*sudo_set_commit_reveal_version()*/;
     }
-    
+
     #[benchmark]
     fn sudo_set_owner_immune_neuron_limit() {
         pallet_subtensor::Pallet::<T>::init_new_network(
