@@ -512,10 +512,12 @@ impl<T: Config> Pallet<T> {
             }
 
             let owner: T::AccountId = Owner::<T>::get(&hotkey);
-            if let Some(destination) = AutoStakeDestination::<T>::get(&owner) {
+            let destination = AutoStakeDestination::<T>::get(&owner).unwrap_or(hotkey.clone());
+
+            if AutoStakeDestination::<T>::contains_key(&owner) {
                 Self::deposit_event(Event::<T>::AutoStakeAdded {
                     netuid,
-                    destination,
+                    destination: destination.clone(),
                     hotkey,
                     owner: owner.clone(),
                     incentive,
