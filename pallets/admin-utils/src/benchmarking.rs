@@ -366,7 +366,7 @@ mod benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Root, 1u16.into()/*netuid*/, 5u16/*immune_neurons*/)/*sudo_set_owner_immune_neuron_limit()*/;
-    } 
+    }
 
     #[benchmark]
     fn sudo_trim_to_max_allowed_uids() {
