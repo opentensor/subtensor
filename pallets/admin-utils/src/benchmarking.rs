@@ -356,6 +356,17 @@ mod benchmarks {
         #[extrinsic_call]
 		_(RawOrigin::Root, 5u16/*version*/)/*sudo_set_commit_reveal_version()*/;
     }
+    
+    #[benchmark]
+    fn sudo_set_owner_immune_neuron_limit() {
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16.into(), /*netuid*/
+            1u16,        /*sudo_tempo*/
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, 1u16.into()/*netuid*/, 5u16/*immune_neurons*/)/*sudo_set_owner_immune_neuron_limit()*/;
+    } 
 
     #[benchmark]
     fn sudo_trim_to_max_allowed_uids() {
