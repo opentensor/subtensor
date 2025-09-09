@@ -453,7 +453,7 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE0\xB6\xA2", // ජ (Ja, 424)
     b"\xE0\xB6\xA3", // ඣ (Jha, 425)
     b"\xE0\xB6\xA4", // ඤ (Nya, 426)
-    b"\xE0\xB6\xA7", // ට (Ta, 427)
+    b"\xE0\xB6\xA4", // ට (Ta, 427)
     b"\xE0\xB6\xA5", // ඥ (Tha, 428)
     b"\xE0\xB6\xA6", // ඦ (Da, 429)
     b"\xE0\xB6\xA7", // ට (Dha, 430)
