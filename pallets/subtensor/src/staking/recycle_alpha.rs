@@ -1,6 +1,6 @@
 use super::*;
 use crate::{Error, system::ensure_signed};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
