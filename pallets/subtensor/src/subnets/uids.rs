@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
-use sp_std::vec;
+use sp_std::{cmp, vec};
 use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
@@ -137,7 +137,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .enumerate()
                 .collect::<Vec<_>>();
-            emissions.sort_by_key(|(_, emission)| std::cmp::Reverse(*emission));
+            emissions.sort_by_key(|(_, emission)| cmp::Reverse(*emission));
 
             // Remove uids from the end (lowest emitters) until we reach the new maximum
             let mut removed_uids = BTreeSet::new();

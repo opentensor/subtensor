@@ -2297,3 +2297,67 @@ fn test_trim_to_max_allowed_uids() {
         );
     });
 }
+
+#[test]
+fn test_sudo_set_min_allowed_uids() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let to_be_set: u16 = 8;
+        add_network(netuid, 10);
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
+        TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
+
+        // Register some neurons
+        for i in 0..=16 {
+            register_ok_neuron(netuid, U256::from(i * 1000), U256::from(i * 1000 + i), 0);
+        }
+
+        // Normal case
+        assert_ok!(AdminUtils::sudo_set_min_allowed_uids(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_min_allowed_uids(netuid), to_be_set);
+
+        // Non root
+        assert_err!(
+            AdminUtils::sudo_set_min_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                netuid,
+                to_be_set
+            ),
+            DispatchError::BadOrigin
+        );
+
+        // Non existent subnet
+        assert_err!(
+            AdminUtils::sudo_set_min_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                NetUid::from(42),
+                to_be_set
+            ),
+            Error::<Test>::SubnetDoesNotExist
+        );
+
+        // Min allowed uids greater than max allowed uids
+        assert_err!(
+            AdminUtils::sudo_set_min_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_max_allowed_uids(netuid) + 1
+            ),
+            Error::<Test>::MinAllowedUidsGreaterThanMaxAllowedUids
+        );
+
+        // Min allowed uids greater than current uids
+        assert_err!(
+            AdminUtils::sudo_set_min_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_subnetwork_n(netuid) + 1
+            ),
+            Error::<Test>::MinAllowedUidsGreaterThanCurrentUids
+        );
+    });
+}

@@ -413,5 +413,8 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **who**: The account ID of the user revealing the weights.
         TimelockedWeightsRevealed(NetUid, T::AccountId),
+
+        /// The minimum allowed UIDs for a subnet have been set.
+        MinAllowedUidsSet(NetUid, u16),
     }
 }

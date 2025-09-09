@@ -204,6 +204,17 @@ mod benchmarks {
     }
 
     #[benchmark]
+    fn sudo_set_min_allowed_uids() {
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16.into(), /*netuid*/
+            1u16,        /*tempo*/
+        );
+
+        #[extrinsic_call]
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 32u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
+    }
+
+    #[benchmark]
     fn sudo_set_max_allowed_uids() {
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/

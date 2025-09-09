@@ -109,6 +109,10 @@ pub mod pallet {
         NegativeSigmoidSteepness,
         /// Value not in allowed bounds.
         ValueNotInBounds,
+        /// The minimum allowed UIDs must be less than the current number of UIDs in the subnet.
+        MinAllowedUidsGreaterThanCurrentUids,
+        /// The minimum allowed UIDs must be less than the maximum allowed UIDs.
+        MinAllowedUidsGreaterThanMaxAllowedUids,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -1652,6 +1656,37 @@ pub mod pallet {
                 );
             }
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
+            Ok(())
+        }
+
+        /// The extrinsic sets the minimum allowed UIDs for a subnet.
+        /// It is only callable by the root account.
+        #[pallet::call_index(75)]
+        #[pallet::weight(Weight::from_parts(18_800_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_min_allowed_uids(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            min_allowed_uids: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(
+                min_allowed_uids < pallet_subtensor::Pallet::<T>::get_max_allowed_uids(netuid),
+                Error::<T>::MinAllowedUidsGreaterThanMaxAllowedUids
+            );
+            ensure!(
+                min_allowed_uids < pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid),
+                Error::<T>::MinAllowedUidsGreaterThanCurrentUids
+            );
+            pallet_subtensor::Pallet::<T>::set_min_allowed_uids(netuid, min_allowed_uids);
+            log::debug!(
+                "MinAllowedUidsSet( netuid: {netuid:?} min_allowed_uids: {min_allowed_uids:?} ) "
+            );
             Ok(())
         }
     }

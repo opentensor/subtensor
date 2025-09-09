@@ -156,7 +156,8 @@ parameter_types! {
     pub const InitialTempo: u16 = 0;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
-    pub const InitialMaxAllowedUids: u16 = 2;
+    pub const InitialMinAllowedUids: u16 = 2;
+    pub const InitialMaxAllowedUids: u16 = 4;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty: u16 = u16::MAX;
     pub const InitialBondsResetOn: bool = false;
@@ -238,6 +239,7 @@ impl pallet_subtensor::Config for Test {
     type InitialRho = InitialRho;
     type InitialAlphaSigmoidSteepness = InitialAlphaSigmoidSteepness;
     type InitialKappa = InitialKappa;
+    type InitialMinAllowedUids = InitialMinAllowedUids;
     type InitialMaxAllowedUids = InitialMaxAllowedUids;
     type InitialValidatorPruneLen = InitialValidatorPruneLen;
     type InitialScalingLawPower = InitialScalingLawPower;
