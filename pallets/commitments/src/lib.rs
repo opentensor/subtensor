@@ -10,15 +10,18 @@ mod mock;
 pub mod types;
 pub mod weights;
 
-pub use pallet::*;
-pub use types::*;
-pub use weights::WeightInfo;
-
 use ark_serialize::CanonicalDeserialize;
-use frame_support::{BoundedVec, traits::Currency};
+use codec::Encode;
+use frame_support::IterableStorageDoubleMap;
+use frame_support::{
+    BoundedVec,
+    traits::{Currency, Get},
+};
+use frame_system::pallet_prelude::BlockNumberFor;
+pub use pallet::*;
 use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
-use sp_runtime::{Saturating, traits::Zero};
+use sp_runtime::{Saturating, Weight, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
 use subtensor_runtime_common::NetUid;
 use tle::{
@@ -26,7 +29,9 @@ use tle::{
     stream_ciphers::AESGCMStreamCipherProvider,
     tlock::{TLECiphertext, tld},
 };
+pub use types::*;
 use w3f_bls::EngineBLS;
+pub use weights::WeightInfo;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -325,21 +330,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// *DEPRECATED* Sudo-set the commitment rate limit
-        #[pallet::call_index(1)]
-        #[pallet::weight((
-            Weight::from_parts(3_596_000, 0)
-        	.saturating_add(T::DbWeight::get().reads(0_u64))
-        	.saturating_add(T::DbWeight::get().writes(1_u64)),
-        	DispatchClass::Operational,
-        	Pays::No
-        ))]
-        pub fn set_rate_limit(origin: OriginFor<T>, _rate_limit_blocks: u32) -> DispatchResult {
-            ensure_root(origin)?;
-            // RateLimit::<T>::set(rate_limit_blocks.into());
-            Ok(())
-        }
-
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
         #[pallet::weight((
@@ -359,10 +349,13 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            if let Err(e) = Self::reveal_timelocked_commitments() {
-                log::debug!("Failed to unveil matured commitments on block {n:?}: {e:?}");
+            match Self::reveal_timelocked_commitments() {
+                Ok(w) => w,
+                Err(e) => {
+                    log::debug!("Failed to unveil matured commitments on block {n:?}: {e:?}");
+                    Weight::from_parts(0, 0)
+                }
             }
-            Weight::from_parts(0, 0)
         }
     }
 }
@@ -399,13 +392,22 @@ pub enum CallType {
 use frame_support::{dispatch::DispatchResult, pallet_prelude::TypeInfo};
 
 impl<T: Config> Pallet<T> {
-    pub fn reveal_timelocked_commitments() -> DispatchResult {
+    pub fn reveal_timelocked_commitments() -> Result<Weight, sp_runtime::DispatchError> {
+        let mut total_weight = Weight::from_parts(0, 0);
+
         let index = TimelockedIndex::<T>::get();
+        total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
+
         for (netuid, who) in index.clone() {
-            let Some(mut registration) = <CommitmentOf<T>>::get(netuid, &who) else {
+            let maybe_registration = <CommitmentOf<T>>::get(netuid, &who);
+            total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
+
+            let Some(mut registration) = maybe_registration else {
                 TimelockedIndex::<T>::mutate(|idx| {
                     idx.remove(&(netuid, who.clone()));
                 });
+
+                total_weight = total_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
                 continue;
             };
 
@@ -419,6 +421,7 @@ impl<T: Config> Pallet<T> {
                         encrypted,
                         reveal_round,
                     } => {
+                        total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
                         let pulse = match pallet_drand::Pulses::<T>::get(reveal_round) {
                             Some(p) => p,
                             None => {
@@ -486,6 +489,7 @@ impl<T: Config> Pallet<T> {
             if !revealed_fields.is_empty() {
                 let mut existing_reveals =
                     RevealedCommitments::<T>::get(netuid, &who).unwrap_or_default();
+                total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
 
                 let current_block = <frame_system::Pallet<T>>::block_number();
                 let block_u64 = current_block.saturated_into::<u64>();
@@ -507,6 +511,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 RevealedCommitments::<T>::insert(netuid, &who, existing_reveals);
+                total_weight = total_weight.saturating_add(T::DbWeight::get().writes(1));
             }
 
             registration.info.fields = BoundedVec::try_from(remain_fields)
@@ -515,12 +520,19 @@ impl<T: Config> Pallet<T> {
             match registration.info.fields.is_empty() {
                 true => {
                     <CommitmentOf<T>>::remove(netuid, &who);
+                    total_weight = total_weight.saturating_add(T::DbWeight::get().writes(1));
+
                     TimelockedIndex::<T>::mutate(|idx| {
                         idx.remove(&(netuid, who.clone()));
                     });
+
+                    total_weight =
+                        total_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
                 }
                 false => {
                     <CommitmentOf<T>>::insert(netuid, &who, &registration);
+                    total_weight = total_weight.saturating_add(T::DbWeight::get().writes(1));
+
                     let has_timelock = registration
                         .info
                         .fields
@@ -530,11 +542,38 @@ impl<T: Config> Pallet<T> {
                         TimelockedIndex::<T>::mutate(|idx| {
                             idx.remove(&(netuid, who.clone()));
                         });
+
+                        total_weight =
+                            total_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
                     }
                 }
             }
         }
 
-        Ok(())
+        Ok(total_weight)
+    }
+    pub fn get_commitments(netuid: NetUid) -> Vec<(T::AccountId, Vec<u8>)> {
+        let commitments: Vec<(T::AccountId, Vec<u8>)> =
+            <CommitmentOf<T> as IterableStorageDoubleMap<
+                NetUid,
+                T::AccountId,
+                Registration<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
+            >>::iter_prefix(netuid)
+            .map(|(account, registration)| {
+                let bytes = registration.encode();
+                (account, bytes)
+            })
+            .collect();
+        commitments
+    }
+}
+
+pub trait GetCommitments<AccountId> {
+    fn get_commitments(netuid: NetUid) -> Vec<(AccountId, Vec<u8>)>;
+}
+
+impl<AccountId> GetCommitments<AccountId> for () {
+    fn get_commitments(_netuid: NetUid) -> Vec<(AccountId, Vec<u8>)> {
+        Vec::new()
     }
 }
