@@ -9,7 +9,7 @@ pub use pallet::*;
 // - we could use a type parameter for `AuthorityId`, but there is
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
 use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::{DispatchResult, RuntimeAppPublic, traits::Member};
+use sp_runtime::{DispatchResult, RuntimeAppPublic, Vec, traits::Member};
 
 mod benchmarking;
 
@@ -28,7 +28,7 @@ pub mod pallet {
     use pallet_subtensor::utils::rate_limiting::TransactionType;
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
-    use subtensor_runtime_common::{NetUid, TaoCurrency};
+    use subtensor_runtime_common::{NetUid, SubId, TaoCurrency};
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -1844,6 +1844,58 @@ pub mod pallet {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_owner_hyperparam_rate_limit(limit);
             log::debug!("OwnerHyperparamRateLimitSet( limit: {limit:?} ) ");
+            Ok(())
+        }
+
+        /// Sets the desired number of subsubnets in a subnet
+        #[pallet::call_index(76)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_subsubnet_count(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            subsub_count: SubId,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            )?;
+
+            pallet_subtensor::Pallet::<T>::do_set_subsubnet_count(netuid, subsub_count)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            );
+            Ok(())
+        }
+
+        /// Sets the emission split between subsubnets in a subnet
+        #[pallet::call_index(77)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_subsubnet_emission_split(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            maybe_split: Option<Vec<u16>>,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            )?;
+
+            pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            );
             Ok(())
         }
     }

@@ -86,7 +86,9 @@ pub mod pallet {
     use sp_std::vec::Vec;
     use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
-    use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+    use subtensor_runtime_common::{
+        AlphaCurrency, Currency, NetUid, NetUidStorageIndex, SubId, TaoCurrency,
+    };
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1544,7 +1546,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> incentive
     pub type Incentive<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+        StorageMap<_, Identity, NetUidStorageIndex, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> dividends
     pub type Dividends<T: Config> =
@@ -1555,7 +1557,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> last_update
     pub type LastUpdate<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+        StorageMap<_, Identity, NetUidStorageIndex, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> validator_trust
     pub type ValidatorTrust<T: Config> =
@@ -1573,7 +1575,7 @@ pub mod pallet {
     pub type Weights<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        NetUid,
+        NetUidStorageIndex,
         Identity,
         u16,
         Vec<(u16, u16)>,
@@ -1585,7 +1587,7 @@ pub mod pallet {
     pub type Bonds<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        NetUid,
+        NetUidStorageIndex,
         Identity,
         u16,
         Vec<(u16, u16)>,
@@ -1695,7 +1697,7 @@ pub mod pallet {
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         T::AccountId,
         VecDeque<(H256, u64, u64, u64)>,
@@ -1707,7 +1709,7 @@ pub mod pallet {
     pub type TimelockedWeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         u64, // epoch key
         VecDeque<(
@@ -1724,7 +1726,7 @@ pub mod pallet {
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         u64, // epoch key
         VecDeque<(
@@ -1740,7 +1742,7 @@ pub mod pallet {
     pub type CRV3WeightCommitsV2<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         u64, // epoch key
         VecDeque<(
@@ -1821,6 +1823,33 @@ pub mod pallet {
     /// --- ITEM ( CommitRevealWeightsVersion )
     pub type CommitRevealWeightsVersion<T> =
         StorageValue<_, u16, ValueQuery, DefaultCommitRevealWeightsVersion<T>>;
+
+    /// ======================
+    /// ==== Sub-subnets =====
+    /// ======================
+    #[pallet::type_value]
+    /// -- ITEM (Default number of sub-subnets)
+    pub fn DefaultSubsubnetCount<T: Config>() -> SubId {
+        SubId::from(1)
+    }
+    #[pallet::type_value]
+    /// -- ITEM (Maximum number of sub-subnets)
+    pub fn MaxSubsubnetCount<T: Config>() -> SubId {
+        SubId::from(8)
+    }
+    #[pallet::type_value]
+    /// -- ITEM (Rate limit for subsubnet count updates)
+    pub fn SubsubnetCountSetRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(7_200, 0)
+    }
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Current number of sub-subnets
+    pub type SubsubnetCountCurrent<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, SubId, ValueQuery, DefaultSubsubnetCount<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Normalized vector of emission split proportion between subsubnets
+    pub type SubsubnetEmissionSplit<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, Vec<u16>, OptionQuery>;
 
     /// ==================
     /// ==== Genesis =====

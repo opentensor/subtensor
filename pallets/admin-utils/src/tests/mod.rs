@@ -11,7 +11,7 @@ use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::{Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{Currency, NetUid, SubId, TaoCurrency};
 
 use crate::Error;
 use crate::pallet::PrecompileEnable;
@@ -827,7 +827,7 @@ fn test_sudo_set_bonds_moving_average() {
         let netuid = NetUid::from(1);
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid);
+        let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid.into());
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -845,7 +845,7 @@ fn test_sudo_set_bonds_moving_average() {
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(
-            SubtensorModule::get_bonds_moving_average(netuid),
+            SubtensorModule::get_bonds_moving_average(netuid.into()),
             init_value
         );
         assert_ok!(AdminUtils::sudo_set_bonds_moving_average(
@@ -853,7 +853,10 @@ fn test_sudo_set_bonds_moving_average() {
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_bonds_moving_average(netuid), to_be_set);
+        assert_eq!(
+            SubtensorModule::get_bonds_moving_average(netuid.into()),
+            to_be_set
+        );
     });
 }
 
@@ -2225,5 +2228,44 @@ fn test_sudo_set_max_burn() {
             ),
             Error::<Test>::ValueNotInBounds
         );
+    });
+}
+
+#[test]
+fn test_sudo_set_subsubnet_count() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let ss_count_ok = SubId::from(8);
+        let ss_count_bad = SubId::from(9);
+
+        let sn_owner = U256::from(1324);
+        add_network(netuid, 10);
+        // Set the Subnet Owner
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        assert_eq!(
+            AdminUtils::sudo_set_subsubnet_count(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                ss_count_ok
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_noop!(
+            AdminUtils::sudo_set_subsubnet_count(RuntimeOrigin::root(), netuid, ss_count_bad),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        assert_ok!(AdminUtils::sudo_set_subsubnet_count(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            ss_count_ok
+        ));
+
+        assert_ok!(AdminUtils::sudo_set_subsubnet_count(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            ss_count_ok
+        ));
     });
 }

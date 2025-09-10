@@ -8,7 +8,7 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::{I32F32, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -200,13 +200,13 @@ impl<T: Config> Pallet<T> {
     pub fn get_consensus(netuid: NetUid) -> Vec<u16> {
         Consensus::<T>::get(netuid)
     }
-    pub fn get_incentive(netuid: NetUid) -> Vec<u16> {
+    pub fn get_incentive(netuid: NetUidStorageIndex) -> Vec<u16> {
         Incentive::<T>::get(netuid)
     }
     pub fn get_dividends(netuid: NetUid) -> Vec<u16> {
         Dividends::<T>::get(netuid)
     }
-    pub fn get_last_update(netuid: NetUid) -> Vec<u64> {
+    pub fn get_last_update(netuid: NetUidStorageIndex) -> Vec<u64> {
         LastUpdate::<T>::get(netuid)
     }
     pub fn get_pruning_score(netuid: NetUid) -> Vec<u16> {
@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
     // ==================================
     // ==== YumaConsensus UID params ====
     // ==================================
-    pub fn set_last_update_for_uid(netuid: NetUid, uid: u16, last_update: u64) {
+    pub fn set_last_update_for_uid(netuid: NetUidStorageIndex, uid: u16, last_update: u64) {
         let mut updated_last_update_vec = Self::get_last_update(netuid);
         let Some(updated_last_update) = updated_last_update_vec.get_mut(uid as usize) else {
             return;
@@ -285,7 +285,7 @@ impl<T: Config> Pallet<T> {
         let vec = Consensus::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-    pub fn get_incentive_for_uid(netuid: NetUid, uid: u16) -> u16 {
+    pub fn get_incentive_for_uid(netuid: NetUidStorageIndex, uid: u16) -> u16 {
         let vec = Incentive::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
@@ -293,7 +293,7 @@ impl<T: Config> Pallet<T> {
         let vec = Dividends::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-    pub fn get_last_update_for_uid(netuid: NetUid, uid: u16) -> u64 {
+    pub fn get_last_update_for_uid(netuid: NetUidStorageIndex, uid: u16) -> u64 {
         let vec = LastUpdate::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
