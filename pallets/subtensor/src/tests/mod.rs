@@ -5,6 +5,7 @@ mod consensus;
 mod delegate_info;
 mod difficulty;
 mod emission;
+mod ensure;
 mod epoch;
 mod evm;
 mod leasing;
