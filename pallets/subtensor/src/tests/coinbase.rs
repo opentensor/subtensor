@@ -2845,6 +2845,7 @@ fn test_incentive_is_autostaked_to_owner_destination() {
         // Set autostake destination for the miner's coldkey
         assert_ok!(SubtensorModule::set_coldkey_auto_stake_hotkey(
             RuntimeOrigin::signed(miner_ck),
+            netuid,
             dest_hk,
         ));
 
