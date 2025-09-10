@@ -14,22 +14,124 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
         o: T::RuntimeOrigin,
         netuid: NetUid,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<Option<T::AccountId>, DispatchError> {
         let coldkey = ensure_signed_or_root(o);
         match coldkey {
-            Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(Some(who)),
             Ok(Some(_)) => Err(DispatchError::BadOrigin),
-            Ok(None) => Ok(()),
+            Ok(None) => Ok(None),
             Err(x) => Err(x.into()),
         }
     }
 
-    pub fn ensure_subnet_owner(o: T::RuntimeOrigin, netuid: NetUid) -> Result<(), DispatchError> {
+    pub fn ensure_subnet_owner(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+    ) -> Result<T::AccountId, DispatchError> {
         let coldkey = ensure_signed(o);
         match coldkey {
-            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(who),
             Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
+        }
+    }
+
+    /// Like `ensure_root` but also prohibits calls during the last N blocks of the tempo.
+    pub fn ensure_root_with_rate_limit(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+    ) -> Result<(), DispatchError> {
+        ensure_root(o)?;
+        let now = Self::get_current_block_as_u64();
+        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+        Ok(())
+    }
+
+    /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).
+    /// - Root: only freeze window is enforced; no TransactionType checks.
+    /// - Owner (Signed): freeze window plus all rate checks in `limits` using signer extracted from
+    ///   origin.
+    pub fn ensure_sn_owner_or_root_with_limits(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+        limits: &[crate::utils::rate_limiting::TransactionType],
+    ) -> Result<Option<T::AccountId>, DispatchError> {
+        let maybe_who = Self::ensure_subnet_owner_or_root(o, netuid)?;
+        let now = Self::get_current_block_as_u64();
+        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+        if let Some(who) = maybe_who.as_ref() {
+            for tx in limits.iter() {
+                ensure!(
+                    Self::passes_rate_limit_on_subnet(tx, who, netuid),
+                    Error::<T>::TxRateLimitExceeded
+                );
+            }
+        }
+        Ok(maybe_who)
+    }
+
+    /// Ensure the caller is the subnet owner and passes all provided rate limits.
+    /// This does NOT allow root; it is strictly owner-only.
+    /// Returns the signer (owner) on success so callers may record last-blocks.
+    pub fn ensure_sn_owner_with_limits(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+        limits: &[crate::utils::rate_limiting::TransactionType],
+    ) -> Result<T::AccountId, DispatchError> {
+        let who = Self::ensure_subnet_owner(o, netuid)?;
+        let now = Self::get_current_block_as_u64();
+        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+        for tx in limits.iter() {
+            ensure!(
+                Self::passes_rate_limit_on_subnet(tx, &who, netuid),
+                Error::<T>::TxRateLimitExceeded
+            );
+        }
+        Ok(who)
+    }
+
+    /// Returns true if the current block is within the terminal freeze window of the tempo for the
+    /// given subnet. During this window, admin ops are prohibited to avoid interference with
+    /// validator weight submissions.
+    pub fn is_in_admin_freeze_window(netuid: NetUid, current_block: u64) -> bool {
+        let tempo = Self::get_tempo(netuid);
+        if tempo == 0 {
+            return false;
+        }
+        let remaining = Self::blocks_until_next_epoch(netuid, tempo, current_block);
+        let window = AdminFreezeWindow::<T>::get() as u64;
+        remaining < window
+    }
+
+    fn ensure_not_in_admin_freeze_window(netuid: NetUid, now: u64) -> Result<(), DispatchError> {
+        ensure!(
+            !Self::is_in_admin_freeze_window(netuid, now),
+            Error::<T>::AdminActionProhibitedDuringWeightsWindow
+        );
+        Ok(())
+    }
+
+    pub fn set_admin_freeze_window(window: u16) {
+        AdminFreezeWindow::<T>::set(window);
+        Self::deposit_event(Event::AdminFreezeWindowSet(window));
+    }
+
+    pub fn set_owner_hyperparam_rate_limit(limit: u64) {
+        OwnerHyperparamRateLimit::<T>::set(limit);
+        Self::deposit_event(Event::OwnerHyperparamRateLimitSet(limit));
+    }
+
+    /// If owner is `Some`, record last-blocks for the provided `TransactionType`s.
+    pub fn record_owner_rl(
+        maybe_owner: Option<<T as frame_system::Config>::AccountId>,
+        netuid: NetUid,
+        txs: &[TransactionType],
+    ) {
+        if let Some(who) = maybe_owner {
+            let now = Self::get_current_block_as_u64();
+            for tx in txs {
+                Self::set_last_transaction_block_on_subnet(&who, netuid, tx, now);
+            }
         }
     }
 

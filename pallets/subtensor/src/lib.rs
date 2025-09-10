@@ -859,6 +859,18 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default value for subnet owner hyperparameter update rate limit (in blocks)
+    pub fn DefaultOwnerHyperparamRateLimit<T: Config>() -> u64 {
+        0
+    }
+
+    #[pallet::type_value]
+    /// Default number of terminal blocks in a tempo during which admin operations are prohibited
+    pub fn DefaultAdminFreezeWindow<T: Config>() -> u16 {
+        10
+    }
+
+    #[pallet::type_value]
     /// Default value for ck burn, 18%.
     pub fn DefaultCKBurn<T: Config>() -> u64 {
         0
@@ -867,6 +879,16 @@ pub mod pallet {
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
+
+    #[pallet::storage]
+    /// Global window (in blocks) at the end of each tempo where admin ops are disallowed
+    pub type AdminFreezeWindow<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultAdminFreezeWindow<T>>;
+
+    #[pallet::storage]
+    /// Global rate limit (in blocks) for subnet owner hyperparameter updates
+    pub type OwnerHyperparamRateLimit<T> =
+        StorageValue<_, u64, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
@@ -2137,6 +2159,8 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(NetUid),
+    // Generic rate limit for subnet-owner hyperparameter updates (per netuid)
+    OwnerHyperparamUpdate(NetUid),
     // Subnet registration rate limit
     NetworkLastRegistered,
     // Last tx block limit per account ID
