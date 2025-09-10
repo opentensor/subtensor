@@ -456,7 +456,7 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE0\xB6\xA7", // ට (Ta, 427)
     b"\xE0\xB6\xA5", // ඥ (Tha, 428)
     b"\xE0\xB6\xA6", // ඦ (Da, 429)
-    b"\xE0\xB6\xA7", // ට (Dha, 430)
+    b"\xE0\xB6\xA9", // ඩ (Dha, 430)
     b"\xE0\xB6\xA8", // ඨ (Na, 431)
     b"\xE0\xB6\xAA", // ඪ (Pa, 432)
     b"\xE0\xB6\xAB", // ණ (Pha, 433)
