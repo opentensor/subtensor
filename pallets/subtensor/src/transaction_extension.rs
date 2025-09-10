@@ -1,5 +1,6 @@
 use crate::{
     BalancesCall, Call, ColdkeySwapScheduled, Config, CustomTransactionError, Error, Pallet,
+    TransactionType,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
@@ -120,6 +121,16 @@ where
             return Ok((Default::default(), None, origin));
         };
 
+        // Verify ColdkeySwapScheduled map for coldkey
+        match call.is_sub_type() {
+            // Whitelist
+            Some(Call::schedule_swap_coldkey { .. }) => {}
+            _ => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
+                }
+            }
+        }
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
@@ -213,27 +224,6 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
-                if Self::check_weights_min_stake(hotkey, *netuid) {
-                    Ok((Default::default(), Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::commit_crv3_weights {
-                netuid,
-                reveal_round,
-                ..
-            }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                        return Err(CustomTransactionError::InvalidRevealRound.into());
-                    }
-                    Ok((Default::default(), Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
             Some(Call::commit_timelocked_weights {
                 netuid,
                 reveal_round,
@@ -248,54 +238,7 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::add_stake { .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-
-                Ok((Default::default(), Some(who.clone()), origin))
-            }
-            Some(Call::add_stake_limit { .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-
-                Ok((Default::default(), Some(who.clone()), origin))
-            }
-            Some(Call::remove_stake { .. }) => Ok((Default::default(), Some(who.clone()), origin)),
-            Some(Call::remove_stake_limit { .. }) => {
-                Ok((Default::default(), Some(who.clone()), origin))
-            }
-            Some(Call::move_stake { .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-                Ok((Default::default(), Some(who.clone()), origin))
-            }
-            Some(Call::transfer_stake { .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-
-                Ok((Default::default(), Some(who.clone()), origin))
-            }
-            Some(Call::swap_stake { .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-                Ok((Default::default(), Some(who.clone()), origin))
-            }
-            Some(Call::swap_stake_limit { .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-                Ok((Default::default(), Some(who.clone()), origin))
-            }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-
                 let registrations_this_interval =
                     Pallet::<T>::get_registrations_this_interval(*netuid);
                 let max_registrations_per_interval =
@@ -307,13 +250,6 @@ where
                 }
 
                 Ok((Default::default(), Some(who.clone()), origin))
-            }
-            Some(Call::dissolve_network { .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    Err(CustomTransactionError::ColdkeyInSwapSchedule.into())
-                } else {
-                    Ok((Default::default(), Some(who.clone()), origin))
-                }
             }
             Some(Call::serve_axon {
                 netuid,
@@ -342,20 +278,14 @@ where
                 )
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
-            _ => {
-                if let Some(
-                    BalancesCall::transfer_keep_alive { .. }
-                    | BalancesCall::transfer_all { .. }
-                    | BalancesCall::transfer_allow_death { .. },
-                ) = call.is_sub_type()
-                {
-                    if ColdkeySwapScheduled::<T>::contains_key(who) {
-                        return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                    }
+            Some(Call::register_network { .. }) => {
+                if !Pallet::<T>::passes_rate_limit(&TransactionType::RegisterNetwork, who) {
+                    return Err(CustomTransactionError::RateLimitExceeded.into());
                 }
 
                 Ok((Default::default(), Some(who.clone()), origin))
             }
+            _ => Ok((Default::default(), Some(who.clone()), origin)),
         }
     }
 
