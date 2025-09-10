@@ -114,6 +114,10 @@ mod events {
         TxDelegateTakeRateLimitSet(u64),
         /// setting the childkey take transaction rate limit.
         TxChildKeyTakeRateLimitSet(u64),
+        /// setting the admin freeze window length (last N blocks of tempo)
+        AdminFreezeWindowSet(u16),
+        /// setting the owner hyperparameter rate limit (in blocks)
+        OwnerHyperparamRateLimitSet(u64),
         /// minimum childkey take set
         MinChildKeyTakeSet(u16),
         /// maximum childkey take set
@@ -413,5 +417,27 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **who**: The account ID of the user revealing the weights.
         TimelockedWeightsRevealed(NetUid, T::AccountId),
+
+        /// Auto-staking hotkey received stake
+        AutoStakeAdded {
+            /// Subnet identifier.
+            netuid: NetUid,
+            /// Destination account that received the auto-staked funds.
+            destination: T::AccountId,
+            /// Hotkey account whose stake was auto-staked.
+            hotkey: T::AccountId,
+            /// Owner (coldkey) account associated with the hotkey.
+            owner: T::AccountId,
+            /// Amount of alpha auto-staked.
+            incentive: AlphaCurrency,
+        },
+
+        /// End-of-epoch miner incentive alpha by UID
+        IncentiveAlphaEmittedToMiners {
+            /// Subnet identifier.
+            netuid: NetUid,
+            /// UID-indexed array of miner incentive alpha; index equals UID.
+            emissions: Vec<AlphaCurrency>,
+        },
     }
 }
