@@ -1067,38 +1067,6 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn commit_crv3_weights() {
-        let hotkey: T::AccountId = whitelisted_caller();
-        let netuid = NetUid::from(1);
-        let vec_commit: Vec<u8> = vec![0; MAX_CRV3_COMMIT_SIZE_BYTES as usize];
-        let commit: BoundedVec<_, _> = vec_commit.try_into().unwrap();
-        let round: u64 = 0;
-
-        Subtensor::<T>::init_new_network(netuid, 1);
-        Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
-        SubtokenEnabled::<T>::insert(netuid, true);
-
-        let reg_fee = Subtensor::<T>::get_burn(netuid);
-        Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.to_u64().saturating_mul(2));
-
-        assert_ok!(Subtensor::<T>::burned_register(
-            RawOrigin::Signed(hotkey.clone()).into(),
-            netuid,
-            hotkey.clone()
-        ));
-
-        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
-
-        #[extrinsic_call]
-        _(
-            RawOrigin::Signed(hotkey.clone()),
-            netuid,
-            commit.clone(),
-            round,
-        );
-    }
-
-    #[benchmark]
     fn decrease_take() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("Alice", 0, 1);

@@ -54,6 +54,7 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
+#[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
@@ -490,11 +491,6 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default value for modality.
-    pub fn DefaultModality<T: Config>() -> u16 {
-        0
-    }
-    #[pallet::type_value]
     /// Default value for hotkeys.
     pub fn DefaultHotkeys<T: Config>() -> Vec<u16> {
         vec![]
@@ -523,11 +519,6 @@ pub mod pallet {
     /// Default value for network immunity period.
     pub fn DefaultNetworkImmunityPeriod<T: Config>() -> u64 {
         T::InitialNetworkImmunityPeriod::get()
-    }
-    #[pallet::type_value]
-    /// Default value for network last registered.
-    pub fn DefaultNetworkLastRegistered<T: Config>() -> u64 {
-        0
     }
     #[pallet::type_value]
     /// Default value for network min allowed UIDs.
@@ -870,7 +861,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for ck burn, 18%.
     pub fn DefaultCKBurn<T: Config>() -> u64 {
-        u64::MAX / 100 * 18
+        0
     }
 
     #[pallet::storage]
@@ -1173,10 +1164,6 @@ pub mod pallet {
     pub type NetworkImmunityPeriod<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
     #[pallet::storage]
-    /// ITEM( network_last_registered_block )
-    pub type NetworkLastRegistered<T> =
-        StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
-    #[pallet::storage]
     /// ITEM( min_network_lock_cost )
     pub type NetworkMinLockCost<T> =
         StorageValue<_, TaoCurrency, ValueQuery, DefaultNetworkMinLockCost<T>>;
@@ -1209,7 +1196,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( RateLimitKey ) --> Block number in which the last rate limited operation occured
     pub type LastRateLimitedBlock<T: Config> =
-        StorageMap<_, Identity, RateLimitKey, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, RateLimitKey<T::AccountId>, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// ============================
     /// ==== Subnet Locks =====
@@ -1244,10 +1231,6 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
     pub type SubnetworkN<T: Config> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultN<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> modality   TEXT: 0, IMAGE: 1, TENSOR: 2
-    pub type NetworkModality<T> =
-        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultModality<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> network_is_added
     pub type NetworksAdded<T: Config> =
@@ -1670,14 +1653,17 @@ pub mod pallet {
         u64,
         ValueQuery,
     >;
+    #[deprecated]
     #[pallet::storage]
     /// --- MAP ( key ) --> last_block
     pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[deprecated]
     #[pallet::storage]
     /// --- MAP ( key ) --> last_tx_block_childkey_take
     pub type LastTxBlockChildKeyTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[deprecated]
     #[pallet::storage]
     /// --- MAP ( key ) --> last_tx_block_delegate_take
     pub type LastTxBlockDelegateTake<T: Config> =
@@ -2058,6 +2044,10 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn is_owner(account_id: &T::AccountId, netuid: NetUid) -> bool {
         SubnetOwner::<T>::get(netuid) == *account_id
     }
+
+    fn is_subtoken_enabled(netuid: NetUid) -> bool {
+        SubtokenEnabled::<T>::get(netuid)
+    }
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
@@ -2148,9 +2138,17 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 /// Enum that defines types of rate limited operations for
 /// storing last block when this operation occured
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub enum RateLimitKey {
+pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(NetUid),
+    // Subnet registration rate limit
+    NetworkLastRegistered,
+    // Last tx block limit per account ID
+    LastTxBlock(AccountId),
+    // Last tx block child key limit per account ID
+    LastTxBlockChildKeyTake(AccountId),
+    // Last tx block delegate key limit per account ID
+    LastTxBlockDelegateTake(AccountId),
 }
 
 pub trait ProxyInterface<AccountId> {
