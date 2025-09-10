@@ -623,7 +623,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(40)]
-        #[pallet::weight((Weight::from_parts(41_240_000, 0)
+        #[pallet::weight((Weight::from_parts(32_530_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon_tls(
@@ -1041,7 +1041,7 @@ mod dispatches {
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(36))
-		.saturating_add(T::DbWeight::get().writes(52)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1253,7 +1253,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(68)]
-        #[pallet::weight((Weight::from_parts(30_550_000, 0)
+        #[pallet::weight((Weight::from_parts(38_230_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_identity(
@@ -1295,7 +1295,7 @@ mod dispatches {
         /// * `subnet_contact` (Vec<u8>):
         ///     - The contact information for the subnet.
         #[pallet::call_index(78)]
-        #[pallet::weight((Weight::from_parts(18_980_000, 0)
+        #[pallet::weight((Weight::from_parts(24_350_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_subnet_identity(
@@ -1328,7 +1328,7 @@ mod dispatches {
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
                 .saturating_add(T::DbWeight::get().reads(35))
-                .saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Normal, Pays::Yes))]
+                .saturating_add(T::DbWeight::get().writes(50_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1989,7 +1989,7 @@ mod dispatches {
         /// * commit_reveal_version (`u16`):
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
-        #[pallet::weight((Weight::from_parts(80_690_000, 0)
+        #[pallet::weight((Weight::from_parts(63_160_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
