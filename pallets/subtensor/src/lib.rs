@@ -491,11 +491,6 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default value for modality.
-    pub fn DefaultModality<T: Config>() -> u16 {
-        0
-    }
-    #[pallet::type_value]
     /// Default value for hotkeys.
     pub fn DefaultHotkeys<T: Config>() -> Vec<u16> {
         vec![]
@@ -866,7 +861,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for ck burn, 18%.
     pub fn DefaultCKBurn<T: Config>() -> u64 {
-        u64::MAX / 100 * 18
+        0
     }
 
     #[pallet::storage]
@@ -1236,10 +1231,6 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
     pub type SubnetworkN<T: Config> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultN<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> modality   TEXT: 0, IMAGE: 1, TENSOR: 2
-    pub type NetworkModality<T> =
-        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultModality<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> network_is_added
     pub type NetworksAdded<T: Config> =
@@ -2048,6 +2039,10 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 
     fn is_owner(account_id: &T::AccountId, netuid: NetUid) -> bool {
         SubnetOwner::<T>::get(netuid) == *account_id
+    }
+
+    fn is_subtoken_enabled(netuid: NetUid) -> bool {
+        SubtokenEnabled::<T>::get(netuid)
     }
 }
 

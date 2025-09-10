@@ -920,6 +920,11 @@ impl<T: Config> Pallet<T> {
                 }
             });
 
+        Self::deposit_event(Event::IncentiveAlphaEmittedToMiners {
+            netuid,
+            emissions: server_emission.clone(),
+        });
+
         // Emission tuples ( hotkeys, server_emission, validator_emission )
         hotkeys
             .into_iter()

@@ -524,4 +524,15 @@ mod benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Root, netuid, true);
     }
+
+    #[benchmark]
+    fn sudo_set_owner_immune_neuron_limit() {
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16.into(), /*netuid*/
+            1u16,        /*sudo_tempo*/
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, 1u16.into()/*netuid*/, 5u16/*immune_neurons*/)/*sudo_set_owner_immune_neuron_limit()*/;
+    }
 }

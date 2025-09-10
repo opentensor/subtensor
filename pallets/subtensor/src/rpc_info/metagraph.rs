@@ -4,6 +4,7 @@ use crate::epoch::math::*;
 use codec::Compact;
 use frame_support::IterableStorageDoubleMap;
 use frame_support::pallet_prelude::{Decode, Encode};
+use pallet_commitments::GetCommitments;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
@@ -109,7 +110,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     alpha_dividends_per_hotkey: Vec<(AccountId, Compact<AlphaCurrency>)>, // List of dividend payout in alpha via subnet.
 }
 
-#[freeze_struct("7604bd3817c55848")]
+#[freeze_struct("56156d51c66190e8")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Subnet index
@@ -210,6 +211,8 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
 
     // validators
     validators: Option<Vec<Compact<u16>>>, // List of validators
+    // commitments
+    commitments: Option<Vec<(AccountId, Vec<Compact<u8>>)>>, // List of commitments
 }
 
 impl<AccountId> SelectiveMetagraph<AccountId>
@@ -367,6 +370,9 @@ where
                 self.alpha_dividends_per_hotkey = other.alpha_dividends_per_hotkey.clone()
             }
             Some(SelectiveMetagraphIndex::Validators) => self.validators = other.validators.clone(),
+            Some(SelectiveMetagraphIndex::Commitments) => {
+                self.commitments = other.commitments.clone()
+            }
             None => {}
         };
     }
@@ -451,6 +457,7 @@ where
             tao_dividends_per_hotkey: None,
             alpha_dividends_per_hotkey: None,
             validators: None,
+            commitments: None,
         }
     }
 }
@@ -529,6 +536,7 @@ pub enum SelectiveMetagraphIndex {
     TaoDividendsPerHotkey,
     AlphaDividendsPerHotkey,
     Validators,
+    Commitments,
 }
 
 impl SelectiveMetagraphIndex {
@@ -607,6 +615,7 @@ impl SelectiveMetagraphIndex {
             70 => Some(SelectiveMetagraphIndex::TaoDividendsPerHotkey),
             71 => Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey),
             72 => Some(SelectiveMetagraphIndex::Validators),
+            73 => Some(SelectiveMetagraphIndex::Commitments),
             _ => None,
         }
     }
@@ -1367,6 +1376,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
             Some(SelectiveMetagraphIndex::Validators) => Self::get_validators(netuid),
+            Some(SelectiveMetagraphIndex::Commitments) => Self::get_commitments(netuid),
             None => SelectiveMetagraph {
                 // Subnet index
                 netuid: netuid.into(),
@@ -1410,6 +1420,25 @@ impl<T: Config> Pallet<T> {
             // Subnet index
             netuid: netuid.into(),
             validators: Some(validators),
+            ..Default::default()
+        }
+    }
+
+    fn get_commitments(netuid: NetUid) -> SelectiveMetagraph<T::AccountId> {
+        let commitments = <T as Config>::GetCommitments::get_commitments(netuid);
+        let commitments: Vec<(T::AccountId, Vec<Compact<u8>>)> = commitments
+            .iter()
+            .map(|(account, commitment)| {
+                let compact_commitment = commitment
+                    .iter()
+                    .map(|c| Compact::from(*c))
+                    .collect::<Vec<Compact<u8>>>();
+                (account.clone(), compact_commitment)
+            })
+            .collect();
+
+        SelectiveMetagraph {
+            commitments: Some(commitments),
             ..Default::default()
         }
     }
@@ -1492,6 +1521,7 @@ fn test_selective_metagraph() {
         tao_dividends_per_hotkey: None,
         alpha_dividends_per_hotkey: None,
         validators: None,
+        commitments: None,
     };
 
     // test init value

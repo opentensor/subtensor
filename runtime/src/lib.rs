@@ -83,13 +83,13 @@ pub use frame_support::{
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
+use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
-
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
 
 use core::marker::PhantomData;
 
@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 309,
+    spec_version: 315,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1063,6 +1063,13 @@ impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     fn on_metadata_commitment(_: NetUid, _: &AccountId) {}
 }
 
+pub struct GetCommitmentsStruct;
+impl GetCommitments<AccountId> for GetCommitmentsStruct {
+    fn get_commitments(netuid: NetUid) -> Vec<(AccountId, Vec<u8>)> {
+        pallet_commitments::Pallet::<Runtime>::get_commitments(netuid)
+    }
+}
+
 impl pallet_commitments::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
@@ -1238,6 +1245,7 @@ impl pallet_subtensor::Config for Runtime {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = Proxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type GetCommitments = GetCommitmentsStruct;
 }
 
 parameter_types! {
