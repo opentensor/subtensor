@@ -2025,11 +2025,12 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: T::RuntimeOrigin,
+            netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
-            AutoStakeDestination::<T>::insert(coldkey, hotkey.clone());
+            AutoStakeDestination::<T>::insert(coldkey, netuid, hotkey.clone());
 
             Ok(())
         }

@@ -83,6 +83,13 @@ pub trait SubtensorCustomApi<BlockHash> {
         metagraph_index: Vec<u16>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getColdkeyAutoStakeHotkey")]
+    fn get_coldkey_auto_stake_hotkey(
+        &self,
+        coldkey: AccountId32,
+        netuid: NetUid,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -425,6 +432,24 @@ where
             Err(e) => {
                 Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())
             }
+        }
+    }
+
+    fn get_coldkey_auto_stake_hotkey(
+        &self,
+        coldkey: AccountId32,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_coldkey_auto_stake_hotkey(at, coldkey, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get coldkey auto stake hotkey: {e:?}"
+            ))
+            .into()),
         }
     }
 }

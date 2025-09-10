@@ -2342,6 +2342,10 @@ impl_runtime_apis! {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
         }
 
+        fn get_coldkey_auto_stake_hotkey(coldkey: AccountId32, netuid: NetUid) -> Option<AccountId32> {
+            SubtensorModule::get_coldkey_auto_stake_hotkey(coldkey, netuid)
+        }
+
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
