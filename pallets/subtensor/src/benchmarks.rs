@@ -1560,9 +1560,10 @@ mod pallet_benchmarks {
     #[benchmark]
     fn set_coldkey_auto_stake_hotkey() {
         let coldkey: T::AccountId = whitelisted_caller();
+        let netuid = NetUid::from(1);
         let hot: T::AccountId = account("A", 0, 1);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), hot.clone());
+        _(RawOrigin::Signed(coldkey.clone()), netuid, hot.clone());
     }
 }
