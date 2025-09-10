@@ -18,15 +18,34 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
+    /// Resets the trust, emission, consensus, incentive, dividends, bonds, and weights of
+    /// the neuron to default
     pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
         let neuron_index: usize = neuron_uid.into();
         Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
         Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        for subid in 0..SubsubnetCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            Incentive::<T>::mutate(netuid_index, |v| Self::set_element_at(v, neuron_index, 0));
+            Bonds::<T>::remove(netuid_index, neuron_uid); // Remove bonds for Validator.
+
+            // Clear weights set BY the neuron_uid
+            Weights::<T>::remove(netuid_index, neuron_uid);
+
+            // Set weights FOR the neuron_uid to 0
+            let all_uids: Vec<u16> = Weights::<T>::iter_key_prefix(netuid_index).collect();
+            for uid in all_uids {
+                Weights::<T>::mutate(netuid_index, uid, |weight_vec: &mut Vec<(u16, u16)>| {
+                    for (weight_uid, w) in weight_vec.iter_mut() {
+                        if *weight_uid == neuron_uid {
+                            *w = 0;
+                        }
+                    }
+                });
+            }
+        }
         Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Bonds::<T>::remove(netuid, neuron_uid); // Remove bonds for Validator.
     }
 
     /// Replace the neuron under this uid.
@@ -95,9 +114,12 @@ impl<T: Config> Pallet<T> {
         Active::<T>::mutate(netuid, |v| v.push(true));
         Emission::<T>::mutate(netuid, |v| v.push(0.into()));
         Consensus::<T>::mutate(netuid, |v| v.push(0));
-        Incentive::<T>::mutate(netuid, |v| v.push(0));
+        for subid in 0..SubsubnetCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            Incentive::<T>::mutate(netuid_index, |v| v.push(0));
+            LastUpdate::<T>::mutate(netuid_index, |v| v.push(block_number));
+        }
         Dividends::<T>::mutate(netuid, |v| v.push(0));
-        LastUpdate::<T>::mutate(netuid, |v| v.push(block_number));
         PruningScores::<T>::mutate(netuid, |v| v.push(0));
         ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
         ValidatorPermit::<T>::mutate(netuid, |v| v.push(false));

@@ -41,7 +41,7 @@ mod events {
             TaoCurrency,
         ),
         /// a caller successfully sets their weights on a subnetwork.
-        WeightsSet(NetUid, u16),
+        WeightsSet(NetUidStorageIndex, u16),
         /// a new neuron account has been registered to the chain.
         NeuronRegistered(NetUid, u16, T::AccountId),
         /// multiple uids have been concurrently registered.
@@ -114,6 +114,10 @@ mod events {
         TxDelegateTakeRateLimitSet(u64),
         /// setting the childkey take transaction rate limit.
         TxChildKeyTakeRateLimitSet(u64),
+        /// setting the admin freeze window length (last N blocks of tempo)
+        AdminFreezeWindowSet(u16),
+        /// setting the owner hyperparameter rate limit (in blocks)
+        OwnerHyperparamRateLimitSet(u64),
         /// minimum childkey take set
         MinChildKeyTakeSet(u16),
         /// maximum childkey take set
@@ -242,20 +246,20 @@ mod events {
         /// - **who**: The account ID of the user committing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash representing the committed weights.
-        CRV3WeightsCommitted(T::AccountId, NetUid, H256),
+        CRV3WeightsCommitted(T::AccountId, NetUidStorageIndex, H256),
         /// Weights have been successfully committed.
         ///
         /// - **who**: The account ID of the user committing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash representing the committed weights.
-        WeightsCommitted(T::AccountId, NetUid, H256),
+        WeightsCommitted(T::AccountId, NetUidStorageIndex, H256),
 
         /// Weights have been successfully revealed.
         ///
         /// - **who**: The account ID of the user revealing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash of the revealed weights.
-        WeightsRevealed(T::AccountId, NetUid, H256),
+        WeightsRevealed(T::AccountId, NetUidStorageIndex, H256),
 
         /// Weights have been successfully batch revealed.
         ///
@@ -406,13 +410,13 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash representing the committed weights.
         /// - **reveal_round**: The round at which weights can be revealed.
-        TimelockedWeightsCommitted(T::AccountId, NetUid, H256, u64),
+        TimelockedWeightsCommitted(T::AccountId, NetUidStorageIndex, H256, u64),
 
         /// Timelocked Weights have been successfully revealed.
         ///
         /// - **netuid**: The network identifier.
         /// - **who**: The account ID of the user revealing the weights.
-        TimelockedWeightsRevealed(NetUid, T::AccountId),
+        TimelockedWeightsRevealed(NetUidStorageIndex, T::AccountId),
 
         /// Auto-staking hotkey received stake
         AutoStakeAdded {
@@ -431,7 +435,7 @@ mod events {
         /// End-of-epoch miner incentive alpha by UID
         IncentiveAlphaEmittedToMiners {
             /// Subnet identifier.
-            netuid: NetUid,
+            netuid: NetUidStorageIndex,
             /// UID-indexed array of miner incentive alpha; index equals UID.
             emissions: Vec<AlphaCurrency>,
         },

@@ -11,6 +11,8 @@ pub enum TransactionType {
     RegisterNetwork,
     SetWeightsVersionKey,
     SetSNOwnerHotkey,
+    OwnerHyperparamUpdate,
+    SubsubnetParameterUpdate,
     SetMaxAllowedUIDS,
 }
 
@@ -24,7 +26,9 @@ impl From<TransactionType> for u16 {
             TransactionType::RegisterNetwork => 3,
             TransactionType::SetWeightsVersionKey => 4,
             TransactionType::SetSNOwnerHotkey => 5,
-            TransactionType::SetMaxAllowedUIDS => 6,
+            TransactionType::OwnerHyperparamUpdate => 6,
+            TransactionType::SubsubnetParameterUpdate => 7,
+            TransactionType::SetMaxAllowedUIDS => 8,
         }
     }
 }
@@ -38,7 +42,9 @@ impl From<u16> for TransactionType {
             3 => TransactionType::RegisterNetwork,
             4 => TransactionType::SetWeightsVersionKey,
             5 => TransactionType::SetSNOwnerHotkey,
-            6 => TransactionType::SetMaxAllowedUIDS,
+            6 => TransactionType::OwnerHyperparamUpdate,
+            7 => TransactionType::SubsubnetParameterUpdate,
+            8 => TransactionType::SetMaxAllowedUIDS,
             _ => TransactionType::Unknown,
         }
     }
@@ -53,6 +59,8 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetChildren => 150, // 30 minutes
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
+            TransactionType::OwnerHyperparamUpdate => OwnerHyperparamRateLimit::<T>::get(),
+            TransactionType::SubsubnetParameterUpdate => SubsubnetCountSetRateLimit::<T>::get(),
             TransactionType::SetMaxAllowedUIDS => 7200 * 30,
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,
@@ -113,6 +121,9 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetSNOwnerHotkey => {
                 Self::get_rate_limited_last_block(&RateLimitKey::SetSNOwnerHotkey(netuid))
             }
+            TransactionType::OwnerHyperparamUpdate => {
+                Self::get_rate_limited_last_block(&RateLimitKey::OwnerHyperparamUpdate(netuid))
+            }
             _ => {
                 let tx_as_u16: u16 = (*tx_type).into();
                 TransactionKeyLastBlock::<T>::get((hotkey, netuid, tx_as_u16))
@@ -132,6 +143,10 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetSNOwnerHotkey => {
                 Self::set_rate_limited_last_block(&RateLimitKey::SetSNOwnerHotkey(netuid), block)
             }
+            TransactionType::OwnerHyperparamUpdate => Self::set_rate_limited_last_block(
+                &RateLimitKey::OwnerHyperparamUpdate(netuid),
+                block,
+            ),
             _ => {
                 let tx_as_u16: u16 = (*tx_type).into();
                 TransactionKeyLastBlock::<T>::insert((key, netuid, tx_as_u16), block);

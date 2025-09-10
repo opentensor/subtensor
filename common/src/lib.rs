@@ -224,6 +224,162 @@ pub mod time {
     pub const DAYS: BlockNumber = HOURS * 24;
 }
 
+#[freeze_struct("8e576b32bb1bb664")]
+#[repr(transparent)]
+#[derive(
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    Decode,
+    DecodeWithMemTracking,
+    Default,
+    Encode,
+    Eq,
+    Hash,
+    MaxEncodedLen,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    RuntimeDebug,
+)]
+#[serde(transparent)]
+pub struct SubId(u8);
+
+impl SubId {
+    pub const MAIN: SubId = Self(0);
+}
+
+impl From<u8> for SubId {
+    fn from(value: u8) -> Self {
+        Self(value)
+    }
+}
+
+impl From<SubId> for u16 {
+    fn from(val: SubId) -> Self {
+        u16::from(val.0)
+    }
+}
+
+impl From<SubId> for u64 {
+    fn from(val: SubId) -> Self {
+        u64::from(val.0)
+    }
+}
+
+impl From<SubId> for u8 {
+    fn from(val: SubId) -> Self {
+        u8::from(val.0)
+    }
+}
+
+impl Display for SubId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl CompactAs for SubId {
+    type As = u8;
+
+    fn encode_as(&self) -> &Self::As {
+        &self.0
+    }
+
+    fn decode_from(v: Self::As) -> Result<Self, CodecError> {
+        Ok(Self(v))
+    }
+}
+
+impl From<Compact<SubId>> for SubId {
+    fn from(c: Compact<SubId>) -> Self {
+        c.0
+    }
+}
+
+impl TypeInfo for SubId {
+    type Identity = <u8 as TypeInfo>::Identity;
+    fn type_info() -> scale_info::Type {
+        <u8 as TypeInfo>::type_info()
+    }
+}
+
+#[freeze_struct("2d995c5478e16d4d")]
+#[repr(transparent)]
+#[derive(
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    Decode,
+    DecodeWithMemTracking,
+    Default,
+    Encode,
+    Eq,
+    Hash,
+    MaxEncodedLen,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    RuntimeDebug,
+)]
+#[serde(transparent)]
+pub struct NetUidStorageIndex(u16);
+
+impl NetUidStorageIndex {
+    pub const ROOT: NetUidStorageIndex = Self(0);
+}
+
+impl Display for NetUidStorageIndex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl CompactAs for NetUidStorageIndex {
+    type As = u16;
+
+    fn encode_as(&self) -> &Self::As {
+        &self.0
+    }
+
+    fn decode_from(v: Self::As) -> Result<Self, CodecError> {
+        Ok(Self(v))
+    }
+}
+
+impl From<Compact<NetUidStorageIndex>> for NetUidStorageIndex {
+    fn from(c: Compact<NetUidStorageIndex>) -> Self {
+        c.0
+    }
+}
+
+impl From<NetUid> for NetUidStorageIndex {
+    fn from(val: NetUid) -> Self {
+        val.0.into()
+    }
+}
+
+impl From<NetUidStorageIndex> for u16 {
+    fn from(val: NetUidStorageIndex) -> Self {
+        val.0
+    }
+}
+
+impl From<u16> for NetUidStorageIndex {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl TypeInfo for NetUidStorageIndex {
+    type Identity = <u16 as TypeInfo>::Identity;
+    fn type_info() -> scale_info::Type {
+        <u16 as TypeInfo>::type_info()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

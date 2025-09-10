@@ -358,6 +358,18 @@ mod benchmarks {
     }
 
     #[benchmark]
+    fn sudo_set_admin_freeze_window() {
+        #[extrinsic_call]
+		_(RawOrigin::Root, 5u16/*window*/)/*sudo_set_admin_freeze_window*/;
+    }
+
+    #[benchmark]
+    fn sudo_set_owner_hparam_rate_limit() {
+        #[extrinsic_call]
+		_(RawOrigin::Root, 10u64/*limit*/)/*sudo_set_owner_hparam_rate_limit*/;
+    }
+
+    #[benchmark]
     fn sudo_set_owner_immune_neuron_limit() {
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
