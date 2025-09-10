@@ -414,6 +414,28 @@ mod events {
         /// - **who**: The account ID of the user revealing the weights.
         TimelockedWeightsRevealed(NetUid, T::AccountId),
 
+        /// Auto-staking hotkey received stake
+        AutoStakeAdded {
+            /// Subnet identifier.
+            netuid: NetUid,
+            /// Destination account that received the auto-staked funds.
+            destination: T::AccountId,
+            /// Hotkey account whose stake was auto-staked.
+            hotkey: T::AccountId,
+            /// Owner (coldkey) account associated with the hotkey.
+            owner: T::AccountId,
+            /// Amount of alpha auto-staked.
+            incentive: AlphaCurrency,
+        },
+
+        /// End-of-epoch miner incentive alpha by UID
+        IncentiveAlphaEmittedToMiners {
+            /// Subnet identifier.
+            netuid: NetUid,
+            /// UID-indexed array of miner incentive alpha; index equals UID.
+            emissions: Vec<AlphaCurrency>,
+        },
+        
         /// The minimum allowed UIDs for a subnet have been set.
         MinAllowedUidsSet(NetUid, u16),
     }

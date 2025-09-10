@@ -186,7 +186,7 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(82_010_000, 0)
+        #[pallet::weight((Weight::from_parts(100_500_000, 0)
         .saturating_add(T::DbWeight::get().reads(8))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
@@ -891,7 +891,7 @@ mod dispatches {
         ///
         #[pallet::call_index(69)]
         #[pallet::weight((
-            Weight::from_parts(5_912_000, 0)
+            Weight::from_parts(5_660_000, 0)
             .saturating_add(T::DbWeight::get().reads(0))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
@@ -1041,7 +1041,7 @@ mod dispatches {
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(36))
-		.saturating_add(T::DbWeight::get().writes(52)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(52)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1328,7 +1328,7 @@ mod dispatches {
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
                 .saturating_add(T::DbWeight::get().reads(35))
-                .saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Normal, Pays::No))]
+                .saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2011,7 +2011,7 @@ mod dispatches {
         /// Set the autostake destination hotkey for a coldkey.
         ///
         /// The caller selects a hotkey where all future rewards
-        /// will be automatically staked.  
+        /// will be automatically staked.
         ///
         /// # Args:
         /// * `origin` - (<T as frame_system::Config>::Origin):
