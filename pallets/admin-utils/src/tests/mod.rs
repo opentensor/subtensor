@@ -2288,6 +2288,9 @@ fn test_trim_to_max_allowed_uids() {
         ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
         // We set a low value here to make testing easier
         MinAllowedUids::<Test>::set(netuid, 4);
+        // We define 4 subsubnets
+        let subsubnet_count = SubId::from(4);
+        SubsubnetCountCurrent::<Test>::insert(netuid, subsubnet_count);
 
         // Add some neurons
         let max_n = 16;
@@ -2322,14 +2325,19 @@ fn test_trim_to_max_allowed_uids() {
         Rank::<Test>::insert(netuid, values.clone());
         Trust::<Test>::insert(netuid, values.clone());
         Consensus::<Test>::insert(netuid, values.clone());
-        Incentive::<Test>::insert(netuid, values.clone());
         Dividends::<Test>::insert(netuid, values.clone());
-        LastUpdate::<Test>::insert(netuid, u64_values);
         PruningScores::<Test>::insert(netuid, values.clone());
         ValidatorTrust::<Test>::insert(netuid, values.clone());
-        StakeWeight::<Test>::insert(netuid, values);
+        StakeWeight::<Test>::insert(netuid, values.clone());
         ValidatorPermit::<Test>::insert(netuid, bool_values.clone());
         Active::<Test>::insert(netuid, bool_values);
+
+        for subid in 0..subsubnet_count.into() {
+            let netuid_index =
+                SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+            Incentive::<Test>::insert(netuid_index, values.clone());
+            LastUpdate::<Test>::insert(netuid_index, u64_values.clone());
+        }
 
         // We set some owner immune uids
         let now = frame_system::Pallet::<Test>::block_number();
@@ -2359,8 +2367,12 @@ fn test_trim_to_max_allowed_uids() {
                 }
             }
 
-            Weights::<Test>::insert(netuid, uid, weights);
-            Bonds::<Test>::insert(netuid, uid, bonds);
+            for subid in 0..subsubnet_count.into() {
+                let netuid_index =
+                    SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+                Weights::<Test>::insert(netuid_index, uid, weights.clone());
+                Bonds::<Test>::insert(netuid_index, uid, bonds.clone());
+            }
         }
 
         // Normal case
@@ -2397,20 +2409,29 @@ fn test_trim_to_max_allowed_uids() {
         assert_eq!(Trust::<Test>::get(netuid), expected_values);
         assert_eq!(Active::<Test>::get(netuid), expected_bools);
         assert_eq!(Consensus::<Test>::get(netuid), expected_values);
-        assert_eq!(Incentive::<Test>::get(netuid), expected_values);
         assert_eq!(Dividends::<Test>::get(netuid), expected_values);
-        assert_eq!(LastUpdate::<Test>::get(netuid), expected_u64_values);
         assert_eq!(PruningScores::<Test>::get(netuid), expected_values);
         assert_eq!(ValidatorTrust::<Test>::get(netuid), expected_values);
         assert_eq!(ValidatorPermit::<Test>::get(netuid), expected_bools);
         assert_eq!(StakeWeight::<Test>::get(netuid), expected_values);
 
+        for subid in 0..subsubnet_count.into() {
+            let netuid_index =
+                SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+            assert_eq!(Incentive::<Test>::get(netuid_index), expected_values);
+            assert_eq!(LastUpdate::<Test>::get(netuid_index), expected_u64_values);
+        }
+
         // Ensure trimmed uids related storage has been cleared
         for uid in new_max_n..max_n {
             assert!(!Keys::<Test>::contains_key(netuid, uid));
             assert!(!BlockAtRegistration::<Test>::contains_key(netuid, uid));
-            assert!(!Weights::<Test>::contains_key(netuid, uid));
-            assert!(!Bonds::<Test>::contains_key(netuid, uid));
+            for subid in 0..subsubnet_count.into() {
+                let netuid_index =
+                    SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+                assert!(!Weights::<Test>::contains_key(netuid_index, uid));
+                assert!(!Bonds::<Test>::contains_key(netuid_index, uid));
+            }
         }
 
         // Ensure trimmed uids hotkey related storage has been cleared
@@ -2439,26 +2460,24 @@ fn test_trim_to_max_allowed_uids() {
             assert!(!Prometheus::<Test>::contains_key(netuid, hotkey));
         }
 
-        // Ensure trimmed uids weights and bonds have been cleared
-        for uid in new_max_n..max_n {
-            assert!(!Weights::<Test>::contains_key(netuid, uid));
-            assert!(!Bonds::<Test>::contains_key(netuid, uid));
-        }
-
         // Ensure trimmed uids weights and bonds connections have been trimmed correctly
         for uid in 0..new_max_n {
-            assert!(
-                Weights::<Test>::get(netuid, uid)
-                    .iter()
-                    .all(|(target_uid, _)| *target_uid < new_max_n),
-                "Found a weight with target_uid >= new_max_n"
-            );
-            assert!(
-                Bonds::<Test>::get(netuid, uid)
-                    .iter()
-                    .all(|(target_uid, _)| *target_uid < new_max_n),
-                "Found a bond with target_uid >= new_max_n"
-            );
+            for subid in 0..subsubnet_count.into() {
+                let netuid_index =
+                    SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+                assert!(
+                    Weights::<Test>::get(netuid_index, uid)
+                        .iter()
+                        .all(|(target_uid, _)| *target_uid < new_max_n),
+                    "Found a weight with target_uid >= new_max_n"
+                );
+                assert!(
+                    Bonds::<Test>::get(netuid_index, uid)
+                        .iter()
+                        .all(|(target_uid, _)| *target_uid < new_max_n),
+                    "Found a bond with target_uid >= new_max_n"
+                );
+            }
         }
 
         // Actual number of neurons on the network updated after trimming

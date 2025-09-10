@@ -167,8 +167,7 @@ impl<T: Config> Pallet<T> {
                 immune_percentage < T::MaxImmuneUidsPercentage::get(),
                 Error::<T>::InvalidValue
             );
-            
-            
+
             // Get all emissions with their UIDs and sort by emission (descending)
             // This ensures we keep the highest emitters and remove the lowest ones
             let mut emissions = Emission::<T>::get(netuid)
