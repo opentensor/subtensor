@@ -435,7 +435,7 @@ mod events {
             /// UID-indexed array of miner incentive alpha; index equals UID.
             emissions: Vec<AlphaCurrency>,
         },
-        
+
         /// The minimum allowed UIDs for a subnet have been set.
         MinAllowedUidsSet(NetUid, u16),
     }
