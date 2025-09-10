@@ -1213,218 +1213,55 @@ impl<T: Config> Pallet<T> {
         T::ProtocolId::get().into_account_truncating()
     }
 
-    /// Distribute `alpha_total` back to the coldkey's hotkeys for `netuid`.
-    /// - Pro‑rata by current α stake on this subnet; if all zero, split evenly.
-    /// - Deterministic "largest remainders" rounding to ensure exact conservation.
-    /// - Robust to partial deposit failures: retries across successes, final fallback to (cold, cold).
-    pub fn refund_alpha(netuid: NetUid, coldkey: &T::AccountId, alpha_total: AlphaCurrency) {
-        if alpha_total.is_zero() {
-            return;
-        }
-
-        // 1) Recipient set
-        let mut hotkeys: sp_std::vec::Vec<T::AccountId> = T::SubnetInfo::get_owned_hotkeys(coldkey);
-        if hotkeys.is_empty() {
-            hotkeys.push(coldkey.clone());
-        }
-
-        // 2) Weights = current α stake per hotkey; if all zero -> even split
-        let weights: sp_std::vec::Vec<u128> = hotkeys
-            .iter()
-            .map(|hk| u128::from(T::BalanceOps::alpha_balance(netuid, coldkey, hk).to_u64()))
-            .collect();
-
-        let sum_weights: u128 = weights
-            .iter()
-            .copied()
-            .fold(0u128, |acc, w| acc.saturating_add(w));
-        let total_u128: u128 = u128::from(alpha_total.to_u64());
-        let n = hotkeys.len();
-
-        // (account, planned_amount_u64)
-        let mut shares: sp_std::vec::Vec<(T::AccountId, u64)> = sp_std::vec::Vec::with_capacity(n);
-
-        if sum_weights > 0 {
-            // 3a) Pro‑rata base + largest remainders (deterministic)
-            let mut bases: sp_std::vec::Vec<u128> = sp_std::vec::Vec::with_capacity(n);
-            let mut remainders: sp_std::vec::Vec<(usize, u128)> =
-                sp_std::vec::Vec::with_capacity(n);
-
-            let mut base_sum: u128 = 0;
-            for (i, (&w, hk)) in weights.iter().zip(hotkeys.iter()).enumerate() {
-                let numer = total_u128.saturating_mul(w);
-                let base = numer.checked_div(sum_weights).unwrap_or(0);
-                let rem = numer.checked_rem(sum_weights).unwrap_or(0);
-                bases.push(base);
-                remainders.push((i, rem));
-                base_sum = base_sum.saturating_add(base);
-                shares.push((hk.clone(), u64::try_from(base).unwrap_or(u64::MAX)));
-            }
-
-            // Distribute leftover ones to the largest remainders; tie‑break by index for determinism
-            let mut leftover = total_u128.saturating_sub(base_sum);
-            if leftover > 0 {
-                remainders.sort_by(|a, b| {
-                    // Descending by remainder, then ascending by index
-                    b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0))
-                });
-                let mut k = 0usize;
-                while leftover > 0 && k < remainders.len() {
-                    if let Some((idx, _)) = remainders.get(k) {
-                        if let Some((_, amt)) = shares.get_mut(*idx) {
-                            *amt = amt.saturating_add(1);
-                        }
-                    }
-                    leftover = leftover.saturating_sub(1);
-                    k = k.saturating_add(1);
-                }
-            }
-        } else {
-            // 3b) Even split with deterministic round‑robin remainder
-            let base = total_u128.checked_div(n as u128).unwrap_or(0);
-            let mut rem = total_u128.checked_rem(n as u128).unwrap_or(0);
-            for hk in hotkeys.iter() {
-                let mut amt = u64::try_from(base).unwrap_or(u64::MAX);
-                if rem > 0 {
-                    amt = amt.saturating_add(1);
-                    rem = rem.saturating_sub(1);
-                }
-                shares.push((hk.clone(), amt));
-            }
-        }
-
-        // 4) Deposit to (coldkey, each hotkey). Track leftover if any deposit fails.
-        let mut leftover: u64 = 0;
-        let mut successes: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
-
-        for (hk, amt_u64) in shares.iter() {
-            if *amt_u64 == 0 {
-                continue;
-            }
-            let amt: AlphaCurrency = (*amt_u64).into();
-            match T::BalanceOps::increase_stake(coldkey, hk, netuid, amt) {
-                Ok(_) => successes.push(hk.clone()),
-                Err(e) => {
-                    log::warn!(
-                        "refund_alpha: increase_stake failed (cold={coldkey:?}, hot={hk:?}, netuid={netuid:?}, amt={amt_u64:?}): {e:?}"
-                    );
-                    leftover = leftover.saturating_add(*amt_u64);
-                }
-            }
-        }
-
-        // 5) Retry: spread any leftover across the hotkeys that succeeded in step 4.
-        if leftover > 0 && !successes.is_empty() {
-            let count = successes.len() as u64;
-            let base = leftover.checked_div(count).unwrap_or(0);
-            let mut rem = leftover.checked_rem(count).unwrap_or(0);
-
-            let mut leftover_retry: u64 = 0;
-            for hk in successes.iter() {
-                let add: u64 = base.saturating_add(if rem > 0 {
-                    rem = rem.saturating_sub(1);
-                    1
-                } else {
-                    0
-                });
-                if add == 0 {
-                    continue;
-                }
-                if let Err(e) = T::BalanceOps::increase_stake(coldkey, hk, netuid, add.into()) {
-                    log::warn!(
-                        "refund_alpha(retry): increase_stake failed (cold={coldkey:?}, hot={hk:?}, netuid={netuid:?}, amt={add:?}): {e:?}"
-                    );
-                    leftover_retry = leftover_retry.saturating_add(add);
-                }
-            }
-            leftover = leftover_retry;
-        }
-
-        // 6) Final fallback: deposit any remainder to (coldkey, coldkey).
-        if leftover > 0 {
-            let _ = T::BalanceOps::increase_stake(coldkey, coldkey, netuid, leftover.into());
-        }
-    }
-
-    /// Dissolve all LPs for `netuid`, refund providers, and reset all swap state.
-    ///
-    /// - **V3 path** (mechanism == 1 && SwapV3Initialized):
-    ///   * Remove **all** positions via `do_remove_liquidity`.
-    ///   * **Refund** each owner:
-    ///       - TAO = Σ(position.tao + position.fee_tao) → credited to the owner's **coldkey** free balance.
-    ///       - ALPHA = Σ(position.alpha + position.fee_alpha) → credited back via `refund_alpha`.
-    ///   * Decrease "provided reserves" (principal only) for non‑protocol owners.
-    ///   * Clear ActiveTickIndexManager entries, ticks, fee globals, price, tick, liquidity,
-    ///     init flag, bitmap words, fee rate knob, and user LP flag.
-    ///
-    /// - **V2 / non‑V3 path**:
-    ///   * No per‑position records exist; still defensively clear the same V3 storages (safe no‑ops).
+    /// Dissolve all LPs and clean state.
     pub fn do_dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
         let user_lp_enabled =
         <Self as subtensor_swap_interface::SwapHandler<T::AccountId>>::is_user_liquidity_enabled(netuid);
 
         if SwapV3Initialized::<T>::get(netuid) {
-            // -------- V3: close every position, aggregate refunds, clear state --------
-
-            // 1) Snapshot all (owner, position_id).
+            // 1) Snapshot (owner, position_id).
             struct CloseItem<A> {
                 owner: A,
                 pos_id: PositionId,
             }
             let mut to_close: sp_std::vec::Vec<CloseItem<T::AccountId>> = sp_std::vec::Vec::new();
-
             for ((owner, pos_id), _pos) in Positions::<T>::iter_prefix((netuid,)) {
                 to_close.push(CloseItem { owner, pos_id });
             }
 
             let protocol_account = Self::protocol_account_id();
 
-            // 2) Aggregate refunds per owner while removing positions.
-            use sp_std::collections::btree_map::BTreeMap;
-            let mut refunds: BTreeMap<T::AccountId, (TaoCurrency, AlphaCurrency)> = BTreeMap::new();
+            // Non‑protocol first
+            to_close
+                .sort_by(|a, b| (a.owner == protocol_account).cmp(&(b.owner == protocol_account)));
 
             for CloseItem { owner, pos_id } in to_close.into_iter() {
                 let rm = Self::do_remove_liquidity(netuid, &owner, pos_id)?;
 
-                // Accumulate (TAO, α) refund: principal + fees.
-                let tao_add = rm.tao.saturating_add(rm.fee_tao);
-                let alpha_add = rm.alpha.saturating_add(rm.fee_alpha);
-
-                refunds
-                    .entry(owner.clone())
-                    .and_modify(|(t, a)| {
-                        *t = t.saturating_add(tao_add);
-                        *a = a.saturating_add(alpha_add);
-                    })
-                    .or_insert((tao_add, alpha_add));
+                // τ: refund **principal only** (no τ fees).
+                if rm.tao > TaoCurrency::ZERO {
+                    T::BalanceOps::increase_balance(&owner, rm.tao);
+                }
 
                 if owner != protocol_account {
+                    // Principal reserves decrease
                     T::BalanceOps::decrease_provided_tao_reserve(netuid, rm.tao);
-                    T::BalanceOps::decrease_provided_alpha_reserve(netuid, rm.alpha);
+
+                    // Burn α (principal + fees) from provided reserves; do not credit to users.
+                    let alpha_burn = rm.alpha.saturating_add(rm.fee_alpha);
+                    if alpha_burn > AlphaCurrency::ZERO {
+                        T::BalanceOps::decrease_provided_alpha_reserve(netuid, alpha_burn);
+                    }
                 }
             }
 
-            // 3) Process refunds per owner.
-            for (owner, (tao_sum, alpha_sum)) in refunds.into_iter() {
-                // TAO → coldkey free balance
-                if tao_sum > TaoCurrency::ZERO {
-                    T::BalanceOps::increase_balance(&owner, tao_sum);
-                }
-
-                // α → split across all hotkeys owned by `owner`.
-                if !alpha_sum.is_zero() && owner != protocol_account {
-                    Self::refund_alpha(netuid, &owner, alpha_sum);
-                }
-            }
-
-            // 4) Clear active tick index set by walking ticks we are about to clear.
+            // 3) Clear active tick index entries, then all swap state.
             let active_ticks: sp_std::vec::Vec<TickIndex> =
                 Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
             for ti in active_ticks {
                 ActiveTickIndexManager::<T>::remove(netuid, ti);
             }
 
-            // 5) Clear storage for this netuid.
             let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
             let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
 
@@ -1440,22 +1277,19 @@ impl<T: Config> Pallet<T> {
             EnabledUserLiquidity::<T>::remove(netuid);
 
             log::debug!(
-                "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V3, user_lp_enabled={user_lp_enabled}, v3_state_cleared + refunds"
+                "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V3, user_lp_enabled={user_lp_enabled}, positions closed; τ principal refunded; α burned; state cleared"
             );
 
             return Ok(());
         }
 
-        // -------- V2 / non‑V3: no positions to close; still nuke any V3 residues --------
-
+        // V2 / non‑V3: ensure V3 residues are cleared (safe no‑ops).
         let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
-
         let active_ticks: sp_std::vec::Vec<TickIndex> =
             Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
         for ti in active_ticks {
             ActiveTickIndexManager::<T>::remove(netuid, ti);
         }
-
         let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
 
         FeeGlobalTao::<T>::remove(netuid);

@@ -456,8 +456,7 @@ impl<T: Config> Pallet<T> {
         //    Emission::<T> is Vec<AlphaCurrency>. We:
         //      - sum emitted α,
         //      - apply owner fraction to get owner α,
-        //      - convert owner α to τ using current price,
-        //      - use that τ value for the refund formula.
+        //      - price that α using a *simulated* AMM swap.
         let total_emitted_alpha_u128: u128 =
             Emission::<T>::get(netuid)
                 .into_iter()
@@ -472,15 +471,27 @@ impl<T: Config> Pallet<T> {
             .floor()
             .saturating_to_num::<u64>();
 
-        // Current α→τ price (TAO per 1 α) for this subnet.
-        let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
-
-        // Convert owner α to τ at current price; floor to integer τ.
-        let owner_emission_tao_u64: u64 = U96F32::from_num(owner_alpha_u64)
-            .saturating_mul(cur_price)
-            .floor()
-            .saturating_to_num::<u64>();
-        let owner_emission_tao: TaoCurrency = owner_emission_tao_u64.into();
+        let owner_emission_tao: TaoCurrency = if owner_alpha_u64 > 0 {
+            match T::SwapInterface::sim_swap(netuid.into(), OrderType::Sell, owner_alpha_u64) {
+                Ok(sim) => TaoCurrency::from(sim.amount_paid_out),
+                Err(e) => {
+                    log::debug!(
+                        "destroy_alpha_in_out_stakes: sim_swap owner α→τ failed (netuid={:?}, alpha={}, err={:?}); falling back to price multiply.",
+                        netuid,
+                        owner_alpha_u64,
+                        e
+                    );
+                    let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
+                    let val_u64: u64 = U96F32::from_num(owner_alpha_u64)
+                        .saturating_mul(cur_price)
+                        .floor()
+                        .saturating_to_num::<u64>();
+                    TaoCurrency::from(val_u64)
+                }
+            }
+        } else {
+            TaoCurrency::ZERO
+        };
 
         // 4) Enumerate all α entries on this subnet to build distribution weights and cleanup lists.
         //    - collect keys to remove,

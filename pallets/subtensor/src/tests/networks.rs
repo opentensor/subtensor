@@ -7,7 +7,7 @@ use sp_core::U256;
 use sp_std::collections::btree_map::BTreeMap;
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::TaoCurrency;
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 #[test]
 fn test_registration_ok() {
@@ -859,12 +859,22 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             .floor()
             .saturating_to_num::<u64>();
 
-        let price: U96F32 =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
-        let owner_emission_tao_u64: u64 = U96F32::from_num(owner_alpha_u64)
-            .saturating_mul(price)
-            .floor()
-            .saturating_to_num::<u64>();
+        let owner_emission_tao_u64: u64 = <Test as pallet::Config>::SwapInterface::sim_swap(
+            netuid.into(),
+            OrderType::Sell,
+            owner_alpha_u64,
+        )
+        .map(|res| res.amount_paid_out)
+        .unwrap_or_else(|_| {
+            // Fallback matches the pallet's fallback
+            let price: U96F32 =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+            U96F32::from_num(owner_alpha_u64)
+                .saturating_mul(price)
+                .floor()
+                .saturating_to_num::<u64>()
+        });
+
         let expected_refund: u64 = lock.saturating_sub(owner_emission_tao_u64);
 
         // ── 6) run distribution (credits τ to coldkeys, wipes α state) ─────

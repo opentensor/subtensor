@@ -381,7 +381,7 @@ impl<T: Config> Pallet<T> {
         Self::remove_network(netuid);
 
         // 4. --- Emit the NetworkRemoved event
-        log::debug!("NetworkRemoved( netuid:{netuid:?} )");
+        log::info!("NetworkRemoved( netuid:{netuid:?} )");
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
         Ok(())

@@ -213,7 +213,6 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_alpha);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
-        TransferToggle::<T>::insert(netuid_to_register, true);
         SubnetLocked::<T>::insert(netuid_to_register, pool_initial_tao);
         LargestLocked::<T>::insert(netuid_to_register, pool_initial_tao.to_u64());
         SubnetTaoProvided::<T>::insert(netuid_to_register, TaoCurrency::ZERO);
