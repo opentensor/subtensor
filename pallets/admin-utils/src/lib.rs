@@ -1908,7 +1908,7 @@ pub mod pallet {
         /// The trimming is done by sorting the UIDs by emission descending and then trimming
         /// the lowest emitters while preserving temporally and owner immune UIDs. The UIDs are
         /// then compressed to the left and storage is migrated to the new compressed UIDs.
-        #[pallet::call_index(74)]
+        #[pallet::call_index(78)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
@@ -1917,24 +1917,25 @@ pub mod pallet {
             netuid: NetUid,
             max_n: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
-            if let Ok(RawOrigin::Signed(who)) = origin.into() {
-                ensure!(
-                    pallet_subtensor::Pallet::<T>::passes_rate_limit_on_subnet(
-                        &TransactionType::SetMaxAllowedUIDS,
-                        &who,
-                        netuid,
-                    ),
-                    pallet_subtensor::Error::<T>::TxRateLimitExceeded
-                );
-            }
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin.clone(),
+                netuid,
+                &[TransactionType::SetMaxAllowedUIDS],
+            )?;
+
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::SetMaxAllowedUIDS],
+            );
             Ok(())
         }
 
         /// The extrinsic sets the minimum allowed UIDs for a subnet.
         /// It is only callable by the root account.
-        #[pallet::call_index(75)]
+        #[pallet::call_index(79)]
         #[pallet::weight(Weight::from_parts(18_800_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
@@ -1956,7 +1957,9 @@ pub mod pallet {
                 min_allowed_uids < pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid),
                 Error::<T>::MinAllowedUidsGreaterThanCurrentUids
             );
+
             pallet_subtensor::Pallet::<T>::set_min_allowed_uids(netuid, min_allowed_uids);
+
             log::debug!(
                 "MinAllowedUidsSet( netuid: {netuid:?} min_allowed_uids: {min_allowed_uids:?} ) "
             );
