@@ -18,6 +18,17 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
+    pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
+        let neuron_index: usize = neuron_uid.into();
+        Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
+        Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Bonds::<T>::remove(netuid, neuron_uid); // Remove bonds for Validator.
+    }
+
     /// Replace the neuron under this uid.
     pub fn replace_neuron(
         netuid: NetUid,
@@ -65,17 +76,6 @@ impl<T: Config> Pallet<T> {
 
         // 5a. reset axon info for the new uid.
         Axons::<T>::remove(netuid, old_hotkey);
-    }
-
-    /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
-    pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
-        let neuron_index: usize = neuron_uid.into();
-        Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
-        Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Bonds::<T>::remove(netuid, neuron_uid); // Remove bonds for Validator.
     }
 
     /// Appends the uid to the network.
