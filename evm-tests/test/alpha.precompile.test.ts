@@ -8,6 +8,7 @@ import { PublicClient } from "viem";
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils"
 import { IAlphaABI, IALPHA_ADDRESS } from "../src/contracts/alpha"
+import { u64 } from "@polkadot-api/substrate-bindings";
 
 describe("Test Alpha Precompile", () => {
     // init substrate part
@@ -208,6 +209,24 @@ describe("Test Alpha Precompile", () => {
             assert.ok(alphaIssuance !== undefined, "Alpha issuance should be defined");
             assert.ok(typeof alphaIssuance === 'bigint', "Alpha issuance should be a bigint");
             assert.ok(alphaIssuance >= BigInt(0), "Alpha issuance should be non-negative");
+        });
+
+        it("getCKBurn returns valid CK burn rate", async () => {
+            const ckBurn = await publicClient.readContract({
+                abi: IAlphaABI,
+                address: toViemAddress(IALPHA_ADDRESS),
+                functionName: "getCKBurn",
+                args: []
+            })
+
+            const ckBurnOnChain = await api.query.SubtensorModule.CKBurn.getValue()
+
+            assert.strictEqual(ckBurn, ckBurnOnChain, "CK burn should match on chain");
+            assert.ok(ckBurn !== undefined, "CK burn should be defined");
+            const ckBurnPercentage = BigInt(ckBurn) * BigInt(100) / BigInt(2 ** 64 - 1)
+            assert.ok(ckBurnPercentage >= BigInt(0), "CK burn percentage should be non-negative");
+            assert.ok(ckBurnPercentage <= BigInt(100), "CK burn percentage should be less than or equal to 100");
+            assert.ok(typeof ckBurn === 'bigint', "CK burn should be a bigint");
         });
     });
 

@@ -1,5 +1,6 @@
 use crate::{
     BalancesCall, Call, ColdkeySwapScheduled, Config, CustomTransactionError, Error, Pallet,
+    TransactionType,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
@@ -223,20 +224,6 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::commit_crv3_weights {
-                netuid,
-                reveal_round,
-                ..
-            }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                        return Err(CustomTransactionError::InvalidRevealRound.into());
-                    }
-                    Ok((Default::default(), Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
             Some(Call::commit_timelocked_weights {
                 netuid,
                 reveal_round,
@@ -290,6 +277,13 @@ where
                     0u64,
                 )
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
+            }
+            Some(Call::register_network { .. }) => {
+                if !Pallet::<T>::passes_rate_limit(&TransactionType::RegisterNetwork, who) {
+                    return Err(CustomTransactionError::RateLimitExceeded.into());
+                }
+
+                Ok((Default::default(), Some(who.clone()), origin))
             }
             _ => Ok((Default::default(), Some(who.clone()), origin)),
         }
