@@ -1144,7 +1144,7 @@ pub mod pallet {
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(50)]
         #[pallet::weight((
-            Weight::from_parts(4_000_000, 0)
+            Weight::from_parts(4_840_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
