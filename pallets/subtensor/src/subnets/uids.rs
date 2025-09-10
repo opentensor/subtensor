@@ -67,6 +67,17 @@ impl<T: Config> Pallet<T> {
         Axons::<T>::remove(netuid, old_hotkey);
     }
 
+    /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
+    pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
+        let neuron_index: usize = neuron_uid.into();
+        Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
+        Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Bonds::<T>::remove(netuid, neuron_uid); // Remove bonds for Validator.
+    }
+
     /// Appends the uid to the network.
     pub fn append_neuron(netuid: NetUid, new_hotkey: &T::AccountId, block_number: u64) {
         // 1. Get the next uid. This is always equal to subnetwork_n.
@@ -96,18 +107,6 @@ impl<T: Config> Pallet<T> {
         Uids::<T>::insert(netuid, new_hotkey.clone(), next_uid); // Make uid - hotkey association.
         BlockAtRegistration::<T>::insert(netuid, next_uid, block_number); // Fill block at registration.
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
-    }
-
-    /// Clears (sets to default) the neuron map values fot a neuron when it is
-    /// removed from the subnet
-    pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
-        let neuron_index: usize = neuron_uid.into();
-        Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
-        Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Bonds::<T>::remove(netuid, neuron_uid); // Remove bonds for Validator.
     }
 
     pub fn trim_to_max_allowed_uids(netuid: NetUid, max_n: u16) -> DispatchResult {
