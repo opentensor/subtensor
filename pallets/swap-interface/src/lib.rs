@@ -22,7 +22,8 @@ pub trait SwapHandler<AccountId> {
         PaidOut: Currency,
         ReserveIn: CurrencyReserve<PaidIn>,
         ReserveOut: CurrencyReserve<PaidOut>,
-        OrderT: Order<PaidIn, PaidOut>;
+        OrderT: Order<PaidIn, PaidOut>,
+        Self: SwapEngine<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>;
     fn sim_swap<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>(
         netuid: NetUid,
         order: OrderT,
@@ -34,7 +35,8 @@ pub trait SwapHandler<AccountId> {
         ReserveIn: CurrencyReserve<PaidIn>,
         ReserveOut: CurrencyReserve<PaidOut>,
         OrderT: Order<PaidIn, PaidOut>,
-        Self: DefaultPriceLimit<PaidIn, PaidOut>;
+        Self: DefaultPriceLimit<PaidIn, PaidOut>
+            + SwapEngine<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>;
     fn approx_fee_amount<T: Currency>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U96F32;
     fn max_price<C: Currency>() -> C;
@@ -53,6 +55,23 @@ where
     PaidOut: Currency,
 {
     fn default_price_limit<C: Currency>() -> C;
+}
+
+pub trait SwapEngine<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>
+where
+    PaidIn: Currency,
+    PaidOut: Currency,
+    ReserveIn: CurrencyReserve<PaidIn>,
+    ReserveOut: CurrencyReserve<PaidOut>,
+    OrderT: Order<PaidIn, PaidOut>,
+{
+    fn swap(
+        netuid: NetUid,
+        order: OrderT,
+        price_limit: TaoCurrency,
+        drop_fees: bool,
+        should_rollback: bool,
+    ) -> Result<SwapResult<PaidIn, PaidOut>, DispatchError>;
 }
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]

@@ -21,7 +21,6 @@ where
 {
     // Input parameters
     netuid: NetUid,
-    order: Order,
     drop_fees: bool,
 
     // Computed values
@@ -41,7 +40,7 @@ where
     final_price: SqrtPrice,
     fee: PaidIn,
 
-    _phantom: PhantomData<(T, PaidIn, PaidOut)>,
+    _phantom: PhantomData<(T, PaidIn, PaidOut, Order)>,
 }
 
 impl<T, PaidIn, PaidOut, Order> BasicSwapStep<T, PaidIn, PaidOut, Order>
@@ -55,7 +54,6 @@ where
     /// Creates and initializes a new swap step
     pub(crate) fn new(
         netuid: NetUid,
-        order: Order,
         amount_remaining: PaidIn,
         limit_sqrt_price: SqrtPrice,
         drop_fees: bool,
@@ -76,7 +74,6 @@ where
 
         Self {
             netuid,
-            order,
             drop_fees,
             target_sqrt_price,
             limit_sqrt_price,
