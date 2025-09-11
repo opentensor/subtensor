@@ -96,7 +96,7 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE1\x9A\xA6", // ᚦ (Thurisaz, giant, 83)
     b"\xE1\x9A\xA8", // ᚨ (Ansuz, god, 84)
     b"\xE1\x9A\xB1", // ᚱ (Raidho, ride, 85)
-    b"\xE1\x9A\xB2", // ᚲ (Kaunan, ulcer, 86)
+    b"\xE1\x9A\xB3", // ᚳ (Kaunan, ulcer, 86)
     b"\xD0\xAB",     // Ы (Cyrillic Yeru, 87)
     b"\xE1\x9B\x89", // ᛉ (Algiz, protection, 88)
     b"\xE1\x9B\x92", // ᛒ (Berkanan, birch, 89)
