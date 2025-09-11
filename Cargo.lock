@@ -6913,7 +6913,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-preimage",
- "pallet-proxy 38.0.0",
+ "pallet-proxy 40.1.0",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
@@ -7946,18 +7946,13 @@ dependencies = [
 
 [[package]]
 name = "pallet-proxy"
-version = "38.0.0"
+version = "40.1.0"
 dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
  "pallet-balances",
  "pallet-utility 38.0.0",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
  "subtensor-macros",
 ]
 
@@ -8012,7 +8007,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
- "pallet-proxy 40.1.0",
+ "pallet-proxy 40.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "pallet-utility 40.0.0",
  "parity-scale-codec",
  "scale-info",
@@ -13702,7 +13697,7 @@ dependencies = [
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
- "pallet-proxy 38.0.0",
+ "pallet-proxy 40.1.0",
  "pallet-subtensor",
  "pallet-subtensor-swap",
  "precompile-utils",
