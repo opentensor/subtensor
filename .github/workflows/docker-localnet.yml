@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-cax41, image-arm-app-docker-ce]
 
     steps:
       - name: Determine Docker tag and ref
