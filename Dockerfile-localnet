@@ -26,7 +26,8 @@ WORKDIR /build
 # Install Rust
 RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup toolchain install
+RUN rustup toolchain install 1.88.0
+RUN rustup default 1.88.0''
 RUN rustup target add wasm32v1-none
 
 ## Build fast-runtime node
