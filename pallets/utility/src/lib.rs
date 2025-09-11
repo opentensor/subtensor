@@ -61,7 +61,10 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::{GetDispatchInfo, PostDispatchInfo, extract_actual_weight},
+    dispatch::{
+        DispatchClass::{Normal, Operational},
+        GetDispatchInfo, PostDispatchInfo, extract_actual_weight,
+    },
     traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
 use sp_core::TypeId;
@@ -122,6 +125,10 @@ pub mod pallet {
         ItemFailed { error: DispatchError },
         /// A call was dispatched.
         DispatchedAs { result: DispatchResult },
+        /// Main call was dispatched.
+        IfElseMainSuccess,
+        /// The fallback call was dispatched.
+        IfElseFallbackCalled { main_error: DispatchError },
     }
 
     // Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -135,19 +142,13 @@ pub mod pallet {
         /// The limit on the number of batched calls.
         fn batched_calls_limit() -> u32 {
             let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
-            let size = core::mem::size_of::<<T as Config>::RuntimeCall>() as u32;
+            let call_size = (core::mem::size_of::<<T as Config>::RuntimeCall>() as u32)
+                .div_ceil(CALL_ALIGN)
+                * CALL_ALIGN;
+            // The margin to take into account vec doubling capacity.
+            let margin_factor = 3;
 
-            let align_up = size.saturating_add(CALL_ALIGN.saturating_sub(1));
-            let call_size = align_up
-                .checked_div(CALL_ALIGN)
-                .unwrap_or(0)
-                .saturating_mul(CALL_ALIGN);
-
-            let margin_factor: u32 = 3;
-
-            let after_margin = allocator_limit.checked_div(margin_factor).unwrap_or(0);
-
-            after_margin.checked_div(call_size).unwrap_or(0)
+            allocator_limit / margin_factor / call_size
         }
     }
 
@@ -157,7 +158,8 @@ pub mod pallet {
             // If you hit this error, you need to try to `Box` big dispatchable parameters.
             assert!(
                 core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,
-                "Call enum size should be smaller than {CALL_ALIGN} bytes.",
+                "Call enum size should be smaller than {} bytes.",
+                CALL_ALIGN,
             );
         }
     }
@@ -190,9 +192,9 @@ pub mod pallet {
         /// event is deposited.
         #[pallet::call_index(0)]
         #[pallet::weight({
-			let dispatch_weight = Pallet::<T>::weight(calls);
+			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(&calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch(calls.len() as u32));
-			(dispatch_weight, DispatchClass::Normal)
+			(dispatch_weight, dispatch_class, pays)
 		})]
         pub fn batch(
             origin: OriginFor<T>,
@@ -302,9 +304,9 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(2)]
         #[pallet::weight({
-			let dispatch_weight = Pallet::<T>::weight(calls);
+			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(&calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch_all(calls.len() as u32));
-			(dispatch_weight, DispatchClass::Normal)
+			(dispatch_weight, dispatch_class, pays)
 		})]
         pub fn batch_all(
             origin: OriginFor<T>,
@@ -401,9 +403,9 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(4)]
         #[pallet::weight({
-			let dispatch_weight = Pallet::<T>::weight(calls);
+			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(&calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::force_batch(calls.len() as u32));
-			(dispatch_weight, DispatchClass::Normal)
+			(dispatch_weight, dispatch_class, pays)
 		})]
         pub fn force_batch(
             origin: OriginFor<T>,
@@ -470,19 +472,158 @@ pub mod pallet {
             let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
             res.map(|_| ()).map_err(|e| e.error)
         }
+
+        /// Dispatch a fallback call in the event the main call fails to execute.
+        /// May be called from any origin except `None`.
+        ///
+        /// This function first attempts to dispatch the `main` call.
+        /// If the `main` call fails, the `fallback` is attemted.
+        /// if the fallback is successfully dispatched, the weights of both calls
+        /// are accumulated and an event containing the main call error is deposited.
+        ///
+        /// In the event of a fallback failure the whole call fails
+        /// with the weights returned.
+        ///
+        /// - `main`: The main call to be dispatched. This is the primary action to execute.
+        /// - `fallback`: The fallback call to be dispatched in case the `main` call fails.
+        ///
+        /// ## Dispatch Logic
+        /// - If the origin is `root`, both the main and fallback calls are executed without
+        ///   applying any origin filters.
+        /// - If the origin is not `root`, the origin filter is applied to both the `main` and
+        ///   `fallback` calls.
+        ///
+        /// ## Use Case
+        /// - Some use cases might involve submitting a `batch` type call in either main, fallback
+        ///   or both.
+        #[pallet::call_index(6)]
+        #[pallet::weight({
+			let main = main.get_dispatch_info();
+			let fallback = fallback.get_dispatch_info();
+			(
+				T::WeightInfo::if_else()
+					.saturating_add(main.call_weight)
+					.saturating_add(fallback.call_weight),
+				if main.class == Operational && fallback.class == Operational { Operational } else { Normal },
+			)
+		})]
+        pub fn if_else(
+            origin: OriginFor<T>,
+            main: Box<<T as Config>::RuntimeCall>,
+            fallback: Box<<T as Config>::RuntimeCall>,
+        ) -> DispatchResultWithPostInfo {
+            // Do not allow the `None` origin.
+            if ensure_none(origin.clone()).is_ok() {
+                return Err(BadOrigin.into());
+            }
+
+            let is_root = ensure_root(origin.clone()).is_ok();
+
+            // Track the weights
+            let mut weight = T::WeightInfo::if_else();
+
+            let main_info = main.get_dispatch_info();
+
+            // Execute the main call first
+            let main_result = if is_root {
+                main.dispatch_bypass_filter(origin.clone())
+            } else {
+                main.dispatch(origin.clone())
+            };
+
+            // Add weight of the main call
+            weight = weight.saturating_add(extract_actual_weight(&main_result, &main_info));
+
+            let Err(main_error) = main_result else {
+                // If the main result is Ok, we skip the fallback logic entirely
+                Self::deposit_event(Event::IfElseMainSuccess);
+                return Ok(Some(weight).into());
+            };
+
+            // If the main call failed, execute the fallback call
+            let fallback_info = fallback.get_dispatch_info();
+
+            let fallback_result = if is_root {
+                fallback.dispatch_bypass_filter(origin.clone())
+            } else {
+                fallback.dispatch(origin)
+            };
+
+            // Add weight of the fallback call
+            weight = weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
+
+            let Err(fallback_error) = fallback_result else {
+                // Fallback succeeded.
+                Self::deposit_event(Event::IfElseFallbackCalled {
+                    main_error: main_error.error,
+                });
+                return Ok(Some(weight).into());
+            };
+
+            // Both calls have failed, return fallback error
+            Err(sp_runtime::DispatchErrorWithPostInfo {
+                error: fallback_error.error,
+                post_info: Some(weight).into(),
+            })
+        }
+
+        /// Dispatches a function call with a provided origin.
+        ///
+        /// Almost the same as [`Pallet::dispatch_as`] but forwards any error of the inner call.
+        ///
+        /// The dispatch origin for this call must be _Root_.
+        #[pallet::call_index(7)]
+        #[pallet::weight({
+			let dispatch_info = call.get_dispatch_info();
+			(
+				T::WeightInfo::dispatch_as_fallible()
+					.saturating_add(dispatch_info.call_weight),
+				dispatch_info.class,
+			)
+		})]
+        pub fn dispatch_as_fallible(
+            origin: OriginFor<T>,
+            as_origin: Box<T::PalletsOrigin>,
+            call: Box<<T as Config>::RuntimeCall>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            call.dispatch_bypass_filter((*as_origin).into())
+                .map_err(|e| e.error)?;
+
+            Self::deposit_event(Event::DispatchedAs { result: Ok(()) });
+
+            Ok(())
+        }
     }
 
     impl<T: Config> Pallet<T> {
         /// Get the accumulated `weight` and the dispatch class for the given `calls`.
-        fn weight(calls: &[<T as Config>::RuntimeCall]) -> Weight {
+        fn weight_and_dispatch_class(
+            calls: &[<T as Config>::RuntimeCall],
+        ) -> (Weight, DispatchClass, Pays) {
             let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info());
-            dispatch_infos.fold(Weight::zero(), |total_weight, di| {
-                if di.pays_fee == Pays::Yes {
-                    total_weight.saturating_add(di.call_weight)
-                } else {
-                    total_weight
-                }
-            })
+            let pays = if dispatch_infos.clone().any(|di| di.pays_fee == Pays::No) {
+                Pays::No
+            } else {
+                Pays::Yes
+            };
+            let (dispatch_weight, dispatch_class) = dispatch_infos.fold(
+                (Weight::zero(), DispatchClass::Operational),
+                |(total_weight, dispatch_class): (Weight, DispatchClass), di| {
+                    (
+                        total_weight.saturating_add(di.call_weight),
+                        // If not all are `Operational`, we want to use `DispatchClass::Normal`.
+                        if di.class == DispatchClass::Normal {
+                            di.class
+                        } else {
+                            dispatch_class
+                        },
+                    )
+                },
+            );
+
+            (dispatch_weight, dispatch_class, pays)
         }
     }
 }

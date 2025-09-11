@@ -6929,7 +6929,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-utility 38.0.0",
+ "pallet-utility 40.0.0",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "precompile-utils",
@@ -7949,7 +7949,7 @@ name = "pallet-proxy"
 version = "40.1.0"
 dependencies = [
  "pallet-balances",
- "pallet-utility 38.0.0",
+ "pallet-utility 40.0.0",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
@@ -8008,7 +8008,7 @@ dependencies = [
  "frame-system",
  "pallet-balances",
  "pallet-proxy 40.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
- "pallet-utility 40.0.0",
+ "pallet-utility 40.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -8128,7 +8128,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-scheduler",
  "pallet-subtensor-swap",
- "pallet-utility 38.0.0",
+ "pallet-utility 40.0.0",
  "parity-scale-codec",
  "parity-util-mem",
  "polkadot-runtime-common",
@@ -8308,7 +8308,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-utility"
-version = "38.0.0"
+version = "40.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
