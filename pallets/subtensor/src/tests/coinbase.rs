@@ -1063,7 +1063,7 @@ fn test_drain_alpha_childkey_parentkey() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
-        SubtensorModule::set_ck_burn(0);
+        SubtensorModule::set_ck_burn(netuid, 0);
         let parent = U256::from(1);
         let child = U256::from(2);
         let coldkey = U256::from(3);
@@ -1239,7 +1239,7 @@ fn test_get_root_children_drain() {
         let alpha = NetUid::from(1);
         add_network(NetUid::ROOT, 1, 0);
         add_network(alpha, 1, 0);
-        SubtensorModule::set_ck_burn(0);
+        SubtensorModule::set_ck_burn(alpha, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
@@ -1401,7 +1401,7 @@ fn test_get_root_children_drain_half_proportion() {
         let alpha = NetUid::from(1);
         add_network(NetUid::ROOT, 1, 0);
         add_network(alpha, 1, 0);
-        SubtensorModule::set_ck_burn(0);
+        SubtensorModule::set_ck_burn(alpha, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
@@ -1579,7 +1579,7 @@ fn test_get_root_children_drain_with_half_take() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
-        SubtensorModule::set_ck_burn(0);
+        SubtensorModule::set_ck_burn(alpha, 0);
         // Create keys.
         let cold_alice = U256::from(0);
         let cold_bob = U256::from(1);
@@ -2787,7 +2787,7 @@ fn test_drain_alpha_childkey_parentkey_with_burn() {
         // Childkey take is 10%
         ChildkeyTake::<Test>::insert(child, netuid, u16::MAX / 10);
 
-        let burn_rate = SubtensorModule::get_ck_burn();
+        let burn_rate = SubtensorModule::get_ck_burn(netuid);
         let parent_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
         let child_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
 
