@@ -18,6 +18,7 @@
 // Tests for Proxy Pallet
 
 #![cfg(test)]
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used, clippy::indexing-slicing)]
 
 use super::*;
 use crate as proxy;
