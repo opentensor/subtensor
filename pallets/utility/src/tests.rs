@@ -18,6 +18,7 @@
 // Tests for Utility Pallet
 
 #![cfg(test)]
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
 use super::*;
 
@@ -39,6 +40,7 @@ type BlockNumber = u64;
 
 // example module to test behaviors.
 #[frame_support::pallet(dev_mode)]
+#[allow(clippy::large_enum_variant)]
 pub mod example {
     use frame_support::{dispatch::WithPostDispatchInfo, pallet_prelude::*};
     use frame_system::pallet_prelude::*;
