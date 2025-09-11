@@ -27,11 +27,11 @@ use frame::testing_prelude::*;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
-    pub struct Test {
-        System: frame_system,
-        Balances: pallet_balances,
-        Proxy: proxy,
-        Utility: pallet_utility,
+    pub enum Test {
+        System: frame_system = 1,
+        Balances: pallet_balances = 2,
+        Proxy: proxy = 3,
+        Utility: pallet_utility = 4,
     }
 );
 

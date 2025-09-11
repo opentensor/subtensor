@@ -144,11 +144,12 @@ pub mod pallet {
             let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
             let call_size = (core::mem::size_of::<<T as Config>::RuntimeCall>() as u32)
                 .div_ceil(CALL_ALIGN)
-                * CALL_ALIGN;
+                .checked_mul(CALL_ALIGN)
+                .unwrap_or(u32::MAX);
             // The margin to take into account vec doubling capacity.
             let margin_factor = 3;
 
-            allocator_limit / margin_factor / call_size
+            allocator_limit.checked_div(margin_factor).map_or(0, |x| x.checked_div(call_size).unwrap_or(0))
         }
     }
 
@@ -158,8 +159,7 @@ pub mod pallet {
             // If you hit this error, you need to try to `Box` big dispatchable parameters.
             assert!(
                 core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,
-                "Call enum size should be smaller than {} bytes.",
-                CALL_ALIGN,
+                "Call enum size should be smaller than {CALL_ALIGN} bytes.",
             );
         }
     }
@@ -192,7 +192,7 @@ pub mod pallet {
         /// event is deposited.
         #[pallet::call_index(0)]
         #[pallet::weight({
-			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(&calls);
+			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch(calls.len() as u32));
 			(dispatch_weight, dispatch_class, pays)
 		})]
@@ -304,7 +304,7 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(2)]
         #[pallet::weight({
-			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(&calls);
+			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch_all(calls.len() as u32));
 			(dispatch_weight, dispatch_class, pays)
 		})]
@@ -403,7 +403,7 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(4)]
         #[pallet::weight({
-			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(&calls);
+			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::force_batch(calls.len() as u32));
 			(dispatch_weight, dispatch_class, pays)
 		})]

@@ -819,13 +819,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// - `who`: The spawner account.
     /// - `proxy_type`: The type of the proxy that the sender will be registered as over the
-    /// new account. This will almost always be the most permissive `ProxyType` possible to
-    /// allow for maximum flexibility.
+    ///   new account. This will almost always be the most permissive `ProxyType` possible to
+    ///   allow for maximum flexibility.
     /// - `index`: A disambiguation index, in case this is called multiple times in the same
-    /// transaction (e.g. with `utility::batch`). Unless you're using `batch` you probably just
-    /// want to use `0`.
+    ///   transaction (e.g. with `utility::batch`). Unless you're using `batch` you probably just
+    ///   want to use `0`.
     /// - `maybe_when`: The block height and extrinsic index of when the pure account was
-    /// created. None to use current block height and extrinsic index.
+    ///   created. None to use current block height and extrinsic index.
     pub fn pure_account(
         who: &T::AccountId,
         proxy_type: &T::ProxyType,
@@ -858,7 +858,7 @@ impl<T: Config> Pallet<T> {
     /// - `delegatee`: The account that the `delegator` would like to make a proxy.
     /// - `proxy_type`: The permissions allowed for this proxy account.
     /// - `delay`: The announcement period required of the initial proxy. Will generally be
-    /// zero.
+    ///   zero.
     pub fn add_proxy_delegate(
         delegator: &T::AccountId,
         delegatee: T::AccountId,
@@ -881,9 +881,9 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| Error::<T>::TooMany)?;
             let new_deposit = Self::deposit(proxies.len() as u32);
             if new_deposit > *deposit {
-                T::Currency::reserve(delegator, new_deposit - *deposit)?;
+                T::Currency::reserve(delegator, new_deposit.saturating_sub(*deposit))?;
             } else if new_deposit < *deposit {
-                T::Currency::unreserve(delegator, *deposit - new_deposit);
+                T::Currency::unreserve(delegator, (*deposit).saturating_sub(new_deposit));
             }
             *deposit = new_deposit;
             Self::deposit_event(Event::<T>::ProxyAdded {
@@ -903,7 +903,7 @@ impl<T: Config> Pallet<T> {
     /// - `delegatee`: The account that the `delegator` would like to make a proxy.
     /// - `proxy_type`: The permissions allowed for this proxy account.
     /// - `delay`: The announcement period required of the initial proxy. Will generally be
-    /// zero.
+    ///   zero.
     pub fn remove_proxy_delegate(
         delegator: &T::AccountId,
         delegatee: T::AccountId,
@@ -924,9 +924,9 @@ impl<T: Config> Pallet<T> {
             proxies.remove(i);
             let new_deposit = Self::deposit(proxies.len() as u32);
             if new_deposit > old_deposit {
-                T::Currency::reserve(delegator, new_deposit - old_deposit)?;
+                T::Currency::reserve(delegator, new_deposit.saturating_sub(old_deposit))?;
             } else if new_deposit < old_deposit {
-                T::Currency::unreserve(delegator, old_deposit - new_deposit);
+                T::Currency::unreserve(delegator, old_deposit.saturating_sub(new_deposit));
             }
             if !proxies.is_empty() {
                 *x = Some((proxies, new_deposit))
@@ -1006,10 +1006,7 @@ impl<T: Config> Pallet<T> {
         force_proxy_type: Option<T::ProxyType>,
     ) -> Result<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, DispatchError> {
         let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
-            &x.delegate == delegate
-                && force_proxy_type
-                    .as_ref()
-                    .map_or(true, |y| &x.proxy_type == y)
+            &x.delegate == delegate && force_proxy_type.as_ref().is_none_or(|y| &x.proxy_type == y)
         };
         Ok(Proxies::<T>::get(real)
             .0
@@ -1059,7 +1056,7 @@ impl<T: Config> Pallet<T> {
     /// Parameters:
     /// - `delegator`: The delegator account.
     pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
-        let (_, old_deposit) = Proxies::<T>::take(&delegator);
-        T::Currency::unreserve(&delegator, old_deposit);
+        let (_, old_deposit) = Proxies::<T>::take(delegator);
+        T::Currency::unreserve(delegator, old_deposit);
     }
 }

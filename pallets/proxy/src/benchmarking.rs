@@ -18,6 +18,7 @@
 // Benchmarks for Proxy Pallet
 
 #![cfg(feature = "runtime-benchmarks")]
+#![allow(clippy::arithmetic_side_effects)]
 
 use super::*;
 use crate::Pallet as Proxy;
