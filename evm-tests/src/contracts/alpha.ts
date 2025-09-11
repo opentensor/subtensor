@@ -317,7 +317,13 @@ export const IAlphaABI = [
     "type": "function"
   },
   {
-    "inputs": [],
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "netuid",
+        "type": "uint16"
+      }
+    ],
     "name": "getCKBurn",
     "outputs": [
       {

@@ -97,5 +97,5 @@ interface IAlpha {
 
     /// @dev Returns the CK burn rate.
     /// @return The CK burn rate.
-    function getCKBurn() external view returns (uint256);
+    function getCKBurn(uint16 netuid) external view returns (uint256);
 }
