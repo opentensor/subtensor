@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
+import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { devnet } from "@polkadot-api/descriptors"
 import { TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
@@ -39,6 +39,20 @@ describe("Test neuron precompile reward", () => {
         await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
+        // Disable admin freeze window and owner hyperparam rate limiting for tests
+        {
+            const alice = getAliceSigner()
+
+            // Set AdminFreezeWindow to 0
+            const setFreezeWindow = api.tx.AdminUtils.sudo_set_admin_freeze_window({ window: 0 })
+            const sudoFreezeTx = api.tx.Sudo.sudo({ call: setFreezeWindow.decodedCall })
+            await waitForTransactionWithRetry(api, sudoFreezeTx, alice)
+
+            // Set OwnerHyperparamRateLimit to 0
+            const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ limit: BigInt(0) })
+            const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
+            await waitForTransactionWithRetry(api, sudoOwnerRateTx, alice)
+        }
 
         await setTxRateLimit(api, BigInt(0))
         await setTempo(api, root_netuid, root_tempo)
