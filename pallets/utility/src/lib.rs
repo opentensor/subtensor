@@ -149,7 +149,9 @@ pub mod pallet {
             // The margin to take into account vec doubling capacity.
             let margin_factor = 3;
 
-            allocator_limit.checked_div(margin_factor).map_or(0, |x| x.checked_div(call_size).unwrap_or(0))
+            allocator_limit
+                .checked_div(margin_factor)
+                .map_or(0, |x| x.checked_div(call_size).unwrap_or(0))
         }
     }
 
