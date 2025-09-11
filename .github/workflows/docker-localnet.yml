@@ -86,3 +86,5 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}-localnet:${{ env.tag }}
             ${{ env.latest_tag == 'true' && format('ghcr.io/{0}-localnet:latest', github.repository) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
