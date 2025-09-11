@@ -2097,10 +2097,12 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
         let owner: U256 = U256::from(5);
         SubnetOwner::<Test>::insert(netuid, owner);
 
-        // Configure owner hyperparam RL to 2 blocks
-        assert_ok!(AdminUtils::sudo_set_owner_hparam_rate_limit(
+        // Set tempo to 1 so owner hyperparam RL = 2 tempos = 2 blocks
+        SubtensorModule::set_tempo(netuid, 1);
+        // Disable admin freeze window to avoid blocking on small tempo
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
             <<Test as Config>::RuntimeOrigin>::root(),
-            2
+            0
         ));
 
         // First update succeeds
@@ -2140,10 +2142,9 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
     });
 }
 
-// Verifies that when the owner hyperparameter rate limit is left at its default (0), hyperparameter
-// updates are not blocked until a non-zero value is set.
+// Verifies that owner hyperparameter rate limit is enforced based on tempo (2 tempos).
 #[test]
-fn test_hyperparam_rate_limit_not_blocking_with_default() {
+fn test_hyperparam_rate_limit_enforced_by_tempo() {
     new_test_ext().execute_with(|| {
         // Setup subnet and owner
         let netuid = NetUid::from(42);
@@ -2151,23 +2152,37 @@ fn test_hyperparam_rate_limit_not_blocking_with_default() {
         let owner: U256 = U256::from(77);
         SubnetOwner::<Test>::insert(netuid, owner);
 
-        // Read the default (unset) owner hyperparam rate limit
-        let default_limit = pallet_subtensor::OwnerHyperparamRateLimit::<Test>::get();
+        // Set tempo to 1 so RL = 2 blocks
+        SubtensorModule::set_tempo(netuid, 1);
+        // Disable admin freeze window to avoid blocking on small tempo
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            0
+        ));
 
-        assert_eq!(default_limit, 0);
-
-        // First owner update should always succeed
+        // First owner update should succeed
         assert_ok!(AdminUtils::sudo_set_kappa(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
             1
         ));
 
-        // With default == 0, second immediate update should also pass (no rate limiting)
+        // Immediate second update should fail due to tempo-based RL
+        assert_noop!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                2
+            ),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // Advance 2 blocks (2 tempos with tempo=1) then succeed
+        run_to_block(SubtensorModule::get_current_block_as_u64() + 2);
         assert_ok!(AdminUtils::sudo_set_kappa(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
-            2
+            3
         ));
     });
 }
