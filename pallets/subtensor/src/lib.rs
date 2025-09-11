@@ -942,8 +942,14 @@ pub mod pallet {
     pub type TaoWeight<T> = StorageValue<_, u64, ValueQuery, DefaultTaoWeight<T>>;
     #[pallet::storage]
     /// --- ITEM --> CK burn
-    pub type CKBurn<T> = StorageValue<_, u64, ValueQuery, DefaultCKBurn<T>>;
+    pub type CKBurn<T> = StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultCKBurn<T>>;
+
+    // #[pallet::storage]
+    // /// --- ITEM --> CK burn
+    // pub type CKBurnPerSubnet<T> =
+    //     StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultCKBurn<T>>;
     #[pallet::storage]
+
     /// --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
     #[pallet::storage]

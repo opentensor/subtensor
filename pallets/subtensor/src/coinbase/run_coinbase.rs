@@ -757,7 +757,7 @@ impl<T: Config> Pallet<T> {
         // Calculate the hotkey's share of the validator emission based on its childkey take
         let validating_emission: U96F32 = U96F32::saturating_from_num(dividends);
         let mut remaining_emission: U96F32 = validating_emission;
-        let burn_take_proportion: U96F32 = Self::get_ck_burn();
+        let burn_take_proportion: U96F32 = Self::get_ck_burn(netuid);
         let child_take_proportion: U96F32 =
             U96F32::saturating_from_num(Self::get_childkey_take(hotkey, netuid))
                 .safe_div(U96F32::saturating_from_num(u16::MAX));
