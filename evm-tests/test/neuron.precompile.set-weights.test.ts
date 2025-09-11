@@ -47,8 +47,8 @@ describe("Test neuron precompile contract, set weights function", () => {
             const sudoFreezeTx = api.tx.Sudo.sudo({ call: setFreezeWindow.decodedCall })
             await waitForTransactionWithRetry(api, sudoFreezeTx, alice)
 
-            // Set OwnerHyperparamRateLimit to 0
-            const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ limit: BigInt(0) })
+            // Set OwnerHyperparamTempos to 0 (disable RL)
+            const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_tempos({ tempos: 0 })
             const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
             await waitForTransactionWithRetry(api, sudoOwnerRateTx, alice)
         }

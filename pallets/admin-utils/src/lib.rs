@@ -1833,17 +1833,17 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the owner hyperparameter rate limit (in blocks).
+        /// Sets the owner hyperparameter rate limit in tempos (global multiplier).
         /// Only callable by root.
         #[pallet::call_index(75)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_owner_hparam_rate_limit(
+        pub fn sudo_set_owner_hparam_tempos(
             origin: OriginFor<T>,
-            limit: u64,
+            tempos: u16,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_owner_hyperparam_rate_limit(limit);
-            log::debug!("OwnerHyperparamRateLimitSet( limit: {limit:?} ) ");
+            pallet_subtensor::Pallet::<T>::set_owner_hyperparam_tempos(tempos);
+            log::debug!("OwnerHyperparamTemposSet( tempos: {tempos:?} ) ");
             Ok(())
         }
 

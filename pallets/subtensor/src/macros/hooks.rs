@@ -138,6 +138,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<T>())
                 // Migrate last block rate limiting storage items
                 .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>())
+                // Remove deprecated OwnerHyperparamRateLimit storage item
+                .saturating_add(migrations::migrate_owner_hparam_rl_to_tempos::migrate_owner_hyperparam_rl_to_tempos::<T>())
                 // Migrate remove network modality
                 .saturating_add(migrations::migrate_remove_network_modality::migrate_remove_network_modality::<T>());
             weight

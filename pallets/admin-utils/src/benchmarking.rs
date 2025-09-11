@@ -353,9 +353,9 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_owner_hparam_rate_limit() {
+    fn sudo_set_owner_hparam_tempos() {
         #[extrinsic_call]
-		_(RawOrigin::Root, 10u64/*limit*/)/*sudo_set_owner_hparam_rate_limit*/;
+		_(RawOrigin::Root, 2u16/*tempos*/)/*sudo_set_owner_hparam_tempos*/;
     }
 
     #[benchmark]

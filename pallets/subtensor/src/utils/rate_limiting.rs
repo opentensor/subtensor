@@ -56,7 +56,6 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetChildren => 150, // 30 minutes
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
-            TransactionType::OwnerHyperparamUpdate => OwnerHyperparamRateLimit::<T>::get(),
             TransactionType::SubsubnetParameterUpdate => SubsubnetCountSetRateLimit::<T>::get(),
 
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
@@ -69,9 +68,11 @@ impl<T: Config> Pallet<T> {
         match tx_type {
             TransactionType::SetWeightsVersionKey => (Tempo::<T>::get(netuid) as u64)
                 .saturating_mul(WeightsVersionKeyRateLimit::<T>::get()),
-            // Owner hyperparameter updates are now rate-limited by 2 tempos on the subnet
-            TransactionType::OwnerHyperparamUpdate =>
-                (Tempo::<T>::get(netuid) as u64).saturating_mul(2),
+            // Owner hyperparameter updates are rate-limited by N tempos on the subnet (sudo configurable)
+            TransactionType::OwnerHyperparamUpdate => {
+                let tempos = OwnerHyperparamTempos::<T>::get() as u64;
+                (Tempo::<T>::get(netuid) as u64).saturating_mul(tempos)
+            }
             TransactionType::SetSNOwnerHotkey => DefaultSetSNOwnerHotkeyRateLimit::<T>::get(),
 
             _ => Self::get_rate_limit(tx_type),

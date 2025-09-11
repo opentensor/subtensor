@@ -116,8 +116,8 @@ mod events {
         TxChildKeyTakeRateLimitSet(u64),
         /// setting the admin freeze window length (last N blocks of tempo)
         AdminFreezeWindowSet(u16),
-        /// setting the owner hyperparameter rate limit (in blocks)
-        OwnerHyperparamRateLimitSet(u64),
+        /// setting the owner hyperparameter rate limit in tempos
+        OwnerHyperparamTemposSet(u16),
         /// minimum childkey take set
         MinChildKeyTakeSet(u16),
         /// maximum childkey take set

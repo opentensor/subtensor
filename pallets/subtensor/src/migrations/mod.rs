@@ -23,6 +23,7 @@ pub mod migrate_orphaned_storage_items;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_rao;
 pub mod migrate_rate_limiting_last_blocks;
+pub mod migrate_owner_hparam_rl_to_tempos;
 pub mod migrate_remove_commitments_rate_limit;
 pub mod migrate_remove_network_modality;
 pub mod migrate_remove_stake_map;

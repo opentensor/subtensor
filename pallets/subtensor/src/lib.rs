@@ -861,15 +861,15 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
-    /// Default value for subnet owner hyperparameter update rate limit (in blocks)
-    pub fn DefaultOwnerHyperparamRateLimit<T: Config>() -> u64 {
-        0
-    }
-
-    #[pallet::type_value]
     /// Default number of terminal blocks in a tempo during which admin operations are prohibited
     pub fn DefaultAdminFreezeWindow<T: Config>() -> u16 {
         10
+    }
+
+    #[pallet::type_value]
+    /// Default number of tempos for owner hyperparameter update rate limit
+    pub fn DefaultOwnerHyperparamTempos<T: Config>() -> u16 {
+        2
     }
 
     #[pallet::type_value]
@@ -888,9 +888,9 @@ pub mod pallet {
         StorageValue<_, u16, ValueQuery, DefaultAdminFreezeWindow<T>>;
 
     #[pallet::storage]
-    /// Global rate limit (in blocks) for subnet owner hyperparameter updates
-    pub type OwnerHyperparamRateLimit<T> =
-        StorageValue<_, u64, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
+    /// Global number of tempos used to rate limit subnet owner hyperparameter updates
+    pub type OwnerHyperparamTempos<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultOwnerHyperparamTempos<T>>;
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
