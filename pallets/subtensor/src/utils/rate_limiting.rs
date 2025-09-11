@@ -11,8 +11,32 @@ pub enum TransactionType {
     RegisterNetwork,
     SetWeightsVersionKey,
     SetSNOwnerHotkey,
-    OwnerHyperparamUpdate,
+    OwnerHyperparamUpdate, // Deprecated aggregate; keep for compatibility if referenced in tests
     SubsubnetParameterUpdate,
+    // Per-hyperparameter owner updates (rate-limited independently)
+    OwnerSetServingRateLimit,
+    OwnerSetMaxDifficulty,
+    OwnerSetAdjustmentAlpha,
+    OwnerSetMaxWeightLimit,
+    OwnerSetImmunityPeriod,
+    OwnerSetMinAllowedWeights,
+    OwnerSetKappa,
+    OwnerSetRho,
+    OwnerSetActivityCutoff,
+    OwnerSetPowRegistrationAllowed,
+    OwnerSetMinBurn,
+    OwnerSetMaxBurn,
+    OwnerSetBondsMovingAverage,
+    OwnerSetBondsPenalty,
+    OwnerToggleCommitReveal,
+    OwnerToggleLiquidAlphaEnabled,
+    OwnerSetAlphaValues,
+    OwnerSetWeightCommitInterval,
+    OwnerToggleTransfer,
+    OwnerSetAlphaSigmoidSteepness,
+    OwnerToggleYuma3Enabled,
+    OwnerToggleBondsReset,
+    OwnerSetOwnerImmuneNeuronLimit,
 }
 
 /// Implement conversion from TransactionType to u16
@@ -27,6 +51,29 @@ impl From<TransactionType> for u16 {
             TransactionType::SetSNOwnerHotkey => 5,
             TransactionType::OwnerHyperparamUpdate => 6,
             TransactionType::SubsubnetParameterUpdate => 7,
+            TransactionType::OwnerSetServingRateLimit => 10,
+            TransactionType::OwnerSetMaxDifficulty => 11,
+            TransactionType::OwnerSetAdjustmentAlpha => 12,
+            TransactionType::OwnerSetMaxWeightLimit => 13,
+            TransactionType::OwnerSetImmunityPeriod => 14,
+            TransactionType::OwnerSetMinAllowedWeights => 15,
+            TransactionType::OwnerSetKappa => 16,
+            TransactionType::OwnerSetRho => 17,
+            TransactionType::OwnerSetActivityCutoff => 18,
+            TransactionType::OwnerSetPowRegistrationAllowed => 19,
+            TransactionType::OwnerSetMinBurn => 20,
+            TransactionType::OwnerSetMaxBurn => 21,
+            TransactionType::OwnerSetBondsMovingAverage => 22,
+            TransactionType::OwnerSetBondsPenalty => 23,
+            TransactionType::OwnerToggleCommitReveal => 24,
+            TransactionType::OwnerToggleLiquidAlphaEnabled => 25,
+            TransactionType::OwnerSetAlphaValues => 26,
+            TransactionType::OwnerSetWeightCommitInterval => 27,
+            TransactionType::OwnerToggleTransfer => 28,
+            TransactionType::OwnerSetAlphaSigmoidSteepness => 29,
+            TransactionType::OwnerToggleYuma3Enabled => 30,
+            TransactionType::OwnerToggleBondsReset => 31,
+            TransactionType::OwnerSetOwnerImmuneNeuronLimit => 32,
         }
     }
 }
@@ -42,6 +89,29 @@ impl From<u16> for TransactionType {
             5 => TransactionType::SetSNOwnerHotkey,
             6 => TransactionType::OwnerHyperparamUpdate,
             7 => TransactionType::SubsubnetParameterUpdate,
+            10 => TransactionType::OwnerSetServingRateLimit,
+            11 => TransactionType::OwnerSetMaxDifficulty,
+            12 => TransactionType::OwnerSetAdjustmentAlpha,
+            13 => TransactionType::OwnerSetMaxWeightLimit,
+            14 => TransactionType::OwnerSetImmunityPeriod,
+            15 => TransactionType::OwnerSetMinAllowedWeights,
+            16 => TransactionType::OwnerSetKappa,
+            17 => TransactionType::OwnerSetRho,
+            18 => TransactionType::OwnerSetActivityCutoff,
+            19 => TransactionType::OwnerSetPowRegistrationAllowed,
+            20 => TransactionType::OwnerSetMinBurn,
+            21 => TransactionType::OwnerSetMaxBurn,
+            22 => TransactionType::OwnerSetBondsMovingAverage,
+            23 => TransactionType::OwnerSetBondsPenalty,
+            24 => TransactionType::OwnerToggleCommitReveal,
+            25 => TransactionType::OwnerToggleLiquidAlphaEnabled,
+            26 => TransactionType::OwnerSetAlphaValues,
+            27 => TransactionType::OwnerSetWeightCommitInterval,
+            28 => TransactionType::OwnerToggleTransfer,
+            29 => TransactionType::OwnerSetAlphaSigmoidSteepness,
+            30 => TransactionType::OwnerToggleYuma3Enabled,
+            31 => TransactionType::OwnerToggleBondsReset,
+            32 => TransactionType::OwnerSetOwnerImmuneNeuronLimit,
             _ => TransactionType::Unknown,
         }
     }
@@ -69,7 +139,30 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetWeightsVersionKey => (Tempo::<T>::get(netuid) as u64)
                 .saturating_mul(WeightsVersionKeyRateLimit::<T>::get()),
             // Owner hyperparameter updates are rate-limited by N tempos on the subnet (sudo configurable)
-            TransactionType::OwnerHyperparamUpdate => {
+            TransactionType::OwnerHyperparamUpdate
+            | TransactionType::OwnerSetServingRateLimit
+            | TransactionType::OwnerSetMaxDifficulty
+            | TransactionType::OwnerSetAdjustmentAlpha
+            | TransactionType::OwnerSetMaxWeightLimit
+            | TransactionType::OwnerSetImmunityPeriod
+            | TransactionType::OwnerSetMinAllowedWeights
+            | TransactionType::OwnerSetKappa
+            | TransactionType::OwnerSetRho
+            | TransactionType::OwnerSetActivityCutoff
+            | TransactionType::OwnerSetPowRegistrationAllowed
+            | TransactionType::OwnerSetMinBurn
+            | TransactionType::OwnerSetMaxBurn
+            | TransactionType::OwnerSetBondsMovingAverage
+            | TransactionType::OwnerSetBondsPenalty
+            | TransactionType::OwnerToggleCommitReveal
+            | TransactionType::OwnerToggleLiquidAlphaEnabled
+            | TransactionType::OwnerSetAlphaValues
+            | TransactionType::OwnerSetWeightCommitInterval
+            | TransactionType::OwnerToggleTransfer
+            | TransactionType::OwnerSetAlphaSigmoidSteepness
+            | TransactionType::OwnerToggleYuma3Enabled
+            | TransactionType::OwnerToggleBondsReset
+            | TransactionType::OwnerSetOwnerImmuneNeuronLimit => {
                 let tempos = OwnerHyperparamTempos::<T>::get() as u64;
                 (Tempo::<T>::get(netuid) as u64).saturating_mul(tempos)
             }

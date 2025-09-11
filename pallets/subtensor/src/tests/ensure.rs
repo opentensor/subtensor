@@ -105,22 +105,24 @@ fn ensure_owner_or_root_with_limits_checks_rl_and_freeze() {
         let res = crate::Pallet::<Test>::ensure_sn_owner_or_root_with_limits(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
-            &[TransactionType::OwnerHyperparamUpdate],
+            &[TransactionType::OwnerSetKappa],
         )
         .expect("should pass");
         assert_eq!(res, Some(owner));
 
         // Simulate previous update at current block -> next call should fail due to rate limit
         let now = crate::Pallet::<Test>::get_current_block_as_u64();
-        crate::Pallet::<Test>::set_rate_limited_last_block(
-            &RateLimitKey::OwnerHyperparamUpdate(netuid),
+        crate::Pallet::<Test>::set_last_transaction_block_on_subnet(
+            &owner,
+            netuid,
+            &TransactionType::OwnerSetKappa,
             now,
         );
         assert_noop!(
             crate::Pallet::<Test>::ensure_sn_owner_or_root_with_limits(
                 <<Test as Config>::RuntimeOrigin>::signed(owner),
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[TransactionType::OwnerSetKappa],
             ),
             crate::Error::<Test>::TxRateLimitExceeded
         );
@@ -130,7 +132,7 @@ fn ensure_owner_or_root_with_limits_checks_rl_and_freeze() {
         assert_ok!(crate::Pallet::<Test>::ensure_sn_owner_or_root_with_limits(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
-            &[TransactionType::OwnerHyperparamUpdate]
+            &[TransactionType::OwnerSetKappa]
         ));
 
         // Now advance into the freeze window; ensure blocks
@@ -151,7 +153,7 @@ fn ensure_owner_or_root_with_limits_checks_rl_and_freeze() {
             crate::Pallet::<Test>::ensure_sn_owner_or_root_with_limits(
                 <<Test as Config>::RuntimeOrigin>::signed(owner),
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[TransactionType::OwnerSetKappa],
             ),
             crate::Error::<Test>::AdminActionProhibitedDuringWeightsWindow
         );
