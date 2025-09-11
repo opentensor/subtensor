@@ -392,7 +392,7 @@ export async function disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api: T
     }
 
     const currentOwnerHyperparamRateLimit = await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue()
-    if (currentOwnerHyperparamRateLimit !== 0) {
+    if (currentOwnerHyperparamRateLimit !== BigInt(0)) {
         // Set OwnerHyperparamRateLimit to 0
         const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ limit: BigInt(0) })
         const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
@@ -400,5 +400,5 @@ export async function disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api: T
     }
 
     assert.equal(0, await api.query.SubtensorModule.AdminFreezeWindow.getValue())
-    assert.equal(0, await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue())
+    assert.equal(BigInt(0), await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue())
 }
