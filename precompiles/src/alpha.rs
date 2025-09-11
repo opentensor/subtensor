@@ -93,7 +93,7 @@ where
     #[precompile::public("getCKBurn(uint16)")]
     #[precompile::view]
     fn get_ck_burn(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
-        let ck_burn = pallet_subtensor::CKBurn::<R>::get(netuid.into());
+        let ck_burn = pallet_subtensor::CKBurn::<R>::get(NetUid::from(netuid));
         Ok(U256::from(ck_burn))
     }
 
