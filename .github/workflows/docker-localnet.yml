@@ -51,6 +51,13 @@ jobs:
         with:
           ref: ${{ env.ref }}
 
+      - name: Show current Git branch
+        run: |
+          echo "==============================="
+          echo "Current Git branch:"
+          git rev-parse --abbrev-ref HEAD
+          echo "==============================="
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
