@@ -2318,6 +2318,10 @@ fn test_sudo_set_validator_cut() {
         // Set up a network
         add_network(netuid, 10);
 
+        let sn_owner = U256::from(1324);
+        // Set the Subnet Owner
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
         let init_value = SubtensorModule::get_validator_cut(netuid);
 
         // Test that non-authorized origin fails (using a regular signed origin)
@@ -2332,11 +2336,8 @@ fn test_sudo_set_validator_cut() {
         // Value should remain unchangeds
         assert_eq!(SubtensorModule::get_validator_cut(netuid), init_value);
 
-        // Test that subnet owner can set the validator cut successfully
-        let subnet_owner = pallet_subtensor::SubnetOwner::<Test>::get(netuid.into());
-
         assert_ok!(AdminUtils::sudo_set_validator_cut(
-            <<Test as Config>::RuntimeOrigin>::signed(subnet_owner),
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
             netuid,
             to_be_set
         ));
