@@ -2329,12 +2329,11 @@ fn test_sudo_set_validator_cut() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        // Value should remain unchanged
+        // Value should remain unchangeds
         assert_eq!(SubtensorModule::get_validator_cut(netuid), init_value);
 
         // Test that subnet owner can set the validator cut successfully
-        let subnet_owner = U256::from(123);
-        SubtensorModule::set_subnet_owner(netuid, subnet_owner);
+        let subnet_owner = pallet_subtensor::SubnetOwner::<Test>::get(netuid.into());
 
         assert_ok!(AdminUtils::sudo_set_validator_cut(
             <<Test as Config>::RuntimeOrigin>::signed(subnet_owner),
