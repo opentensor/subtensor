@@ -222,24 +222,6 @@ impl<T: Config> Pallet<T> {
                 });
             }
 
-        // // Sell root emission through the pool (do not pay fees)
-            // let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
-            // if !subsidized {
-            //     let swap_result = Self::swap_alpha_for_tao(
-            //         *netuid_i,
-            //         tou64!(root_alpha).into(),
-            //         T::SwapInterface::min_price().into(),
-            //         true,
-            //     );
-            //     if let Ok(ok_result) = swap_result {
-            //         let root_tao: u64 = ok_result.amount_paid_out;
-            //         // Accumulate root divs for subnet.
-            //         PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-            //             *total = total.saturating_add(root_tao.into());
-            //         });
-            //     }
-            // }
-
             // Accumulate alpha emission in pending.
             PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tou64!(root_alpha).into());
