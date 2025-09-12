@@ -1816,7 +1816,11 @@ pub mod pallet {
 		.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
 		.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_ck_burn(origin: OriginFor<T>, netuid: NetUid, burn: u64) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
             pallet_subtensor::Pallet::<T>::set_ck_burn(netuid, burn);
             log::debug!("CKBurnSet( burn: {burn:?} ) ");
             Ok(())
