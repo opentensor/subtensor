@@ -663,10 +663,12 @@ impl<T: Config> Pallet<T> {
             });
         log::debug!("incentive_sum: {incentive_sum:?}");
 
+        let validator_cut = Self::get_validator_cut(netuid);
         let pending_validator_alpha = if !incentive_sum.is_zero() {
             pending_alpha
                 .saturating_add(pending_swapped)
-                .saturating_div(2.into())
+                .saturating_div(u16::MAX.into())
+                .saturating_mul(validator_cut.into())
                 .saturating_sub(pending_swapped)
         } else {
             // If the incentive is 0, then Validators get 100% of the alpha.

@@ -1501,6 +1501,11 @@ pub mod pallet {
     pub type ImmuneOwnerUidsLimit<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmuneOwnerUidsLimit<T>>;
 
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Validator cut
+    pub type ValidatorCut<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultValidatorCut<T>>;
+
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================

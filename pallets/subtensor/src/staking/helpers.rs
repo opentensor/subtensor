@@ -327,4 +327,24 @@ impl<T: Config> Pallet<T> {
             *total = total.saturating_sub(amount);
         });
     }
+
+    /// Gets the validator cut for a given subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The network UID.
+    ///
+    /// # Returns
+    /// The validator cut value for the subnet.
+    pub fn get_validator_cut(netuid: NetUid) -> u16 {
+        ValidatorCut::<T>::get(netuid)
+    }
+
+    /// Sets the validator cut for a given subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The network UID.
+    /// * `cut` - The validator cut value to set.
+    pub fn set_validator_cut(netuid: NetUid, cut: u16) {
+        ValidatorCut::<T>::insert(netuid, cut);
+    }
 }
