@@ -868,7 +868,7 @@ pub mod pallet {
 
     #[pallet::type_value]
     /// Default number of tempos for owner hyperparameter update rate limit
-    pub fn DefaultOwnerHyperparamTempos<T: Config>() -> u16 {
+    pub fn DefaultOwnerHyperparamRateLimit<T: Config>() -> u16 {
         2
     }
 
@@ -888,9 +888,9 @@ pub mod pallet {
         StorageValue<_, u16, ValueQuery, DefaultAdminFreezeWindow<T>>;
 
     #[pallet::storage]
-    /// Global number of tempos used to rate limit subnet owner hyperparameter updates
-    pub type OwnerHyperparamTempos<T: Config> =
-        StorageValue<_, u16, ValueQuery, DefaultOwnerHyperparamTempos<T>>;
+    /// Global number of epochs used to rate limit subnet owner hyperparameter updates
+    pub type OwnerHyperparamRateLimit<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =

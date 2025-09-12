@@ -116,9 +116,9 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::AdminFreezeWindowSet(window));
     }
 
-    pub fn set_owner_hyperparam_tempos(tempos: u16) {
-        OwnerHyperparamTempos::<T>::set(tempos);
-        Self::deposit_event(Event::OwnerHyperparamTemposSet(tempos));
+    pub fn set_owner_hyperparam_rate_limit(epochs: u16) {
+        OwnerHyperparamRateLimit::<T>::set(epochs);
+        Self::deposit_event(Event::OwnerHyperparamRateLimitSet(epochs));
     }
 
     /// If owner is `Some`, record last-blocks for the provided `TransactionType`s.

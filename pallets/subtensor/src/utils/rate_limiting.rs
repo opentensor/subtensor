@@ -116,6 +116,7 @@ impl From<u16> for TransactionType {
         }
     }
 }
+
 impl<T: Config> Pallet<T> {
     // ========================
     // ==== Rate Limiting =====
@@ -163,8 +164,8 @@ impl<T: Config> Pallet<T> {
             | TransactionType::OwnerToggleYuma3Enabled
             | TransactionType::OwnerToggleBondsReset
             | TransactionType::OwnerSetOwnerImmuneNeuronLimit => {
-                let tempos = OwnerHyperparamTempos::<T>::get() as u64;
-                (Tempo::<T>::get(netuid) as u64).saturating_mul(tempos)
+                let epochs = OwnerHyperparamRateLimit::<T>::get() as u64;
+                (Tempo::<T>::get(netuid) as u64).saturating_mul(epochs)
             }
             TransactionType::SetSNOwnerHotkey => DefaultSetSNOwnerHotkeyRateLimit::<T>::get(),
 

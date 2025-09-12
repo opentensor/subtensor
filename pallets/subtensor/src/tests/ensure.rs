@@ -65,11 +65,11 @@ fn ensure_subnet_owner_or_root_distinguishes_root_and_owner() {
 fn ensure_root_with_rate_limit_blocks_in_freeze_window() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        let tempo: u16 = 10;
+        let tempo = 10;
         add_network(netuid, 10, 0);
 
         // Set freeze window to 3
-        let freeze_window: u16 = 3;
+        let freeze_window = 3;
         crate::Pallet::<Test>::set_admin_freeze_window(freeze_window);
 
         run_to_block((tempo - freeze_window + 1).into());
@@ -96,10 +96,9 @@ fn ensure_owner_or_root_with_limits_checks_rl_and_freeze() {
         SubnetOwner::<Test>::insert(netuid, owner);
         // Set freeze window to 0 initially to avoid blocking when tempo is small
         let freeze_window = 3;
-        crate::Pallet::<Test>::set_admin_freeze_window(0);
+        crate::Pallet::<Test>::set_admin_freeze_window(freeze_window);
 
-        // Set tempo to 1 so owner hyperparam RL = 2 blocks
-        crate::Pallet::<Test>::set_tempo(netuid, 1);
+        crate::Pallet::<Test>::set_owner_hyperparam_rate_limit(1);
 
         // Outside freeze window initially; should pass and return Some(owner)
         let res = crate::Pallet::<Test>::ensure_sn_owner_or_root_with_limits(

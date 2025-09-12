@@ -139,7 +139,7 @@ mod hooks {
                 // Migrate last block rate limiting storage items
                 .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>())
                 // Remove deprecated OwnerHyperparamRateLimit storage item
-                .saturating_add(migrations::migrate_owner_hparam_rl_to_tempos::migrate_owner_hyperparam_rl_to_tempos::<T>())
+                .saturating_add(migrations::migrate_owner_hparam_rl_to_epochs::migrate_owner_hyperparam_rl_to_epochs::<T>())
                 // Migrate remove network modality
                 .saturating_add(migrations::migrate_remove_network_modality::migrate_remove_network_modality::<T>());
             weight

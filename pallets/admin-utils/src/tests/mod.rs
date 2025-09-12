@@ -1975,17 +1975,17 @@ fn test_sudo_set_admin_freeze_window_and_rate() {
 
         // Owner hyperparam tempos setter
         assert_eq!(
-            AdminUtils::sudo_set_owner_hparam_tempos(
+            AdminUtils::sudo_set_owner_hparam_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 5
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_ok!(AdminUtils::sudo_set_owner_hparam_tempos(
+        assert_ok!(AdminUtils::sudo_set_owner_hparam_rate_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             5
         ));
-        assert_eq!(pallet_subtensor::OwnerHyperparamTempos::<Test>::get(), 5);
+        assert_eq!(pallet_subtensor::OwnerHyperparamRateLimit::<Test>::get(), 5);
     });
 }
 
@@ -2169,11 +2169,7 @@ fn test_hyperparam_rate_limit_enforced_by_tempo() {
 
         // Immediate second update should fail due to tempo-based RL
         assert_noop!(
-            AdminUtils::sudo_set_kappa(
-                <<Test as Config>::RuntimeOrigin>::signed(owner),
-                netuid,
-                2
-            ),
+            AdminUtils::sudo_set_kappa(<<Test as Config>::RuntimeOrigin>::signed(owner), netuid, 2),
             SubtensorError::<Test>::TxRateLimitExceeded
         );
 
