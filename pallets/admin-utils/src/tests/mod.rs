@@ -2238,11 +2238,7 @@ fn test_owner_hyperparam_rate_limit_independent_per_param() {
 
         // rho should also be blocked for itself immediately after being set
         assert_noop!(
-            AdminUtils::sudo_set_rho(
-                <<Test as Config>::RuntimeOrigin>::signed(owner),
-                netuid,
-                6
-            ),
+            AdminUtils::sudo_set_rho(<<Test as Config>::RuntimeOrigin>::signed(owner), netuid, 6),
             SubtensorError::<Test>::TxRateLimitExceeded
         );
 

@@ -11,10 +11,7 @@ pub fn migrate_owner_hyperparam_rl_to_epochs<T: Config>() -> Weight {
     let mut weight = T::DbWeight::get().reads(1);
 
     if HasMigrationRun::<T>::get(&migration_name) {
-        log::info!(
-            "Migration '{:?}' already executed. Skipping.",
-            migration_name
-        );
+        log::info!("Migration '{migration_name:?}' already executed. Skipping.");
         return weight;
     }
 
