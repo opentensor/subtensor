@@ -2048,11 +2048,12 @@ mod dispatches {
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
+            hotkey: T::AccountId,
             evm_key: H160,
             block_number: u64,
             signature: Signature,
         ) -> DispatchResult {
-            Self::do_associate_evm_key(origin, netuid, evm_key, block_number, signature)
+            Self::do_associate_evm_key(origin, netuid, hotkey, evm_key, block_number, signature)
         }
 
         /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
