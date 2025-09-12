@@ -279,7 +279,7 @@ where
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::register_network { .. }) => {
-                if !Pallet::<T>::passes_rate_limit(&TransactionType::RegisterNetwork, who) {
+                if !TransactionType::RegisterNetwork.passes_rate_limit::<T>(who) {
                     return Err(CustomTransactionError::RateLimitExceeded.into());
                 }
 

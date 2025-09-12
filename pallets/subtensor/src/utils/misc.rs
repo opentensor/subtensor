@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
         if let Some(who) = maybe_who.as_ref() {
             for tx in limits.iter() {
                 ensure!(
-                    Self::passes_rate_limit_on_subnet(tx, who, netuid),
+                    tx.passes_rate_limit_on_subnet::<T>(who, netuid),
                     Error::<T>::TxRateLimitExceeded
                 );
             }
@@ -83,7 +83,7 @@ impl<T: Config> Pallet<T> {
         Self::ensure_not_in_admin_freeze_window(netuid, now)?;
         for tx in limits.iter() {
             ensure!(
-                Self::passes_rate_limit_on_subnet(tx, &who, netuid),
+                tx.passes_rate_limit_on_subnet::<T>(&who, netuid),
                 Error::<T>::TxRateLimitExceeded
             );
         }
@@ -130,7 +130,7 @@ impl<T: Config> Pallet<T> {
         if let Some(who) = maybe_owner {
             let now = Self::get_current_block_as_u64();
             for tx in txs {
-                Self::set_last_transaction_block_on_subnet(&who, netuid, tx, now);
+                tx.set_last_block_on_subnet::<T>(&who, netuid, now);
             }
         }
     }

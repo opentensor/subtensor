@@ -42,7 +42,7 @@ pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
-use crate::utils::rate_limiting::TransactionType;
+use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 #[cfg(test)]
@@ -2189,7 +2189,7 @@ pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(NetUid),
     // Generic rate limit for subnet-owner hyperparameter updates (per netuid)
-    OwnerHyperparamUpdate(NetUid),
+    OwnerHyperparamUpdate(NetUid, Hyperparameter),
     // Subnet registration rate limit
     NetworkLastRegistered,
     // Last tx block limit per account ID

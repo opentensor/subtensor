@@ -3,7 +3,7 @@ use crate::HasMigrationRun;
 use codec::Decode;
 use frame_support::weights::Weight;
 use sp_io::hashing::twox_128;
-use sp_io::storage::{clear, get};
+use sp_io::storage::get;
 
 /// Migrate u64 to u16 in OwnerHyperparamRateLimit and new default
 pub fn migrate_owner_hyperparam_rl_to_epochs<T: Config>() -> Weight {
