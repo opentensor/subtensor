@@ -1501,6 +1501,12 @@ pub mod pallet {
     pub type ImmuneOwnerUidsLimit<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmuneOwnerUidsLimit<T>>;
 
+    #[pallet::type_value]
+    /// Default validator cut 50%
+    pub fn DefaultValidatorCut<T: Config>() -> u16 {
+        u16::MAX / 2
+    }
+
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Validator cut
     pub type ValidatorCut<T> =

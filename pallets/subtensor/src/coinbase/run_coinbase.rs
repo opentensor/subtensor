@@ -667,8 +667,8 @@ impl<T: Config> Pallet<T> {
         let pending_validator_alpha = if !incentive_sum.is_zero() {
             pending_alpha
                 .saturating_add(pending_swapped)
-                .saturating_div(u16::MAX.into())
-                .saturating_mul(validator_cut.into())
+                .saturating_div(AlphaCurrency::from(u16::MAX as u64))
+                .saturating_mul(AlphaCurrency::from(validator_cut as u64))
                 .saturating_sub(pending_swapped)
         } else {
             // If the incentive is 0, then Validators get 100% of the alpha.
