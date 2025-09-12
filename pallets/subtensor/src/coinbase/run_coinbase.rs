@@ -214,23 +214,32 @@ impl<T: Config> Pallet<T> {
             // Get pending alpha as original alpha_out - root_alpha.
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
             log::debug!("pending_alpha: {pending_alpha:?}");
-            // Sell root emission through the pool (do not pay fees)
+
             let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
             if !subsidized {
-                let swap_result = Self::swap_alpha_for_tao(
-                    *netuid_i,
-                    tou64!(root_alpha).into(),
-                    T::SwapInterface::min_price().into(),
-                    true,
-                );
-                if let Ok(ok_result) = swap_result {
-                    let root_tao: u64 = ok_result.amount_paid_out;
-                    // Accumulate root divs for subnet.
-                    PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(root_tao.into());
-                    });
-                }
+                PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(root_alpha).into());
+                });
             }
+
+        // // Sell root emission through the pool (do not pay fees)
+            // let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
+            // if !subsidized {
+            //     let swap_result = Self::swap_alpha_for_tao(
+            //         *netuid_i,
+            //         tou64!(root_alpha).into(),
+            //         T::SwapInterface::min_price().into(),
+            //         true,
+            //     );
+            //     if let Ok(ok_result) = swap_result {
+            //         let root_tao: u64 = ok_result.amount_paid_out;
+            //         // Accumulate root divs for subnet.
+            //         PendingRootDivs::<T>::mutate(*netuid_i, |total| {
+            //             *total = total.saturating_add(root_tao.into());
+            //         });
+            //     }
+            // }
+
             // Accumulate alpha emission in pending.
             PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tou64!(root_alpha).into());
@@ -266,8 +275,8 @@ impl<T: Config> Pallet<T> {
                 PendingEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Get and drain the subnet pending root divs.
-                let pending_tao = PendingRootDivs::<T>::get(netuid);
-                PendingRootDivs::<T>::insert(netuid, TaoCurrency::ZERO);
+                let pending_root_alpha = PendingRootAlphaDivs::<T>::get(netuid);
+                PendingRootAlphaDivs::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Get this amount as alpha that was swapped for pending root divs.
                 let pending_swapped = PendingAlphaSwapped::<T>::get(netuid);
@@ -281,7 +290,7 @@ impl<T: Config> Pallet<T> {
                 Self::drain_pending_emission(
                     netuid,
                     pending_alpha,
-                    pending_tao,
+                    pending_root_alpha,
                     pending_swapped,
                     owner_cut,
                 );
@@ -327,7 +336,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn calculate_dividend_distribution(
         pending_alpha: AlphaCurrency,
-        pending_tao: TaoCurrency,
+        pending_root_alpha: AlphaCurrency,
         tao_weight: U96F32,
         stake_map: BTreeMap<T::AccountId, (AlphaCurrency, AlphaCurrency)>,
         dividends: BTreeMap<T::AccountId, U96F32>,
@@ -338,7 +347,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("dividends: {dividends:?}");
         log::debug!("stake_map: {stake_map:?}");
         log::debug!("pending_alpha: {pending_alpha:?}");
-        log::debug!("pending_tao: {pending_tao:?}");
+        log::debug!("pending_root_alpha: {pending_root_alpha:?}");
         log::debug!("tao_weight: {tao_weight:?}");
 
         // Setup.
@@ -390,22 +399,22 @@ impl<T: Config> Pallet<T> {
         log::debug!("total_root_divs: {total_root_divs:?}");
         log::debug!("total_alpha_divs: {total_alpha_divs:?}");
 
-        // Compute root divs as TAO. Here we take
-        let mut tao_dividends: BTreeMap<T::AccountId, U96F32> = BTreeMap::new();
+        // Compute root alpha divs. Here we take
+        let mut root_alpha_dividends: BTreeMap<T::AccountId, U96F32> = BTreeMap::new();
         for (hotkey, root_divs) in root_dividends {
             // Root proportion.
             let root_share: U96F32 = root_divs.checked_div(total_root_divs).unwrap_or(zero);
             log::debug!("hotkey: {hotkey:?}, root_share: {root_share:?}");
             // Root proportion in TAO
-            let root_tao: U96F32 = asfloat!(pending_tao).saturating_mul(root_share);
+            let root_tao: U96F32 = asfloat!(pending_root_alpha).saturating_mul(root_share);
             log::debug!("hotkey: {hotkey:?}, root_tao: {root_tao:?}");
             // Record root dividends as TAO.
-            tao_dividends
+            root_alpha_dividends
                 .entry(hotkey)
                 .and_modify(|e| *e = root_tao)
                 .or_insert(root_tao);
         }
-        log::debug!("tao_dividends: {tao_dividends:?}");
+        log::debug!("root_alpha_dividends: {root_alpha_dividends:?}");
 
         // Compute proportional alpha divs using the pending alpha and total alpha divs from the epoch.
         let mut prop_alpha_dividends: BTreeMap<T::AccountId, U96F32> = BTreeMap::new();
@@ -425,7 +434,7 @@ impl<T: Config> Pallet<T> {
         }
         log::debug!("prop_alpha_dividends: {prop_alpha_dividends:?}");
 
-        (prop_alpha_dividends, tao_dividends)
+        (prop_alpha_dividends, root_alpha_dividends)
     }
 
     fn get_immune_owner_hotkeys(netuid: NetUid, coldkey: &T::AccountId) -> Vec<T::AccountId> {
@@ -474,7 +483,7 @@ impl<T: Config> Pallet<T> {
         owner_cut: AlphaCurrency,
         incentives: BTreeMap<T::AccountId, AlphaCurrency>,
         alpha_dividends: BTreeMap<T::AccountId, U96F32>,
-        tao_dividends: BTreeMap<T::AccountId, U96F32>,
+        root_alpha_dividends: BTreeMap<T::AccountId, U96F32>,
     ) {
         // Distribute the owner cut.
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
@@ -550,38 +559,49 @@ impl<T: Config> Pallet<T> {
             TotalHotkeyAlphaLastEpoch::<T>::insert(hotkey, netuid, total_hotkey_alpha);
         }
 
-        // Distribute root tao divs.
-        let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        for (hotkey, mut root_tao) in tao_dividends {
+        // Distribute root alpha divs.
+        // TODO: TaoDividendsPerSubnet -> AlphaDividendsPerSubnet
+//        let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        for (hotkey, mut root_alpha) in root_alpha_dividends {
             // Get take prop
-            let tao_take: U96F32 = Self::get_hotkey_take_float(&hotkey).saturating_mul(root_tao);
+            let alpha_take: U96F32 = Self::get_hotkey_take_float(&hotkey).saturating_mul(root_alpha);
             // Remove take prop from root_tao
-            root_tao = root_tao.saturating_sub(tao_take);
+            root_alpha = root_alpha.saturating_sub(alpha_take);
             // Give the validator their take.
-            log::debug!("hotkey: {hotkey:?} tao_take: {tao_take:?}");
-            let validator_stake = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            log::debug!("hotkey: {hotkey:?} alpha_take: {alpha_take:?}");
+            let _validator_stake = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &Owner::<T>::get(hotkey.clone()),
-                NetUid::ROOT,
-                tou64!(tao_take).into(),
+                netuid,
+                tou64!(alpha_take).into(),
             );
+
             // Give rest to nominators.
-            log::debug!("hotkey: {hotkey:?} root_tao: {root_tao:?}");
             Self::increase_stake_for_hotkey_on_subnet(
                 &hotkey,
-                NetUid::ROOT,
-                tou64!(root_tao).into(),
+                netuid,
+                tou64!(root_alpha).into(),
             );
-            // Record root dividends for this validator on this subnet.
-            TaoDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
-                *divs = divs.saturating_add(tou64!(root_tao).into());
-            });
-            // Update the total TAO on the subnet with root tao dividends.
-            SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
-                *total = total
-                    .saturating_add(validator_stake.to_u64().into())
-                    .saturating_add(tou64!(root_tao).into());
-            });
+
+            Self::increase_root_claimable_for_hotkey_and_subnet(
+                &hotkey,
+                netuid,
+                tou64!(root_alpha).into(),
+            );
+
+            // TODO: TaoDividendsPerSubnet -> AlphaDividendsPerSubnet
+            // TODO: SubnetTAO -> SubnetAlphaIn ?? SubnetAlphaOut
+
+            // // Record root dividends for this validator on this subnet.
+            // TaoDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
+            //     *divs = divs.saturating_add(tou64!(root_tao).into());
+            // });
+            // // Update the total TAO on the subnet with root tao dividends.
+            // SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
+            //     *total = total
+            //         .saturating_add(validator_stake.to_u64().into())
+            //         .saturating_add(tou64!(root_tao).into());
+            // });
         }
     }
 
@@ -602,7 +622,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn calculate_dividend_and_incentive_distribution(
         netuid: NetUid,
-        pending_tao: TaoCurrency,
+        pending_root_alpha: AlphaCurrency,
         pending_validator_alpha: AlphaCurrency,
         hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)>,
         tao_weight: U96F32,
@@ -618,26 +638,26 @@ impl<T: Config> Pallet<T> {
 
         let stake_map = Self::get_stake_map(netuid, dividends.keys().collect::<Vec<_>>());
 
-        let (alpha_dividends, tao_dividends) = Self::calculate_dividend_distribution(
+        let (alpha_dividends, root_alpha_dividends) = Self::calculate_dividend_distribution(
             pending_validator_alpha,
-            pending_tao,
+            pending_root_alpha,
             tao_weight,
             stake_map,
             dividends,
         );
 
-        (incentives, (alpha_dividends, tao_dividends))
+        (incentives, (alpha_dividends, root_alpha_dividends))
     }
 
     pub fn drain_pending_emission(
         netuid: NetUid,
         pending_alpha: AlphaCurrency,
-        pending_tao: TaoCurrency,
+        pending_root_alpha: AlphaCurrency,
         pending_swapped: AlphaCurrency,
         owner_cut: AlphaCurrency,
     ) {
         log::debug!(
-            "Draining pending alpha emission for netuid {netuid:?}, pending_alpha: {pending_alpha:?}, pending_tao: {pending_tao:?}, pending_swapped: {pending_swapped:?}, owner_cut: {owner_cut:?}"
+            "Draining pending alpha emission for netuid {netuid:?}, pending_alpha: {pending_alpha:?}, pending_root_alpha: {pending_root_alpha:?}, pending_swapped: {pending_swapped:?}, owner_cut: {owner_cut:?}"
         );
 
         let tao_weight = Self::get_tao_weight();
@@ -669,10 +689,10 @@ impl<T: Config> Pallet<T> {
             pending_alpha
         };
 
-        let (incentives, (alpha_dividends, tao_dividends)) =
+        let (incentives, (alpha_dividends, root_alpha_dividends)) =
             Self::calculate_dividend_and_incentive_distribution(
                 netuid,
-                pending_tao,
+                pending_root_alpha,
                 pending_validator_alpha,
                 hotkey_emission,
                 tao_weight,
@@ -683,7 +703,7 @@ impl<T: Config> Pallet<T> {
             owner_cut,
             incentives,
             alpha_dividends,
-            tao_dividends,
+            root_alpha_dividends,
         );
     }
 
