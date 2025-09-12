@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{Currency, NetUid, SubId};
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
@@ -411,10 +411,15 @@ impl<T: Config> Pallet<T> {
         // 3.5 Swap WeightCommits
         // WeightCommits( hotkey ) --> Vec<u64> -- the weight commits for the hotkey.
         if is_network_member {
-            if let Ok(old_weight_commits) = WeightCommits::<T>::try_get(netuid, old_hotkey) {
-                WeightCommits::<T>::remove(netuid, old_hotkey);
-                WeightCommits::<T>::insert(netuid, new_hotkey, old_weight_commits);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+            for subid in 0..SubsubnetCountCurrent::<T>::get(netuid).into() {
+                let netuid_index = Self::get_subsubnet_storage_index(netuid, SubId::from(subid));
+                if let Ok(old_weight_commits) =
+                    WeightCommits::<T>::try_get(netuid_index, old_hotkey)
+                {
+                    WeightCommits::<T>::remove(netuid_index, old_hotkey);
+                    WeightCommits::<T>::insert(netuid_index, new_hotkey, old_weight_commits);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                }
             }
         }
 
