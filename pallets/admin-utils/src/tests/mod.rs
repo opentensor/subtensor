@@ -2181,6 +2181,88 @@ fn test_hyperparam_rate_limit_enforced_by_tempo() {
     });
 }
 
+// Verifies owner hyperparameters are rate-limited independently per parameter.
+// Setting one hyperparameter should not block setting a different hyperparameter
+// during the same rate-limit window, but it should still block itself.
+#[test]
+fn test_owner_hyperparam_rate_limit_independent_per_param() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(7);
+        add_network(netuid, 10);
+
+        // Set subnet owner
+        let owner: U256 = U256::from(123);
+        SubnetOwner::<Test>::insert(netuid, owner);
+
+        // Use small tempo to make RL short and deterministic (2 blocks when tempo=1)
+        SubtensorModule::set_tempo(netuid, 1);
+        // Disable admin freeze window so it doesn't interfere with small tempo
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            0
+        ));
+
+        // First update to kappa should succeed
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            10
+        ));
+
+        // Immediate second update to the SAME param (kappa) should be blocked by RL
+        assert_noop!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                11
+            ),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // Updating a DIFFERENT param (rho) should pass immediately — independent RL key
+        assert_ok!(AdminUtils::sudo_set_rho(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            5
+        ));
+
+        // kappa should still be blocked until its own RL window passes
+        assert_noop!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                12
+            ),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // rho should also be blocked for itself immediately after being set
+        assert_noop!(
+            AdminUtils::sudo_set_rho(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                6
+            ),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // Advance enough blocks to pass the RL window (2 blocks when tempo=1 and default epochs=2)
+        run_to_block(SubtensorModule::get_current_block_as_u64() + 2);
+
+        // Now both hyperparameters can be updated again
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            13
+        ));
+        assert_ok!(AdminUtils::sudo_set_rho(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            7
+        ));
+    });
+}
+
 #[test]
 fn test_sudo_set_max_burn() {
     new_test_ext().execute_with(|| {
