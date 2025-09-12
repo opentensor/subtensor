@@ -542,8 +542,6 @@ impl<T: Config> Pallet<T> {
         }
 
         // Distribute root alpha divs.
-        // TODO: TaoDividendsPerSubnet -> AlphaDividendsPerSubnet
-//        let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (hotkey, mut root_alpha) in root_alpha_dividends {
             // Get take prop
             let alpha_take: U96F32 = Self::get_hotkey_take_float(&hotkey).saturating_mul(root_alpha);
@@ -571,13 +569,13 @@ impl<T: Config> Pallet<T> {
                 tou64!(root_alpha).into(),
             );
 
-            // TODO: TaoDividendsPerSubnet -> AlphaDividendsPerSubnet
+            // Record root dividends for this validator on this subnet.
+            AlphaDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
+                *divs = divs.saturating_add(tou64!(root_alpha).into());
+            });
+
             // TODO: SubnetTAO -> SubnetAlphaIn ?? SubnetAlphaOut
 
-            // // Record root dividends for this validator on this subnet.
-            // TaoDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
-            //     *divs = divs.saturating_add(tou64!(root_tao).into());
-            // });
             // // Update the total TAO on the subnet with root tao dividends.
             // SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
             //     *total = total

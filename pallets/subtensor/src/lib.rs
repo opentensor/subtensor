@@ -1058,6 +1058,8 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroAlpha<T>,
     >;
+
+    #[deprecated]
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total root dividend paid to this hotkey on this subnet.
     pub type TaoDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
