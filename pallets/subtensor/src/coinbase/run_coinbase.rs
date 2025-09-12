@@ -220,12 +220,13 @@ impl<T: Config> Pallet<T> {
                 PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
                     *total = total.saturating_add(tou64!(root_alpha).into());
                 });
+
+                // Accumulate alpha emission in pending.
+                PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(root_alpha).into());
+                });
             }
 
-            // Accumulate alpha emission in pending.
-            PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(root_alpha).into());
-            });
             // Accumulate alpha emission in pending.
             PendingEmission::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tou64!(pending_alpha).into());
