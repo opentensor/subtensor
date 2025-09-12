@@ -578,7 +578,7 @@ fn test_drain_base() {
         SubtensorModule::drain_pending_emission(
             0.into(),
             AlphaCurrency::ZERO,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         )
@@ -594,7 +594,7 @@ fn test_drain_base_with_subnet() {
         SubtensorModule::drain_pending_emission(
             netuid,
             AlphaCurrency::ZERO,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         )
@@ -620,7 +620,7 @@ fn test_drain_base_with_subnet_with_single_staker_not_registered() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha.into(),
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -650,7 +650,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -695,7 +695,8 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            pending_tao,
+         //   pending_tao,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -748,7 +749,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -814,7 +815,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            pending_tao,
+            //   pending_tao,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -901,7 +903,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            pending_tao,
+            //   pending_tao,
+            AlphaCurrency::ZERO,
             0.into(),
             0.into(),
         );
@@ -1001,7 +1004,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            pending_tao,
+            //   pending_tao,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1084,7 +1088,7 @@ fn test_drain_alpha_childkey_parentkey() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1310,7 +1314,7 @@ fn test_get_root_children_drain() {
         SubtensorModule::drain_pending_emission(
             alpha,
             pending_alpha,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1334,7 +1338,8 @@ fn test_get_root_children_drain() {
         SubtensorModule::drain_pending_emission(
             alpha,
             pending_alpha,
-            pending_root1,
+            //   pending_root1,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1361,7 +1366,8 @@ fn test_get_root_children_drain() {
         SubtensorModule::drain_pending_emission(
             alpha,
             pending_alpha,
-            pending_root2,
+            //   pending_root2,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1463,7 +1469,7 @@ fn test_get_root_children_drain_half_proportion() {
         SubtensorModule::drain_pending_emission(
             alpha,
             pending_alpha,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1550,7 +1556,7 @@ fn test_get_root_children_drain_with_take() {
         SubtensorModule::drain_pending_emission(
             alpha,
             pending_alpha,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1638,7 +1644,7 @@ fn test_get_root_children_drain_with_half_take() {
         SubtensorModule::drain_pending_emission(
             alpha,
             pending_alpha,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -2012,7 +2018,8 @@ fn test_calculate_dividend_distribution_totals() {
 
         let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
             pending_validator_alpha,
-            pending_tao,
+            //   pending_tao,
+            AlphaCurrency::ZERO,
             tao_weight,
             stake_map,
             dividends,
@@ -2055,7 +2062,8 @@ fn test_calculate_dividend_distribution_total_only_tao() {
 
         let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
             pending_validator_alpha,
-            pending_tao,
+            //   pending_tao,
+            AlphaCurrency::ZERO,
             tao_weight,
             stake_map,
             dividends,
@@ -2098,7 +2106,8 @@ fn test_calculate_dividend_distribution_total_no_tao_weight() {
 
         let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
             pending_validator_alpha,
-            pending_tao,
+            //   pending_tao,
+            AlphaCurrency::ZERO,
             tao_weight,
             stake_map,
             dividends,
@@ -2141,7 +2150,8 @@ fn test_calculate_dividend_distribution_total_only_alpha() {
 
         let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
             pending_validator_alpha,
-            pending_tao,
+            //   pending_tao,
+            AlphaCurrency::ZERO,
             tao_weight,
             stake_map,
             dividends,
@@ -2195,7 +2205,8 @@ fn test_calculate_dividend_and_incentive_distribution() {
         let (incentives, (alpha_dividends, tao_dividends)) =
             SubtensorModule::calculate_dividend_and_incentive_distribution(
                 netuid,
-                pending_tao,
+                //   pending_tao,
+                AlphaCurrency::ZERO,
                 pending_validator_alpha,
                 hotkey_emission,
                 tao_weight,
@@ -2245,7 +2256,8 @@ fn test_calculate_dividend_and_incentive_distribution_all_to_validators() {
         let (incentives, (alpha_dividends, tao_dividends)) =
             SubtensorModule::calculate_dividend_and_incentive_distribution(
                 netuid,
-                pending_tao,
+                //   pending_tao,
+                AlphaCurrency::ZERO,
                 pending_validator_alpha,
                 hotkey_emission,
                 tao_weight,
@@ -2428,7 +2440,7 @@ fn test_drain_pending_emission_no_miners_all_drained() {
         SubtensorModule::drain_pending_emission(
             netuid,
             emission,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -2500,7 +2512,7 @@ fn test_drain_pending_emission_zero_emission() {
         SubtensorModule::drain_pending_emission(
             netuid,
             0.into(),
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -2784,7 +2796,7 @@ fn test_drain_alpha_childkey_parentkey_with_burn() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            TaoCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
