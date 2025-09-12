@@ -377,7 +377,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-        _(RawOrigin::Root, 1u16.into()/*netuid*/, 5u16/*burn*/)/*sudo_set_ck_burn()*/;
+        _(RawOrigin::Root, 1u16.into()/*netuid*/, 5u64/*burn*/)/*sudo_set_ck_burn()*/;
     }
 
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
