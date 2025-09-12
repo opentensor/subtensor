@@ -2269,3 +2269,39 @@ fn test_sudo_set_subsubnet_count() {
         ));
     });
 }
+
+#[test]
+fn test_sudo_set_ck_burn() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let to_be_set: u64 = 1000000;
+
+        // Set up a network
+        add_network(netuid, 10);
+
+        let init_value = pallet_subtensor::CKBurn::<Test>::get(netuid);
+
+        // Test that non-root origin fails
+        assert_eq!(
+            AdminUtils::sudo_set_ck_burn(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        // Value should remain unchanged
+        assert_eq!(SubtensorModule::get_ck_burn(netuid), init_value);
+
+        // Test that root can set the CK burn successfully
+        assert_ok!(AdminUtils::sudo_set_ck_burn(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+
+        // Verify the value was set correctly
+        let set_value = pallet_subtensor::CKBurn::<Test>::get(netuid);
+        assert_eq!(set_value, to_be_set);
+    });
+}
