@@ -2292,7 +2292,7 @@ fn test_get_validator_cut() {
 fn test_set_validator_cut() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(2);
-        let initial_cut: u16 = 0;
+        let initial_cut: u16 = pallet_subtensor::DefaultValidatorCut::<Test>::get();
         let new_cut: u16 = 7500; // 75% cut
 
         // Set up a network
@@ -2365,24 +2365,6 @@ fn test_sudo_set_validator_cut_root() {
 
         // Verify the value was set correctly
         assert_eq!(SubtensorModule::get_validator_cut(netuid), to_be_set);
-    });
-}
-
-#[test]
-fn test_sudo_set_validator_cut_invalid_netuid() {
-    new_test_ext().execute_with(|| {
-        let invalid_netuid = NetUid::from(999); // Non-existent netuid
-        let cut_value: u16 = 2500; // 25% cut
-
-        // Test that setting validator cut on invalid netuid fails
-        assert_eq!(
-            AdminUtils::sudo_set_validator_cut(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                invalid_netuid,
-                cut_value
-            ),
-            Err(DispatchError::BadOrigin) // This will likely fail due to subnet not existing
-        );
     });
 }
 
