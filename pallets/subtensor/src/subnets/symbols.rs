@@ -130,7 +130,7 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xD0\x83", // Ѓ (Gje, 113)
     b"\xD0\x84", // Є (Ukrainian Ie, 114)
     b"\xD0\x85", // Ѕ (Dze, 115)
-    b"\xD0\xAA", // Ъ (Hard sign, 116)
+    b"\xD1\x8A", // ъ (Hard sign, 116)
     // Coptic Alphabet
     b"\xE2\xB2\x80", // Ⲁ (Alfa, 117)
     b"\xE2\xB2\x81", // ⲁ (Small Alfa, 118)
@@ -145,7 +145,7 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xF0\x91\x80\x83", // 𑀃 (Ii, 126)
     b"\xF0\x91\x80\x85", // 𑀅 (U, 127)
     // End of Sinhala Alphabet
-    b"\xE0\xB6\xB2", // ඲ (La, 128)
+    b"\xE0\xB6\xB1", // න (La, 128)
     b"\xE0\xB6\xB3", // ඳ (Va, 129)
     b"\xE0\xB6\xB4", // ප (Sha, 130)
     b"\xE0\xB6\xB5", // ඵ (Ssa, 131)
