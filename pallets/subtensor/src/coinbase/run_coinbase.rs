@@ -428,21 +428,7 @@ impl<T: Config> Pallet<T> {
         (prop_alpha_dividends, tao_dividends)
     }
 
-    fn get_immune_owner_hotkeys(netuid: NetUid, coldkey: &T::AccountId) -> Vec<T::AccountId> {
-        Self::get_immune_owner_tuples(netuid, coldkey)
-            .into_iter()
-            .map(|(_, hk)| hk)
-            .collect()
-    }
-
-    pub fn get_immune_owner_uids(netuid: NetUid, coldkey: &T::AccountId) -> Vec<u16> {
-        Self::get_immune_owner_tuples(netuid, coldkey)
-            .into_iter()
-            .map(|(uid, _)| uid)
-            .collect()
-    }
-
-    fn get_immune_owner_tuples(netuid: NetUid, coldkey: &T::AccountId) -> Vec<(u16, T::AccountId)> {
+    fn get_owner_hotkeys(netuid: NetUid, coldkey: &T::AccountId) -> Vec<T::AccountId> {
         // Gather (block, uid, hotkey) only for hotkeys that have a UID and a registration block.
         let mut triples: Vec<(u64, u16, T::AccountId)> = OwnedHotkeys::<T>::get(coldkey)
             .into_iter()
@@ -459,30 +445,19 @@ impl<T: Config> Pallet<T> {
         // Recent registration is priority so that we can let older keys expire (get non-immune)
         triples.sort_by(|(b1, u1, _), (b2, u2, _)| b2.cmp(b1).then(u1.cmp(u2)));
 
-        // Keep first ImmuneOwnerUidsLimit
-        let limit = ImmuneOwnerUidsLimit::<T>::get(netuid).into();
-        if triples.len() > limit {
-            triples.truncate(limit);
-        }
-
-        // Project to uid/hotkey tuple
-        let mut immune_tuples: Vec<(u16, T::AccountId)> =
-            triples.into_iter().map(|(_, uid, hk)| (uid, hk)).collect();
+        // Project to just hotkeys
+        let mut owner_hotkeys: Vec<T::AccountId> =
+            triples.into_iter().map(|(_, _, hk)| hk).collect();
 
         // Insert subnet owner hotkey in the beginning of the list if valid and not
         // already present
         if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-            if let Some(owner_uid) = Uids::<T>::get(netuid, &owner_hk) {
-                if !immune_tuples.contains(&(owner_uid, owner_hk.clone())) {
-                    immune_tuples.insert(0, (owner_uid, owner_hk.clone()));
-                    if immune_tuples.len() > limit {
-                        immune_tuples.truncate(limit);
-                    }
-                }
+            if Uids::<T>::get(netuid, &owner_hk).is_some() && !owner_hotkeys.contains(&owner_hk) {
+                owner_hotkeys.insert(0, owner_hk);
             }
         }
 
-        immune_tuples
+        owner_hotkeys
     }
 
     pub fn distribute_dividends_and_incentives(
@@ -514,7 +489,7 @@ impl<T: Config> Pallet<T> {
 
         // Distribute mining incentives.
         let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
-        let owner_hotkeys = Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey);
+        let owner_hotkeys = Self::get_owner_hotkeys(netuid, &subnet_owner_coldkey);
         log::debug!("incentives: owner hotkeys: {owner_hotkeys:?}");
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {incentive:?}");
