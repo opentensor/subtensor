@@ -70,10 +70,10 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(asfloat!(0.0));
             log::debug!("default_tao_in_i: {default_tao_in_i:?}");
             // Get alpha_emission total
-            let alpha_emission_i: U96F32 = asfloat!(Self::get_block_emission_for_issuance(
-                Self::get_alpha_issuance(*netuid_i).into()
-            )
-            .unwrap_or(0));
+            let alpha_emission_i: U96F32 = asfloat!(
+                Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i).into())
+                    .unwrap_or(0)
+            );
             log::debug!("alpha_emission_i: {alpha_emission_i:?}");
 
             // Get initial alpha_in
@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
                 is_subsidized.insert(*netuid_i, true);
             } else {
                 tao_in_i = default_tao_in_i;
-                alpha_in_i = tao_in_i.safe_div_or(price_i, tao_in.safe_div(moving_price_i));
+                alpha_in_i = tao_in_i.safe_div(price_i); // Must panic if price_i is 0.
                 is_subsidized.insert(*netuid_i, false);
             }
             log::debug!("alpha_in_i: {alpha_in_i:?}");
@@ -209,7 +209,7 @@ impl<T: Config> Pallet<T> {
             let root_alpha: U96F32 = root_proportion
                 .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
                 .saturating_mul(asfloat!(0.5)); // 50% to validators.
-                                                // Remove root alpha from alpha_out.
+            // Remove root alpha from alpha_out.
             log::debug!("root_alpha: {root_alpha:?}");
             // Get pending alpha as original alpha_out - root_alpha.
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
