@@ -141,7 +141,9 @@ mod hooks {
                 // Migrate Immunity Period
                 .saturating_add(migrations::migrate_network_immunity_period::migrate_network_immunity_period::<T>())
                 // Migrate Subnet Limit
-                .saturating_add(migrations::migrate_subnet_limit_to_default::migrate_subnet_limit_to_default::<T>());
+                .saturating_add(migrations::migrate_subnet_limit_to_default::migrate_subnet_limit_to_default::<T>())
+                // Migrate Lock Reduction Interval
+                .saturating_add(migrations::migrate_network_lock_reduction_interval::migrate_network_lock_reduction_interval::<T>());
             weight
         }
 

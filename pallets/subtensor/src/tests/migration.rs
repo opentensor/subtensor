@@ -1624,3 +1624,33 @@ fn test_migrate_subnet_limit_to_default() {
         );
     });
 }
+
+#[test]
+fn test_migrate_network_lock_reduction_interval_and_decay() {
+    new_test_ext(0).execute_with(|| {
+        // ── pre ──────────────────────────────────────────────────────────────
+        assert!(
+            !HasMigrationRun::<Test>::get(b"migrate_network_lock_reduction_interval".to_vec()),
+            "HasMigrationRun should be false before migration"
+        );
+
+        // ensure current_block > 0 so mult = 2 after migration
+        step_block(1);
+
+        // ── run migration ────────────────────────────────────────────────────
+        let weight = crate::migrations::migrate_network_lock_reduction_interval::migrate_network_lock_reduction_interval::<Test>();
+        assert!(!weight.is_zero(), "migration weight should be > 0");
+
+        // ── params & flags ───────────────────────────────────────────────────
+        assert_eq!(NetworkLockReductionInterval::<Test>::get(), 28_800);
+        assert_eq!(NetworkRateLimit::<Test>::get(), 28_800);
+        assert_eq!(Pallet::<Test>::get_network_last_lock(), 1_000_000_000_000u64.into()); // 1000 TAO in rAO
+
+        let start_block = Pallet::<Test>::get_network_last_lock_block();
+        assert_eq!(start_block, Pallet::<Test>::get_current_block_as_u64());
+        assert!(
+            HasMigrationRun::<Test>::get(b"migrate_network_lock_reduction_interval".to_vec()),
+            "HasMigrationRun should be true after migration"
+        );
+    });
+}

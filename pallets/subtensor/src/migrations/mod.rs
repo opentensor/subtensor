@@ -20,6 +20,7 @@ pub mod migrate_fix_root_tao_and_alpha_in;
 pub mod migrate_identities_v2;
 pub mod migrate_init_total_issuance;
 pub mod migrate_network_immunity_period;
+pub mod migrate_network_lock_reduction_interval;
 pub mod migrate_orphaned_storage_items;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_rao;
