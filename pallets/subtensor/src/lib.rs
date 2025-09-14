@@ -1503,14 +1503,14 @@ pub mod pallet {
 
     #[pallet::type_value]
     /// Default validator cut 50%
-    pub fn DefaultValidatorCut<T: Config>() -> u16 {
-        u16::MAX / 2
+    pub fn DefaultValidatorCut<T: Config>() -> u64 {
+        u64::MAX / 2
     }
 
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Validator cut
     pub type ValidatorCut<T> =
-        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultValidatorCut<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultValidatorCut<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====

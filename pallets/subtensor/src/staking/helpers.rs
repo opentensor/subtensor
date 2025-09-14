@@ -335,7 +335,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// The validator cut value for the subnet.
-    pub fn get_validator_cut(netuid: NetUid) -> u16 {
+    pub fn get_validator_cut(netuid: NetUid) -> u64 {
         ValidatorCut::<T>::get(netuid)
     }
 
@@ -344,7 +344,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `netuid` - The network UID.
     /// * `cut` - The validator cut value to set.
-    pub fn set_validator_cut(netuid: NetUid, cut: u16) {
+    pub fn set_validator_cut(netuid: NetUid, cut: u64) {
         ValidatorCut::<T>::insert(netuid, cut);
     }
 }
