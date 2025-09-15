@@ -391,7 +391,6 @@ impl<T: Config> Pallet<T> {
         // --- 1. Get the owner and remove from SubnetOwner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         SubnetOwner::<T>::remove(netuid);
-        let subsubnets: u8 = SubsubnetCountCurrent::<T>::get(netuid).into();
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -409,16 +408,6 @@ impl<T: Config> Pallet<T> {
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
-        for subid in 0..subsubnets {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
-            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
-        }
-
-        // --- 7. Remove the weights for this subnet itself.
-        for subid in 0..subsubnets {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
-            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
-        }
 
         // --- 8. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in Weights::<T>::iter_prefix(NetUidStorageIndex::ROOT) {
@@ -438,17 +427,10 @@ impl<T: Config> Pallet<T> {
         Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
-        for subid in 0..subsubnets {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
-            Incentive::<T>::remove(netuid_index);
-        }
+
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
         PruningScores::<T>::remove(netuid);
-        for subid in 0..subsubnets {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
-            LastUpdate::<T>::remove(netuid_index);
-        }
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
@@ -550,10 +532,18 @@ impl<T: Config> Pallet<T> {
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // Commit-reveal / weights commits (all per-net prefixes):
-        let _ = WeightCommits::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = TimelockedWeightCommits::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = CRV3WeightCommits::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = CRV3WeightCommitsV2::<T>::clear_prefix(netuid, u32::MAX, None);
+        let subsubnets: u8 = SubsubnetCountCurrent::<T>::get(netuid).into();
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            LastUpdate::<T>::remove(netuid_index);
+            Incentive::<T>::remove(netuid_index);
+            let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = TimelockedWeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = CRV3WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+        }
         RevealPeriodEpochs::<T>::remove(netuid);
 
         // Last hotkey swap (DMAP where netuid is FIRST key → easy)

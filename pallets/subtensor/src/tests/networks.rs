@@ -6,7 +6,7 @@ use frame_system::Config;
 use sp_core::U256;
 use sp_std::collections::btree_map::BTreeMap;
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 #[test]
@@ -289,7 +289,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         SubnetOwner::<Test>::insert(net, owner_cold);
         SubnetOwnerHotkey::<Test>::insert(net, owner_hot);
         SubnetworkN::<Test>::insert(net, 0u16);
-        NetworkModality::<Test>::insert(net, 0u16);
         NetworksAdded::<Test>::insert(net, true);
         NetworkRegisteredAt::<Test>::insert(net, 0u64);
 
@@ -298,11 +297,11 @@ fn dissolve_clears_all_per_subnet_storages() {
         Trust::<Test>::insert(net, vec![1u16]);
         Active::<Test>::insert(net, vec![true]);
         Emission::<Test>::insert(net, vec![AlphaCurrency::from(1)]);
-        Incentive::<Test>::insert(net, vec![1u16]);
+        Incentive::<Test>::insert(NetUidStorageIndex::from(net), vec![1u16]);
         Consensus::<Test>::insert(net, vec![1u16]);
         Dividends::<Test>::insert(net, vec![1u16]);
         PruningScores::<Test>::insert(net, vec![1u16]);
-        LastUpdate::<Test>::insert(net, vec![0u64]);
+        LastUpdate::<Test>::insert(NetUidStorageIndex::from(net), vec![0u64]);
         ValidatorPermit::<Test>::insert(net, vec![true]);
         ValidatorTrust::<Test>::insert(net, vec![1u16]);
 
@@ -334,8 +333,8 @@ fn dissolve_clears_all_per_subnet_storages() {
 
         // Prefix / double-map collections
         Keys::<Test>::insert(net, 0u16, owner_hot);
-        Bonds::<Test>::insert(net, 0u16, vec![(0u16, 1u16)]);
-        Weights::<Test>::insert(net, 0u16, vec![(1u16, 1u16)]);
+        Bonds::<Test>::insert(NetUidStorageIndex::from(net), 0u16, vec![(0u16, 1u16)]);
+        Weights::<Test>::insert(NetUidStorageIndex::from(net), 0u16, vec![(1u16, 1u16)]);
 
         // Membership entry for the SAME hotkey as Keys
         IsNetworkMember::<Test>::insert(owner_hot, net, true);
@@ -437,7 +436,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!SubnetOwner::<Test>::contains_key(net));
         assert!(!SubnetOwnerHotkey::<Test>::contains_key(net));
         assert!(!SubnetworkN::<Test>::contains_key(net));
-        assert!(!NetworkModality::<Test>::contains_key(net));
         assert!(!NetworksAdded::<Test>::contains_key(net));
         assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
 
@@ -446,11 +444,15 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!Trust::<Test>::contains_key(net));
         assert!(!Active::<Test>::contains_key(net));
         assert!(!Emission::<Test>::contains_key(net));
-        assert!(!Incentive::<Test>::contains_key(net));
+        assert!(!Incentive::<Test>::contains_key(NetUidStorageIndex::from(
+            net
+        )));
         assert!(!Consensus::<Test>::contains_key(net));
         assert!(!Dividends::<Test>::contains_key(net));
         assert!(!PruningScores::<Test>::contains_key(net));
-        assert!(!LastUpdate::<Test>::contains_key(net));
+        assert!(!LastUpdate::<Test>::contains_key(NetUidStorageIndex::from(
+            net
+        )));
 
         assert!(!ValidatorPermit::<Test>::contains_key(net));
         assert!(!ValidatorTrust::<Test>::contains_key(net));
@@ -483,8 +485,16 @@ fn dissolve_clears_all_per_subnet_storages() {
 
         // Collections fully cleared
         assert!(Keys::<Test>::iter_prefix(net).next().is_none());
-        assert!(Bonds::<Test>::iter_prefix(net).next().is_none());
-        assert!(Weights::<Test>::iter_prefix(net).next().is_none());
+        assert!(
+            Bonds::<Test>::iter_prefix(NetUidStorageIndex::from(net))
+                .next()
+                .is_none()
+        );
+        assert!(
+            Weights::<Test>::iter_prefix(NetUidStorageIndex::from(net))
+                .next()
+                .is_none()
+        );
         assert!(!IsNetworkMember::<Test>::contains_key(owner_hot, net));
 
         // Token / price / provided reserves
