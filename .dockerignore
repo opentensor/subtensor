@@ -1,6 +1,26 @@
+# IDE/Editor configs
 .devcontainer
-.github
 .vscode
+.idea
+*.swp
+*.swo
+
+# Build artifacts
 target/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Git-related
+.git
+.gitignore
+
+# CI/CD
+.github
 .dockerignore
+.gitattributes
+
+# Dockerfiles
 Dockerfile
+Dockerfile-localnet
