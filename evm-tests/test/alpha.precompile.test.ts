@@ -175,10 +175,10 @@ describe("Test Alpha Precompile", () => {
                 abi: IAlphaABI,
                 address: toViemAddress(IALPHA_ADDRESS),
                 functionName: "getCKBurn",
-                args: []
+                args: [subnetId]
             })
 
-            const ckBurnOnChain = await api.query.SubtensorModule.CKBurn.getValue()
+            const ckBurnOnChain = await api.query.SubtensorModule.CKBurn.getValue(subnetId);
 
             assert.strictEqual(ckBurn, ckBurnOnChain, "CK burn should match on chain");
             assert.ok(ckBurn !== undefined, "CK burn should be defined");
