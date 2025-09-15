@@ -1783,3 +1783,134 @@ fn test_migrate_network_lock_reduction_interval_and_decay() {
         );
     });
 }
+
+#[test]
+fn test_migrate_restore_subnet_locked_feb1_2025() {
+    use sp_runtime::traits::SaturatedConversion; // only for NetUid -> u16 when reading back
+    use std::collections::BTreeMap;
+
+    use crate::{HasMigrationRun, SubnetLocked, TaoCurrency};
+
+    // NOTE: Ensure the migration uses `TaoCurrency::from(rao_u64)` and a `&[(u16, u64)]` snapshot.
+    new_test_ext(0).execute_with(|| {
+        // ── pre ──────────────────────────────────────────────────────────────
+        let name = b"migrate_restore_subnet_locked".to_vec();
+        assert!(
+            !HasMigrationRun::<Test>::get(name.clone()),
+            "HasMigrationRun should be false before migration"
+        );
+
+        // Snapshot at block #4_828_623 (2025-02-01 00:00:00Z), RAO as u64.
+        const EXPECTED: &[(u16, u64)] = &[
+            (2, 976_893_069_056),
+            (3, 2_569_362_397_490),
+            (4, 1_928_551_593_932),
+            (5, 1_712_540_082_588),
+            (6, 1_495_929_556_770),
+            (7, 1_011_702_451_936),
+            (8, 337_484_391_024),
+            (9, 381_240_180_320),
+            (10, 1_253_515_128_353),
+            (11, 1_453_924_672_132),
+            (12, 100_000_000_000),
+            (13, 100_000_000_000),
+            (14, 1_489_714_521_808),
+            (15, 1_784_089_225_496),
+            (16, 889_176_219_484),
+            (17, 1_266_310_122_772),
+            (18, 222_355_058_433),
+            (19, 100_000_000_000),
+            (20, 100_000_000_000),
+            (21, 885_096_322_978),
+            (22, 100_000_000_000),
+            (23, 100_000_000_000),
+            (24, 5_146_073_854_481),
+            (25, 1_782_920_948_214),
+            (26, 153_583_865_248),
+            (27, 201_344_183_084),
+            (28, 901_455_879_445),
+            (29, 175_000_001_600),
+            (30, 1_419_730_660_074),
+            (31, 319_410_100_502),
+            (32, 2_016_397_028_246),
+            (33, 1_626_477_274_174),
+            (34, 1_455_297_496_345),
+            (35, 1_191_275_979_639),
+            (36, 1_097_008_574_216),
+            (37, 864_664_455_362),
+            (38, 1_001_936_494_076),
+            (39, 1_366_096_404_884),
+            (40, 100_000_000_000),
+            (41, 535_937_523_200),
+            (42, 1_215_698_423_344),
+            (43, 1_641_308_676_800),
+            (44, 1_514_636_189_434),
+            (45, 1_605_608_381_438),
+            (46, 1_095_943_027_350),
+            (47, 1_499_235_469_986),
+            (48, 1_308_073_720_362),
+            (49, 1_222_672_092_068),
+            (50, 2_628_355_421_561),
+            (51, 1_520_860_720_561),
+            (52, 1_794_457_248_725),
+            (53, 1_721_472_811_492),
+            (54, 2_048_900_691_868),
+            (55, 1_278_597_446_119),
+            (56, 2_016_045_544_480),
+            (57, 1_920_563_399_676),
+            (58, 2_246_525_691_504),
+            (59, 1_776_159_384_888),
+            (60, 2_173_138_865_414),
+            (61, 1_435_634_867_728),
+            (62, 2_061_282_563_888),
+            (63, 3_008_967_320_998),
+            (64, 2_099_236_359_026),
+        ];
+
+        // ── run migration ────────────────────────────────────────────────────
+        let weight =
+            crate::migrations::migrate_subnet_locked::migrate_restore_subnet_locked::<Test>();
+        assert!(!weight.is_zero(), "migration weight should be > 0");
+
+        // ── validate: build a (u16 -> u64) map directly from storage iterator ─
+        let actual: BTreeMap<u16, u64> = SubnetLocked::<Test>::iter()
+            .map(|(k, v)| (k.saturated_into::<u16>(), u64::from(v)))
+            .collect();
+
+        let expected: BTreeMap<u16, u64> = EXPECTED.iter().copied().collect();
+
+        // 1) exact content match (keys and values)
+        assert_eq!(actual, expected, "SubnetLocked map mismatch with snapshot");
+
+        // 2) count and total sum match expectations
+        let expected_len = expected.len();
+        let expected_sum: u128 = expected.values().map(|v| *v as u128).sum();
+
+        let count_after = actual.len();
+        let sum_after: u128 = actual.values().map(|v| *v as u128).sum();
+
+        assert_eq!(count_after, expected_len, "entry count mismatch");
+        assert_eq!(sum_after, expected_sum, "total RAO sum mismatch");
+
+        // ── migration flag ───────────────────────────────────────────────────
+        assert!(
+            HasMigrationRun::<Test>::get(name.clone()),
+            "HasMigrationRun should be true after migration"
+        );
+
+        // ── idempotence: re-running does not change storage ─────────────────
+        let before = actual;
+
+        let _again =
+            crate::migrations::migrate_subnet_locked::migrate_restore_subnet_locked::<Test>();
+
+        let after: BTreeMap<u16, u64> = SubnetLocked::<Test>::iter()
+            .map(|(k, v)| (k.saturated_into::<u16>(), u64::from(v)))
+            .collect();
+
+        assert_eq!(
+            before, after,
+            "re-running the migration should not change storage"
+        );
+    });
+}
