@@ -545,6 +545,8 @@ impl<T: Config> Pallet<T> {
             let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
         }
         RevealPeriodEpochs::<T>::remove(netuid);
+        SubsubnetCountCurrent::<T>::remove(netuid);
+        SubsubnetEmissionSplit::<T>::remove(netuid);
 
         // Last hotkey swap (DMAP where netuid is FIRST key → easy)
         let _ = LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, u32::MAX, None);
