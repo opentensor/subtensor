@@ -9,7 +9,7 @@ use jsonrpsee::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{AccountId32, traits::Block as BlockT};
 use std::sync::Arc;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, SubId, TaoCurrency};
 
 use sp_api::ProvideRuntimeApi;
 
@@ -72,6 +72,15 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_all_metagraphs(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getMetagraph")]
     fn get_metagraph(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getAllSubMetagraphs")]
+    fn get_all_submetagraphs(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubMetagraph")]
+    fn get_submetagraph(
+        &self,
+        netuid: NetUid,
+        subid: SubId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
     fn get_subnet_state(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getLockCost")]
@@ -83,11 +92,20 @@ pub trait SubtensorCustomApi<BlockHash> {
         metagraph_index: Vec<u16>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+<<<<<<< HEAD
     #[method(name = "subnetInfo_getColdkeyAutoStakeHotkey")]
     fn get_coldkey_auto_stake_hotkey(
         &self,
         coldkey: AccountId32,
         netuid: NetUid,
+=======
+    #[method(name = "subnetInfo_getSelectiveSubMetagraph")]
+    fn get_selective_submetagraph(
+        &self,
+        netuid: NetUid,
+        subid: SubId,
+        metagraph_index: Vec<u16>,
+>>>>>>> devnet-ready
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 }
@@ -326,6 +344,16 @@ where
         }
     }
 
+    fn get_all_submetagraphs(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_all_submetagraphs(at) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get metagraps: {e:?}")).into()),
+        }
+    }
+
     fn get_dynamic_info(
         &self,
         netuid: NetUid,
@@ -351,6 +379,23 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
         match api.get_metagraph(at, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get dynamic subnets info: {e:?}"
+            ))
+            .into()),
+        }
+    }
+
+    fn get_submetagraph(
+        &self,
+        netuid: NetUid,
+        subid: SubId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+        match api.get_submetagraph(at, netuid, subid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
                 "Unable to get dynamic subnets info: {e:?}"
@@ -438,8 +483,7 @@ where
     fn get_coldkey_auto_stake_hotkey(
         &self,
         coldkey: AccountId32,
-        netuid: NetUid,
-        at: Option<<Block as BlockT>::Hash>,
+        netuid: NetUid,at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
@@ -450,6 +494,25 @@ where
                 "Unable to get coldkey auto stake hotkey: {e:?}"
             ))
             .into()),
+        }
+    }
+
+    fn get_selective_submetagraph(
+        &self,
+        netuid: NetUid,
+        subid: SubId,
+        metagraph_index: Vec<u16>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+       
+        match api.get_selective_submetagraph(at, netuid, subid, metagraph_index) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())
+            }
         }
     }
 }

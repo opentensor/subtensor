@@ -8,7 +8,7 @@ use frame_system::{Config, RawOrigin};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock;
@@ -326,7 +326,11 @@ fn test_swap_weight_commits() {
 
         add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
-        WeightCommits::<Test>::insert(netuid, old_hotkey, weight_commits.clone());
+        WeightCommits::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            old_hotkey,
+            weight_commits.clone(),
+        );
 
         assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
@@ -335,9 +339,12 @@ fn test_swap_weight_commits() {
             &mut weight
         ));
 
-        assert!(!WeightCommits::<Test>::contains_key(netuid, old_hotkey));
+        assert!(!WeightCommits::<Test>::contains_key(
+            NetUidStorageIndex::from(netuid),
+            old_hotkey
+        ));
         assert_eq!(
-            WeightCommits::<Test>::get(netuid, new_hotkey),
+            WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), new_hotkey),
             Some(weight_commits)
         );
     });

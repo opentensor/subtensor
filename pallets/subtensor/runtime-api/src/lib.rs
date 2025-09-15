@@ -12,7 +12,7 @@ use pallet_subtensor::rpc_info::{
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
 use sp_runtime::AccountId32;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, SubId, TaoCurrency};
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // src/neuron_info.rs, src/subnet_info.rs, and src/delegate_info.rs
@@ -40,10 +40,13 @@ sp_api::decl_runtime_apis! {
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>>;
         fn get_all_metagraphs() -> Vec<Option<Metagraph<AccountId32>>>;
         fn get_metagraph(netuid: NetUid) -> Option<Metagraph<AccountId32>>;
+        fn get_all_submetagraphs() -> Vec<Option<Metagraph<AccountId32>>>;
+        fn get_submetagraph(netuid: NetUid, subid: SubId) -> Option<Metagraph<AccountId32>>;
         fn get_dynamic_info(netuid: NetUid) -> Option<DynamicInfo<AccountId32>>;
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>>;
         fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>>;
         fn get_coldkey_auto_stake_hotkey(coldkey: AccountId32, netuid: NetUid) -> Option<AccountId32>;
+        fn get_selective_submetagraph(netuid: NetUid, subid: SubId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>>;
     }
 
     pub trait StakeInfoRuntimeApi {
