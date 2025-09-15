@@ -20,7 +20,6 @@ pub mod migrate_fix_root_tao_and_alpha_in;
 pub mod migrate_identities_v2;
 pub mod migrate_init_total_issuance;
 pub mod migrate_orphaned_storage_items;
-pub mod migrate_owner_hparam_rl_to_epochs;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_rao;
 pub mod migrate_rate_limiting_last_blocks;
