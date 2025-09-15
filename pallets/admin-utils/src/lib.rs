@@ -9,7 +9,7 @@ pub use pallet::*;
 // - we could use a type parameter for `AuthorityId`, but there is
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
 use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::{DispatchResult, RuntimeAppPublic, traits::Member};
+use sp_runtime::{DispatchResult, RuntimeAppPublic, Vec, traits::Member};
 
 mod benchmarking;
 
@@ -22,16 +22,13 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_support::traits::tokens::Balance;
-    use frame_support::{
-        dispatch::{DispatchResult, RawOrigin},
-        pallet_prelude::StorageMap,
-    };
+    use frame_support::{dispatch::DispatchResult, pallet_prelude::StorageMap};
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
     use pallet_subtensor::utils::rate_limiting::TransactionType;
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
-    use subtensor_runtime_common::{NetUid, TaoCurrency};
+    use subtensor_runtime_common::{NetUid, SubId, TaoCurrency};
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -216,10 +213,18 @@ pub mod pallet {
             netuid: NetUid,
             serving_rate_limit: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
             pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, serving_rate_limit);
             log::debug!("ServingRateLimitSet( serving_rate_limit: {serving_rate_limit:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -235,7 +240,7 @@ pub mod pallet {
             netuid: NetUid,
             min_difficulty: u64,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -260,7 +265,11 @@ pub mod pallet {
             netuid: NetUid,
             max_difficulty: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -269,6 +278,11 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_max_difficulty(netuid, max_difficulty);
             log::debug!(
                 "MaxDifficultySet( netuid: {netuid:?} max_difficulty: {max_difficulty:?} ) "
+            );
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
             );
             Ok(())
         }
@@ -285,34 +299,28 @@ pub mod pallet {
             netuid: NetUid,
             weights_version_key: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin.clone(),
+                netuid,
+                &[
+                    TransactionType::OwnerHyperparamUpdate,
+                    TransactionType::SetWeightsVersionKey,
+                ],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
 
-            if let Ok(RawOrigin::Signed(who)) = origin.into() {
-                // SN Owner
-                // Ensure the origin passes the rate limit.
-                ensure!(
-                    pallet_subtensor::Pallet::<T>::passes_rate_limit_on_subnet(
-                        &TransactionType::SetWeightsVersionKey,
-                        &who,
-                        netuid,
-                    ),
-                    pallet_subtensor::Error::<T>::TxRateLimitExceeded
-                );
-
-                // Set last transaction block
-                let current_block = pallet_subtensor::Pallet::<T>::get_current_block_as_u64();
-                pallet_subtensor::Pallet::<T>::set_last_transaction_block_on_subnet(
-                    &who,
-                    netuid,
-                    &TransactionType::SetWeightsVersionKey,
-                    current_block,
-                );
-            }
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[
+                    TransactionType::OwnerHyperparamUpdate,
+                    TransactionType::SetWeightsVersionKey,
+                ],
+            );
 
             pallet_subtensor::Pallet::<T>::set_weights_version_key(netuid, weights_version_key);
             log::debug!(
@@ -388,13 +396,22 @@ pub mod pallet {
             netuid: NetUid,
             adjustment_alpha: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_adjustment_alpha(netuid, adjustment_alpha);
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             log::debug!("AdjustmentAlphaSet( adjustment_alpha: {adjustment_alpha:?} ) ");
             Ok(())
         }
@@ -411,13 +428,22 @@ pub mod pallet {
             netuid: NetUid,
             max_weight_limit: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_weight_limit(netuid, max_weight_limit);
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             log::debug!(
                 "MaxWeightLimitSet( netuid: {netuid:?} max_weight_limit: {max_weight_limit:?} ) "
             );
@@ -436,13 +462,22 @@ pub mod pallet {
             netuid: NetUid,
             immunity_period: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
 
             pallet_subtensor::Pallet::<T>::set_immunity_period(netuid, immunity_period);
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             log::debug!(
                 "ImmunityPeriodSet( netuid: {netuid:?} immunity_period: {immunity_period:?} ) "
             );
@@ -461,7 +496,11 @@ pub mod pallet {
             netuid: NetUid,
             min_allowed_weights: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -470,6 +509,11 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_min_allowed_weights(netuid, min_allowed_weights);
             log::debug!(
                 "MinAllowedWeightSet( netuid: {netuid:?} min_allowed_weights: {min_allowed_weights:?} ) "
+            );
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
             );
             Ok(())
         }
@@ -510,7 +554,11 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_kappa(origin: OriginFor<T>, netuid: NetUid, kappa: u16) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -518,6 +566,11 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_kappa(netuid, kappa);
             log::debug!("KappaSet( netuid: {netuid:?} kappa: {kappa:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -529,7 +582,11 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_rho(origin: OriginFor<T>, netuid: NetUid, rho: u16) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -537,6 +594,11 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_rho(netuid, rho);
             log::debug!("RhoSet( netuid: {netuid:?} rho: {rho:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -552,7 +614,11 @@ pub mod pallet {
             netuid: NetUid,
             activity_cutoff: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -567,6 +633,11 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_activity_cutoff(netuid, activity_cutoff);
             log::debug!(
                 "ActivityCutoffSet( netuid: {netuid:?} activity_cutoff: {activity_cutoff:?} ) "
+            );
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
             );
             Ok(())
         }
@@ -611,7 +682,11 @@ pub mod pallet {
             netuid: NetUid,
             registration_allowed: bool,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             pallet_subtensor::Pallet::<T>::set_network_pow_registration_allowed(
                 netuid,
@@ -619,6 +694,11 @@ pub mod pallet {
             );
             log::debug!(
                 "NetworkPowRegistrationAllowed( registration_allowed: {registration_allowed:?} ) "
+            );
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
             );
             Ok(())
         }
@@ -635,7 +715,7 @@ pub mod pallet {
             netuid: NetUid,
             target_registrations_per_interval: u16,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -663,7 +743,11 @@ pub mod pallet {
             netuid: NetUid,
             min_burn: TaoCurrency,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -679,6 +763,11 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
             log::debug!("MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -694,7 +783,11 @@ pub mod pallet {
             netuid: NetUid,
             max_burn: TaoCurrency,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -710,6 +803,11 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
             log::debug!("MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -725,7 +823,7 @@ pub mod pallet {
             netuid: NetUid,
             difficulty: u64,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -747,7 +845,7 @@ pub mod pallet {
             netuid: NetUid,
             max_allowed_validators: u16,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -780,9 +878,12 @@ pub mod pallet {
             netuid: NetUid,
             bonds_moving_average: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
-
-            if pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin, netuid).is_ok() {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
+            if maybe_owner.is_some() {
                 ensure!(
                     bonds_moving_average <= 975000,
                     Error::<T>::BondsMovingAverageMaxReached
@@ -796,6 +897,11 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_bonds_moving_average(netuid, bonds_moving_average);
             log::debug!(
                 "BondsMovingAverageSet( netuid: {netuid:?} bonds_moving_average: {bonds_moving_average:?} ) "
+            );
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
             );
             Ok(())
         }
@@ -812,7 +918,11 @@ pub mod pallet {
             netuid: NetUid,
             bonds_penalty: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -820,6 +930,11 @@ pub mod pallet {
             );
             pallet_subtensor::Pallet::<T>::set_bonds_penalty(netuid, bonds_penalty);
             log::debug!("BondsPenalty( netuid: {netuid:?} bonds_penalty: {bonds_penalty:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -835,7 +950,7 @@ pub mod pallet {
             netuid: NetUid,
             max_registrations_per_block: u16,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -899,7 +1014,7 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -1104,7 +1219,11 @@ pub mod pallet {
             netuid: NetUid,
             enabled: bool,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1113,6 +1232,11 @@ pub mod pallet {
 
             pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_enabled(netuid, enabled);
             log::debug!("ToggleSetWeightsCommitReveal( netuid: {netuid:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -1132,9 +1256,18 @@ pub mod pallet {
             netuid: NetUid,
             enabled: bool,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
             pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
             log::debug!("LiquidAlphaEnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -1147,10 +1280,22 @@ pub mod pallet {
             alpha_low: u16,
             alpha_high: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
-            pallet_subtensor::Pallet::<T>::do_set_alpha_values(
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin.clone(),
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
+            let res = pallet_subtensor::Pallet::<T>::do_set_alpha_values(
                 origin, netuid, alpha_low, alpha_high,
-            )
+            );
+            if res.is_ok() {
+                pallet_subtensor::Pallet::<T>::record_owner_rl(
+                    maybe_owner,
+                    netuid,
+                    &[TransactionType::OwnerHyperparamUpdate],
+                );
+            }
+            res
         }
 
         /// Sets the duration of the coldkey swap schedule.
@@ -1242,7 +1387,11 @@ pub mod pallet {
             netuid: NetUid,
             interval: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1252,6 +1401,11 @@ pub mod pallet {
             log::debug!("SetWeightCommitInterval( netuid: {netuid:?}, interval: {interval:?} ) ");
 
             pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval)?;
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
 
             Ok(())
         }
@@ -1325,8 +1479,20 @@ pub mod pallet {
             netuid: NetUid,
             toggle: bool,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-            pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle)
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
+            let res = pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle);
+            if res.is_ok() {
+                pallet_subtensor::Pallet::<T>::record_owner_rl(
+                    maybe_owner,
+                    netuid,
+                    &[TransactionType::OwnerHyperparamUpdate],
+                );
+            }
+            res
         }
 
         /// Toggles the enablement of an EVM precompile.
@@ -1455,7 +1621,11 @@ pub mod pallet {
             netuid: NetUid,
             steepness: i16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin.clone(),
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1471,6 +1641,11 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_alpha_sigmoid_steepness(netuid, steepness);
 
             log::debug!("AlphaSigmoidSteepnessSet( netuid: {netuid:?}, steepness: {steepness:?} )");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -1490,11 +1665,20 @@ pub mod pallet {
             netuid: NetUid,
             enabled: bool,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
             pallet_subtensor::Pallet::<T>::set_yuma3_enabled(netuid, enabled);
 
             Self::deposit_event(Event::Yuma3EnableToggled { netuid, enabled });
             log::debug!("Yuma3EnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -1514,11 +1698,20 @@ pub mod pallet {
             netuid: NetUid,
             enabled: bool,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
             pallet_subtensor::Pallet::<T>::set_bonds_reset(netuid, enabled);
 
             Self::deposit_event(Event::BondsResetToggled { netuid, enabled });
             log::debug!("BondsResetToggled( netuid: {netuid:?} bonds_reset: {enabled:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -1581,7 +1774,7 @@ pub mod pallet {
             netuid: NetUid,
             subtoken_enabled: bool,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
             pallet_subtensor::SubtokenEnabled::<T>::set(netuid, subtoken_enabled);
 
             log::debug!(
@@ -1618,8 +1811,17 @@ pub mod pallet {
             netuid: NetUid,
             immune_neurons: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            )?;
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::OwnerHyperparamUpdate],
+            );
             Ok(())
         }
 
@@ -1628,12 +1830,89 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the childkey burn.
         #[pallet::call_index(73)]
         #[pallet::weight(Weight::from_parts(15_650_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+		.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+		.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_ck_burn(origin: OriginFor<T>, burn: u64) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_ck_burn(burn);
             log::debug!("CKBurnSet( burn: {burn:?} ) ");
+            Ok(())
+        }
+
+        /// Sets the admin freeze window length (in blocks) at the end of a tempo.
+        /// Only callable by root.
+        #[pallet::call_index(74)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_admin_freeze_window(origin: OriginFor<T>, window: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_admin_freeze_window(window);
+            log::debug!("AdminFreezeWindowSet( window: {window:?} ) ");
+            Ok(())
+        }
+
+        /// Sets the owner hyperparameter rate limit (in blocks).
+        /// Only callable by root.
+        #[pallet::call_index(75)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_owner_hparam_rate_limit(
+            origin: OriginFor<T>,
+            limit: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_owner_hyperparam_rate_limit(limit);
+            log::debug!("OwnerHyperparamRateLimitSet( limit: {limit:?} ) ");
+            Ok(())
+        }
+
+        /// Sets the desired number of subsubnets in a subnet
+        #[pallet::call_index(76)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_subsubnet_count(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            subsub_count: SubId,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            )?;
+
+            pallet_subtensor::Pallet::<T>::do_set_subsubnet_count(netuid, subsub_count)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            );
+            Ok(())
+        }
+
+        /// Sets the emission split between subsubnets in a subnet
+        #[pallet::call_index(77)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_subsubnet_emission_split(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            maybe_split: Option<Vec<u16>>,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            )?;
+
+            pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::SubsubnetParameterUpdate],
+            );
             Ok(())
         }
     }

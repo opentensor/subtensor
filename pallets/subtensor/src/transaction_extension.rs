@@ -1,5 +1,6 @@
 use crate::{
     BalancesCall, Call, ColdkeySwapScheduled, Config, CustomTransactionError, Error, Pallet,
+    TransactionType,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
@@ -16,7 +17,7 @@ use sp_runtime::transaction_validity::{
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 
 #[freeze_struct("2e02eb32e5cb25d3")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
@@ -148,7 +149,7 @@ where
                 if Self::check_weights_min_stake(who, *netuid) {
                     let provided_hash = Pallet::<T>::get_commit_hash(
                         who,
-                        *netuid,
+                        NetUidStorageIndex::from(*netuid),
                         uids,
                         values,
                         salt,
@@ -185,7 +186,7 @@ where
                             .map(|i| {
                                 Pallet::<T>::get_commit_hash(
                                     who,
-                                    *netuid,
+                                    NetUidStorageIndex::from(*netuid),
                                     uids_list.get(i).unwrap_or(&Vec::new()),
                                     values_list.get(i).unwrap_or(&Vec::new()),
                                     salts_list.get(i).unwrap_or(&Vec::new()),
@@ -276,6 +277,13 @@ where
                     0u64,
                 )
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
+            }
+            Some(Call::register_network { .. }) => {
+                if !Pallet::<T>::passes_rate_limit(&TransactionType::RegisterNetwork, who) {
+                    return Err(CustomTransactionError::RateLimitExceeded.into());
+                }
+
+                Ok((Default::default(), Some(who.clone()), origin))
             }
             _ => Ok((Default::default(), Some(who.clone()), origin)),
         }

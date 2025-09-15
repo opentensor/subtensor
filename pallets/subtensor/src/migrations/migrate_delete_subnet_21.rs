@@ -6,7 +6,7 @@ use frame_support::{
 };
 use log::info;
 use sp_std::vec::Vec;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 
 /// Constant for logging purposes
 const LOG_TARGET: &str = "migrate_delete_subnet_21";
@@ -59,9 +59,6 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         // Remove network count
         SubnetworkN::<T>::remove(netuid);
 
-        // Remove network modality storage
-        NetworkModality::<T>::remove(netuid);
-
         // Remove netuid from added networks
         NetworksAdded::<T>::remove(netuid);
 
@@ -76,8 +73,8 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         // Remove incentive mechanism memory
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = Weights::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Bonds::<T>::clear_prefix(NetUidStorageIndex::from(netuid), u32::MAX, None);
+        let _ = Weights::<T>::clear_prefix(NetUidStorageIndex::from(netuid), u32::MAX, None);
 
         weight.saturating_accrue(T::DbWeight::get().writes(4));
 
@@ -86,11 +83,11 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
-        Incentive::<T>::remove(netuid);
+        Incentive::<T>::remove(NetUidStorageIndex::from(netuid));
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
         PruningScores::<T>::remove(netuid);
-        LastUpdate::<T>::remove(netuid);
+        LastUpdate::<T>::remove(NetUidStorageIndex::from(netuid));
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 

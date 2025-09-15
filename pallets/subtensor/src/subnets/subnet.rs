@@ -130,9 +130,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
-        let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get(),
+            Self::passes_rate_limit(&TransactionType::RegisterNetwork, &coldkey),
             Error::<T>::NetworkTxRateLimitExceeded
         );
 
@@ -263,13 +262,10 @@ impl<T: Config> Pallet<T> {
         // --- 3. Fill tempo memory item.
         Tempo::<T>::insert(netuid, tempo);
 
-        // --- 4 Fill modality item.
-        NetworkModality::<T>::insert(netuid, 0);
-
-        // --- 5. Increase total network count.
+        // --- 4. Increase total network count.
         TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
 
-        // --- 6. Set all default values **explicitly**.
+        // --- 5. Set all default values **explicitly**.
         Self::set_network_registration_allowed(netuid, true);
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 64);

@@ -13,6 +13,7 @@ use sp_core::U256;
 use std::time::Instant;
 use substrate_fixed::transcendental::{PI, cos, ln, sqrt};
 use substrate_fixed::types::{I32F32, I64F64};
+use subtensor_runtime_common::NetUidStorageIndex;
 
 pub fn fixed(val: f32) -> I32F32 {
     I32F32::from_num(val)
@@ -134,7 +135,7 @@ fn uid_stats(netuid: NetUid, uid: u16) {
     );
     log::info!(
         "incentive: {:?}",
-        SubtensorModule::get_incentive_for_uid(netuid, uid)
+        SubtensorModule::get_incentive_for_uid(NetUidStorageIndex::from(netuid), uid)
     );
     log::info!(
         "dividend: {:?}",

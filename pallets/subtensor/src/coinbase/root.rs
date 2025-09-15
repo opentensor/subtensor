@@ -21,7 +21,7 @@ use frame_support::{dispatch::Pays, weights::Weight};
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::{I64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -391,38 +391,38 @@ impl<T: Config> Pallet<T> {
         // --- 1. Get the owner and remove from SubnetOwner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         SubnetOwner::<T>::remove(netuid);
+        let subsubnets: u8 = SubsubnetCountCurrent::<T>::get(netuid).into();
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
 
-        // --- 3. Remove network modality storage.
-        NetworkModality::<T>::remove(netuid);
-
-        // --- 4. Remove netuid from added networks.
+        // --- 3. Remove netuid from added networks.
         NetworksAdded::<T>::remove(netuid);
 
-        // --- 5. Decrement the network counter.
+        // --- 4. Decrement the network counter.
         TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
 
-        // --- 6. Remove various network-related storages.
+        // --- 5. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
 
-        // --- 7. Remove incentive mechanism memory.
+        // --- 6. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
+        }
 
-        // --- 8. Remove the weights for this subnet itself.
-        let _ = Weights::<T>::clear_prefix(netuid, u32::MAX, None);
+        // --- 7. Remove the weights for this subnet itself.
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+        }
 
-        // --- 9. Also zero out any weights *in the root network* that point to this netuid.
-        for (uid_i, weights_i) in <Weights<T> as frame_support::storage::IterableStorageDoubleMap<
-            NetUid,
-            u16,
-            Vec<(u16, u16)>,
-        >>::iter_prefix(NetUid::ROOT)
-        {
+        // --- 8. Iterate over stored weights and fill the matrix.
+        for (uid_i, weights_i) in Weights::<T>::iter_prefix(NetUidStorageIndex::ROOT) {
+            // Create a new vector to hold modified weights.
             let mut modified_weights = weights_i.clone();
             for (subnet_id, weight) in modified_weights.iter_mut() {
                 // If the root network had a weight pointing to this netuid, set it to 0
@@ -430,19 +430,25 @@ impl<T: Config> Pallet<T> {
                     *weight = 0;
                 }
             }
-            Weights::<T>::insert(NetUid::ROOT, uid_i, modified_weights);
+            Weights::<T>::insert(NetUidStorageIndex::ROOT, uid_i, modified_weights);
         }
 
-        // --- 10. Remove network-related parameters and data.
+        // --- 9. Remove various network-related parameters.
         Rank::<T>::remove(netuid);
         Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
-        Incentive::<T>::remove(netuid);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            Incentive::<T>::remove(netuid_index);
+        }
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
         PruningScores::<T>::remove(netuid);
-        LastUpdate::<T>::remove(netuid);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            LastUpdate::<T>::remove(netuid_index);
+        }
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
@@ -450,7 +456,7 @@ impl<T: Config> Pallet<T> {
             IsNetworkMember::<T>::remove(key, netuid);
         }
 
-        // --- 11. Core per-net parameters.
+        // --- 10. Erase network parameters.
         Tempo::<T>::remove(netuid);
         Kappa::<T>::remove(netuid);
         Difficulty::<T>::remove(netuid);
@@ -463,7 +469,7 @@ impl<T: Config> Pallet<T> {
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
-        // --- 12. AMM / price / accounting.
+        // --- 11. AMM / price / accounting.
         // SubnetTAO, SubnetAlpha{In,InProvided,Out} are already cleared during dissolve/destroy.
         SubnetAlphaInEmission::<T>::remove(netuid);
         SubnetAlphaOutEmission::<T>::remove(netuid);

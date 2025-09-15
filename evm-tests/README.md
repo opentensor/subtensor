@@ -13,6 +13,12 @@ between runtime and precompile contracts.
 
 ## polkadot api
 
+You need `polkadot-api` globally installed:
+
+```bash
+$ npm i -g polkadot-api
+```
+
 To get the metadata, you need start the localnet via run
 `./scripts/localnet.sh`. then run following command to get metadata, a folder
 name .papi will be created, which include the metadata and type definitions.
