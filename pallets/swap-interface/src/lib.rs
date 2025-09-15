@@ -10,33 +10,27 @@ pub use order::*;
 mod order;
 
 pub trait SwapHandler<AccountId> {
-    fn swap<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>(
+    fn swap<OrderT, ReserveIn, ReserveOut>(
         netuid: NetUid,
         order: OrderT,
         price_limit: TaoCurrency,
         drop_fees: bool,
         should_rollback: bool,
-    ) -> Result<SwapResult<PaidIn, PaidOut>, DispatchError>
+    ) -> Result<SwapResult<OrderT>, DispatchError>
     where
-        PaidIn: Currency,
-        PaidOut: Currency,
-        ReserveIn: CurrencyReserve<PaidIn>,
-        ReserveOut: CurrencyReserve<PaidOut>,
-        OrderT: Order<PaidIn, PaidOut>,
-        Self: SwapEngine<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>;
-    fn sim_swap<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>(
+        OrderT: Order,
+        ReserveIn: CurrencyReserve<OrderT::PaidIn>,
+        ReserveOut: CurrencyReserve<OrderT::PaidOut>,
+        Self: SwapEngine<OrderT, ReserveIn, ReserveOut>;
+    fn sim_swap<OrderT, ReserveIn, ReserveOut>(
         netuid: NetUid,
         order: OrderT,
-        amount: PaidIn,
-    ) -> Result<SwapResult<PaidIn, PaidOut>, DispatchError>
+    ) -> Result<SwapResult<OrderT>, DispatchError>
     where
-        PaidIn: Currency,
-        PaidOut: Currency,
-        ReserveIn: CurrencyReserve<PaidIn>,
-        ReserveOut: CurrencyReserve<PaidOut>,
-        OrderT: Order<PaidIn, PaidOut>,
-        Self: DefaultPriceLimit<PaidIn, PaidOut>
-            + SwapEngine<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>;
+        OrderT: Order,
+        ReserveIn: CurrencyReserve<OrderT::PaidIn>,
+        ReserveOut: CurrencyReserve<OrderT::PaidOut>,
+        Self: DefaultPriceLimit<OrderT> + SwapEngine<OrderT, ReserveIn, ReserveOut>;
     fn approx_fee_amount<T: Currency>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U96F32;
     fn max_price<C: Currency>() -> C;
@@ -49,21 +43,15 @@ pub trait SwapHandler<AccountId> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
 }
 
-pub trait DefaultPriceLimit<PaidIn, PaidOut>
-where
-    PaidIn: Currency,
-    PaidOut: Currency,
-{
+pub trait DefaultPriceLimit<OrderT: Order> {
     fn default_price_limit<C: Currency>() -> C;
 }
 
-pub trait SwapEngine<PaidIn, PaidOut, ReserveIn, ReserveOut, OrderT>
+pub trait SwapEngine<OrderT, ReserveIn, ReserveOut>
 where
-    PaidIn: Currency,
-    PaidOut: Currency,
-    ReserveIn: CurrencyReserve<PaidIn>,
-    ReserveOut: CurrencyReserve<PaidOut>,
-    OrderT: Order<PaidIn, PaidOut>,
+    OrderT: Order,
+    ReserveIn: CurrencyReserve<OrderT::PaidIn>,
+    ReserveOut: CurrencyReserve<OrderT::PaidOut>,
 {
     fn swap(
         netuid: NetUid,
@@ -71,25 +59,17 @@ where
         price_limit: TaoCurrency,
         drop_fees: bool,
         should_rollback: bool,
-    ) -> Result<SwapResult<PaidIn, PaidOut>, DispatchError>;
+    ) -> Result<SwapResult<OrderT>, DispatchError>;
 }
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
-pub struct SwapResult<PaidIn, PaidOut>
-where
-    PaidIn: Currency,
-    PaidOut: Currency,
-{
-    pub amount_paid_in: PaidIn,
-    pub amount_paid_out: PaidOut,
-    pub fee_paid: PaidIn,
+pub struct SwapResult<OrderT: Order> {
+    pub amount_paid_in: OrderT::PaidIn,
+    pub amount_paid_out: OrderT::PaidOut,
+    pub fee_paid: OrderT::PaidIn,
 }
 
-impl<PaidIn, PaidOut> SwapResult<PaidIn, PaidOut>
-where
-    PaidIn: Currency,
-    PaidOut: Currency,
-{
+impl<OrderT: Order> SwapResult<OrderT> {
     pub fn paid_in_reserve_delta(&self) -> i128 {
         self.amount_paid_in.to_u64() as i128
     }

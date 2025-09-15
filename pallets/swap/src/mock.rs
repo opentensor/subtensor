@@ -14,7 +14,9 @@ use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, SubnetInfo, TaoCurrency};
+use subtensor_runtime_common::{
+    AlphaCurrency, BalanceOps, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+};
 
 use crate::pallet::EnabledUserLiquidity;
 
@@ -83,11 +85,10 @@ parameter_types! {
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
 
-// Mock implementor of SubnetInfo trait
-pub struct MockLiquidityProvider;
+pub(crate) struct TaoReserve;
 
-impl SubnetInfo<AccountId> for MockLiquidityProvider {
-    fn tao_reserve(netuid: NetUid) -> TaoCurrency {
+impl CurrencyReserve<TaoCurrency> for TaoReserve {
+    fn reserve(netuid: NetUid) -> TaoCurrency {
         match netuid.into() {
             123u16 => 10_000,
             WRAPPING_FEES_NETUID => 100_000_000_000,
@@ -96,7 +97,14 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
         .into()
     }
 
-    fn alpha_reserve(netuid: NetUid) -> AlphaCurrency {
+    fn increase_provided(netuid: NetUid, amount: TaoCurrency) {}
+    fn decrease_provided(netuid: NetUid, amount: TaoCurrency) {}
+}
+
+pub(crate) struct AlphaReserve;
+
+impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
+    fn reserve(netuid: NetUid) -> AlphaCurrency {
         match netuid.into() {
             123u16 => 10_000.into(),
             WRAPPING_FEES_NETUID => 400_000_000_000.into(),
@@ -104,6 +112,14 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
         }
     }
 
+    fn increase_provided(netuid: NetUid, amount: AlphaCurrency) {}
+    fn decrease_provided(netuid: NetUid, amount: AlphaCurrency) {}
+}
+
+// Mock implementor of SubnetInfo trait
+pub struct MockLiquidityProvider;
+
+impl SubnetInfo<AccountId> for MockLiquidityProvider {
     fn exists(netuid: NetUid) -> bool {
         netuid != NON_EXISTENT_NETUID.into()
     }
@@ -172,16 +188,13 @@ impl BalanceOps<AccountId> for MockBalanceOps {
     ) -> Result<AlphaCurrency, DispatchError> {
         Ok(alpha)
     }
-
-    fn increase_provided_tao_reserve(_netuid: NetUid, _tao: TaoCurrency) {}
-    fn decrease_provided_tao_reserve(_netuid: NetUid, _tao: TaoCurrency) {}
-    fn increase_provided_alpha_reserve(_netuid: NetUid, _alpha: AlphaCurrency) {}
-    fn decrease_provided_alpha_reserve(_netuid: NetUid, _alpha: AlphaCurrency) {}
 }
 
 impl crate::pallet::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type SubnetInfo = MockLiquidityProvider;
+    type TaoReserve = TaoReserve;
+    type AlphaReserve = AlphaReserve;
     type BalanceOps = MockBalanceOps;
     type ProtocolId = SwapProtocolId;
     type MaxFeeRate = MaxFeeRate;
