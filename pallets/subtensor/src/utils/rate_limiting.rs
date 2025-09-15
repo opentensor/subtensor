@@ -12,7 +12,8 @@ pub enum TransactionType {
     SetWeightsVersionKey,
     SetSNOwnerHotkey,
     OwnerHyperparamUpdate,
-    SubsubnetParameterUpdate,
+    SubsubnetCountUpdate,
+    SubsubnetEmission,
     SetMaxAllowedUIDS,
 }
 
@@ -27,8 +28,9 @@ impl From<TransactionType> for u16 {
             TransactionType::SetWeightsVersionKey => 4,
             TransactionType::SetSNOwnerHotkey => 5,
             TransactionType::OwnerHyperparamUpdate => 6,
-            TransactionType::SubsubnetParameterUpdate => 7,
-            TransactionType::SetMaxAllowedUIDS => 8,
+            TransactionType::SubsubnetCountUpdate => 7,
+            TransactionType::SubsubnetEmission => 8,
+            TransactionType::SetMaxAllowedUIDS => 9,
         }
     }
 }
@@ -43,8 +45,9 @@ impl From<u16> for TransactionType {
             4 => TransactionType::SetWeightsVersionKey,
             5 => TransactionType::SetSNOwnerHotkey,
             6 => TransactionType::OwnerHyperparamUpdate,
-            7 => TransactionType::SubsubnetParameterUpdate,
-            8 => TransactionType::SetMaxAllowedUIDS,
+            7 => TransactionType::SubsubnetCountUpdate,
+            8 => TransactionType::SubsubnetEmission,
+            9 => TransactionType::SetMaxAllowedUIDS,
             _ => TransactionType::Unknown,
         }
     }
@@ -60,7 +63,8 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
             TransactionType::OwnerHyperparamUpdate => OwnerHyperparamRateLimit::<T>::get(),
-            TransactionType::SubsubnetParameterUpdate => SubsubnetCountSetRateLimit::<T>::get(),
+            TransactionType::SubsubnetCountUpdate => SubsubnetCountSetRateLimit::<T>::get(),
+            TransactionType::SubsubnetEmission => SubsubnetEmissionRateLimit::<T>::get(),
             TransactionType::SetMaxAllowedUIDS => 7200 * 30,
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,
