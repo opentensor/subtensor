@@ -1591,8 +1591,7 @@ impl pallet_crowdloan::Config for Runtime {
     type MaxContributors = MaxContributors;
 }
 
-// Contracts pallet configuration
-fn contract_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedule<T> {
+fn contracts_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedule<T> {
     pallet_contracts::Schedule {
         limits: pallet_contracts::Limits {
             runtime_memory: 1024 * 1024 * 1024,
@@ -1607,7 +1606,7 @@ parameter_types! {
     pub const ContractDepositPerItem: Balance = deposit(1, 0);
     pub const ContractDepositPerByte: Balance = deposit(0, 1);
     pub const ContractDefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
-    pub ContractSchedule: pallet_contracts::Schedule<Runtime> = contract_schedule::<Runtime>();
+    pub ContractsSchedule: pallet_contracts::Schedule<Runtime> = contracts_schedule::<Runtime>();
     pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
     pub const ContractMaxDelegateDependencies: u32 = 32;
 }
@@ -1640,7 +1639,7 @@ impl pallet_contracts::Config for Runtime {
     type WeightPrice = pallet_transaction_payment::Pallet<Self>;
     type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
     type ChainExtension = chain_extension::SubtensorChainExtension;
-    type Schedule = ContractSchedule;
+    type Schedule = ContractsSchedule;
     type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
     type MaxCodeLen = ConstU32<{ 128 * 1024 }>;
     type MaxStorageKeyLen = ConstU32<128>;
