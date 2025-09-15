@@ -1930,7 +1930,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin.clone(),
                 netuid,
-                &[TransactionType::SetMaxAllowedUIDS],
+                &[TransactionType::SetMaxAllowedUids],
             )?;
 
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
@@ -1938,7 +1938,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::SetMaxAllowedUIDS],
+                &[TransactionType::SetMaxAllowedUids],
             );
             Ok(())
         }

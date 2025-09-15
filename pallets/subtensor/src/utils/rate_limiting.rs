@@ -14,7 +14,7 @@ pub enum TransactionType {
     OwnerHyperparamUpdate,
     SubsubnetCountUpdate,
     SubsubnetEmission,
-    SetMaxAllowedUIDS,
+    SetMaxAllowedUids,
 }
 
 /// Implement conversion from TransactionType to u16
@@ -30,7 +30,7 @@ impl From<TransactionType> for u16 {
             TransactionType::OwnerHyperparamUpdate => 6,
             TransactionType::SubsubnetCountUpdate => 7,
             TransactionType::SubsubnetEmission => 8,
-            TransactionType::SetMaxAllowedUIDS => 9,
+            TransactionType::SetMaxAllowedUids => 9,
         }
     }
 }
@@ -47,7 +47,7 @@ impl From<u16> for TransactionType {
             6 => TransactionType::OwnerHyperparamUpdate,
             7 => TransactionType::SubsubnetCountUpdate,
             8 => TransactionType::SubsubnetEmission,
-            9 => TransactionType::SetMaxAllowedUIDS,
+            9 => TransactionType::SetMaxAllowedUids,
             _ => TransactionType::Unknown,
         }
     }
@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
             TransactionType::OwnerHyperparamUpdate => OwnerHyperparamRateLimit::<T>::get(),
             TransactionType::SubsubnetCountUpdate => SubsubnetCountSetRateLimit::<T>::get(),
             TransactionType::SubsubnetEmission => SubsubnetEmissionRateLimit::<T>::get(),
-            TransactionType::SetMaxAllowedUIDS => 7200 * 30,
+            TransactionType::SetMaxAllowedUids => SetMaxAllowedUidsRateLimit::<T>::get(),
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,
         }

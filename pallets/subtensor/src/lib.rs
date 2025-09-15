@@ -618,6 +618,11 @@ pub mod pallet {
         T::InitialMaxAllowedUids::get()
     }
     #[pallet::type_value]
+    /// -- Rate limit for set max allowed UIDs
+    pub fn SetMaxAllowedUidsRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(30 * 7200, 1)
+    }
+    #[pallet::type_value]
     /// Default immunity period.
     pub fn DefaultImmunityPeriod<T: Config>() -> u16 {
         T::InitialImmunityPeriod::get()
