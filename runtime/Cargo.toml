@@ -98,7 +98,7 @@ pallet-commitments.workspace = true
 # for prod_or_fast! macro
 runtime-common.workspace = true
 
-# Smart contracts support
+# Wasm smart contracts support
 pallet-contracts.workspace = true
 
 # NPoS
