@@ -92,20 +92,19 @@ pub trait SubtensorCustomApi<BlockHash> {
         metagraph_index: Vec<u16>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
-<<<<<<< HEAD
     #[method(name = "subnetInfo_getColdkeyAutoStakeHotkey")]
     fn get_coldkey_auto_stake_hotkey(
         &self,
         coldkey: AccountId32,
         netuid: NetUid,
-=======
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSelectiveSubMetagraph")]
     fn get_selective_submetagraph(
         &self,
         netuid: NetUid,
         subid: SubId,
         metagraph_index: Vec<u16>,
->>>>>>> devnet-ready
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 }
@@ -483,7 +482,8 @@ where
     fn get_coldkey_auto_stake_hotkey(
         &self,
         coldkey: AccountId32,
-        netuid: NetUid,at: Option<<Block as BlockT>::Hash>,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
@@ -507,7 +507,6 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-       
         match api.get_selective_submetagraph(at, netuid, subid, metagraph_index) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
