@@ -16,8 +16,8 @@
 This repository contains Bittensor's substrate-chain. Subtensor contains the trusted logic which:
 
 1. Runs Bittensor's [consensus mechanism](./docs/consensus.md);
-2. Advertises neuron information, IPs, etc.;
-3. Facilitates value transfer via TAO; and
+2. Advertises neuron information, IPs, etc., and
+3. Facilitates value transfer via TAO.
 4. Supports wasm smart contract functionality via `pallet-contracts` (see [contracts documentation](./docs/contracts.md)).
 
 ## System Requirements
