@@ -240,6 +240,7 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_min_allowed_uids() {
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -445,6 +446,7 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_trim_to_max_allowed_uids() {
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*sudo_tempo*/
