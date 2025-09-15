@@ -1829,8 +1829,7 @@ pub mod pallet {
 			Weight::from_parts(5_771_000, 0)
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)),
-			DispatchClass::Operational,
-			Pays::No
+			DispatchClass::Operational
 		))]
         pub fn sudo_set_admin_freeze_window(origin: OriginFor<T>, window: u16) -> DispatchResult {
             ensure_root(origin)?;
@@ -1846,8 +1845,7 @@ pub mod pallet {
 			Weight::from_parts(5_701_000, 0)
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)),
-			DispatchClass::Operational,
-			Pays::No
+			DispatchClass::Operational
 		))]
         pub fn sudo_set_owner_hparam_rate_limit(
             origin: OriginFor<T>,
