@@ -302,7 +302,7 @@ mod dispatches {
         ///
         #[pallet::call_index(100)]
         #[pallet::weight((Weight::from_parts(100_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(8))
+        .saturating_add(T::DbWeight::get().reads(10_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
             origin: OriginFor<T>,
@@ -932,7 +932,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(42_000_000, 0)
+        #[pallet::weight((Weight::from_parts(29_760_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(

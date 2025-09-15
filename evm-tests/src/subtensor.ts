@@ -378,3 +378,27 @@ export async function setTargetRegistrationsPerInterval(
     });
     await waitForTransactionWithRetry(api, tx, alice);
 }
+
+// Disable admin freeze window and owner hyperparam rate limiting for tests
+export async function disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api: TypedApi<typeof devnet>) {
+    const alice = getAliceSigner()
+
+    const currentAdminFreezeWindow = await api.query.SubtensorModule.AdminFreezeWindow.getValue()
+    if (currentAdminFreezeWindow !== 0) {
+        // Set AdminFreezeWindow to 0
+        const setFreezeWindow = api.tx.AdminUtils.sudo_set_admin_freeze_window({ window: 0 })
+        const sudoFreezeTx = api.tx.Sudo.sudo({ call: setFreezeWindow.decodedCall })
+        await waitForTransactionWithRetry(api, sudoFreezeTx, alice)
+    }
+
+    const currentOwnerHyperparamRateLimit = await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue()
+    if (currentOwnerHyperparamRateLimit !== BigInt(0)) {
+        // Set OwnerHyperparamRateLimit to 0
+        const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ limit: BigInt(0) })
+        const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
+        await waitForTransactionWithRetry(api, sudoOwnerRateTx, alice)
+    }
+
+    assert.equal(0, await api.query.SubtensorModule.AdminFreezeWindow.getValue())
+    assert.equal(BigInt(0), await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue())
+}

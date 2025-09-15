@@ -1,15 +1,14 @@
 import * as assert from "assert";
 
-import { getAliceSigner, getDevnetApi, waitForTransactionCompletion, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair } from "../src/substrate"
+import { getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
 import { getPublicClient } from "../src/utils";
-import { ETH_LOCAL_URL, SUB_LOCAL_URL } from "../src/config";
+import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"
 import { PublicClient } from "viem";
-import { PolkadotSigner, TypedApi } from "polkadot-api";
+import { TypedApi } from "polkadot-api";
 import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils"
 import { IAlphaABI, IALPHA_ADDRESS } from "../src/contracts/alpha"
-import { u64 } from "@polkadot-api/substrate-bindings";
-
+import { forceSetBalanceToSs58Address, addNewSubnetwork, startCall } from "../src/subtensor";
 describe("Test Alpha Precompile", () => {
     // init substrate part
     const hotkey = getRandomSubstrateKeypair();
@@ -18,9 +17,6 @@ describe("Test Alpha Precompile", () => {
 
     let api: TypedApi<typeof devnet>;
 
-    // sudo account alice as signer
-    let alice: PolkadotSigner;
-
     // init other variable
     let subnetId = 0;
 
@@ -28,50 +24,13 @@ describe("Test Alpha Precompile", () => {
         // init variables got from await and async
         publicClient = await getPublicClient(ETH_LOCAL_URL)
         api = await getDevnetApi()
-        alice = await getAliceSigner();
 
-        // Fund the hotkey account
-        {
-            const multiAddress = convertPublicKeyToMultiAddress(hotkey.publicKey)
-            const internalCall = api.tx.Balances.force_set_balance({ who: multiAddress, new_free: BigInt(1e12) })
-            const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
+        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
+        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
 
-            await waitForTransactionCompletion(api, tx, alice)
-                .then(() => { })
-                .catch((error) => { console.log(`transaction error ${error}`) });
-        }
+        let netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        await startCall(api, netuid, coldkey)
 
-        // Fund the coldkey account
-        {
-            const multiAddress = convertPublicKeyToMultiAddress(coldkey.publicKey)
-            const internalCall = api.tx.Balances.force_set_balance({ who: multiAddress, new_free: BigInt(1e12) })
-            const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
-
-            await waitForTransactionCompletion(api, tx, alice)
-                .then(() => { })
-                .catch((error) => { console.log(`transaction error ${error}`) });
-        }
-
-        // Register a new subnet
-        const signer = getSignerFromKeypair(coldkey)
-        const registerNetworkTx = api.tx.SubtensorModule.register_network({ hotkey: convertPublicKeyToSs58(hotkey.publicKey) })
-        await waitForTransactionCompletion(api, registerNetworkTx, signer)
-            .then(() => { })
-            .catch((error) => { console.log(`transaction error ${error}`) });
-
-        // Get the newly created subnet ID
-        let totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
-        assert.ok(totalNetworks > 1)
-        subnetId = totalNetworks - 1
-
-        // Register a neuron on the subnet if needed
-        let uid_count = await api.query.SubtensorModule.SubnetworkN.getValue(subnetId)
-        if (uid_count === 0) {
-            const tx = api.tx.SubtensorModule.burned_register({ hotkey: convertPublicKeyToSs58(hotkey.publicKey), netuid: subnetId })
-            await waitForTransactionCompletion(api, tx, signer)
-                .then(() => { })
-                .catch((error) => { console.log(`transaction error ${error}`) });
-        }
     })
 
     describe("Alpha Price Functions", () => {
