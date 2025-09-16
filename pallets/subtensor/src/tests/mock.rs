@@ -954,7 +954,7 @@ pub fn mock_set_children_no_epochs(netuid: NetUid, parent: &U256, child_vec: &[(
 #[allow(dead_code)]
 pub fn step_rate_limit(transaction_type: &TransactionType, netuid: NetUid) {
     // Check rate limit
-    let limit = SubtensorModule::get_rate_limit_on_subnet(transaction_type, netuid);
+    let limit = transaction_type.rate_limit_on_subnet::<Test>(netuid);
 
     // Step that many blocks
     step_block(limit as u16);
