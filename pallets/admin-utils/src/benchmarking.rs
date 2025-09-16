@@ -416,7 +416,7 @@ mod benchmarks {
         // disable admin freeze window
         pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         #[extrinsic_call]
-		_(RawOrigin::Root, 10u64/*limit*/)/*sudo_set_owner_hparam_rate_limit*/;
+		_(RawOrigin::Root, 2u16/*epochs*/)/*sudo_set_owner_hparam_rate_limit*/;
     }
 
     #[benchmark]

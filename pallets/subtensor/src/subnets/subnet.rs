@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
         ensure!(
-            Self::passes_rate_limit(&TransactionType::RegisterNetwork, &coldkey),
+            TransactionType::RegisterNetwork.passes_rate_limit::<T>(&coldkey),
             Error::<T>::NetworkTxRateLimitExceeded
         );
 
@@ -391,8 +391,7 @@ impl<T: Config> Pallet<T> {
 
         // Rate limit: 1 call per week
         ensure!(
-            Self::passes_rate_limit_on_subnet(
-                &TransactionType::SetSNOwnerHotkey,
+            TransactionType::SetSNOwnerHotkey.passes_rate_limit_on_subnet::<T>(
                 hotkey, // ignored
                 netuid, // Specific to a subnet.
             ),
@@ -401,10 +400,9 @@ impl<T: Config> Pallet<T> {
 
         // Set last transaction block
         let current_block = Self::get_current_block_as_u64();
-        Self::set_last_transaction_block_on_subnet(
+        TransactionType::SetSNOwnerHotkey.set_last_block_on_subnet::<T>(
             hotkey,
             netuid,
-            &TransactionType::SetSNOwnerHotkey,
             current_block,
         );
 
