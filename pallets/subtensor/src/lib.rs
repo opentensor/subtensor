@@ -1327,10 +1327,6 @@ pub mod pallet {
     pub type PendingRootAlphaDivs<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> pending_alpha_swapped
-    pub type PendingAlphaSwapped<T> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
-    #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_owner_cut
     pub type PendingOwnerCut<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;

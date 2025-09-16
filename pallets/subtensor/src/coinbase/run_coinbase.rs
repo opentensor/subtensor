@@ -220,11 +220,6 @@ impl<T: Config> Pallet<T> {
                 PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
                     *total = total.saturating_add(tou64!(root_alpha).into());
                 });
-
-                // Accumulate alpha emission in pending.
-                PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(tou64!(root_alpha).into());
-                });
             }
 
             // Accumulate alpha emission in pending.
@@ -261,22 +256,12 @@ impl<T: Config> Pallet<T> {
                 let pending_root_alpha = PendingRootAlphaDivs::<T>::get(netuid);
                 PendingRootAlphaDivs::<T>::insert(netuid, AlphaCurrency::ZERO);
 
-                // Get this amount as alpha that was swapped for pending root divs.
-                let pending_swapped = PendingAlphaSwapped::<T>::get(netuid);
-                PendingAlphaSwapped::<T>::insert(netuid, AlphaCurrency::ZERO);
-
                 // Get owner cut and drain.
                 let owner_cut = PendingOwnerCut::<T>::get(netuid);
                 PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Drain pending root divs, alpha emission, and owner cut.
-                Self::drain_pending_emission(
-                    netuid,
-                    pending_alpha,
-                    pending_root_alpha,
-                    pending_swapped,
-                    owner_cut,
-                );
+                Self::drain_pending_emission(netuid, pending_alpha, pending_root_alpha, owner_cut);
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
@@ -626,18 +611,17 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         pending_alpha: AlphaCurrency,
         pending_root_alpha: AlphaCurrency,
-        pending_swapped: AlphaCurrency,
         owner_cut: AlphaCurrency,
     ) {
         log::debug!(
-            "Draining pending alpha emission for netuid {netuid:?}, pending_alpha: {pending_alpha:?}, pending_root_alpha: {pending_root_alpha:?}, pending_swapped: {pending_swapped:?}, owner_cut: {owner_cut:?}"
+            "Draining pending alpha emission for netuid {netuid:?}, pending_alpha: {pending_alpha:?}, pending_root_alpha: {pending_root_alpha:?}, owner_cut: {owner_cut:?}"
         );
 
         let tao_weight = Self::get_tao_weight();
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
-            Self::epoch(netuid, pending_alpha.saturating_add(pending_swapped));
+            Self::epoch(netuid, pending_alpha.saturating_add(pending_root_alpha));
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
         // Compute the pending validator alpha.
@@ -654,9 +638,9 @@ impl<T: Config> Pallet<T> {
 
         let pending_validator_alpha = if !incentive_sum.is_zero() {
             pending_alpha
-                .saturating_add(pending_swapped)
+                .saturating_add(pending_root_alpha)
                 .saturating_div(2.into())
-                .saturating_sub(pending_swapped)
+                .saturating_sub(pending_root_alpha)
         } else {
             // If the incentive is 0, then Validators get 100% of the alpha.
             pending_alpha

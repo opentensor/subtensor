@@ -538,26 +538,20 @@ fn test_owner_cut_base() {
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_swapped --exact --show-output --nocapture
 #[test]
-fn test_pending_swapped() {
+fn test_pending_emission() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let emission: u64 = 1_000_000;
         add_network(netuid, 1, 0);
         mock::setup_reserves(netuid, 1_000_000.into(), 1.into());
         SubtensorModule::run_coinbase(U96F32::from_num(0));
-        assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0.into()); // Zero tao weight and no root.
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000)); // Add root weight.
         SubtensorModule::run_coinbase(U96F32::from_num(0));
-        assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0.into()); // Zero tao weight with 1 root.
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubtensorModule::run_coinbase(U96F32::from_num(0));
         // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
-        assert_abs_diff_eq!(
-            u64::from(PendingAlphaSwapped::<Test>::get(netuid)),
-            125000000,
-            epsilon = 1
-        );
+
         assert_abs_diff_eq!(
             u64::from(PendingEmission::<Test>::get(netuid)),
             1_000_000_000 - 125000000,
@@ -580,7 +574,6 @@ fn test_drain_base() {
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
         )
     });
 }
@@ -593,7 +586,6 @@ fn test_drain_base_with_subnet() {
         add_network(netuid, 1, 0);
         SubtensorModule::drain_pending_emission(
             netuid,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
@@ -620,7 +612,6 @@ fn test_drain_base_with_subnet_with_single_staker_not_registered() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha.into(),
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -650,7 +641,6 @@ fn test_drain_base_with_subnet_with_single_staker_registered() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -697,7 +687,6 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
             pending_alpha,
             pending_root_alpha,
             AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
         );
         let stake_after =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -743,7 +732,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -810,7 +798,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
             netuid,
             pending_alpha,
             //   pending_tao,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -898,7 +885,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
             pending_alpha,
             //   pending_tao,
             AlphaCurrency::ZERO,
-            0.into(),
             0.into(),
         );
         let stake_after1 =
@@ -1000,7 +986,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
             //   pending_tao,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
         );
         let stake_after1 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
@@ -1081,7 +1066,6 @@ fn test_drain_alpha_childkey_parentkey() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1309,7 +1293,6 @@ fn test_get_root_children_drain() {
             pending_alpha,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
         );
 
         // Alice and Bob both made half of the dividends.
@@ -1332,7 +1315,6 @@ fn test_get_root_children_drain() {
             alpha,
             pending_alpha,
             //   pending_root1,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1359,8 +1341,6 @@ fn test_get_root_children_drain() {
         SubtensorModule::drain_pending_emission(
             alpha,
             pending_alpha,
-            //   pending_root2,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1456,7 +1436,6 @@ fn test_get_root_children_drain_half_proportion() {
             pending_alpha,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
         );
 
         // Alice and Bob make the same amount.
@@ -1541,7 +1520,6 @@ fn test_get_root_children_drain_with_take() {
         SubtensorModule::drain_pending_emission(
             alpha,
             pending_alpha,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1629,7 +1607,6 @@ fn test_get_root_children_drain_with_half_take() {
         SubtensorModule::drain_pending_emission(
             alpha,
             pending_alpha,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -2427,7 +2404,6 @@ fn test_drain_pending_emission_no_miners_all_drained() {
             emission,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
         );
 
         // Get the new stake of the hotkey.
@@ -2497,7 +2473,6 @@ fn test_drain_pending_emission_zero_emission() {
         SubtensorModule::drain_pending_emission(
             netuid,
             0.into(),
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -2781,7 +2756,6 @@ fn test_drain_alpha_childkey_parentkey_with_burn() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
