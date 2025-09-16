@@ -619,7 +619,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// -- Rate limit for set max allowed UIDs
-    pub fn SetMaxAllowedUidsRateLimit<T: Config>() -> u64 {
+    pub fn MaxUidsTrimmingRateLimit<T: Config>() -> u64 {
         prod_or_fast!(30 * 7200, 1)
     }
     #[pallet::type_value]

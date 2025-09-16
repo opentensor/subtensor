@@ -15,7 +15,7 @@ pub enum TransactionType {
     OwnerHyperparamUpdate(Hyperparameter),
     SubsubnetCountUpdate,
     SubsubnetEmission,
-    SetMaxAllowedUids,
+    MaxUidsTrimming,
 }
 
 impl TransactionType {
@@ -27,7 +27,7 @@ impl TransactionType {
             Self::RegisterNetwork => NetworkRateLimit::<T>::get(),
             Self::SubsubnetCountUpdate => SubsubnetCountSetRateLimit::<T>::get(),
             Self::SubsubnetEmission => SubsubnetEmissionRateLimit::<T>::get(),
-
+            Self::MaxUidsTrimming => MaxUidsTrimmingRateLimit::<T>::get(),
             Self::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,
         }
@@ -140,7 +140,7 @@ impl From<TransactionType> for u16 {
             TransactionType::OwnerHyperparamUpdate(_) => 6,
             TransactionType::SubsubnetCountUpdate => 7,
             TransactionType::SubsubnetEmission => 8,
-            TransactionType::SetMaxAllowedUids => 9,
+            TransactionType::MaxUidsTrimming => 9,
         }
     }
 }
@@ -157,7 +157,7 @@ impl From<u16> for TransactionType {
             6 => TransactionType::OwnerHyperparamUpdate(Hyperparameter::Unknown),
             7 => TransactionType::SubsubnetCountUpdate,
             8 => TransactionType::SubsubnetEmission,
-            9 => TransactionType::SetMaxAllowedUids,
+            9 => TransactionType::MaxUidsTrimming,
             _ => TransactionType::Unknown,
         }
     }

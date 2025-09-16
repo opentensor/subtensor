@@ -1924,7 +1924,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin.clone(),
                 netuid,
-                &[TransactionType::SetMaxAllowedUids],
+                &[TransactionType::MaxUidsTrimming],
             )?;
 
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
@@ -1932,7 +1932,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::SetMaxAllowedUids],
+                &[TransactionType::MaxUidsTrimming],
             );
             Ok(())
         }
@@ -1948,7 +1948,8 @@ pub mod pallet {
             netuid: NetUid,
             min_allowed_uids: u16,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
