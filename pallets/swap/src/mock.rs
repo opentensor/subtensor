@@ -120,10 +120,6 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
     fn is_subtoken_enabled(netuid: NetUid) -> bool {
         netuid.inner() != SUBTOKEN_DISABLED_NETUID
     }
-
-    fn get_owned_hotkeys(_coldkey: &AccountId) -> Vec<AccountId> {
-        Vec::<AccountId>::new()
-    }
 }
 
 pub struct MockBalanceOps;
