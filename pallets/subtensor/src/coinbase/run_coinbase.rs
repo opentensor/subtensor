@@ -545,7 +545,8 @@ impl<T: Config> Pallet<T> {
         // Distribute root alpha divs.
         for (hotkey, mut root_alpha) in root_alpha_dividends {
             // Get take prop
-            let alpha_take: U96F32 = Self::get_hotkey_take_float(&hotkey).saturating_mul(root_alpha);
+            let alpha_take: U96F32 =
+                Self::get_hotkey_take_float(&hotkey).saturating_mul(root_alpha);
             // Remove take prop from root_tao
             root_alpha = root_alpha.saturating_sub(alpha_take);
             // Give the validator their take.

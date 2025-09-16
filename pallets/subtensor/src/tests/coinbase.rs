@@ -711,11 +711,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
             stake_after.into(),
             10,
         ); // Registered gets all alpha emission.
-        close(
-            stake_before.to_u64(),
-            root_after.into(),
-            10,
-        ); // Registered doesn't get tao immediately
+        close(stake_before.to_u64(), root_after.into(), 10); // Registered doesn't get tao immediately
     });
 }
 
@@ -2013,13 +2009,14 @@ fn test_calculate_dividend_distribution_totals() {
         dividends.insert(hotkeys[0], 77_783_738_u64.into());
         dividends.insert(hotkeys[1], 19_283_940_u64.into());
 
-        let (alpha_dividends, root_alpha_dividends) = SubtensorModule::calculate_dividend_distribution(
-            pending_validator_alpha,
-            pending_root_alpha,
-            tao_weight,
-            stake_map,
-            dividends,
-        );
+        let (alpha_dividends, root_alpha_dividends) =
+            SubtensorModule::calculate_dividend_distribution(
+                pending_validator_alpha,
+                pending_root_alpha,
+                tao_weight,
+                stake_map,
+                dividends,
+            );
 
         // Verify the total of each dividends type is close to the inputs.
         let total_alpha_dividends = alpha_dividends.values().sum::<U96F32>();
@@ -2056,13 +2053,14 @@ fn test_calculate_dividend_distribution_total_only_tao() {
         dividends.insert(hotkeys[0], 77_783_738_u64.into());
         dividends.insert(hotkeys[1], 19_283_940_u64.into());
 
-        let (alpha_dividends, root_alpha_dividends) = SubtensorModule::calculate_dividend_distribution(
-            pending_validator_alpha,
-            pending_root_alpha,
-            tao_weight,
-            stake_map,
-            dividends,
-        );
+        let (alpha_dividends, root_alpha_dividends) =
+            SubtensorModule::calculate_dividend_distribution(
+                pending_validator_alpha,
+                pending_root_alpha,
+                tao_weight,
+                stake_map,
+                dividends,
+            );
 
         // Verify the total of each dividends type is close to the inputs.
         let total_alpha_dividends = alpha_dividends.values().sum::<U96F32>();
