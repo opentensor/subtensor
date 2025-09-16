@@ -736,8 +736,8 @@ impl<T: Config> Pallet<T> {
 
         // If this is a root-stake
         if netuid == NetUid::ROOT {
-            // Adjust root debt for this hotkey and coldkey.
-            Self::remove_stake_adjust_debt_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
+            // Adjust root claimed value for this hotkey and coldkey.
+            Self::remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
         }
 
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
@@ -827,9 +827,9 @@ impl<T: Config> Pallet<T> {
 
         // If this is a root-stake
         if netuid == NetUid::ROOT {
-            // Adjust root debt for this hotkey and coldkey.
+            // Adjust root claimed for this hotkey and coldkey.
             let alpha = swap_result.amount_paid_out.into();
-            Self::add_stake_adjust_debt_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
+            Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
         }
 
         // Deposit and log the staking event.

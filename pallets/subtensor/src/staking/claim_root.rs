@@ -90,12 +90,12 @@ impl<T: Config> Pallet<T> {
     ) -> I110F18 {
         let claimable = Self::get_root_claimable_for_hotkey_coldkey(hotkey, coldkey, netuid);
 
-        // Attain the claimable debt to avoid overclaiming.
-        let debt: I110F18 =
-            I110F18::saturating_from_num(RootDebt::<T>::get((hotkey, coldkey, netuid)));
+        // Attain the root claimed to avoid overclaiming.
+        let root_claimed: I110F18 =
+            I110F18::saturating_from_num(RootClaimed::<T>::get((hotkey, coldkey, netuid)));
 
-        // Substract the debt.
-        let owed: I110F18 = claimable.saturating_sub(debt);
+        // Substract the already claimed alpha.
+        let owed: I110F18 = claimable.saturating_sub(root_claimed);
 
         owed
     }
@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         root_claim_type: RootClaimTypeEnum,
     ) {
-        // Substract the debt.
+        // Substract the root claimed.
         let owed: I110F18 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
         if owed == 0 || owed < I110F18::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
@@ -172,9 +172,9 @@ impl<T: Config> Pallet<T> {
             }
         };
 
-        // Increase root debt by owed amount.
-        RootDebt::<T>::mutate((hotkey, coldkey, netuid), |debt| {
-            *debt = debt.saturating_add(owed.saturating_to_num::<I96F32>());
+        // Increase root claimed by owed amount.
+        RootClaimed::<T>::mutate((hotkey, coldkey, netuid), |root_claimed| {
+            *root_claimed = root_claimed.saturating_add(owed_u64.into());
         });
     }
 
@@ -199,7 +199,7 @@ impl<T: Config> Pallet<T> {
         weight
     }
 
-    pub fn add_stake_adjust_debt_for_hotkey_and_coldkey(
+    pub fn add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         amount: u64,
@@ -207,26 +207,21 @@ impl<T: Config> Pallet<T> {
         // Iterate over all the subnets this hotkey is staked on for root.
         for (netuid, claimable_rate) in RootClaimable::<T>::iter_prefix(hotkey) {
             // Get the total claimable_rate for this hotkey and this network
-            let claimable_rate_float = I110F18::saturating_from_num(claimable_rate);
+            let claimable_rate_u128: u128 = claimable_rate.into();
 
-            // Get current staker-debt.
-            let debt: I110F18 =
-                I110F18::saturating_from_num(RootDebt::<T>::get((hotkey, coldkey, netuid)));
+            // Get current staker root claimed value.
+            let root_claimed: u128 = RootClaimed::<T>::get((hotkey, coldkey, netuid));
 
-            // Increase debt based on the claimable rate.
-            let new_debt: I110F18 = debt.saturating_add(
-                claimable_rate_float.saturating_mul(I110F18::saturating_from_num(amount)),
-            );
+            // Increase root claimed based on the claimable rate.
+            let new_root_claimed =
+                root_claimed.saturating_add(claimable_rate_u128.saturating_mul(amount.into()));
 
-            // Set the new debt.
-            RootDebt::<T>::insert(
-                (hotkey, coldkey, netuid),
-                new_debt.saturating_to_num::<I96F32>(),
-            );
+            // Set the new root claimed value.
+            RootClaimed::<T>::insert((hotkey, coldkey, netuid), new_root_claimed);
         }
     }
 
-    pub fn remove_stake_adjust_debt_for_hotkey_and_coldkey(
+    pub fn remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         amount: AlphaCurrency,
@@ -238,22 +233,17 @@ impl<T: Config> Pallet<T> {
             }
 
             // Get the total claimable_rate for this hotkey and this network
-            let claimable_rate_float = I110F18::saturating_from_num(claimable_rate);
+            let claimable_rate_u128: u128 = claimable_rate.into();
 
-            // Get current staker-debt.
-            let debt: I110F18 =
-                I110F18::saturating_from_num(RootDebt::<T>::get((hotkey, coldkey, netuid)));
+            // Get current staker root claimed value.
+            let root_claimed: u128 = RootClaimed::<T>::get((hotkey, coldkey, netuid));
 
-            // Decrease debt based on the claimable rate.
-            let new_debt: I110F18 = debt.saturating_sub(
-                claimable_rate_float.saturating_mul(I110F18::saturating_from_num(amount)),
-            );
+            // Decrease root claimed based on the claimable rate.
+            let new_root_claimed = root_claimed
+                .saturating_sub(claimable_rate_u128.saturating_mul(u64::from(amount).into()));
 
-            // Set the new debt.
-            RootDebt::<T>::insert(
-                (hotkey, coldkey, netuid),
-                new_debt.saturating_to_num::<I96F32>(),
-            );
+            // Set the new root_claimed value.
+            RootClaimed::<T>::insert((hotkey, coldkey, netuid), new_root_claimed);
         }
     }
 

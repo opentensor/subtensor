@@ -1826,15 +1826,17 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> claimable_debt | Returns a keys debt for claimable divs.
-    pub type RootDebt<T: Config> = StorageNMap<
+
+    // Already claimed root alpha.
+    #[pallet::storage]
+    pub type RootClaimed<T: Config> = StorageNMap<
         _,
         (
             NMapKey<Blake2_128Concat, T::AccountId>, // hot
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, NetUid>,               // subnet
         ),
-        I96F32, // Shares
+        u128,
         ValueQuery,
     >;
     #[pallet::storage] // -- MAP ( cold ) --> root_claim_type enum
