@@ -1757,7 +1757,8 @@ fn test_migrate_subnet_limit_to_default() {
 #[test]
 fn test_migrate_network_lock_reduction_interval_and_decay() {
     new_test_ext(0).execute_with(|| {
-        const NEW_VALUE: u64 = 28_800;
+        const FOUR_DAYS: u64 = 28_800;
+        const EIGHT_DAYS: u64 = 57_600;
         const ONE_WEEK_BLOCKS: u64 = 50_400;
 
         // ── pre ──────────────────────────────────────────────────────────────
@@ -1775,8 +1776,8 @@ fn test_migrate_network_lock_reduction_interval_and_decay() {
         assert!(!weight.is_zero(), "migration weight should be > 0");
 
         // ── params & flags ───────────────────────────────────────────────────
-        assert_eq!(NetworkLockReductionInterval::<Test>::get(), NEW_VALUE);
-        assert_eq!(NetworkRateLimit::<Test>::get(), NEW_VALUE);
+        assert_eq!(NetworkLockReductionInterval::<Test>::get(), EIGHT_DAYS);
+        assert_eq!(NetworkRateLimit::<Test>::get(), FOUR_DAYS);
         assert_eq!(
             Pallet::<Test>::get_network_last_lock(),
             1_000_000_000_000u64.into(), // 1000 TAO in rao

@@ -4,7 +4,8 @@ use log;
 use scale_info::prelude::string::String;
 
 pub fn migrate_network_lock_reduction_interval<T: Config>() -> Weight {
-    const NEW_VALUE: u64 = 28_800;
+    const FOUR_DAYS: u64 = 28_800;
+    const EIGHT_DAYS: u64 = 57_600;
     const ONE_WEEK_BLOCKS: u64 = 50_400;
 
     let migration_name = b"migrate_network_lock_reduction_interval".to_vec();
@@ -23,10 +24,10 @@ pub fn migrate_network_lock_reduction_interval<T: Config>() -> Weight {
     let current_block = Pallet::<T>::get_current_block_as_u64();
 
     // ── 1) Set new values ─────────────────────────────────────────────────
-    NetworkLockReductionInterval::<T>::put(NEW_VALUE);
+    NetworkLockReductionInterval::<T>::put(EIGHT_DAYS);
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-    NetworkRateLimit::<T>::put(NEW_VALUE);
+    NetworkRateLimit::<T>::put(FOUR_DAYS);
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     Pallet::<T>::set_network_last_lock(TaoCurrency::from(1_000_000_000_000));
@@ -46,11 +47,8 @@ pub fn migrate_network_lock_reduction_interval<T: Config>() -> Weight {
 
     log::info!(
         target: "runtime",
-        "Migration '{}' completed - NetworkLockReductionInterval & NetworkRateLimit => {}. \
-         last_lock set to 1_000_000_000_000 rao; last_lock_block/start_block => {}.",
+        "Migration '{}' completed.",
         String::from_utf8_lossy(&migration_name),
-        NEW_VALUE,
-        current_block.saturating_add(ONE_WEEK_BLOCKS),
     );
 
     weight
