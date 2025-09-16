@@ -689,14 +689,13 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
             netuid,
             stake_before,
         );
-        let pending_tao = TaoCurrency::from(1_000_000_000);
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
+        let pending_root_alpha = AlphaCurrency::from(1_000_000_000);
         assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoCurrency::ZERO);
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-         //   pending_tao,
-            AlphaCurrency::ZERO,
+            pending_root_alpha,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -713,11 +712,10 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
             10,
         ); // Registered gets all alpha emission.
         close(
-            stake_before.to_u64() + pending_tao.to_u64(),
+            stake_before.to_u64(),
             root_after.into(),
             10,
-        ); // Registered gets all tao emission
-        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_tao);
+        ); // Registered doesn't get tao immediately
     });
 }
 
@@ -854,7 +852,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
             root_after2.into(),
             10,
         ); // Registered gets 1/2 tao emission
-        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_tao);
     });
 }
 
@@ -2005,7 +2002,7 @@ fn test_calculate_dividend_distribution_totals() {
         let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
 
         let pending_validator_alpha = AlphaCurrency::from(183_123_567_452);
-        let pending_tao = TaoCurrency::from(837_120_949_872);
+        let pending_root_alpha = AlphaCurrency::from(837_120_949_872);
         let tao_weight: U96F32 = U96F32::saturating_from_num(0.18); // 18%
 
         let hotkeys = [U256::from(0), U256::from(1)];
@@ -2016,10 +2013,9 @@ fn test_calculate_dividend_distribution_totals() {
         dividends.insert(hotkeys[0], 77_783_738_u64.into());
         dividends.insert(hotkeys[1], 19_283_940_u64.into());
 
-        let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
+        let (alpha_dividends, root_alpha_dividends) = SubtensorModule::calculate_dividend_distribution(
             pending_validator_alpha,
-            //   pending_tao,
-            AlphaCurrency::ZERO,
+            pending_root_alpha,
             tao_weight,
             stake_map,
             dividends,
@@ -2027,7 +2023,7 @@ fn test_calculate_dividend_distribution_totals() {
 
         // Verify the total of each dividends type is close to the inputs.
         let total_alpha_dividends = alpha_dividends.values().sum::<U96F32>();
-        let total_tao_dividends = tao_dividends.values().sum::<U96F32>();
+        let total_root_alpha_dividends = root_alpha_dividends.values().sum::<U96F32>();
 
         assert_abs_diff_eq!(
             total_alpha_dividends.saturating_to_num::<u64>(),
@@ -2035,8 +2031,8 @@ fn test_calculate_dividend_distribution_totals() {
             epsilon = 1_000
         );
         assert_abs_diff_eq!(
-            total_tao_dividends.saturating_to_num::<u64>(),
-            pending_tao.to_u64(),
+            total_root_alpha_dividends.saturating_to_num::<u64>(),
+            pending_root_alpha.to_u64(),
             epsilon = 1_000
         );
     });
@@ -2049,7 +2045,7 @@ fn test_calculate_dividend_distribution_total_only_tao() {
         let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
 
         let pending_validator_alpha = AlphaCurrency::ZERO;
-        let pending_tao = TaoCurrency::from(837_120_949_872);
+        let pending_root_alpha = AlphaCurrency::from(837_120_949_872);
         let tao_weight: U96F32 = U96F32::saturating_from_num(0.18); // 18%
 
         let hotkeys = [U256::from(0), U256::from(1)];
@@ -2060,10 +2056,9 @@ fn test_calculate_dividend_distribution_total_only_tao() {
         dividends.insert(hotkeys[0], 77_783_738_u64.into());
         dividends.insert(hotkeys[1], 19_283_940_u64.into());
 
-        let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
+        let (alpha_dividends, root_alpha_dividends) = SubtensorModule::calculate_dividend_distribution(
             pending_validator_alpha,
-            //   pending_tao,
-            AlphaCurrency::ZERO,
+            pending_root_alpha,
             tao_weight,
             stake_map,
             dividends,
@@ -2071,7 +2066,7 @@ fn test_calculate_dividend_distribution_total_only_tao() {
 
         // Verify the total of each dividends type is close to the inputs.
         let total_alpha_dividends = alpha_dividends.values().sum::<U96F32>();
-        let total_tao_dividends = tao_dividends.values().sum::<U96F32>();
+        let total_root_alpha_dividends = root_alpha_dividends.values().sum::<U96F32>();
 
         assert_abs_diff_eq!(
             total_alpha_dividends.saturating_to_num::<u64>(),
@@ -2079,8 +2074,8 @@ fn test_calculate_dividend_distribution_total_only_tao() {
             epsilon = 1_000
         );
         assert_abs_diff_eq!(
-            total_tao_dividends.saturating_to_num::<u64>(),
-            pending_tao.to_u64(),
+            total_root_alpha_dividends.saturating_to_num::<u64>(),
+            pending_root_alpha.to_u64(),
             epsilon = 1_000
         );
     });
