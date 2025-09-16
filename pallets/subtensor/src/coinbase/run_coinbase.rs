@@ -501,22 +501,18 @@ impl<T: Config> Pallet<T> {
                 log::debug!(
                     "incentives: hotkey: {hotkey:?} is SN owner hotkey or associated hotkey, skipping {incentive:?}"
                 );
-				// Check if we should recycle or burn the incentive
-				match RecycleOrBurn::<T>::try_get(netuid) {
+                // Check if we should recycle or burn the incentive
+                match RecycleOrBurn::<T>::try_get(netuid) {
                     Ok(RecycleOrBurn::Recycle) => {
                         log::debug!("recycling {incentive:?}");
-                        // recycle the incentive
-
-                        // Recycle means we should decrease the alpha issuance tracker.
-                        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-                            *total = total.saturating_sub(incentive);
-                        });
+                        Self::recycle_subnet_alpha(netuid, incentive);
                     }
                     Ok(RecycleOrBurn::Burn) | Err(_) => {
-                        log::debug!("burning {incentive:?}"); // Skip/burn miner-emission for SN owner hotkey.
+                        log::debug!("burning {incentive:?}");
+                        Self::burn_subnet_alpha(netuid, incentive);
                     }
                 }
-				continue;
+                continue;
             }
 
             let owner: T::AccountId = Owner::<T>::get(&hotkey);
