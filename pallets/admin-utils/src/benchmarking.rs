@@ -244,11 +244,8 @@ mod benchmarks {
     fn sudo_set_min_allowed_uids() {
         let netuid = NetUid::from(1);
         pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            netuid,
-            1u16,        /*tempo*/
-        );
-        
+        pallet_subtensor::Pallet::<T>::init_new_network(netuid, 1u16 /*tempo*/);
+
         // Artificially set that some neurons are already registered
         SubnetworkN::<T>::set(netuid, 32);
 
