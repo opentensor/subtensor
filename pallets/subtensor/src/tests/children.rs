@@ -6,7 +6,7 @@ use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use crate::{utils::rate_limiting::TransactionType, *};
@@ -2841,6 +2841,7 @@ fn test_set_weights_no_parent() {
 
 /// Test that drain_pending_emission sends childkey take fully to the nominators if childkey
 /// doesn't have its own stake, independently of parent hotkey take.
+/// cargo test --package pallet-subtensor --lib -- tests::children::test_childkey_take_drain --exact --show-output
 #[allow(clippy::assertions_on_constants)]
 #[test]
 fn test_childkey_take_drain() {
@@ -2861,6 +2862,7 @@ fn test_childkey_take_drain() {
 
             // Add network, register hotkeys, and setup network parameters
             add_network(netuid, subnet_tempo, 0);
+            SubtensorModule::set_ck_burn(0);
             mock::setup_reserves(netuid, (stake * 10_000).into(), (stake * 10_000).into());
             register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
             register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 1);
@@ -2916,12 +2918,12 @@ fn test_childkey_take_drain() {
             ));
 
             // Setup YUMA so that it creates emissions
-            Weights::<Test>::insert(netuid, 0, vec![(2, 0xFFFF)]);
-            Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
+            Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 0, vec![(2, 0xFFFF)]);
+            Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 1, vec![(2, 0xFFFF)]);
             BlockAtRegistration::<Test>::set(netuid, 0, 1);
             BlockAtRegistration::<Test>::set(netuid, 1, 1);
             BlockAtRegistration::<Test>::set(netuid, 2, 1);
-            LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
+            LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
             Kappa::<Test>::set(netuid, u16::MAX / 5);
             ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
             ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
@@ -2980,6 +2982,7 @@ fn test_parent_child_chain_emission() {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::set_ck_burn(0);
         Tempo::<Test>::insert(netuid, 1);
 
         // Setup large LPs to prevent slippage
@@ -3192,6 +3195,7 @@ fn test_parent_child_chain_epoch() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
+        SubtensorModule::set_ck_burn(0);
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
 
@@ -3336,6 +3340,7 @@ fn test_dividend_distribution_with_children() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
+        SubtensorModule::set_ck_burn(0);
         mock::setup_reserves(
             netuid,
             1_000_000_000_000_000.into(),
@@ -3570,6 +3575,7 @@ fn test_dividend_distribution_with_children() {
 fn test_dynamic_parent_child_relationships() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
+        SubtensorModule::set_ck_burn(0);
         add_network_disable_commit_reveal(netuid, 1, 0);
 
         // Define hotkeys and coldkeys

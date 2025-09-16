@@ -83,13 +83,13 @@ pub use frame_support::{
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
+use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
-
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
 
 use core::marker::PhantomData;
 
@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 308,
+    spec_version: 316,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -398,7 +398,6 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::SubtensorModule(
                     pallet_subtensor::Call::set_weights { .. }
-                        | pallet_subtensor::Call::set_tao_weights { .. }
                         | pallet_subtensor::Call::serve_axon { .. }
                 )
                 | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
@@ -733,7 +732,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
                     | RuntimeCall::Sudo(..)
             ),
             ProxyType::Triumvirate => matches!(
@@ -771,10 +769,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
             ),
-            ProxyType::RootWeights => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
-            ),
+            ProxyType::RootWeights => false, // deprecated
             ProxyType::ChildKeys => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
@@ -1061,11 +1056,23 @@ pub struct ResetBondsOnCommit;
 impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
-        let _ = SubtensorModule::do_reset_bonds(netuid, address);
+        // Reset bonds for each subsubnet of this subnet
+        let subsub_count = SubtensorModule::get_current_subsubnet_count(netuid);
+        for subid in 0..u8::from(subsub_count) {
+            let netuid_index = SubtensorModule::get_subsubnet_storage_index(netuid, subid.into());
+            let _ = SubtensorModule::do_reset_bonds(netuid_index, address);
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn on_metadata_commitment(_: NetUid, _: &AccountId) {}
+}
+
+pub struct GetCommitmentsStruct;
+impl GetCommitments<AccountId> for GetCommitmentsStruct {
+    fn get_commitments(netuid: NetUid) -> Vec<(AccountId, Vec<u8>)> {
+        pallet_commitments::Pallet::<Runtime>::get_commitments(netuid)
+    }
 }
 
 impl pallet_commitments::Config for Runtime {
@@ -1137,6 +1144,8 @@ parameter_types! {
     pub const SubtensorInitialBurn: u64 = 100_000_000; // 0.1 tao
     pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
@@ -1210,6 +1219,8 @@ impl pallet_subtensor::Config for Runtime {
     type InitialBurn = SubtensorInitialBurn;
     type InitialMaxBurn = SubtensorInitialMaxBurn;
     type InitialMinBurn = SubtensorInitialMinBurn;
+    type MinBurnUpperBound = MinBurnUpperBound;
+    type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
     type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
@@ -1239,6 +1250,7 @@ impl pallet_subtensor::Config for Runtime {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = Proxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type GetCommitments = GetCommitmentsStruct;
 }
 
 parameter_types! {
@@ -2319,12 +2331,20 @@ impl_runtime_apis! {
             SubtensorModule::get_metagraph(netuid)
         }
 
+        fn get_submetagraph(netuid: NetUid, subid: SubId) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_submetagraph(netuid, subid)
+        }
+
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>> {
             SubtensorModule::get_subnet_state(netuid)
         }
 
         fn get_all_metagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
             SubtensorModule::get_all_metagraphs()
+        }
+
+        fn get_all_submetagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
+            SubtensorModule::get_all_submetagraphs()
         }
 
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
@@ -2335,6 +2355,9 @@ impl_runtime_apis! {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
         }
 
+        fn get_selective_submetagraph(netuid: NetUid, subid: SubId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_submetagraph(netuid, subid, metagraph_indexes)
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {

@@ -22,7 +22,7 @@ use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
 use substrate_fixed::types::I96F32;
 use substrate_fixed::types::extra::U2;
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -822,6 +822,206 @@ fn test_migrate_remove_commitments_rate_limit() {
 }
 
 #[test]
+fn test_migrate_network_last_registered() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_network_last_registered";
+
+        let pallet_name = "SubtensorModule";
+        let storage_name = "NetworkLastRegistered";
+        let pallet_name_hash = twox_128(pallet_name.as_bytes());
+        let storage_name_hash = twox_128(storage_name.as_bytes());
+        let prefix = [pallet_name_hash, storage_name_hash].concat();
+
+        let mut full_key = prefix.clone();
+
+        let original_value: u64 = 123;
+        put_raw(&full_key, &original_value.encode());
+
+        let stored_before = get_raw(&full_key).expect("Expected RateLimit to exist");
+        assert_eq!(
+            u64::decode(&mut &stored_before[..]).expect("Failed to decode RateLimit"),
+            original_value
+        );
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
+        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_network_last_lock_block(),
+            original_value
+        );
+        assert_eq!(
+            get_raw(&full_key),
+            None,
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[allow(deprecated)]
+#[test]
+fn test_migrate_last_block_tx() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_last_tx_block";
+
+        let test_account: U256 = U256::from(1);
+        let original_value: u64 = 123;
+
+        LastTxBlock::<Test>::insert(test_account, original_value);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
+        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block(&test_account),
+            original_value
+        );
+        assert!(
+            !LastTxBlock::<Test>::contains_key(test_account),
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[allow(deprecated)]
+#[test]
+fn test_migrate_last_tx_block_childkey_take() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_last_tx_block_childkey_take";
+
+        let test_account: U256 = U256::from(1);
+        let original_value: u64 = 123;
+
+        LastTxBlockChildKeyTake::<Test>::insert(test_account, original_value);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
+        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_childkey_take(&test_account),
+            original_value
+        );
+        assert!(
+            !LastTxBlockChildKeyTake::<Test>::contains_key(test_account),
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[allow(deprecated)]
+#[test]
+fn test_migrate_last_tx_block_delegate_take() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_last_tx_block_delegate_take";
+
+        let test_account: U256 = U256::from(1);
+        let original_value: u64 = 123;
+
+        LastTxBlockDelegateTake::<Test>::insert(test_account, original_value);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
+        migrate_last_tx_block_delegate_take::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_delegate_take(&test_account),
+            original_value
+        );
+        assert!(
+            !LastTxBlockDelegateTake::<Test>::contains_key(test_account),
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
 fn test_migrate_fix_root_subnet_tao() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_fix_root_subnet_tao";
@@ -1063,10 +1263,17 @@ fn test_migrate_crv3_commits_add_block() {
 
         let old_queue: VecDeque<_> = VecDeque::from(vec![(who, ciphertext.clone(), round)]);
 
-        CRV3WeightCommits::<Test>::insert(netuid, epoch, old_queue.clone());
+        CRV3WeightCommits::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            epoch,
+            old_queue.clone(),
+        );
 
         // Sanity: entry decodes under old alias
-        assert_eq!(CRV3WeightCommits::<Test>::get(netuid, epoch), old_queue);
+        assert_eq!(
+            CRV3WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), epoch),
+            old_queue
+        );
 
         assert!(
             !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
@@ -1091,11 +1298,11 @@ fn test_migrate_crv3_commits_add_block() {
 
         // Old storage must be empty (drained)
         assert!(
-            CRV3WeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            CRV3WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), epoch).is_empty(),
             "old queue should have been drained"
         );
 
-        let new_q = CRV3WeightCommitsV2::<Test>::get(netuid, epoch);
+        let new_q = CRV3WeightCommitsV2::<Test>::get(NetUidStorageIndex::from(netuid), epoch);
         assert_eq!(new_q.len(), 1, "exactly one migrated element expected");
 
         let (who2, commit_block, cipher2, round2) = new_q.front().cloned().unwrap();
@@ -1318,18 +1525,23 @@ fn test_migrate_crv3_v2_to_timelocked() {
             VecDeque::from(vec![(who, commit_block, ciphertext.clone(), round)]);
 
         // Insert under the deprecated alias
-        CRV3WeightCommitsV2::<Test>::insert(netuid, epoch, old_queue.clone());
+        CRV3WeightCommitsV2::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            epoch,
+            old_queue.clone(),
+        );
 
         // Sanity: entry decodes under old alias
         assert_eq!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, epoch),
+            CRV3WeightCommitsV2::<Test>::get(NetUidStorageIndex::from(netuid), epoch),
             old_queue,
             "pre-migration: old queue should be present"
         );
 
         // Destination should be empty pre-migration
         assert!(
-            TimelockedWeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), epoch)
+                .is_empty(),
             "pre-migration: destination should be empty"
         );
 
@@ -1356,12 +1568,12 @@ fn test_migrate_crv3_v2_to_timelocked() {
 
         // Old storage must be empty (drained)
         assert!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, epoch).is_empty(),
+            CRV3WeightCommitsV2::<Test>::get(NetUidStorageIndex::from(netuid), epoch).is_empty(),
             "old queue should have been drained"
         );
 
         // New storage must match exactly
-        let new_q = TimelockedWeightCommits::<Test>::get(netuid, epoch);
+        let new_q = TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), epoch);
         assert_eq!(
             new_q, old_queue,
             "migrated queue must exactly match the old queue"
@@ -1373,5 +1585,122 @@ fn test_migrate_crv3_v2_to_timelocked() {
         assert_eq!(commit_block2, commit_block);
         assert_eq!(cipher2, ciphertext);
         assert_eq!(round2, round);
+    });
+}
+
+#[test]
+fn test_migrate_remove_network_modality() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_remove_network_modality";
+
+        // Create multiple networks to test
+        let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
+        for netuid in netuids.iter() {
+            add_network(*netuid, 1, 0);
+        }
+
+        // Set initial storage version to 7 (below target)
+        StorageVersion::new(7).put::<Pallet<Test>>();
+        assert_eq!(
+            Pallet::<Test>::on_chain_storage_version(),
+            StorageVersion::new(7)
+        );
+
+        // ------------------------------
+        // 1. Simulate NetworkModality entries using deprecated storage alias
+        // ------------------------------
+        // We need to manually create storage entries that would exist for NetworkModality
+        // Since NetworkModality was a StorageMap<_, Identity, NetUid, u16>, we simulate this
+        let pallet_prefix = twox_128("SubtensorModule".as_bytes());
+        let storage_prefix = twox_128("NetworkModality".as_bytes());
+
+        // Create NetworkModality entries for each network
+        for (i, netuid) in netuids.iter().enumerate() {
+            let mut key = Vec::new();
+            key.extend_from_slice(&pallet_prefix);
+            key.extend_from_slice(&storage_prefix);
+            // Identity encoding for netuid
+            key.extend_from_slice(&netuid.encode());
+
+            let modality_value: u16 = (i as u16) + 1; // Different values for testing
+            put_raw(&key, &modality_value.encode());
+
+            // Verify the entry was created
+            let stored_value = get_raw(&key).expect("NetworkModality entry should exist");
+            assert_eq!(
+                u16::decode(&mut &stored_value[..]).expect("Failed to decode modality"),
+                modality_value
+            );
+        }
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // 2. Run migration
+        // ------------------------------
+        let weight =
+            crate::migrations::migrate_remove_network_modality::migrate_remove_network_modality::<
+                Test,
+            >();
+
+        // ------------------------------
+        // 3. Verify migration effects
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+
+        // Verify weight is non-zero
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+
+        // Verify weight calculation: 1 read (version check) + 1 read (total networks) + N writes (removal) + 1 write (version update)
+        let expected_weight = <Test as Config>::DbWeight::get().reads(2)
+            + <Test as Config>::DbWeight::get().writes(netuids.len() as u64 + 1);
+        assert_eq!(
+            weight, expected_weight,
+            "Weight calculation should be correct"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_remove_network_modality_already_run() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_remove_network_modality";
+
+        // Mark migration as already run
+        HasMigrationRun::<Test>::insert(MIGRATION_NAME.as_bytes().to_vec(), true);
+
+        // Set storage version to 8 (target version)
+        StorageVersion::new(8).put::<Pallet<Test>>();
+        assert_eq!(
+            Pallet::<Test>::on_chain_storage_version(),
+            StorageVersion::new(8)
+        );
+
+        // Run migration
+        let weight =
+            crate::migrations::migrate_remove_network_modality::migrate_remove_network_modality::<
+                Test,
+            >();
+
+        // Should only have read weight for checking migration status
+        let expected_weight = <Test as Config>::DbWeight::get().reads(1);
+        assert_eq!(
+            weight, expected_weight,
+            "Second run should only read the migration flag"
+        );
+
+        // Verify migration is still marked as run
+        assert!(HasMigrationRun::<Test>::get(
+            MIGRATION_NAME.as_bytes().to_vec()
+        ));
     });
 }

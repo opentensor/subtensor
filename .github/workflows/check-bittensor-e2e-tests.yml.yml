@@ -110,6 +110,7 @@ jobs:
 
   build-image-with-current-branch:
     needs: check-label
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
     runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout code
@@ -211,12 +212,6 @@ jobs:
       - name: Retag Docker Image
         run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
-#      - name: Run tests
-#        working-directory: ${{ github.workspace }}/btcli
-#        run: |
-#          source ${{ github.workspace }}/venv/bin/activate
-#          uv run pytest ${{ matrix.test-file }} -s
-
       - name: Run with retry
         working-directory: ${{ github.workspace }}/btcli
         run: |
@@ -310,12 +305,6 @@ jobs:
 
       - name: Retag Docker Image
         run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
-
-#      - name: Run tests
-#        working-directory: ${{ github.workspace }}/bittensor
-#        run: |
-#          source ${{ github.workspace }}/venv/bin/activate
-#          uv run pytest ${{ matrix.test-file }} -s
 
       - name: Run with retry
         working-directory: ${{ github.workspace }}/bittensor

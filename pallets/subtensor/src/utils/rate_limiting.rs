@@ -11,6 +11,9 @@ pub enum TransactionType {
     RegisterNetwork,
     SetWeightsVersionKey,
     SetSNOwnerHotkey,
+    OwnerHyperparamUpdate,
+    SubsubnetCountUpdate,
+    SubsubnetEmission,
 }
 
 /// Implement conversion from TransactionType to u16
@@ -23,6 +26,9 @@ impl From<TransactionType> for u16 {
             TransactionType::RegisterNetwork => 3,
             TransactionType::SetWeightsVersionKey => 4,
             TransactionType::SetSNOwnerHotkey => 5,
+            TransactionType::OwnerHyperparamUpdate => 6,
+            TransactionType::SubsubnetCountUpdate => 7,
+            TransactionType::SubsubnetEmission => 8,
         }
     }
 }
@@ -36,6 +42,9 @@ impl From<u16> for TransactionType {
             3 => TransactionType::RegisterNetwork,
             4 => TransactionType::SetWeightsVersionKey,
             5 => TransactionType::SetSNOwnerHotkey,
+            6 => TransactionType::OwnerHyperparamUpdate,
+            7 => TransactionType::SubsubnetCountUpdate,
+            8 => TransactionType::SubsubnetEmission,
             _ => TransactionType::Unknown,
         }
     }
@@ -50,6 +59,9 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetChildren => 150, // 30 minutes
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
+            TransactionType::OwnerHyperparamUpdate => OwnerHyperparamRateLimit::<T>::get(),
+            TransactionType::SubsubnetCountUpdate => SubsubnetCountSetRateLimit::<T>::get(),
+            TransactionType::SubsubnetEmission => SubsubnetEmissionRateLimit::<T>::get(),
 
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,
@@ -112,18 +124,13 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetSNOwnerHotkey => {
                 Self::get_rate_limited_last_block(&RateLimitKey::SetSNOwnerHotkey(netuid))
             }
+            TransactionType::OwnerHyperparamUpdate => {
+                Self::get_rate_limited_last_block(&RateLimitKey::OwnerHyperparamUpdate(netuid))
+            }
             _ => {
                 let tx_as_u16: u16 = (*tx_type).into();
                 TransactionKeyLastBlock::<T>::get((hotkey, netuid, tx_as_u16))
             }
-        }
-    }
-
-    /// Set the block number of the last transaction for a specific key, and transaction type
-    pub fn set_last_transaction_block(key: &T::AccountId, tx_type: &TransactionType, block: u64) {
-        match tx_type {
-            TransactionType::RegisterNetwork => Self::set_network_last_lock_block(block),
-            _ => Self::set_last_transaction_block_on_subnet(key, NetUid::ROOT, tx_type, block),
         }
     }
 
@@ -139,6 +146,10 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetSNOwnerHotkey => {
                 Self::set_rate_limited_last_block(&RateLimitKey::SetSNOwnerHotkey(netuid), block)
             }
+            TransactionType::OwnerHyperparamUpdate => Self::set_rate_limited_last_block(
+                &RateLimitKey::OwnerHyperparamUpdate(netuid),
+                block,
+            ),
             _ => {
                 let tx_as_u16: u16 = (*tx_type).into();
                 TransactionKeyLastBlock::<T>::insert((key, netuid, tx_as_u16), block);
@@ -146,20 +157,39 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn remove_last_tx_block(key: &T::AccountId) {
+        Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlock(key.clone()))
+    }
     pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
-        LastTxBlock::<T>::insert(key, block)
+        Self::set_rate_limited_last_block(&RateLimitKey::LastTxBlock(key.clone()), block);
     }
     pub fn get_last_tx_block(key: &T::AccountId) -> u64 {
-        LastTxBlock::<T>::get(key)
+        Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlock(key.clone()))
+    }
+
+    pub fn remove_last_tx_block_delegate_take(key: &T::AccountId) {
+        Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlockDelegateTake(key.clone()))
     }
     pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
-        LastTxBlockDelegateTake::<T>::insert(key, block)
+        Self::set_rate_limited_last_block(
+            &RateLimitKey::LastTxBlockDelegateTake(key.clone()),
+            block,
+        );
     }
     pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
-        LastTxBlockDelegateTake::<T>::get(key)
+        Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlockDelegateTake(key.clone()))
     }
     pub fn get_last_tx_block_childkey_take(key: &T::AccountId) -> u64 {
-        LastTxBlockChildKeyTake::<T>::get(key)
+        Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlockChildKeyTake(key.clone()))
+    }
+    pub fn remove_last_tx_block_childkey(key: &T::AccountId) {
+        Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlockChildKeyTake(key.clone()))
+    }
+    pub fn set_last_tx_block_childkey(key: &T::AccountId, block: u64) {
+        Self::set_rate_limited_last_block(
+            &RateLimitKey::LastTxBlockChildKeyTake(key.clone()),
+            block,
+        );
     }
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();

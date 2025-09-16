@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: SubtensorCI
 
     steps:
       - name: Determine Docker tag and ref
@@ -50,6 +50,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.ref }}
+
+      - name: Show current Git branch
+        run: |
+          echo "==============================="
+          echo "Current Git branch:"
+          git rev-parse --abbrev-ref HEAD
+          echo "==============================="
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -79,3 +86,5 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}-localnet:${{ env.tag }}
             ${{ env.latest_tag == 'true' && format('ghcr.io/{0}-localnet:latest', github.repository) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

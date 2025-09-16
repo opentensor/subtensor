@@ -4,7 +4,7 @@ use crate::epoch::math::*;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
 
 #[freeze_struct("9354762261420485")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .map(Compact::from)
             .collect();
-        let last_update: Vec<Compact<u64>> = LastUpdate::<T>::get(netuid)
+        let last_update: Vec<Compact<u64>> = LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
             .into_iter()
             .map(Compact::from)
             .collect();
@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .map(Compact::from)
             .collect();
-        let incentives: Vec<Compact<u16>> = Incentive::<T>::get(netuid)
+        let incentives: Vec<Compact<u16>> = Incentive::<T>::get(NetUidStorageIndex::from(netuid))
             .into_iter()
             .map(Compact::from)
             .collect();
