@@ -323,8 +323,14 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn recycle_subnet_alpha(netuid: NetUid, amount: AlphaCurrency) {
+        // TODO: record recycled alpha in a tracker
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(amount);
         });
+    }
+
+    pub fn burn_subnet_alpha(netuid: NetUid, amount: AlphaCurrency) {
+        // Do nothing; TODO: record burned alpha in a tracker
+        return;
     }
 }
