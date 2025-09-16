@@ -476,10 +476,7 @@ impl<T: Config> Pallet<T> {
                 Ok(sim) => TaoCurrency::from(sim.amount_paid_out),
                 Err(e) => {
                     log::debug!(
-                        "destroy_alpha_in_out_stakes: sim_swap owner α→τ failed (netuid={:?}, alpha={}, err={:?}); falling back to price multiply.",
-                        netuid,
-                        owner_alpha_u64,
-                        e
+                        "destroy_alpha_in_out_stakes: sim_swap owner α→τ failed (netuid={netuid:?}, alpha={owner_alpha_u64}, err={e:?}); falling back to price multiply.",
                     );
                     let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
                     let val_u64: u64 = U96F32::from_num(owner_alpha_u64)
