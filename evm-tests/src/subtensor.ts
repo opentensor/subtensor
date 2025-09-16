@@ -7,7 +7,7 @@ import { convertH160ToSS58, convertPublicKeyToSs58, ethAddressToH160 } from './a
 import { tao } from './balance-math'
 import internal from "stream";
 
-// create a new subnet and return netuid 
+// create a new subnet and return netuid
 export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: KeyPair, coldkey: KeyPair) {
     const alice = getAliceSigner()
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
@@ -392,9 +392,9 @@ export async function disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api: T
     }
 
     const currentOwnerHyperparamRateLimit = await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue()
-    if (currentOwnerHyperparamRateLimit !== BigInt(0)) {
+    if (currentOwnerHyperparamRateLimit !== 0) {
         // Set OwnerHyperparamRateLimit to 0
-        const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ limit: BigInt(0) })
+        const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ epochs: 0 })
         const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
         await waitForTransactionWithRetry(api, sudoOwnerRateTx, alice)
     }
