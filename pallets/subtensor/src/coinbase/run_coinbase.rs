@@ -388,14 +388,14 @@ impl<T: Config> Pallet<T> {
             // Root proportion.
             let root_share: U96F32 = root_divs.checked_div(total_root_divs).unwrap_or(zero);
             log::debug!("hotkey: {hotkey:?}, root_share: {root_share:?}");
-            // Root proportion in TAO
-            let root_tao: U96F32 = asfloat!(pending_root_alpha).saturating_mul(root_share);
-            log::debug!("hotkey: {hotkey:?}, root_tao: {root_tao:?}");
+            // Root proportion in alpha
+            let root_alpha: U96F32 = asfloat!(pending_root_alpha).saturating_mul(root_share);
+            log::debug!("hotkey: {hotkey:?}, root_alpha: {root_alpha:?}");
             // Record root dividends as TAO.
             root_alpha_dividends
                 .entry(hotkey)
-                .and_modify(|e| *e = root_tao)
-                .or_insert(root_tao);
+                .and_modify(|e| *e = root_alpha)
+                .or_insert(root_alpha);
         }
         log::debug!("root_alpha_dividends: {root_alpha_dividends:?}");
 
@@ -558,11 +558,11 @@ impl<T: Config> Pallet<T> {
             );
 
             // Give rest to nominators.
-            Self::increase_stake_for_hotkey_on_subnet(
-                &hotkey,
-                netuid,
-                tou64!(root_alpha).into(),
-            );
+            // Self::increase_stake_for_hotkey_on_subnet(
+            //     &hotkey,
+            //     netuid,
+            //     tou64!(root_alpha).into(),
+            // );
 
             Self::increase_root_claimable_for_hotkey_and_subnet(
                 &hotkey,
@@ -574,15 +574,6 @@ impl<T: Config> Pallet<T> {
             AlphaDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
                 *divs = divs.saturating_add(tou64!(root_alpha).into());
             });
-
-            // TODO: SubnetTAO -> SubnetAlphaIn ?? SubnetAlphaOut
-
-            // // Update the total TAO on the subnet with root tao dividends.
-            // SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
-            //     *total = total
-            //         .saturating_add(validator_stake.to_u64().into())
-            //         .saturating_add(tou64!(root_tao).into());
-            // });
         }
     }
 
