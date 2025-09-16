@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::Config;
 use pallet_subtensor::{Error as SubtensorError, SubnetOwner, Tempo, WeightsVersionKeyRateLimit};
 // use pallet_subtensor::{migrations, Event};
-use pallet_subtensor::Event;
+use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
@@ -188,11 +188,10 @@ fn test_sudo_set_weights_version_key_rate_limit() {
 
         // Try to set again with
         // Assert rate limit not passed
-        assert!(!SubtensorModule::passes_rate_limit_on_subnet(
-            &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
-            &sn_owner,
-            netuid
-        ));
+        assert!(
+            !TransactionType::SetWeightsVersionKey
+                .passes_rate_limit_on_subnet::<Test>(&sn_owner, netuid)
+        );
 
         // Try transaction
         assert_noop!(
@@ -206,11 +205,10 @@ fn test_sudo_set_weights_version_key_rate_limit() {
 
         // Wait for rate limit to pass
         run_to_block(rate_limit_period + 1);
-        assert!(SubtensorModule::passes_rate_limit_on_subnet(
-            &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
-            &sn_owner,
-            netuid
-        ));
+        assert!(
+            TransactionType::SetWeightsVersionKey
+                .passes_rate_limit_on_subnet::<Test>(&sn_owner, netuid)
+        );
 
         // Try transaction
         assert_ok!(AdminUtils::sudo_set_weights_version_key(
@@ -1973,7 +1971,7 @@ fn test_sudo_set_admin_freeze_window_and_rate() {
         ));
         assert_eq!(pallet_subtensor::AdminFreezeWindow::<Test>::get(), 7);
 
-        // Owner hyperparam rate limit setter
+        // Owner hyperparam tempos setter
         assert_eq!(
             AdminUtils::sudo_set_owner_hparam_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -2097,10 +2095,12 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
         let owner: U256 = U256::from(5);
         SubnetOwner::<Test>::insert(netuid, owner);
 
-        // Configure owner hyperparam RL to 2 blocks
-        assert_ok!(AdminUtils::sudo_set_owner_hparam_rate_limit(
+        // Set tempo to 1 so owner hyperparam RL = 2 tempos = 2 blocks
+        SubtensorModule::set_tempo(netuid, 1);
+        // Disable admin freeze window to avoid blocking on small tempo
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
             <<Test as Config>::RuntimeOrigin>::root(),
-            2
+            0
         ));
 
         // First update succeeds
@@ -2140,10 +2140,9 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
     });
 }
 
-// Verifies that when the owner hyperparameter rate limit is left at its default (0), hyperparameter
-// updates are not blocked until a non-zero value is set.
+// Verifies that owner hyperparameter rate limit is enforced based on tempo (2 tempos).
 #[test]
-fn test_hyperparam_rate_limit_not_blocking_with_default() {
+fn test_hyperparam_rate_limit_enforced_by_tempo() {
     new_test_ext().execute_with(|| {
         // Setup subnet and owner
         let netuid = NetUid::from(42);
@@ -2151,23 +2150,111 @@ fn test_hyperparam_rate_limit_not_blocking_with_default() {
         let owner: U256 = U256::from(77);
         SubnetOwner::<Test>::insert(netuid, owner);
 
-        // Read the default (unset) owner hyperparam rate limit
-        let default_limit = pallet_subtensor::OwnerHyperparamRateLimit::<Test>::get();
+        // Set tempo to 1 so RL = 2 blocks
+        SubtensorModule::set_tempo(netuid, 1);
+        // Disable admin freeze window to avoid blocking on small tempo
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            0
+        ));
 
-        assert_eq!(default_limit, 0);
-
-        // First owner update should always succeed
+        // First owner update should succeed
         assert_ok!(AdminUtils::sudo_set_kappa(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
             1
         ));
 
-        // With default == 0, second immediate update should also pass (no rate limiting)
+        // Immediate second update should fail due to tempo-based RL
+        assert_noop!(
+            AdminUtils::sudo_set_kappa(<<Test as Config>::RuntimeOrigin>::signed(owner), netuid, 2),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // Advance 2 blocks (2 tempos with tempo=1) then succeed
+        run_to_block(SubtensorModule::get_current_block_as_u64() + 2);
         assert_ok!(AdminUtils::sudo_set_kappa(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
-            2
+            3
+        ));
+    });
+}
+
+// Verifies owner hyperparameters are rate-limited independently per parameter.
+// Setting one hyperparameter should not block setting a different hyperparameter
+// during the same rate-limit window, but it should still block itself.
+#[test]
+fn test_owner_hyperparam_rate_limit_independent_per_param() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(7);
+        add_network(netuid, 10);
+
+        // Set subnet owner
+        let owner: U256 = U256::from(123);
+        SubnetOwner::<Test>::insert(netuid, owner);
+
+        // Use small tempo to make RL short and deterministic (2 blocks when tempo=1)
+        SubtensorModule::set_tempo(netuid, 1);
+        // Disable admin freeze window so it doesn't interfere with small tempo
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            0
+        ));
+
+        // First update to kappa should succeed
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            10
+        ));
+
+        // Immediate second update to the SAME param (kappa) should be blocked by RL
+        assert_noop!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                11
+            ),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // Updating a DIFFERENT param (rho) should pass immediately — independent RL key
+        assert_ok!(AdminUtils::sudo_set_rho(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            5
+        ));
+
+        // kappa should still be blocked until its own RL window passes
+        assert_noop!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                12
+            ),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // rho should also be blocked for itself immediately after being set
+        assert_noop!(
+            AdminUtils::sudo_set_rho(<<Test as Config>::RuntimeOrigin>::signed(owner), netuid, 6),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
+        // Advance enough blocks to pass the RL window (2 blocks when tempo=1 and default epochs=2)
+        run_to_block(SubtensorModule::get_current_block_as_u64() + 2);
+
+        // Now both hyperparameters can be updated again
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            13
+        ));
+        assert_ok!(AdminUtils::sudo_set_rho(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            7
         ));
     });
 }
@@ -2267,5 +2354,66 @@ fn test_sudo_set_subsubnet_count() {
             netuid,
             ss_count_ok
         ));
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_subsubnet_count_and_emissions --exact --show-output
+#[test]
+fn test_sudo_set_subsubnet_count_and_emissions() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let ss_count_ok = SubId::from(2);
+
+        let sn_owner = U256::from(1324);
+        add_network(netuid, 10);
+        // Set the Subnet Owner
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        assert_ok!(AdminUtils::sudo_set_subsubnet_count(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            ss_count_ok
+        ));
+
+        // Cannot set emission split with wrong number of entries
+        // With two subsubnets the size of the split vector should be 2, not 3
+        assert_noop!(
+            AdminUtils::sudo_set_subsubnet_emission_split(
+                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                netuid,
+                Some(vec![0xFFFF / 5 * 2, 0xFFFF / 5 * 2, 0xFFFF / 5])
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // Cannot set emission split with wrong total of entries
+        // Split vector entries should sum up to exactly 0xFFFF
+        assert_noop!(
+            AdminUtils::sudo_set_subsubnet_emission_split(
+                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                netuid,
+                Some(vec![0xFFFF / 5 * 4, 0xFFFF / 5 - 1])
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // Can set good split ok
+        // We also verify here that it can happen in the same block as setting subsubnet counts
+        // or soon, without rate limiting
+        assert_ok!(AdminUtils::sudo_set_subsubnet_emission_split(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            Some(vec![0xFFFF / 5, 0xFFFF / 5 * 4])
+        ));
+
+        // Cannot set it again due to rate limits
+        assert_noop!(
+            AdminUtils::sudo_set_subsubnet_emission_split(
+                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                netuid,
+                Some(vec![0xFFFF / 5 * 4, 0xFFFF / 5])
+            ),
+            pallet_subtensor::Error::<Test>::TxRateLimitExceeded
+        );
     });
 }

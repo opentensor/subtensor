@@ -42,7 +42,7 @@ pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
-use crate::utils::rate_limiting::TransactionType;
+use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 #[cfg(test)]
@@ -861,15 +861,15 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
-    /// Default value for subnet owner hyperparameter update rate limit (in blocks)
-    pub fn DefaultOwnerHyperparamRateLimit<T: Config>() -> u64 {
-        0
-    }
-
-    #[pallet::type_value]
     /// Default number of terminal blocks in a tempo during which admin operations are prohibited
     pub fn DefaultAdminFreezeWindow<T: Config>() -> u16 {
         10
+    }
+
+    #[pallet::type_value]
+    /// Default number of tempos for owner hyperparameter update rate limit
+    pub fn DefaultOwnerHyperparamRateLimit<T: Config>() -> u16 {
+        2
     }
 
     #[pallet::type_value]
@@ -888,9 +888,9 @@ pub mod pallet {
         StorageValue<_, u16, ValueQuery, DefaultAdminFreezeWindow<T>>;
 
     #[pallet::storage]
-    /// Global rate limit (in blocks) for subnet owner hyperparameter updates
-    pub type OwnerHyperparamRateLimit<T> =
-        StorageValue<_, u64, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
+    /// Global number of epochs used to rate limit subnet owner hyperparameter updates
+    pub type OwnerHyperparamRateLimit<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
@@ -1840,7 +1840,12 @@ pub mod pallet {
     #[pallet::type_value]
     /// -- ITEM (Rate limit for subsubnet count updates)
     pub fn SubsubnetCountSetRateLimit<T: Config>() -> u64 {
-        prod_or_fast!(7_200, 0)
+        prod_or_fast!(7_200, 1)
+    }
+    #[pallet::type_value]
+    /// -- ITEM (Rate limit for subsubnet emission distribution updates)
+    pub fn SubsubnetEmissionRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(7_200, 1)
     }
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Current number of sub-subnets
@@ -2189,7 +2194,7 @@ pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(NetUid),
     // Generic rate limit for subnet-owner hyperparameter updates (per netuid)
-    OwnerHyperparamUpdate(NetUid),
+    OwnerHyperparamUpdate(NetUid, Hyperparameter),
     // Subnet registration rate limit
     NetworkLastRegistered,
     // Last tx block limit per account ID
