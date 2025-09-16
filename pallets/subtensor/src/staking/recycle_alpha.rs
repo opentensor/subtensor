@@ -1,6 +1,6 @@
 use super::*;
 use crate::{Error, system::ensure_signed};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -59,9 +59,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Recycle means we should decrease the alpha issuance tracker.
-        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(actual_alpha_decrease);
-        });
+        Self::recycle_subnet_alpha(netuid, amount);
 
         Self::deposit_event(Event::AlphaRecycled(
             coldkey,

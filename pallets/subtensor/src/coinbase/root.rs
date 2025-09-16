@@ -17,12 +17,11 @@
 
 use super::*;
 use frame_support::dispatch::Pays;
-use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -410,37 +409,37 @@ impl<T: Config> Pallet<T> {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let reserved_amount = Self::get_subnet_locked_balance(netuid);
+        let subsubnets: u8 = SubsubnetCountCurrent::<T>::get(netuid).into();
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
 
-        // --- 3. Remove network modality storage.
-        NetworkModality::<T>::remove(netuid);
-
-        // --- 4. Remove netuid from added networks.
+        // --- 3. Remove netuid from added networks.
         NetworksAdded::<T>::remove(netuid);
 
-        // --- 5. Decrement the network counter.
+        // --- 4. Decrement the network counter.
         TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
 
-        // --- 6. Remove various network-related storages.
+        // --- 5. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
 
-        // --- 7. Remove incentive mechanism memory.
+        // --- 6. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
+        }
 
-        // --- 8. Removes the weights for this subnet (do not remove).
-        let _ = Weights::<T>::clear_prefix(netuid, u32::MAX, None);
+        // --- 7. Removes the weights for this subnet (do not remove).
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+        }
 
-        // --- 9. Iterate over stored weights and fill the matrix.
-        for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
-                NetUid::ROOT,
-            )
-        {
+        // --- 8. Iterate over stored weights and fill the matrix.
+        for (uid_i, weights_i) in Weights::<T>::iter_prefix(NetUidStorageIndex::ROOT) {
             // Create a new vector to hold modified weights.
             let mut modified_weights = weights_i.clone();
             // Iterate over each weight entry to potentially update it.
@@ -450,19 +449,25 @@ impl<T: Config> Pallet<T> {
                     *weight = 0; // Set weight to 0 for the matching subnet_id.
                 }
             }
-            Weights::<T>::insert(NetUid::ROOT, uid_i, modified_weights);
+            Weights::<T>::insert(NetUidStorageIndex::ROOT, uid_i, modified_weights);
         }
 
-        // --- 10. Remove various network-related parameters.
+        // --- 9. Remove various network-related parameters.
         Rank::<T>::remove(netuid);
         Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
-        Incentive::<T>::remove(netuid);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            Incentive::<T>::remove(netuid_index);
+        }
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
         PruningScores::<T>::remove(netuid);
-        LastUpdate::<T>::remove(netuid);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            LastUpdate::<T>::remove(netuid_index);
+        }
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
@@ -470,7 +475,7 @@ impl<T: Config> Pallet<T> {
             IsNetworkMember::<T>::remove(key, netuid);
         }
 
-        // --- 11. Erase network parameters.
+        // --- 10. Erase network parameters.
         Tempo::<T>::remove(netuid);
         Kappa::<T>::remove(netuid);
         Difficulty::<T>::remove(netuid);
@@ -483,12 +488,12 @@ impl<T: Config> Pallet<T> {
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
-        // --- 12. Add the balance back to the owner.
+        // --- 11. Add the balance back to the owner.
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount.into());
         Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
         SubnetOwner::<T>::remove(netuid);
 
-        // --- 13. Remove subnet identity if it exists.
+        // --- 12. Remove subnet identity if it exists.
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
@@ -565,10 +570,10 @@ impl<T: Config> Pallet<T> {
         NetworkLastLockCost::<T>::get()
     }
     pub fn get_network_last_lock_block() -> u64 {
-        NetworkLastRegistered::<T>::get()
+        Self::get_rate_limited_last_block(&RateLimitKey::NetworkLastRegistered)
     }
     pub fn set_network_last_lock_block(block: u64) {
-        NetworkLastRegistered::<T>::set(block);
+        Self::set_rate_limited_last_block(&RateLimitKey::NetworkLastRegistered, block);
     }
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);
@@ -588,10 +593,13 @@ impl<T: Config> Pallet<T> {
         let halved_interval: I64F64 = interval.saturating_mul(halving);
         halved_interval.saturating_to_num::<u64>()
     }
-    pub fn get_rate_limited_last_block(rate_limit_key: &RateLimitKey) -> u64 {
+    pub fn get_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>) -> u64 {
         LastRateLimitedBlock::<T>::get(rate_limit_key)
     }
-    pub fn set_rate_limited_last_block(rate_limit_key: &RateLimitKey, block: u64) {
-        LastRateLimitedBlock::<T>::set(rate_limit_key, block);
+    pub fn set_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>, block: u64) {
+        LastRateLimitedBlock::<T>::insert(rate_limit_key, block);
+    }
+    pub fn remove_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>) {
+        LastRateLimitedBlock::<T>::remove(rate_limit_key);
     }
 }

@@ -18,7 +18,6 @@ import {
 } from "../src/subtensor";
 import { ethers } from "ethers";
 import { generateRandomEthersWallet } from "../src/utils";
-import { log } from "console";
 
 import { abi, bytecode } from "../src/contracts/stakeWrap";
 
@@ -47,13 +46,12 @@ describe("Test staking precompile add from deployed contract", () => {
     console.log("will test in subnet: ", netuid);
   });
 
-  it("Staker add stake", async () => {
+  it("Staker add and remove stake", async () => {
     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1;
 
     const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet1)
     const contract = await contractFactory.deploy()
     await contract.waitForDeployment()
-
 
     // stake will remove the balance from contract, need transfer token to deployed contract
     const ethTransfer = {
@@ -64,9 +62,6 @@ describe("Test staking precompile add from deployed contract", () => {
     const txResponse = await wallet1.sendTransaction(ethTransfer)
     await txResponse.wait();
 
-    const balance = await api.query.System.Account.getValue(convertH160ToSS58(contract.target.toString()))
-    console.log(" == balance is ", balance.data.free)
-
     const deployedContract = new ethers.Contract(
       contract.target.toString(),
       abi,
@@ -76,9 +71,16 @@ describe("Test staking precompile add from deployed contract", () => {
     const tx = await deployedContract.stake(
       hotkey.publicKey,
       netuid,
-      tao(2000),
+      tao(2),
     );
     await tx.wait();
+
+    const tx2 = await deployedContract.removeStake(
+      hotkey.publicKey,
+      netuid,
+      tao(1),
+    );
+    await tx2.wait();
 
   });
 

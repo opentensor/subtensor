@@ -238,11 +238,19 @@ mod errors {
         BeneficiaryDoesNotOwnHotkey,
         /// Expected beneficiary origin.
         ExpectedBeneficiaryOrigin,
+        /// Admin operation is prohibited during the protected weights window
+        AdminActionProhibitedDuringWeightsWindow,
         /// Symbol does not exist.
         SymbolDoesNotExist,
         /// Symbol already in use.
         SymbolAlreadyInUse,
         /// Incorrect commit-reveal version.
         IncorrectCommitRevealVersion,
+        /// Reveal period is too large.
+        RevealPeriodTooLarge,
+        /// Reveal period is too small.
+        RevealPeriodTooSmall,
+        /// Generic error for out-of-range parameter value
+        InvalidValue,
     }
 }

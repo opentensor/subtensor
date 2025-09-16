@@ -8,7 +8,7 @@ use frame_system::{Config, RawOrigin};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock;
@@ -326,7 +326,11 @@ fn test_swap_weight_commits() {
 
         add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
-        WeightCommits::<Test>::insert(netuid, old_hotkey, weight_commits.clone());
+        WeightCommits::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            old_hotkey,
+            weight_commits.clone(),
+        );
 
         assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
@@ -335,9 +339,12 @@ fn test_swap_weight_commits() {
             &mut weight
         ));
 
-        assert!(!WeightCommits::<Test>::contains_key(netuid, old_hotkey));
+        assert!(!WeightCommits::<Test>::contains_key(
+            NetUidStorageIndex::from(netuid),
+            old_hotkey
+        ));
         assert_eq!(
-            WeightCommits::<Test>::get(netuid, new_hotkey),
+            WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), new_hotkey),
             Some(weight_commits)
         );
     });
@@ -1033,7 +1040,7 @@ fn test_swap_hotkey_error_cases() {
         // Set up initial state
         Owner::<Test>::insert(old_hotkey, coldkey);
         TotalNetworks::<Test>::put(1);
-        LastTxBlock::<Test>::insert(coldkey, 0);
+        SubtensorModule::set_last_tx_block(&coldkey, 0);
 
         // Test not enough balance
         let swap_cost = SubtensorModule::get_key_swap_cost();
@@ -1429,11 +1436,11 @@ fn test_swap_hotkey_swap_rate_limits() {
         let child_key_take_block = 8910;
 
         // Set the last tx block for the old hotkey
-        LastTxBlock::<Test>::insert(old_hotkey, last_tx_block);
+        SubtensorModule::set_last_tx_block(&old_hotkey, last_tx_block);
         // Set the last delegate take block for the old hotkey
-        LastTxBlockDelegateTake::<Test>::insert(old_hotkey, delegate_take_block);
+        SubtensorModule::set_last_tx_block_delegate_take(&old_hotkey, delegate_take_block);
         // Set last childkey take block for the old hotkey
-        LastTxBlockChildKeyTake::<Test>::insert(old_hotkey, child_key_take_block);
+        SubtensorModule::set_last_tx_block_childkey(&old_hotkey, child_key_take_block);
 
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -1444,13 +1451,16 @@ fn test_swap_hotkey_swap_rate_limits() {
         ));
 
         // Check for new hotkey
-        assert_eq!(LastTxBlock::<Test>::get(new_hotkey), last_tx_block);
         assert_eq!(
-            LastTxBlockDelegateTake::<Test>::get(new_hotkey),
+            SubtensorModule::get_last_tx_block(&new_hotkey),
+            last_tx_block
+        );
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_delegate_take(&new_hotkey),
             delegate_take_block
         );
         assert_eq!(
-            LastTxBlockChildKeyTake::<Test>::get(new_hotkey),
+            SubtensorModule::get_last_tx_block_childkey_take(&new_hotkey),
             child_key_take_block
         );
     });

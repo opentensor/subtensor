@@ -134,9 +134,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
-        let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get(),
+            TransactionType::RegisterNetwork.passes_rate_limit::<T>(&coldkey),
             Error::<T>::NetworkTxRateLimitExceeded
         );
 
@@ -174,7 +173,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
         // --- 12. Set the creation terms.
-        NetworkLastRegistered::<T>::set(current_block);
+        Self::set_network_last_lock_block(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 13. Set the symbol.
@@ -237,13 +236,10 @@ impl<T: Config> Pallet<T> {
         // --- 3. Fill tempo memory item.
         Tempo::<T>::insert(netuid, tempo);
 
-        // --- 4 Fill modality item.
-        NetworkModality::<T>::insert(netuid, 0);
-
-        // --- 5. Increase total network count.
+        // --- 4. Increase total network count.
         TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
 
-        // --- 6. Set all default values **explicitly**.
+        // --- 5. Set all default values **explicitly**.
         Self::set_network_registration_allowed(netuid, true);
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 64);
@@ -395,8 +391,7 @@ impl<T: Config> Pallet<T> {
 
         // Rate limit: 1 call per week
         ensure!(
-            Self::passes_rate_limit_on_subnet(
-                &TransactionType::SetSNOwnerHotkey,
+            TransactionType::SetSNOwnerHotkey.passes_rate_limit_on_subnet::<T>(
                 hotkey, // ignored
                 netuid, // Specific to a subnet.
             ),
@@ -405,10 +400,9 @@ impl<T: Config> Pallet<T> {
 
         // Set last transaction block
         let current_block = Self::get_current_block_as_u64();
-        Self::set_last_transaction_block_on_subnet(
+        TransactionType::SetSNOwnerHotkey.set_last_block_on_subnet::<T>(
             hotkey,
             netuid,
-            &TransactionType::SetSNOwnerHotkey,
             current_block,
         );
 

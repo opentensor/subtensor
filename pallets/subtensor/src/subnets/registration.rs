@@ -369,7 +369,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Add Balance via faucet.
         let balance_to_add: u64 = 1_000_000_000_000;
-        Self::coinbase(100_000_000_000.into()); // We are creating tokens here from the coinbase.
+        Self::increase_issuance(100_000_000_000.into()); // We are creating tokens here from the coinbase.
 
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
 
@@ -386,6 +386,47 @@ impl<T: Config> Pallet<T> {
         let de_de_ref_hash: &[u8] = de_ref_hash; // c: &[u8]
         let real_hash: H256 = H256::from_slice(de_de_ref_hash);
         real_hash
+    }
+
+    fn get_immune_owner_hotkeys(netuid: NetUid, coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        // Gather (block, uid, hotkey) only for hotkeys that have a UID and a registration block.
+        let mut triples: Vec<(u64, u16, T::AccountId)> = OwnedHotkeys::<T>::get(coldkey)
+            .into_iter()
+            .filter_map(|hotkey| {
+                // Uids must exist, filter_map ignores hotkeys without UID
+                Uids::<T>::get(netuid, &hotkey).map(|uid| {
+                    let block = BlockAtRegistration::<T>::get(netuid, uid);
+                    (block, uid, hotkey)
+                })
+            })
+            .collect();
+
+        // Sort by BlockAtRegistration (descending), then by uid (ascending)
+        // Recent registration is priority so that we can let older keys expire (get non-immune)
+        triples.sort_by(|(b1, u1, _), (b2, u2, _)| b2.cmp(b1).then(u1.cmp(u2)));
+
+        // Keep first ImmuneOwnerUidsLimit
+        let limit = ImmuneOwnerUidsLimit::<T>::get(netuid).into();
+        if triples.len() > limit {
+            triples.truncate(limit);
+        }
+
+        // Project to just hotkeys
+        let mut immune_hotkeys: Vec<T::AccountId> =
+            triples.into_iter().map(|(_, _, hk)| hk).collect();
+
+        // Insert subnet owner hotkey in the beginning of the list if valid and not
+        // already present
+        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+            if Uids::<T>::get(netuid, &owner_hk).is_some() && !immune_hotkeys.contains(&owner_hk) {
+                immune_hotkeys.insert(0, owner_hk);
+                if immune_hotkeys.len() > limit {
+                    immune_hotkeys.truncate(limit);
+                }
+            }
+        }
+
+        immune_hotkeys
     }
 
     /// Determine which peer to prune from the network by finding the element with the lowest pruning score out of
@@ -411,13 +452,14 @@ impl<T: Config> Pallet<T> {
             return 0; // If there are no neurons in this network.
         }
 
+        // Get the list of immortal (top-k by registration time of owner owned) keys
+        let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
+        let immortal_hotkeys = Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey);
         for neuron_uid in 0..neurons_n {
-            // Do not deregister the owner's hotkey from the `SubnetOwnerHotkey` map
+            // Do not deregister the owner's owned hotkeys
             if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-                if let Ok(top_sn_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                    if top_sn_owner_hotkey == hotkey {
-                        continue;
-                    }
+                if immortal_hotkeys.contains(&hotkey) {
+                    continue;
                 }
             }
 

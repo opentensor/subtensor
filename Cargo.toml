@@ -222,6 +222,8 @@ substrate-prometheus-endpoint = { git = "https://github.com/paritytech/polkadot-
 
 cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
+runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+
 # Frontier
 fp-evm = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
 fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
@@ -293,6 +295,7 @@ pow-faucet = []
 
 [patch."https://github.com/paritytech/polkadot-sdk.git"]
 sc-consensus-grandpa = { git = "https://github.com/opentensor/grandpa.git", rev = "67ff75e915bd44586b8f8443e457b5b101920da8" }
+sc-transaction-pool = { git = "https://github.com/opentensor/transaction-pool.git", rev = "5cc8837d4c237d02c013c50b0a0eb70fdcba75bf" }
 
 [patch.crates-io]
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }

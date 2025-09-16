@@ -26,31 +26,36 @@ WORKDIR /build
 # Install Rust
 RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup toolchain install
+RUN rustup toolchain install 1.88.0 --profile minimal
+RUN rustup default 1.88.0''
 RUN rustup target add wasm32v1-none
 
-## Build fast-blocks node
+## Build fast-runtime node
 RUN ./scripts/localnet.sh --build-only
-# Build non-fast-blocks
+# Build non-fast-runtime
 RUN ./scripts/localnet.sh False --build-only
 
 # Verify the binaries was produced
-RUN test -e /build/target/fast-blocks/release/node-subtensor
-RUN test -e /build/target/non-fast-blocks/release/node-subtensor
+RUN test -e /build/target/fast-runtime/release/node-subtensor
+RUN test -e /build/target/non-fast-runtime/release/node-subtensor
 
 FROM $BASE_IMAGE AS subtensor-localnet
 
 # Copy binaries
-COPY --from=builder /build/target/fast-blocks/release/node-subtensor target/fast-blocks/release/node-subtensor
-RUN chmod +x target/fast-blocks/release/node-subtensor
+COPY --from=builder /build/target/fast-runtime/release/node-subtensor target/fast-runtime/release/node-subtensor
+RUN chmod +x target/fast-runtime/release/node-subtensor
 
-COPY --from=builder /build/target/non-fast-blocks/release/node-subtensor target/non-fast-blocks/release/node-subtensor
-RUN chmod +x target/non-fast-blocks/release/node-subtensor
+COPY --from=builder /build/target/non-fast-runtime/release/node-subtensor target/non-fast-runtime/release/node-subtensor
+RUN chmod +x target/non-fast-runtime/release/node-subtensor
 
 COPY --from=builder /build/snapshot.json /snapshot.json
 
 COPY --from=builder /build/scripts/localnet.sh scripts/localnet.sh
 RUN chmod +x /scripts/localnet.sh
+
+# Copy WebAssembly artifacts
+COPY --from=builder /build/target/fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm target/fast-runtime/release/node_subtensor_runtime.compact.compressed.wasm
+COPY --from=builder /build/target/non-fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm target/non-fast-runtime/release/node_subtensor_runtime.compact.compressed.wasm
 
 ## Ubdate certificates
 RUN apt-get update && apt-get install -y ca-certificates

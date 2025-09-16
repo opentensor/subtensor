@@ -10,7 +10,8 @@ import { generateRandomEthersWallet } from "../src/utils"
 import {
     forceSetBalanceToSs58Address, forceSetBalanceToEthAddress, addNewSubnetwork, burnedRegister, setCommitRevealWeightsEnabled,
     setWeightsSetRateLimit,
-    startCall
+    startCall,
+    disableAdminFreezeWindowAndOwnerHyperparamRateLimit
 } from "../src/subtensor"
 
 describe("Test neuron precompile contract, set weights function", () => {
@@ -38,6 +39,7 @@ describe("Test neuron precompile contract, set weights function", () => {
         await burnedRegister(api, netuid, convertH160ToSS58(wallet.address), coldkey)
         const uid = await api.query.SubtensorModule.Uids.getValue(netuid, convertH160ToSS58(wallet.address))
         assert.notEqual(uid, undefined)
+        await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
         // disable reveal and enable direct set weights
         await setCommitRevealWeightsEnabled(api, netuid, false)
         await setWeightsSetRateLimit(api, netuid, BigInt(0))
