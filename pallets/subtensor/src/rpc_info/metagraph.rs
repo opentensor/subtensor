@@ -635,7 +635,8 @@ impl<T: Config> Pallet<T> {
         let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoCurrency>)> = vec![];
         let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<AlphaCurrency>)> = vec![];
         for hotkey in hotkeys.clone() {
-            let tao_divs = TaoDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
+            // Tao dividends were removed
+            let tao_divs = TaoCurrency::ZERO;
             let alpha_divs = AlphaDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
             tao_dividends_per_hotkey.push((hotkey.clone(), tao_divs.into()));
             alpha_dividends_per_hotkey.push((hotkey.clone(), alpha_divs.into()));
@@ -1336,7 +1337,8 @@ impl<T: Config> Pallet<T> {
                 let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoCurrency>)> =
                     vec![];
                 for hotkey in hotkeys.clone() {
-                    let tao_divs = TaoDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
+                    // Tao dividends were removed
+                    let tao_divs = TaoCurrency::ZERO;
                     tao_dividends_per_hotkey.push((hotkey.clone(), tao_divs.into()));
                 }
                 SelectiveMetagraph {

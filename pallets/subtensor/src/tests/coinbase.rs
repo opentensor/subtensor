@@ -1370,19 +1370,11 @@ fn test_get_root_children_drain() {
             AlphaDividendsPerSubnet::<Test>::get(alpha, alice),
             AlphaCurrency::ZERO
         );
-        assert_eq!(
-            TaoDividendsPerSubnet::<Test>::get(alpha, alice),
-            TaoCurrency::ZERO
-        );
         // Bob makes it all.
         assert_abs_diff_eq!(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
             pending_alpha,
             epsilon = 1.into()
-        );
-        assert_eq!(
-            TaoDividendsPerSubnet::<Test>::get(alpha, bob),
-            pending_root2
         );
         // The pending root dividends should be present in root subnet.
         assert_eq!(

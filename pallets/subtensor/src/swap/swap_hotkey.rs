@@ -552,15 +552,7 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
         // 8.3 Swap TaoDividendsPerSubnet
-        let old_hotkey_tao_dividends = TaoDividendsPerSubnet::<T>::get(netuid, old_hotkey);
-        let new_hotkey_tao_dividends = TaoDividendsPerSubnet::<T>::get(netuid, new_hotkey);
-        TaoDividendsPerSubnet::<T>::remove(netuid, old_hotkey);
-        TaoDividendsPerSubnet::<T>::insert(
-            netuid,
-            new_hotkey,
-            old_hotkey_tao_dividends.saturating_add(new_hotkey_tao_dividends),
-        );
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        // Tao dividends were removed
 
         // 9. Swap Alpha
         // Alpha( hotkey, coldkey, netuid ) -> alpha
