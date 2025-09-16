@@ -551,6 +551,11 @@ pub mod pallet {
         T::InitialNetworkRateLimit::get()
     }
     #[pallet::type_value]
+    /// Default value for network rate limit.
+    pub fn DefaultNetworkRegistrationStartBlock<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
     /// Default value for weights version key rate limit.
     /// In units of tempos.
     pub fn DefaultWeightsVersionKeyRateLimit<T: Config>() -> u64 {
@@ -1832,6 +1837,11 @@ pub mod pallet {
     /// --- ITEM ( CommitRevealWeightsVersion )
     pub type CommitRevealWeightsVersion<T> =
         StorageValue<_, u16, ValueQuery, DefaultCommitRevealWeightsVersion<T>>;
+
+    #[pallet::storage]
+    /// ITEM( NetworkRegistrationStartBlock )
+    pub type NetworkRegistrationStartBlock<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
 
     /// ======================
     /// ==== Sub-subnets =====

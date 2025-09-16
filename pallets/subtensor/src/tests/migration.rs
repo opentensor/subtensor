@@ -1757,26 +1757,56 @@ fn test_migrate_subnet_limit_to_default() {
 #[test]
 fn test_migrate_network_lock_reduction_interval_and_decay() {
     new_test_ext(0).execute_with(|| {
+        const NEW_VALUE: u64 = 28_800;
+        const ONE_WEEK_BLOCKS: u64 = 50_400;
+
         // ── pre ──────────────────────────────────────────────────────────────
         assert!(
             !HasMigrationRun::<Test>::get(b"migrate_network_lock_reduction_interval".to_vec()),
             "HasMigrationRun should be false before migration"
         );
 
-        // ensure current_block > 0 so mult = 2 after migration
+        // ensure current_block > 0
         step_block(1);
+        let current_block_before = Pallet::<Test>::get_current_block_as_u64();
 
         // ── run migration ────────────────────────────────────────────────────
         let weight = crate::migrations::migrate_network_lock_reduction_interval::migrate_network_lock_reduction_interval::<Test>();
         assert!(!weight.is_zero(), "migration weight should be > 0");
 
         // ── params & flags ───────────────────────────────────────────────────
-        assert_eq!(NetworkLockReductionInterval::<Test>::get(), 28_800);
-        assert_eq!(NetworkRateLimit::<Test>::get(), 28_800);
-        assert_eq!(Pallet::<Test>::get_network_last_lock(), 1_000_000_000_000u64.into()); // 1000 TAO in rAO
+        assert_eq!(NetworkLockReductionInterval::<Test>::get(), NEW_VALUE);
+        assert_eq!(NetworkRateLimit::<Test>::get(), NEW_VALUE);
+        assert_eq!(
+            Pallet::<Test>::get_network_last_lock(),
+            1_000_000_000_000u64.into(), // 1000 TAO in rao
+            "last_lock should be 1_000_000_000_000 rao"
+        );
 
-        let start_block = Pallet::<Test>::get_network_last_lock_block();
-        assert_eq!(start_block, Pallet::<Test>::get_current_block_as_u64());
+        // last_lock_block should be set one week in the future
+        let last_lock_block = Pallet::<Test>::get_network_last_lock_block();
+        let expected_block = current_block_before.saturating_add(ONE_WEEK_BLOCKS);
+        assert_eq!(
+            last_lock_block,
+            expected_block,
+            "last_lock_block should be current + ONE_WEEK_BLOCKS"
+        );
+
+        // registration start block should match the same future block
+        assert_eq!(
+            NetworkRegistrationStartBlock::<Test>::get(),
+            expected_block,
+            "NetworkRegistrationStartBlock should equal last_lock_block"
+        );
+
+        // lock cost should be 2000 TAO immediately after migration
+        let lock_cost_now = Pallet::<Test>::get_network_lock_cost();
+        assert_eq!(
+            lock_cost_now,
+            2_000_000_000_000u64.into(),
+            "lock cost should be 2000 TAO right after migration"
+        );
+
         assert!(
             HasMigrationRun::<Test>::get(b"migrate_network_lock_reduction_interval".to_vec()),
             "HasMigrationRun should be true after migration"

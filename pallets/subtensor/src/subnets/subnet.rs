@@ -128,8 +128,13 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure the mechanism is Dynamic.
         ensure!(mechid == 1, Error::<T>::MechanismDoesNotExist);
 
-        // --- 4. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
+        ensure!(
+            current_block >= NetworkRegistrationStartBlock::<T>::get(),
+            Error::<T>::SubNetRegistrationDisabled
+        );
+
+        // --- 4. Rate limit for network registrations.
         ensure!(
             Self::passes_rate_limit(&TransactionType::RegisterNetwork, &coldkey),
             Error::<T>::NetworkTxRateLimitExceeded
