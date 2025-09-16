@@ -20,6 +20,9 @@ mod benchmarks {
 
     #[benchmark]
     fn swap_authorities(a: Linear<0, 32>) {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+
         let mut value: BoundedVec<
             <T as pallet::Config>::AuthorityId,
             <T as pallet::Config>::MaxAuthorities,
@@ -39,6 +42,8 @@ mod benchmarks {
 
     #[benchmark]
     fn schedule_grandpa_change(a: Linear<0, 32>) {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         let next_authorities = (1..=a)
             .map(|idx| account("Authority", idx, 0u32))
             .collect::<Vec<(sp_consensus_grandpa::AuthorityId, u64)>>();
@@ -50,18 +55,24 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_default_take() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         #[extrinsic_call]
 		_(RawOrigin::Root, 100u16/*default_take*/)/*sudo_set_default_take*/;
     }
 
     #[benchmark]
     fn sudo_set_serving_rate_limit() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         #[extrinsic_call]
 		_(RawOrigin::Root, 1u16.into()/*netuid*/, 100u64/*serving_rate_limit*/)/*sudo_set_serving_rate_limit*/;
     }
 
     #[benchmark]
     fn sudo_set_max_difficulty() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -73,6 +84,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_min_difficulty() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -84,6 +97,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_weights_set_rate_limit() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -95,6 +110,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_weights_version_key() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -106,6 +123,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_bonds_moving_average() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -117,6 +136,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_bonds_penalty() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -128,6 +149,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_max_allowed_validators() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -139,6 +162,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_difficulty() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -150,6 +175,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_adjustment_interval() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -161,6 +188,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_target_registrations_per_interval() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -172,6 +201,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_activity_cutoff() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -183,6 +214,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_rho() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -194,6 +227,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_kappa() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*sudo_tempo*/
@@ -205,6 +240,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_max_allowed_uids() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -216,6 +253,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_min_allowed_weights() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -227,6 +266,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_immunity_period() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -238,6 +279,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_max_weight_limit() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -249,6 +292,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_max_registrations_per_block() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -260,6 +305,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_max_burn() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -271,6 +318,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_min_burn() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -282,6 +331,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_network_registration_allowed() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -304,6 +355,8 @@ mod benchmarks {
     */
     #[benchmark]
     fn sudo_set_tempo() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
@@ -315,6 +368,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_commit_reveal_weights_interval() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*sudo_tempo*/
@@ -326,6 +381,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_commit_reveal_weights_enabled() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*sudo_tempo*/
@@ -337,6 +394,8 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_commit_reveal_version() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*sudo_tempo*/
@@ -354,12 +413,16 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_owner_hparam_rate_limit() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         #[extrinsic_call]
 		_(RawOrigin::Root, 2u16/*epochs*/)/*sudo_set_owner_hparam_rate_limit*/;
     }
 
     #[benchmark]
     fn sudo_set_owner_immune_neuron_limit() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             1u16.into(), /*netuid*/
             1u16,        /*sudo_tempo*/

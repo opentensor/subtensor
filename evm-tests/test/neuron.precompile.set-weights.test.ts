@@ -1,6 +1,6 @@
 import * as assert from "assert";
 
-import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair, waitForTransactionWithRetry } from "../src/substrate"
+import { getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
 import { devnet } from "@polkadot-api/descriptors"
 import { TypedApi } from "polkadot-api";
 import { convertH160ToSS58, convertPublicKeyToSs58, } from "../src/address-utils"
@@ -10,7 +10,8 @@ import { generateRandomEthersWallet } from "../src/utils"
 import {
     forceSetBalanceToSs58Address, forceSetBalanceToEthAddress, addNewSubnetwork, burnedRegister, setCommitRevealWeightsEnabled,
     setWeightsSetRateLimit,
-    startCall
+    startCall,
+    disableAdminFreezeWindowAndOwnerHyperparamRateLimit
 } from "../src/subtensor"
 
 describe("Test neuron precompile contract, set weights function", () => {
@@ -38,20 +39,7 @@ describe("Test neuron precompile contract, set weights function", () => {
         await burnedRegister(api, netuid, convertH160ToSS58(wallet.address), coldkey)
         const uid = await api.query.SubtensorModule.Uids.getValue(netuid, convertH160ToSS58(wallet.address))
         assert.notEqual(uid, undefined)
-        // Disable admin freeze window and owner hyperparam rate limiting for tests
-        {
-            const alice = getAliceSigner()
-
-            // Set AdminFreezeWindow to 0
-            const setFreezeWindow = api.tx.AdminUtils.sudo_set_admin_freeze_window({ window: 0 })
-            const sudoFreezeTx = api.tx.Sudo.sudo({ call: setFreezeWindow.decodedCall })
-            await waitForTransactionWithRetry(api, sudoFreezeTx, alice)
-
-            // Set OwnerHyperparamRateLimit to 0 (disable RL)
-            const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ epochs: 0 })
-            const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
-            await waitForTransactionWithRetry(api, sudoOwnerRateTx, alice)
-        }
+        await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
         // disable reveal and enable direct set weights
         await setCommitRevealWeightsEnabled(api, netuid, false)
         await setWeightsSetRateLimit(api, netuid, BigInt(0))

@@ -1,13 +1,13 @@
 import * as assert from "assert";
 
-import { getDevnetApi, getRandomSubstrateKeypair, getAliceSigner, waitForTransactionWithRetry } from "../src/substrate"
+import { getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
 import { devnet } from "@polkadot-api/descriptors"
 import { TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { generateRandomEthersWallet } from "../src/utils";
 import { ISubnetABI, ISUBNET_ADDRESS } from "../src/contracts/subnet"
 import { ethers } from "ethers"
-import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor"
+import { disableAdminFreezeWindowAndOwnerHyperparamRateLimit, forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor"
 
 describe("Test the Subnet precompile contract", () => {
     // init eth part
@@ -26,20 +26,7 @@ describe("Test the Subnet precompile contract", () => {
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey2.publicKey))
         await forceSetBalanceToEthAddress(api, wallet.address)
 
-        // Disable admin freeze window and owner hyperparam rate limiting for tests
-        {
-            const alice = getAliceSigner()
-
-            // Set AdminFreezeWindow to 0
-            const setFreezeWindow = api.tx.AdminUtils.sudo_set_admin_freeze_window({ window: 0 })
-            const sudoFreezeTx = api.tx.Sudo.sudo({ call: setFreezeWindow.decodedCall })
-            await waitForTransactionWithRetry(api, sudoFreezeTx, alice)
-
-            // Set OwnerHyperparamRateLimit to 0 (disable RL)
-            const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ epochs: 0 })
-            const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
-            await waitForTransactionWithRetry(api, sudoOwnerRateTx, alice)
-        }
+        await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
     })
 
     it("Can register network without identity info", async () => {

@@ -172,7 +172,7 @@ impl<T: Config> Pallet<T> {
 
             // Check that values add up to 65535
             let total: u64 = split.iter().map(|s| *s as u64).sum();
-            ensure!(total <= u16::MAX as u64, Error::<T>::InvalidValue);
+            ensure!(total == u16::MAX as u64, Error::<T>::InvalidValue);
 
             SubsubnetEmissionSplit::<T>::insert(netuid, split);
         } else {

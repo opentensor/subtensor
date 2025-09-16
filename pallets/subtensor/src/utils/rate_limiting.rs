@@ -13,7 +13,8 @@ pub enum TransactionType {
     SetWeightsVersionKey,
     SetSNOwnerHotkey,
     OwnerHyperparamUpdate(Hyperparameter),
-    SubsubnetParameterUpdate,
+    SubsubnetCountUpdate,
+    SubsubnetEmission,
 }
 
 impl TransactionType {
@@ -23,7 +24,8 @@ impl TransactionType {
             Self::SetChildren => 150, // 30 minutes
             Self::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             Self::RegisterNetwork => NetworkRateLimit::<T>::get(),
-            Self::SubsubnetParameterUpdate => SubsubnetCountSetRateLimit::<T>::get(),
+            Self::SubsubnetCountUpdate => SubsubnetCountSetRateLimit::<T>::get(),
+            Self::SubsubnetEmission => SubsubnetEmissionRateLimit::<T>::get(),
 
             Self::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,
@@ -135,7 +137,8 @@ impl From<TransactionType> for u16 {
             TransactionType::SetWeightsVersionKey => 4,
             TransactionType::SetSNOwnerHotkey => 5,
             TransactionType::OwnerHyperparamUpdate(_) => 6,
-            TransactionType::SubsubnetParameterUpdate => 7,
+            TransactionType::SubsubnetCountUpdate => 7,
+            TransactionType::SubsubnetEmission => 8,
         }
     }
 }
@@ -150,7 +153,8 @@ impl From<u16> for TransactionType {
             4 => TransactionType::SetWeightsVersionKey,
             5 => TransactionType::SetSNOwnerHotkey,
             6 => TransactionType::OwnerHyperparamUpdate(Hyperparameter::Unknown),
-            7 => TransactionType::SubsubnetParameterUpdate,
+            7 => TransactionType::SubsubnetCountUpdate,
+            8 => TransactionType::SubsubnetEmission,
             _ => TransactionType::Unknown,
         }
     }
