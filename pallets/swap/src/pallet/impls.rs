@@ -1215,9 +1215,6 @@ impl<T: Config> Pallet<T> {
 
     /// Dissolve all LPs and clean state.
     pub fn do_dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
-        let user_lp_enabled =
-        <Self as subtensor_swap_interface::SwapHandler<T::AccountId>>::is_user_liquidity_enabled(netuid);
-
         if SwapV3Initialized::<T>::get(netuid) {
             // 1) Snapshot (owner, position_id).
             struct CloseItem<A> {
@@ -1236,21 +1233,28 @@ impl<T: Config> Pallet<T> {
                 .sort_by(|a, b| (a.owner == protocol_account).cmp(&(b.owner == protocol_account)));
 
             for CloseItem { owner, pos_id } in to_close.into_iter() {
-                let rm = Self::do_remove_liquidity(netuid, &owner, pos_id)?;
-
-                // τ: refund **principal only** (no τ fees).
-                if rm.tao > TaoCurrency::ZERO {
-                    T::BalanceOps::increase_balance(&owner, rm.tao);
-                }
-
-                if owner != protocol_account {
-                    // Principal reserves decrease
-                    T::BalanceOps::decrease_provided_tao_reserve(netuid, rm.tao);
-
-                    // Burn α (principal + fees) from provided reserves; do not credit to users.
-                    let alpha_burn = rm.alpha.saturating_add(rm.fee_alpha);
-                    if alpha_burn > AlphaCurrency::ZERO {
-                        T::BalanceOps::decrease_provided_alpha_reserve(netuid, alpha_burn);
+                match Self::do_remove_liquidity(netuid, &owner, pos_id) {
+                    Ok(rm) => {
+                        if rm.tao > TaoCurrency::ZERO {
+                            T::BalanceOps::increase_balance(&owner, rm.tao);
+                        }
+                        if owner != protocol_account {
+                            T::BalanceOps::decrease_provided_tao_reserve(netuid, rm.tao);
+                            let alpha_burn = rm.alpha.saturating_add(rm.fee_alpha);
+                            if alpha_burn > AlphaCurrency::ZERO {
+                                T::BalanceOps::decrease_provided_alpha_reserve(netuid, alpha_burn);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::debug!(
+                            "dissolve_all_lp: force-closing failed position: netuid={:?}, owner={:?}, pos_id={:?}, err={:?}",
+                            netuid,
+                            owner,
+                            pos_id,
+                            e
+                        );
+                        continue;
                     }
                 }
             }
@@ -1277,7 +1281,7 @@ impl<T: Config> Pallet<T> {
             EnabledUserLiquidity::<T>::remove(netuid);
 
             log::debug!(
-                "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V3, user_lp_enabled={user_lp_enabled}, positions closed; τ principal refunded; α burned; state cleared"
+                "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V3, positions closed; τ principal refunded; α burned; state cleared"
             );
 
             return Ok(());
@@ -1305,7 +1309,7 @@ impl<T: Config> Pallet<T> {
         EnabledUserLiquidity::<T>::remove(netuid);
 
         log::debug!(
-            "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, user_lp_enabled={user_lp_enabled}, state_cleared"
+            "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, state_cleared"
         );
 
         Ok(())
