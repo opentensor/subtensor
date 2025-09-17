@@ -1816,104 +1816,102 @@ fn test_migrate_network_lock_reduction_interval_and_decay() {
 }
 
 #[test]
-fn test_migrate_restore_subnet_locked_feb1_2025() {
-    use sp_runtime::traits::SaturatedConversion; // only for NetUid -> u16 when reading back
-    use std::collections::BTreeMap;
-
-    use crate::{HasMigrationRun, SubnetLocked, TaoCurrency};
-
-    // NOTE: Ensure the migration uses `TaoCurrency::from(rao_u64)` and a `&[(u16, u64)]` snapshot.
+fn test_migrate_restore_subnet_locked_65_128() {
+    use sp_runtime::traits::SaturatedConversion;
     new_test_ext(0).execute_with(|| {
-        // ── pre ──────────────────────────────────────────────────────────────
         let name = b"migrate_restore_subnet_locked".to_vec();
         assert!(
             !HasMigrationRun::<Test>::get(name.clone()),
             "HasMigrationRun should be false before migration"
         );
 
-        // Snapshot at block #4_828_623 (2025-02-01 00:00:00Z), RAO as u64.
+        // Expected snapshot for netuids 65..128.
         const EXPECTED: &[(u16, u64)] = &[
-            (2, 976_893_069_056),
-            (3, 2_569_362_397_490),
-            (4, 1_928_551_593_932),
-            (5, 1_712_540_082_588),
-            (6, 1_495_929_556_770),
-            (7, 1_011_702_451_936),
-            (8, 337_484_391_024),
-            (9, 381_240_180_320),
-            (10, 1_253_515_128_353),
-            (11, 1_453_924_672_132),
-            (12, 100_000_000_000),
-            (13, 100_000_000_000),
-            (14, 1_489_714_521_808),
-            (15, 1_784_089_225_496),
-            (16, 889_176_219_484),
-            (17, 1_266_310_122_772),
-            (18, 222_355_058_433),
-            (19, 100_000_000_000),
-            (20, 100_000_000_000),
-            (21, 885_096_322_978),
-            (22, 100_000_000_000),
-            (23, 100_000_000_000),
-            (24, 5_146_073_854_481),
-            (25, 1_782_920_948_214),
-            (26, 153_583_865_248),
-            (27, 201_344_183_084),
-            (28, 901_455_879_445),
-            (29, 175_000_001_600),
-            (30, 1_419_730_660_074),
-            (31, 319_410_100_502),
-            (32, 2_016_397_028_246),
-            (33, 1_626_477_274_174),
-            (34, 1_455_297_496_345),
-            (35, 1_191_275_979_639),
-            (36, 1_097_008_574_216),
-            (37, 864_664_455_362),
-            (38, 1_001_936_494_076),
-            (39, 1_366_096_404_884),
-            (40, 100_000_000_000),
-            (41, 535_937_523_200),
-            (42, 1_215_698_423_344),
-            (43, 1_641_308_676_800),
-            (44, 1_514_636_189_434),
-            (45, 1_605_608_381_438),
-            (46, 1_095_943_027_350),
-            (47, 1_499_235_469_986),
-            (48, 1_308_073_720_362),
-            (49, 1_222_672_092_068),
-            (50, 2_628_355_421_561),
-            (51, 1_520_860_720_561),
-            (52, 1_794_457_248_725),
-            (53, 1_721_472_811_492),
-            (54, 2_048_900_691_868),
-            (55, 1_278_597_446_119),
-            (56, 2_016_045_544_480),
-            (57, 1_920_563_399_676),
-            (58, 2_246_525_691_504),
-            (59, 1_776_159_384_888),
-            (60, 2_173_138_865_414),
-            (61, 1_435_634_867_728),
-            (62, 2_061_282_563_888),
-            (63, 3_008_967_320_998),
-            (64, 2_099_236_359_026),
+            (65, 37_274_536_408),
+            (66, 65_230_444_016),
+            (67, 114_153_284_032),
+            (68, 199_768_252_064),
+            (69, 349_594_445_728),
+            (70, 349_412_366_216),
+            (71, 213_408_488_702),
+            (72, 191_341_473_067),
+            (73, 246_711_333_592),
+            (74, 291_874_466_228),
+            (75, 247_485_227_056),
+            (76, 291_241_991_316),
+            (77, 303_154_601_714),
+            (78, 287_407_417_932),
+            (79, 254_935_051_664),
+            (80, 255_413_055_349),
+            (81, 249_790_431_509),
+            (82, 261_343_249_180),
+            (83, 261_361_408_796),
+            (84, 201_938_003_214),
+            (85, 264_805_234_604),
+            (86, 223_171_973_880),
+            (87, 180_397_358_280),
+            (88, 270_596_039_760),
+            (89, 286_399_608_951),
+            (90, 267_684_201_301),
+            (91, 284_637_542_762),
+            (92, 288_373_410_868),
+            (93, 290_836_604_849),
+            (94, 270_861_792_144),
+            (95, 210_595_055_304),
+            (96, 315_263_727_200),
+            (97, 158_244_884_792),
+            (98, 168_102_223_900),
+            (99, 252_153_339_800),
+            (100, 378_230_014_000),
+            (101, 205_977_765_866),
+            (102, 149_434_017_849),
+            (103, 135_476_471_008),
+            (104, 147_970_415_680),
+            (105, 122_003_668_139),
+            (106, 133_585_556_570),
+            (107, 200_137_144_216),
+            (108, 106_767_623_816),
+            (109, 124_280_483_748),
+            (110, 186_420_726_696),
+            (111, 249_855_564_892),
+            (112, 196_761_272_984),
+            (113, 147_120_048_727),
+            (114, 84_021_895_534),
+            (115, 98_002_215_656),
+            (116, 89_944_262_256),
+            (117, 107_183_582_952),
+            (118, 110_644_724_664),
+            (119, 99_380_483_902),
+            (120, 138_829_019_156),
+            (121, 111_988_743_976),
+            (122, 130_264_686_152),
+            (123, 118_034_291_488),
+            (124, 79_312_501_676),
+            (125, 43_214_310_704),
+            (126, 64_755_449_962),
+            (127, 97_101_698_382),
+            (128, 145_645_807_991),
         ];
 
-        // ── run migration ────────────────────────────────────────────────────
+        // Run migration
         let weight =
             crate::migrations::migrate_subnet_locked::migrate_restore_subnet_locked::<Test>();
         assert!(!weight.is_zero(), "migration weight should be > 0");
 
-        // ── validate: build a (u16 -> u64) map directly from storage iterator ─
+        // Read back storage as (u16 -> u64)
         let actual: BTreeMap<u16, u64> = SubnetLocked::<Test>::iter()
             .map(|(k, v)| (k.saturated_into::<u16>(), u64::from(v)))
             .collect();
 
         let expected: BTreeMap<u16, u64> = EXPECTED.iter().copied().collect();
 
-        // 1) exact content match (keys and values)
-        assert_eq!(actual, expected, "SubnetLocked map mismatch with snapshot");
+        // 1) exact content
+        assert_eq!(
+            actual, expected,
+            "SubnetLocked map mismatch for 65..128 snapshot"
+        );
 
-        // 2) count and total sum match expectations
+        // 2) count and total
         let expected_len = expected.len();
         let expected_sum: u128 = expected.values().map(|v| *v as u128).sum();
 
@@ -1923,22 +1921,19 @@ fn test_migrate_restore_subnet_locked_feb1_2025() {
         assert_eq!(count_after, expected_len, "entry count mismatch");
         assert_eq!(sum_after, expected_sum, "total RAO sum mismatch");
 
-        // ── migration flag ───────────────────────────────────────────────────
+        // 3) migration flag set
         assert!(
             HasMigrationRun::<Test>::get(name.clone()),
             "HasMigrationRun should be true after migration"
         );
 
-        // ── idempotence: re-running does not change storage ─────────────────
-        let before = actual;
-
+        // 4) idempotence
+        let before = actual.clone();
         let _again =
             crate::migrations::migrate_subnet_locked::migrate_restore_subnet_locked::<Test>();
-
         let after: BTreeMap<u16, u64> = SubnetLocked::<Test>::iter()
             .map(|(k, v)| (k.saturated_into::<u16>(), u64::from(v)))
             .collect();
-
         assert_eq!(
             before, after,
             "re-running the migration should not change storage"
