@@ -4,8 +4,9 @@ use subtensor_runtime_common::NetUid;
 
 #[cfg(test)]
 use crate::{
-    BalanceOf, CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet,
-    Registration, RevealedCommitments, TimelockedIndex, UsedSpaceOf,
+    BalanceOf, CommitmentInfo, CommitmentOf, Config, Data, Error, Event, LastBondsReset,
+    LastCommitment, MaxSpace, Pallet, Registration, RevealedCommitments, TimelockedIndex,
+    UsageTracker, UsedSpaceOf,
     mock::{
         Balances, DRAND_QUICKNET_SIG_2000_HEX, DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin,
         Test, TestMaxFields, insert_drand_pulse, new_test_ext, produce_ciphertext,
@@ -2183,5 +2184,121 @@ fn mixed_timelocked_and_raw_fields_works() {
             revealed_str_2.contains("TLE #2 => round=2000"),
             "Check that TLE #2 was revealed"
         );
+    });
+}
+
+#[test]
+fn purge_netuid_clears_only_that_netuid() {
+    new_test_ext().execute_with(|| {
+        // Setup
+        System::<Test>::set_block_number(1);
+
+        let net_a = NetUid::from(42);
+        let net_b = NetUid::from(43);
+        let who_a1: u64 = 1001;
+        let who_a2: u64 = 1002;
+        let who_b: u64 = 2001;
+
+        // Minimal commitment payload
+        let empty_fields: BoundedVec<Data, <Test as Config>::MaxFields> = BoundedVec::default();
+        let info_empty: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
+            fields: empty_fields,
+        };
+        let bn = System::<Test>::block_number();
+
+        // Seed NET A with two accounts across all tracked storages
+        let reg_a1 = Registration {
+            deposit: Default::default(),
+            block: bn,
+            info: info_empty.clone(),
+        };
+        let reg_a2 = Registration {
+            deposit: Default::default(),
+            block: bn,
+            info: info_empty.clone(),
+        };
+        CommitmentOf::<Test>::insert(net_a, who_a1, reg_a1);
+        CommitmentOf::<Test>::insert(net_a, who_a2, reg_a2);
+        LastCommitment::<Test>::insert(net_a, who_a1, bn);
+        LastCommitment::<Test>::insert(net_a, who_a2, bn);
+        LastBondsReset::<Test>::insert(net_a, who_a1, bn);
+        RevealedCommitments::<Test>::insert(net_a, who_a1, vec![(b"a".to_vec(), 7u64)]);
+        UsedSpaceOf::<Test>::insert(
+            net_a,
+            who_a1,
+            UsageTracker {
+                last_epoch: 1,
+                used_space: 123,
+            },
+        );
+
+        // Seed NET B with one account that must remain intact
+        let reg_b = Registration {
+            deposit: Default::default(),
+            block: bn,
+            info: info_empty,
+        };
+        CommitmentOf::<Test>::insert(net_b, who_b, reg_b);
+        LastCommitment::<Test>::insert(net_b, who_b, bn);
+        LastBondsReset::<Test>::insert(net_b, who_b, bn);
+        RevealedCommitments::<Test>::insert(net_b, who_b, vec![(b"b".to_vec(), 8u64)]);
+        UsedSpaceOf::<Test>::insert(
+            net_b,
+            who_b,
+            UsageTracker {
+                last_epoch: 9,
+                used_space: 999,
+            },
+        );
+
+        // Timelocked index contains both nets
+        TimelockedIndex::<Test>::mutate(|idx| {
+            idx.insert((net_a, who_a1));
+            idx.insert((net_a, who_a2));
+            idx.insert((net_b, who_b));
+        });
+
+        // Sanity pre-checks
+        assert!(CommitmentOf::<Test>::get(net_a, who_a1).is_some());
+        assert!(CommitmentOf::<Test>::get(net_b, who_b).is_some());
+        assert!(TimelockedIndex::<Test>::get().contains(&(net_a, who_a1)));
+
+        // Act
+        Pallet::<Test>::purge_netuid(net_a);
+
+        // NET A: everything cleared
+        assert_eq!(CommitmentOf::<Test>::iter_prefix(net_a).count(), 0);
+        assert!(CommitmentOf::<Test>::get(net_a, who_a1).is_none());
+        assert!(CommitmentOf::<Test>::get(net_a, who_a2).is_none());
+
+        assert_eq!(LastCommitment::<Test>::iter_prefix(net_a).count(), 0);
+        assert!(LastCommitment::<Test>::get(net_a, who_a1).is_none());
+        assert!(LastCommitment::<Test>::get(net_a, who_a2).is_none());
+
+        assert_eq!(LastBondsReset::<Test>::iter_prefix(net_a).count(), 0);
+        assert!(LastBondsReset::<Test>::get(net_a, who_a1).is_none());
+
+        assert_eq!(RevealedCommitments::<Test>::iter_prefix(net_a).count(), 0);
+        assert!(RevealedCommitments::<Test>::get(net_a, who_a1).is_none());
+
+        assert_eq!(UsedSpaceOf::<Test>::iter_prefix(net_a).count(), 0);
+        assert!(UsedSpaceOf::<Test>::get(net_a, who_a1).is_none());
+
+        let idx_after = TimelockedIndex::<Test>::get();
+        assert!(!idx_after.contains(&(net_a, who_a1)));
+        assert!(!idx_after.contains(&(net_a, who_a2)));
+
+        // NET B: untouched
+        assert!(CommitmentOf::<Test>::get(net_b, who_b).is_some());
+        assert!(LastCommitment::<Test>::get(net_b, who_b).is_some());
+        assert!(LastBondsReset::<Test>::get(net_b, who_b).is_some());
+        assert!(RevealedCommitments::<Test>::get(net_b, who_b).is_some());
+        assert!(UsedSpaceOf::<Test>::get(net_b, who_b).is_some());
+        assert!(idx_after.contains(&(net_b, who_b)));
+
+        // Idempotency
+        Pallet::<Test>::purge_netuid(net_a);
+        assert_eq!(CommitmentOf::<Test>::iter_prefix(net_a).count(), 0);
+        assert!(!TimelockedIndex::<Test>::get().contains(&(net_a, who_a1)));
     });
 }

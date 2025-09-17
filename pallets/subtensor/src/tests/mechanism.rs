@@ -940,7 +940,7 @@ fn clear_neuron_handles_absent_rows_gracefully() {
 }
 
 #[test]
-fn test_set_sub_weights_happy_path_sets_row_under_subid() {
+fn test_set_mechanism_weights_happy_path_sets_row_under_subid() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
@@ -979,7 +979,7 @@ fn test_set_sub_weights_happy_path_sets_row_under_subid() {
         // Call extrinsic
         let dests = vec![uid2, uid3];
         let weights = vec![88u16, 0xFFFF];
-        assert_ok!(SubtensorModule::set_sub_weights(
+        assert_ok!(SubtensorModule::set_mechanism_weights(
             RawOrigin::Signed(hk1).into(),
             netuid,
             mecid,
@@ -1001,7 +1001,7 @@ fn test_set_sub_weights_happy_path_sets_row_under_subid() {
 }
 
 #[test]
-fn test_set_sub_weights_above_mechanism_count_fails() {
+fn test_set_mechanism_weights_above_mechanism_count_fails() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
@@ -1037,7 +1037,7 @@ fn test_set_sub_weights_above_mechanism_count_fails() {
         let dests = vec![uid2];
         let weights = vec![88u16];
         assert_noop!(
-            SubtensorModule::set_sub_weights(
+            SubtensorModule::set_mechanism_weights(
                 RawOrigin::Signed(hk1).into(),
                 netuid,
                 subid_above,
@@ -1051,7 +1051,7 @@ fn test_set_sub_weights_above_mechanism_count_fails() {
 }
 
 #[test]
-fn test_commit_reveal_sub_weights_ok() {
+fn test_commit_reveal_mechanism_weights_ok() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
 
@@ -1108,7 +1108,7 @@ fn test_commit_reveal_sub_weights_ok() {
         ));
 
         // Commit in epoch 0
-        assert_ok!(SubtensorModule::commit_sub_weights(
+        assert_ok!(SubtensorModule::commit_mechanism_weights(
             RuntimeOrigin::signed(hk1),
             netuid,
             mecid,
@@ -1117,7 +1117,7 @@ fn test_commit_reveal_sub_weights_ok() {
 
         // Advance one epoch, then reveal
         step_epochs(1, netuid);
-        assert_ok!(SubtensorModule::reveal_sub_weights(
+        assert_ok!(SubtensorModule::reveal_mechanism_weights(
             RuntimeOrigin::signed(hk1),
             netuid,
             mecid,
@@ -1192,7 +1192,7 @@ fn test_commit_reveal_above_mechanism_count_fails() {
 
         // Commit in epoch 0
         assert_noop!(
-            SubtensorModule::commit_sub_weights(
+            SubtensorModule::commit_mechanism_weights(
                 RuntimeOrigin::signed(hk1),
                 netuid,
                 subid_above,
@@ -1204,7 +1204,7 @@ fn test_commit_reveal_above_mechanism_count_fails() {
         // Advance one epoch, then attempt to reveal
         step_epochs(1, netuid);
         assert_noop!(
-            SubtensorModule::reveal_sub_weights(
+            SubtensorModule::reveal_mechanism_weights(
                 RuntimeOrigin::signed(hk1),
                 netuid,
                 subid_above,
@@ -1284,7 +1284,7 @@ fn test_reveal_crv3_commits_sub_success() {
         ct.serialize_compressed(&mut commit_bytes).expect("serialize");
 
         // Commit (sub variant)
-        assert_ok!(SubtensorModule::commit_timelocked_sub_weights(
+        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
             mecid,
@@ -1388,7 +1388,7 @@ fn test_crv3_above_mechanism_count_fails() {
 
         // Commit (sub variant)
         assert_noop!(
-            SubtensorModule::commit_timelocked_sub_weights(
+            SubtensorModule::commit_timelocked_mechanism_weights(
                 RuntimeOrigin::signed(hotkey1),
                 netuid,
                 subid_above,
@@ -1402,7 +1402,7 @@ fn test_crv3_above_mechanism_count_fails() {
 }
 
 #[test]
-fn test_do_commit_crv3_sub_weights_committing_too_fast() {
+fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let mecid = MechId::from(1u8);
@@ -1434,7 +1434,7 @@ fn test_do_commit_crv3_sub_weights_committing_too_fast() {
         );
 
         // first commit OK on mecid=1
-        assert_ok!(SubtensorModule::commit_timelocked_sub_weights(
+        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             mecid,
@@ -1445,7 +1445,7 @@ fn test_do_commit_crv3_sub_weights_committing_too_fast() {
 
         // immediate second commit on SAME mecid blocked
         assert_noop!(
-            SubtensorModule::commit_timelocked_sub_weights(
+            SubtensorModule::commit_timelocked_mechanism_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
                 mecid,
@@ -1460,7 +1460,7 @@ fn test_do_commit_crv3_sub_weights_committing_too_fast() {
         let other_subid = MechId::from(0u8);
         let idx0 = SubtensorModule::get_mechanism_storage_index(netuid, other_subid);
         SubtensorModule::set_last_update_for_uid(idx0, uid, 0); // baseline like above
-        assert_ok!(SubtensorModule::commit_timelocked_sub_weights(
+        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             other_subid,
@@ -1472,7 +1472,7 @@ fn test_do_commit_crv3_sub_weights_committing_too_fast() {
         // still too fast on original mecid after 2 blocks
         step_block(2);
         assert_noop!(
-            SubtensorModule::commit_timelocked_sub_weights(
+            SubtensorModule::commit_timelocked_mechanism_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
                 mecid,
@@ -1485,7 +1485,7 @@ fn test_do_commit_crv3_sub_weights_committing_too_fast() {
 
         // after enough blocks, OK again on original mecid
         step_block(3);
-        assert_ok!(SubtensorModule::commit_timelocked_sub_weights(
+        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             mecid,

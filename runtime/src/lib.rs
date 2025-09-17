@@ -490,7 +490,9 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
+use pallet_subtensor::{
+    CollectiveInterface, CommitmentsInterface, MemberManagement, ProxyInterface,
+};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -911,6 +913,13 @@ impl ProxyInterface<AccountId> for Proxier {
     }
 }
 
+pub struct CommitmentsI;
+impl CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(netuid: NetUid) {
+        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid);
+    }
+}
+
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
         BlockWeights::get().max_block;
@@ -1152,7 +1161,7 @@ parameter_types! {
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
-    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorInitialNetworkImmunity: u64 = 1_296_000;
     pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
@@ -1254,6 +1263,7 @@ impl pallet_subtensor::Config for Runtime {
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 parameter_types! {
@@ -2356,6 +2366,9 @@ impl_runtime_apis! {
 
         fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
+        }
+        fn get_subnet_to_prune() -> Option<NetUid> {
+        pallet_subtensor::Pallet::<Runtime>::get_network_to_prune()
         }
 
         fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {

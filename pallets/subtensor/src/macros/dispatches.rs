@@ -159,7 +159,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(4111))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn set_sub_weights(
+        pub fn set_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
             mecid: MechId,
@@ -170,7 +170,7 @@ mod dispatches {
             if Self::get_commit_reveal_weights_enabled(netuid) {
                 Err(Error::<T>::CommitRevealEnabled.into())
             } else {
-                Self::do_set_sub_weights(origin, netuid, mecid, dests, weights, version_key)
+                Self::do_set_mechanism_weights(origin, netuid, mecid, dests, weights, version_key)
             }
         }
 
@@ -269,13 +269,13 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(55_130_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_sub_weights(
+        pub fn commit_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
             mecid: MechId,
             commit_hash: H256,
         ) -> DispatchResult {
-            Self::do_commit_sub_weights(origin, netuid, mecid, commit_hash)
+            Self::do_commit_mechanism_weights(origin, netuid, mecid, commit_hash)
         }
 
         /// --- Allows a hotkey to commit weight hashes for multiple netuids as a batch.
@@ -408,7 +408,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(122_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn reveal_sub_weights(
+        pub fn reveal_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
             mecid: MechId,
@@ -417,7 +417,15 @@ mod dispatches {
             salt: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            Self::do_reveal_sub_weights(origin, netuid, mecid, uids, values, salt, version_key)
+            Self::do_reveal_mechanism_weights(
+                origin,
+                netuid,
+                mecid,
+                uids,
+                values,
+                salt,
+                version_key,
+            )
         }
 
         /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
@@ -498,14 +506,21 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(77_750_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_crv3_sub_weights(
+        pub fn commit_crv3_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
             mecid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
         ) -> DispatchResult {
-            Self::do_commit_timelocked_sub_weights(origin, netuid, mecid, commit, reveal_round, 4)
+            Self::do_commit_timelocked_mechanism_weights(
+                origin,
+                netuid,
+                mecid,
+                commit,
+                reveal_round,
+                4,
+            )
         }
 
         /// ---- The implementation for batch revealing committed weights.
@@ -1333,11 +1348,11 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
-            coldkey: T::AccountId,
+            _coldkey: T::AccountId,
             netuid: NetUid,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::user_remove_network(coldkey, netuid)
+            Self::do_dissolve_network(netuid)
         }
 
         /// Set a single child for a given hotkey on a specified network.
@@ -2295,7 +2310,7 @@ mod dispatches {
         }
 
         /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed for
-        /// a subsubnet.
+        /// a mechanism.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -2326,7 +2341,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(84_020_000, 0)
 		.saturating_add(T::DbWeight::get().reads(9_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_timelocked_sub_weights(
+        pub fn commit_timelocked_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
             mecid: MechId,
@@ -2334,7 +2349,7 @@ mod dispatches {
             reveal_round: u64,
             commit_reveal_version: u16,
         ) -> DispatchResult {
-            Self::do_commit_timelocked_sub_weights(
+            Self::do_commit_timelocked_mechanism_weights(
                 origin,
                 netuid,
                 mecid,

@@ -49,7 +49,7 @@ impl<T: Config> Pallet<T> {
         Self::internal_commit_weights(origin, netuid, MechId::MAIN, commit_hash)
     }
 
-    pub fn do_commit_sub_weights(
+    pub fn do_commit_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
         mecid: MechId,
@@ -274,7 +274,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    pub fn do_commit_timelocked_sub_weights(
+    pub fn do_commit_timelocked_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
         mecid: MechId,
@@ -436,7 +436,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    pub fn do_reveal_sub_weights(
+    pub fn do_reveal_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
         mecid: MechId,
@@ -533,7 +533,7 @@ impl<T: Config> Pallet<T> {
                     }
 
                     // --- 12. Proceed to set the revealed weights.
-                    Self::do_set_sub_weights(
+                    Self::do_set_mechanism_weights(
                         origin,
                         netuid,
                         mecid,
@@ -985,7 +985,7 @@ impl<T: Config> Pallet<T> {
     /// * 'MaxWeightExceeded':
     ///    - Attempting to set weights with max value exceeding limit.
     ///
-    pub fn do_set_sub_weights(
+    pub fn do_set_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
         mecid: MechId,

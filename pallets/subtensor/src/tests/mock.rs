@@ -202,7 +202,7 @@ parameter_types! {
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
-    pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
+    pub const InitialNetworkImmunityPeriod: u64 = 1_296_000;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
@@ -461,6 +461,7 @@ impl crate::Config for Test {
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 // Swap-related parameter types
@@ -490,6 +491,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
         Some(Ordering::Less)
     }
+}
+
+pub struct CommitmentsI;
+impl CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(_netuid: NetUid) {}
 }
 
 parameter_types! {

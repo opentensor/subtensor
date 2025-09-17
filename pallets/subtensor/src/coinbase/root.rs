@@ -16,12 +16,13 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use frame_support::dispatch::Pays;
-use frame_support::weights::Weight;
+use crate::CommitmentsInterface;
+use frame_support::{dispatch::Pays, weights::Weight};
 use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::I64F64;
+use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -364,52 +365,32 @@ impl<T: Config> Pallet<T> {
     /// * 'MechanismDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
-    pub fn user_remove_network(coldkey: T::AccountId, netuid: NetUid) -> dispatch::DispatchResult {
-        // --- 1. Ensure this subnet exists.
+    pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
+        // 1. --- The network exists?
         ensure!(
-            Self::if_subnet_exist(netuid),
+            Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,
             Error::<T>::MechanismDoesNotExist
         );
 
-        // --- 2. Ensure the caller owns this subnet.
-        ensure!(
-            SubnetOwner::<T>::get(netuid) == coldkey,
-            Error::<T>::NotSubnetOwner
-        );
+        // 2. --- Perform the cleanup before removing the network.
+        T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
+        Self::destroy_alpha_in_out_stakes(netuid)?;
+        T::CommitmentsInterface::purge_netuid(netuid);
 
-        // --- 4. Remove the subnet identity if it exists.
-        if SubnetIdentitiesV3::<T>::take(netuid).is_some() {
-            Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
-        }
-
-        // --- 5. Explicitly erase the network and all its parameters.
+        // 3. --- Remove the network
         Self::remove_network(netuid);
 
-        // --- 6. Emit the NetworkRemoved event.
-        log::debug!("NetworkRemoved( netuid:{netuid:?} )");
+        // 4. --- Emit the NetworkRemoved event
+        log::info!("NetworkRemoved( netuid:{netuid:?} )");
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
-        // --- 7. Return success.
         Ok(())
     }
 
-    /// Removes a network (identified by netuid) and all associated parameters.
-    ///
-    /// This function is responsible for cleaning up all the data associated with a network.
-    /// It ensures that all the storage values related to the network are removed, any
-    /// reserved balance is returned to the network owner, and the subnet identity is removed if it exists.
-    ///
-    /// # Args:
-    ///  * 'netuid': ('u16'): The unique identifier of the network to be removed.
-    ///
-    /// # Note:
-    /// This function does not emit any events, nor does it raise any errors. It silently
-    /// returns if any internal checks fail.
     pub fn remove_network(netuid: NetUid) {
-        // --- 1. Return balance to subnet owner.
+        // --- 1. Get the owner and remove from SubnetOwner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let reserved_amount = Self::get_subnet_locked_balance(netuid);
-        let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
+        SubnetOwner::<T>::remove(netuid);
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -427,26 +408,15 @@ impl<T: Config> Pallet<T> {
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
-        for mecid in 0..mechanisms {
-            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
-            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
-        }
-
-        // --- 7. Removes the weights for this subnet (do not remove).
-        for mecid in 0..mechanisms {
-            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
-            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
-        }
 
         // --- 8. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in Weights::<T>::iter_prefix(NetUidStorageIndex::ROOT) {
             // Create a new vector to hold modified weights.
             let mut modified_weights = weights_i.clone();
-            // Iterate over each weight entry to potentially update it.
             for (subnet_id, weight) in modified_weights.iter_mut() {
+                // If the root network had a weight pointing to this netuid, set it to 0
                 if subnet_id == &u16::from(netuid) {
-                    // If the condition matches, modify the weight
-                    *weight = 0; // Set weight to 0 for the matching subnet_id.
+                    *weight = 0;
                 }
             }
             Weights::<T>::insert(NetUidStorageIndex::ROOT, uid_i, modified_weights);
@@ -457,17 +427,10 @@ impl<T: Config> Pallet<T> {
         Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
-        for mecid in 0..mechanisms {
-            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
-            Incentive::<T>::remove(netuid_index);
-        }
+
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
         PruningScores::<T>::remove(netuid);
-        for mecid in 0..mechanisms {
-            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
-            LastUpdate::<T>::remove(netuid_index);
-        }
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
@@ -488,16 +451,200 @@ impl<T: Config> Pallet<T> {
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
-        // --- 11. Add the balance back to the owner.
-        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount.into());
-        Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
-        SubnetOwner::<T>::remove(netuid);
+        // --- 11. AMM / price / accounting.
+        // SubnetTAO, SubnetAlpha{In,InProvided,Out} are already cleared during dissolve/destroy.
+        SubnetAlphaInEmission::<T>::remove(netuid);
+        SubnetAlphaOutEmission::<T>::remove(netuid);
+        SubnetTaoInEmission::<T>::remove(netuid);
+        SubnetVolume::<T>::remove(netuid);
+        SubnetMovingPrice::<T>::remove(netuid);
+        SubnetTaoProvided::<T>::remove(netuid);
 
-        // --- 12. Remove subnet identity if it exists.
+        // --- 13. Token / mechanism / registration toggles.
+        TokenSymbol::<T>::remove(netuid);
+        SubnetMechanism::<T>::remove(netuid);
+        SubnetOwnerHotkey::<T>::remove(netuid);
+        NetworkRegistrationAllowed::<T>::remove(netuid);
+        NetworkPowRegistrationAllowed::<T>::remove(netuid);
+
+        // --- 14. Locks & toggles.
+        TransferToggle::<T>::remove(netuid);
+        SubnetLocked::<T>::remove(netuid);
+        LargestLocked::<T>::remove(netuid);
+
+        // --- 15. Mechanism step / emissions bookkeeping.
+        FirstEmissionBlockNumber::<T>::remove(netuid);
+        PendingEmission::<T>::remove(netuid);
+        PendingRootDivs::<T>::remove(netuid);
+        PendingAlphaSwapped::<T>::remove(netuid);
+        PendingOwnerCut::<T>::remove(netuid);
+        BlocksSinceLastStep::<T>::remove(netuid);
+        LastMechansimStepBlock::<T>::remove(netuid);
+        LastAdjustmentBlock::<T>::remove(netuid);
+
+        // --- 16. Serving / rho / curves, and other per-net controls.
+        ServingRateLimit::<T>::remove(netuid);
+        Rho::<T>::remove(netuid);
+        AlphaSigmoidSteepness::<T>::remove(netuid);
+
+        MaxAllowedValidators::<T>::remove(netuid);
+        AdjustmentInterval::<T>::remove(netuid);
+        BondsMovingAverage::<T>::remove(netuid);
+        BondsPenalty::<T>::remove(netuid);
+        BondsResetOn::<T>::remove(netuid);
+        WeightsSetRateLimit::<T>::remove(netuid);
+        ValidatorPruneLen::<T>::remove(netuid);
+        ScalingLawPower::<T>::remove(netuid);
+        TargetRegistrationsPerInterval::<T>::remove(netuid);
+        AdjustmentAlpha::<T>::remove(netuid);
+        CommitRevealWeightsEnabled::<T>::remove(netuid);
+
+        Burn::<T>::remove(netuid);
+        MinBurn::<T>::remove(netuid);
+        MaxBurn::<T>::remove(netuid);
+        MinDifficulty::<T>::remove(netuid);
+        MaxDifficulty::<T>::remove(netuid);
+        RegistrationsThisBlock::<T>::remove(netuid);
+        EMAPriceHalvingBlocks::<T>::remove(netuid);
+        RAORecycledForRegistration::<T>::remove(netuid);
+        MaxRegistrationsPerBlock::<T>::remove(netuid);
+        WeightsVersionKey::<T>::remove(netuid);
+
+        // --- 17. Subtoken / feature flags.
+        LiquidAlphaOn::<T>::remove(netuid);
+        Yuma3On::<T>::remove(netuid);
+        AlphaValues::<T>::remove(netuid);
+        SubtokenEnabled::<T>::remove(netuid);
+        ImmuneOwnerUidsLimit::<T>::remove(netuid);
+
+        // --- 18. Consensus aux vectors.
+        StakeWeight::<T>::remove(netuid);
+        LoadedEmission::<T>::remove(netuid);
+
+        // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
+        let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
+
+        // Commit-reveal / weights commits (all per-net prefixes):
+        let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
+        for subid in 0..mechanisms {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, subid.into());
+            LastUpdate::<T>::remove(netuid_index);
+            Incentive::<T>::remove(netuid_index);
+            let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = TimelockedWeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = CRV3WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
+            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+        }
+        RevealPeriodEpochs::<T>::remove(netuid);
+        MechanismCountCurrent::<T>::remove(netuid);
+        MechanismEmissionSplit::<T>::remove(netuid);
+
+        // Last hotkey swap (DMAP where netuid is FIRST key → easy)
+        let _ = LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, u32::MAX, None);
+
+        // --- 20. Identity maps across versions (netuid-scoped).
+        SubnetIdentities::<T>::remove(netuid);
+        SubnetIdentitiesV2::<T>::remove(netuid);
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
+
+        // --- 21. DMAP / NMAP where netuid is NOT the first key → iterate & remove.
+
+        // ChildkeyTake: (hot, netuid) → u16
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = ChildkeyTake::<T>::iter()
+                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                .collect();
+            for hot in to_rm {
+                ChildkeyTake::<T>::remove(&hot, netuid);
+            }
+        }
+        // ChildKeys: (parent, netuid) → Vec<...>
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = ChildKeys::<T>::iter()
+                .filter_map(|(parent, n, _)| if n == netuid { Some(parent) } else { None })
+                .collect();
+            for parent in to_rm {
+                ChildKeys::<T>::remove(&parent, netuid);
+            }
+        }
+        // ParentKeys: (child, netuid) → Vec<...>
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = ParentKeys::<T>::iter()
+                .filter_map(|(child, n, _)| if n == netuid { Some(child) } else { None })
+                .collect();
+            for child in to_rm {
+                ParentKeys::<T>::remove(&child, netuid);
+            }
+        }
+        // LastHotkeyEmissionOnNetuid: (hot, netuid) → α
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = LastHotkeyEmissionOnNetuid::<T>::iter()
+                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                .collect();
+            for hot in to_rm {
+                LastHotkeyEmissionOnNetuid::<T>::remove(&hot, netuid);
+            }
+        }
+        // TotalHotkeyAlphaLastEpoch: (hot, netuid) → ...
+        // (TotalHotkeyAlpha and TotalHotkeyShares were already removed during dissolve.)
+        {
+            let to_rm_alpha_last: sp_std::vec::Vec<T::AccountId> =
+                TotalHotkeyAlphaLastEpoch::<T>::iter()
+                    .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                    .collect();
+            for hot in to_rm_alpha_last {
+                TotalHotkeyAlphaLastEpoch::<T>::remove(&hot, netuid);
+            }
+        }
+        // TransactionKeyLastBlock NMAP: (hot, netuid, name) → u64
+        {
+            let to_rm: sp_std::vec::Vec<(T::AccountId, u16)> = TransactionKeyLastBlock::<T>::iter()
+                .filter_map(
+                    |((hot, n, name), _)| if n == netuid { Some((hot, name)) } else { None },
+                )
+                .collect();
+            for (hot, name) in to_rm {
+                TransactionKeyLastBlock::<T>::remove((hot, netuid, name));
+            }
+        }
+        // StakingOperationRateLimiter NMAP: (hot, cold, netuid) → bool
+        {
+            let to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> =
+                StakingOperationRateLimiter::<T>::iter()
+                    .filter_map(
+                        |((hot, cold, n), _)| {
+                            if n == netuid { Some((hot, cold)) } else { None }
+                        },
+                    )
+                    .collect();
+            for (hot, cold) in to_rm {
+                StakingOperationRateLimiter::<T>::remove((hot, cold, netuid));
+            }
+        }
+
+        // --- 22. Subnet leasing: remove mapping and any lease-scoped state linked to this netuid.
+        if let Some(lease_id) = SubnetUidToLeaseId::<T>::take(netuid) {
+            SubnetLeases::<T>::remove(lease_id);
+            let _ = SubnetLeaseShares::<T>::clear_prefix(lease_id, u32::MAX, None);
+            AccumulatedLeaseDividends::<T>::remove(lease_id);
+        }
+
+        // --- Final removal logging.
+        log::debug!(
+            "remove_network: netuid={netuid}, owner={owner_coldkey:?} removed successfully"
+        );
     }
 
     #[allow(clippy::arithmetic_side_effects)]
@@ -601,5 +748,39 @@ impl<T: Config> Pallet<T> {
     }
     pub fn remove_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>) {
         LastRateLimitedBlock::<T>::remove(rate_limit_key);
+    }
+
+    pub fn get_network_to_prune() -> Option<NetUid> {
+        let current_block: u64 = Self::get_current_block_as_u64();
+
+        let mut candidate_netuid: Option<NetUid> = None;
+        let mut candidate_price: U96F32 = U96F32::saturating_from_num(u128::MAX);
+        let mut candidate_timestamp: u64 = u64::MAX;
+
+        for (netuid, added) in NetworksAdded::<T>::iter() {
+            if !added || netuid == NetUid::ROOT {
+                continue;
+            }
+
+            let registered_at = NetworkRegisteredAt::<T>::get(netuid);
+
+            // Skip immune networks.
+            if current_block < registered_at.saturating_add(Self::get_network_immunity_period()) {
+                continue;
+            }
+
+            let price: U96F32 = Self::get_moving_alpha_price(netuid);
+
+            // If tie on price, earliest registration wins.
+            if price < candidate_price
+                || (price == candidate_price && registered_at < candidate_timestamp)
+            {
+                candidate_netuid = Some(netuid);
+                candidate_price = price;
+                candidate_timestamp = registered_at;
+            }
+        }
+
+        candidate_netuid
     }
 }

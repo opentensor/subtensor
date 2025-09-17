@@ -177,7 +177,7 @@ impl<T: Config> Pallet<T> {
                 // ------------------------------------------------------------------
                 //                          Apply weights
                 // ------------------------------------------------------------------
-                if let Err(e) = Self::do_set_sub_weights(
+                if let Err(e) = Self::do_set_mechanism_weights(
                     T::RuntimeOrigin::signed(who.clone()),
                     netuid,
                     MechId::from(mecid),
@@ -186,7 +186,7 @@ impl<T: Config> Pallet<T> {
                     version_key,
                 ) {
                     log::trace!(
-                        "Failed to `do_set_sub_weights` for mechanism {netuid_index} submitted by {who:?}: {e:?}"
+                        "Failed to `do_set_mechanism_weights` for mechanism {netuid_index} submitted by {who:?}: {e:?}"
                     );
                     continue;
                 }
