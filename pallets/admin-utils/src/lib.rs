@@ -106,6 +106,10 @@ pub mod pallet {
         NegativeSigmoidSteepness,
         /// Value not in allowed bounds.
         ValueNotInBounds,
+        /// The minimum allowed UIDs must be less than the current number of UIDs in the subnet.
+        MinAllowedUidsGreaterThanCurrentUids,
+        /// The minimum allowed UIDs must be less than the maximum allowed UIDs.
+        MinAllowedUidsGreaterThanMaxAllowedUids,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -1916,6 +1920,70 @@ pub mod pallet {
                 maybe_owner,
                 netuid,
                 &[TransactionType::SubsubnetEmission],
+            );
+            Ok(())
+        }
+
+        /// Trims the maximum number of UIDs for a subnet.
+        ///
+        /// The trimming is done by sorting the UIDs by emission descending and then trimming
+        /// the lowest emitters while preserving temporally and owner immune UIDs. The UIDs are
+        /// then compressed to the left and storage is migrated to the new compressed UIDs.
+        #[pallet::call_index(78)]
+        #[pallet::weight(Weight::from_parts(32_880_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(6_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_trim_to_max_allowed_uids(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            max_n: u16,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin.clone(),
+                netuid,
+                &[TransactionType::MaxUidsTrimming],
+            )?;
+
+            pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::MaxUidsTrimming],
+            );
+            Ok(())
+        }
+
+        /// The extrinsic sets the minimum allowed UIDs for a subnet.
+        /// It is only callable by the root account.
+        #[pallet::call_index(79)]
+        #[pallet::weight(Weight::from_parts(31_550_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(5_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_min_allowed_uids(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            min_allowed_uids: u16,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(
+                min_allowed_uids < pallet_subtensor::Pallet::<T>::get_max_allowed_uids(netuid),
+                Error::<T>::MinAllowedUidsGreaterThanMaxAllowedUids
+            );
+            ensure!(
+                min_allowed_uids < pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid),
+                Error::<T>::MinAllowedUidsGreaterThanCurrentUids
+            );
+
+            pallet_subtensor::Pallet::<T>::set_min_allowed_uids(netuid, min_allowed_uids);
+
+            log::debug!(
+                "MinAllowedUidsSet( netuid: {netuid:?} min_allowed_uids: {min_allowed_uids:?} ) "
             );
             Ok(())
         }

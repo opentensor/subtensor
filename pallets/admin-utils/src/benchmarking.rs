@@ -11,6 +11,8 @@ use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_support::BoundedVec;
 use frame_system::RawOrigin;
+use pallet_subtensor::SubnetworkN;
+use subtensor_runtime_common::NetUid;
 
 use super::*;
 
@@ -239,6 +241,19 @@ mod benchmarks {
     }
 
     #[benchmark]
+    fn sudo_set_min_allowed_uids() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(netuid, 1u16 /*tempo*/);
+
+        // Artificially set that some neurons are already registered
+        SubnetworkN::<T>::set(netuid, 32);
+
+        #[extrinsic_call]
+		_(RawOrigin::Root, netuid, 16u16/*min_allowed_uids*/)/*sudo_set_min_allowed_uids*/;
+    }
+
+    #[benchmark]
     fn sudo_set_max_allowed_uids() {
         // disable admin freeze window
         pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
@@ -430,6 +445,18 @@ mod benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Root, 1u16.into()/*netuid*/, 5u16/*immune_neurons*/)/*sudo_set_owner_immune_neuron_limit()*/;
+    }
+
+    #[benchmark]
+    fn sudo_trim_to_max_allowed_uids() {
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16.into(), /*netuid*/
+            1u16,        /*sudo_tempo*/
+        );
+
+        #[extrinsic_call]
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 256u16/*max_n*/)/*sudo_trim_to_max_allowed_uids()*/;
     }
 
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);

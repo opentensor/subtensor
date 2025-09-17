@@ -5,7 +5,10 @@ use frame_support::{
     traits::Hooks,
 };
 use frame_system::Config;
-use pallet_subtensor::{Error as SubtensorError, SubnetOwner, Tempo, WeightsVersionKeyRateLimit};
+use pallet_subtensor::{
+    Error as SubtensorError, MaxRegistrationsPerBlock, Rank, SubnetOwner,
+    TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit, *,
+};
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -2414,6 +2417,407 @@ fn test_sudo_set_subsubnet_count_and_emissions() {
                 Some(vec![0xFFFF / 5 * 4, 0xFFFF / 5])
             ),
             pallet_subtensor::Error::<Test>::TxRateLimitExceeded
+        );
+    });
+}
+
+#[test]
+fn test_trim_to_max_allowed_uids() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let sn_owner = U256::from(1);
+        let sn_owner_hotkey1 = U256::from(2);
+        let sn_owner_hotkey2 = U256::from(3);
+        add_network(netuid, 10);
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+        SubnetOwnerHotkey::<Test>::insert(netuid, sn_owner_hotkey1);
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
+        TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
+        // We set a low value here to make testing easier
+        MinAllowedUids::<Test>::set(netuid, 4);
+        // We define 4 subsubnets
+        let subsubnet_count = SubId::from(4);
+        SubsubnetCountCurrent::<Test>::insert(netuid, subsubnet_count);
+
+        // Add some neurons
+        let max_n = 16;
+        for i in 1..=max_n {
+            let n = i * 1000;
+            register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
+        }
+
+        // Run some block to ensure stake weights are set and that we are past the immunity period
+        // for all neurons
+        run_to_block((ImmunityPeriod::<Test>::get(netuid) + 1).into());
+
+        // Set some randomized values that we can keep track of
+        let values = vec![
+            17u16, 42u16, 8u16, 56u16, 23u16, 91u16, 34u16, // owner owned
+            77u16, // temporally immune
+            12u16, 65u16, 3u16, 88u16, // owner owned
+            29u16, 51u16, 74u16, // temporally immune
+            39u16,
+        ];
+        let bool_values = vec![
+            false, false, false, true, false, true, true, // owner owned
+            true, // temporally immune
+            false, true, false, true, // owner owned
+            false, true, true, // temporally immune
+            false,
+        ];
+        let alpha_values = values.iter().map(|&v| (v as u64).into()).collect();
+        let u64_values: Vec<u64> = values.iter().map(|&v| v as u64).collect();
+
+        Emission::<Test>::set(netuid, alpha_values);
+        Rank::<Test>::insert(netuid, values.clone());
+        Trust::<Test>::insert(netuid, values.clone());
+        Consensus::<Test>::insert(netuid, values.clone());
+        Dividends::<Test>::insert(netuid, values.clone());
+        PruningScores::<Test>::insert(netuid, values.clone());
+        ValidatorTrust::<Test>::insert(netuid, values.clone());
+        StakeWeight::<Test>::insert(netuid, values.clone());
+        ValidatorPermit::<Test>::insert(netuid, bool_values.clone());
+        Active::<Test>::insert(netuid, bool_values);
+
+        for subid in 0..subsubnet_count.into() {
+            let netuid_index =
+                SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+            Incentive::<Test>::insert(netuid_index, values.clone());
+            LastUpdate::<Test>::insert(netuid_index, u64_values.clone());
+        }
+
+        // We set some owner immune uids
+        let now = frame_system::Pallet::<Test>::block_number();
+        BlockAtRegistration::<Test>::set(netuid, 6, now);
+        BlockAtRegistration::<Test>::set(netuid, 11, now);
+
+        // And some temporally immune uids
+        Keys::<Test>::insert(netuid, 7, sn_owner_hotkey1);
+        Uids::<Test>::insert(netuid, sn_owner_hotkey1, 7);
+        Keys::<Test>::insert(netuid, 14, sn_owner_hotkey2);
+        Uids::<Test>::insert(netuid, sn_owner_hotkey2, 14);
+
+        // Populate Weights and Bonds storage items to test trimming
+        // Create weights and bonds that span across the range that will be trimmed
+        for uid in 0..max_n {
+            let mut weights = Vec::new();
+            let mut bonds = Vec::new();
+
+            // Add connections to all other uids, including those that will be trimmed
+            for target_uid in 0..max_n {
+                if target_uid != uid {
+                    // Use some non-zero values to make the test more meaningful
+                    let weight_value = (uid + target_uid) % 1000;
+                    let bond_value = (uid * target_uid) % 1000;
+                    weights.push((target_uid, weight_value));
+                    bonds.push((target_uid, bond_value));
+                }
+            }
+
+            for subid in 0..subsubnet_count.into() {
+                let netuid_index =
+                    SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+                Weights::<Test>::insert(netuid_index, uid, weights.clone());
+                Bonds::<Test>::insert(netuid_index, uid, bonds.clone());
+            }
+        }
+
+        // Normal case
+        let new_max_n = 8;
+        assert_ok!(AdminUtils::sudo_trim_to_max_allowed_uids(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            new_max_n
+        ));
+
+        // Ensure the max allowed uids has been set correctly
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), new_max_n);
+
+        // Ensure the emission has been trimmed correctly, keeping the highest emitters
+        // and immune and compressed to the left
+        assert_eq!(
+            Emission::<Test>::get(netuid),
+            vec![
+                56.into(),
+                91.into(),
+                34.into(),
+                77.into(),
+                65.into(),
+                88.into(),
+                51.into(),
+                74.into()
+            ]
+        );
+        // Ensure rest of storage has been trimmed correctly
+        let expected_values = vec![56, 91, 34, 77, 65, 88, 51, 74];
+        let expected_bools = vec![true, true, true, true, true, true, true, true];
+        let expected_u64_values = vec![56, 91, 34, 77, 65, 88, 51, 74];
+        assert_eq!(Rank::<Test>::get(netuid), expected_values);
+        assert_eq!(Trust::<Test>::get(netuid), expected_values);
+        assert_eq!(Active::<Test>::get(netuid), expected_bools);
+        assert_eq!(Consensus::<Test>::get(netuid), expected_values);
+        assert_eq!(Dividends::<Test>::get(netuid), expected_values);
+        assert_eq!(PruningScores::<Test>::get(netuid), expected_values);
+        assert_eq!(ValidatorTrust::<Test>::get(netuid), expected_values);
+        assert_eq!(ValidatorPermit::<Test>::get(netuid), expected_bools);
+        assert_eq!(StakeWeight::<Test>::get(netuid), expected_values);
+
+        for subid in 0..subsubnet_count.into() {
+            let netuid_index =
+                SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+            assert_eq!(Incentive::<Test>::get(netuid_index), expected_values);
+            assert_eq!(LastUpdate::<Test>::get(netuid_index), expected_u64_values);
+        }
+
+        // Ensure trimmed uids related storage has been cleared
+        for uid in new_max_n..max_n {
+            assert!(!Keys::<Test>::contains_key(netuid, uid));
+            assert!(!BlockAtRegistration::<Test>::contains_key(netuid, uid));
+            for subid in 0..subsubnet_count.into() {
+                let netuid_index =
+                    SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+                assert!(!Weights::<Test>::contains_key(netuid_index, uid));
+                assert!(!Bonds::<Test>::contains_key(netuid_index, uid));
+            }
+        }
+
+        // Ensure trimmed uids hotkey related storage has been cleared
+        let trimmed_hotkeys = vec![
+            U256::from(1000),
+            U256::from(2000),
+            U256::from(3000),
+            U256::from(5000),
+            U256::from(9000),
+            U256::from(11000),
+            U256::from(13000),
+            U256::from(16000),
+        ];
+        for hotkey in trimmed_hotkeys {
+            assert!(!Uids::<Test>::contains_key(netuid, hotkey));
+            assert!(!IsNetworkMember::<Test>::contains_key(hotkey, netuid));
+            assert!(!LastHotkeyEmissionOnNetuid::<Test>::contains_key(
+                hotkey, netuid
+            ));
+            assert!(!AlphaDividendsPerSubnet::<Test>::contains_key(
+                netuid, hotkey
+            ));
+            assert!(!TaoDividendsPerSubnet::<Test>::contains_key(netuid, hotkey));
+            assert!(!Axons::<Test>::contains_key(netuid, hotkey));
+            assert!(!NeuronCertificates::<Test>::contains_key(netuid, hotkey));
+            assert!(!Prometheus::<Test>::contains_key(netuid, hotkey));
+        }
+
+        // Ensure trimmed uids weights and bonds connections have been trimmed correctly
+        for uid in 0..new_max_n {
+            for subid in 0..subsubnet_count.into() {
+                let netuid_index =
+                    SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(subid));
+                assert!(
+                    Weights::<Test>::get(netuid_index, uid)
+                        .iter()
+                        .all(|(target_uid, _)| *target_uid < new_max_n),
+                    "Found a weight with target_uid >= new_max_n"
+                );
+                assert!(
+                    Bonds::<Test>::get(netuid_index, uid)
+                        .iter()
+                        .all(|(target_uid, _)| *target_uid < new_max_n),
+                    "Found a bond with target_uid >= new_max_n"
+                );
+            }
+        }
+
+        // Actual number of neurons on the network updated after trimming
+        assert_eq!(SubnetworkN::<Test>::get(netuid), new_max_n);
+
+        // Non existent subnet
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                NetUid::from(42),
+                new_max_n
+            ),
+            pallet_subtensor::Error::<Test>::SubNetworkDoesNotExist
+        );
+
+        // New max n less than lower bound
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                2
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // New max n greater than upper bound
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_max_allowed_uids(netuid) + 1
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+    });
+}
+
+#[test]
+fn test_trim_to_max_allowed_uids_too_many_immune() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
+        TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
+        MinAllowedUids::<Test>::set(netuid, 4);
+
+        // Add 5 neurons
+        let max_n = 5;
+        for i in 1..=max_n {
+            let n = i * 1000;
+            register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
+        }
+
+        // Run some blocks to ensure stake weights are set
+        run_to_block((ImmunityPeriod::<Test>::get(netuid) + 1).into());
+
+        // Set owner immune uids (2 UIDs) by adding them to OwnedHotkeys
+        let owner_hotkey1 = U256::from(1000);
+        let owner_hotkey2 = U256::from(2000);
+        OwnedHotkeys::<Test>::insert(sn_owner, vec![owner_hotkey1, owner_hotkey2]);
+        Keys::<Test>::insert(netuid, 0, owner_hotkey1);
+        Uids::<Test>::insert(netuid, owner_hotkey1, 0);
+        Keys::<Test>::insert(netuid, 1, owner_hotkey2);
+        Uids::<Test>::insert(netuid, owner_hotkey2, 1);
+
+        // Set temporally immune uids (2 UIDs) to make total immune count 4 out of 5 (80%)
+        // Set their registration block to current block to make them temporally immune
+        let current_block = frame_system::Pallet::<Test>::block_number();
+        for uid in 2..4 {
+            let hotkey = U256::from(uid * 1000 + 1000);
+            Keys::<Test>::insert(netuid, uid, hotkey);
+            Uids::<Test>::insert(netuid, hotkey, uid);
+            BlockAtRegistration::<Test>::insert(netuid, uid, current_block);
+        }
+
+        // Try to trim to 4 UIDs - this should fail because 4/4 = 100% immune (>= 80%)
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                4
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // Try to trim to 3 UIDs - this should also fail because 4/3 > 80% immune (>= 80%)
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                3
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // Now test a scenario where trimming should succeed
+        // Remove one immune UID to make it 3 immune out of 4 total
+        let uid_to_remove = 3;
+        let hotkey_to_remove = U256::from(uid_to_remove * 1000 + 1000);
+        #[allow(unknown_lints)]
+        Keys::<Test>::remove(netuid, uid_to_remove);
+        Uids::<Test>::remove(netuid, hotkey_to_remove);
+        BlockAtRegistration::<Test>::remove(netuid, uid_to_remove);
+
+        // Now we have 3 immune out of 4 total UIDs
+        // Try to trim to 3 UIDs - this should succeed because 3/3 = 100% immune, but that's exactly 80%
+        // Wait, 100% is > 80%, so this should fail. Let me test with a scenario where we have fewer immune UIDs
+
+        // Remove another immune UID to make it 2 immune out of 3 total
+        let uid_to_remove2 = 2;
+        let hotkey_to_remove2 = U256::from(uid_to_remove2 * 1000 + 1000);
+        #[allow(unknown_lints)]
+        Keys::<Test>::remove(netuid, uid_to_remove2);
+        Uids::<Test>::remove(netuid, hotkey_to_remove2);
+        BlockAtRegistration::<Test>::remove(netuid, uid_to_remove2);
+
+        // Now we have 2 immune out of 2 total UIDs
+        // Try to trim to 1 UID - this should fail because 2/1 is impossible, but the check prevents it
+        assert_err!(
+            AdminUtils::sudo_trim_to_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                1
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_min_allowed_uids() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let to_be_set: u16 = 8;
+        add_network(netuid, 10);
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
+        TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
+
+        // Register some neurons
+        for i in 0..=16 {
+            register_ok_neuron(netuid, U256::from(i * 1000), U256::from(i * 1000 + i), 0);
+        }
+
+        // Normal case
+        assert_ok!(AdminUtils::sudo_set_min_allowed_uids(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_min_allowed_uids(netuid), to_be_set);
+
+        // Non root
+        assert_err!(
+            AdminUtils::sudo_set_min_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                netuid,
+                to_be_set
+            ),
+            DispatchError::BadOrigin
+        );
+
+        // Non existent subnet
+        assert_err!(
+            AdminUtils::sudo_set_min_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                NetUid::from(42),
+                to_be_set
+            ),
+            Error::<Test>::SubnetDoesNotExist
+        );
+
+        // Min allowed uids greater than max allowed uids
+        assert_err!(
+            AdminUtils::sudo_set_min_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_max_allowed_uids(netuid) + 1
+            ),
+            Error::<Test>::MinAllowedUidsGreaterThanMaxAllowedUids
+        );
+
+        // Min allowed uids greater than current uids
+        assert_err!(
+            AdminUtils::sudo_set_min_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_subnetwork_n(netuid) + 1
+            ),
+            Error::<Test>::MinAllowedUidsGreaterThanCurrentUids
         );
     });
 }
