@@ -1844,7 +1844,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// -- ITEM (Maximum number of sub-subnets)
     pub fn MaxSubsubnetCount<T: Config>() -> SubId {
-        SubId::from(8)
+        SubId::from(1)
     }
     #[pallet::type_value]
     /// -- ITEM (Rate limit for subsubnet count updates)

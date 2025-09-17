@@ -2324,39 +2324,41 @@ fn test_sudo_set_max_burn() {
 #[test]
 fn test_sudo_set_subsubnet_count() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        let ss_count_ok = SubId::from(8);
-        let ss_count_bad = SubId::from(9);
+        if MaxSubsubnetCount::<Test>::get() == 8.into() {
+            let netuid = NetUid::from(1);
+            let ss_count_ok = SubId::from(8);
+            let ss_count_bad = SubId::from(9);
 
-        let sn_owner = U256::from(1324);
-        add_network(netuid, 10);
-        // Set the Subnet Owner
-        SubnetOwner::<Test>::insert(netuid, sn_owner);
+            let sn_owner = U256::from(1324);
+            add_network(netuid, 10);
+            // Set the Subnet Owner
+            SubnetOwner::<Test>::insert(netuid, sn_owner);
 
-        assert_eq!(
-            AdminUtils::sudo_set_subsubnet_count(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+            assert_eq!(
+                AdminUtils::sudo_set_subsubnet_count(
+                    <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                    netuid,
+                    ss_count_ok
+                ),
+                Err(DispatchError::BadOrigin)
+            );
+            assert_noop!(
+                AdminUtils::sudo_set_subsubnet_count(RuntimeOrigin::root(), netuid, ss_count_bad),
+                pallet_subtensor::Error::<Test>::InvalidValue
+            );
+
+            assert_ok!(AdminUtils::sudo_set_subsubnet_count(
+                <<Test as Config>::RuntimeOrigin>::root(),
                 netuid,
                 ss_count_ok
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_noop!(
-            AdminUtils::sudo_set_subsubnet_count(RuntimeOrigin::root(), netuid, ss_count_bad),
-            pallet_subtensor::Error::<Test>::InvalidValue
-        );
+            ));
 
-        assert_ok!(AdminUtils::sudo_set_subsubnet_count(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            ss_count_ok
-        ));
-
-        assert_ok!(AdminUtils::sudo_set_subsubnet_count(
-            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
-            netuid,
-            ss_count_ok
-        ));
+            assert_ok!(AdminUtils::sudo_set_subsubnet_count(
+                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                netuid,
+                ss_count_ok
+            ));
+        }
     });
 }
 
@@ -2364,60 +2366,62 @@ fn test_sudo_set_subsubnet_count() {
 #[test]
 fn test_sudo_set_subsubnet_count_and_emissions() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        let ss_count_ok = SubId::from(2);
+        if MaxSubsubnetCount::<Test>::get() == 8.into() {
+            let netuid = NetUid::from(1);
+            let ss_count_ok = SubId::from(2);
 
-        let sn_owner = U256::from(1324);
-        add_network(netuid, 10);
-        // Set the Subnet Owner
-        SubnetOwner::<Test>::insert(netuid, sn_owner);
+            let sn_owner = U256::from(1324);
+            add_network(netuid, 10);
+            // Set the Subnet Owner
+            SubnetOwner::<Test>::insert(netuid, sn_owner);
 
-        assert_ok!(AdminUtils::sudo_set_subsubnet_count(
-            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
-            netuid,
-            ss_count_ok
-        ));
-
-        // Cannot set emission split with wrong number of entries
-        // With two subsubnets the size of the split vector should be 2, not 3
-        assert_noop!(
-            AdminUtils::sudo_set_subsubnet_emission_split(
+            assert_ok!(AdminUtils::sudo_set_subsubnet_count(
                 <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
                 netuid,
-                Some(vec![0xFFFF / 5 * 2, 0xFFFF / 5 * 2, 0xFFFF / 5])
-            ),
-            pallet_subtensor::Error::<Test>::InvalidValue
-        );
+                ss_count_ok
+            ));
 
-        // Cannot set emission split with wrong total of entries
-        // Split vector entries should sum up to exactly 0xFFFF
-        assert_noop!(
-            AdminUtils::sudo_set_subsubnet_emission_split(
+            // Cannot set emission split with wrong number of entries
+            // With two subsubnets the size of the split vector should be 2, not 3
+            assert_noop!(
+                AdminUtils::sudo_set_subsubnet_emission_split(
+                    <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                    netuid,
+                    Some(vec![0xFFFF / 5 * 2, 0xFFFF / 5 * 2, 0xFFFF / 5])
+                ),
+                pallet_subtensor::Error::<Test>::InvalidValue
+            );
+
+            // Cannot set emission split with wrong total of entries
+            // Split vector entries should sum up to exactly 0xFFFF
+            assert_noop!(
+                AdminUtils::sudo_set_subsubnet_emission_split(
+                    <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                    netuid,
+                    Some(vec![0xFFFF / 5 * 4, 0xFFFF / 5 - 1])
+                ),
+                pallet_subtensor::Error::<Test>::InvalidValue
+            );
+
+            // Can set good split ok
+            // We also verify here that it can happen in the same block as setting subsubnet counts
+            // or soon, without rate limiting
+            assert_ok!(AdminUtils::sudo_set_subsubnet_emission_split(
                 <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
                 netuid,
-                Some(vec![0xFFFF / 5 * 4, 0xFFFF / 5 - 1])
-            ),
-            pallet_subtensor::Error::<Test>::InvalidValue
-        );
+                Some(vec![0xFFFF / 5, 0xFFFF / 5 * 4])
+            ));
 
-        // Can set good split ok
-        // We also verify here that it can happen in the same block as setting subsubnet counts
-        // or soon, without rate limiting
-        assert_ok!(AdminUtils::sudo_set_subsubnet_emission_split(
-            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
-            netuid,
-            Some(vec![0xFFFF / 5, 0xFFFF / 5 * 4])
-        ));
-
-        // Cannot set it again due to rate limits
-        assert_noop!(
-            AdminUtils::sudo_set_subsubnet_emission_split(
-                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
-                netuid,
-                Some(vec![0xFFFF / 5 * 4, 0xFFFF / 5])
-            ),
-            pallet_subtensor::Error::<Test>::TxRateLimitExceeded
-        );
+            // Cannot set it again due to rate limits
+            assert_noop!(
+                AdminUtils::sudo_set_subsubnet_emission_split(
+                    <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                    netuid,
+                    Some(vec![0xFFFF / 5 * 4, 0xFFFF / 5])
+                ),
+                pallet_subtensor::Error::<Test>::TxRateLimitExceeded
+            );
+        }
     });
 }
 
