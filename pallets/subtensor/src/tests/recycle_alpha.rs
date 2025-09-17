@@ -430,7 +430,7 @@ fn test_recycle_errors() {
                 100_000.into(),
                 99.into() // non-existent subnet
             ),
-            Error::<Test>::SubNetworkDoesNotExist
+            Error::<Test>::MechanismDoesNotExist
         );
 
         assert_noop!(
@@ -502,7 +502,7 @@ fn test_burn_errors() {
                 100_000.into(),
                 99.into() // non-existent subnet
             ),
-            Error::<Test>::SubNetworkDoesNotExist
+            Error::<Test>::MechanismDoesNotExist
         );
 
         assert_noop!(

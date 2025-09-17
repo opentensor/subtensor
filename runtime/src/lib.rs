@@ -1066,10 +1066,10 @@ pub struct ResetBondsOnCommit;
 impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
-        // Reset bonds for each subsubnet of this subnet
-        let subsub_count = SubtensorModule::get_current_subsubnet_count(netuid);
-        for subid in 0..u8::from(subsub_count) {
-            let netuid_index = SubtensorModule::get_subsubnet_storage_index(netuid, subid.into());
+        // Reset bonds for each mechanism of this subnet
+        let mechanism_count = SubtensorModule::get_current_mechanism_count(netuid);
+        for mecid in 0..u8::from(mechanism_count) {
+            let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid.into());
             let _ = SubtensorModule::do_reset_bonds(netuid_index, address);
         }
     }
@@ -2344,8 +2344,8 @@ impl_runtime_apis! {
             SubtensorModule::get_metagraph(netuid)
         }
 
-        fn get_submetagraph(netuid: NetUid, subid: SubId) -> Option<Metagraph<AccountId32>> {
-            SubtensorModule::get_submetagraph(netuid, subid)
+        fn get_mechagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_mechagraph(netuid, mecid)
         }
 
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>> {
@@ -2356,8 +2356,8 @@ impl_runtime_apis! {
             SubtensorModule::get_all_metagraphs()
         }
 
-        fn get_all_submetagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
-            SubtensorModule::get_all_submetagraphs()
+        fn get_all_mechagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
+            SubtensorModule::get_all_mechagraphs()
         }
 
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
@@ -2371,8 +2371,8 @@ impl_runtime_apis! {
         pallet_subtensor::Pallet::<Runtime>::get_network_to_prune()
         }
 
-        fn get_selective_submetagraph(netuid: NetUid, subid: SubId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
-            SubtensorModule::get_selective_submetagraph(netuid, subid, metagraph_indexes)
+        fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_mechagraph(netuid, mecid, metagraph_indexes)
         }
     }
 

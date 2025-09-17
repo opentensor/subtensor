@@ -343,7 +343,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Raises
     ///
-    /// * `Error::<T>::SubNetworkDoesNotExist`: If the subnet does not exist.
+    /// * `Error::<T>::MechanismDoesNotExist`: If the subnet does not exist.
     /// * `DispatchError::BadOrigin`: If the caller is not the subnet owner.
     /// * `Error::<T>::FirstEmissionBlockNumberAlreadySet`: If the last emission block number has already been set.
     ///
@@ -353,7 +353,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
         Self::ensure_subnet_owner(origin, netuid)?;
         ensure!(

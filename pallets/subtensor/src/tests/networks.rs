@@ -270,7 +270,7 @@ fn dissolve_nonexistent_subnet_fails() {
     new_test_ext(0).execute_with(|| {
         assert_err!(
             SubtensorModule::do_dissolve_network(9_999.into()),
-            Error::<Test>::SubNetworkDoesNotExist
+            Error::<Test>::MechanismDoesNotExist
         );
     });
 }

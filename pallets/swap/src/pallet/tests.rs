@@ -141,7 +141,7 @@ mod dispatchables {
                     NON_EXISTENT_NETUID.into(),
                     true
                 ),
-                Error::<Test>::SubNetworkDoesNotExist
+                Error::<Test>::MechanismDoesNotExist
             );
         });
     }

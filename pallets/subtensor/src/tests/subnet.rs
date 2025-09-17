@@ -52,7 +52,7 @@ fn test_do_start_call_fail_with_not_existed_subnet() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 netuid
             ),
-            Error::<Test>::SubNetworkDoesNotExist
+            Error::<Test>::MechanismDoesNotExist
         );
     });
 }

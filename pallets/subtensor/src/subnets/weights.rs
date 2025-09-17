@@ -10,7 +10,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Hash},
 };
 use sp_std::{collections::vec_deque::VecDeque, vec};
-use subtensor_runtime_common::{NetUid, NetUidStorageIndex, SubId};
+use subtensor_runtime_common::{MechId, NetUid, NetUidStorageIndex};
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for committing weight hashes.
@@ -46,29 +46,29 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         commit_hash: H256,
     ) -> DispatchResult {
-        Self::internal_commit_weights(origin, netuid, SubId::MAIN, commit_hash)
+        Self::internal_commit_weights(origin, netuid, MechId::MAIN, commit_hash)
     }
 
-    pub fn do_commit_sub_weights(
+    pub fn do_commit_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         commit_hash: H256,
     ) -> DispatchResult {
-        Self::internal_commit_weights(origin, netuid, subid, commit_hash)
+        Self::internal_commit_weights(origin, netuid, mecid, commit_hash)
     }
 
     fn internal_commit_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         commit_hash: H256,
     ) -> DispatchResult {
-        // Ensure netuid and subid exist
-        Self::ensure_subsubnet_exists(netuid, subid)?;
+        // Ensure netuid and mecid exist
+        Self::ensure_mechanism_exists(netuid, mecid)?;
 
         // Calculate subnet storage index
-        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
         // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
@@ -267,17 +267,17 @@ impl<T: Config> Pallet<T> {
         Self::internal_commit_timelocked_weights(
             origin,
             netuid,
-            SubId::MAIN,
+            MechId::MAIN,
             commit,
             reveal_round,
             commit_reveal_version,
         )
     }
 
-    pub fn do_commit_timelocked_sub_weights(
+    pub fn do_commit_timelocked_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
         reveal_round: u64,
         commit_reveal_version: u16,
@@ -285,7 +285,7 @@ impl<T: Config> Pallet<T> {
         Self::internal_commit_timelocked_weights(
             origin,
             netuid,
-            subid,
+            mecid,
             commit,
             reveal_round,
             commit_reveal_version,
@@ -295,16 +295,16 @@ impl<T: Config> Pallet<T> {
     pub fn internal_commit_timelocked_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
         reveal_round: u64,
         commit_reveal_version: u16,
     ) -> DispatchResult {
-        // Ensure netuid and subid exist
-        Self::ensure_subsubnet_exists(netuid, subid)?;
+        // Ensure netuid and mecid exist
+        Self::ensure_mechanism_exists(netuid, mecid)?;
 
         // Calculate netuid storage index
-        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
         // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
@@ -425,32 +425,40 @@ impl<T: Config> Pallet<T> {
         salt: Vec<u16>,
         version_key: u64,
     ) -> DispatchResult {
-        Self::internal_reveal_weights(origin, netuid, SubId::MAIN, uids, values, salt, version_key)
+        Self::internal_reveal_weights(
+            origin,
+            netuid,
+            MechId::MAIN,
+            uids,
+            values,
+            salt,
+            version_key,
+        )
     }
 
-    pub fn do_reveal_sub_weights(
+    pub fn do_reveal_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         uids: Vec<u16>,
         values: Vec<u16>,
         salt: Vec<u16>,
         version_key: u64,
     ) -> DispatchResult {
-        Self::internal_reveal_weights(origin, netuid, subid, uids, values, salt, version_key)
+        Self::internal_reveal_weights(origin, netuid, mecid, uids, values, salt, version_key)
     }
 
     fn internal_reveal_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         uids: Vec<u16>,
         values: Vec<u16>,
         salt: Vec<u16>,
         version_key: u64,
     ) -> DispatchResult {
         // Calculate netuid storage index
-        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
         // --- 1. Check the caller's signature (hotkey).
         let who = ensure_signed(origin.clone())?;
@@ -525,10 +533,10 @@ impl<T: Config> Pallet<T> {
                     }
 
                     // --- 12. Proceed to set the revealed weights.
-                    Self::do_set_sub_weights(
+                    Self::do_set_mechanism_weights(
                         origin,
                         netuid,
-                        subid,
+                        mecid,
                         uids.clone(),
                         values.clone(),
                         version_key,
@@ -603,7 +611,7 @@ impl<T: Config> Pallet<T> {
         version_keys: Vec<u64>,
     ) -> DispatchResult {
         // Calculate netuid storage index
-        let netuid_index = Self::get_subsubnet_storage_index(netuid, SubId::MAIN);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, MechId::MAIN);
 
         // --- 1. Check that the input lists are of the same length.
         let num_reveals = uids_list.len();
@@ -740,13 +748,13 @@ impl<T: Config> Pallet<T> {
     fn internal_set_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         uids: Vec<u16>,
         values: Vec<u16>,
         version_key: u64,
     ) -> dispatch::DispatchResult {
         // Calculate subnet storage index
-        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
         // --- 1. Check the caller's signature. This is the hotkey of a registered account.
         let hotkey = ensure_signed(origin)?;
@@ -764,7 +772,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Check to see if this is a valid network and sub-subnet.
-        Self::ensure_subsubnet_exists(netuid, subid)?;
+        Self::ensure_mechanism_exists(netuid, mecid)?;
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
         ensure!(
@@ -875,7 +883,7 @@ impl<T: Config> Pallet<T> {
     ///    - On successfully setting the weights on chain.
     ///
     /// # Raises:
-    ///  * 'SubNetworkDoesNotExist':
+    ///  * 'MechanismDoesNotExist':
     ///    - Attempting to set weights on a non-existent network.
     ///
     ///  * 'NotRegistered':
@@ -915,7 +923,7 @@ impl<T: Config> Pallet<T> {
         values: Vec<u16>,
         version_key: u64,
     ) -> dispatch::DispatchResult {
-        Self::internal_set_weights(origin, netuid, SubId::MAIN, uids, values, version_key)
+        Self::internal_set_weights(origin, netuid, MechId::MAIN, uids, values, version_key)
     }
 
     /// ---- The implementation for the extrinsic set_weights.
@@ -927,7 +935,7 @@ impl<T: Config> Pallet<T> {
     ///  * 'netuid' (u16):
     ///    - The u16 network identifier.
     ///
-    ///  * 'subid' (u8):
+    ///  * 'mecid' (u8):
     ///    - The u8 identifier of sub-subnet.
     ///
     ///  * 'uids' ( Vec<u16> ):
@@ -944,7 +952,7 @@ impl<T: Config> Pallet<T> {
     ///    - On successfully setting the weights on chain.
     ///
     /// # Raises:
-    ///  * 'SubNetworkDoesNotExist':
+    ///  * 'MechanismDoesNotExist':
     ///    - Attempting to set weights on a non-existent network.
     ///
     ///  * 'NotRegistered':
@@ -977,15 +985,15 @@ impl<T: Config> Pallet<T> {
     /// * 'MaxWeightExceeded':
     ///    - Attempting to set weights with max value exceeding limit.
     ///
-    pub fn do_set_sub_weights(
+    pub fn do_set_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         uids: Vec<u16>,
         values: Vec<u16>,
         version_key: u64,
     ) -> dispatch::DispatchResult {
-        Self::internal_set_weights(origin, netuid, subid, uids, values, version_key)
+        Self::internal_set_weights(origin, netuid, mecid, uids, values, version_key)
     }
 
     /// ---- The implementation for the extrinsic batch_set_weights.
@@ -1113,7 +1121,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // --- 3. Non registered peers cant pass. Neither can non-existing subid
+        // --- 3. Non registered peers cant pass. Neither can non-existing mecid
         false
     }
 

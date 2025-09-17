@@ -224,7 +224,7 @@ pub mod time {
     pub const DAYS: BlockNumber = HOURS * 24;
 }
 
-#[freeze_struct("8e576b32bb1bb664")]
+#[freeze_struct("7e5202d7f18b39d4")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -244,43 +244,43 @@ pub mod time {
     RuntimeDebug,
 )]
 #[serde(transparent)]
-pub struct SubId(u8);
+pub struct MechId(u8);
 
-impl SubId {
-    pub const MAIN: SubId = Self(0);
+impl MechId {
+    pub const MAIN: MechId = Self(0);
 }
 
-impl From<u8> for SubId {
+impl From<u8> for MechId {
     fn from(value: u8) -> Self {
         Self(value)
     }
 }
 
-impl From<SubId> for u16 {
-    fn from(val: SubId) -> Self {
+impl From<MechId> for u16 {
+    fn from(val: MechId) -> Self {
         u16::from(val.0)
     }
 }
 
-impl From<SubId> for u64 {
-    fn from(val: SubId) -> Self {
+impl From<MechId> for u64 {
+    fn from(val: MechId) -> Self {
         u64::from(val.0)
     }
 }
 
-impl From<SubId> for u8 {
-    fn from(val: SubId) -> Self {
+impl From<MechId> for u8 {
+    fn from(val: MechId) -> Self {
         u8::from(val.0)
     }
 }
 
-impl Display for SubId {
+impl Display for MechId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
 }
 
-impl CompactAs for SubId {
+impl CompactAs for MechId {
     type As = u8;
 
     fn encode_as(&self) -> &Self::As {
@@ -292,13 +292,13 @@ impl CompactAs for SubId {
     }
 }
 
-impl From<Compact<SubId>> for SubId {
-    fn from(c: Compact<SubId>) -> Self {
+impl From<Compact<MechId>> for MechId {
+    fn from(c: Compact<MechId>) -> Self {
         c.0
     }
 }
 
-impl TypeInfo for SubId {
+impl TypeInfo for MechId {
     type Identity = <u8 as TypeInfo>::Identity;
     fn type_info() -> scale_info::Type {
         <u8 as TypeInfo>::type_info()

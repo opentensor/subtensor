@@ -648,7 +648,7 @@ impl<T: Config> Pallet<T> {
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
-            Self::epoch_with_subsubnets(netuid, pending_alpha.saturating_add(pending_swapped));
+            Self::epoch_with_mechanisms(netuid, pending_alpha.saturating_add(pending_swapped));
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
         // Compute the pending validator alpha.

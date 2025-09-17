@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Currency, NetUid, SubId};
+use subtensor_runtime_common::{Currency, MechId, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
@@ -411,8 +411,8 @@ impl<T: Config> Pallet<T> {
         // 3.5 Swap WeightCommits
         // WeightCommits( hotkey ) --> Vec<u64> -- the weight commits for the hotkey.
         if is_network_member {
-            for subid in 0..SubsubnetCountCurrent::<T>::get(netuid).into() {
-                let netuid_index = Self::get_subsubnet_storage_index(netuid, SubId::from(subid));
+            for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+                let netuid_index = Self::get_mechanism_storage_index(netuid, MechId::from(mecid));
                 if let Ok(old_weight_commits) =
                     WeightCommits::<T>::try_get(netuid_index, old_hotkey)
                 {

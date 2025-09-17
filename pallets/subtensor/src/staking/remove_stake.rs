@@ -445,7 +445,7 @@ impl<T: Config> Pallet<T> {
         // 1) Ensure the subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
         // 2) Owner / lock cost.

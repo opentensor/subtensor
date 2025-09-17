@@ -362,14 +362,14 @@ impl<T: Config> Pallet<T> {
     /// * 'NetworkRemoved': Emitted when a network is successfully removed.
     ///
     /// # Raises:
-    /// * 'SubNetworkDoesNotExist': If the specified network does not exist.
+    /// * 'MechanismDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
     pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
         // 1. --- The network exists?
         ensure!(
             Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
         // 2. --- Perform the cleanup before removing the network.
@@ -532,9 +532,9 @@ impl<T: Config> Pallet<T> {
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // Commit-reveal / weights commits (all per-net prefixes):
-        let subsubnets: u8 = SubsubnetCountCurrent::<T>::get(netuid).into();
-        for subid in 0..subsubnets {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+        let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
+        for subid in 0..mechanisms {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, subid.into());
             LastUpdate::<T>::remove(netuid_index);
             Incentive::<T>::remove(netuid_index);
             let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
@@ -545,8 +545,8 @@ impl<T: Config> Pallet<T> {
             let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
         }
         RevealPeriodEpochs::<T>::remove(netuid);
-        SubsubnetCountCurrent::<T>::remove(netuid);
-        SubsubnetEmissionSplit::<T>::remove(netuid);
+        MechanismCountCurrent::<T>::remove(netuid);
+        MechanismEmissionSplit::<T>::remove(netuid);
 
         // Last hotkey swap (DMAP where netuid is FIRST key → easy)
         let _ = LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, u32::MAX, None);

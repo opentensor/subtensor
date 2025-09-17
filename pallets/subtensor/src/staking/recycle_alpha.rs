@@ -25,7 +25,7 @@ impl<T: Config> Pallet<T> {
 
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
         ensure!(
@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
 
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
         ensure!(
