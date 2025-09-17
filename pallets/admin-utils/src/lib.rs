@@ -1940,8 +1940,8 @@ pub mod pallet {
         /// The extrinsic sets the minimum allowed UIDs for a subnet.
         /// It is only callable by the root account.
         #[pallet::call_index(79)]
-        #[pallet::weight(Weight::from_parts(24_370_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
+        #[pallet::weight(Weight::from_parts(31_550_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(5_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_allowed_uids(
             origin: OriginFor<T>,
