@@ -50,7 +50,7 @@ use sp_core::{
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
@@ -1152,7 +1152,7 @@ parameter_types! {
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
-    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
@@ -1174,6 +1174,7 @@ parameter_types! {
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
+    pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1188,6 +1189,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRho = SubtensorInitialRho;
     type InitialAlphaSigmoidSteepness = SubtensorInitialAlphaSigmoidSteepness;
     type InitialKappa = SubtensorInitialKappa;
+    type InitialMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
     type InitialBondsPenalty = SubtensorInitialBondsPenalty;
@@ -1228,7 +1230,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
-    type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
@@ -1251,6 +1252,7 @@ impl pallet_subtensor::Config for Runtime {
     type ProxyInterface = Proxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = GetCommitmentsStruct;
+    type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
 }
 
 parameter_types! {

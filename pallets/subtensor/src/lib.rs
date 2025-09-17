@@ -523,11 +523,6 @@ pub mod pallet {
         T::InitialNetworkImmunityPeriod::get()
     }
     #[pallet::type_value]
-    /// Default value for network min allowed UIDs.
-    pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
-        T::InitialNetworkMinAllowedUids::get()
-    }
-    #[pallet::type_value]
     /// Default value for network min lock cost.
     pub fn DefaultNetworkMinLockCost<T: Config>() -> TaoCurrency {
         T::InitialNetworkMinLockCost::get().into()
@@ -613,9 +608,19 @@ pub mod pallet {
         T::InitialKappa::get()
     }
     #[pallet::type_value]
+    /// Default value for network min allowed UIDs.
+    pub fn DefaultMinAllowedUids<T: Config>() -> u16 {
+        T::InitialMinAllowedUids::get()
+    }
+    #[pallet::type_value]
     /// Default maximum allowed UIDs.
     pub fn DefaultMaxAllowedUids<T: Config>() -> u16 {
         T::InitialMaxAllowedUids::get()
+    }
+    #[pallet::type_value]
+    /// -- Rate limit for set max allowed UIDs
+    pub fn MaxUidsTrimmingRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(30 * 7200, 1)
     }
     #[pallet::type_value]
     /// Default immunity period.
@@ -1342,6 +1347,10 @@ pub mod pallet {
     pub type BurnRegistrationsThisInterval<T: Config> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> min_allowed_uids
+    pub type MinAllowedUids<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMinAllowedUids<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> max_allowed_uids
     pub type MaxAllowedUids<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMaxAllowedUids<T>>;
@@ -1505,7 +1514,7 @@ pub mod pallet {
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
     #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight | weight for stake used in YC.
-    pub(super) type StakeWeight<T: Config> =
+    pub type StakeWeight<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- DMAP ( netuid, hotkey ) --> uid

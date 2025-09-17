@@ -882,7 +882,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(40)]
-        #[pallet::weight((Weight::from_parts(41_240_000, 0)
+        #[pallet::weight((Weight::from_parts(32_510_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon_tls(
