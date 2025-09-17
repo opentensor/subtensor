@@ -11,7 +11,7 @@ use frame_support::{
 use frame_system::{self as system};
 use sp_core::H256;
 use sp_runtime::{
-    BuildStorage,
+    BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
 use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, SubnetInfo, TaoCurrency};

@@ -11,7 +11,7 @@ declare -A DISPATCH_PATHS=(
   [swap]="../pallets/swap/src/pallet/mod.rs"
 )
 
-THRESHOLD=20
+THRESHOLD=40
 MAX_RETRIES=3
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

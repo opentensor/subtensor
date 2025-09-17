@@ -295,6 +295,7 @@ impl pallet_subtensor::Config for Test {
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 parameter_types! {
@@ -419,6 +420,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
         None
     }
+}
+
+pub struct CommitmentsI;
+impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(_netuid: NetUid) {}
 }
 
 parameter_types! {

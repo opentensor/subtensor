@@ -1084,6 +1084,23 @@ pub mod pallet {
             Ok(())
         }
 
+        /// The extrinsic sets the subnet limit for the network.
+        /// It is only callable by the root account.
+        /// The extrinsic will call the Subtensor pallet to set the subnet limit.
+        #[pallet::call_index(37)]
+        #[pallet::weight((
+			Weight::from_parts(14_000_000, 0)
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
+			Pays::No
+		))]
+        pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_max_subnets(max_subnets);
+            log::debug!("MaxSubnets ( max_subnets: {max_subnets:?} ) ");
+            Ok(())
+        }
+
         /// The extrinsic sets the lock reduction interval for the network.
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the lock reduction interval.

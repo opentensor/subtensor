@@ -6,6 +6,7 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod config {
 
+    use crate::CommitmentsInterface;
     use pallet_commitments::GetCommitments;
     use subtensor_swap_interface::SwapHandler;
 
@@ -61,6 +62,9 @@ mod config {
 
         /// Interface to get commitments.
         type GetCommitments: GetCommitments<Self::AccountId>;
+
+        ///  Interface to clean commitments on network dissolution.
+        type CommitmentsInterface: CommitmentsInterface;
 
         /// =================================
         /// ==== Initial Value Constants ====

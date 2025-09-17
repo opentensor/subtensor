@@ -1300,7 +1300,7 @@ mod dispatches {
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(37_u64))
-		.saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(60_u64)), DispatchClass::Normal, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1333,11 +1333,11 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
-            coldkey: T::AccountId,
+            _coldkey: T::AccountId,
             netuid: NetUid,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::user_remove_network(coldkey, netuid)
+            Self::do_dissolve_network(netuid)
         }
 
         /// Set a single child for a given hotkey on a specified network.
@@ -1586,8 +1586,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
-            .saturating_add(T::DbWeight::get().reads(36_u64))
-            .saturating_add(T::DbWeight::get().writes(50_u64)), DispatchClass::Normal, Pays::Yes))]
+                .saturating_add(T::DbWeight::get().reads(36_u64))
+                .saturating_add(T::DbWeight::get().writes(59_u64)), DispatchClass::Normal, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2342,6 +2342,17 @@ mod dispatches {
                 reveal_round,
                 commit_reveal_version,
             )
+        }
+
+        /// Remove a user's subnetwork
+        /// The caller must be root
+        #[pallet::call_index(120)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::do_dissolve_network(netuid)
         }
     }
 }
