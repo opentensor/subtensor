@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
-use substrate_fixed::types::{I96F32, I110F18};
+use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -50,16 +50,9 @@ impl<T: Config> Pallet<T> {
             .checked_div(total)
             .unwrap_or(I96F32::saturating_from_num(0.0));
 
-        // Convert increment to u64, mapping negative values to 0
-        let increment_u64: u64 = if increment.is_negative() {
-            0
-        } else {
-            increment.saturating_to_num::<u64>()
-        };
-
         // Increment claimable for this subnet.
         RootClaimable::<T>::mutate(hotkey, netuid, |total| {
-            *total = total.saturating_add(increment_u64);
+            *total = total.saturating_add(increment);
         });
     }
 
@@ -67,18 +60,17 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-    ) -> I110F18 {
+    ) -> I96F32 {
         // Get this keys stake balance on root.
-        let root_stake: I110F18 = I110F18::saturating_from_num(
+        let root_stake: I96F32 = I96F32::saturating_from_num(
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, NetUid::ROOT),
         );
 
         // Get the total claimable_rate for this hotkey and this network
-        let claimable_rate: I110F18 =
-            I110F18::saturating_from_num(RootClaimable::<T>::get(hotkey, netuid));
+        let claimable_rate: I96F32 = RootClaimable::<T>::get(hotkey, netuid);
 
         // Compute the proportion owed to this coldkey via balance.
-        let claimable: I110F18 = claimable_rate.saturating_mul(root_stake);
+        let claimable: I96F32 = claimable_rate.saturating_mul(root_stake);
 
         claimable
     }
@@ -87,15 +79,15 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-    ) -> I110F18 {
+    ) -> I96F32 {
         let claimable = Self::get_root_claimable_for_hotkey_coldkey(hotkey, coldkey, netuid);
 
         // Attain the root claimed to avoid overclaiming.
-        let root_claimed: I110F18 =
-            I110F18::saturating_from_num(RootClaimed::<T>::get((hotkey, coldkey, netuid)));
+        let root_claimed: I96F32 =
+            I96F32::saturating_from_num(RootClaimed::<T>::get((hotkey, coldkey, netuid)));
 
         // Substract the already claimed alpha.
-        let owed: I110F18 = claimable.saturating_sub(root_claimed);
+        let owed: I96F32 = claimable.saturating_sub(root_claimed);
 
         owed
     }
@@ -124,9 +116,9 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
     ) {
         // Substract the root claimed.
-        let owed: I110F18 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
+        let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
-        if owed == 0 || owed < I110F18::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
+        if owed == 0 || owed < I96F32::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
             return; // no-op
         }
 
@@ -207,7 +199,7 @@ impl<T: Config> Pallet<T> {
         // Iterate over all the subnets this hotkey is staked on for root.
         for (netuid, claimable_rate) in RootClaimable::<T>::iter_prefix(hotkey) {
             // Get the total claimable_rate for this hotkey and this network
-            let claimable_rate_u128: u128 = claimable_rate.into();
+            let claimable_rate_u128: u128 = claimable_rate.saturating_to_num();
 
             // Get current staker root claimed value.
             let root_claimed: u128 = RootClaimed::<T>::get((hotkey, coldkey, netuid));
@@ -233,7 +225,7 @@ impl<T: Config> Pallet<T> {
             }
 
             // Get the total claimable_rate for this hotkey and this network
-            let claimable_rate_u128: u128 = claimable_rate.into();
+            let claimable_rate_u128: u128 = claimable_rate.saturating_to_num();
 
             // Get current staker root claimed value.
             let root_claimed: u128 = RootClaimed::<T>::get((hotkey, coldkey, netuid));

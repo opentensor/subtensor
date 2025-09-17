@@ -893,6 +893,12 @@ pub mod pallet {
     pub fn DefaultMovingPrice<T: Config>() -> I96F32 {
         I96F32::saturating_from_num(0.0)
     }
+
+    #[pallet::type_value]
+    /// Default subnet root claimable
+    pub fn DefaultRootClaimable<T: Config>() -> I96F32 {
+        I96F32::saturating_from_num(0.0)
+    }
     #[pallet::type_value]
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
@@ -1822,9 +1828,9 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        u64,
+        I96F32,
         ValueQuery,
-        DefaultZeroU64<T>,
+        DefaultRootClaimable<T>,
     >;
 
     // Already claimed root alpha.
