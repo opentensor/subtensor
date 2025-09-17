@@ -1507,7 +1507,7 @@ pub mod pallet {
         pub fn sudo_set_recycle_or_burn(
             origin: OriginFor<T>,
             netuid: NetUid,
-            recycle_or_burn: RecycleOrBurnEnum,
+            recycle_or_burn: pallet_subtensor::RecycleOrBurnEnum,
         ) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,

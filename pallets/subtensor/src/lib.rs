@@ -306,7 +306,7 @@ pub mod pallet {
     }
 
     /// Enum for recycle or burn for the owner_uid(s)
-    #[derive(TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
+    #[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug)]
     pub enum RecycleOrBurnEnum {
         /// Burn the miner emission sent to the burn UID
         Burn,

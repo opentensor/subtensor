@@ -393,6 +393,12 @@ impl<T: Config> Pallet<T> {
         total_subnet_locked.into()
     }
 
+    pub fn set_recycle_or_burn(netuid: NetUid, recycle_or_burn: RecycleOrBurnEnum) {
+        RecycleOrBurn::<T>::insert(netuid, recycle_or_burn);
+
+        Ok(())
+    }
+
     // ========================
     // ========= Sudo =========
     // ========================
