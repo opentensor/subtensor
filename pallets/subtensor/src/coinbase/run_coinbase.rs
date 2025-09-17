@@ -543,13 +543,6 @@ impl<T: Config> Pallet<T> {
                 tou64!(alpha_take).into(),
             );
 
-            // Give rest to nominators.
-            // Self::increase_stake_for_hotkey_on_subnet(
-            //     &hotkey,
-            //     netuid,
-            //     tou64!(root_alpha).into(),
-            // );
-
             Self::increase_root_claimable_for_hotkey_and_subnet(
                 &hotkey,
                 netuid,

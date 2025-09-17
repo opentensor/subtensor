@@ -1,6 +1,4 @@
-use crate::tests::mock::{
-    RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext,
-};
+use crate::tests::mock::{RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext};
 use crate::{RootClaimType, RootClaimTypeEnum, SubnetAlphaIn, SubnetTAO, pallet};
 use crate::{RootClaimable, TotalHotkeyAlpha};
 use approx::assert_abs_diff_eq;
@@ -44,16 +42,32 @@ fn test_claim_root_with_drain_emissions() {
 
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
-        let stake = 1_000_000u64;
-        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
+        let stake = 2_000_000u64;
+        let initial_total_hotkey_alpha = 1_000_000u64;
+
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
             stake.into(),
         );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
 
-        let pending_root_alpha = AlphaCurrency::from(1_000_000);
+        let old_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+        );
+        assert_eq!(old_validator_stake, initial_total_hotkey_alpha.into());
+
+        // Distribute pending root alpha
+
+        let pending_root_alpha = AlphaCurrency::from(10_000_000);
         SubtensorModule::drain_pending_emission(
             netuid,
             AlphaCurrency::ZERO,
@@ -61,11 +75,29 @@ fn test_claim_root_with_drain_emissions() {
             AlphaCurrency::ZERO,
         );
 
-        let claimable = RootClaimable::<Test>::get(hotkey, netuid);
+        // Check new validator stake
+        let validator_take_percent = I96F32::from(18u64) / I96F32::from(100u64);
 
-        let validator_take_percent = 18u64;
-        let calculated_rate = (I96F32::from(stake) * I96F32::from(100u64 - validator_take_percent))
-            / I96F32::from(100u64)
+        let new_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+        );
+        let calculated_validator_stake = I96F32::from(u64::from(pending_root_alpha))
+            * I96F32::from(initial_total_hotkey_alpha)
+            * validator_take_percent
+            / I96F32::from(u64::from(initial_total_hotkey_alpha))
+            + I96F32::from(initial_total_hotkey_alpha);
+
+        assert_abs_diff_eq!(
+            u64::from(new_validator_stake),
+            calculated_validator_stake.saturating_to_num::<u64>(),
+            epsilon = 100u64,
+        );
+
+        let claimable = RootClaimable::<Test>::get(hotkey, netuid);
+        let calculated_rate = (I96F32::from(u64::from(pending_root_alpha))
+            * (I96F32::from(1u64) - validator_take_percent))
             / I96F32::from(u64::from(TotalHotkeyAlpha::<Test>::get(hotkey, netuid)));
 
         assert_abs_diff_eq!(
@@ -73,6 +105,8 @@ fn test_claim_root_with_drain_emissions() {
             (calculated_rate * I96F32::from(1000u64)).saturating_to_num::<u64>(),
             epsilon = 10u64,
         );
+
+        // Claim root alpha
 
         assert_ok!(SubtensorModule::set_root_claim_type(
             RuntimeOrigin::signed(coldkey),
@@ -131,7 +165,5 @@ alpha_bob = 3 * 25.2 - 36 = 39.6
 
 #[test]
 fn test_adding_stake_disproportionally() {
-    new_test_ext(1).execute_with(|| {
-
-    });
+    new_test_ext(1).execute_with(|| {});
 }
