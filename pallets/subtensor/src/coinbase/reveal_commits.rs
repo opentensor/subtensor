@@ -3,7 +3,7 @@ use ark_serialize::CanonicalDeserialize;
 use codec::Decode;
 use frame_support::{dispatch, traits::OriginTrait};
 use scale_info::prelude::collections::VecDeque;
-use subtensor_runtime_common::{NetUid, MechId};
+use subtensor_runtime_common::{MechId, NetUid};
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,

@@ -6,7 +6,7 @@ use crate::epoch::run_epoch::EpochTerms;
 use alloc::collections::BTreeMap;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, MechId};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex};
 
 pub type LeaseId = u32;
 

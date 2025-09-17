@@ -6,7 +6,7 @@ use safe_math::*;
 use sp_std::collections::btree_map::IntoIter;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, MechId};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex};
 
 #[derive(Debug, Default)]
 pub struct EpochTerms {

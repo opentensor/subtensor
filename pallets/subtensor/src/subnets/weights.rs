@@ -10,7 +10,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Hash},
 };
 use sp_std::{collections::vec_deque::VecDeque, vec};
-use subtensor_runtime_common::{NetUid, NetUidStorageIndex, MechId};
+use subtensor_runtime_common::{MechId, NetUid, NetUidStorageIndex};
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for committing weight hashes.
@@ -425,7 +425,15 @@ impl<T: Config> Pallet<T> {
         salt: Vec<u16>,
         version_key: u64,
     ) -> DispatchResult {
-        Self::internal_reveal_weights(origin, netuid, MechId::MAIN, uids, values, salt, version_key)
+        Self::internal_reveal_weights(
+            origin,
+            netuid,
+            MechId::MAIN,
+            uids,
+            values,
+            salt,
+            version_key,
+        )
     }
 
     pub fn do_reveal_sub_weights(

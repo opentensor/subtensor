@@ -14,7 +14,7 @@ use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::{Currency, NetUid, MechId, TaoCurrency};
+use subtensor_runtime_common::{Currency, MechId, NetUid, TaoCurrency};
 
 use crate::Error;
 use crate::pallet::PrecompileEnable;
@@ -2325,8 +2325,8 @@ fn test_sudo_set_max_burn() {
 fn test_sudo_set_mechanism_count() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let ss_count_ok = MechId::from(8);
-        let ss_count_bad = MechId::from(9);
+        let ss_count_ok = MaxMechanismCount::<Test>::get();
+        let ss_count_bad = MechId::from(u8::from(ss_count_ok) + 1);
 
         let sn_owner = U256::from(1324);
         add_network(netuid, 10);

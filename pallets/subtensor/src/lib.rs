@@ -87,7 +87,7 @@ pub mod pallet {
     use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
     use subtensor_runtime_common::{
-        AlphaCurrency, Currency, NetUid, NetUidStorageIndex, MechId, TaoCurrency,
+        AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
     };
 
     #[cfg(not(feature = "std"))]
@@ -1844,15 +1844,15 @@ pub mod pallet {
     #[pallet::type_value]
     /// -- ITEM (Maximum number of sub-subnets)
     pub fn MaxMechanismCount<T: Config>() -> MechId {
-        MechId::from(8)
+        MechId::from(2)
     }
     #[pallet::type_value]
-    /// -- ITEM (Rate limit for subsubnet count updates)
+    /// -- ITEM (Rate limit for mechanism count updates)
     pub fn MechanismCountSetRateLimit<T: Config>() -> u64 {
         prod_or_fast!(7_200, 1)
     }
     #[pallet::type_value]
-    /// -- ITEM (Rate limit for subsubnet emission distribution updates)
+    /// -- ITEM (Rate limit for mechanism emission distribution updates)
     pub fn MechanismEmissionRateLimit<T: Config>() -> u64 {
         prod_or_fast!(7_200, 1)
     }

@@ -12,7 +12,7 @@ use pallet_subtensor::rpc_info::{
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
 use sp_runtime::AccountId32;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, MechId, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, TaoCurrency};
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // src/neuron_info.rs, src/subnet_info.rs, and src/delegate_info.rs

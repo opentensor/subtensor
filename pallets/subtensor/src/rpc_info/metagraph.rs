@@ -8,7 +8,7 @@ use pallet_commitments::GetCommitments;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, MechId, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex, TaoCurrency};
 
 #[freeze_struct("6fc49d5a7dc0e339")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]

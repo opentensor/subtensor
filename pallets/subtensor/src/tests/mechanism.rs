@@ -52,7 +52,7 @@ use sp_core::{H256, U256};
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::{I32F32, U64F64};
-use subtensor_runtime_common::{NetUid, NetUidStorageIndex, MechId};
+use subtensor_runtime_common::{MechId, NetUid, NetUidStorageIndex};
 use tle::{
     curves::drand::TinyBLS381, ibe::fullident::Identity,
     stream_ciphers::AESGCMStreamCipherProvider, tlock::tle,
@@ -197,7 +197,10 @@ fn do_set_mechanism_count_ok_minimal() {
             MechId::from(1u8)
         ));
 
-        assert_eq!(MechanismCountCurrent::<Test>::get(netuid), MechId::from(1u8));
+        assert_eq!(
+            MechanismCountCurrent::<Test>::get(netuid),
+            MechId::from(1u8)
+        );
     });
 }
 
@@ -658,8 +661,10 @@ fn epoch_with_mechanisms_persists_and_aggregates_all_terms() {
         assert_abs_diff_eq!(w1.to_num::<f64>(), 0.75, epsilon = 0.0001);
 
         // Get per-mechanism epoch outputs to build expectations
-        let out0 = SubtensorModule::epoch_mechanism(netuid, MechId::from(0), mechanism_emissions[0]);
-        let out1 = SubtensorModule::epoch_mechanism(netuid, MechId::from(1), mechanism_emissions[1]);
+        let out0 =
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), mechanism_emissions[0]);
+        let out1 =
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(1), mechanism_emissions[1]);
 
         // Now run the real aggregated path (also persists terms)
         let agg = SubtensorModule::epoch_with_mechanisms(netuid, emission);

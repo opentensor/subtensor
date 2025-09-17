@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Currency, NetUid, MechId};
+use subtensor_runtime_common::{Currency, MechId, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.

@@ -9,7 +9,7 @@ use jsonrpsee::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{AccountId32, traits::Block as BlockT};
 use std::sync::Arc;
-use subtensor_runtime_common::{NetUid, MechId, TaoCurrency};
+use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
 
 use sp_api::ProvideRuntimeApi;
 

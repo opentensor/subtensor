@@ -28,7 +28,7 @@ pub mod pallet {
     use pallet_subtensor::utils::rate_limiting::{Hyperparameter, TransactionType};
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
-    use subtensor_runtime_common::{NetUid, MechId, TaoCurrency};
+    use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
 
     /// The main data structure of the module.
     #[pallet::pallet]
