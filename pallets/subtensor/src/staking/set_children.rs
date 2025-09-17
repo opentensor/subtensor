@@ -23,7 +23,7 @@ impl<T: Config> Pallet<T> {
     ///     - If all checks pass and setting the childkeys is scheduled.
     ///
     /// # Errors:
-    /// * `SubNetworkDoesNotExist`:
+    /// * `MechanismDoesNotExist`:
     ///     - Attempting to register to a non-existent network.
     /// * `RegistrationNotPermittedOnRootSubnet`:
     ///     - Attempting to register a child on the root network.
@@ -64,7 +64,7 @@ impl<T: Config> Pallet<T> {
         // Check that the network we are trying to create the child on exists.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
         // Check that the coldkey owns the hotkey.
@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully registering children to a hotkey.
     ///
     /// # Errors:
-    /// * `SubNetworkDoesNotExist`:
+    /// * `MechanismDoesNotExist`:
     ///     - Attempting to register to a non-existent network.
     /// * `RegistrationNotPermittedOnRootSubnet`:
     ///     - Attempting to register a child on the root network.

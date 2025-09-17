@@ -25,8 +25,8 @@ impl<T: Config> Pallet<T> {
         Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
         Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        for subid in 0..SubsubnetCountCurrent::<T>::get(netuid).into() {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+        for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
             Incentive::<T>::mutate(netuid_index, |v| Self::set_element_at(v, neuron_index, 0));
             Bonds::<T>::remove(netuid_index, neuron_uid); // Remove bonds for Validator.
 
@@ -114,8 +114,8 @@ impl<T: Config> Pallet<T> {
         Active::<T>::mutate(netuid, |v| v.push(true));
         Emission::<T>::mutate(netuid, |v| v.push(0.into()));
         Consensus::<T>::mutate(netuid, |v| v.push(0));
-        for subid in 0..SubsubnetCountCurrent::<T>::get(netuid).into() {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+        for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
             Incentive::<T>::mutate(netuid_index, |v| v.push(0));
             LastUpdate::<T>::mutate(netuid_index, |v| v.push(block_number));
         }
@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
         // Reasonable limits
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
         ensure!(
             max_n >= MinAllowedUids::<T>::get(netuid),
@@ -178,7 +178,7 @@ impl<T: Config> Pallet<T> {
 
             let mut removed_uids = BTreeSet::new();
             let mut uids_left_to_process = current_n;
-            let subsubnets_count = SubsubnetCountCurrent::<T>::get(netuid).into();
+            let mechanisms_count = MechanismCountCurrent::<T>::get(netuid).into();
 
             // Iterate from the end (lowest emitters) to the beginning
             for i in (0..current_n).rev() {
@@ -212,8 +212,8 @@ impl<T: Config> Pallet<T> {
                     #[allow(unknown_lints)]
                     Keys::<T>::remove(netuid, neuron_uid);
                     BlockAtRegistration::<T>::remove(netuid, neuron_uid);
-                    for subid in 0..subsubnets_count {
-                        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+                    for mecid in 0..mechanisms_count {
+                        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
                         Weights::<T>::remove(netuid_index, neuron_uid);
                         Bonds::<T>::remove(netuid_index, neuron_uid);
                     }
@@ -282,9 +282,9 @@ impl<T: Config> Pallet<T> {
             ValidatorPermit::<T>::insert(netuid, trimmed_vpermit);
             StakeWeight::<T>::insert(netuid, trimmed_stake_weight);
 
-            // Update incentives/lastupdates for subsubnets
-            for subid in 0..subsubnets_count {
-                let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            // Update incentives/lastupdates for mechanisms
+            for mecid in 0..mechanisms_count {
+                let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
                 let incentive = Incentive::<T>::get(netuid_index);
                 let lastupdate = LastUpdate::<T>::get(netuid_index);
                 let mut trimmed_incentive = Vec::with_capacity(trimmed_uids.len());
@@ -320,8 +320,8 @@ impl<T: Config> Pallet<T> {
                 Keys::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
                 BlockAtRegistration::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
 
-                for subid in 0..subsubnets_count {
-                    let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+                for mecid in 0..mechanisms_count {
+                    let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
 
                     // Swap to new position and remap all target uids
                     Weights::<T>::swap(netuid_index, old_neuron_uid, netuid_index, new_neuron_uid);

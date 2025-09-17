@@ -53,7 +53,7 @@ mod dispatches {
         /// 	- On successfully setting the weights on chain.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -94,7 +94,7 @@ mod dispatches {
             }
         }
 
-        /// --- Sets the caller weights for the incentive mechanism for subsubnets. The call
+        /// --- Sets the caller weights for the incentive mechanism for mechanisms. The call
         /// can be made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
         /// checks that the passed weights meet the requirements. Stored as u16s they represent
@@ -114,8 +114,8 @@ mod dispatches {
         /// * `netuid` (u16):
         /// 	- The network uid we are setting these weights on.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechnism identifier.
         ///
         /// * `dests` (Vec<u16>):
         /// 	- The edge endpoint for the weight, i.e. j for w_ij.
@@ -132,7 +132,7 @@ mod dispatches {
         /// 	- On successfully setting the weights on chain.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -162,7 +162,7 @@ mod dispatches {
         pub fn set_sub_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             dests: Vec<u16>,
             weights: Vec<u16>,
             version_key: u64,
@@ -170,7 +170,7 @@ mod dispatches {
             if Self::get_commit_reveal_weights_enabled(netuid) {
                 Err(Error::<T>::CommitRevealEnabled.into())
             } else {
-                Self::do_set_sub_weights(origin, netuid, subid, dests, weights, version_key)
+                Self::do_set_sub_weights(origin, netuid, mecid, dests, weights, version_key)
             }
         }
 
@@ -243,7 +243,7 @@ mod dispatches {
             Self::do_commit_weights(origin, netuid, commit_hash)
         }
 
-        /// ---- Used to commit a hash of your weight values to later be revealed for subsubnets.
+        /// ---- Used to commit a hash of your weight values to later be revealed for mechanisms.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -252,8 +252,8 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
         ///
         /// * `commit_hash` (`H256`):
         ///   - The hash representing the committed weights.
@@ -272,10 +272,10 @@ mod dispatches {
         pub fn commit_sub_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             commit_hash: H256,
         ) -> DispatchResult {
-            Self::do_commit_sub_weights(origin, netuid, subid, commit_hash)
+            Self::do_commit_sub_weights(origin, netuid, mecid, commit_hash)
         }
 
         /// --- Allows a hotkey to commit weight hashes for multiple netuids as a batch.
@@ -364,7 +364,7 @@ mod dispatches {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
-        /// ---- Used to reveal the weights for a previously committed hash for subsubnets.
+        /// ---- Used to reveal the weights for a previously committed hash for mechanisms.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -373,8 +373,8 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
         ///
         /// * `uids` (`Vec<u16>`):
         ///   - The uids for the weights being revealed.
@@ -411,13 +411,13 @@ mod dispatches {
         pub fn reveal_sub_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             uids: Vec<u16>,
             values: Vec<u16>,
             salt: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            Self::do_reveal_sub_weights(origin, netuid, subid, uids, values, salt, version_key)
+            Self::do_reveal_sub_weights(origin, netuid, mecid, uids, values, salt, version_key)
         }
 
         /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
@@ -462,7 +462,7 @@ mod dispatches {
             Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
         }
 
-        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed for subsubnets.
+        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed for mechanisms.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -471,8 +471,8 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
         ///
         /// * `commit` (`Vec<u8>`):
         ///   - The encrypted compressed commit.
@@ -501,11 +501,11 @@ mod dispatches {
         pub fn commit_crv3_sub_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
         ) -> DispatchResult {
-            Self::do_commit_timelocked_sub_weights(origin, netuid, subid, commit, reveal_round, 4)
+            Self::do_commit_timelocked_sub_weights(origin, netuid, mecid, commit, reveal_round, 4)
         }
 
         /// ---- The implementation for batch revealing committed weights.
@@ -782,7 +782,7 @@ mod dispatches {
         /// 	- On successfully serving the axon info.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -866,7 +866,7 @@ mod dispatches {
         /// 	- On successfully serving the axon info.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -975,7 +975,7 @@ mod dispatches {
         /// 	- On successfully registering a uid to a neuron slot on a subnetwork.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to register to a non existent network.
         ///
         /// * 'TooManyRegistrationsThisBlock':
@@ -1366,7 +1366,7 @@ mod dispatches {
         ///     - On successfully registering a child to a hotkey.
         ///
         /// # Errors:
-        /// * `SubNetworkDoesNotExist`:
+        /// * `MechanismDoesNotExist`:
         ///     - Attempting to register to a non-existent network.
         /// * `RegistrationNotPermittedOnRootSubnet`:
         ///     - Attempting to register a child on the root network.
@@ -2304,8 +2304,8 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
         ///
         /// * `commit` (`Vec<u8>`):
         ///   - The encrypted compressed commit.
@@ -2329,7 +2329,7 @@ mod dispatches {
         pub fn commit_timelocked_sub_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
             commit_reveal_version: u16,
@@ -2337,7 +2337,7 @@ mod dispatches {
             Self::do_commit_timelocked_sub_weights(
                 origin,
                 netuid,
-                subid,
+                mecid,
                 commit,
                 reveal_round,
                 commit_reveal_version,

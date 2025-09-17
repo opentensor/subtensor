@@ -87,7 +87,7 @@ pub mod pallet {
     use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
     use subtensor_runtime_common::{
-        AlphaCurrency, Currency, NetUid, NetUidStorageIndex, SubId, TaoCurrency,
+        AlphaCurrency, Currency, NetUid, NetUidStorageIndex, MechId, TaoCurrency,
     };
 
     #[cfg(not(feature = "std"))]
@@ -1833,36 +1833,36 @@ pub mod pallet {
     pub type CommitRevealWeightsVersion<T> =
         StorageValue<_, u16, ValueQuery, DefaultCommitRevealWeightsVersion<T>>;
 
-    /// ======================
-    /// ==== Sub-subnets =====
-    /// ======================
+    /// ============================
+    /// ==== Subnet Mechanisms =====
+    /// ============================
     #[pallet::type_value]
     /// -- ITEM (Default number of sub-subnets)
-    pub fn DefaultSubsubnetCount<T: Config>() -> SubId {
-        SubId::from(1)
+    pub fn DefaultMechanismCount<T: Config>() -> MechId {
+        MechId::from(1)
     }
     #[pallet::type_value]
     /// -- ITEM (Maximum number of sub-subnets)
-    pub fn MaxSubsubnetCount<T: Config>() -> SubId {
-        SubId::from(8)
+    pub fn MaxMechanismCount<T: Config>() -> MechId {
+        MechId::from(8)
     }
     #[pallet::type_value]
     /// -- ITEM (Rate limit for subsubnet count updates)
-    pub fn SubsubnetCountSetRateLimit<T: Config>() -> u64 {
+    pub fn MechanismCountSetRateLimit<T: Config>() -> u64 {
         prod_or_fast!(7_200, 1)
     }
     #[pallet::type_value]
     /// -- ITEM (Rate limit for subsubnet emission distribution updates)
-    pub fn SubsubnetEmissionRateLimit<T: Config>() -> u64 {
+    pub fn MechanismEmissionRateLimit<T: Config>() -> u64 {
         prod_or_fast!(7_200, 1)
     }
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> Current number of sub-subnets
-    pub type SubsubnetCountCurrent<T: Config> =
-        StorageMap<_, Twox64Concat, NetUid, SubId, ValueQuery, DefaultSubsubnetCount<T>>;
+    /// --- MAP ( netuid ) --> Current number of subnet mechanisms
+    pub type MechanismCountCurrent<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, MechId, ValueQuery, DefaultMechanismCount<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> Normalized vector of emission split proportion between subsubnets
-    pub type SubsubnetEmissionSplit<T: Config> =
+    /// --- MAP ( netuid ) --> Normalized vector of emission split proportion between subnet mechanisms
+    pub type MechanismEmissionSplit<T: Config> =
         StorageMap<_, Twox64Concat, NetUid, Vec<u16>, OptionQuery>;
 
     /// ==================

@@ -8,7 +8,7 @@ use pallet_commitments::GetCommitments;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, SubId, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, MechId, TaoCurrency};
 
 #[freeze_struct("6fc49d5a7dc0e339")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -805,17 +805,17 @@ impl<T: Config> Pallet<T> {
         metagraphs
     }
 
-    pub fn get_submetagraph(netuid: NetUid, subid: SubId) -> Option<Metagraph<T::AccountId>> {
-        if Self::ensure_subsubnet_exists(netuid, subid).is_err() {
+    pub fn get_submetagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<T::AccountId>> {
+        if Self::ensure_mechanism_exists(netuid, mecid).is_err() {
             return None;
         }
 
         // Get netuid metagraph
         let maybe_meta = Self::get_metagraph(netuid);
         if let Some(mut meta) = maybe_meta {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
-            // Update with subsubnet information
+            // Update with mechanism information
             meta.netuid = NetUid::from(u16::from(netuid_index)).into();
             meta.last_update = LastUpdate::<T>::get(netuid_index)
                 .into_iter()
@@ -836,9 +836,9 @@ impl<T: Config> Pallet<T> {
         let netuids = Self::get_all_subnet_netuids();
         let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
-            let subsub_count = u8::from(SubsubnetCountCurrent::<T>::get(netuid));
-            for subid in 0..subsub_count {
-                metagraphs.push(Self::get_submetagraph(*netuid, SubId::from(subid)));
+            let mechanism_count = u8::from(MechanismCountCurrent::<T>::get(netuid));
+            for mecid in 0..mechanism_count {
+                metagraphs.push(Self::get_submetagraph(*netuid, MechId::from(mecid)));
             }
         }
         metagraphs
@@ -862,7 +862,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_selective_submetagraph(
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         metagraph_indexes: Vec<u16>,
     ) -> Option<SelectiveMetagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
@@ -870,7 +870,7 @@ impl<T: Config> Pallet<T> {
         } else {
             let mut result = SelectiveMetagraph::default();
             for index in metagraph_indexes.iter() {
-                let value = Self::get_single_selective_submetagraph(netuid, subid, *index);
+                let value = Self::get_single_selective_submetagraph(netuid, mecid, *index);
                 result.merge_value(&value, *index as usize);
             }
             Some(result)
@@ -1443,12 +1443,12 @@ impl<T: Config> Pallet<T> {
 
     fn get_single_selective_submetagraph(
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         metagraph_index: u16,
     ) -> SelectiveMetagraph<T::AccountId> {
-        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
-        // Default to netuid, replace as needed for subid
+        // Default to netuid, replace as needed for mecid
         match SelectiveMetagraphIndex::from_index(metagraph_index as usize) {
             Some(SelectiveMetagraphIndex::Incentives) => SelectiveMetagraph {
                 netuid: netuid.into(),

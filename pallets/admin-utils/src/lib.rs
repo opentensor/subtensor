@@ -28,7 +28,7 @@ pub mod pallet {
     use pallet_subtensor::utils::rate_limiting::{Hyperparameter, TransactionType};
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
-    use subtensor_runtime_common::{NetUid, SubId, TaoCurrency};
+    use subtensor_runtime_common::{NetUid, MechId, TaoCurrency};
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -1855,38 +1855,38 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the desired number of subsubnets in a subnet
+        /// Sets the desired number of mechanisms in a subnet
         #[pallet::call_index(76)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_subsubnet_count(
+        pub fn sudo_set_mechanism_count(
             origin: OriginFor<T>,
             netuid: NetUid,
-            subsub_count: SubId,
+            mechanism_count: MechId,
         ) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::SubsubnetCountUpdate],
+                &[TransactionType::MechanismCountUpdate],
             )?;
 
-            pallet_subtensor::Pallet::<T>::do_set_subsubnet_count(netuid, subsub_count)?;
+            pallet_subtensor::Pallet::<T>::do_set_mechanism_count(netuid, mechanism_count)?;
 
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::SubsubnetCountUpdate],
+                &[TransactionType::MechanismCountUpdate],
             );
             Ok(())
         }
 
-        /// Sets the emission split between subsubnets in a subnet
+        /// Sets the emission split between mechanisms in a subnet
         #[pallet::call_index(77)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_subsubnet_emission_split(
+        pub fn sudo_set_mechanism_emission_split(
             origin: OriginFor<T>,
             netuid: NetUid,
             maybe_split: Option<Vec<u16>>,
@@ -1894,7 +1894,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::SubsubnetEmission],
+                &[TransactionType::MechanismEmission],
             )?;
 
             pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
@@ -1902,7 +1902,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::SubsubnetEmission],
+                &[TransactionType::MechanismEmission],
             );
             Ok(())
         }

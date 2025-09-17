@@ -361,14 +361,14 @@ impl<T: Config> Pallet<T> {
     /// * 'NetworkRemoved': Emitted when a network is successfully removed.
     ///
     /// # Raises:
-    /// * 'SubNetworkDoesNotExist': If the specified network does not exist.
+    /// * 'MechanismDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
     pub fn user_remove_network(coldkey: T::AccountId, netuid: NetUid) -> dispatch::DispatchResult {
         // --- 1. Ensure this subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
         // --- 2. Ensure the caller owns this subnet.
@@ -409,7 +409,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let reserved_amount = Self::get_subnet_locked_balance(netuid);
-        let subsubnets: u8 = SubsubnetCountCurrent::<T>::get(netuid).into();
+        let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -427,14 +427,14 @@ impl<T: Config> Pallet<T> {
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
-        for subid in 0..subsubnets {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+        for mecid in 0..mechanisms {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
             let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
         }
 
         // --- 7. Removes the weights for this subnet (do not remove).
-        for subid in 0..subsubnets {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+        for mecid in 0..mechanisms {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
             let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
         }
 
@@ -457,15 +457,15 @@ impl<T: Config> Pallet<T> {
         Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
-        for subid in 0..subsubnets {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+        for mecid in 0..mechanisms {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
             Incentive::<T>::remove(netuid_index);
         }
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
         PruningScores::<T>::remove(netuid);
-        for subid in 0..subsubnets {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+        for mecid in 0..mechanisms {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
             LastUpdate::<T>::remove(netuid_index);
         }
         ValidatorPermit::<T>::remove(netuid);

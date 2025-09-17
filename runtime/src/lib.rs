@@ -1057,10 +1057,10 @@ pub struct ResetBondsOnCommit;
 impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
-        // Reset bonds for each subsubnet of this subnet
-        let subsub_count = SubtensorModule::get_current_subsubnet_count(netuid);
-        for subid in 0..u8::from(subsub_count) {
-            let netuid_index = SubtensorModule::get_subsubnet_storage_index(netuid, subid.into());
+        // Reset bonds for each mechanism of this subnet
+        let mechanism_count = SubtensorModule::get_current_mechanism_count(netuid);
+        for mecid in 0..u8::from(mechanism_count) {
+            let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid.into());
             let _ = SubtensorModule::do_reset_bonds(netuid_index, address);
         }
     }
@@ -2334,8 +2334,8 @@ impl_runtime_apis! {
             SubtensorModule::get_metagraph(netuid)
         }
 
-        fn get_submetagraph(netuid: NetUid, subid: SubId) -> Option<Metagraph<AccountId32>> {
-            SubtensorModule::get_submetagraph(netuid, subid)
+        fn get_submetagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_submetagraph(netuid, mecid)
         }
 
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>> {
@@ -2358,8 +2358,8 @@ impl_runtime_apis! {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
         }
 
-        fn get_selective_submetagraph(netuid: NetUid, subid: SubId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
-            SubtensorModule::get_selective_submetagraph(netuid, subid, metagraph_indexes)
+        fn get_selective_submetagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_submetagraph(netuid, mecid, metagraph_indexes)
         }
     }
 

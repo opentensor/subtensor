@@ -9,7 +9,7 @@ use jsonrpsee::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{AccountId32, traits::Block as BlockT};
 use std::sync::Arc;
-use subtensor_runtime_common::{NetUid, SubId, TaoCurrency};
+use subtensor_runtime_common::{NetUid, MechId, TaoCurrency};
 
 use sp_api::ProvideRuntimeApi;
 
@@ -78,7 +78,7 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_submetagraph(
         &self,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
@@ -96,7 +96,7 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_selective_submetagraph(
         &self,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         metagraph_index: Vec<u16>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
@@ -382,12 +382,12 @@ where
     fn get_submetagraph(
         &self,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        match api.get_submetagraph(at, netuid, subid) {
+        match api.get_submetagraph(at, netuid, mecid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
                 "Unable to get dynamic subnets info: {e:?}"
@@ -475,14 +475,14 @@ where
     fn get_selective_submetagraph(
         &self,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         metagraph_index: Vec<u16>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        match api.get_selective_submetagraph(at, netuid, subid, metagraph_index) {
+        match api.get_selective_submetagraph(at, netuid, mecid, metagraph_index) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
                 Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())
