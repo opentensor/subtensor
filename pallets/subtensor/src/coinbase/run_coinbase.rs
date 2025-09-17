@@ -499,6 +499,17 @@ impl<T: Config> Pallet<T> {
                 log::debug!(
                     "incentives: hotkey: {hotkey:?} is SN owner hotkey or associated hotkey, skipping {incentive:?}"
                 );
+                // Check if we should recycle or burn the incentive
+                match RecycleOrBurn::<T>::try_get(netuid) {
+                    Ok(RecycleOrBurnEnum::Recycle) => {
+                        log::debug!("recycling {incentive:?}");
+                        Self::recycle_subnet_alpha(netuid, incentive);
+                    }
+                    Ok(RecycleOrBurnEnum::Burn) | Err(_) => {
+                        log::debug!("burning {incentive:?}");
+                        Self::burn_subnet_alpha(netuid, incentive);
+                    }
+                }
                 continue;
             }
 

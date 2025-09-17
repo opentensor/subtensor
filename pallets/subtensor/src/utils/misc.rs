@@ -372,7 +372,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn burn_tokens(amount: TaoCurrency) {
+    pub fn recycle_tao(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
     pub fn increase_issuance(amount: TaoCurrency) {
@@ -391,6 +391,10 @@ impl<T: Config> Pallet<T> {
             total_subnet_locked.saturating_accrue(locked.into());
         }
         total_subnet_locked.into()
+    }
+
+    pub fn set_recycle_or_burn(netuid: NetUid, recycle_or_burn: RecycleOrBurnEnum) {
+        RecycleOrBurn::<T>::insert(netuid, recycle_or_burn);
     }
 
     // ========================

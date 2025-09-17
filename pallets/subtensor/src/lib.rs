@@ -305,6 +305,15 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
+    /// Enum for recycle or burn for the owner_uid(s)
+    #[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug)]
+    pub enum RecycleOrBurnEnum {
+        /// Burn the miner emission sent to the burn UID
+        Burn,
+        /// Recycle the miner emission sent to the recycle UID
+        Recycle,
+    }
+
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -536,6 +545,11 @@ pub mod pallet {
     /// Default value for subnet owner cut.
     pub fn DefaultSubnetOwnerCut<T: Config>() -> u16 {
         T::InitialSubnetOwnerCut::get()
+    }
+    #[pallet::type_value]
+    /// Default value for recycle or burn.
+    pub fn DefaultRecycleOrBurn<T: Config>() -> RecycleOrBurnEnum {
+        RecycleOrBurnEnum::Burn // default to burn
     }
     #[pallet::type_value]
     /// Default value for network rate limit.
@@ -1334,6 +1348,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> subnet_owner_hotkey
     pub type SubnetOwnerHotkey<T: Config> =
         StorageMap<_, Identity, NetUid, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> recycle_or_burn
+    pub type RecycleOrBurn<T: Config> =
+        StorageMap<_, Identity, NetUid, RecycleOrBurnEnum, ValueQuery, DefaultRecycleOrBurn<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> serving_rate_limit
     pub type ServingRateLimit<T> =

@@ -97,11 +97,11 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 0));
 
         // 14. Remove the swap cost from the coldkey's account
-        let actual_burn_amount =
+        let actual_recycle_amount =
             Self::remove_balance_from_coldkey_account(&coldkey, swap_cost.into())?;
 
-        // 18. Burn the tokens
-        Self::burn_tokens(actual_burn_amount);
+        // 18. Recycle the tokens
+        Self::recycle_tao(actual_recycle_amount);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
 
         // 19. Perform the hotkey swap
@@ -296,11 +296,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // 5. Remove the swap cost from the coldkey's account
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost)?;
+        let actual_recycle_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost)?;
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
 
-        // 6. Burn the tokens
-        Self::burn_tokens(actual_burn_amount);
+        // 6. Recycle the tokens
+        Self::recycle_tao(actual_recycle_amount);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 7. Swap owner.

@@ -196,6 +196,7 @@ pub enum Hyperparameter {
     Yuma3Enabled = 21,
     BondsResetEnabled = 22,
     ImmuneNeuronLimit = 23,
+    RecycleOrBurn = 24,
 }
 
 impl<T: Config> Pallet<T> {

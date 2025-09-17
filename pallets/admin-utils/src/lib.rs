@@ -1493,6 +1493,38 @@ pub mod pallet {
             res
         }
 
+        /// Set the behaviour of the "burn" UID(s) for a given subnet.
+        /// If set to `Burn`, the miner emission sent to the burn UID(s) will be burned.
+        /// If set to `Recycle`, the miner emission sent to the burn UID(s) will be recycled.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `recycle_or_burn`: The desired behaviour of the "burn" UID(s) for the subnet.
+        ///
+        #[pallet::call_index(80)]
+        #[pallet::weight((1_000_000, DispatchClass::Normal, Pays::Yes))] // TODO: add proper weights
+        pub fn sudo_set_recycle_or_burn(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            recycle_or_burn: pallet_subtensor::RecycleOrBurnEnum,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::RecycleOrBurn.into()],
+            )?;
+
+            pallet_subtensor::Pallet::<T>::set_recycle_or_burn(netuid, recycle_or_burn);
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::RecycleOrBurn.into()],
+            );
+
+            Ok(())
+        }
+
         /// Toggles the enablement of an EVM precompile.
         ///
         /// # Arguments

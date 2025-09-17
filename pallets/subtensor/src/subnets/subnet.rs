@@ -229,7 +229,7 @@ impl<T: Config> Pallet<T> {
         );
 
         if actual_tao_lock_amount_less_pool_tao > TaoCurrency::ZERO {
-            Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
+            Self::recycle_tao(actual_tao_lock_amount_less_pool_tao);
         }
 
         if actual_tao_lock_amount > TaoCurrency::ZERO && pool_initial_tao > TaoCurrency::ZERO {

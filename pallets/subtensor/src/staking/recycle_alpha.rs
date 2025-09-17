@@ -126,7 +126,7 @@ impl<T: Config> Pallet<T> {
             &hotkey, &coldkey, netuid, amount,
         );
 
-        // This is a burn, so we don't need to update AlphaOut.
+        Self::burn_subnet_alpha(netuid, amount);
 
         // Deposit event
         Self::deposit_event(Event::AlphaBurned(
