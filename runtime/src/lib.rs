@@ -50,7 +50,7 @@ use sp_core::{
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
@@ -490,7 +490,9 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
+use pallet_subtensor::{
+    CollectiveInterface, CommitmentsInterface, MemberManagement, ProxyInterface,
+};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -884,6 +886,7 @@ impl pallet_proxy::Config for Runtime {
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
+    type BlockNumberProvider = System;
 }
 
 pub struct Proxier;
@@ -907,6 +910,13 @@ impl ProxyInterface<AccountId> for Proxier {
             ProxyType::SubnetLeaseBeneficiary,
             0,
         )
+    }
+}
+
+pub struct CommitmentsI;
+impl CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(netuid: NetUid) {
+        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid);
     }
 }
 
@@ -1151,8 +1161,8 @@ parameter_types! {
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
-    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
-    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialNetworkImmunity: u64 = 1_296_000;
+    pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
@@ -1174,6 +1184,7 @@ parameter_types! {
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
+    pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1188,6 +1199,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRho = SubtensorInitialRho;
     type InitialAlphaSigmoidSteepness = SubtensorInitialAlphaSigmoidSteepness;
     type InitialKappa = SubtensorInitialKappa;
+    type InitialMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
     type InitialBondsPenalty = SubtensorInitialBondsPenalty;
@@ -1228,7 +1240,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
-    type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
@@ -1251,6 +1262,8 @@ impl pallet_subtensor::Config for Runtime {
     type ProxyInterface = Proxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = GetCommitmentsStruct;
+    type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 parameter_types! {
@@ -2353,6 +2366,9 @@ impl_runtime_apis! {
 
         fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
+        }
+        fn get_subnet_to_prune() -> Option<NetUid> {
+        pallet_subtensor::Pallet::<Runtime>::get_network_to_prune()
         }
 
         fn get_selective_submetagraph(netuid: NetUid, subid: SubId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {

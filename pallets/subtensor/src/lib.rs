@@ -532,11 +532,6 @@ pub mod pallet {
         T::InitialNetworkImmunityPeriod::get()
     }
     #[pallet::type_value]
-    /// Default value for network min allowed UIDs.
-    pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
-        T::InitialNetworkMinAllowedUids::get()
-    }
-    #[pallet::type_value]
     /// Default value for network min lock cost.
     pub fn DefaultNetworkMinLockCost<T: Config>() -> TaoCurrency {
         T::InitialNetworkMinLockCost::get().into()
@@ -563,6 +558,11 @@ pub mod pallet {
             return 0;
         }
         T::InitialNetworkRateLimit::get()
+    }
+    #[pallet::type_value]
+    /// Default value for network rate limit.
+    pub fn DefaultNetworkRegistrationStartBlock<T: Config>() -> u64 {
+        0
     }
     #[pallet::type_value]
     /// Default value for weights version key rate limit.
@@ -627,9 +627,19 @@ pub mod pallet {
         T::InitialKappa::get()
     }
     #[pallet::type_value]
+    /// Default value for network min allowed UIDs.
+    pub fn DefaultMinAllowedUids<T: Config>() -> u16 {
+        T::InitialMinAllowedUids::get()
+    }
+    #[pallet::type_value]
     /// Default maximum allowed UIDs.
     pub fn DefaultMaxAllowedUids<T: Config>() -> u16 {
         T::InitialMaxAllowedUids::get()
+    }
+    #[pallet::type_value]
+    /// -- Rate limit for set max allowed UIDs
+    pub fn MaxUidsTrimmingRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(30 * 7200, 1)
     }
     #[pallet::type_value]
     /// Default immunity period.
@@ -892,6 +902,12 @@ pub mod pallet {
         0
     }
 
+    #[pallet::type_value]
+    /// Default value for subnet limit.
+    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
+        128
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -1078,6 +1094,9 @@ pub mod pallet {
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
+
+    #[pallet::storage] // --- ITEM ( maximum_number_of_networks )
+    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, TaoCurrency, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
@@ -1360,6 +1379,10 @@ pub mod pallet {
     pub type BurnRegistrationsThisInterval<T: Config> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> min_allowed_uids
+    pub type MinAllowedUids<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMinAllowedUids<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> max_allowed_uids
     pub type MaxAllowedUids<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMaxAllowedUids<T>>;
@@ -1523,7 +1546,7 @@ pub mod pallet {
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
     #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight | weight for stake used in YC.
-    pub(super) type StakeWeight<T: Config> =
+    pub type StakeWeight<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- DMAP ( netuid, hotkey ) --> uid
@@ -1841,6 +1864,11 @@ pub mod pallet {
     /// --- ITEM ( CommitRevealWeightsVersion )
     pub type CommitRevealWeightsVersion<T> =
         StorageValue<_, u16, ValueQuery, DefaultCommitRevealWeightsVersion<T>>;
+
+    #[pallet::storage]
+    /// ITEM( NetworkRegistrationStartBlock )
+    pub type NetworkRegistrationStartBlock<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
 
     /// ======================
     /// ==== Sub-subnets =====
@@ -2237,4 +2265,9 @@ impl<T> ProxyInterface<T> for () {
     fn remove_lease_beneficiary_proxy(_: &T, _: &T) -> DispatchResult {
         Ok(())
     }
+}
+
+/// Pallets that hold per-subnet commitments implement this to purge all state for `netuid`.
+pub trait CommitmentsInterface {
+    fn purge_netuid(netuid: NetUid);
 }

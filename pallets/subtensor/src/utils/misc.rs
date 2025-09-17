@@ -561,6 +561,14 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MinAllowedWeightSet(netuid, min_allowed_weights));
     }
 
+    pub fn get_min_allowed_uids(netuid: NetUid) -> u16 {
+        MinAllowedUids::<T>::get(netuid)
+    }
+    pub fn set_min_allowed_uids(netuid: NetUid, min_allowed: u16) {
+        MinAllowedUids::<T>::insert(netuid, min_allowed);
+        Self::deposit_event(Event::MinAllowedUidsSet(netuid, min_allowed));
+    }
+
     pub fn get_max_allowed_uids(netuid: NetUid) -> u16 {
         MaxAllowedUids::<T>::get(netuid)
     }
@@ -930,5 +938,20 @@ impl<T: Config> Pallet<T> {
 
         ImmuneOwnerUidsLimit::<T>::insert(netuid, limit);
         Ok(())
+    }
+
+    /// Fetches the max number of subnet
+    ///
+    /// # Returns:
+    /// * 'u16': The max number of subnet
+    ///
+    pub fn get_max_subnets() -> u16 {
+        SubnetLimit::<T>::get()
+    }
+
+    /// Sets the max number of subnet
+    pub fn set_max_subnets(limit: u16) {
+        SubnetLimit::<T>::put(limit);
+        Self::deposit_event(Event::SubnetLimitSet(limit));
     }
 }

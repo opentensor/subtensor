@@ -46,6 +46,7 @@ sp_api::decl_runtime_apis! {
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>>;
         fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>>;
         fn get_selective_submetagraph(netuid: NetUid, subid: SubId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>>;
+        fn get_subnet_to_prune() -> Option<NetUid>;
     }
 
     pub trait StakeInfoRuntimeApi {
