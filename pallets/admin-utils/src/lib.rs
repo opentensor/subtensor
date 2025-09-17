@@ -1514,15 +1514,15 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::RecycleOrBurn.into()],
             )?;
-            let res = pallet_subtensor::Pallet::<T>::set_recycle_or_burn(netuid, recycle_or_burn);
-            if res.is_ok() {
-                pallet_subtensor::Pallet::<T>::record_owner_rl(
-                    maybe_owner,
-                    netuid,
-                    &[Hyperparameter::RecycleOrBurn.into()],
-                );
-            }
-            res
+
+            pallet_subtensor::Pallet::<T>::set_recycle_or_burn(netuid, recycle_or_burn);
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::RecycleOrBurn.into()],
+            );
+
+            Ok(())
         }
 
         /// Toggles the enablement of an EVM precompile.
