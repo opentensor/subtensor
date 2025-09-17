@@ -329,8 +329,7 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    pub fn burn_subnet_alpha(netuid: NetUid, amount: AlphaCurrency) {
+    pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaCurrency) {
         // Do nothing; TODO: record burned alpha in a tracker
-        return;
     }
 }

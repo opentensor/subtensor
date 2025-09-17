@@ -487,8 +487,6 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let maybe_owner_hotkey = SubnetOwnerHotkey::<T>::try_get(netuid);
-
         // Distribute mining incentives.
         let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
         let owner_hotkeys = Self::get_owner_hotkeys(netuid, &subnet_owner_coldkey);
@@ -503,11 +501,11 @@ impl<T: Config> Pallet<T> {
                 );
                 // Check if we should recycle or burn the incentive
                 match RecycleOrBurn::<T>::try_get(netuid) {
-                    Ok(RecycleOrBurn::Recycle) => {
+                    Ok(RecycleOrBurnEnum::Recycle) => {
                         log::debug!("recycling {incentive:?}");
                         Self::recycle_subnet_alpha(netuid, incentive);
                     }
-                    Ok(RecycleOrBurn::Burn) | Err(_) => {
+                    Ok(RecycleOrBurnEnum::Burn) | Err(_) => {
                         log::debug!("burning {incentive:?}");
                         Self::burn_subnet_alpha(netuid, incentive);
                     }

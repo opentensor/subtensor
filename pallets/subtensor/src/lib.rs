@@ -306,43 +306,12 @@ pub mod pallet {
     }
 
     /// Enum for recycle or burn for the owner_uid(s)
-    ///
-    /// Can specify
-    #[derive(TypeInfo, Clone, PartialEq, Eq, Debug)]
-    #[default = Self::Burn(U16::MAX)] // default to burn everything
+    #[derive(TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
     pub enum RecycleOrBurnEnum {
-        Burn(u16), // u16-normalized weight
-        Recycle(u16),
-    }
-    impl codec::EncodeLike for RecycleOrBurnEnum {
-        fn encode_to<E: codec::Encoder>(&self, e: &mut E) -> Result<(), E::Error> {
-            match self {
-                Self::Burn(weight) => {
-                    e.encode_u8(0)?;
-                    e.encode_u16(*weight)
-                }
-                Self::Recycle(weight) => {
-                    e.encode_u8(1)?;
-                    e.encode_u16(*weight)
-                }
-            }
-        }
-    }
-    impl codec::DecodeLike for RecycleOrBurnEnum {
-        fn decode<D: codec::Decoder>(d: &mut D) -> Result<Self, D::Error> {
-            let tag = d.read_byte()?;
-            match tag {
-                0 => {
-                    let weight = d.read_u16()?;
-                    Ok(Self::Burn(weight))
-                }
-                1 => {
-                    let weight = d.read_u16()?;
-                    Ok(Self::Recycle(weight))
-                }
-                _ => Err(codec::Error::from("invalid tag")),
-            }
-        }
+        /// Burn the miner emission sent to the burn UID
+        Burn,
+        /// Recycle the miner emission sent to the recycle UID
+        Recycle,
     }
 
     /// ============================
@@ -585,7 +554,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for recycle or burn.
     pub fn DefaultRecycleOrBurn<T: Config>() -> RecycleOrBurnEnum {
-        RecycleOrBurnEnum::Burn(U16::MAX) // default to burn
+        RecycleOrBurnEnum::Burn // default to burn
     }
     #[pallet::type_value]
     /// Default value for network rate limit.
