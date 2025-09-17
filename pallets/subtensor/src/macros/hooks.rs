@@ -145,9 +145,7 @@ mod hooks {
                 // Migrate Subnet Limit
                 .saturating_add(migrations::migrate_subnet_limit_to_default::migrate_subnet_limit_to_default::<T>())
                 // Migrate Lock Reduction Interval
-                .saturating_add(migrations::migrate_network_lock_reduction_interval::migrate_network_lock_reduction_interval::<T>())
-                // Migrate subnet locked balances
-                .saturating_add(migrations::migrate_subnet_locked::migrate_restore_subnet_locked::<T>());
+                .saturating_add(migrations::migrate_network_lock_reduction_interval::migrate_network_lock_reduction_interval::<T>());
             weight
         }
 
