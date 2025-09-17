@@ -1248,11 +1248,7 @@ impl<T: Config> Pallet<T> {
                     }
                     Err(e) => {
                         log::debug!(
-                            "dissolve_all_lp: force-closing failed position: netuid={:?}, owner={:?}, pos_id={:?}, err={:?}",
-                            netuid,
-                            owner,
-                            pos_id,
-                            e
+                            "dissolve_all_lp: force-closing failed position: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, err={e:?}"
                         );
                         continue;
                     }
