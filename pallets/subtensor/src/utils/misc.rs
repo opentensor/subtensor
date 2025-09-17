@@ -372,7 +372,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn burn_tokens(amount: TaoCurrency) {
+    pub fn recycle_tao(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
     pub fn increase_issuance(amount: TaoCurrency) {
