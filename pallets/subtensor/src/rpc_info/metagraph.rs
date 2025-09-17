@@ -805,7 +805,7 @@ impl<T: Config> Pallet<T> {
         metagraphs
     }
 
-    pub fn get_submetagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<T::AccountId>> {
+    pub fn get_mechagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<T::AccountId>> {
         if Self::ensure_mechanism_exists(netuid, mecid).is_err() {
             return None;
         }
@@ -832,13 +832,13 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_all_submetagraphs() -> Vec<Option<Metagraph<T::AccountId>>> {
+    pub fn get_all_mechagraphs() -> Vec<Option<Metagraph<T::AccountId>>> {
         let netuids = Self::get_all_subnet_netuids();
         let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
             let mechanism_count = u8::from(MechanismCountCurrent::<T>::get(netuid));
             for mecid in 0..mechanism_count {
-                metagraphs.push(Self::get_submetagraph(*netuid, MechId::from(mecid)));
+                metagraphs.push(Self::get_mechagraph(*netuid, MechId::from(mecid)));
             }
         }
         metagraphs
@@ -860,7 +860,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_selective_submetagraph(
+    pub fn get_selective_mechagraph(
         netuid: NetUid,
         mecid: MechId,
         metagraph_indexes: Vec<u16>,
@@ -870,7 +870,7 @@ impl<T: Config> Pallet<T> {
         } else {
             let mut result = SelectiveMetagraph::default();
             for index in metagraph_indexes.iter() {
-                let value = Self::get_single_selective_submetagraph(netuid, mecid, *index);
+                let value = Self::get_single_selective_mechagraph(netuid, mecid, *index);
                 result.merge_value(&value, *index as usize);
             }
             Some(result)
@@ -1441,7 +1441,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn get_single_selective_submetagraph(
+    fn get_single_selective_mechagraph(
         netuid: NetUid,
         mecid: MechId,
         metagraph_index: u16,

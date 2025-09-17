@@ -2334,8 +2334,8 @@ impl_runtime_apis! {
             SubtensorModule::get_metagraph(netuid)
         }
 
-        fn get_submetagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<AccountId32>> {
-            SubtensorModule::get_submetagraph(netuid, mecid)
+        fn get_mechagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_mechagraph(netuid, mecid)
         }
 
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>> {
@@ -2346,8 +2346,8 @@ impl_runtime_apis! {
             SubtensorModule::get_all_metagraphs()
         }
 
-        fn get_all_submetagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
-            SubtensorModule::get_all_submetagraphs()
+        fn get_all_mechagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
+            SubtensorModule::get_all_mechagraphs()
         }
 
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
@@ -2358,8 +2358,8 @@ impl_runtime_apis! {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
         }
 
-        fn get_selective_submetagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
-            SubtensorModule::get_selective_submetagraph(netuid, mecid, metagraph_indexes)
+        fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_mechagraph(netuid, mecid, metagraph_indexes)
         }
     }
 
