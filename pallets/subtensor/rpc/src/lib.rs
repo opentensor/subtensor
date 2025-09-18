@@ -506,23 +506,6 @@ where
         }
     }
 
-    fn get_selective_submetagraph(
-        &self,
-        netuid: NetUid,
-        metagraph_index: Vec<u16>,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<u8>> {
-        let api = self.client.runtime_api();
-        let at = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        match api.get_selective_mechagraph(at, netuid, metagraph_index) {
-            Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())
-            }
-        }
-    }
-
     fn get_selective_mechagraph(
         &self,
         netuid: NetUid,

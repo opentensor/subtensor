@@ -2375,10 +2375,6 @@ impl_runtime_apis! {
             SubtensorModule::get_coldkey_auto_stake_hotkey(coldkey, netuid)
         }
 
-        fn get_selective_submetagraph(netuid: NetUid, subid: SubId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
-            SubtensorModule::get_selective_submetagraph(netuid, subid, metagraph_indexes)
-        }
-
         fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_mechagraph(netuid, mecid, metagraph_indexes)
         }
