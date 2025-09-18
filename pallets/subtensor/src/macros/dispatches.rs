@@ -457,18 +457,18 @@ mod dispatches {
         /// * `TooManyUnrevealedCommits`:
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
-        #[pallet::call_index(99)]
-        #[pallet::weight((Weight::from_parts(77_750_000, 0)
-		.saturating_add(T::DbWeight::get().reads(9_u64))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_crv3_weights(
-            origin: T::RuntimeOrigin,
-            netuid: NetUid,
-            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
-            reveal_round: u64,
-        ) -> DispatchResult {
-            Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
-        }
+        // #[pallet::call_index(99)]
+        // #[pallet::weight((Weight::from_parts(77_750_000, 0)
+        // .saturating_add(T::DbWeight::get().reads(9_u64))
+        // .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        // pub fn commit_crv3_weights(
+        //     origin: T::RuntimeOrigin,
+        //     netuid: NetUid,
+        //     commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+        //     reveal_round: u64,
+        // ) -> DispatchResult {
+        //     Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
+        // }
 
         /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed for mechanisms.
         ///
@@ -2357,6 +2357,17 @@ mod dispatches {
                 reveal_round,
                 commit_reveal_version,
             )
+        }
+
+        /// Remove a subnetwork
+        /// The caller must be root
+        #[pallet::call_index(120)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::do_dissolve_network(netuid)
         }
     }
 }
