@@ -2170,7 +2170,6 @@ impl_runtime_apis! {
             get_preset::<RuntimeGenesisConfig>(id, |preset_id| {
                 let benchmark_id: sp_genesis_builder::PresetId = "benchmark".into();
                 if *preset_id == benchmark_id {
-                    // None
                     Some(generate_genesis_json())
                 } else {
                     None
