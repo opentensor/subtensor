@@ -4,12 +4,7 @@
 
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-// - we could replace it with Vec<(AuthorityId, u64)>, but we would need
-//   `sp_consensus_grandpa` for `AuthorityId` anyway
-// - we could use a type parameter for `AuthorityId`, but there is
-//   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
-use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::{DispatchResult, RuntimeAppPublic, Vec, traits::Member};
+use sp_runtime::Vec;
 
 mod benchmarking;
 
@@ -26,7 +21,6 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
     use pallet_subtensor::utils::rate_limiting::{Hyperparameter, TransactionType};
-    use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
     use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
 
