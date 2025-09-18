@@ -16,9 +16,6 @@ LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
 COPY . /build
 WORKDIR /build
 
-# Debug: print full file tree under /build
-RUN echo "📂 Contents of /build:" && find . -type f | sort
-
 # Set up env var
 ARG BUILT_IN_CI
 ENV BUILT_IN_CI=${BUILT_IN_CI}
@@ -39,6 +36,8 @@ RUN if [ -z "$BUILT_IN_CI" ]; then \
       ./scripts/localnet.sh False --build-only ; \
     else \
       echo "[*] BUILT_IN_CI is set → skipping install + build."; \
+      echo "[*] Renaming /build/ci_target → /build/target bc of .dockerignore" && \
+      mv /build/ci_target /build/target ; \
     fi
 
 # Verify the binaries was produced
