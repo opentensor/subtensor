@@ -60,6 +60,11 @@ jobs:
         with:
           ref: ${{ needs.setup.outputs.ref }}
 
+      - name: Install rust + dependencies
+        run: |
+          chmod +x ./scripts/install_build_env.sh
+          ./scripts/install_build_env.sh
+
       - name: Patch limits for local run
         run: |
           chmod +x ./scripts/localnet_patch.sh

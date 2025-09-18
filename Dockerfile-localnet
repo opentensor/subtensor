@@ -16,32 +16,27 @@ LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
   ai.opentensor.image.description="Opentensor Subtensor Blockchain" \
   ai.opentensor.image.documentation="https://docs.bittensor.com"
 
-# Set up Rust environment
-ENV RUST_BACKTRACE=1
-
-RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.edge.kernel.org/ubuntu|g' /etc/apt/sources.list
-RUN apt-get update
-RUN apt-get install -y curl build-essential protobuf-compiler clang git pkg-config libssl-dev llvm libudev-dev
-
-# Copy entire repository
+# Copy repo first (you want this *before* RUN to enable layer cache reuse)
 COPY . /build
 WORKDIR /build
 
-# Install Rust
-RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
+# Set up env var
+ARG BUILT_IN_CI
+ENV BUILT_IN_CI=${BUILT_IN_CI}
+ENV RUST_BACKTRACE=1
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup toolchain install 1.88.0 --profile minimal
-RUN rustup default 1.88.0
-RUN rustup target add wasm32v1-none
-
 
 # Echo the value
 RUN echo "BUILT_IN_CI=$BUILT_IN_CI"
+# Install deps if $BUILT_IN_CI wasn't passed
 RUN if [ -z "$BUILT_IN_CI" ]; then \
+      echo "[*] Installing env and building binaries..." && \
+      chmod +x ./scripts/install_build_env.sh && \
+      ./scripts/install_build_env.sh && \
       ./scripts/localnet.sh --build-only && \
       ./scripts/localnet.sh False --build-only ; \
     else \
-      echo "BUILT_IN_CI is set → skipping builds."; \
+      echo "[*] BUILT_IN_CI is set → skipping install + build."; \
     fi
 
 ### Build fast-runtime node
