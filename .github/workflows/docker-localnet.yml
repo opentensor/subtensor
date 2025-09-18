@@ -58,7 +58,13 @@ jobs:
     strategy:
       matrix:
         runtime: ["fast-runtime", "non-fast-runtime"]
-    runs-on: [self-hosted, cax41]
+        platform: ["linux/amd64", "linux/arm64"]
+
+    # runs-on: [self-hosted, cax41]
+    runs-on: >
+      ${{ matrix.platform == 'linux/arm64'
+        && fromJson('["self-hosted", "type-cax41", "image-arm-app-docker-ce"]')
+        || fromJson('["self-hosted", "type-cax41"]') }}
 
     steps:
       - name: Checkout code
@@ -66,7 +72,7 @@ jobs:
         with:
           ref: ${{ needs.setup.outputs.ref }}
 
-      - name: Install rust + dependencies
+      - name: Install Rust + dependencies
         run: |
           chmod +x ./scripts/install_build_env.sh
           ./scripts/install_build_env.sh
@@ -79,23 +85,29 @@ jobs:
       - name: Build binaries
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
+
+          ARCH="${{ matrix.platform == 'linux/arm64' && 'aarch64' || 'x86_64' }}"
+          TARGET="${ARCH}-unknown-linux-gnu"
+
+          rustup target add "$TARGET"
+          export CARGO_BUILD_TARGET="$TARGET"
+
           if [ "${{ matrix.runtime }}" = "fast-runtime" ]; then
             ./scripts/localnet.sh --build-only
           else
             ./scripts/localnet.sh False --build-only
           fi
 
-      - name: Prepare artifacts for upload
+      - name: Prepare artifacts
         run: |
-          mkdir -p build/ci_target/${{ matrix.runtime }}/release/ || true
-          cp -v target/${{ matrix.runtime }}/release/node-subtensor build/ci_target/${{ matrix.runtime }}/release/node-subtensor || true
-          
-          mkdir -p build/ci_target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/ || true
-          cp -v target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm build/ci_target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm || true
+          ARCH=$(echo "${{ matrix.platform }}" | cut -d'/' -f2)
+          RUNTIME="${{ matrix.runtime }}"
 
-#          mkdir -p build/scripts/
-#          cp -v snapshot.json build/ || true
-#          cp -v scripts/localnet.sh build/scripts/localnet.sh || true
+          mkdir -p build/ci_target/${ARCH}/${{ matrix.runtime }}/release/
+          cp -v target/${CARGO_BUILD_TARGET}/${{ matrix.runtime }}/release/node-subtensor build/ci_target/${ARCH}/${{ matrix.runtime }}/release/
+
+          mkdir -p build/ci_target/${ARCH}/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/
+          cp -v target/${CARGO_BUILD_TARGET}/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm build/ci_target/${ARCH}/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

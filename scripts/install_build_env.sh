@@ -35,7 +35,7 @@ else
   fi
 fi
 
-# Linux system dependencies
+# System Dependencies
 if [ "$OS" = "Linux" ]; then
     echo "[+] Installing dependencies on Linux..."
 
@@ -44,15 +44,15 @@ if [ "$OS" = "Linux" ]; then
     else
         $SUDO sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.edge.kernel.org/ubuntu|g' /etc/apt/sources.list || true
         $SUDO apt-get update
+        $SUDO apt-get install -y ca-certificates
         $SUDO apt-get install -y --no-install-recommends \
-            curl build-essential protobuf-compiler clang git pkg-config libssl-dev llvm libudev-dev
+            curl build-essential protobuf-compiler clang git pkg-config libssl-dev llvm libudev-dev \
+            gcc-aarch64-linux-gnu gcc-x86-64-linux-gnu
     fi
 
-# macOS system dependencies
 elif [ "$OS" = "Mac" ]; then
     echo "[+] Installing dependencies on macOS..."
 
-    # Check if brew is installed
     if ! command -v brew &> /dev/null; then
         echo "[!] Homebrew not found. Installing..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -72,6 +72,8 @@ else
     exit 1
 fi
 
+# Rust Toolchain
+
 echo "[+] Installing Rust toolchain..."
 curl https://sh.rustup.rs -sSf | sh -s -- -y
 
@@ -80,6 +82,12 @@ source "$HOME/.cargo/env" || export PATH="$HOME/.cargo/bin:$PATH"
 
 rustup toolchain install 1.88.0 --profile minimal
 rustup default 1.88.0
+
+# Add Rust Targets
+
+echo "Adding Rust targets for wasm + cross-arch binaries..."
 rustup target add wasm32v1-none
+rustup target add aarch64-unknown-linux-gnu
+rustup target add x86_64-unknown-linux-gnu
 
 echo "[✓] Environment setup complete."
