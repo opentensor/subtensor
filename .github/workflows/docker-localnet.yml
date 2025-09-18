@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       branch-or-tag:
-        description: "Branch or tag to use for the Docker image tag and ref to checkout (optional)"
+        description: "Ветвь или тег для использования в качестве тега образа Docker (optional)."
         required: false
         default: ""
   push:
@@ -36,21 +36,20 @@ jobs:
     steps:
       - id: vars
         run: |
-          tag="${{ github.event.inputs.branch-or-tag }}"
-          ref="${{ github.ref_name }}"
-    
-          if [[ -n "$tag" ]]; then
-            echo "tag=$tag" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "ref=${{ github.head_ref }}" >> $GITHUB_ENV
+            echo "tag=${{ github.base_ref }}" >> $GITHUB_ENV
           else
-            echo "tag=$ref" >> $GITHUB_OUTPUT
+            tag="${{ github.event.inputs.branch-or-tag || github.ref_name }}"
+            echo "ref=${{ github.ref_name }}" >> $GITHUB_ENV
+            echo "tag=$tag" >> $GITHUB_ENV
           fi
           
-          echo "ref=$ref" >> $GITHUB_OUTPUT
-
-          if [[ "$branch_or_tag" != "devnet-ready" ]]; then
-            echo "latest_tag=true" >> $GITHUB_OUTPUT
+          # Check if this is a tagged release (not devnet-ready/devnet/testnet)
+          if [[ "$tag" != "devnet-ready" ]]; then
+            echo "latest_tag=true" >> $GITHUB_ENV
           else
-            echo "latest_tag=false" >> $GITHUB_OUTPUT
+            echo "latest_tag=false" >> $GITHUB_ENV
           fi
 
   # build artifacts for fast-runtime and non-fast-runtime
@@ -124,6 +123,25 @@ jobs:
         with:
           name: artifacts-non-fast-runtime
           path: bin/non-fast-runtime
+
+      - name: Reconstruct target layout
+        run: |
+          # Copy snapshot + script
+          cp bin/fast-runtime/snapshot.json .
+          cp bin/fast-runtime/localnet.sh scripts/localnet.sh
+          chmod +x scripts/localnet.sh
+      
+          # Reconstruct fast-runtime
+          mkdir -p target/fast-runtime/release/wbuild/node-subtensor-runtime
+          cp bin/fast-runtime/node-subtensor target/fast-runtime/release/node-subtensor
+          cp bin/fast-runtime/node_subtensor_runtime.compact.compressed.wasm \
+             target/fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
+      
+          # Reconstruct non-fast-runtime
+          mkdir -p target/non-fast-runtime/release/wbuild/node-subtensor-runtime
+          cp bin/non-fast-runtime/node-subtensor target/non-fast-runtime/release/node-subtensor
+          cp bin/non-fast-runtime/node_subtensor_runtime.compact.compressed.wasm \
+             target/non-fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
 
       - name: Show current Git branch
         run: |
