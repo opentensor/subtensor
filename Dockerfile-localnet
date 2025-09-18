@@ -65,6 +65,9 @@ RUN chmod +x /scripts/localnet.sh
 COPY --from=builder /build/target/fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm target/fast-runtime/release/node_subtensor_runtime.compact.compressed.wasm
 COPY --from=builder /build/target/non-fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm target/non-fast-runtime/release/node_subtensor_runtime.compact.compressed.wasm
 
+## Ubdate certificates for inner image
+RUN apt-get update && apt-get install -y ca-certificates
+
 # Do not build (just run)
 ENV BUILD_BINARY=0
 # Switch to local run with IP 0.0.0.0 within docker image
