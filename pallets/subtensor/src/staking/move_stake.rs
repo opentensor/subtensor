@@ -350,6 +350,10 @@ impl<T: Config> Pallet<T> {
         };
 
         if origin_netuid != destination_netuid {
+            // Any way to charge fees that works
+            let drop_fee_origin = origin_netuid == NetUid::ROOT;
+            let drop_fee_destination = !drop_fee_origin;
+
             // do not pay remove fees to avoid double fees in moves transactions
             let tao_unstaked = Self::unstake_from_subnet(
                 origin_hotkey,
@@ -357,7 +361,7 @@ impl<T: Config> Pallet<T> {
                 origin_netuid,
                 move_amount,
                 T::SwapInterface::min_price().into(),
-                true,
+                drop_fee_origin,
             )?;
 
             // Stake the unstaked amount into the destination.
@@ -376,6 +380,7 @@ impl<T: Config> Pallet<T> {
                     tao_unstaked,
                     T::SwapInterface::max_price().into(),
                     set_limit,
+                    drop_fee_destination,
                 )?;
             }
 

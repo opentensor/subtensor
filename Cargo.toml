@@ -113,6 +113,7 @@ expander = "2"
 ahash = { version = "0.8", default-features = false }
 regex = { version = "1.11.1", default-features = false }
 
+frame = { package = "polkadot-sdk-frame", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -295,6 +296,7 @@ pow-faucet = []
 
 [patch."https://github.com/paritytech/polkadot-sdk.git"]
 sc-consensus-grandpa = { git = "https://github.com/opentensor/grandpa.git", rev = "67ff75e915bd44586b8f8443e457b5b101920da8" }
+sc-transaction-pool = { git = "https://github.com/opentensor/transaction-pool.git", rev = "5cc8837d4c237d02c013c50b0a0eb70fdcba75bf" }
 
 [patch.crates-io]
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }

@@ -7,8 +7,9 @@ import { tao } from "../src/balance-math"
 import {
     forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister,
     setTxRateLimit, setTempo, setWeightsSetRateLimit, setSubnetOwnerCut, setMaxAllowedUids,
-    setMinDelegateTake, becomeDelegate, setActivityCutoff, addStake, setWeight, rootRegister,
-    startCall
+    setMinDelegateTake, setActivityCutoff, addStake, setWeight, rootRegister,
+    startCall,
+    disableAdminFreezeWindowAndOwnerHyperparamRateLimit
 } from "../src/subtensor"
 
 describe("Test neuron precompile reward", () => {
@@ -39,6 +40,7 @@ describe("Test neuron precompile reward", () => {
         await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
+        await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
 
         await setTxRateLimit(api, BigInt(0))
         await setTempo(api, root_netuid, root_tempo)
@@ -52,8 +54,6 @@ describe("Test neuron precompile reward", () => {
         await setActivityCutoff(api, netuid, 65535)
         await setMaxAllowedUids(api, netuid, 65535)
         await setMinDelegateTake(api, 0)
-        await becomeDelegate(api, convertPublicKeyToSs58(validator.publicKey), coldkey)
-        await becomeDelegate(api, convertPublicKeyToSs58(miner.publicKey), coldkey)
     })
 
     it("Staker receives rewards", async () => {

@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{Currency, MechId, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
@@ -64,21 +64,18 @@ impl<T: Config> Pallet<T> {
         );
 
         // 8. Swap LastTxBlock
-        // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
-        let last_tx_block: u64 = LastTxBlock::<T>::get(old_hotkey);
-        LastTxBlock::<T>::insert(new_hotkey, last_tx_block);
+        let last_tx_block: u64 = Self::get_last_tx_block(old_hotkey);
+        Self::set_last_tx_block(new_hotkey, last_tx_block);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 9. Swap LastTxBlockDelegateTake
-        // LastTxBlockDelegateTake( hotkey ) --> u64 -- the last transaction block for the hotkey delegate take.
-        let last_tx_block_delegate_take: u64 = LastTxBlockDelegateTake::<T>::get(old_hotkey);
-        LastTxBlockDelegateTake::<T>::insert(new_hotkey, last_tx_block_delegate_take);
+        let last_tx_block_delegate_take: u64 = Self::get_last_tx_block_delegate_take(old_hotkey);
+        Self::set_last_tx_block_delegate_take(new_hotkey, last_tx_block_delegate_take);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 10. Swap LastTxBlockChildKeyTake
-        // LastTxBlockChildKeyTake( hotkey ) --> u64 -- the last transaction block for the hotkey child key take.
-        let last_tx_block_child_key_take: u64 = LastTxBlockChildKeyTake::<T>::get(old_hotkey);
-        LastTxBlockChildKeyTake::<T>::insert(new_hotkey, last_tx_block_child_key_take);
+        let last_tx_block_child_key_take: u64 = Self::get_last_tx_block_childkey_take(old_hotkey);
+        Self::set_last_tx_block_childkey(new_hotkey, last_tx_block_child_key_take);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 11. fork for swap hotkey on a specific subnet case after do the common check
@@ -100,11 +97,11 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 0));
 
         // 14. Remove the swap cost from the coldkey's account
-        let actual_burn_amount =
+        let actual_recycle_amount =
             Self::remove_balance_from_coldkey_account(&coldkey, swap_cost.into())?;
 
-        // 18. Burn the tokens
-        Self::burn_tokens(actual_burn_amount);
+        // 18. Recycle the tokens
+        Self::recycle_tao(actual_recycle_amount);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
 
         // 19. Perform the hotkey swap
@@ -197,17 +194,17 @@ impl<T: Config> Pallet<T> {
 
         // 6. Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
-        LastTxBlock::<T>::remove(old_hotkey);
+        Self::remove_last_tx_block(old_hotkey);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // 7. Swap LastTxBlockDelegateTake
         // LastTxBlockDelegateTake( hotkey ) --> u64 -- the last transaction block for the hotkey delegate take.
-        LastTxBlockDelegateTake::<T>::remove(old_hotkey);
+        Self::remove_last_tx_block_delegate_take(old_hotkey);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // 8. Swap LastTxBlockChildKeyTake
         // LastTxBlockChildKeyTake( hotkey ) --> u64 -- the last transaction block for the hotkey child key take.
-        LastTxBlockChildKeyTake::<T>::remove(old_hotkey);
+        Self::remove_last_tx_block_childkey(old_hotkey);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // 9. Swap Senate members.
@@ -299,11 +296,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // 5. Remove the swap cost from the coldkey's account
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost)?;
+        let actual_recycle_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost)?;
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
 
-        // 6. Burn the tokens
-        Self::burn_tokens(actual_burn_amount);
+        // 6. Recycle the tokens
+        Self::recycle_tao(actual_recycle_amount);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 7. Swap owner.
@@ -414,10 +411,15 @@ impl<T: Config> Pallet<T> {
         // 3.5 Swap WeightCommits
         // WeightCommits( hotkey ) --> Vec<u64> -- the weight commits for the hotkey.
         if is_network_member {
-            if let Ok(old_weight_commits) = WeightCommits::<T>::try_get(netuid, old_hotkey) {
-                WeightCommits::<T>::remove(netuid, old_hotkey);
-                WeightCommits::<T>::insert(netuid, new_hotkey, old_weight_commits);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+            for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+                let netuid_index = Self::get_mechanism_storage_index(netuid, MechId::from(mecid));
+                if let Ok(old_weight_commits) =
+                    WeightCommits::<T>::try_get(netuid_index, old_hotkey)
+                {
+                    WeightCommits::<T>::remove(netuid_index, old_hotkey);
+                    WeightCommits::<T>::insert(netuid_index, new_hotkey, old_weight_commits);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                }
             }
         }
 

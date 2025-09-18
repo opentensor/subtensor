@@ -19,7 +19,7 @@ use pallet_collective::MemberCount;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
-    BuildStorage,
+    BuildStorage, Percent,
     traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering};
@@ -164,7 +164,8 @@ parameter_types! {
     pub const InitialTempo: u16 = 360;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
-    pub const InitialMaxAllowedUids: u16 = 2;
+    pub const InitialMinAllowedUids: u16 = 2;
+    pub const InitialMaxAllowedUids: u16 = 4;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty:u16 = u16::MAX;
     pub const InitialBondsResetOn: bool = false;
@@ -183,6 +184,8 @@ parameter_types! {
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
+    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
@@ -199,8 +202,7 @@ parameter_types! {
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
-    pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
-    pub const InitialNetworkMinAllowedUids: u16 = 128;
+    pub const InitialNetworkImmunityPeriod: u64 = 1_296_000;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
@@ -221,6 +223,7 @@ parameter_types! {
     pub const HotkeySwapOnSubnetInterval: u64 = 15; // 15 block, should be bigger than subnet number, then trigger clean up for all subnets
     pub const MaxContributorsPerLeaseToRemove: u32 = 3;
     pub const LeaseDividendsDistributionInterval: u32 = 100;
+    pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
 }
 
 // Configure collective pallet for council
@@ -403,6 +406,7 @@ impl crate::Config for Test {
     type InitialRho = InitialRho;
     type InitialAlphaSigmoidSteepness = InitialAlphaSigmoidSteepness;
     type InitialKappa = InitialKappa;
+    type InitialMinAllowedUids = InitialMinAllowedUids;
     type InitialMaxAllowedUids = InitialMaxAllowedUids;
     type InitialValidatorPruneLen = InitialValidatorPruneLen;
     type InitialScalingLawPower = InitialScalingLawPower;
@@ -429,10 +433,11 @@ impl crate::Config for Test {
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
+    type MinBurnUpperBound = MinBurnUpperBound;
+    type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
-    type InitialNetworkMinAllowedUids = InitialNetworkMinAllowedUids;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
@@ -454,6 +459,9 @@ impl crate::Config for Test {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = FakeProxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type GetCommitments = ();
+    type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 // Swap-related parameter types
@@ -483,6 +491,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
         Some(Ordering::Less)
     }
+}
+
+pub struct CommitmentsI;
+impl CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(_netuid: NetUid) {}
 }
 
 parameter_types! {
@@ -870,6 +883,19 @@ pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256)
     netuid
 }
 
+#[allow(dead_code)]
+pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) -> NetUid {
+    let netuid = add_dynamic_network(hotkey, coldkey);
+    SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+    netuid
+}
+
+#[allow(dead_code)]
+pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: u16) {
+    add_network(netuid, tempo, _modality);
+    SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+}
+
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
 pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: TaoCurrency) {
@@ -930,7 +956,7 @@ pub fn mock_set_children_no_epochs(netuid: NetUid, parent: &U256, child_vec: &[(
 #[allow(dead_code)]
 pub fn step_rate_limit(transaction_type: &TransactionType, netuid: NetUid) {
     // Check rate limit
-    let limit = SubtensorModule::get_rate_limit_on_subnet(transaction_type, netuid);
+    let limit = transaction_type.rate_limit_on_subnet::<Test>(netuid);
 
     // Step that many blocks
     step_block(limit as u16);
@@ -951,6 +977,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         netuid,
         tao_staked,
         <Test as Config>::SwapInterface::max_price().into(),
+        false,
         false,
     )
     .unwrap();

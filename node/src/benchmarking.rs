@@ -5,8 +5,8 @@
 use crate::client::FullClient;
 
 use node_subtensor_runtime as runtime;
-use node_subtensor_runtime::check_nonce;
 use node_subtensor_runtime::pallet_subtensor;
+use node_subtensor_runtime::{check_nonce, transaction_payment_wrapper};
 use runtime::{BalancesCall, SystemCall};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
@@ -123,21 +123,27 @@ pub fn create_benchmark_extrinsic(
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
-    let extra: runtime::TransactionExtensions = (
-        frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
-        frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
-        frame_system::CheckTxVersion::<runtime::Runtime>::new(),
-        frame_system::CheckGenesis::<runtime::Runtime>::new(),
-        frame_system::CheckEra::<runtime::Runtime>::from(sp_runtime::generic::Era::mortal(
-            period,
-            best_block.saturated_into(),
-        )),
-        check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
-        frame_system::CheckWeight::<runtime::Runtime>::new(),
-        pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
-        pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
-        frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
-    );
+    let extra: runtime::TransactionExtensions =
+        (
+            frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
+            frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
+            frame_system::CheckTxVersion::<runtime::Runtime>::new(),
+            frame_system::CheckGenesis::<runtime::Runtime>::new(),
+            frame_system::CheckEra::<runtime::Runtime>::from(sp_runtime::generic::Era::mortal(
+                period,
+                best_block.saturated_into(),
+            )),
+            check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
+            frame_system::CheckWeight::<runtime::Runtime>::new(),
+            transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(
+                pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+            ),
+            pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<
+                runtime::Runtime,
+            >::new(),
+            pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
+            frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
+        );
 
     let raw_payload = runtime::SignedPayload::from_raw(
         call.clone(),
@@ -148,6 +154,7 @@ pub fn create_benchmark_extrinsic(
             runtime::VERSION.transaction_version,
             genesis_hash,
             best_hash,
+            (),
             (),
             (),
             (),

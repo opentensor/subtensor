@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_nonce;
 mod migrations;
+pub mod transaction_payment_wrapper;
 
 extern crate alloc;
 
@@ -36,6 +37,7 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
+use pallet_subtensor_swap_runtime_api::SimSwapResult;
 use runtime_common::prod_or_fast;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -48,7 +50,7 @@ use sp_core::{
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
@@ -62,6 +64,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -80,13 +83,13 @@ pub use frame_support::{
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
+use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
-
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
 
 use core::marker::PhantomData;
 
@@ -147,8 +150,12 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             frame_system::CheckEra::<Runtime>::from(Era::Immortal),
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
-            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
-            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+            ChargeTransactionPaymentWrapper::new(
+                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+            ),
+            pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(
+            ),
+            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
 
@@ -213,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 302,
+    spec_version: 317,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -391,7 +398,6 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::SubtensorModule(
                     pallet_subtensor::Call::set_weights { .. }
-                        | pallet_subtensor::Call::set_tao_weights { .. }
                         | pallet_subtensor::Call::serve_axon { .. }
                 )
                 | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
@@ -484,7 +490,9 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
+use pallet_subtensor::{
+    CollectiveInterface, CommitmentsInterface, MemberManagement, ProxyInterface,
+};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -726,7 +734,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
                     | RuntimeCall::Sudo(..)
             ),
             ProxyType::Triumvirate => matches!(
@@ -764,10 +771,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
             ),
-            ProxyType::RootWeights => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
-            ),
+            ProxyType::RootWeights => false, // deprecated
             ProxyType::ChildKeys => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
@@ -882,6 +886,7 @@ impl pallet_proxy::Config for Runtime {
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
+    type BlockNumberProvider = System;
 }
 
 pub struct Proxier;
@@ -905,6 +910,13 @@ impl ProxyInterface<AccountId> for Proxier {
             ProxyType::SubnetLeaseBeneficiary,
             0,
         )
+    }
+}
+
+pub struct CommitmentsI;
+impl CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(netuid: NetUid) {
+        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid);
     }
 }
 
@@ -1054,11 +1066,23 @@ pub struct ResetBondsOnCommit;
 impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
-        let _ = SubtensorModule::do_reset_bonds(netuid, address);
+        // Reset bonds for each mechanism of this subnet
+        let mechanism_count = SubtensorModule::get_current_mechanism_count(netuid);
+        for mecid in 0..u8::from(mechanism_count) {
+            let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid.into());
+            let _ = SubtensorModule::do_reset_bonds(netuid_index, address);
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn on_metadata_commitment(_: NetUid, _: &AccountId) {}
+}
+
+pub struct GetCommitmentsStruct;
+impl GetCommitments<AccountId> for GetCommitmentsStruct {
+    fn get_commitments(netuid: NetUid) -> Vec<(AccountId, Vec<u8>)> {
+        pallet_commitments::Pallet::<Runtime>::get_commitments(netuid)
+    }
 }
 
 impl pallet_commitments::Config for Runtime {
@@ -1130,13 +1154,15 @@ parameter_types! {
     pub const SubtensorInitialBurn: u64 = 100_000_000; // 0.1 tao
     pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
-    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
-    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialNetworkImmunity: u64 = 1_296_000;
+    pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
@@ -1158,6 +1184,7 @@ parameter_types! {
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
+    pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1172,6 +1199,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRho = SubtensorInitialRho;
     type InitialAlphaSigmoidSteepness = SubtensorInitialAlphaSigmoidSteepness;
     type InitialKappa = SubtensorInitialKappa;
+    type InitialMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
     type InitialBondsPenalty = SubtensorInitialBondsPenalty;
@@ -1203,6 +1231,8 @@ impl pallet_subtensor::Config for Runtime {
     type InitialBurn = SubtensorInitialBurn;
     type InitialMaxBurn = SubtensorInitialMaxBurn;
     type InitialMinBurn = SubtensorInitialMinBurn;
+    type MinBurnUpperBound = MinBurnUpperBound;
+    type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
     type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
@@ -1210,7 +1240,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
-    type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
@@ -1232,6 +1261,9 @@ impl pallet_subtensor::Config for Runtime {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = Proxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type GetCommitments = GetCommitmentsStruct;
+    type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 parameter_types! {
@@ -1256,6 +1288,7 @@ impl pallet_subtensor_swap::Config for Runtime {
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
 }
 
+use crate::transaction_payment_wrapper::ChargeTransactionPaymentWrapper;
 use sp_runtime::BoundedVec;
 
 pub struct AuraPalletIntrf;
@@ -1624,8 +1657,9 @@ pub type TransactionExtensions = (
     frame_system::CheckEra<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
-    pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-    pallet_subtensor::SubtensorTransactionExtension<Runtime>,
+    ChargeTransactionPaymentWrapper<Runtime>,
+    pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
+    pallet_drand::drand_priority::DrandPriority<Runtime>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
@@ -2310,12 +2344,20 @@ impl_runtime_apis! {
             SubtensorModule::get_metagraph(netuid)
         }
 
+        fn get_mechagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_mechagraph(netuid, mecid)
+        }
+
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>> {
             SubtensorModule::get_subnet_state(netuid)
         }
 
         fn get_all_metagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
             SubtensorModule::get_all_metagraphs()
+        }
+
+        fn get_all_mechagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
+            SubtensorModule::get_all_mechagraphs()
         }
 
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
@@ -2325,7 +2367,13 @@ impl_runtime_apis! {
         fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
         }
+        fn get_subnet_to_prune() -> Option<NetUid> {
+        pallet_subtensor::Pallet::<Runtime>::get_network_to_prune()
+        }
 
+        fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_mechagraph(netuid, mecid, metagraph_indexes)
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
@@ -2408,12 +2456,56 @@ impl_runtime_apis! {
     }
 
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
-        fn current_alpha_price(netuid: u16) -> u64 {
+        fn current_alpha_price(netuid: NetUid) -> u64 {
             use substrate_fixed::types::U96F32;
 
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
                 .saturating_mul(U96F32::from_num(1_000_000_000))
                 .saturating_to_num()
+        }
+
+        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
+            pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
+                netuid.into(),
+                OrderType::Buy,
+                tao.into(),
+            )
+            .map_or_else(
+                |_| SimSwapResult {
+                    tao_amount:   0.into(),
+                    alpha_amount: 0.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    0.into(),
+                },
+                |sr| SimSwapResult {
+                    tao_amount:   sr.amount_paid_in.into(),
+                    alpha_amount: sr.amount_paid_out.into(),
+                    tao_fee:      sr.fee_paid.into(),
+                    alpha_fee:    0.into(),
+                },
+            )
+        }
+
+        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
+            pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
+                netuid.into(),
+                OrderType::Sell,
+                alpha.into(),
+            )
+            .map_or_else(
+                |_| SimSwapResult {
+                    tao_amount:   0.into(),
+                    alpha_amount: 0.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    0.into(),
+                },
+                |sr| SimSwapResult {
+                    tao_amount:   sr.amount_paid_out.into(),
+                    alpha_amount: sr.amount_paid_in.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    sr.fee_paid.into(),
+                },
+            )
         }
     }
 }

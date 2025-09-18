@@ -154,7 +154,7 @@ pub enum ProxyType {
     Registration,
     Transfer,
     SmallTransfer,
-    RootWeights,
+    RootWeights, // deprecated
     ChildKeys,
     SudoUncheckedSetCode,
     SwapHotkey,
@@ -172,6 +172,7 @@ pub trait SubnetInfo<AccountId> {
     fn exists(netuid: NetUid) -> bool;
     fn mechanism(netuid: NetUid) -> u16;
     fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
+    fn is_subtoken_enabled(netuid: NetUid) -> bool;
 }
 
 pub trait CurrencyReserve<C: Currency> {
@@ -221,6 +222,162 @@ pub mod time {
     pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
     pub const HOURS: BlockNumber = MINUTES * 60;
     pub const DAYS: BlockNumber = HOURS * 24;
+}
+
+#[freeze_struct("7e5202d7f18b39d4")]
+#[repr(transparent)]
+#[derive(
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    Decode,
+    DecodeWithMemTracking,
+    Default,
+    Encode,
+    Eq,
+    Hash,
+    MaxEncodedLen,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    RuntimeDebug,
+)]
+#[serde(transparent)]
+pub struct MechId(u8);
+
+impl MechId {
+    pub const MAIN: MechId = Self(0);
+}
+
+impl From<u8> for MechId {
+    fn from(value: u8) -> Self {
+        Self(value)
+    }
+}
+
+impl From<MechId> for u16 {
+    fn from(val: MechId) -> Self {
+        u16::from(val.0)
+    }
+}
+
+impl From<MechId> for u64 {
+    fn from(val: MechId) -> Self {
+        u64::from(val.0)
+    }
+}
+
+impl From<MechId> for u8 {
+    fn from(val: MechId) -> Self {
+        u8::from(val.0)
+    }
+}
+
+impl Display for MechId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl CompactAs for MechId {
+    type As = u8;
+
+    fn encode_as(&self) -> &Self::As {
+        &self.0
+    }
+
+    fn decode_from(v: Self::As) -> Result<Self, CodecError> {
+        Ok(Self(v))
+    }
+}
+
+impl From<Compact<MechId>> for MechId {
+    fn from(c: Compact<MechId>) -> Self {
+        c.0
+    }
+}
+
+impl TypeInfo for MechId {
+    type Identity = <u8 as TypeInfo>::Identity;
+    fn type_info() -> scale_info::Type {
+        <u8 as TypeInfo>::type_info()
+    }
+}
+
+#[freeze_struct("2d995c5478e16d4d")]
+#[repr(transparent)]
+#[derive(
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    Decode,
+    DecodeWithMemTracking,
+    Default,
+    Encode,
+    Eq,
+    Hash,
+    MaxEncodedLen,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    RuntimeDebug,
+)]
+#[serde(transparent)]
+pub struct NetUidStorageIndex(u16);
+
+impl NetUidStorageIndex {
+    pub const ROOT: NetUidStorageIndex = Self(0);
+}
+
+impl Display for NetUidStorageIndex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl CompactAs for NetUidStorageIndex {
+    type As = u16;
+
+    fn encode_as(&self) -> &Self::As {
+        &self.0
+    }
+
+    fn decode_from(v: Self::As) -> Result<Self, CodecError> {
+        Ok(Self(v))
+    }
+}
+
+impl From<Compact<NetUidStorageIndex>> for NetUidStorageIndex {
+    fn from(c: Compact<NetUidStorageIndex>) -> Self {
+        c.0
+    }
+}
+
+impl From<NetUid> for NetUidStorageIndex {
+    fn from(val: NetUid) -> Self {
+        val.0.into()
+    }
+}
+
+impl From<NetUidStorageIndex> for u16 {
+    fn from(val: NetUidStorageIndex) -> Self {
+        val.0
+    }
+}
+
+impl From<u16> for NetUidStorageIndex {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl TypeInfo for NetUidStorageIndex {
+    type Identity = <u16 as TypeInfo>::Identity;
+    fn type_info() -> scale_info::Type {
+        <u16 as TypeInfo>::type_info()
+    }
 }
 
 #[cfg(test)]

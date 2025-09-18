@@ -45,7 +45,7 @@ describe("Test staking precompile get methods", () => {
             await contract.getStake(hotkey.publicKey, coldkey.publicKey, netuid)
         );
 
-        // validator returned as bigint now. 
+        // validator returned as bigint now.
         const validators =
             await contract.getAlphaStakedValidators(hotkey.publicKey, netuid)
 

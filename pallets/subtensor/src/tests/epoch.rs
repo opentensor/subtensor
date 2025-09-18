@@ -11,7 +11,7 @@ use frame_support::{assert_err, assert_ok};
 use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::{Get, U256};
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
@@ -128,7 +128,7 @@ fn uid_stats(netuid: NetUid, uid: u16) {
     );
     log::info!(
         "incentive: {:?}",
-        SubtensorModule::get_incentive_for_uid(netuid, uid)
+        SubtensorModule::get_incentive_for_uid(NetUidStorageIndex::from(netuid), uid)
     );
     log::info!(
         "dividend: {:?}",
@@ -159,7 +159,7 @@ fn init_run_epochs(
     bonds_penalty: u16,
 ) {
     // === Create the network
-    add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+    add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
 
     // === Set bonds penalty
     SubtensorModule::set_bonds_penalty(netuid, bonds_penalty);
@@ -560,7 +560,7 @@ fn test_1_graph() {
         let hotkey = U256::from(0);
         let uid: u16 = 0;
         let stake_amount: u64 = 1_000_000_000;
-        add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+        add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
@@ -595,7 +595,10 @@ fn test_1_graph() {
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 0);
-        assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 0);
+        assert_eq!(
+            SubtensorModule::get_incentive_for_uid(netuid.into(), uid),
+            0
+        );
         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
     });
 }
@@ -630,7 +633,7 @@ fn test_10_graph() {
         // each with 1 stake and self weights.
         let n: usize = 10;
         let netuid = NetUid::from(1);
-        add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+        add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, n as u16);
         for i in 0..10 {
             add_node(netuid, U256::from(i), U256::from(i), i as u16, 1)
@@ -657,7 +660,10 @@ fn test_10_graph() {
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, i as u16), 0);
-            assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, i as u16), 0);
+            assert_eq!(
+                SubtensorModule::get_incentive_for_uid(netuid.into(), i as u16),
+                0
+            );
             assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, i as u16), 0);
             assert_eq!(
                 SubtensorModule::get_emission_for_uid(netuid, i as u16),
@@ -705,7 +711,7 @@ fn test_512_graph() {
                     false,
                     u16::MAX,
                 );
-                let bonds = SubtensorModule::get_bonds(netuid);
+                let bonds = SubtensorModule::get_bonds(netuid.into());
                 for uid in validators {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
@@ -714,7 +720,10 @@ fn test_512_graph() {
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 0);
-                    assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 0);
+                    assert_eq!(
+                        SubtensorModule::get_incentive_for_uid(netuid.into(), uid),
+                        0
+                    );
                     assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 1023); // Note D = floor(1 / 64 * 65_535) = 1023
                     assert_eq!(
                         SubtensorModule::get_emission_for_uid(netuid, uid),
@@ -732,7 +741,10 @@ fn test_512_graph() {
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 146); // Note C = floor(1 / (512 - 64) * 65_535) = 146
-                    assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 146); // Note I = floor(1 / (512 - 64) * 65_535) = 146
+                    assert_eq!(
+                        SubtensorModule::get_incentive_for_uid(netuid.into(), uid),
+                        146
+                    ); // Note I = floor(1 / (512 - 64) * 65_535) = 146
                     assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
                     assert_eq!(
                         SubtensorModule::get_emission_for_uid(netuid, uid),
@@ -795,10 +807,10 @@ fn test_512_graph_random_weights() {
                         bonds_penalty,
                     );
 
-                    let bond = SubtensorModule::get_bonds(netuid);
+                    let bond = SubtensorModule::get_bonds(netuid.into());
                     for uid in 0..network_n {
                         rank.push(SubtensorModule::get_rank_for_uid(netuid, uid));
-                        incentive.push(SubtensorModule::get_incentive_for_uid(netuid, uid));
+                        incentive.push(SubtensorModule::get_incentive_for_uid(netuid.into(), uid));
                         dividend.push(SubtensorModule::get_dividends_for_uid(netuid, uid));
                         emission.push(SubtensorModule::get_emission_for_uid(netuid, uid));
                         bondv.push(bond[uid as usize][validator]);
@@ -826,14 +838,14 @@ fn test_512_graph_random_weights() {
                         bonds_penalty,
                     );
                     // Assert that dense and sparse epoch results are equal
-                    let bond = SubtensorModule::get_bonds(netuid);
+                    let bond = SubtensorModule::get_bonds(netuid.into());
                     for uid in 0..network_n {
                         assert_eq!(
                             SubtensorModule::get_rank_for_uid(netuid, uid),
                             rank[uid as usize]
                         );
                         assert_eq!(
-                            SubtensorModule::get_incentive_for_uid(netuid, uid),
+                            SubtensorModule::get_incentive_for_uid(netuid.into(), uid),
                             incentive[uid as usize]
                         );
                         assert_eq!(
@@ -1004,7 +1016,7 @@ fn test_bonds() {
 		let max_stake: u64 = 4;
 		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
         let block_number = System::block_number();
-		add_network(netuid, tempo, 0);
+		add_network_disable_commit_reveal(netuid, tempo, 0);
 		SubtensorModule::set_max_allowed_uids( netuid, n );
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		SubtensorModule::set_max_registrations_per_block( netuid, n );
@@ -1070,7 +1082,7 @@ fn test_bonds() {
 			E: [49999998, 99999999, 150000000, 200000001, 49998779, 100000610, 149996337, 200004272]
 			P: [0.0499999989, 0.0999999992, 0.1500000006, 0.2000000011, 0.049998779, 0.1000006103, 0.1499963375, 0.2000042726]
 			emaB: [[(4, 0.2499999937), (5, 0.2499999953), (6, 0.2499999937), (7, 0.2499999937)], [(4, 0.4999999942), (5, 0.499999997), (6, 0.4999999942), (7, 0.4999999942)], [(4, 0.7499999937), (5, 0.7499999981), (6, 0.7499999995), (7, 0.7499999995)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
-		let bonds = SubtensorModule::get_bonds( netuid );
+		let bonds = SubtensorModule::get_bonds( netuid.into() );
 		assert_eq!(bonds[0][4], 16383);
 		assert_eq!(bonds[1][4], 32767);
 		assert_eq!(bonds[2][4], 49151);
@@ -1118,7 +1130,7 @@ fn test_bonds() {
 			E: [44998351, 101110561, 151667215, 202223870, 49998779, 100000610, 149996337, 200004272]
 			P: [0.0449983515, 0.1011105615, 0.1516672159, 0.2022238704, 0.049998779, 0.1000006103, 0.1499963377, 0.2000042726]
 			emaB: [[(4, 0.2225175085), (5, 0.2225175085), (6, 0.2225175085), (7, 0.2225175085)], [(4, 0.499993208), (5, 0.4999932083), (6, 0.4999932083), (7, 0.4999932083)], [(4, 0.7499966028), (5, 0.7499966032), (6, 0.7499966032), (7, 0.7499966032)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
-		let bonds = SubtensorModule::get_bonds( netuid );
+		let bonds = SubtensorModule::get_bonds( netuid.into() );
 		assert_eq!(bonds[0][4], 14582);
 		assert_eq!(bonds[1][4], 32767);
 		assert_eq!(bonds[2][4], 49151);
@@ -1155,7 +1167,7 @@ fn test_bonds() {
 			E: [40496805, 90999783, 157929636, 210573773, 49998779, 100000610, 149996337, 200004272]
 			P: [0.040496806, 0.0909997837, 0.157929636, 0.2105737738, 0.049998779, 0.1000006103, 0.1499963377, 0.2000042726]
 			emaB: [[(4, 0.192316476), (5, 0.192316476), (6, 0.192316476), (7, 0.192316476)], [(4, 0.4321515555), (5, 0.4321515558), (6, 0.4321515558), (7, 0.4321515558)], [(4, 0.7499967015), (5, 0.7499967027), (6, 0.7499967027), (7, 0.7499967027)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
-		let bonds = SubtensorModule::get_bonds( netuid );
+		let bonds = SubtensorModule::get_bonds( netuid.into() );
 		assert_eq!(bonds[0][4], 12603);
 		assert_eq!(bonds[1][4], 28321);
 		assert_eq!(bonds[2][4], 49151);
@@ -1192,7 +1204,7 @@ fn test_bonds() {
 			E: [99999999, 199999999, 299999999, 399999999, 0, 0, 0, 0]
 			P: [0.0999999999, 0.2, 0.2999999998, 0.4, 0, 0, 0, 0]
 			emaB: [[(4, 0.1923094518), (5, 0.1923094518), (6, 0.1923094518), (7, 0.1923094518)], [(4, 0.4321507583), (5, 0.4321507583), (6, 0.4321507583), (7, 0.4321507583)], [(4, 0.7499961846), (5, 0.7499961846), (6, 0.7499961846), (7, 0.7499961846)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
-		let bonds = SubtensorModule::get_bonds( netuid );
+		let bonds = SubtensorModule::get_bonds( netuid.into() );
 		assert_eq!(bonds[0][7], 12602);
 		assert_eq!(bonds[1][7], 28320);
 		assert_eq!(bonds[2][7], 49150);
@@ -1228,7 +1240,7 @@ fn test_bonds() {
 			E: [36443733, 81898628, 163565493, 218092144, 0, 0, 0, 500000000]
 			P: [0.0364437331, 0.081898629, 0.1635654932, 0.2180921442, 0, 0, 0, 0.5]
 			emaB: [[(4, 0.1922941932), (5, 0.1922941932), (6, 0.1922941932), (7, 0.1671024568)], [(4, 0.4321354993), (5, 0.4321354993), (6, 0.4321354993), (7, 0.3755230587)], [(4, 0.7499809256), (5, 0.7499809256), (6, 0.7499809256), (7, 0.749983425)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
-		let bonds = SubtensorModule::get_bonds( netuid );
+		let bonds = SubtensorModule::get_bonds( netuid.into() );
 		assert_eq!(bonds[0][7], 10951);
 		assert_eq!(bonds[1][7], 24609);
 		assert_eq!(bonds[2][7], 49150);
@@ -1250,7 +1262,7 @@ fn test_bonds() {
 			E: [32799427, 73706612, 168638129, 224855830, 0, 0, 0, 500000000]
 			P: [0.0327994274, 0.0737066122, 0.1686381293, 0.2248558307, 0, 0, 0, 0.5]
 			emaB: [[(4, 0.1922789337), (5, 0.1922789337), (6, 0.1922789337), (7, 0.1458686984)], [(4, 0.4321202405), (5, 0.4321202405), (6, 0.4321202405), (7, 0.3277949789)], [(4, 0.749965667), (5, 0.749965667), (6, 0.749965667), (7, 0.74998335)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
-		let bonds = SubtensorModule::get_bonds( netuid );
+		let bonds = SubtensorModule::get_bonds( netuid.into() );
 		assert_eq!(bonds[0][7], 9559);
 		assert_eq!(bonds[1][7], 21482);
 		assert_eq!(bonds[2][7], 49150);
@@ -1272,7 +1284,7 @@ fn test_bonds() {
 			E: [29518068, 66336137, 173203134, 230942659, 0, 0, 0, 500000000]
 			P: [0.029518068, 0.0663361375, 0.1732031347, 0.2309426593, 0, 0, 0, 0.5]
 			emaB: [[(4, 0.192263675), (5, 0.192263675), (6, 0.192263675), (7, 0.1278155716)], [(4, 0.4321049813), (5, 0.4321049813), (6, 0.4321049813), (7, 0.2872407278)], [(4, 0.7499504078), (5, 0.7499504078), (6, 0.7499504078), (7, 0.7499832863)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
-		let bonds = SubtensorModule::get_bonds( netuid );
+		let bonds = SubtensorModule::get_bonds( netuid.into() );
 		assert_eq!(bonds[0][7], 8376);
 		assert_eq!(bonds[1][7], 18824);
 		assert_eq!(bonds[2][7], 49150);
@@ -1351,7 +1363,7 @@ fn test_active_stake() {
         let tempo: u16 = 1;
         let block_number: u64 = System::block_number();
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1408,7 +1420,7 @@ fn test_active_stake() {
         } else {
             SubtensorModule::epoch_dense(netuid, 1_000_000_000.into());
         }
-        let bonds = SubtensorModule::get_bonds(netuid);
+        let bonds = SubtensorModule::get_bonds(netuid.into());
         for uid in 0..n {
             // log::info!("\n{uid}" );
             // uid_stats(netuid, uid);
@@ -1473,7 +1485,7 @@ fn test_active_stake() {
         E: [274999999, 224999999, 250000000, 250000000]
         P: [0.275, 0.2249999999, 0.25, 0.25]
         P (u16): [65535, 53619, 59577, 59577] */
-        let bonds = SubtensorModule::get_bonds(netuid);
+        let bonds = SubtensorModule::get_bonds(netuid.into());
         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, 0), 36044); // Note D = floor((0.5 * 0.9 + 0.1) * 65_535)
         assert_eq!(
             SubtensorModule::get_emission_for_uid(netuid, 0),
@@ -1537,7 +1549,7 @@ fn test_active_stake() {
         E: [272501132, 227498866, 250000000, 250000000]
         P: [0.272501133, 0.2274988669, 0.25, 0.25]
         P (u16): [65535, 54711, 60123, 60123] */
-        let bonds = SubtensorModule::get_bonds(netuid);
+        let bonds = SubtensorModule::get_bonds(netuid.into());
         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, 0), 35716); // Note D = floor((0.55 * 0.9 + 0.5 * 0.1) * 65_535)
         assert_eq!(
             SubtensorModule::get_emission_for_uid(netuid, 0),
@@ -1558,6 +1570,7 @@ fn test_active_stake() {
 }
 
 // Test that epoch masks out outdated weights and bonds of validators on deregistered servers.
+//
 #[test]
 fn test_outdated_weights() {
     new_test_ext(1).execute_with(|| {
@@ -1567,7 +1580,7 @@ fn test_outdated_weights() {
         let tempo: u16 = 0;
         let mut block_number: u64 = System::block_number();
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1736,7 +1749,7 @@ fn test_outdated_weights() {
         E: [250000000, 250000000, 500000000, 0]
         P: [0.25, 0.25, 0.5, 0]
         P (u16): [32767, 32767, 65535, 0] */
-        let bonds = SubtensorModule::get_bonds(netuid);
+        let bonds = SubtensorModule::get_bonds(netuid.into());
         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, 0), 32767); // Note D = floor(0.5 * 65_535)
         assert_eq!(
             SubtensorModule::get_emission_for_uid(netuid, 0),
@@ -1757,7 +1770,7 @@ fn test_zero_weights() {
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
         let mut block_number: u64 = 0;
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1960,7 +1973,7 @@ fn test_deregistered_miner_bonds() {
         let high_tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
 
         let stake: u64 = 1;
-        add_network(netuid, high_tempo, 0);
+        add_network_disable_commit_reveal(netuid, high_tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -2035,7 +2048,7 @@ fn test_deregistered_miner_bonds() {
         }
 
         // Check the bond values for the servers
-        let bonds = SubtensorModule::get_bonds(netuid);
+        let bonds = SubtensorModule::get_bonds(netuid.into());
         let bond_0_2 = bonds[0][2];
         let bond_0_3 = bonds[0][3];
 
@@ -2107,7 +2120,7 @@ fn test_deregistered_miner_bonds() {
         }
 
         // Check the bond values for the servers
-        let bonds = SubtensorModule::get_bonds(netuid);
+        let bonds = SubtensorModule::get_bonds(netuid.into());
         let bond_0_2_new = bonds[0][2];
         let bond_0_3_new = bonds[0][3];
 
@@ -2452,6 +2465,7 @@ fn test_blocks_since_last_step() {
     });
 }
 
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::epoch::test_can_set_self_weight_as_subnet_owner --exact --show-output
 #[test]
 fn test_can_set_self_weight_as_subnet_owner() {
     new_test_ext(1).execute_with(|| {
@@ -2483,19 +2497,27 @@ fn test_can_set_self_weight_as_subnet_owner() {
         // Set weight of 50% to each hotkey.
         // This includes a self-weight
         let fifty_percent: u16 = u16::MAX / 2;
-        Weights::<Test>::insert(netuid, 0, vec![(0, fifty_percent), (1, fifty_percent)]);
+        Weights::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            0,
+            vec![(0, fifty_percent), (1, fifty_percent)],
+        );
 
         step_block(1);
         // Set updated so weights are valid
-        LastUpdate::<Test>::insert(netuid, vec![2, 0]);
+        LastUpdate::<Test>::insert(NetUidStorageIndex::from(netuid), vec![2, 0]);
 
         // Run epoch
         let hotkey_emission = SubtensorModule::epoch(netuid, to_emit.into());
 
         // hotkey_emission is [(hotkey, incentive, dividend)]
         assert_eq!(hotkey_emission.len(), 2);
-        assert_eq!(hotkey_emission[0].0, subnet_owner_hotkey);
-        assert_eq!(hotkey_emission[1].0, other_hotkey);
+        assert!(
+            hotkey_emission
+                .iter()
+                .any(|(hk, _, _)| *hk == subnet_owner_hotkey)
+        );
+        assert!(hotkey_emission.iter().any(|(hk, _, _)| *hk == other_hotkey));
 
         log::debug!("hotkey_emission: {hotkey_emission:?}");
         // Both should have received incentive emission
@@ -2669,7 +2691,7 @@ pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
 fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
     let block_number = System::block_number();
     let tempo: u16 = 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-    add_network(netuid, tempo, 0);
+    add_network_disable_commit_reveal(netuid, tempo, 0);
 
     SubtensorModule::set_max_allowed_uids(netuid, n);
     assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
@@ -2742,7 +2764,7 @@ fn run_epoch_and_check_bonds_dividends(
     target_dividends: &[f32],
 ) {
     run_epoch(netuid, sparse);
-    let bonds = SubtensorModule::get_bonds_fixed_proportion(netuid);
+    let bonds = SubtensorModule::get_bonds_fixed_proportion(netuid.into());
     let dividends = SubtensorModule::get_dividends(netuid);
 
     let epsilon = I32F32::from_num(1e-3);
@@ -3485,7 +3507,7 @@ fn test_yuma_3_bonds_reset() {
                     if epoch == 20 {
                         let hotkey = SubtensorModule::get_hotkey_for_net_and_uid(netuid, 3)
                             .expect("Hotkey not found");
-                        let _ = SubtensorModule::do_reset_bonds(netuid, &hotkey);
+                        let _ = SubtensorModule::do_reset_bonds(netuid.into(), &hotkey);
                     }
                 }
                 21 => {
@@ -3567,7 +3589,7 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
         let reveal: u64 = 2;
 
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_reveal_period(netuid, reveal);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
@@ -3650,7 +3672,10 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
 
         SubtensorModule::epoch(netuid, 1_000.into());
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, new_uid), 0);
-        assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, new_uid), 0);
+        assert_eq!(
+            SubtensorModule::get_incentive_for_uid(netuid.into(), new_uid),
+            0
+        );
     });
 }
 
@@ -3693,7 +3718,7 @@ fn test_epoch_no_mask_when_commit_reveal_disabled() {
         for _ in 0..3 {
             SubtensorModule::epoch(netuid, 1.into());
             assert!(
-                !SubtensorModule::get_weights_sparse(netuid)[0].is_empty(),
+                !SubtensorModule::get_weights_sparse(netuid.into())[0].is_empty(),
                 "row visible when CR disabled"
             );
             run_to_block(System::block_number() + tempo as u64 + 1);
@@ -3709,7 +3734,7 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
         let reveal: u16 = 2;
 
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_reveal_period(netuid, reveal as u64);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal as u64));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
 
