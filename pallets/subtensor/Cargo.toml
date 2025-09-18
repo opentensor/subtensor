@@ -45,6 +45,7 @@ subtensor-runtime-common = { workspace = true, features = ["approx"] }
 
 pallet-drand.workspace = true
 pallet-subtensor-collective.workspace = true
+pallet-commitments.workspace = true
 pallet-membership.workspace = true
 hex-literal.workspace = true
 num-traits = { workspace = true, features = ["libm"] }
@@ -70,88 +71,9 @@ sp-std.workspace = true
 pallet-preimage.workspace = true
 
 [features]
-std = [
-	"ark-serialize/std",
-	"codec/std",
-	"frame-benchmarking/std",
-	"frame-support/std",
-	"frame-system/std",
-	"hex/std",
-	"libsecp256k1/std",
-	"log/std",
-	"num-traits/std",
-	"pallet-balances/std",
-	"pallet-subtensor-collective/std",
-	"pallet-drand/std",
-	"pallet-membership/std",
-	"pallet-preimage/std",
-	"pallet-scheduler/std",
-	"pallet-subtensor-swap/std",
-	"pallet-transaction-payment/std",
-	"pallet-subtensor-utility/std",
-	"rand_chacha/std",
-	"safe-math/std",
-	"scale-info/std",
-	"serde/std",
-	"serde_json/std",
-	"sha2/std",
-	"share-pool/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"sp-tracing/std",
-	"sp-version/std",
-	"substrate-fixed/std",
-	"substrate-fixed/std",
-	"subtensor-runtime-common/std",
-	"subtensor-swap-interface/std",
-	"tle/std",
-	"w3f-bls/std",
-	"rand_chacha/std",
-	"safe-math/std",
-	"sha2/std",
-	"share-pool/std",
-	"subtensor-runtime-common/std",
-	"pallet-subtensor-proxy/std",
-	"pallet-crowdloan/std",
-	"runtime-common/std",
-	"ndarray/std",
-]
+try-runtime = []
 default = ["std"]
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-subtensor-collective/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
-	"pallet-preimage/runtime-benchmarks",
-	"pallet-scheduler/runtime-benchmarks",
-	"pallet-subtensor-swap/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-subtensor-proxy/runtime-benchmarks",
-	"pallet-crowdloan/runtime-benchmarks",
-	"pallet-subtensor-utility/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"runtime-common/runtime-benchmarks",
-]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-membership/try-runtime",
-	"pallet-preimage/try-runtime",
-	"pallet-scheduler/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-	"pallet-subtensor-utility/try-runtime",
-	"sp-runtime/try-runtime",
-	"pallet-subtensor-collective/try-runtime",
-	"pallet-drand/try-runtime",
-	"pallet-subtensor-proxy/try-runtime",
-	"pallet-crowdloan/try-runtime",
-	"runtime-common/try-runtime",
-]
+std = []
+runtime-benchmarks = []
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]

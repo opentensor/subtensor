@@ -4,10 +4,11 @@ use crate::epoch::math::*;
 use codec::Compact;
 use frame_support::IterableStorageDoubleMap;
 use frame_support::pallet_prelude::{Decode, Encode};
+use pallet_commitments::GetCommitments;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex, TaoCurrency};
 
 #[freeze_struct("6fc49d5a7dc0e339")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -109,7 +110,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     alpha_dividends_per_hotkey: Vec<(AccountId, Compact<AlphaCurrency>)>, // List of dividend payout in alpha via subnet.
 }
 
-#[freeze_struct("7604bd3817c55848")]
+#[freeze_struct("56156d51c66190e8")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Subnet index
@@ -210,6 +211,8 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
 
     // validators
     validators: Option<Vec<Compact<u16>>>, // List of validators
+    // commitments
+    commitments: Option<Vec<(AccountId, Vec<Compact<u8>>)>>, // List of commitments
 }
 
 impl<AccountId> SelectiveMetagraph<AccountId>
@@ -367,6 +370,9 @@ where
                 self.alpha_dividends_per_hotkey = other.alpha_dividends_per_hotkey.clone()
             }
             Some(SelectiveMetagraphIndex::Validators) => self.validators = other.validators.clone(),
+            Some(SelectiveMetagraphIndex::Commitments) => {
+                self.commitments = other.commitments.clone()
+            }
             None => {}
         };
     }
@@ -451,6 +457,7 @@ where
             tao_dividends_per_hotkey: None,
             alpha_dividends_per_hotkey: None,
             validators: None,
+            commitments: None,
         }
     }
 }
@@ -529,6 +536,7 @@ pub enum SelectiveMetagraphIndex {
     TaoDividendsPerHotkey,
     AlphaDividendsPerHotkey,
     Validators,
+    Commitments,
 }
 
 impl SelectiveMetagraphIndex {
@@ -607,6 +615,7 @@ impl SelectiveMetagraphIndex {
             70 => Some(SelectiveMetagraphIndex::TaoDividendsPerHotkey),
             71 => Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey),
             72 => Some(SelectiveMetagraphIndex::Validators),
+            73 => Some(SelectiveMetagraphIndex::Commitments),
             _ => None,
         }
     }
@@ -740,7 +749,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Pruning per UID
-            last_update: LastUpdate::<T>::get(netuid)
+            last_update: LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Last update per UID
@@ -752,7 +761,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Dividends per UID
-            incentives: Incentive::<T>::get(netuid)
+            incentives: Incentive::<T>::get(NetUidStorageIndex::from(netuid))
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Mining incentives per UID
@@ -796,6 +805,45 @@ impl<T: Config> Pallet<T> {
         metagraphs
     }
 
+    pub fn get_mechagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<T::AccountId>> {
+        if Self::ensure_mechanism_exists(netuid, mecid).is_err() {
+            return None;
+        }
+
+        // Get netuid metagraph
+        let maybe_meta = Self::get_metagraph(netuid);
+        if let Some(mut meta) = maybe_meta {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+
+            // Update with mechanism information
+            meta.netuid = NetUid::from(u16::from(netuid_index)).into();
+            meta.last_update = LastUpdate::<T>::get(netuid_index)
+                .into_iter()
+                .map(Compact::from)
+                .collect();
+            meta.incentives = Incentive::<T>::get(netuid_index)
+                .into_iter()
+                .map(Compact::from)
+                .collect();
+
+            Some(meta)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_all_mechagraphs() -> Vec<Option<Metagraph<T::AccountId>>> {
+        let netuids = Self::get_all_subnet_netuids();
+        let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
+        for netuid in netuids.clone().iter() {
+            let mechanism_count = u8::from(MechanismCountCurrent::<T>::get(netuid));
+            for mecid in 0..mechanism_count {
+                metagraphs.push(Self::get_mechagraph(*netuid, MechId::from(mecid)));
+            }
+        }
+        metagraphs
+    }
+
     pub fn get_selective_metagraph(
         netuid: NetUid,
         metagraph_indexes: Vec<u16>,
@@ -806,6 +854,23 @@ impl<T: Config> Pallet<T> {
             let mut result = SelectiveMetagraph::default();
             for index in metagraph_indexes.iter() {
                 let value = Self::get_single_selective_metagraph(netuid, *index);
+                result.merge_value(&value, *index as usize);
+            }
+            Some(result)
+        }
+    }
+
+    pub fn get_selective_mechagraph(
+        netuid: NetUid,
+        mecid: MechId,
+        metagraph_indexes: Vec<u16>,
+    ) -> Option<SelectiveMetagraph<T::AccountId>> {
+        if !Self::if_subnet_exist(netuid) {
+            None
+        } else {
+            let mut result = SelectiveMetagraph::default();
+            for index in metagraph_indexes.iter() {
+                let value = Self::get_single_selective_mechagraph(netuid, mecid, *index);
                 result.merge_value(&value, *index as usize);
             }
             Some(result)
@@ -1198,7 +1263,7 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::LastUpdate) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 last_update: Some(
-                    LastUpdate::<T>::get(netuid)
+                    LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
                         .into_iter()
                         .map(Compact::from)
                         .collect(),
@@ -1231,7 +1296,7 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::Incentives) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 incentives: Some(
-                    Incentive::<T>::get(netuid)
+                    Incentive::<T>::get(NetUidStorageIndex::from(netuid))
                         .into_iter()
                         .map(Compact::from)
                         .collect(),
@@ -1367,11 +1432,52 @@ impl<T: Config> Pallet<T> {
                 }
             }
             Some(SelectiveMetagraphIndex::Validators) => Self::get_validators(netuid),
+            Some(SelectiveMetagraphIndex::Commitments) => Self::get_commitments(netuid),
             None => SelectiveMetagraph {
                 // Subnet index
                 netuid: netuid.into(),
                 ..Default::default()
             },
+        }
+    }
+
+    fn get_single_selective_mechagraph(
+        netuid: NetUid,
+        mecid: MechId,
+        metagraph_index: u16,
+    ) -> SelectiveMetagraph<T::AccountId> {
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+
+        // Default to netuid, replace as needed for mecid
+        match SelectiveMetagraphIndex::from_index(metagraph_index as usize) {
+            Some(SelectiveMetagraphIndex::Incentives) => SelectiveMetagraph {
+                netuid: netuid.into(),
+                incentives: Some(
+                    Incentive::<T>::get(NetUidStorageIndex::from(netuid))
+                        .into_iter()
+                        .map(Compact::from)
+                        .collect(),
+                ),
+                ..Default::default()
+            },
+
+            Some(SelectiveMetagraphIndex::LastUpdate) => SelectiveMetagraph {
+                netuid: netuid.into(),
+                last_update: Some(
+                    LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
+                        .into_iter()
+                        .map(Compact::from)
+                        .collect(),
+                ),
+                ..Default::default()
+            },
+
+            _ => {
+                let mut meta = Self::get_single_selective_metagraph(netuid, metagraph_index);
+                // Replace netuid with index
+                meta.netuid = NetUid::from(u16::from(netuid_index)).into();
+                meta
+            }
         }
     }
 
@@ -1410,6 +1516,25 @@ impl<T: Config> Pallet<T> {
             // Subnet index
             netuid: netuid.into(),
             validators: Some(validators),
+            ..Default::default()
+        }
+    }
+
+    fn get_commitments(netuid: NetUid) -> SelectiveMetagraph<T::AccountId> {
+        let commitments = <T as Config>::GetCommitments::get_commitments(netuid);
+        let commitments: Vec<(T::AccountId, Vec<Compact<u8>>)> = commitments
+            .iter()
+            .map(|(account, commitment)| {
+                let compact_commitment = commitment
+                    .iter()
+                    .map(|c| Compact::from(*c))
+                    .collect::<Vec<Compact<u8>>>();
+                (account.clone(), compact_commitment)
+            })
+            .collect();
+
+        SelectiveMetagraph {
+            commitments: Some(commitments),
             ..Default::default()
         }
     }
@@ -1492,6 +1617,7 @@ fn test_selective_metagraph() {
         tao_dividends_per_hotkey: None,
         alpha_dividends_per_hotkey: None,
         validators: None,
+        commitments: None,
     };
 
     // test init value

@@ -24,11 +24,12 @@ impl<T: Config> Pallet<T> {
 
     /// Associate an EVM key with a hotkey.
     ///
-    /// This function accepts a Signature, which is a signed message containing the hotkey concatenated with
-    /// the hashed block number. It will then attempt to recover the EVM key from the signature and compare it
-    /// with the `evm_key` parameter, and ensures that they match.
+    /// This function accepts a Signature, which is a signed message containing the hotkey
+    /// concatenated with the hashed block number. It will then attempt to recover the EVM key from
+    /// the signature and compare it with the `evm_key` parameter, and ensures that they match.
     ///
-    /// The EVM key is expected to sign the message according to this formula to produce the signature:
+    /// The EVM key is expected to sign the message according to this formula to produce the
+    /// signature:
     /// ```text
     /// keccak_256(hotkey ++ keccak_256(block_number))
     /// ```
@@ -40,15 +41,22 @@ impl<T: Config> Pallet<T> {
     /// * `hotkey` - The hotkey associated with the `origin` coldkey.
     /// * `evm_key` - The EVM address to associate with the `hotkey`.
     /// * `block_number` - The block number used in the `signature`.
-    /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
+    /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed
+    ///   `block_number`.
     pub fn do_associate_evm_key(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
+        hotkey: T::AccountId,
         evm_key: H160,
         block_number: u64,
         mut signature: Signature,
     ) -> dispatch::DispatchResult {
-        let hotkey = ensure_signed(origin)?;
+        let coldkey = ensure_signed(origin)?;
+
+        ensure!(
+            Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
+            Error::<T>::NonAssociatedColdKey
+        );
 
         // Normalize the v value to 0 or 1
         if signature.0[64] >= 27 {

@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
+use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::DispatchInfo;
 use frame_support::sp_runtime::{DispatchError, transaction_validity::TransactionSource};
@@ -1332,6 +1333,92 @@ fn test_registration_get_uid_to_prune_none_in_immunity_period() {
         step_block(3);
         assert_eq!(SubtensorModule::get_current_block_as_u64(), 3);
         assert_eq!(SubtensorModule::get_neuron_to_prune(NetUid::ROOT), 0);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::registration::test_registration_get_uid_to_prune_owner_immortality --exact --show-output --nocapture
+#[test]
+fn test_registration_get_uid_to_prune_owner_immortality() {
+    new_test_ext(1).execute_with(|| {
+        [
+            // Burn key limit to 1 - testing the limits
+            // Other owner's hotkey is pruned because there's only 1 immune key and
+            // pruning score of owner key is lower
+            (1, 1),
+            // Burn key limit to 2 - both owner keys are immune
+            (2, 2),
+        ]
+        .iter()
+        .for_each(|(limit, uid_to_prune)| {
+            let subnet_owner_ck = U256::from(0);
+            let subnet_owner_hk = U256::from(1);
+
+            // Other hk owned by owner
+            let other_owner_hk = U256::from(2);
+            Owner::<Test>::insert(other_owner_hk, subnet_owner_ck);
+            OwnedHotkeys::<Test>::insert(subnet_owner_ck, vec![subnet_owner_hk, other_owner_hk]);
+
+            // Another hk not owned by owner
+            let non_owner_hk = U256::from(3);
+
+            let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+            BlockAtRegistration::<Test>::insert(netuid, 1, 1);
+            BlockAtRegistration::<Test>::insert(netuid, 2, 2);
+            Uids::<Test>::insert(netuid, other_owner_hk, 1);
+            Uids::<Test>::insert(netuid, non_owner_hk, 2);
+            Keys::<Test>::insert(netuid, 1, other_owner_hk);
+            Keys::<Test>::insert(netuid, 2, non_owner_hk);
+            ImmunityPeriod::<Test>::insert(netuid, 1);
+            SubnetworkN::<Test>::insert(netuid, 3);
+
+            step_block(10);
+
+            ImmuneOwnerUidsLimit::<Test>::insert(netuid, *limit);
+
+            // Set lower pruning score to sn owner keys
+            PruningScores::<Test>::insert(netuid, vec![0, 0, 1]);
+
+            assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), *uid_to_prune);
+        });
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::registration::test_registration_get_uid_to_prune_owner_immortality_all_immune --exact --show-output --nocapture
+#[test]
+fn test_registration_get_uid_to_prune_owner_immortality_all_immune() {
+    new_test_ext(1).execute_with(|| {
+        let limit = 2;
+        let uid_to_prune = 2;
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        // Other hk owned by owner
+        let other_owner_hk = U256::from(2);
+        Owner::<Test>::insert(other_owner_hk, subnet_owner_ck);
+        OwnedHotkeys::<Test>::insert(subnet_owner_ck, vec![subnet_owner_hk, other_owner_hk]);
+
+        // Another hk not owned by owner
+        let non_owner_hk = U256::from(3);
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        BlockAtRegistration::<Test>::insert(netuid, 0, 12);
+        BlockAtRegistration::<Test>::insert(netuid, 1, 11);
+        BlockAtRegistration::<Test>::insert(netuid, 2, 10);
+        Uids::<Test>::insert(netuid, other_owner_hk, 1);
+        Uids::<Test>::insert(netuid, non_owner_hk, 2);
+        Keys::<Test>::insert(netuid, 1, other_owner_hk);
+        Keys::<Test>::insert(netuid, 2, non_owner_hk);
+        ImmunityPeriod::<Test>::insert(netuid, 100);
+        SubnetworkN::<Test>::insert(netuid, 3);
+
+        step_block(20);
+
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, limit);
+
+        // Set lower pruning score to sn owner keys
+        PruningScores::<Test>::insert(netuid, vec![0, 0, 1]);
+
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), uid_to_prune);
     });
 }
 
