@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
         Self::epoch_dense_mechanism(netuid, MechId::MAIN, rao_emission)
     }
 
-    /// Persists per-subsubnet epoch output in state
+    /// Persists per-mechanism epoch output in state
     pub fn persist_mechanism_epoch_terms(
         netuid: NetUid,
         mecid: MechId,

@@ -206,8 +206,16 @@ impl<T: Config> Pallet<T> {
     pub fn get_dividends(netuid: NetUid) -> Vec<u16> {
         Dividends::<T>::get(netuid)
     }
-    pub fn get_last_update(netuid: NetUidStorageIndex) -> Vec<u64> {
-        LastUpdate::<T>::get(netuid)
+    /// Fetch LastUpdate for `netuid` and ensure its length is at least `get_subnetwork_n(netuid)`,
+    /// padding with zeros if needed. Returns the (possibly padded) vector.
+    pub fn get_last_update(netuid_index: NetUidStorageIndex) -> Vec<u64> {
+        let netuid = Self::get_netuid(netuid_index);
+        let target_len = Self::get_subnetwork_n(netuid) as usize;
+        let mut v = LastUpdate::<T>::get(netuid_index);
+        if v.len() < target_len {
+            v.resize(target_len, 0);
+        }
+        v
     }
     pub fn get_pruning_score(netuid: NetUid) -> Vec<u16> {
         PruningScores::<T>::get(netuid)
