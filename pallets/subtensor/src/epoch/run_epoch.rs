@@ -1390,7 +1390,11 @@ impl<T: Config> Pallet<T> {
         let mut alphas = Vec::new();
 
         if weights.len() != bonds.len() {
-            log::error!("compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}", weights.len(), bonds.len());
+            log::error!(
+                "compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                weights.len(),
+                bonds.len()
+            );
             return alphas;
         }
 
@@ -1439,7 +1443,11 @@ impl<T: Config> Pallet<T> {
         let mut alphas = Vec::with_capacity(consensus.len());
 
         if weights.len() != bonds.len() {
-            log::error!("compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}", weights.len(), bonds.len());
+            log::error!(
+                "compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                weights.len(),
+                bonds.len()
+            );
             return alphas;
         }
 

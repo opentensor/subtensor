@@ -253,7 +253,7 @@ impl<T: Config> Pallet<T> {
             SubnetworkN::<T>::get(netuid)
         );
         log::debug!("uid = {uid:?}");
-        if uid < SubnetworkN::<T>::get(netuid)) {
+        if uid < SubnetworkN::<T>::get(netuid) {
             PruningScores::<T>::mutate(netuid, |v| {
                 if let Some(s) = v.get_mut(uid as usize) {
                     *s = pruning_score;

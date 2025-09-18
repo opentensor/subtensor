@@ -117,7 +117,7 @@ impl<T: Config> Pallet<T> {
         for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
             let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
             Incentive::<T>::mutate(netuid_index, |v| v.push(0));
-            LastUpdate::<T>::mutate(netuid_index, |v| v.push(block_number));
+            Self::set_last_update_for_uid(netuid_index, next_uid, block_number);
         }
         Dividends::<T>::mutate(netuid, |v| v.push(0));
         PruningScores::<T>::mutate(netuid, |v| v.push(0));
