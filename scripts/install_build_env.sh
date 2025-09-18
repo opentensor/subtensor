@@ -1,4 +1,17 @@
 #!/bin/bash
+
+echo ""
+echo "######################################################################"
+echo "###     WARNING: DO NOT MODIFY THIS SCRIPT UNLESS YOU KNOW WHY!    ###"
+echo "###                                                                ###"
+echo "### This script is used by:                                        ###"
+echo "###   • .github/workflows/docker-localnet.yml                      ###"
+echo "###   • Dockerfile-localnet                                        ###"
+echo "###                                                                ###"
+echo "### Any changes may break CI builds or local Docker environments.  ###"
+echo "######################################################################"
+echo ""
+
 set -e
 
 echo "[*] Detecting platform..."
