@@ -22,6 +22,9 @@ ENV BUILT_IN_CI=${BUILT_IN_CI}
 ENV RUST_BACKTRACE=1
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+## Ubdate certificates
+RUN apt-get update && apt-get install -y ca-certificates
+
 # Echo the value
 RUN echo "BUILT_IN_CI=$BUILT_IN_CI"
 # Install deps if $BUILT_IN_CI wasn't passed
@@ -61,9 +64,6 @@ RUN chmod +x /scripts/localnet.sh
 # Copy WebAssembly artifacts
 COPY --from=builder /build/target/fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm target/fast-runtime/release/node_subtensor_runtime.compact.compressed.wasm
 COPY --from=builder /build/target/non-fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm target/non-fast-runtime/release/node_subtensor_runtime.compact.compressed.wasm
-
-## Ubdate certificates
-RUN apt-get update && apt-get install -y ca-certificates
 
 # Do not build (just run)
 ENV BUILD_BINARY=0
