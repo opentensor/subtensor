@@ -253,12 +253,13 @@ impl<T: Config> Pallet<T> {
             SubnetworkN::<T>::get(netuid)
         );
         log::debug!("uid = {uid:?}");
-        assert!(uid < SubnetworkN::<T>::get(netuid));
-        PruningScores::<T>::mutate(netuid, |v| {
-            if let Some(s) = v.get_mut(uid as usize) {
-                *s = pruning_score;
-            }
-        });
+        if uid < SubnetworkN::<T>::get(netuid)) {
+            PruningScores::<T>::mutate(netuid, |v| {
+                if let Some(s) = v.get_mut(uid as usize) {
+                    *s = pruning_score;
+                }
+            });
+        }
     }
     pub fn set_validator_permit_for_uid(netuid: NetUid, uid: u16, validator_permit: bool) {
         let mut updated_validator_permits = Self::get_validator_permit(netuid);
