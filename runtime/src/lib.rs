@@ -1602,10 +1602,25 @@ fn contracts_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedu
     }
 }
 
+const CONTRACT_STORAGE_KEY_PERCENT: Balance = 15;
+const CONTRACT_STORAGE_BYTE_PERCENT: Balance = 6;
+
+/// Contracts deposits charged at 15% of the existential deposit per key, 6% per byte.
+pub const fn contract_deposit(items: u32, bytes: u32) -> Balance {
+    let key_fee =
+        (EXISTENTIAL_DEPOSIT as Balance).saturating_mul(CONTRACT_STORAGE_KEY_PERCENT) / 100;
+    let byte_fee =
+        (EXISTENTIAL_DEPOSIT as Balance).saturating_mul(CONTRACT_STORAGE_BYTE_PERCENT) / 100;
+
+    (items as Balance)
+        .saturating_mul(key_fee)
+        .saturating_add((bytes as Balance).saturating_mul(byte_fee))
+}
+
 parameter_types! {
-    pub const ContractDepositPerItem: Balance = deposit(1, 0);
-    pub const ContractDepositPerByte: Balance = deposit(0, 1);
-    pub const ContractDefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+    pub const ContractDepositPerItem: Balance = contract_deposit(1, 0);
+    pub const ContractDepositPerByte: Balance = contract_deposit(0, 1);
+    pub const ContractDefaultDepositLimit: Balance = contract_deposit(1024, 1024 * 1024);
     pub ContractsSchedule: pallet_contracts::Schedule<Runtime> = contracts_schedule::<Runtime>();
     pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
     pub const ContractMaxDelegateDependencies: u32 = 32;
