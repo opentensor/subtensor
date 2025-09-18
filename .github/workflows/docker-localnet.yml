@@ -87,13 +87,15 @@ jobs:
 
       - name: Prepare artifacts for upload
         run: |
-          mkdir -p upload
-          cp -v snapshot.json upload/ || true
-          cp -v scripts/localnet.sh upload/ || true
+          mkdir -p build/scripts/
+          cp -v snapshot.json build/ || true
+          cp -v scripts/localnet.sh build/scripts/localnet.sh || true
           
-          mkdir -p upload/target/${{ matrix.runtime }}/release/ || true
-          cp -v target/${{ matrix.runtime }}/release/node-subtensor upload/target/${{ matrix.runtime }}/release/node-subtensor || true
-          cp -v target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm upload/target/${{ matrix.runtime }}/release/node_subtensor_runtime.compact.compressed.wasm || true
+          mkdir -p build/target/${{ matrix.runtime }}/release/ || true
+          cp -v target/${{ matrix.runtime }}/release/node-subtensor build/target/${{ matrix.runtime }}/release/node-subtensor || true
+          
+          mkdir -p build/target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/ || true
+          cp -v target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm build/target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
