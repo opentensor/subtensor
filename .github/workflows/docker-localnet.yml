@@ -57,8 +57,25 @@ jobs:
     needs: setup
     strategy:
       matrix:
+        platform:
+          - runner: macos-13
+            arch: x86_64
+            triple: x86_64-apple-darwin
+
+          - runner: macos-14
+            arch: aarch64
+            triple: aarch64-apple-darwin
+
+          - runner: ubuntu-latest
+            arch: x86_64
+            triple: x86_64-unknown-linux-gnu
+
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+            triple: aarch64-unknown-linux-gnu
+
         runtime: ["fast-runtime", "non-fast-runtime"]
-    runs-on: [self-hosted, cax41]
+    runs-on: ${{ matrix.platform.runner }}
 
     steps:
       - name: Checkout code
@@ -66,10 +83,14 @@ jobs:
         with:
           ref: ${{ needs.setup.outputs.ref }}
 
-      - name: Install rust + dependencies
+      - name: Install Rust + dependencies
         run: |
           chmod +x ./scripts/install_build_env.sh
           ./scripts/install_build_env.sh
+
+      - name: Add Rust target triple
+        run: |
+          rustup target add ${{ matrix.platform.triple }}
 
       - name: Patch limits for local run
         run: |
@@ -79,6 +100,8 @@ jobs:
       - name: Build binaries
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
+          export CARGO_BUILD_TARGET="${{ matrix.platform.triple }}"
+
           if [ "${{ matrix.runtime }}" = "fast-runtime" ]; then
             ./scripts/localnet.sh --build-only
           else
@@ -87,20 +110,22 @@ jobs:
 
       - name: Prepare artifacts for upload
         run: |
-          mkdir -p build/ci_target/${{ matrix.runtime }}/release/ || true
-          cp -v target/${{ matrix.runtime }}/release/node-subtensor build/ci_target/${{ matrix.runtime }}/release/node-subtensor || true
-          
-          mkdir -p build/ci_target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/ || true
-          cp -v target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm build/ci_target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm || true
+          ARCH="${{ matrix.platform.arch }}"
+          RUNTIME="${{ matrix.runtime }}"
+          TRIPLE="${{ matrix.platform.triple }}"
 
-#          mkdir -p build/scripts/
-#          cp -v snapshot.json build/ || true
-#          cp -v scripts/localnet.sh build/scripts/localnet.sh || true
+          mkdir -p build/ci_target/${ARCH}/${RUNTIME}/release/
+          cp -v target/${TRIPLE}/${RUNTIME}/release/node-subtensor \
+            build/ci_target/${ARCH}/${RUNTIME}/release/
 
-      - name: Upload artifacts
+          mkdir -p build/ci_target/${ARCH}/${RUNTIME}/release/wbuild/node-subtensor-runtime/
+          cp -v target/${TRIPLE}/${RUNTIME}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
+            build/ci_target/${ARCH}/${RUNTIME}/release/wbuild/node-subtensor-runtime/
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.runtime }}
+          name: binaries-${{ matrix.platform.triple }}-${{ matrix.runtime }}
           path: build/
           if-no-files-found: error
 

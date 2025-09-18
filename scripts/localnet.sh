@@ -54,9 +54,25 @@ if [ ! -d "$SPEC_PATH" ]; then
   mkdir -p "$SPEC_PATH"
 fi
 
-if [[ $BUILD_BINARY == "1" ]]; then
+if [[ "$BUILD_BINARY" == "1" ]]; then
   echo "*** Building substrate binary..."
-  CARGO_TARGET_DIR="$BUILD_DIR" cargo build --workspace --profile=release --features "$FEATURES" --manifest-path "$BASE_DIR/Cargo.toml"
+
+  BUILD_CMD=(
+    cargo build
+    --workspace
+    --profile=release
+    --features "$FEATURES"
+    --manifest-path "$BASE_DIR/Cargo.toml"
+  )
+
+  if [[ -n "$CARGO_BUILD_TARGET" ]]; then
+    echo "[+] Cross-compiling for target: $CARGO_BUILD_TARGET"
+    BUILD_CMD+=(--target "$CARGO_BUILD_TARGET")
+  else
+    echo "[+] Building for host architecture"
+  fi
+
+  CARGO_TARGET_DIR="$BUILD_DIR" "${BUILD_CMD[@]}"
   echo "*** Binary compiled"
 fi
 
