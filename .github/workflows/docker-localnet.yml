@@ -52,7 +52,7 @@ jobs:
     strategy:
       matrix:
         runtime: ["fast-runtime", "non-fast-runtime"]
-    runs-on: [self-hosted, type-cax41]
+    runs-on: [self-hosted, type-cax31]
 #    runs-on: SubtensorCI
 
     steps:
@@ -98,7 +98,7 @@ jobs:
   publish:
     needs: [setup, build]
 #    runs-on: [self-hosted, type-cax11]
-    runs-on: [self-hosted, type-cax41, image-arm-app-docker-ce]
+    runs-on: [self-hosted, type-cax31, image-arm-app-docker-ce]
 
     steps:
       - name: Checkout code
