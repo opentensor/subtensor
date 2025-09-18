@@ -1607,7 +1607,7 @@ parameter_types! {
     pub const ContractDepositPerByte: Balance = deposit(0, 1);
     pub const ContractDefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
     pub ContractsSchedule: pallet_contracts::Schedule<Runtime> = contracts_schedule::<Runtime>();
-    pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+    pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
     pub const ContractMaxDelegateDependencies: u32 = 32;
 }
 
