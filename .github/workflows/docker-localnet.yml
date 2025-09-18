@@ -36,9 +36,16 @@ jobs:
     steps:
       - id: vars
         run: |
-          branch_or_tag="${{ github.event.inputs.branch-or-tag || github.ref_name }}"
-          echo "tag=$branch_or_tag" >> $GITHUB_OUTPUT
-          echo "ref=$branch_or_tag" >> $GITHUB_OUTPUT
+          tag="${{ github.event.inputs.branch-or-tag }}"
+          ref="${{ github.ref_name }}"
+    
+          if [[ -n "$tag" ]]; then
+            echo "tag=$tag" >> $GITHUB_OUTPUT
+          else
+            echo "tag=$ref" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "ref=$ref" >> $GITHUB_OUTPUT
 
           if [[ "$branch_or_tag" != "devnet-ready" ]]; then
             echo "latest_tag=true" >> $GITHUB_OUTPUT
