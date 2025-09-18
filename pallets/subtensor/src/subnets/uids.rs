@@ -133,10 +133,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn trim_to_max_allowed_uids(netuid: NetUid, max_n: u16) -> DispatchResult {
         // Reasonable limits
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::MechanismDoesNotExist
-        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         ensure!(
             max_n >= MinAllowedUids::<T>::get(netuid),
             Error::<T>::InvalidValue

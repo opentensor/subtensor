@@ -23,10 +23,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let coldkey: T::AccountId = ensure_signed(origin)?;
 
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::MechanismDoesNotExist
-        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         ensure!(
             !netuid.is_root(),
@@ -91,10 +88,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
 
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::MechanismDoesNotExist
-        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         ensure!(
             !netuid.is_root(),
