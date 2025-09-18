@@ -6,10 +6,6 @@ SHELL ["/bin/bash", "-c"]
 # Set noninteractive mode for apt-get
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Set default to 0 (if not overridden by build arg)
-ARG BUILT_IN_CI=0
-ENV BUILT_IN_CI=${BUILT_IN_CI}
-
 LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
   ai.opentensor.image.vendor="Opentensor Foundation" \
   ai.opentensor.image.title="opentensor/subtensor-localnet" \

@@ -13,9 +13,9 @@ echo "[+] Platform: $OS"
 
 if [ "$OS" = "Linux" ]; then
     echo "[+] Installing dependencies on Linux..."
-    sudo sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.edge.kernel.org/ubuntu|g' /etc/apt/sources.list || true
-    sudo apt-get update
-    sudo apt-get install -y curl build-essential protobuf-compiler clang git pkg-config libssl-dev llvm libudev-dev
+    sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.edge.kernel.org/ubuntu|g' /etc/apt/sources.list || true
+    apt-get update
+    apt-get install -y curl build-essential protobuf-compiler clang git pkg-config libssl-dev llvm libudev-dev
 
 elif [ "$OS" = "Mac" ]; then
     echo "[+] Installing dependencies on macOS..."
