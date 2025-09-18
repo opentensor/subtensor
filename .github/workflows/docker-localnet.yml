@@ -122,13 +122,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: artifacts-fast-runtime
-          path: build/
+#          path: build/
 
       - name: Download non-fast-runtime artifacts
         uses: actions/download-artifact@v4
         with:
           name: artifacts-non-fast-runtime
-          path: build/
+#          path: build/
 
       - name: Print downloaded artifact tree
         run: find build/
