@@ -73,6 +73,7 @@ jobs:
 
       - name: Build binaries
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           if [ "${{ matrix.runtime }}" = "fast-runtime" ]; then
             ./scripts/localnet.sh --build-only
           else
