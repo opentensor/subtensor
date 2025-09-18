@@ -99,13 +99,6 @@ pub trait SubtensorCustomApi<BlockHash> {
         netuid: NetUid,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
-    #[method(name = "subnetInfo_getSelectiveSubMetagraph")]
-    fn get_selective_submetagraph(
-        &self,
-        netuid: NetUid,
-        metagraph_index: Vec<u16>,
-        at: Option<BlockHash>,
-    ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSelectiveMechagraph")]
     fn get_selective_mechagraph(
         &self,
