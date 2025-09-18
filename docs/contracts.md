@@ -43,9 +43,21 @@ pub trait SubtensorExtension {
 For security, contracts can only dispatch a limited set of runtime calls:
 
 **Whitelisted Calls:**
+- `SubtensorModule::add_stake` - Delegate stake from a coldkey to a hotkey
+- `SubtensorModule::remove_stake` - Withdraw stake from a hotkey back to the caller
+- `SubtensorModule::unstake_all` - Unstake all funds associated with a hotkey
+- `SubtensorModule::unstake_all_alpha` - Unstake all alpha stake from a hotkey
 - `SubtensorModule::move_stake` - Move stake between hotkeys
-- `SubtensorModule::transfer_stake` - Transfer stake between accounts
+- `SubtensorModule::transfer_stake` - Transfer stake between coldkeys (optionally across subnets)
+- `SubtensorModule::swap_stake` - Swap stake allocations between subnets
+- `SubtensorModule::add_stake_limit` - Delegate stake with a price limit
+- `SubtensorModule::remove_stake_limit` - Withdraw staked funds with a price limit
+- `SubtensorModule::swap_stake_limit` - Swap stake between subnets with a price limit
+- `SubtensorModule::remove_stake_full_limit` - Fully withdraw stake subject to a price limit
+- `SubtensorModule::set_coldkey_auto_stake_hotkey` - Configure the automatic stake destination for a coldkey
 - `Proxy::proxy` - Execute proxy calls
+- `Proxy::add_proxy` - Add a proxy relationship
+- `Proxy::create_pure` - Create a pure proxy account
 
 All other runtime calls are restricted and cannot be dispatched from contracts.
 
