@@ -34,10 +34,12 @@ RUN if [ -z "$BUILT_IN_CI" ]; then \
       ./scripts/install_build_env.sh && \
       ./scripts/localnet.sh --build-only && \
       ./scripts/localnet.sh False --build-only ; \
-    else \
-      echo "[*] BUILT_IN_CI is set → skipping install + build."; \
-      echo "[*] Renaming /build/ci_target → /build/target bc of .dockerignore" && \
+    elif [ -d "/build/ci_target" ]; then \
+      echo "[*] BUILT_IN_CI is set → skipping install + build." && \
+      echo "[*] Renaming /build/ci_target → /build/target" && \
       mv /build/ci_target /build/target ; \
+    else \
+      echo "[!] BUILT_IN_CI is set but /build/ci_target not found. Exiting." && exit 1 ; \
     fi
 
 # Verify the binaries was produced
