@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       branch-or-tag:
-        description: "Ветвь или тег для использования в качестве тега образа Docker (optional)."
+        description: "The branch or tag to use as the Docker image tag (optional)."
         required: false
         default: ""
   push:
@@ -59,7 +59,6 @@ jobs:
       matrix:
         runtime: ["fast-runtime", "non-fast-runtime"]
     runs-on: [self-hosted, cax41]
-#    runs-on: SubtensorCI
 
     steps:
       - name: Checkout code
@@ -100,7 +99,7 @@ jobs:
           name: artifacts-${{ matrix.runtime }}
           path: upload/
 
-  # collect all artifacts and publish them to docker repo
+  # Collect all artifacts and publish them to docker repo
   publish:
     needs: [setup, build]
 
@@ -124,6 +123,7 @@ jobs:
           name: artifacts-non-fast-runtime
           path: bin/non-fast-runtime
 
+        # Reconstruct target layout for fast-runtime and non-fast-runtime as required by Dockerfile-localnet
       - name: Reconstruct target layout
         run: |
           # Copy snapshot + script
