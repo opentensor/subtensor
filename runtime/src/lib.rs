@@ -1631,12 +1631,30 @@ pub struct ContractCallFilter;
 /// Whitelist dispatchables that are allowed to be called from contracts
 impl Contains<RuntimeCall> for ContractCallFilter {
     fn contains(call: &RuntimeCall) -> bool {
-        matches!(
-            call,
-            RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
-                | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
-                | RuntimeCall::Proxy(pallet_proxy::Call::proxy { .. })
-        )
+        match call {
+            RuntimeCall::SubtensorModule(inner) => matches!(
+                inner,
+                pallet_subtensor::Call::add_stake { .. }
+                    | pallet_subtensor::Call::remove_stake { .. }
+                    | pallet_subtensor::Call::unstake_all { .. }
+                    | pallet_subtensor::Call::unstake_all_alpha { .. }
+                    | pallet_subtensor::Call::move_stake { .. }
+                    | pallet_subtensor::Call::transfer_stake { .. }
+                    | pallet_subtensor::Call::swap_stake { .. }
+                    | pallet_subtensor::Call::add_stake_limit { .. }
+                    | pallet_subtensor::Call::remove_stake_limit { .. }
+                    | pallet_subtensor::Call::swap_stake_limit { .. }
+                    | pallet_subtensor::Call::remove_stake_full_limit { .. }
+                    | pallet_subtensor::Call::set_coldkey_auto_stake_hotkey { .. }
+            ),
+            RuntimeCall::Proxy(inner) => matches!(
+                inner,
+                pallet_proxy::Call::proxy { .. }
+                    | pallet_proxy::Call::add_proxy { .. }
+                    | pallet_proxy::Call::create_pure { .. }
+            ),
+            _ => false,
+        }
     }
 }
 
