@@ -52,7 +52,7 @@ jobs:
     strategy:
       matrix:
         runtime: ["fast-runtime", "non-fast-runtime"]
-    runs-on: [self-hosted, type-cax31]
+    runs-on: [self-hosted, type-ccx33]
 #    runs-on: SubtensorCI
 
     steps:
@@ -97,8 +97,8 @@ jobs:
   # collect all artifacts and publish them to docker repo
   publish:
     needs: [setup, build]
-#    runs-on: [self-hosted, type-cax11]
-    runs-on: [self-hosted, type-cax31, image-arm-app-docker-ce]
+
+    runs-on: [self-hosted, type-ccx33, image-arm-app-docker-ce]
 
     steps:
       - name: Checkout code
