@@ -130,9 +130,6 @@ jobs:
           name: artifacts-non-fast-runtime
           path: ${{ github.workspace }}
 
-      - name: Print downloaded artifact tree
-        run: find build/
-
         # to be make sure
       - name: Print full workspace directory tree
         run: |
