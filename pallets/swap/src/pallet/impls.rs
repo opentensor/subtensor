@@ -5,7 +5,7 @@ use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::{DispatchResult, traits::AccountIdConversion};
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo, TaoCurrency,
@@ -1212,6 +1212,104 @@ impl<T: Config> Pallet<T> {
     pub fn protocol_account_id() -> T::AccountId {
         T::ProtocolId::get().into_account_truncating()
     }
+
+    /// Dissolve all LPs and clean state.
+    pub fn do_dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
+        if SwapV3Initialized::<T>::get(netuid) {
+            // 1) Snapshot (owner, position_id).
+            struct CloseItem<A> {
+                owner: A,
+                pos_id: PositionId,
+            }
+            let mut to_close: sp_std::vec::Vec<CloseItem<T::AccountId>> = sp_std::vec::Vec::new();
+            for ((owner, pos_id), _pos) in Positions::<T>::iter_prefix((netuid,)) {
+                to_close.push(CloseItem { owner, pos_id });
+            }
+
+            let protocol_account = Self::protocol_account_id();
+
+            // Non‑protocol first
+            to_close
+                .sort_by(|a, b| (a.owner == protocol_account).cmp(&(b.owner == protocol_account)));
+
+            for CloseItem { owner, pos_id } in to_close.into_iter() {
+                match Self::do_remove_liquidity(netuid, &owner, pos_id) {
+                    Ok(rm) => {
+                        if rm.tao > TaoCurrency::ZERO {
+                            T::BalanceOps::increase_balance(&owner, rm.tao);
+                        }
+                        if owner != protocol_account {
+                            T::BalanceOps::decrease_provided_tao_reserve(netuid, rm.tao);
+                            let alpha_burn = rm.alpha.saturating_add(rm.fee_alpha);
+                            if alpha_burn > AlphaCurrency::ZERO {
+                                T::BalanceOps::decrease_provided_alpha_reserve(netuid, alpha_burn);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::debug!(
+                            "dissolve_all_lp: force-closing failed position: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, err={e:?}"
+                        );
+                        continue;
+                    }
+                }
+            }
+
+            // 3) Clear active tick index entries, then all swap state.
+            let active_ticks: sp_std::vec::Vec<TickIndex> =
+                Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
+            for ti in active_ticks {
+                ActiveTickIndexManager::<T>::remove(netuid, ti);
+            }
+
+            let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
+            let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
+
+            FeeGlobalTao::<T>::remove(netuid);
+            FeeGlobalAlpha::<T>::remove(netuid);
+            CurrentLiquidity::<T>::remove(netuid);
+            CurrentTick::<T>::remove(netuid);
+            AlphaSqrtPrice::<T>::remove(netuid);
+            SwapV3Initialized::<T>::remove(netuid);
+
+            let _ = TickIndexBitmapWords::<T>::clear_prefix((netuid,), u32::MAX, None);
+            FeeRate::<T>::remove(netuid);
+            EnabledUserLiquidity::<T>::remove(netuid);
+
+            log::debug!(
+                "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V3, positions closed; τ principal refunded; α burned; state cleared"
+            );
+
+            return Ok(());
+        }
+
+        // V2 / non‑V3: ensure V3 residues are cleared (safe no‑ops).
+        let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
+        let active_ticks: sp_std::vec::Vec<TickIndex> =
+            Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
+        for ti in active_ticks {
+            ActiveTickIndexManager::<T>::remove(netuid, ti);
+        }
+        let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
+
+        FeeGlobalTao::<T>::remove(netuid);
+        FeeGlobalAlpha::<T>::remove(netuid);
+        CurrentLiquidity::<T>::remove(netuid);
+        CurrentTick::<T>::remove(netuid);
+        AlphaSqrtPrice::<T>::remove(netuid);
+        SwapV3Initialized::<T>::remove(netuid);
+
+        let _ = TickIndexBitmapWords::<T>::clear_prefix((netuid,), u32::MAX, None);
+
+        FeeRate::<T>::remove(netuid);
+        EnabledUserLiquidity::<T>::remove(netuid);
+
+        log::debug!(
+            "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, state_cleared"
+        );
+
+        Ok(())
+    }
 }
 
 impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
@@ -1303,6 +1401,12 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
 
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
         EnabledUserLiquidity::<T>::get(netuid)
+    }
+    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
+        Self::do_dissolve_all_liquidity_providers(netuid)
+    }
+    fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
+        EnabledUserLiquidity::<T>::insert(netuid, enabled)
     }
 }
 

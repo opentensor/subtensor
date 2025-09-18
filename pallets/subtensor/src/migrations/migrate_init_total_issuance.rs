@@ -15,7 +15,7 @@ pub mod deprecated_loaded_emission_format {
 }
 
 pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
-    let subnets_len = crate::SubnetLocked::<T>::iter().count() as u64;
+    let subnets_len = crate::NetworksAdded::<T>::iter().count() as u64;
 
     // Retrieve the total balance of all accounts
     let total_account_balances = <<T as crate::Config>::Currency as fungible::Inspect<

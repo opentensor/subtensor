@@ -62,10 +62,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToPaySwapColdKey
         );
 
-        // 7. Remove and burn the swap cost from the old coldkey's account
+        // 7. Remove and recycle the swap cost from the old coldkey's account
         let actual_burn_amount =
             Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost.into())?;
-        Self::burn_tokens(actual_burn_amount);
+        Self::recycle_tao(actual_burn_amount);
 
         // 8. Update the weight for the balance operations
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));

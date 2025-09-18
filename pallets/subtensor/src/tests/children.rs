@@ -62,7 +62,7 @@ fn test_do_set_child_singular_network_does_not_exist() {
                 netuid,
                 vec![(proportion, child)]
             ),
-            Error::<Test>::SubNetworkDoesNotExist
+            Error::<Test>::MechanismDoesNotExist
         );
     });
 }
@@ -328,7 +328,7 @@ fn test_add_singular_child() {
                 netuid,
                 vec![(u64::MAX, child)]
             ),
-            Err(Error::<Test>::SubNetworkDoesNotExist.into())
+            Err(Error::<Test>::MechanismDoesNotExist.into())
         );
         add_network(netuid, 1, 0);
         step_rate_limit(&TransactionType::SetChildren, netuid);
@@ -472,7 +472,7 @@ fn test_do_set_empty_children_network_does_not_exist() {
                 netuid,
                 vec![]
             ),
-            Error::<Test>::SubNetworkDoesNotExist
+            Error::<Test>::MechanismDoesNotExist
         );
     });
 }
@@ -601,7 +601,7 @@ fn test_do_schedule_children_multiple_network_does_not_exist() {
                 netuid,
                 vec![(proportion, child1)]
             ),
-            Error::<Test>::SubNetworkDoesNotExist
+            Error::<Test>::MechanismDoesNotExist
         );
     });
 }
@@ -955,17 +955,15 @@ fn test_childkey_take_rate_limiting() {
         // Helper function to log rate limit information
         let log_rate_limit_info = || {
             let current_block = SubtensorModule::get_current_block_as_u64();
-            let last_block = SubtensorModule::get_last_transaction_block_on_subnet(
-                &hotkey,
-                netuid,
-                &TransactionType::SetChildkeyTake,
-            );
-            let passes = SubtensorModule::passes_rate_limit_on_subnet(
-                &TransactionType::SetChildkeyTake,
+            let last_block = TransactionType::SetChildkeyTake.last_block_on_subnet::<Test>(
                 &hotkey,
                 netuid,
             );
-            let limit = SubtensorModule::get_rate_limit_on_subnet(&TransactionType::SetChildkeyTake, netuid);
+            let passes = TransactionType::SetChildkeyTake.passes_rate_limit_on_subnet::<Test>(
+                &hotkey,
+                netuid,
+            );
+            let limit = TransactionType::SetChildkeyTake.rate_limit_on_subnet::<Test>(netuid);
             log::info!(
                 "Rate limit info: current_block: {}, last_block: {}, limit: {}, passes: {}, diff: {}",
                 current_block,
@@ -1202,7 +1200,7 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
                 netuid,
                 vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)]
             ),
-            Error::<Test>::SubNetworkDoesNotExist
+            Error::<Test>::MechanismDoesNotExist
         );
     });
 }
@@ -2489,12 +2487,7 @@ fn test_revoke_child_no_min_stake_check() {
         assert_eq!(children_after, vec![(proportion, child)]);
 
         // Bypass tx rate limit
-        SubtensorModule::set_last_transaction_block_on_subnet(
-            &parent,
-            netuid,
-            &TransactionType::SetChildren,
-            0,
-        );
+        TransactionType::SetChildren.set_last_block_on_subnet::<Test>(&parent, netuid, 0);
 
         // Schedule parent-child relationship revokation
         assert_ok!(SubtensorModule::do_schedule_children(
@@ -2609,18 +2602,13 @@ fn test_set_children_rate_limit_fail_then_succeed() {
 
         // Try again after rate limit period has passed
         // Check rate limit
-        let limit =
-            SubtensorModule::get_rate_limit_on_subnet(&TransactionType::SetChildren, netuid);
+        let limit = TransactionType::SetChildren.rate_limit_on_subnet::<Test>(netuid);
 
         // Step that many blocks
         step_block(limit as u16);
 
         // Verify rate limit passes
-        assert!(SubtensorModule::passes_rate_limit_on_subnet(
-            &TransactionType::SetChildren,
-            &hotkey,
-            netuid
-        ));
+        assert!(TransactionType::SetChildren.passes_rate_limit_on_subnet::<Test>(&hotkey, netuid));
 
         // Try again
         mock_set_children(&coldkey, &hotkey, netuid, &[(100, child2)]);

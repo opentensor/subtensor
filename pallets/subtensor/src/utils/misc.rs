@@ -1,7 +1,7 @@
 use super::*;
-use crate::{
-    Error,
-    system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
+use crate::Error;
+use crate::system::{
+    ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor,
 };
 use safe_math::*;
 use sp_core::Get;
@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
         if let Some(who) = maybe_who.as_ref() {
             for tx in limits.iter() {
                 ensure!(
-                    Self::passes_rate_limit_on_subnet(tx, who, netuid),
+                    tx.passes_rate_limit_on_subnet::<T>(who, netuid),
                     Error::<T>::TxRateLimitExceeded
                 );
             }
@@ -83,7 +83,7 @@ impl<T: Config> Pallet<T> {
         Self::ensure_not_in_admin_freeze_window(netuid, now)?;
         for tx in limits.iter() {
             ensure!(
-                Self::passes_rate_limit_on_subnet(tx, &who, netuid),
+                tx.passes_rate_limit_on_subnet::<T>(&who, netuid),
                 Error::<T>::TxRateLimitExceeded
             );
         }
@@ -116,9 +116,9 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::AdminFreezeWindowSet(window));
     }
 
-    pub fn set_owner_hyperparam_rate_limit(limit: u64) {
-        OwnerHyperparamRateLimit::<T>::set(limit);
-        Self::deposit_event(Event::OwnerHyperparamRateLimitSet(limit));
+    pub fn set_owner_hyperparam_rate_limit(epochs: u16) {
+        OwnerHyperparamRateLimit::<T>::set(epochs);
+        Self::deposit_event(Event::OwnerHyperparamRateLimitSet(epochs));
     }
 
     /// If owner is `Some`, record last-blocks for the provided `TransactionType`s.
@@ -130,7 +130,7 @@ impl<T: Config> Pallet<T> {
         if let Some(who) = maybe_owner {
             let now = Self::get_current_block_as_u64();
             for tx in txs {
-                Self::set_last_transaction_block_on_subnet(&who, netuid, tx, now);
+                tx.set_last_block_on_subnet::<T>(&who, netuid, now);
             }
         }
     }
@@ -372,7 +372,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn burn_tokens(amount: TaoCurrency) {
+    pub fn recycle_tao(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
     pub fn increase_issuance(amount: TaoCurrency) {
@@ -391,6 +391,10 @@ impl<T: Config> Pallet<T> {
             total_subnet_locked.saturating_accrue(locked.into());
         }
         total_subnet_locked.into()
+    }
+
+    pub fn set_recycle_or_burn(netuid: NetUid, recycle_or_burn: RecycleOrBurnEnum) {
+        RecycleOrBurn::<T>::insert(netuid, recycle_or_burn);
     }
 
     // ========================
@@ -559,6 +563,14 @@ impl<T: Config> Pallet<T> {
     pub fn set_min_allowed_weights(netuid: NetUid, min_allowed_weights: u16) {
         MinAllowedWeights::<T>::insert(netuid, min_allowed_weights);
         Self::deposit_event(Event::MinAllowedWeightSet(netuid, min_allowed_weights));
+    }
+
+    pub fn get_min_allowed_uids(netuid: NetUid) -> u16 {
+        MinAllowedUids::<T>::get(netuid)
+    }
+    pub fn set_min_allowed_uids(netuid: NetUid, min_allowed: u16) {
+        MinAllowedUids::<T>::insert(netuid, min_allowed);
+        Self::deposit_event(Event::MinAllowedUidsSet(netuid, min_allowed));
     }
 
     pub fn get_max_allowed_uids(netuid: NetUid) -> u16 {
@@ -930,5 +942,20 @@ impl<T: Config> Pallet<T> {
 
         ImmuneOwnerUidsLimit::<T>::insert(netuid, limit);
         Ok(())
+    }
+
+    /// Fetches the max number of subnet
+    ///
+    /// # Returns:
+    /// * 'u16': The max number of subnet
+    ///
+    pub fn get_max_subnets() -> u16 {
+        SubnetLimit::<T>::get()
+    }
+
+    /// Sets the max number of subnet
+    pub fn set_max_subnets(limit: u16) {
+        SubnetLimit::<T>::put(limit);
+        Self::deposit_event(Event::SubnetLimitSet(limit));
     }
 }
