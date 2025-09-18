@@ -50,13 +50,6 @@ impl<T: Config> Pallet<T> {
             .checked_div(total)
             .unwrap_or(I96F32::saturating_from_num(0.0));
 
-        log::debug!(
-            "Increasing root claimable by {} with {} divided by {}",
-            increment,
-            amount,
-            total
-        );
-
         // Increment claimable for this subnet.
         RootClaimable::<T>::mutate(hotkey, netuid, |total| {
             *total = total.saturating_add(increment);
