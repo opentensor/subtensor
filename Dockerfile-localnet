@@ -38,11 +38,6 @@ RUN if [ -z "$BUILT_IN_CI" ]; then \
       echo "[*] BUILT_IN_CI is set → skipping install + build."; \
     fi
 
-### Build fast-runtime node
-#RUN ./scripts/localnet.sh --build-only
-## Build non-fast-runtime
-#RUN ./scripts/localnet.sh False --build-only
-
 # Verify the binaries was produced
 RUN test -e /build/target/fast-runtime/release/node-subtensor
 RUN test -e /build/target/non-fast-runtime/release/node-subtensor

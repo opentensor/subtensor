@@ -143,6 +143,13 @@ jobs:
           cp bin/non-fast-runtime/node_subtensor_runtime.compact.compressed.wasm \
              target/non-fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
 
+      - name: Recreate /build directory for Docker COPY
+        run: |
+          mkdir -p build
+          mv target build/
+          mv scripts build/
+          mv snapshot.json build/
+
       - name: Show current Git branch
         run: |
           echo "==============================="
