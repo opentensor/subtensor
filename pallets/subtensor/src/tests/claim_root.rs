@@ -1,12 +1,11 @@
 use crate::tests::mock::{RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext};
-use crate::{RootClaimType, RootClaimTypeEnum, SubnetAlphaIn, SubnetTAO, pallet};
+use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use crate::{RootClaimable, TotalHotkeyAlpha};
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use sp_core::U256;
-use substrate_fixed::types::{I96F32, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use substrate_fixed::types::I96F32;
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 
 #[test]
 fn test_set_root_claim_type() {
@@ -29,28 +28,18 @@ fn test_claim_root_with_drain_emissions() {
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-        let initial_balance = 10_000_000u64;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance.into());
-
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
-        SubnetTAO::<Test>::insert(netuid, tao_reserve);
-        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
-        let current_price =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
-        assert_eq!(current_price, U96F32::from_num(0.5));
 
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
-        let stake = 2_000_000u64;
-        let initial_total_hotkey_alpha = 1_000_000u64;
-
+        let root_stake = 2_000_000u64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
-            stake.into(),
+            root_stake.into(),
         );
+
+        let initial_total_hotkey_alpha = 20_000_000u64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
@@ -95,6 +84,8 @@ fn test_claim_root_with_drain_emissions() {
             epsilon = 100u64,
         );
 
+        // Check claimable
+
         let claimable = RootClaimable::<Test>::get(hotkey, netuid);
         let calculated_rate = (I96F32::from(u64::from(pending_root_alpha))
             * (I96F32::from(1u64) - validator_take_percent))
@@ -116,15 +107,59 @@ fn test_claim_root_with_drain_emissions() {
 
         assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
 
-        log::debug!("RootClaimable = {}", claimable);
         let new_stake =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
         assert_abs_diff_eq!(
             u64::from(new_stake),
-            (I96F32::from(stake) * claimable).saturating_to_num::<u64>(),
+            (I96F32::from(root_stake) * claimable).saturating_to_num::<u64>(),
             epsilon = 10u64,
         );
+
+        // Check root claimed value saved
+
+        let claimed = RootClaimed::<Test>::get((&hotkey, &coldkey, netuid));
+        assert_eq!(u128::from(u64::from(new_stake)), claimed);
+
+        // Distribute pending root alpha (round 2)
+
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            pending_root_alpha,
+            AlphaCurrency::ZERO,
+        );
+
+        // Check claimable (round 2)
+
+        let claimable2 = RootClaimable::<Test>::get(hotkey, netuid);
+        let calculated_rate = (I96F32::from(u64::from(pending_root_alpha))
+            * (I96F32::from(1u64) - validator_take_percent))
+            / I96F32::from(u64::from(TotalHotkeyAlpha::<Test>::get(hotkey, netuid)));
+
+        assert_abs_diff_eq!(
+            (claimable2 * I96F32::from(1000u64)).saturating_to_num::<u64>(),
+            ((calculated_rate + claimable) * I96F32::from(1000u64)).saturating_to_num::<u64>(),
+            epsilon = 10u64,
+        );
+
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+
+        let new_stake2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let calculated_new_stake2 =
+            (I96F32::from(u64::from(root_stake)) * claimable2).saturating_to_num::<u64>();
+
+        assert_abs_diff_eq!(
+            u64::from(new_stake2),
+            calculated_new_stake2,
+            epsilon = 10u64,
+        );
+
+        // Check root claimed value saved (round 2)
+
+        let claimed = RootClaimed::<Test>::get((&hotkey, &coldkey, netuid));
+        assert_eq!(u128::from(u64::from(new_stake2)), claimed);
     });
 }
 
