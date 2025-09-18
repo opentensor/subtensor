@@ -231,10 +231,10 @@ pub fn is_topk_nonzero(vector: &[I32F32], k: usize) -> Vec<bool> {
         return result;
     }
     let mut idxs: Vec<usize> = (0..n).collect();
-    idxs.sort_by_key(|&idx| get_safe(vector, idx)); // ascending stable sort (no indexing)
+    idxs.sort_by_key(|&idx| get_safe(vector, idx)); // ascending stable sort
     for &idx in idxs.iter().take(n.saturating_sub(k)) {
         if let Some(cell) = result.get_mut(idx) {
-            *cell = false; // no indexing
+            *cell = false;
         }
     }
     result
@@ -1003,17 +1003,17 @@ pub fn weighted_median_col(
 ) -> Vec<I32F32> {
     let zero = I32F32::saturating_from_num(0.0);
 
-    // Determine number of columns from the first row (no indexing).
+    // Determine number of columns from the first row.
     let columns = score.first().map(|r| r.len()).unwrap_or(0);
     let mut median = vec![zero; columns];
 
-    // Iterate columns without indexing into `median`.
+    // Iterate columns into `median`.
     let mut c = 0usize;
     for med_cell in median.iter_mut() {
         let mut use_stake: Vec<I32F32> = Vec::new();
         let mut use_score: Vec<I32F32> = Vec::new();
 
-        // Iterate rows aligned with `stake` length; avoid indexing into `stake`/`score`.
+        // Iterate rows aligned with `stake` length.
         let mut r = 0usize;
         while r < stake.len() {
             let st = get_safe::<I32F32>(stake, r);
@@ -1098,7 +1098,7 @@ pub fn weighted_median_col_sparse(
         }
     }
 
-    // Compute weighted median per column without indexing.
+    // Compute weighted median per column.
     let mut median: Vec<I32F32> = Vec::with_capacity(columns as usize);
     for col_vec in use_score.iter() {
         median.push(weighted_median(
