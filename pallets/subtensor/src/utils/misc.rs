@@ -1,35 +1,137 @@
 use super::*;
-use crate::{
-    Error,
-    system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
+use crate::Error;
+use crate::system::{
+    ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor,
 };
 use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::{I32F32, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
         o: T::RuntimeOrigin,
         netuid: NetUid,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<Option<T::AccountId>, DispatchError> {
         let coldkey = ensure_signed_or_root(o);
         match coldkey {
-            Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(Some(who)),
             Ok(Some(_)) => Err(DispatchError::BadOrigin),
-            Ok(None) => Ok(()),
+            Ok(None) => Ok(None),
             Err(x) => Err(x.into()),
         }
     }
 
-    pub fn ensure_subnet_owner(o: T::RuntimeOrigin, netuid: NetUid) -> Result<(), DispatchError> {
+    pub fn ensure_subnet_owner(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+    ) -> Result<T::AccountId, DispatchError> {
         let coldkey = ensure_signed(o);
         match coldkey {
-            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(who),
             Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
+        }
+    }
+
+    /// Like `ensure_root` but also prohibits calls during the last N blocks of the tempo.
+    pub fn ensure_root_with_rate_limit(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+    ) -> Result<(), DispatchError> {
+        ensure_root(o)?;
+        let now = Self::get_current_block_as_u64();
+        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+        Ok(())
+    }
+
+    /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).
+    /// - Root: only freeze window is enforced; no TransactionType checks.
+    /// - Owner (Signed): freeze window plus all rate checks in `limits` using signer extracted from
+    ///   origin.
+    pub fn ensure_sn_owner_or_root_with_limits(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+        limits: &[crate::utils::rate_limiting::TransactionType],
+    ) -> Result<Option<T::AccountId>, DispatchError> {
+        let maybe_who = Self::ensure_subnet_owner_or_root(o, netuid)?;
+        let now = Self::get_current_block_as_u64();
+        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+        if let Some(who) = maybe_who.as_ref() {
+            for tx in limits.iter() {
+                ensure!(
+                    tx.passes_rate_limit_on_subnet::<T>(who, netuid),
+                    Error::<T>::TxRateLimitExceeded
+                );
+            }
+        }
+        Ok(maybe_who)
+    }
+
+    /// Ensure the caller is the subnet owner and passes all provided rate limits.
+    /// This does NOT allow root; it is strictly owner-only.
+    /// Returns the signer (owner) on success so callers may record last-blocks.
+    pub fn ensure_sn_owner_with_limits(
+        o: T::RuntimeOrigin,
+        netuid: NetUid,
+        limits: &[crate::utils::rate_limiting::TransactionType],
+    ) -> Result<T::AccountId, DispatchError> {
+        let who = Self::ensure_subnet_owner(o, netuid)?;
+        let now = Self::get_current_block_as_u64();
+        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
+        for tx in limits.iter() {
+            ensure!(
+                tx.passes_rate_limit_on_subnet::<T>(&who, netuid),
+                Error::<T>::TxRateLimitExceeded
+            );
+        }
+        Ok(who)
+    }
+
+    /// Returns true if the current block is within the terminal freeze window of the tempo for the
+    /// given subnet. During this window, admin ops are prohibited to avoid interference with
+    /// validator weight submissions.
+    pub fn is_in_admin_freeze_window(netuid: NetUid, current_block: u64) -> bool {
+        let tempo = Self::get_tempo(netuid);
+        if tempo == 0 {
+            return false;
+        }
+        let remaining = Self::blocks_until_next_epoch(netuid, tempo, current_block);
+        let window = AdminFreezeWindow::<T>::get() as u64;
+        remaining < window
+    }
+
+    fn ensure_not_in_admin_freeze_window(netuid: NetUid, now: u64) -> Result<(), DispatchError> {
+        ensure!(
+            !Self::is_in_admin_freeze_window(netuid, now),
+            Error::<T>::AdminActionProhibitedDuringWeightsWindow
+        );
+        Ok(())
+    }
+
+    pub fn set_admin_freeze_window(window: u16) {
+        AdminFreezeWindow::<T>::set(window);
+        Self::deposit_event(Event::AdminFreezeWindowSet(window));
+    }
+
+    pub fn set_owner_hyperparam_rate_limit(epochs: u16) {
+        OwnerHyperparamRateLimit::<T>::set(epochs);
+        Self::deposit_event(Event::OwnerHyperparamRateLimitSet(epochs));
+    }
+
+    /// If owner is `Some`, record last-blocks for the provided `TransactionType`s.
+    pub fn record_owner_rl(
+        maybe_owner: Option<<T as frame_system::Config>::AccountId>,
+        netuid: NetUid,
+        txs: &[TransactionType],
+    ) {
+        if let Some(who) = maybe_owner {
+            let now = Self::get_current_block_as_u64();
+            for tx in txs {
+                tx.set_last_block_on_subnet::<T>(&who, netuid, now);
+            }
         }
     }
 
@@ -98,13 +200,13 @@ impl<T: Config> Pallet<T> {
     pub fn get_consensus(netuid: NetUid) -> Vec<u16> {
         Consensus::<T>::get(netuid)
     }
-    pub fn get_incentive(netuid: NetUid) -> Vec<u16> {
+    pub fn get_incentive(netuid: NetUidStorageIndex) -> Vec<u16> {
         Incentive::<T>::get(netuid)
     }
     pub fn get_dividends(netuid: NetUid) -> Vec<u16> {
         Dividends::<T>::get(netuid)
     }
-    pub fn get_last_update(netuid: NetUid) -> Vec<u64> {
+    pub fn get_last_update(netuid: NetUidStorageIndex) -> Vec<u64> {
         LastUpdate::<T>::get(netuid)
     }
     pub fn get_pruning_score(netuid: NetUid) -> Vec<u16> {
@@ -120,7 +222,7 @@ impl<T: Config> Pallet<T> {
     // ==================================
     // ==== YumaConsensus UID params ====
     // ==================================
-    pub fn set_last_update_for_uid(netuid: NetUid, uid: u16, last_update: u64) {
+    pub fn set_last_update_for_uid(netuid: NetUidStorageIndex, uid: u16, last_update: u64) {
         let mut updated_last_update_vec = Self::get_last_update(netuid);
         let Some(updated_last_update) = updated_last_update_vec.get_mut(uid as usize) else {
             return;
@@ -183,7 +285,7 @@ impl<T: Config> Pallet<T> {
         let vec = Consensus::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-    pub fn get_incentive_for_uid(netuid: NetUid, uid: u16) -> u16 {
+    pub fn get_incentive_for_uid(netuid: NetUidStorageIndex, uid: u16) -> u16 {
         let vec = Incentive::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
@@ -191,7 +293,7 @@ impl<T: Config> Pallet<T> {
         let vec = Dividends::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-    pub fn get_last_update_for_uid(netuid: NetUid, uid: u16) -> u64 {
+    pub fn get_last_update_for_uid(netuid: NetUidStorageIndex, uid: u16) -> u64 {
         let vec = LastUpdate::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
@@ -270,7 +372,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn burn_tokens(amount: TaoCurrency) {
+    pub fn recycle_tao(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
     pub fn increase_issuance(amount: TaoCurrency) {
@@ -289,6 +391,10 @@ impl<T: Config> Pallet<T> {
             total_subnet_locked.saturating_accrue(locked.into());
         }
         total_subnet_locked.into()
+    }
+
+    pub fn set_recycle_or_burn(netuid: NetUid, recycle_or_burn: RecycleOrBurnEnum) {
+        RecycleOrBurn::<T>::insert(netuid, recycle_or_burn);
     }
 
     // ========================
@@ -457,6 +563,14 @@ impl<T: Config> Pallet<T> {
     pub fn set_min_allowed_weights(netuid: NetUid, min_allowed_weights: u16) {
         MinAllowedWeights::<T>::insert(netuid, min_allowed_weights);
         Self::deposit_event(Event::MinAllowedWeightSet(netuid, min_allowed_weights));
+    }
+
+    pub fn get_min_allowed_uids(netuid: NetUid) -> u16 {
+        MinAllowedUids::<T>::get(netuid)
+    }
+    pub fn set_min_allowed_uids(netuid: NetUid, min_allowed: u16) {
+        MinAllowedUids::<T>::insert(netuid, min_allowed);
+        Self::deposit_event(Event::MinAllowedUidsSet(netuid, min_allowed));
     }
 
     pub fn get_max_allowed_uids(netuid: NetUid) -> u16 {
@@ -837,5 +951,20 @@ impl<T: Config> Pallet<T> {
 
         ImmuneOwnerUidsLimit::<T>::insert(netuid, limit);
         Ok(())
+    }
+
+    /// Fetches the max number of subnet
+    ///
+    /// # Returns:
+    /// * 'u16': The max number of subnet
+    ///
+    pub fn get_max_subnets() -> u16 {
+        SubnetLimit::<T>::get()
+    }
+
+    /// Sets the max number of subnet
+    pub fn set_max_subnets(limit: u16) {
+        SubnetLimit::<T>::put(limit);
+        Self::deposit_event(Event::SubnetLimitSet(limit));
     }
 }

@@ -23,7 +23,7 @@ impl<T: Config> Pallet<T> {
     ///     - If all checks pass and setting the childkeys is scheduled.
     ///
     /// # Errors:
-    /// * `SubNetworkDoesNotExist`:
+    /// * `MechanismDoesNotExist`:
     ///     - Attempting to register to a non-existent network.
     /// * `RegistrationNotPermittedOnRootSubnet`:
     ///     - Attempting to register a child on the root network.
@@ -48,10 +48,9 @@ impl<T: Config> Pallet<T> {
 
         // Ensure the hotkey passes the rate limit.
         ensure!(
-            Self::passes_rate_limit_on_subnet(
-                &TransactionType::SetChildren, // Set children.
-                &hotkey,                       // Specific to a hotkey.
-                netuid,                        // Specific to a subnet.
+            TransactionType::SetChildren.passes_rate_limit_on_subnet::<T>(
+                &hotkey, // Specific to a hotkey.
+                netuid,  // Specific to a subnet.
             ),
             Error::<T>::TxRateLimitExceeded
         );
@@ -65,7 +64,7 @@ impl<T: Config> Pallet<T> {
         // Check that the network we are trying to create the child on exists.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
         // Check that the coldkey owns the hotkey.
@@ -111,12 +110,7 @@ impl<T: Config> Pallet<T> {
 
         // Set last transaction block
         let current_block = Self::get_current_block_as_u64();
-        Self::set_last_transaction_block_on_subnet(
-            &hotkey,
-            netuid,
-            &TransactionType::SetChildren,
-            current_block,
-        );
+        TransactionType::SetChildren.set_last_block_on_subnet::<T>(&hotkey, netuid, current_block);
 
         // Calculate cool-down block
         let cooldown_block =
@@ -154,7 +148,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully registering children to a hotkey.
     ///
     /// # Errors:
-    /// * `SubNetworkDoesNotExist`:
+    /// * `MechanismDoesNotExist`:
     ///     - Attempting to register to a non-existent network.
     /// * `RegistrationNotPermittedOnRootSubnet`:
     ///     - Attempting to register a child on the root network.
@@ -319,10 +313,9 @@ impl<T: Config> Pallet<T> {
         if take > current_take {
             // Ensure the hotkey passes the rate limit.
             ensure!(
-                Self::passes_rate_limit_on_subnet(
-                    &TransactionType::SetChildkeyTake, // Set childkey take.
-                    &hotkey,                           // Specific to a hotkey.
-                    netuid,                            // Specific to a subnet.
+                TransactionType::SetChildkeyTake.passes_rate_limit_on_subnet::<T>(
+                    &hotkey, // Specific to a hotkey.
+                    netuid,  // Specific to a subnet.
                 ),
                 Error::<T>::TxChildkeyTakeRateLimitExceeded
             );
@@ -330,10 +323,9 @@ impl<T: Config> Pallet<T> {
 
         // Set last transaction block
         let current_block = Self::get_current_block_as_u64();
-        Self::set_last_transaction_block_on_subnet(
+        TransactionType::SetChildkeyTake.set_last_block_on_subnet::<T>(
             &hotkey,
             netuid,
-            &TransactionType::SetChildkeyTake,
             current_block,
         );
 
@@ -341,10 +333,9 @@ impl<T: Config> Pallet<T> {
         ChildkeyTake::<T>::insert(hotkey.clone(), netuid, take);
 
         // Update the last transaction block
-        Self::set_last_transaction_block_on_subnet(
+        TransactionType::SetChildkeyTake.set_last_block_on_subnet::<T>(
             &hotkey,
             netuid,
-            &TransactionType::SetChildkeyTake,
             current_block,
         );
 

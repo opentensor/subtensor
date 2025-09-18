@@ -3,17 +3,18 @@
 use core::num::NonZeroU64;
 
 use frame_support::{
-    PalletId, assert_ok, derive_impl, parameter_types,
+    assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
+    PalletId,
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
-use frame_system::{EnsureNever, EnsureRoot, limits};
+use frame_system::{limits, EnsureNever, EnsureRoot};
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
-    BuildStorage, KeyTypeId, Perbill,
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
+    BuildStorage, KeyTypeId, Perbill, Percent,
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
@@ -89,7 +90,8 @@ parameter_types! {
     pub const InitialTempo: u16 = 0;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
-    pub const InitialMaxAllowedUids: u16 = 2;
+    pub const InitialMinAllowedUids: u16 = 2;
+    pub const InitialMaxAllowedUids: u16 = 4;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty: u16 = u16::MAX;
     pub const InitialBondsResetOn: bool = false;
@@ -126,8 +128,7 @@ parameter_types! {
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
-    pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
-    pub const InitialNetworkMinAllowedUids: u16 = 128;
+    pub const InitialNetworkImmunityPeriod: u64 = 1_296_000;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
@@ -149,6 +150,7 @@ parameter_types! {
     pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
     pub const HotkeySwapOnSubnetInterval: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
+    pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
 }
 
 impl pallet_subtensor::Config for Test {
@@ -172,6 +174,7 @@ impl pallet_subtensor::Config for Test {
     type InitialRho = InitialRho;
     type InitialAlphaSigmoidSteepness = InitialAlphaSigmoidSteepness;
     type InitialKappa = InitialKappa;
+    type InitialMinAllowedUids = InitialMinAllowedUids;
     type InitialMaxAllowedUids = InitialMaxAllowedUids;
     type InitialValidatorPruneLen = InitialValidatorPruneLen;
     type InitialScalingLawPower = InitialScalingLawPower;
@@ -203,7 +206,6 @@ impl pallet_subtensor::Config for Test {
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
-    type InitialNetworkMinAllowedUids = InitialNetworkMinAllowedUids;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
@@ -225,6 +227,9 @@ impl pallet_subtensor::Config for Test {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type GetCommitments = ();
+    type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 parameter_types! {
@@ -351,6 +356,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     }
 }
 
+pub struct CommitmentsI;
+impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(_netuid: NetUid) {}
+}
+
 impl crate::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
@@ -395,8 +405,8 @@ pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
 
 mod test_crypto {
     use super::KEY_TYPE;
-    use sp_core::U256;
     use sp_core::sr25519::{Public as Sr25519Public, Signature as Sr25519Signature};
+    use sp_core::U256;
     use sp_runtime::{
         app_crypto::{app_crypto, sr25519},
         traits::IdentifyAccount,
@@ -463,7 +473,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage()
         .unwrap();
     let mut ext = sp_io::TestExternalities::new(t);
-    ext.execute_with(|| System::set_block_number(1));
+    ext.execute_with(|| {
+        System::set_block_number(1);
+        SubtensorModule::set_admin_freeze_window(1);
+    });
     ext
 }
 

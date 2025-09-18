@@ -15,7 +15,7 @@ pub use pallet_subtensor::*;
 pub use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
-    BuildStorage, KeyTypeId, Perbill,
+    BuildStorage, KeyTypeId, Perbill, Percent,
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup, One},
 };
@@ -156,7 +156,8 @@ parameter_types! {
     pub const InitialTempo: u16 = 0;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
-    pub const InitialMaxAllowedUids: u16 = 2;
+    pub const InitialMinAllowedUids: u16 = 2;
+    pub const InitialMaxAllowedUids: u16 = 4;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty: u16 = u16::MAX;
     pub const InitialBondsResetOn: bool = false;
@@ -194,7 +195,6 @@ parameter_types! {
     pub const InitialRAORecycledForRegistration: u64 = 0;
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
     pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
-    pub const InitialNetworkMinAllowedUids: u16 = 128;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
@@ -216,6 +216,7 @@ parameter_types! {
     pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
     pub const HotkeySwapOnSubnetInterval: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
+    pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
 }
 
 impl pallet_subtensor::Config for Test {
@@ -239,6 +240,7 @@ impl pallet_subtensor::Config for Test {
     type InitialRho = InitialRho;
     type InitialAlphaSigmoidSteepness = InitialAlphaSigmoidSteepness;
     type InitialKappa = InitialKappa;
+    type InitialMinAllowedUids = InitialMinAllowedUids;
     type InitialMaxAllowedUids = InitialMaxAllowedUids;
     type InitialValidatorPruneLen = InitialValidatorPruneLen;
     type InitialScalingLawPower = InitialScalingLawPower;
@@ -270,7 +272,6 @@ impl pallet_subtensor::Config for Test {
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
-    type InitialNetworkMinAllowedUids = InitialNetworkMinAllowedUids;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
@@ -292,6 +293,9 @@ impl pallet_subtensor::Config for Test {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type GetCommitments = ();
+    type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
+    type CommitmentsInterface = CommitmentsI;
 }
 
 parameter_types! {
@@ -416,6 +420,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
         None
     }
+}
+
+pub struct CommitmentsI;
+impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(_netuid: NetUid) {}
 }
 
 parameter_types! {

@@ -40,7 +40,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully serving the axon info.
     ///
     /// # Raises:
-    /// * 'SubNetworkDoesNotExist':
+    /// * 'MechanismDoesNotExist':
     ///     - Attempting to set weights on a non-existent network.
     ///
     /// * 'NotRegistered':
@@ -144,7 +144,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully serving the axon info.
     ///
     /// # Raises:
-    /// * 'SubNetworkDoesNotExist':
+    /// * 'MechanismDoesNotExist':
     ///     - Attempting to set weights on a non-existent network.
     ///
     /// * 'NotRegistered':

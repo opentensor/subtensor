@@ -7,8 +7,6 @@ mod errors {
     #[derive(PartialEq)]
     #[pallet::error]
     pub enum Error<T> {
-        /// The subnet does not exist.
-        SubNetworkDoesNotExist,
         /// The root network does not exist.
         RootNetworkDoesNotExist,
         /// The user is trying to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
@@ -168,7 +166,7 @@ mod errors {
         TxChildkeyTakeRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
-        /// Trying to register a subnet into a mechanism that does not exist.
+        /// Subnet mechanism does not exist.
         MechanismDoesNotExist,
         /// Trying to unstake your lock amount.
         CannotUnstakeLock,
@@ -238,6 +236,8 @@ mod errors {
         BeneficiaryDoesNotOwnHotkey,
         /// Expected beneficiary origin.
         ExpectedBeneficiaryOrigin,
+        /// Admin operation is prohibited during the protected weights window
+        AdminActionProhibitedDuringWeightsWindow,
         /// Symbol does not exist.
         SymbolDoesNotExist,
         /// Symbol already in use.
@@ -252,5 +252,9 @@ mod errors {
         RevealPeriodTooSmall,
         /// Generic error for out-of-range parameter value
         InvalidValue,
+        /// Subnet limit reached & there is no eligible subnet to prune
+        SubnetLimitReached,
+        /// Insufficient funds to meet the subnet lock cost
+        CannotAffordLockCost,
     }
 }
