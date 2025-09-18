@@ -2,8 +2,7 @@ use core::marker::PhantomData;
 
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U64F64};
-use subtensor_runtime_common::{Currency, NetUid};
-use subtensor_swap_interface::{AlphaForTao, Order as OrderT, TaoForAlpha};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 
 use super::pallet::*;
 use crate::{
@@ -12,10 +11,11 @@ use crate::{
 };
 
 /// A struct representing a single swap step with all its parameters and state
-pub(crate) struct BasicSwapStep<T, Order>
+pub(crate) struct BasicSwapStep<T, PaidIn, PaidOut>
 where
     T: Config,
-    Order: OrderT,
+    PaidIn: Currency,
+    PaidOut: Currency,
 {
     // Input parameters
     netuid: NetUid,
@@ -23,7 +23,7 @@ where
 
     // Computed values
     current_liquidity: U64F64,
-    possible_delta_in: Order::PaidIn,
+    possible_delta_in: PaidIn,
 
     // Ticks and prices (current, limit, edge, target)
     target_sqrt_price: SqrtPrice,
@@ -34,23 +34,24 @@ where
 
     // Result values
     action: SwapStepAction,
-    delta_in: Order::PaidIn,
+    delta_in: PaidIn,
     final_price: SqrtPrice,
-    fee: Order::PaidIn,
+    fee: PaidIn,
 
-    _phantom: PhantomData<(T, Order)>,
+    _phantom: PhantomData<(T, PaidIn, PaidOut)>,
 }
 
-impl<T, Order> BasicSwapStep<T, Order>
+impl<T, PaidIn, PaidOut> BasicSwapStep<T, PaidIn, PaidOut>
 where
     T: Config,
-    Order: OrderT,
-    Self: SwapStep<T, Order>,
+    PaidIn: Currency,
+    PaidOut: Currency,
+    Self: SwapStep<T, PaidIn, PaidOut>,
 {
     /// Creates and initializes a new swap step
     pub(crate) fn new(
         netuid: NetUid,
-        amount_remaining: Order::PaidIn,
+        amount_remaining: PaidIn,
         limit_sqrt_price: SqrtPrice,
         drop_fees: bool,
     ) -> Self {
@@ -79,7 +80,7 @@ where
             possible_delta_in,
             current_liquidity,
             action: SwapStepAction::Stop,
-            delta_in: Order::PaidIn::ZERO,
+            delta_in: PaidIn::ZERO,
             final_price: target_sqrt_price,
             fee,
             _phantom: PhantomData,
@@ -87,7 +88,7 @@ where
     }
 
     /// Execute the swap step and return the result
-    pub(crate) fn execute(&mut self) -> Result<SwapStepResult<Order>, Error<T>> {
+    pub(crate) fn execute(&mut self) -> Result<SwapStepResult<PaidIn, PaidOut>, Error<T>> {
         self.determine_action();
         self.process_swap()
     }
@@ -184,7 +185,7 @@ where
     }
 
     /// Process a single step of a swap
-    fn process_swap(&self) -> Result<SwapStepResult<Order>, Error<T>> {
+    fn process_swap(&self) -> Result<SwapStepResult<PaidIn, PaidOut>, Error<T>> {
         // Hold the fees
         Self::add_fees(
             self.netuid,
@@ -225,12 +226,14 @@ where
     }
 }
 
-impl<T: Config> SwapStep<T, AlphaForTao> for BasicSwapStep<T, AlphaForTao> {
+impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
+    for BasicSwapStep<T, TaoCurrency, AlphaCurrency>
+{
     fn delta_in(
         liquidity_curr: U64F64,
         sqrt_price_curr: SqrtPrice,
         sqrt_price_target: SqrtPrice,
-    ) -> <AlphaForTao as OrderT>::PaidIn {
+    ) -> TaoCurrency {
         liquidity_curr
             .saturating_mul(sqrt_price_target.saturating_sub(sqrt_price_curr))
             .saturating_to_num::<u64>()
@@ -248,14 +251,14 @@ impl<T: Config> SwapStep<T, AlphaForTao> for BasicSwapStep<T, AlphaForTao> {
     fn sqrt_price_target(
         liquidity_curr: U64F64,
         sqrt_price_curr: SqrtPrice,
-        delta_in: <AlphaForTao as OrderT>::PaidIn,
+        delta_in: TaoCurrency,
     ) -> SqrtPrice {
         let delta_fixed = U64F64::saturating_from_num(delta_in);
 
         // No liquidity means that price should go to the limit
         if liquidity_curr == 0 {
             return SqrtPrice::saturating_from_num(
-                Pallet::<T>::max_price_inner::<<AlphaForTao as OrderT>::PaidIn>().to_u64(),
+                Pallet::<T>::max_price_inner::<TaoCurrency>().to_u64(),
             );
         }
 
@@ -272,7 +275,7 @@ impl<T: Config> SwapStep<T, AlphaForTao> for BasicSwapStep<T, AlphaForTao> {
         SwapStepAction::Crossing
     }
 
-    fn add_fees(netuid: NetUid, current_liquidity: U64F64, fee: <AlphaForTao as OrderT>::PaidIn) {
+    fn add_fees(netuid: NetUid, current_liquidity: U64F64, fee: TaoCurrency) {
         if current_liquidity == 0 {
             return;
         }
@@ -284,13 +287,10 @@ impl<T: Config> SwapStep<T, AlphaForTao> for BasicSwapStep<T, AlphaForTao> {
         });
     }
 
-    fn convert_deltas(
-        netuid: NetUid,
-        delta_in: <AlphaForTao as OrderT>::PaidIn,
-    ) -> <AlphaForTao as OrderT>::PaidOut {
+    fn convert_deltas(netuid: NetUid, delta_in: TaoCurrency) -> AlphaCurrency {
         // Skip conversion if delta_in is zero
         if delta_in.is_zero() {
-            return <AlphaForTao as OrderT>::PaidOut::ZERO;
+            return AlphaCurrency::ZERO;
         }
 
         let liquidity_curr = SqrtPrice::saturating_from_num(CurrentLiquidity::<T>::get(netuid));
@@ -345,12 +345,14 @@ impl<T: Config> SwapStep<T, AlphaForTao> for BasicSwapStep<T, AlphaForTao> {
     }
 }
 
-impl<T: Config> SwapStep<T, TaoForAlpha> for BasicSwapStep<T, TaoForAlpha> {
+impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
+    for BasicSwapStep<T, AlphaCurrency, TaoCurrency>
+{
     fn delta_in(
         liquidity_curr: U64F64,
         sqrt_price_curr: SqrtPrice,
         sqrt_price_target: SqrtPrice,
-    ) -> <TaoForAlpha as OrderT>::PaidIn {
+    ) -> AlphaCurrency {
         let one = U64F64::saturating_from_num(1);
 
         liquidity_curr
@@ -382,7 +384,7 @@ impl<T: Config> SwapStep<T, TaoForAlpha> for BasicSwapStep<T, TaoForAlpha> {
     fn sqrt_price_target(
         liquidity_curr: U64F64,
         sqrt_price_curr: SqrtPrice,
-        delta_in: <TaoForAlpha as OrderT>::PaidIn,
+        delta_in: AlphaCurrency,
     ) -> SqrtPrice {
         let delta_fixed = U64F64::saturating_from_num(delta_in);
         let one = U64F64::saturating_from_num(1);
@@ -390,7 +392,7 @@ impl<T: Config> SwapStep<T, TaoForAlpha> for BasicSwapStep<T, TaoForAlpha> {
         // No liquidity means that price should go to the limit
         if liquidity_curr == 0 {
             return SqrtPrice::saturating_from_num(
-                Pallet::<T>::min_price_inner::<<TaoForAlpha as OrderT>::PaidIn>().to_u64(),
+                Pallet::<T>::min_price_inner::<AlphaCurrency>().to_u64(),
             );
         }
 
@@ -409,7 +411,7 @@ impl<T: Config> SwapStep<T, TaoForAlpha> for BasicSwapStep<T, TaoForAlpha> {
         SwapStepAction::Stop
     }
 
-    fn add_fees(netuid: NetUid, current_liquidity: U64F64, fee: <TaoForAlpha as OrderT>::PaidIn) {
+    fn add_fees(netuid: NetUid, current_liquidity: U64F64, fee: AlphaCurrency) {
         if current_liquidity == 0 {
             return;
         }
@@ -421,13 +423,10 @@ impl<T: Config> SwapStep<T, TaoForAlpha> for BasicSwapStep<T, TaoForAlpha> {
         });
     }
 
-    fn convert_deltas(
-        netuid: NetUid,
-        delta_in: <TaoForAlpha as OrderT>::PaidIn,
-    ) -> <TaoForAlpha as OrderT>::PaidOut {
+    fn convert_deltas(netuid: NetUid, delta_in: AlphaCurrency) -> TaoCurrency {
         // Skip conversion if delta_in is zero
         if delta_in.is_zero() {
-            return <TaoForAlpha as OrderT>::PaidOut::ZERO;
+            return TaoCurrency::ZERO;
         }
 
         let liquidity_curr = SqrtPrice::saturating_from_num(CurrentLiquidity::<T>::get(netuid));
@@ -492,17 +491,18 @@ impl<T: Config> SwapStep<T, TaoForAlpha> for BasicSwapStep<T, TaoForAlpha> {
     }
 }
 
-pub(crate) trait SwapStep<T, Order>
+pub(crate) trait SwapStep<T, PaidIn, PaidOut>
 where
     T: Config,
-    Order: OrderT,
+    PaidIn: Currency,
+    PaidOut: Currency,
 {
     /// Get the input amount needed to reach the target price
     fn delta_in(
         liquidity_curr: U64F64,
         sqrt_price_curr: SqrtPrice,
         sqrt_price_target: SqrtPrice,
-    ) -> Order::PaidIn;
+    ) -> PaidIn;
 
     /// Get the tick at the current tick edge.
     ///
@@ -518,7 +518,7 @@ where
     fn sqrt_price_target(
         liquidity_curr: U64F64,
         sqrt_price_curr: SqrtPrice,
-        delta_in: Order::PaidIn,
+        delta_in: PaidIn,
     ) -> SqrtPrice;
 
     /// Returns True if sq_price1 is closer to the current price than sq_price2
@@ -531,24 +531,28 @@ where
     fn action_on_edge_sqrt_price() -> SwapStepAction;
 
     /// Add fees to the global fee counters
-    fn add_fees(netuid: NetUid, current_liquidity: U64F64, fee: Order::PaidIn);
+    fn add_fees(netuid: NetUid, current_liquidity: U64F64, fee: PaidIn);
 
     /// Convert input amount (delta_in) to output amount (delta_out)
     ///
     /// This is the core method of uniswap V3 that tells how much output token is given for an
     /// amount of input token within one price tick.
-    fn convert_deltas(netuid: NetUid, delta_in: Order::PaidIn) -> Order::PaidOut;
+    fn convert_deltas(netuid: NetUid, delta_in: PaidIn) -> PaidOut;
 
     /// Update liquidity when crossing a tick
     fn update_liquidity_at_crossing(netuid: NetUid) -> Result<(), Error<T>>;
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct SwapStepResult<Order: OrderT> {
-    pub(crate) amount_to_take: Order::PaidIn,
-    pub(crate) fee_paid: Order::PaidIn,
-    pub(crate) delta_in: Order::PaidIn,
-    pub(crate) delta_out: Order::PaidOut,
+pub(crate) struct SwapStepResult<PaidIn, PaidOut>
+where
+    PaidIn: Currency,
+    PaidOut: Currency,
+{
+    pub(crate) amount_to_take: PaidIn,
+    pub(crate) fee_paid: PaidIn,
+    pub(crate) delta_in: PaidIn,
+    pub(crate) delta_out: PaidOut,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

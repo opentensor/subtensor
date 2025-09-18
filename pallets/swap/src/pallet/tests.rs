@@ -8,9 +8,10 @@ use sp_arithmetic::helpers_128bit;
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::{AlphaForTao, Order, TaoForAlpha};
 
 use super::*;
-use crate::{OrderType, SqrtPrice, mock::*};
+use crate::{SqrtPrice, mock::*};
 
 // this function is used to convert price (NON-SQRT price!) to TickIndex. it's only utility for
 // testing, all the implementation logic is based on sqrt prices
@@ -153,8 +154,8 @@ fn test_swap_initialization() {
         let netuid = NetUid::from(1);
 
         // Get reserves from the mock provider
-        let tao = MockLiquidityProvider::tao_reserve(netuid.into());
-        let alpha = MockLiquidityProvider::alpha_reserve(netuid.into());
+        let tao = TaoReserve::reserve(netuid.into());
+        let alpha = AlphaReserve::reserve(netuid.into());
 
         assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
 
@@ -664,10 +665,10 @@ fn test_modify_position_basic() {
 
             // Swap to create fees on the position
             let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-            Pallet::<Test>::do_swap(
+            let order = AlphaForTao::with_amount(liquidity / 10);
+            Pallet::<Test>::do_swap::<_, TaoReserve, AlphaReserve>(
                 netuid,
-                OrderType::Buy,
-                liquidity / 10,
+                order,
                 sqrt_limit_price,
                 false,
                 false,
