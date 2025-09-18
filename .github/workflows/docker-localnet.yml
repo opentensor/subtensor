@@ -34,22 +34,22 @@ jobs:
       ref: ${{ steps.vars.outputs.ref }}
       latest_tag: ${{ steps.vars.outputs.latest_tag }}
     steps:
-      - id: vars
+      - name: Determine Docker tag and ref
+        id: vars
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "ref=${{ github.head_ref }}" >> $GITHUB_ENV
-            echo "tag=${{ github.base_ref }}" >> $GITHUB_ENV
+            echo "ref=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ github.base_ref }}" >> $GITHUB_OUTPUT
           else
             tag="${{ github.event.inputs.branch-or-tag || github.ref_name }}"
-            echo "ref=${{ github.ref_name }}" >> $GITHUB_ENV
-            echo "tag=$tag" >> $GITHUB_ENV
+            echo "ref=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "tag=$tag" >> $GITHUB_OUTPUT
           fi
-          
-          # Check if this is a tagged release (not devnet-ready/devnet/testnet)
+      
           if [[ "$tag" != "devnet-ready" ]]; then
-            echo "latest_tag=true" >> $GITHUB_ENV
+            echo "latest_tag=true" >> $GITHUB_OUTPUT
           else
-            echo "latest_tag=false" >> $GITHUB_ENV
+            echo "latest_tag=false" >> $GITHUB_OUTPUT
           fi
 
   # build artifacts for fast-runtime and non-fast-runtime
