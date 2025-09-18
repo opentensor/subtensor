@@ -90,8 +90,10 @@ jobs:
           mkdir -p upload
           cp -v snapshot.json upload/ || true
           cp -v scripts/localnet.sh upload/ || true
-          cp -v target/${{ matrix.runtime }}/release/node-subtensor upload/node-subtensor || true
-          cp -v target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm upload/ || true
+          
+          mkdir -p upload/target/${{ matrix.runtime }}/release/ || true
+          cp -v target/${{ matrix.runtime }}/release/node-subtensor upload/target/${{ matrix.runtime }}/release/node-subtensor || true
+          cp -v target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm upload/target/${{ matrix.runtime }}/release/node_subtensor_runtime.compact.compressed.wasm || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -117,40 +119,20 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: artifacts-fast-runtime
-          path: bin/fast-runtime
+          path: .
 
       - name: Download non-fast-runtime artifacts
         uses: actions/download-artifact@v4
         with:
           name: artifacts-non-fast-runtime
-          path: bin/non-fast-runtime
+          path: .
 
-        # Reconstruct target layout for fast-runtime and non-fast-runtime as required by Dockerfile-localnet
-      - name: Reconstruct target layout
+        # to be make sure
+      - name: Print full workspace directory tree
         run: |
-          # Copy snapshot + script
-          cp bin/fast-runtime/snapshot.json .
-          cp bin/fast-runtime/localnet.sh scripts/localnet.sh
-          chmod +x scripts/localnet.sh
-      
-          # Reconstruct fast-runtime
-          mkdir -p target/fast-runtime/release/wbuild/node-subtensor-runtime
-          cp bin/fast-runtime/node-subtensor target/fast-runtime/release/node-subtensor
-          cp bin/fast-runtime/node_subtensor_runtime.compact.compressed.wasm \
-             target/fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
-      
-          # Reconstruct non-fast-runtime
-          mkdir -p target/non-fast-runtime/release/wbuild/node-subtensor-runtime
-          cp bin/non-fast-runtime/node-subtensor target/non-fast-runtime/release/node-subtensor
-          cp bin/non-fast-runtime/node_subtensor_runtime.compact.compressed.wasm \
-             target/non-fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
-
-      - name: Recreate /build directory for Docker COPY
-        run: |
-          mkdir -p build
-          mv target build/
-          mv scripts build/
-          mv snapshot.json build/
+          echo "::group::GITHUB_WORKSPACE = $GITHUB_WORKSPACE"
+          find "$GITHUB_WORKSPACE" -type f | sort
+          echo "::endgroup::"
 
       - name: Show current Git branch
         run: |
@@ -171,18 +153,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print full workspace directory tree
-        run: |
-          echo "::group::GITHUB_WORKSPACE = $GITHUB_WORKSPACE"
-          find "$GITHUB_WORKSPACE" -type f | sort
-          echo "::endgroup::"
-
-      - name: Debug build context structure
-        run: |
-          echo "::group::ls -R ./build"
-          ls -R ./build
-          echo "::endgroup::"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
