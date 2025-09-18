@@ -6,6 +6,10 @@ SHELL ["/bin/bash", "-c"]
 # Set noninteractive mode for apt-get
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Set default to 0 (if not overridden by build arg)
+ARG BUILT_IN_CI=0
+ENV BUILT_IN_CI=${BUILT_IN_CI}
+
 LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
   ai.opentensor.image.vendor="Opentensor Foundation" \
   ai.opentensor.image.title="opentensor/subtensor-localnet" \
@@ -27,13 +31,23 @@ WORKDIR /build
 RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup toolchain install 1.88.0 --profile minimal
-RUN rustup default 1.88.0''
+RUN rustup default 1.88.0
 RUN rustup target add wasm32v1-none
 
-## Build fast-runtime node
-RUN ./scripts/localnet.sh --build-only
-# Build non-fast-runtime
-RUN ./scripts/localnet.sh False --build-only
+
+# Echo the value
+RUN echo "BUILT_IN_CI=$BUILT_IN_CI"
+RUN if [ -z "$BUILT_IN_CI" ]; then \
+      ./scripts/localnet.sh --build-only && \
+      ./scripts/localnet.sh False --build-only ; \
+    else \
+      echo "BUILT_IN_CI is set → skipping builds."; \
+    fi
+
+### Build fast-runtime node
+#RUN ./scripts/localnet.sh --build-only
+## Build non-fast-runtime
+#RUN ./scripts/localnet.sh False --build-only
 
 # Verify the binaries was produced
 RUN test -e /build/target/fast-runtime/release/node-subtensor

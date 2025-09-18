@@ -15,7 +15,7 @@ on:
       - main
       - testnet
       - devnet
-      
+
 concurrency:
   group: docker-localnet-${{ github.ref }}
   cancel-in-progress: true
@@ -27,29 +27,88 @@ permissions:
   security-events: write
 
 jobs:
-  publish:
-    runs-on: SubtensorCI
-
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      ref: ${{ steps.vars.outputs.ref }}
+      latest_tag: ${{ steps.vars.outputs.latest_tag }}
     steps:
-      - name: Determine Docker tag and ref
-        id: tag
+      - id: vars
         run: |
           branch_or_tag="${{ github.event.inputs.branch-or-tag || github.ref_name }}"
-          echo "Determined branch or tag: $branch_or_tag"
-          echo "tag=$branch_or_tag" >> $GITHUB_ENV
-          echo "ref=$branch_or_tag" >> $GITHUB_ENV
+          echo "tag=$branch_or_tag" >> $GITHUB_OUTPUT
+          echo "ref=$branch_or_tag" >> $GITHUB_OUTPUT
 
-          # Check if this is a tagged release (not devnet-ready/devnet/testnet)
           if [[ "$branch_or_tag" != "devnet-ready" ]]; then
-            echo "latest_tag=true" >> $GITHUB_ENV
+            echo "latest_tag=true" >> $GITHUB_OUTPUT
           else
-            echo "latest_tag=false" >> $GITHUB_ENV
+            echo "latest_tag=false" >> $GITHUB_OUTPUT
           fi
 
+  # build artifacts for fast-runtime and non-fast-runtime
+  build:
+    needs: setup
+    strategy:
+      matrix:
+        runtime: ["fast-runtime", "non-fast-runtime"]
+    runs-on: [self-hosted, type-cax41, image-arm-app-docker-ce]
+
+    steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.ref }}
+          ref: ${{ needs.setup.outputs.ref }}
+
+      - name: Patch limits for local run
+        run: |
+          chmod +x ./scripts/localnet_patch.sh
+          ./scripts/localnet_patch.sh
+
+      - name: Build binaries
+        run: |
+          if [ "${{ matrix.runtime }}" = "fast-runtime" ]; then
+            ./scripts/localnet.sh --build-only
+          else
+            ./scripts/localnet.sh False --build-only
+          fi
+
+      - name: Prepare artifacts for upload
+        run: |
+          mkdir -p upload
+          cp -v snapshot.json upload/ || true
+          cp -v scripts/localnet.sh upload/ || true
+          cp -v target/${{ matrix.runtime }}/release/node-subtensor upload/node-subtensor || true
+          cp -v target/${{ matrix.runtime }}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm upload/ || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.runtime }}
+          path: upload/
+
+  # collect all artifacts and publish them to docker repo
+  publish:
+    needs: [setup, build]
+    runs-on: SubtensorCI
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.setup.outputs.ref }}
+
+      - name: Download fast-runtime artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts-fast-runtime
+          path: bin/fast-runtime
+
+      - name: Download non-fast-runtime artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts-non-fast-runtime
+          path: bin/non-fast-runtime
 
       - name: Show current Git branch
         run: |
@@ -71,20 +130,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Patch non-fast-block node
-        run: |
-          chmod +x ./scripts/localnet_patch.sh
-          ./scripts/localnet_patch.sh
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile-localnet
+          build-args: |
+            BUILT_IN_CI="Boom shakalaka"
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository }}-localnet:${{ env.tag }}
-            ${{ env.latest_tag == 'true' && format('ghcr.io/{0}-localnet:latest', github.repository) || '' }}
+            ghcr.io/${{ github.repository }}-localnet:${{ needs.setup.outputs.tag }}
+            ${{ needs.setup.outputs.latest_tag == 'true' && format('ghcr.io/{0}-localnet:latest', github.repository) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
