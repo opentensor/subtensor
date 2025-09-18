@@ -38,10 +38,6 @@ RUN if [ -z "$BUILT_IN_CI" ]; then \
       echo "[*] BUILT_IN_CI is set → skipping install + build."; \
     fi
 
-# Verify the binaries was produced
-RUN test -e /build/target/fast-runtime/release/node-subtensor
-RUN test -e /build/target/non-fast-runtime/release/node-subtensor
-
 FROM $BASE_IMAGE AS subtensor-localnet
 
 # Copy binaries
@@ -55,6 +51,10 @@ COPY --from=builder /build/snapshot.json /snapshot.json
 
 COPY --from=builder /build/scripts/localnet.sh scripts/localnet.sh
 RUN chmod +x /scripts/localnet.sh
+
+# Verify the binaries was produced
+RUN test -e /target/target/fast-runtime/release/node-subtensor
+RUN test -e /target/target/non-fast-runtime/release/node-subtensor
 
 # Copy WebAssembly artifacts
 COPY --from=builder /build/target/fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm target/fast-runtime/release/node_subtensor_runtime.compact.compressed.wasm
