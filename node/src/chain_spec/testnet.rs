@@ -45,7 +45,12 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
     Ok(ChainSpec::builder(
         wasm_binary,
         Extensions {
-            bad_blocks: Some(HashSet::new()),
+            bad_blocks: Some(HashSet::from_iter(vec![
+                H256::from_str(
+                    "0xad24a84e6a7ee6066de3ddeac7018c26c66d812fc8df6d7182604776c17e04f4",
+                )
+                .unwrap(),
+            ])),
             ..Default::default()
         },
     )

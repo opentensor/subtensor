@@ -13,7 +13,9 @@
     "tokenSymbol": "testTAO"
   },
   "forkBlocks": null,
-  "badBlocks": [],
+  "badBlocks": [
+    "0xad24a84e6a7ee6066de3ddeac7018c26c66d812fc8df6d7182604776c17e04f4"
+  ],
   "codeSubstitutes": {},
   "genesis": {
     "raw": {
