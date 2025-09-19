@@ -44,8 +44,8 @@ for RUNTIME in fast-runtime non-fast-runtime; do
   echo "::endgroup::"
 
   mkdir -p /build/target/${RUNTIME}/release/wbuild/node-subtensor-runtime
-  cp -v /build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/node-subtensor \
+  cp -v /build/build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/node-subtensor \
         /build/target/${RUNTIME}/release/node-subtensor
-  cp -v /build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
+  cp -v /build/build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
         /build/target/${RUNTIME}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
 done
