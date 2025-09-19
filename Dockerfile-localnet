@@ -30,11 +30,11 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN apt-get update && apt-get install -y ca-certificates
 
 # Echo the value
-RUN echo "[*] BUILT_IN_CI=$BUILT_IN_CI"
-# Install deps if $BUILT_IN_CI wasn't passed
-# BUILD_TRIPLE are located on `.github/workflows/docker-localnet.yml` in a job `build:matrix:platform:triple`
-# If these are updated in the workflow, then we need to update here in `elif [ -d "/build/ci_target" ]` section.
-# We substitute the related binaries for the required Docker image layer architecture.
+RUN echo "BUILT_IN_CI=$BUILT_IN_CI"
+
+# If the BUILT_IN_CI local environment variable isn't passed, node building occurs within Docker (used for local Docker
+# image building). Otherwise, building occurs in advance for each architecture (in CI) and is substituted for the
+# required image layer during the build.
 RUN if [ -z "$BUILT_IN_CI" ]; then \
       echo "[*] Installing env and building binaries..." && \
       chmod +x ./scripts/install_build_env.sh && \
@@ -42,25 +42,8 @@ RUN if [ -z "$BUILT_IN_CI" ]; then \
       ./scripts/localnet.sh --build-only && \
       ./scripts/localnet.sh False --build-only ; \
     elif [ -d "/build/ci_target" ]; then \
-      echo "[*] BUILT_IN_CI is set → using prebuilt binaries." && \
-      \
-      echo "[*] Mapping TARGETARCH=$TARGETARCH to Rust triple..." && \
-      if [ "$TARGETARCH" = "amd64" ]; then \
-        export BUILD_TRIPLE="x86_64-unknown-linux-gnu"; \
-      elif [ "$TARGETARCH" = "arm64" ]; then \
-        export BUILD_TRIPLE="aarch64-unknown-linux-gnu"; \
-      else \
-        echo "[!] Unknown TARGETARCH: $TARGETARCH" && exit 1; \
-      fi && \
-      echo "[*] Using BUILD_TRIPLE=$BUILD_TRIPLE" && \
-      \
-      echo "[*] Copying binaries to expected /build/target layout..." && \
-      for RUNTIME in fast-runtime non-fast-runtime; do \
-        mkdir -p /build/target/${RUNTIME}/release/wbuild/node-subtensor-runtime && \
-        cp -v /build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/node-subtensor /build/target/${RUNTIME}/release/node-subtensor && \
-        cp -v /build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
-              /build/target/${RUNTIME}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm ; \
-      done ; \
+      chmod +x ./scripts/install_prebuilt_binaries.sh && \
+      ./scripts/install_prebuilt_binaries.sh ; \
     else \
       echo "[!] BUILT_IN_CI is set but /build/ci_target not found. Exiting." && exit 1 ; \
     fi
