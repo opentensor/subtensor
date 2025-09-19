@@ -18,7 +18,7 @@ echo "### Any changes may break CI builds or local Docker environments.  ###"
 echo "######################################################################"
 echo ""
 
-set -x
+set -e
 
 echo "[*] BUILT_IN_CI is set → using prebuilt binaries."
 echo "[*] Mapping TARGETARCH=${TARGETARCH} to Rust triple..."
@@ -39,9 +39,10 @@ echo "[*] Using BUILD_TRIPLE=$BUILD_TRIPLE"
 echo "[*] Copying binaries to expected /build/target layout..."
 
 for RUNTIME in fast-runtime non-fast-runtime; do
-  echo "::group::/build directory tree"
-  find /build -type f | sort
-  echo "::endgroup::"
+#  keep it for future debug
+#  echo "::group::/build directory tree"
+#  find /build -type f | sort
+#  echo "::endgroup::"
 
   mkdir -p /build/target/${RUNTIME}/release/wbuild/node-subtensor-runtime
   cp -v /build/build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/node-subtensor \

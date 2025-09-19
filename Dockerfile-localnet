@@ -28,10 +28,6 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 ## Ubdate certificates
 RUN apt-get update && apt-get install -y ca-certificates
 
-# Debug
-RUN echo ">>> Building for $TARGETARCH"
-RUN echo ">>> BUILT_IN_CI=$BUILT_IN_CI"
-
 # Install requirements
 RUN chmod +x ./scripts/install_build_env.sh
 RUN ./scripts/install_build_env.sh

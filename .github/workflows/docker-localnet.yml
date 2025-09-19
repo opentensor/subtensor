@@ -61,7 +61,6 @@ jobs:
         platform:
           - runner: ubuntu-latest
             triple: x86_64-unknown-linux-gnu
-
           - runner: ubuntu-24.04-arm
             triple: aarch64-unknown-linux-gnu
 
@@ -100,6 +99,7 @@ jobs:
             ./scripts/localnet.sh False --build-only
           fi
 
+        # use `ci_target` name bc .dockerignore excludes `target`
       - name: Prepare artifacts for upload
         run: |
           RUNTIME="${{ matrix.runtime }}"
@@ -140,13 +140,6 @@ jobs:
           pattern: binaries-*
           path: build/
           merge-multiple: true
-
-        # to be make sure
-      - name: Print full workspace directory tree
-        run: |
-          echo "::group::GITHUB_WORKSPACE = $GITHUB_WORKSPACE"
-          find "$GITHUB_WORKSPACE" -type f | sort
-          echo "::endgroup::"
 
       - name: Show current Git branch
         run: |
