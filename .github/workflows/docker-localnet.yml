@@ -105,13 +105,13 @@ jobs:
           RUNTIME="${{ matrix.runtime }}"
           TRIPLE="${{ matrix.platform.triple }}"
 
-          mkdir -p build/ci_target/${RUNTIME}${TRIPLE}/release/
-          cp -v target/${RUNTIME}${TRIPLE}/release/node-subtensor \
-            build/ci_target/${RUNTIME}${TRIPLE}/release/
+          mkdir -p build/ci_target/${RUNTIME}/${TRIPLE}/release/
+          cp -v target/${RUNTIME}/${TRIPLE}/release/node-subtensor \
+            build/ci_target/${RUNTIME}/${TRIPLE}/release/
 
-          mkdir -p build/ci_target/${RUNTIME}${TRIPLE}/release/wbuild/node-subtensor-runtime/
-          cp -v target/${RUNTIME}${TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
-            build/ci_target/${RUNTIME}${TRIPLE}/release/wbuild/node-subtensor-runtime/
+          mkdir -p build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
+          cp -v target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
+            build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
