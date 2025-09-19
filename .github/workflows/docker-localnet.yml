@@ -134,17 +134,12 @@ jobs:
         with:
           ref: ${{ needs.setup.outputs.ref }}
 
-      - name: Download fast-runtime artifacts
-        uses: actions/download-artifact@v4
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v5
         with:
-          name: artifacts-fast-runtime
-          path: ${{ github.workspace }}
-
-      - name: Download non-fast-runtime artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: artifacts-non-fast-runtime
-          path: ${{ github.workspace }}
+          pattern: binaries-*
+          path: build/ci_target
+          merge-multiple: true
 
         # to be make sure
       - name: Print full workspace directory tree
@@ -180,6 +175,7 @@ jobs:
           file: Dockerfile-localnet
           build-args: |
             BUILT_IN_CI="Boom shakalaka"
+
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
