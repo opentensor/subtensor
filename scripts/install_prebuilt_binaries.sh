@@ -39,8 +39,9 @@ echo "[*] Using BUILD_TRIPLE=$BUILD_TRIPLE"
 echo "[*] Copying binaries to expected /build/target layout..."
 
 for RUNTIME in fast-runtime non-fast-runtime; do
-  echo "[*] Listing files in /build/"
-  ls -al /build/ || true
+  echo "::group::GITHUB_WORKSPACE = $GITHUB_WORKSPACE"
+  find "$GITHUB_WORKSPACE" -type f | sort
+  echo "::endgroup::"
 
   mkdir -p /build/target/${RUNTIME}/release/wbuild/node-subtensor-runtime
   cp -v /build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/node-subtensor \
