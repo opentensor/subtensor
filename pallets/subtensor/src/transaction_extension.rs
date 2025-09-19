@@ -53,7 +53,7 @@ where
         if let Err(err) = result {
             Err(match err {
                 Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow.into(),
-                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetDoesntExist.into(),
+                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetNotExists.into(),
                 Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow.into(),
                 Error::<T>::HotKeyAccountNotExists => {
                     CustomTransactionError::HotkeyAccountDoesntExist.into()

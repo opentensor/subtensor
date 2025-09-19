@@ -1342,39 +1342,6 @@ fn test_math_row_sum_sparse() {
 }
 
 #[test]
-fn test_math_col_sum() {
-    let matrix: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
-    let matrix = vec_to_mat_fixed(&matrix, 4, false);
-    let result = col_sum(&matrix);
-    let target: Vec<I32F32> = vec_to_fixed(&[22., 26., 30.]);
-    assert_vec_compare(&result, &target, I32F32::from_num(0));
-}
-
-#[test]
-fn test_math_col_sum_sparse() {
-    let matrix: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
-    let matrix = vec_to_sparse_mat_fixed(&matrix, 4, false);
-    let result = col_sum_sparse(&matrix, 3);
-    let target: Vec<I32F32> = vec_to_fixed(&[22., 26., 30.]);
-    assert_vec_compare(&result, &target, I32F32::from_num(0));
-    let matrix: Vec<f32> = vec![0., 2., 3., 4., 0., 6., 7., 8., 0., 10., 11., 12.];
-    let matrix = vec_to_sparse_mat_fixed(&matrix, 4, false);
-    let result = col_sum_sparse(&matrix, 3);
-    let target: Vec<I32F32> = vec_to_fixed(&[21., 21., 21.]);
-    assert_vec_compare(&result, &target, I32F32::from_num(0));
-    let matrix: Vec<f32> = vec![1., 0., 3., 4., 0., 6., 7., 0., 9., 10., 0., 12.];
-    let matrix = vec_to_sparse_mat_fixed(&matrix, 4, false);
-    let result = col_sum_sparse(&matrix, 3);
-    let target: Vec<I32F32> = vec_to_fixed(&[22., 0., 30.]);
-    assert_vec_compare(&result, &target, I32F32::from_num(0));
-    let matrix: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
-    let matrix = vec_to_sparse_mat_fixed(&matrix, 4, false);
-    let result = col_sum_sparse(&matrix, 3);
-    let target: Vec<I32F32> = vec_to_fixed(&[0., 0., 0.]);
-    assert_vec_compare(&result, &target, I32F32::from_num(0));
-}
-
-#[test]
 fn test_math_matmul() {
     let vector: Vec<I32F32> = vec_to_fixed(&[1., 2., 3., 4.]);
     let matrix: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
@@ -1466,51 +1433,6 @@ fn test_math_col_clip_sparse() {
     let target = vec_to_sparse_mat_fixed(&target, 4, false);
     let result = col_clip_sparse(&matrix, &vector);
     assert_sparse_mat_compare(&result, &target, I32F32::from_num(0));
-}
-
-#[test]
-fn test_math_clip_sparse() {
-    let matrix: Vec<f32> = vec![0., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
-    let matrix = vec_to_sparse_mat_fixed(&matrix, 4, false);
-    let target: Vec<f32> = vec![0., 1., 1., 1., 1., 1., 1., 100., 100., 100., 100., 100.];
-    let target = vec_to_sparse_mat_fixed(&target, 4, false);
-    let result = clip_sparse(
-        &matrix,
-        I32F32::from_num(8),
-        I32F32::from_num(100),
-        I32F32::from_num(1),
-    );
-    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0));
-}
-
-#[test]
-fn test_math_clip() {
-    let matrix: Vec<f32> = vec![0., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
-    let matrix = vec_to_mat_fixed(&matrix, 4, false);
-    let target: Vec<f32> = vec![1., 1., 1., 1., 1., 1., 1., 100., 100., 100., 100., 100.];
-    let target = vec_to_mat_fixed(&target, 4, false);
-    let result = clip(
-        &matrix,
-        I32F32::from_num(8),
-        I32F32::from_num(100),
-        I32F32::from_num(1),
-    );
-    assert_mat_compare(&result, &target, I32F32::from_num(0));
-}
-
-#[test]
-fn test_math_inplace_clip() {
-    let matrix: Vec<f32> = vec![0., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
-    let mut matrix = vec_to_mat_fixed(&matrix, 4, false);
-    let target: Vec<f32> = vec![1., 1., 1., 1., 1., 1., 1., 100., 100., 100., 100., 100.];
-    let target = vec_to_mat_fixed(&target, 4, false);
-    inplace_clip(
-        &mut matrix,
-        I32F32::from_num(8),
-        I32F32::from_num(100),
-        I32F32::from_num(1),
-    );
-    assert_mat_compare(&matrix, &target, I32F32::from_num(0));
 }
 
 #[test]
@@ -2081,70 +2003,6 @@ fn test_math_interpolate_sparse() {
     let target = vec_to_sparse_mat_fixed(&target, 4, false);
     let result = interpolate_sparse(&mat1, &mat2, 3, ratio);
     assert_sparse_mat_compare(&result, &target, I32F32::from_num(0));
-}
-
-#[test]
-fn test_math_hadamard() {
-    let mat2: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
-    let mat1: Vec<f32> = vec![
-        10., 20., 30., 40., 50., 60., 70., 80., 90., 100., 110., 120.,
-    ];
-    let target: Vec<f32> = vec![
-        10., 40., 90., 160., 250., 360., 490., 640., 810., 1000., 1210., 1440.,
-    ];
-    let mat2 = vec_to_mat_fixed(&mat2, 4, false);
-    let mat1 = vec_to_mat_fixed(&mat1, 4, false);
-    let target = vec_to_mat_fixed(&target, 4, false);
-    let result = hadamard(&mat1, &mat2);
-    assert_mat_compare(&result, &target, I32F32::from_num(0.000001));
-    let mat2: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
-    let mat1: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
-    let target: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
-    let mat2 = vec_to_mat_fixed(&mat2, 4, false);
-    let mat1 = vec_to_mat_fixed(&mat1, 4, false);
-    let target = vec_to_mat_fixed(&target, 4, false);
-    let result = hadamard(&mat1, &mat2);
-    assert_mat_compare(&result, &target, I32F32::from_num(0.000001));
-    let mat2: Vec<f32> = vec![1., 0., 0., 0., 2., 0., 0., 0., 3., 0., 0., 0.];
-    let mat1: Vec<f32> = vec![0., 0., 4., 0., 5., 0., 6., 0., 0., 0., 0., 0.];
-    let target: Vec<f32> = vec![0., 0., 0., 0., 10., 0., 0., 0., 0., 0., 0., 0.];
-    let mat2 = vec_to_mat_fixed(&mat2, 4, false);
-    let mat1 = vec_to_mat_fixed(&mat1, 4, false);
-    let target = vec_to_mat_fixed(&target, 4, false);
-    let result = hadamard(&mat1, &mat2);
-    assert_mat_compare(&result, &target, I32F32::from_num(0.000001));
-}
-
-#[test]
-fn test_math_hadamard_sparse() {
-    let mat2: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
-    let mat1: Vec<f32> = vec![
-        10., 20., 30., 40., 50., 60., 70., 80., 90., 100., 110., 120.,
-    ];
-    let target: Vec<f32> = vec![
-        10., 40., 90., 160., 250., 360., 490., 640., 810., 1000., 1210., 1440.,
-    ];
-    let mat2 = vec_to_sparse_mat_fixed(&mat2, 4, false);
-    let mat1 = vec_to_sparse_mat_fixed(&mat1, 4, false);
-    let target = vec_to_sparse_mat_fixed(&target, 4, false);
-    let result = hadamard_sparse(&mat1, &mat2, 3);
-    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0.000001));
-    let mat2: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
-    let mat1: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
-    let target: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
-    let mat2 = vec_to_sparse_mat_fixed(&mat2, 4, false);
-    let mat1 = vec_to_sparse_mat_fixed(&mat1, 4, false);
-    let target = vec_to_sparse_mat_fixed(&target, 4, false);
-    let result = hadamard_sparse(&mat1, &mat2, 3);
-    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0.000001));
-    let mat2: Vec<f32> = vec![1., 0., 0., 0., 2., 0., 0., 0., 3., 0., 0., 0.];
-    let mat1: Vec<f32> = vec![0., 0., 4., 0., 5., 0., 6., 0., 0., 0., 0., 0.];
-    let target: Vec<f32> = vec![0., 0., 0., 0., 10., 0., 0., 0., 0., 0., 0., 0.];
-    let mat2 = vec_to_sparse_mat_fixed(&mat2, 4, false);
-    let mat1 = vec_to_sparse_mat_fixed(&mat1, 4, false);
-    let target = vec_to_sparse_mat_fixed(&target, 4, false);
-    let result = hadamard_sparse(&mat1, &mat2, 3);
-    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0.000001));
 }
 
 #[test]
@@ -2726,9 +2584,7 @@ fn test_mat_ema_alpha_single_element() {
     assert_eq!(result, expected);
 }
 
-// TODO: (@sd): Should these be non panicking?
 #[test]
-#[should_panic(expected = "assertion failed")]
 fn test_mat_ema_alpha_mismatched_dimensions() {
     let new = mat_to_fixed(&[vec![1.0, 2.0], vec![3.0, 4.0]]);
     let old = mat_to_fixed(&[vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]]);
@@ -2740,41 +2596,6 @@ fn test_mat_ema_alpha_mismatched_dimensions() {
         ];
         2
     ];
-    let _result = mat_ema_alpha(&new, &old, &alpha);
-}
-
-#[test]
-fn test_quantile() {
-    // Test with a non-empty vector and valid quantile values
-    let data = vec![
-        I32F32::from_num(1.0),
-        I32F32::from_num(2.0),
-        I32F32::from_num(3.0),
-        I32F32::from_num(4.0),
-        I32F32::from_num(5.0),
-    ];
-
-    // Test 0th quantile (minimum)
-    let result = quantile(&data, 0.0);
-    assert_eq!(result, I32F32::from_num(1.0));
-
-    // Test 25th quantile
-    let result = quantile(&data, 0.25);
-    assert_eq!(result, I32F32::from_num(2.0));
-
-    // Test 50th quantile (median)
-    let result = quantile(&data, 0.5);
-    assert_eq!(result, I32F32::from_num(3.0));
-
-    // Test 66th quantile
-    let result = quantile(&data, 0.66);
-    assert_eq!(result, I32F32::from_num(3.64));
-
-    // Test 75th quantile
-    let result = quantile(&data, 0.75);
-    assert_eq!(result, I32F32::from_num(4.0));
-
-    // Test 100th quantile (maximum)
-    let result = quantile(&data, 1.0);
-    assert_eq!(result, I32F32::from_num(5.0));
+    let result = mat_ema_alpha(&new, &old, &alpha);
+    assert_eq!(result[0][0], old[0][0])
 }
