@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# We move the prebuild binaries required by the architecture if they were created in CI, otherwise exit with no error
+if [ -z "$BUILT_IN_CI" ]; then
+  echo "[*] BUILT_IN_CI is not set. Skipping script..."
+  exit 0
+fi
+
 echo ""
 echo "######################################################################"
 echo "###     WARNING: DO NOT MODIFY THIS SCRIPT UNLESS YOU KNOW WHY!    ###"

@@ -2,9 +2,6 @@ ARG BASE_IMAGE=ubuntu:latest
 
 FROM $BASE_IMAGE AS builder
 
-ARG TARGETARCH
-RUN echo ">>> Building for $TARGETARCH"
-
 SHELL ["/bin/bash", "-c"]
 
 # Set noninteractive mode for apt-get
@@ -22,6 +19,8 @@ WORKDIR /build
 
 # Set up env var
 ARG BUILT_IN_CI
+ARG TARGETARCH
+
 ENV BUILT_IN_CI=${BUILT_IN_CI}
 ENV RUST_BACKTRACE=1
 ENV PATH="/root/.cargo/bin:${PATH}"
@@ -29,24 +28,22 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 ## Ubdate certificates
 RUN apt-get update && apt-get install -y ca-certificates
 
-# Echo the value
-RUN echo "BUILT_IN_CI=$BUILT_IN_CI"
+# Debug
+RUN echo ">>> Building for $TARGETARCH"
+RUN echo ">>> BUILT_IN_CI=$BUILT_IN_CI"
 
-# If the BUILT_IN_CI local environment variable isn't passed, node building occurs within Docker (used for local Docker
-# image building). Otherwise, building occurs in advance for each architecture (in CI) and is substituted for the
-# required image layer during the build.
-RUN if [ -z "$BUILT_IN_CI" ]; then \
-      echo "[*] Installing env and building binaries..." && \
-      chmod +x ./scripts/install_build_env.sh && \
-      ./scripts/install_build_env.sh && \
-      ./scripts/localnet.sh --build-only && \
-      ./scripts/localnet.sh False --build-only ; \
-    elif [ -d "/build/ci_target" ]; then \
-      chmod +x ./scripts/install_prebuilt_binaries.sh && \
-      ./scripts/install_prebuilt_binaries.sh ; \
-    else \
-      echo "[!] BUILT_IN_CI is set but /build/ci_target not found. Exiting." && exit 1 ; \
-    fi
+# Install requirements
+RUN chmod +x ./scripts/install_build_env.sh
+RUN ./scripts/install_build_env.sh
+
+## Build fast-runtime node
+RUN ./scripts/localnet.sh --build-only
+# Build non-fast-runtime
+RUN ./scripts/localnet.sh False --build-only
+
+# We will prepare the necessary binaries if they are created in CI
+RUN chmod +x ./scripts/install_prebuilt_binaries.sh
+RUN ./scripts/install_prebuilt_binaries.sh
 
 # Verify the binaries was produced
 RUN test -e /build/target/fast-runtime/release/node-subtensor
