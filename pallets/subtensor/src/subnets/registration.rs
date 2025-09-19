@@ -78,10 +78,7 @@ impl<T: Config> Pallet<T> {
             !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::MechanismDoesNotExist
-        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
@@ -236,10 +233,7 @@ impl<T: Config> Pallet<T> {
             !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::MechanismDoesNotExist
-        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(

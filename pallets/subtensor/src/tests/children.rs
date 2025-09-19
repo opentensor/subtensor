@@ -62,7 +62,7 @@ fn test_do_set_child_singular_network_does_not_exist() {
                 netuid,
                 vec![(proportion, child)]
             ),
-            Error::<Test>::MechanismDoesNotExist
+            Error::<Test>::SubnetNotExists
         );
     });
 }
@@ -328,7 +328,7 @@ fn test_add_singular_child() {
                 netuid,
                 vec![(u64::MAX, child)]
             ),
-            Err(Error::<Test>::MechanismDoesNotExist.into())
+            Err(Error::<Test>::SubnetNotExists.into())
         );
         add_network(netuid, 1, 0);
         step_rate_limit(&TransactionType::SetChildren, netuid);
@@ -472,7 +472,7 @@ fn test_do_set_empty_children_network_does_not_exist() {
                 netuid,
                 vec![]
             ),
-            Error::<Test>::MechanismDoesNotExist
+            Error::<Test>::SubnetNotExists
         );
     });
 }
@@ -601,7 +601,7 @@ fn test_do_schedule_children_multiple_network_does_not_exist() {
                 netuid,
                 vec![(proportion, child1)]
             ),
-            Error::<Test>::MechanismDoesNotExist
+            Error::<Test>::SubnetNotExists
         );
     });
 }
@@ -1200,7 +1200,7 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
                 netuid,
                 vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)]
             ),
-            Error::<Test>::MechanismDoesNotExist
+            Error::<Test>::SubnetNotExists
         );
     });
 }
