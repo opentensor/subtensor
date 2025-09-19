@@ -61,7 +61,7 @@ jobs:
         platform:
           - runner: [self-hosted, type-cax41]
             triple: x86_64-unknown-linux-gnu
-          - runner: [self-hosted, type-cax41, image-arm-app-docker-ce]
+          - runner: [ubuntu-24.04-arm]
             triple: aarch64-unknown-linux-gnu
 
         runtime: ["fast-runtime", "non-fast-runtime"]
