@@ -1,6 +1,6 @@
 use crate::tests::mock::{RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext};
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
-use crate::{RootClaimable, TotalHotkeyAlpha};
+use crate::{RootClaimable};
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use sp_core::U256;
@@ -39,7 +39,7 @@ fn test_claim_root_with_drain_emissions() {
             root_stake.into(),
         );
 
-        let initial_total_hotkey_alpha = 20_000_000u64;
+        let initial_total_hotkey_alpha = 10_000_000u64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
@@ -56,7 +56,7 @@ fn test_claim_root_with_drain_emissions() {
 
         // Distribute pending root alpha
 
-        let pending_root_alpha = 10_000_000u64;
+        let pending_root_alpha = 1_000_000u64;
         SubtensorModule::drain_pending_emission(
             netuid,
             AlphaCurrency::ZERO,
@@ -84,8 +84,8 @@ fn test_claim_root_with_drain_emissions() {
         // Check claimable
 
         let claimable = RootClaimable::<Test>::get(hotkey, netuid);
-        let calculated_rate = (pending_root_alpha as f64) * (1f64 - validator_take_percent)
-            / (u64::from(TotalHotkeyAlpha::<Test>::get(hotkey, netuid)) as f64);
+        let calculated_rate =
+            (pending_root_alpha as f64) * (1f64 - validator_take_percent) / (root_stake as f64);
 
         assert_abs_diff_eq!(
             claimable.saturating_to_num::<f64>(),
@@ -130,8 +130,8 @@ fn test_claim_root_with_drain_emissions() {
         // Check claimable (round 2)
 
         let claimable2 = RootClaimable::<Test>::get(hotkey, netuid);
-        let calculated_rate = (pending_root_alpha as f64) * (1f64 - validator_take_percent)
-            / (u64::from(TotalHotkeyAlpha::<Test>::get(hotkey, netuid)) as f64);
+        let calculated_rate =
+            (pending_root_alpha as f64) * (1f64 - validator_take_percent) / (root_stake as f64);
 
         assert_abs_diff_eq!(
             claimable2.saturating_to_num::<f64>(),
@@ -160,42 +160,175 @@ fn test_claim_root_with_drain_emissions() {
     });
 }
 
-/*
-Test 1 - Adding Stake Disproportionally
+#[test]
+fn test_adding_stake_proportionally_for_two_stakers() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let alice_coldkey = U256::from(1003);
+        let bob_coldkey = U256::from(1004);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
 
-1. Beginning of the epoch 1: Alice stakes 1 TAO to root, Bob stakes 1 TAO to root, and both say "I want airdrop"
-2. For simplicity let's say `root_alpha = 0.1` in every block. So at the end of the epoch 1 we have 36 root alpha to share between Alice and Bob. Each is entitled to 18 Alpha.
-3. Beginning of the epoch 2: Alice stakes 1 TAO more, Bob stakes 2 TAO more. State is now:
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
-```
-alpha_to_airdrop: 36
-rewards_per_tao: 18
+        let root_stake = 1_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice_coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob_coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
 
-Alice's stake: 2
-Bob's stake: 3
-debt_alice: 18
-debt_bob: 36
-```
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
 
-4. As epoch 2 goes, we keep adding 0.1 root Alpha in every block, so it will be still +36 Alpha, but new Alpha is shared differently between Alice and Bob: Alice gets 2/5 of the new Alpha and Bob gets 3/5 of the new Alpha.
+        // Claim root alpha
 
-5. End of epoch 2: Alice is entitled to 18 + 14.4 = 32.4 Alpha, Bob is entitled to 18 + 21.6 = 39.6 Alpha. State update is following:
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(alice_coldkey),
+            RootClaimTypeEnum::Keep
+        ),);
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(bob_coldkey),
+            RootClaimTypeEnum::Keep
+        ),);
 
-```
-alpha_to_airdrop: 72
-rewards_per_tao: 18 + 36/5 = 25.2
-```
+        // Distribute pending root alpha
 
-6. Alice and Bob want to claim their Alpha:
+        let pending_root_alpha = 10_000_000u64;
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
 
-```
-alpha_alice = 2 * 25.2 - 18 = 32.4
-alpha_bob = 3 * 25.2 - 36 = 39.6
-```
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
+            alice_coldkey
+        ),));
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
+            bob_coldkey
+        ),));
 
-*/
+        // Check stakes
+        let validator_take_percent = 0.18f64;
+
+        let alice_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice_coldkey,
+            netuid,
+        )
+        .into();
+
+        let bob_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob_coldkey,
+            netuid,
+        )
+        .into();
+
+        let estimated_stake = (pending_root_alpha as f64) * (1f64 - validator_take_percent) / 2f64;
+
+        assert_eq!(alice_stake, bob_stake);
+
+        assert_abs_diff_eq!(alice_stake, estimated_stake as u64, epsilon = 100u64,);
+    });
+}
 
 #[test]
-fn test_adding_stake_disproportionally() {
-    new_test_ext(1).execute_with(|| {});
+fn test_adding_stake_disproportionally_for_two_stakers() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let alice_coldkey = U256::from(1003);
+        let bob_coldkey = U256::from(1004);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let alice_root_stake = 1_000_000u64;
+        let bob_root_stake = 2_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice_coldkey,
+            NetUid::ROOT,
+            alice_root_stake.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob_coldkey,
+            NetUid::ROOT,
+            bob_root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        // Claim root alpha
+
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(alice_coldkey),
+            RootClaimTypeEnum::Keep
+        ),);
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(bob_coldkey),
+            RootClaimTypeEnum::Keep
+        ),);
+
+        // Distribute pending root alpha
+
+        let pending_root_alpha = 10_000_000u64;
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
+            alice_coldkey
+        ),));
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
+            bob_coldkey
+        ),));
+
+        // Check stakes
+        let validator_take_percent = 0.18f64;
+
+        let alice_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice_coldkey,
+            netuid,
+        )
+        .into();
+
+        let bob_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob_coldkey,
+            netuid,
+        )
+        .into();
+
+        let estimated_stake = (pending_root_alpha as f64) * (1f64 - validator_take_percent) / 3f64;
+
+        assert_eq!(2 * alice_stake, bob_stake);
+
+        assert_abs_diff_eq!(alice_stake, estimated_stake as u64, epsilon = 100u64,);
+    });
 }

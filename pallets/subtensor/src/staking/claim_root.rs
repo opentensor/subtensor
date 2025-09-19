@@ -43,7 +43,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // Get total stake on this hotkey on root.
         let total: I96F32 =
-            I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
+            I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT));
 
         // Get increment
         let increment: I96F32 = I96F32::saturating_from_num(amount)
