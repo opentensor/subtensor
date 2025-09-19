@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   setup:
-    runs-on: [self-hosted, type-cax41]
+    runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.vars.outputs.tag }}
       ref: ${{ steps.vars.outputs.ref }}
