@@ -39,10 +39,8 @@ echo "[*] Using BUILD_TRIPLE=$BUILD_TRIPLE"
 echo "[*] Copying binaries to expected /build/target layout..."
 
 for RUNTIME in fast-runtime non-fast-runtime; do
-  echo "[*] Listing files in /build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/"
-  ls -al /build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/ || true
-  echo "[*] Listing wasm in wbuild/"
-  ls -al /build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/wbuild/node-subtensor-runtime/ || true
+  echo "[*] Listing files in /build/"
+  ls -al /build/ || true
 
   mkdir -p /build/target/${RUNTIME}/release/wbuild/node-subtensor-runtime
   cp -v /build/ci_target/${RUNTIME}/${BUILD_TRIPLE}/release/node-subtensor \
