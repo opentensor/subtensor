@@ -109,11 +109,11 @@ jobs:
           TRIPLE="${{ matrix.platform.triple }}"
 
           mkdir -p build/ci_target/${ARCH}/${RUNTIME}/release/
-          cp -v target/${TRIPLE}/${RUNTIME}/release/node-subtensor \
+          cp -v target/${TRIPLE}/release/node-subtensor \
             build/ci_target/${ARCH}/${RUNTIME}/release/
 
           mkdir -p build/ci_target/${ARCH}/${RUNTIME}/release/wbuild/node-subtensor-runtime/
-          cp -v target/${TRIPLE}/${RUNTIME}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
+          cp -v target/${TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
             build/ci_target/${ARCH}/${RUNTIME}/release/wbuild/node-subtensor-runtime/
 
       - name: Upload artifact
