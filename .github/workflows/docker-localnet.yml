@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-cax41]
     outputs:
       tag: ${{ steps.vars.outputs.tag }}
       ref: ${{ steps.vars.outputs.ref }}
@@ -53,15 +53,15 @@ jobs:
           fi
 
   # build artifacts for fast-runtime and non-fast-runtime
-  build:
+  build_bins:
     name: Build • ${{ matrix.platform.triple }} • ${{ matrix.runtime }}
     needs: setup
     strategy:
       matrix:
         platform:
-          - runner: ubuntu-latest
+          - runner: [self-hosted, type-cax41]
             triple: x86_64-unknown-linux-gnu
-          - runner: ubuntu-24.04-arm
+          - runner: [self-hosted, type-cax41, image-arm-app-docker-ce]
             triple: aarch64-unknown-linux-gnu
 
         runtime: ["fast-runtime", "non-fast-runtime"]
@@ -121,8 +121,8 @@ jobs:
           if-no-files-found: error
 
   # Collect all artifacts and publish them to docker repo
-  publish:
-    needs: [setup, build]
+  build_and_publish:
+    needs: [setup, build_bins]
     runs-on: ubuntu-latest
     defaults:
       run:
