@@ -138,7 +138,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           pattern: binaries-*
-          path: build/ci_target
+          path: build/
           merge-multiple: true
 
         # to be make sure
