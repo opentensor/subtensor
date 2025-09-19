@@ -10,13 +10,13 @@ use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_consensus_slots::SlotProportion;
 use sc_network::config::SyncMode;
-use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
+use sc_network_sync::strategy::warp::WarpSyncConfig;
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::H256;
-use sp_runtime::traits::{Block as BlockT, NumberFor};
+use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
@@ -316,14 +316,9 @@ where
             config.chain_spec.chain_type()
         );
         net_config.add_notification_protocol(grandpa_protocol_config);
-        let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
-            Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
-                backend.clone(),
-                grandpa_link.shared_authority_set().clone(),
-                sc_consensus_grandpa::warp_proof::HardForks::new_initial_set_id(set_id),
-            ));
 
-        Some(WarpSyncConfig::WithProvider(warp_sync))
+        let warp_sync_header = get_new_block_header().await;
+        Some(WarpSyncConfig::WithTarget(warp_sync_header))
     };
 
     let (network, system_rpc_tx, tx_handler_controller, sync_service) =
@@ -578,7 +573,7 @@ where
 
         let grandpa_config = sc_consensus_grandpa::Config {
             // FIXME #1578 make this available through chainspec
-            gossip_duration: Duration::from_millis(333),
+            gossip_duration: Duration::from_millis(30000),
             justification_generation_period: GRANDPA_JUSTIFICATION_PERIOD,
             name: Some(name),
             observer_enabled: false,
@@ -757,4 +752,61 @@ fn run_manual_seal_authorship(
         .spawn_essential_handle()
         .spawn_blocking("manual-seal", None, manual_seal);
     Ok(())
+}
+
+async fn get_new_block_header()
+-> sp_runtime::generic::Header<NumberFor<Block>, sp_runtime::traits::BlakeTwo256> {
+    use sp_core::H256;
+    use sp_runtime::traits::BlakeTwo256;
+    use sp_runtime::{Digest, DigestItem};
+    use subxt::{OnlineClient, PolkadotConfig};
+
+    let api = OnlineClient::<PolkadotConfig>::from_url("wss://archive.dev.opentensor.ai:8443")
+        .await
+        .expect("Could not compose an API client from the URL");
+    let block = api
+        .blocks()
+        .at(
+            H256::from_str("0xa3fda9b8042bda6c429b5c21745b82a57340cec0f35ff1ece14326f507769f57")
+                .unwrap(),
+        )
+        .await
+        .expect("Could not subscribe to API");
+    log::info!("Target warp header:  ({:?})", block.header());
+
+    let number = block.header().number;
+    let parent_hash = H256::from_slice(block.header().parent_hash.as_bytes());
+    let extrinsics_root = H256::from_slice(block.header().extrinsics_root.as_bytes());
+    let state_root = H256::from_slice(block.header().state_root.as_bytes());
+    let logs = block
+        .header()
+        .digest
+        .logs
+        .clone()
+        .into_iter()
+        .map(|log| match log {
+            subxt::config::substrate::DigestItem::PreRuntime(engine, data) => {
+                DigestItem::PreRuntime(engine, data)
+            }
+            subxt::config::substrate::DigestItem::Consensus(engine, data) => {
+                DigestItem::Consensus(engine, data)
+            }
+            subxt::config::substrate::DigestItem::Seal(engine, data) => {
+                DigestItem::Seal(engine, data)
+            }
+            subxt::config::substrate::DigestItem::Other(data) => {
+                panic!("Unexpected log iter Other: {:?}", data);
+            }
+            subxt::config::substrate::DigestItem::RuntimeEnvironmentUpdated => {
+                panic!("Unexpected log iter RuntimeEnvironmentUpdated");
+            }
+        })
+        .collect::<Vec<_>>();
+    return sp_runtime::generic::Header::<NumberFor<Block>, BlakeTwo256>::new(
+        number,
+        extrinsics_root,
+        state_root,
+        parent_hash,
+        Digest { logs },
+    );
 }
