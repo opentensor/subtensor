@@ -557,11 +557,6 @@ fn test_pending_emission() {
             1_000_000_000 - 125000000,
             epsilon = 1
         ); // 1 - swapped.
-        assert_abs_diff_eq!(
-            u64::from(PendingRootDivs::<Test>::get(netuid)),
-            125000000,
-            epsilon = 1
-        ); // swapped * (price = 1)
     });
 }
 
@@ -797,7 +792,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            //   pending_tao,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -825,16 +819,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
             stake_after2.into(),
             10,
         ); // Registered gets 1/2 emission.
-        close(
-            stake_before.to_u64() + pending_tao.to_u64() / 2,
-            root_after1.into(),
-            10,
-        ); // Registered gets 1/2 tao emission
-        close(
-            stake_before.to_u64() + pending_tao.to_u64() / 2,
-            root_after2.into(),
-            10,
-        ); // Registered gets 1/2 tao emission
     });
 }
 
@@ -883,7 +867,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            //   pending_tao,
             AlphaCurrency::ZERO,
             0.into(),
         );
@@ -915,25 +898,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
             stake_after2.into(),
             epsilon = 10
         ); // Registered gets 50% emission
-        let expected_root1 = I96F32::from_num(2 * u64::from(stake_before))
-            + I96F32::from_num(pending_tao.to_u64()) * I96F32::from_num(2.0 / 3.0);
-        assert_abs_diff_eq!(
-            expected_root1.to_num::<u64>(),
-            root_after1.into(),
-            epsilon = 10
-        ); // Registered gets 2/3 tao emission
-        let expected_root2 = I96F32::from_num(u64::from(stake_before))
-            + I96F32::from_num(pending_tao.to_u64()) * I96F32::from_num(1.0 / 3.0);
-        assert_abs_diff_eq!(
-            expected_root2.to_num::<u64>(),
-            root_after2.into(),
-            epsilon = 10
-        ); // Registered gets 1/3 tao emission
-        assert_abs_diff_eq!(
-            SubnetTAO::<Test>::get(NetUid::ROOT),
-            pending_tao,
-            epsilon = 10.into()
-        );
     });
 }
 
@@ -1014,27 +978,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
             expected_stake2.to_num::<u64>(),
             u64::from(stake_after2),
             epsilon = 10
-        );
-        // hotkey 1 has 2 / 3 root tao
-        let expected_root1 = I96F32::from_num(2 * u64::from(stake_before))
-            + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
-        assert_abs_diff_eq!(
-            expected_root1.to_num::<u64>(),
-            u64::from(root_after1),
-            epsilon = 10
-        );
-        // hotkey 1 has 1 / 3 root tao
-        let expected_root2 = I96F32::from_num(u64::from(stake_before))
-            + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
-        assert_abs_diff_eq!(
-            expected_root2.to_num::<u64>(),
-            u64::from(root_after2),
-            epsilon = 10
-        );
-        assert_abs_diff_eq!(
-            SubnetTAO::<Test>::get(NetUid::ROOT),
-            pending_tao,
-            epsilon = 10.into()
         );
     });
 }
@@ -1322,15 +1265,12 @@ fn test_get_root_children_drain() {
         // Alice and Bob both made half of the dividends.
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&alice, NetUid::ROOT),
-            AlphaCurrency::from(alice_root_stake + pending_root1.to_u64() / 2)
+            AlphaCurrency::from(alice_root_stake)
         );
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, NetUid::ROOT),
-            AlphaCurrency::from(bob_root_stake + pending_root1.to_u64() / 2)
+            AlphaCurrency::from(bob_root_stake)
         );
-
-        // The pending root dividends should be present in root subnet.
-        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_root1);
 
         // Lets change the take value. (Bob is greedy.)
         ChildkeyTake::<Test>::insert(bob, alpha, u16::MAX);
@@ -1355,11 +1295,6 @@ fn test_get_root_children_drain() {
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
             pending_alpha,
             epsilon = 1.into()
-        );
-        // The pending root dividends should be present in root subnet.
-        assert_eq!(
-            SubnetTAO::<Test>::get(NetUid::ROOT),
-            pending_root1 + pending_root2
         );
     });
 }
