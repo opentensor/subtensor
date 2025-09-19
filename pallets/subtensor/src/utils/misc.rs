@@ -259,6 +259,12 @@ impl<T: Config> Pallet<T> {
                     *s = pruning_score;
                 }
             });
+        } else {
+            log::error!(
+                "set_pruning_score_for_uid: uid >= SubnetworkN::<T>::get(netuid): {:?} >= {:?}",
+                uid,
+                SubnetworkN::<T>::get(netuid)
+            );
         }
     }
     pub fn set_validator_permit_for_uid(netuid: NetUid, uid: u16, validator_permit: bool) {
