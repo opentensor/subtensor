@@ -81,6 +81,7 @@ jobs:
 
       - name: Add Rust target triple
         run: |
+          source "$HOME/.cargo/env"
           rustup target add ${{ matrix.platform.triple }}
 
       - name: Patch limits for local run
