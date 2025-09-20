@@ -126,7 +126,7 @@ jobs:
   # Collect all artifacts and publish them to docker repo
   build_and_publish:
     needs: [setup, build_bins]
-    runs-on: [self-hosted, type-cax41]
+    runs-on: [self-hosted, cax41]
     defaults:
       run:
         working-directory: ${{ github.workspace }}
