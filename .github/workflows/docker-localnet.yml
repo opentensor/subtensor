@@ -59,9 +59,10 @@ jobs:
     strategy:
       matrix:
         platform:
-          - runner: [self-hosted, type-cax41]
+          - runner: [self-hosted, cax41]
             triple: x86_64-unknown-linux-gnu
-          - runner: [ubuntu-24.04-arm]
+          # - runner: [ubuntu-24.04-arm]
+          - runner: [self-hosted, cax41, image-arm-app-docker-ce]
             triple: aarch64-unknown-linux-gnu
 
         runtime: ["fast-runtime", "non-fast-runtime"]
