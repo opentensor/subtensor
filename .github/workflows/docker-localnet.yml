@@ -54,16 +54,17 @@ jobs:
 
   # build artifacts for fast-runtime and non-fast-runtime
   build_bins:
-    name: Build • ${{ matrix.platform.triple }} • ${{ matrix.runtime }}
+    name: Build • ${{ matrix.runtime }} • ${{ matrix.platform.arch }}
     needs: setup
     strategy:
       matrix:
         platform:
           - runner: [self-hosted, cax41]
             triple: x86_64-unknown-linux-gnu
-          # - runner: [ubuntu-24.04-arm]
-          - runner: [SubtensorCI]
+            arch: amd64
+          - runner: [ubuntu-24.04-arm]
             triple: aarch64-unknown-linux-gnu
+            arch: arm64
 
         runtime: ["fast-runtime", "non-fast-runtime"]
 
