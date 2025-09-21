@@ -1280,7 +1280,6 @@ impl<T: Config> Pallet<T> {
 
                             // 2) Convert ALL α withdrawn (principal + fees) to τ and refund τ to user.
                             if alpha_total_from_pool > AlphaCurrency::ZERO {
-                                // α → τ via AMM swap (sell α). Drop trading fees on forced dissolve.
                                 let sell_amount: u64 = alpha_total_from_pool.into();
 
                                 if let Some(limit_sqrt_price) = compute_limit() {
@@ -1293,7 +1292,6 @@ impl<T: Config> Pallet<T> {
                                         false,
                                     ) {
                                         Ok(sres) => {
-                                            // Credit τ output to the user.
                                             let tao_out: TaoCurrency = sres.amount_paid_out.into();
                                             if tao_out > TaoCurrency::ZERO {
                                                 T::BalanceOps::increase_balance(&owner, tao_out);
@@ -1302,8 +1300,6 @@ impl<T: Config> Pallet<T> {
                                             }
                                         }
                                         Err(e) => {
-                                            // Could not convert α -> τ; log and continue dissolving others.
-                                            // (No α is credited to the user; α already removed from pool is effectively burned.)
                                             log::debug!(
                                                 "dissolve_all_lp: α→τ swap failed on dissolve: netuid={:?}, owner={:?}, pos_id={:?}, α={:?}, err={:?}",
                                                 netuid,
@@ -1324,7 +1320,6 @@ impl<T: Config> Pallet<T> {
                                     );
                                 }
 
-                                // Provided‑α reserve (user‑provided liquidity) decreased by what left the pool.
                                 T::BalanceOps::decrease_provided_alpha_reserve(
                                     netuid,
                                     alpha_total_from_pool,
@@ -1344,7 +1339,6 @@ impl<T: Config> Pallet<T> {
                         }
                     }
                     Err(e) => {
-                        // Keep dissolving other positions even if this one fails.
                         log::debug!(
                             "dissolve_all_lp: force-close failed: netuid={:?}, owner={:?}, pos_id={:?}, err={:?}",
                             netuid,
