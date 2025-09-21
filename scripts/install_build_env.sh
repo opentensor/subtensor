@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# If binaries are compiled in CI then skip this script
+if [ -n "$BUILT_IN_CI" ]; then
+  echo "[*] BUILT_IN_CI is set to '$BUILT_IN_CI'. Skipping script..."
+  exit 0
+fi
+
 echo ""
 echo "######################################################################"
 echo "###     WARNING: DO NOT MODIFY THIS SCRIPT UNLESS YOU KNOW WHY!    ###"
