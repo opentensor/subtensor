@@ -8,6 +8,8 @@ fi
 
 echo ""
 echo "######################################################################"
+echo "###             Install build environment dependencies             ###"
+echo "######################################################################"
 echo "###     WARNING: DO NOT MODIFY THIS SCRIPT UNLESS YOU KNOW WHY!    ###"
 echo "###                                                                ###"
 echo "### This script is used by:                                        ###"
