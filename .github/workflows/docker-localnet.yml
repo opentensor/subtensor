@@ -53,12 +53,13 @@ jobs:
           fi
 
   # build artifacts for fast-runtime and non-fast-runtime
-  build_bins:
-    name: Build • ${{ matrix.runtime }} • ${{ matrix.platform.arch }}
+  artifacts:
+    name: Node • ${{ matrix.runtime }} • ${{ matrix.platform.arch }}
     needs: setup
     strategy:
       matrix:
         platform:
+          # triple names used `in scripts/install_prebuilt_binaries.sh` file
           - runner: [self-hosted, type-ccx33]
             triple: x86_64-unknown-linux-gnu
             arch: amd64
@@ -124,8 +125,8 @@ jobs:
           if-no-files-found: error
 
   # Collect all artifacts and publish them to docker repo
-  build_and_publish:
-    needs: [setup, build_bins]
+  docker:
+    needs: [setup, artifacts]
     runs-on: [self-hosted, type-ccx33]
     defaults:
       run:
