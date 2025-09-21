@@ -1232,23 +1232,125 @@ impl<T: Config> Pallet<T> {
             to_close
                 .sort_by(|a, b| (a.owner == protocol_account).cmp(&(b.owner == protocol_account)));
 
+            let mut user_refunded_tao = TaoCurrency::ZERO;
+            let mut burned_tao = TaoCurrency::ZERO;
+            let mut burned_alpha = AlphaCurrency::ZERO;
+
+            // Helper: build a very lax sqrt price limit.
+            // Mirrors the wrapper’s transformation: price_limit / 1e9, then sqrt().
+            let compute_limit = || {
+                SqrtPrice::saturating_from_num(u64::MAX)
+                    .safe_div(SqrtPrice::saturating_from_num(1_000_000_000u64))
+                    .checked_sqrt(SqrtPrice::saturating_from_num(0.0000000001f64))
+            };
+
             for CloseItem { owner, pos_id } in to_close.into_iter() {
                 match Self::do_remove_liquidity(netuid, &owner, pos_id) {
                     Ok(rm) => {
-                        if rm.tao > TaoCurrency::ZERO {
-                            T::BalanceOps::increase_balance(&owner, rm.tao);
-                        }
-                        if owner != protocol_account {
-                            T::BalanceOps::decrease_provided_tao_reserve(netuid, rm.tao);
-                            let alpha_burn = rm.alpha.saturating_add(rm.fee_alpha);
-                            if alpha_burn > AlphaCurrency::ZERO {
-                                T::BalanceOps::decrease_provided_alpha_reserve(netuid, alpha_burn);
+                        // α withdrawn from the pool = principal + accrued fees
+                        let alpha_total_from_pool: AlphaCurrency =
+                            rm.alpha.saturating_add(rm.fee_alpha);
+
+                        if owner == protocol_account {
+                            // ---------------- PROTOCOL: burn everything ----------------
+                            if rm.tao > TaoCurrency::ZERO {
+                                burned_tao = burned_tao.saturating_add(rm.tao);
                             }
+                            if alpha_total_from_pool > AlphaCurrency::ZERO {
+                                burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
+                            }
+
+                            log::debug!(
+                                "dissolve_all_lp: burned protocol position: netuid={:?}, pos_id={:?}, τ={:?}, α_principal={:?}, α_fees={:?}",
+                                netuid,
+                                pos_id,
+                                rm.tao,
+                                rm.alpha,
+                                rm.fee_alpha
+                            );
+                        } else {
+                            // ---------------- USER: refund τ and convert α → τ ----------------
+
+                            // 1) Refund τ principal directly.
+                            if rm.tao > TaoCurrency::ZERO {
+                                T::BalanceOps::increase_balance(&owner, rm.tao);
+                                user_refunded_tao = user_refunded_tao.saturating_add(rm.tao);
+                                T::BalanceOps::decrease_provided_tao_reserve(netuid, rm.tao);
+                            }
+
+                            // 2) Convert ALL α withdrawn (principal + fees) to τ and refund τ to user.
+                            if alpha_total_from_pool > AlphaCurrency::ZERO {
+                                // α → τ via AMM swap (sell α). Drop trading fees on forced dissolve.
+                                let sell_amount: u64 = alpha_total_from_pool.into();
+
+                                if let Some(limit_sqrt_price) = compute_limit() {
+                                    match Self::do_swap(
+                                        netuid,
+                                        OrderType::Sell,
+                                        sell_amount,
+                                        limit_sqrt_price,
+                                        true,
+                                        false,
+                                    ) {
+                                        Ok(sres) => {
+                                            // Credit τ output to the user.
+                                            let tao_out: TaoCurrency = sres.amount_paid_out.into();
+                                            if tao_out > TaoCurrency::ZERO {
+                                                T::BalanceOps::increase_balance(&owner, tao_out);
+                                                user_refunded_tao =
+                                                    user_refunded_tao.saturating_add(tao_out);
+                                            }
+                                        }
+                                        Err(e) => {
+                                            // Could not convert α -> τ; log and continue dissolving others.
+                                            // (No α is credited to the user; α already removed from pool is effectively burned.)
+                                            log::debug!(
+                                                "dissolve_all_lp: α→τ swap failed on dissolve: netuid={:?}, owner={:?}, pos_id={:?}, α={:?}, err={:?}",
+                                                netuid,
+                                                owner,
+                                                pos_id,
+                                                alpha_total_from_pool,
+                                                e
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    log::debug!(
+                                        "dissolve_all_lp: invalid price limit during α→τ on dissolve: netuid={:?}, owner={:?}, pos_id={:?}, α={:?}",
+                                        netuid,
+                                        owner,
+                                        pos_id,
+                                        alpha_total_from_pool
+                                    );
+                                }
+
+                                // Provided‑α reserve (user‑provided liquidity) decreased by what left the pool.
+                                T::BalanceOps::decrease_provided_alpha_reserve(
+                                    netuid,
+                                    alpha_total_from_pool,
+                                );
+                            }
+
+                            log::debug!(
+                                "dissolve_all_lp: user dissolved: netuid={:?}, owner={:?}, pos_id={:?}, τ_refunded={:?}, α_total_converted={:?} (α_principal={:?}, α_fees={:?})",
+                                netuid,
+                                owner,
+                                pos_id,
+                                rm.tao,
+                                alpha_total_from_pool,
+                                rm.alpha,
+                                rm.fee_alpha
+                            );
                         }
                     }
                     Err(e) => {
+                        // Keep dissolving other positions even if this one fails.
                         log::debug!(
-                            "dissolve_all_lp: force-closing failed position: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, err={e:?}"
+                            "dissolve_all_lp: force-close failed: netuid={:?}, owner={:?}, pos_id={:?}, err={:?}",
+                            netuid,
+                            owner,
+                            pos_id,
+                            e
                         );
                         continue;
                     }
@@ -1277,7 +1379,11 @@ impl<T: Config> Pallet<T> {
             EnabledUserLiquidity::<T>::remove(netuid);
 
             log::debug!(
-                "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V3, positions closed; τ principal refunded; α burned; state cleared"
+                "dissolve_all_liquidity_providers: netuid={:?}, users_refunded_total_τ={:?}; protocol_burned: τ={:?}, α={:?}; state cleared",
+                netuid,
+                user_refunded_tao,
+                burned_tao,
+                burned_alpha
             );
 
             return Ok(());
@@ -1305,7 +1411,8 @@ impl<T: Config> Pallet<T> {
         EnabledUserLiquidity::<T>::remove(netuid);
 
         log::debug!(
-            "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, state_cleared"
+            "dissolve_all_liquidity_providers: netuid={:?}, mode=V2-or-nonV3, state_cleared",
+            netuid
         );
 
         Ok(())
