@@ -50,6 +50,12 @@ impl<T: Config> Pallet<T> {
             .checked_div(total)
             .unwrap_or(I96F32::saturating_from_num(0.0));
 
+        if u64::from(amount) > total.saturating_to_num::<u64>() {
+            log::error!("Not enough root stake. NetUID = {netuid}");
+
+            return;
+        }
+
         // Increment claimable for this subnet.
         RootClaimable::<T>::mutate(hotkey, netuid, |total| {
             *total = total.saturating_add(increment);
@@ -137,19 +143,30 @@ impl<T: Config> Pallet<T> {
             //  Increase stake on root
             RootClaimTypeEnum::Swap => {
                 // Swap the alpha owed to TAO
-                let Ok(owed_tao) = Self::swap_alpha_for_tao(
+                let owed_tao = match Self::swap_alpha_for_tao(
                     netuid,
                     owed_u64.into(),
-                    T::SwapInterface::max_price().into(),
+                    T::SwapInterface::min_price().into(),
                     false,
-                ) else {
-                    return; // no-op
+                ) {
+                    Ok(owed_tao) => owed_tao,
+                    Err(err) => {
+                        log::error!("Error swapping alpha for TAO: {err:?}");
+
+                        return;
+                    }
                 };
 
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey,
                     coldkey,
                     NetUid::ROOT,
+                    owed_tao.amount_paid_out.into(),
+                );
+
+                Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+                    hotkey,
+                    coldkey,
                     owed_tao.amount_paid_out.into(),
                 );
             }
