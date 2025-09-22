@@ -198,15 +198,15 @@ impl<T: Config> Pallet<T> {
     ) {
         // Iterate over all the subnets this hotkey is staked on for root.
         for (netuid, claimable_rate) in RootClaimable::<T>::iter_prefix(hotkey) {
-            // Get the total claimable_rate for this hotkey and this network
-            let claimable_rate_u128: u128 = claimable_rate.saturating_to_num();
-
             // Get current staker root claimed value.
             let root_claimed: u128 = RootClaimed::<T>::get((hotkey, coldkey, netuid));
 
             // Increase root claimed based on the claimable rate.
-            let new_root_claimed =
-                root_claimed.saturating_add(claimable_rate_u128.saturating_mul(amount.into()));
+            let new_root_claimed = root_claimed.saturating_add(
+                claimable_rate
+                    .saturating_mul(I96F32::from(u64::from(amount)))
+                    .saturating_to_num(),
+            );
 
             // Set the new root claimed value.
             RootClaimed::<T>::insert((hotkey, coldkey, netuid), new_root_claimed);
@@ -224,15 +224,15 @@ impl<T: Config> Pallet<T> {
                 continue; // Skip the root netuid.
             }
 
-            // Get the total claimable_rate for this hotkey and this network
-            let claimable_rate_u128: u128 = claimable_rate.saturating_to_num();
-
             // Get current staker root claimed value.
             let root_claimed: u128 = RootClaimed::<T>::get((hotkey, coldkey, netuid));
 
             // Decrease root claimed based on the claimable rate.
-            let new_root_claimed = root_claimed
-                .saturating_sub(claimable_rate_u128.saturating_mul(u64::from(amount).into()));
+            let new_root_claimed = root_claimed.saturating_sub(
+                claimable_rate
+                    .saturating_mul(I96F32::from(u64::from(amount)))
+                    .saturating_to_num(),
+            );
 
             // Set the new root_claimed value.
             RootClaimed::<T>::insert((hotkey, coldkey, netuid), new_root_claimed);
