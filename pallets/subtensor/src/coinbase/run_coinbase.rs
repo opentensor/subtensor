@@ -256,7 +256,9 @@ impl<T: Config> Pallet<T> {
                 log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");
             };
             // Pass on subnets that have not reached their tempo.
-            if Self::should_run_epoch(netuid, current_block) {
+            if Self::should_run_epoch(netuid, current_block)
+                && Self::is_epoch_input_state_consistent(netuid)
+            {
                 // Restart counters.
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);

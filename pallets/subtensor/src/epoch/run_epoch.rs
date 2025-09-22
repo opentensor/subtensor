@@ -1,6 +1,6 @@
 use super::*;
 use crate::epoch::math::*;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use frame_support::IterableStorageDoubleMap;
 use safe_math::*;
 use sp_std::collections::btree_map::IntoIter;
@@ -1616,5 +1616,21 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+
+    /// This function ensures major assumptions made by epoch function:
+    ///   1. Keys map has no duplicate hotkeys
+    ///
+    pub fn is_epoch_input_state_consistent(netuid: NetUid) -> bool {
+        // Check if Keys map has duplicate hotkeys or uids
+        let mut hotkey_set: BTreeSet<T::AccountId> = BTreeSet::new();
+        // `iter_prefix` over a double map yields (uid, value) for the given first key.
+        for (_uid, hotkey) in Keys::<T>::iter_prefix(netuid) {
+            if !hotkey_set.insert(hotkey) {
+                log::error!("Duplicate hotkeys detected for netuid {netuid:?}");
+                return false;
+            }
+        }
+        true
     }
 }

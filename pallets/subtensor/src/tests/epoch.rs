@@ -3883,3 +3883,55 @@ fn test_last_update_size_mismatch() {
         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
     });
 }
+
+#[test]
+fn empty_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = 155.into();
+        assert!(Pallet::<Test>::is_epoch_input_state_consistent(netuid));
+    });
+}
+
+#[test]
+fn unique_hotkeys_and_uids_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = 155.into();
+
+        // (netuid, uid) -> hotkey (AccountId = U256)
+        Keys::<Test>::insert(netuid, 0u16, U256::from(1u64));
+        Keys::<Test>::insert(netuid, 1u16, U256::from(2u64));
+        Keys::<Test>::insert(netuid, 2u16, U256::from(3u64));
+
+        assert!(Pallet::<Test>::is_epoch_input_state_consistent(netuid));
+    });
+}
+
+#[test]
+fn duplicate_hotkey_within_same_netuid_fails() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = 155.into();
+
+        // Same hotkey mapped from two different UIDs in the SAME netuid
+        let hk = U256::from(42u64);
+        Keys::<Test>::insert(netuid, 0u16, hk);
+        Keys::<Test>::insert(netuid, 1u16, U256::from(42u64)); // duplicate hotkey
+
+        assert!(!Pallet::<Test>::is_epoch_input_state_consistent(netuid));
+    });
+}
+
+#[test]
+fn same_hotkey_across_different_netuids_is_ok() {
+    new_test_ext(1).execute_with(|| {
+        let net_a: NetUid = 10.into();
+        let net_b: NetUid = 11.into();
+
+        // Same hotkey appears once in each netuid — each net checks independently.
+        let hk = U256::from(777u64);
+        Keys::<Test>::insert(net_a, 0u16, hk);
+        Keys::<Test>::insert(net_b, 0u16, hk);
+
+        assert!(Pallet::<Test>::is_epoch_input_state_consistent(net_a));
+        assert!(Pallet::<Test>::is_epoch_input_state_consistent(net_b));
+    });
+}
