@@ -1453,7 +1453,7 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::Incentives) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 incentives: Some(
-                    Incentive::<T>::get(NetUidStorageIndex::from(netuid_index))
+                    Incentive::<T>::get(netuid_index)
                         .into_iter()
                         .map(Compact::from)
                         .collect(),
@@ -1464,7 +1464,7 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::LastUpdate) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 last_update: Some(
-                    LastUpdate::<T>::get(NetUidStorageIndex::from(netuid_index))
+                    LastUpdate::<T>::get(netuid_index)
                         .into_iter()
                         .map(Compact::from)
                         .collect(),
