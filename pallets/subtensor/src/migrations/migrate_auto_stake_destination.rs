@@ -48,7 +48,6 @@ pub fn migrate_auto_stake_destination<T: Config>() -> Weight {
         .map(|(netuid, _)| netuid)
         .collect();
 
-    // Process each old entry
     for coldkey in &curr_keys {
         weight.saturating_accrue(T::DbWeight::get().reads(1));
 
