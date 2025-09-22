@@ -1627,7 +1627,7 @@ impl<T: Config> Pallet<T> {
         // `iter_prefix` over a double map yields (uid, value) for the given first key.
         for (_uid, hotkey) in Keys::<T>::iter_prefix(netuid) {
             if !hotkey_set.insert(hotkey) {
-                log::error!("Duplicate hotkeys detected for netuid {}", netuid);
+                log::error!("Duplicate hotkeys detected for netuid {netuid}");
                 return false;
             }
         }
