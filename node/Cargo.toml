@@ -120,9 +120,6 @@ subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-rpc = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
 
-subxt = { version = "0.44", default-features = true } # temp dependency to get API
-rustls-webpki = "0.103" # a dependency for linux version of subxt framework
-
 [build-dependencies]
 substrate-build-script-utils.workspace = true
 

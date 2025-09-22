@@ -112,8 +112,6 @@ proc-macro-warning = { version = "1", default-features = false }
 expander = "2"
 ahash = { version = "0.8", default-features = false }
 regex = { version = "1.11.1", default-features = false }
-subxt = { version = "0.44", default-features = true } # temp dependency to get API
-rustls-webpki = "0.103" # a dependency for linux version of subxt framework
 
 frame = { package = "polkadot-sdk-frame", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
