@@ -47,7 +47,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
         Extensions {
             bad_blocks: Some(HashSet::from_iter(vec![
                 H256::from_str(
-                    "0xad24a84e6a7ee6066de3ddeac7018c26c66d812fc8df6d7182604776c17e04f4",
+                    "0xf0b30766cc9185967d9f500ffbc67114008c49f54dbf84a6088d5902dee13d49",
                 )
                 .unwrap(),
             ])),
