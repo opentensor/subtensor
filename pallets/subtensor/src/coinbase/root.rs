@@ -369,7 +369,7 @@ impl<T: Config> Pallet<T> {
         // 1. --- The network exists?
         ensure!(
             Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,
-            Error::<T>::MechanismDoesNotExist
+            Error::<T>::SubnetNotExists
         );
 
         // 2. --- Perform the cleanup before removing the network.
