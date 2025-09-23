@@ -5,7 +5,7 @@ use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
-use sp_runtime::{DispatchResult, traits::AccountIdConversion};
+use sp_runtime::{DispatchResult, Vec, traits::AccountIdConversion};
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo, TaoCurrency,
@@ -1233,15 +1233,36 @@ impl<T: Config> Pallet<T> {
                 .sort_by(|a, b| (a.owner == protocol_account).cmp(&(b.owner == protocol_account)));
 
             let mut user_refunded_tao = TaoCurrency::ZERO;
+            let mut user_staked_alpha = AlphaCurrency::ZERO;
             let mut burned_tao = TaoCurrency::ZERO;
             let mut burned_alpha = AlphaCurrency::ZERO;
 
-            // Helper: build a very lax sqrt price limit.
-            // Mirrors the wrapper’s transformation: price_limit / 1e9, then sqrt().
-            let compute_limit = || {
-                SqrtPrice::saturating_from_num(u64::MAX)
-                    .safe_div(SqrtPrice::saturating_from_num(1_000_000_000u64))
-                    .checked_sqrt(SqrtPrice::saturating_from_num(0.0000000001f64))
+            let trust: Vec<u16> = T::SubnetInfo::get_validator_trust(netuid.into());
+            let permit: Vec<bool> = T::SubnetInfo::get_validator_permit(netuid.into());
+
+            if trust.len() != permit.len() {
+                log::debug!(
+                    "dissolve_all_lp: ValidatorTrust/Permit length mismatch: netuid={:?}, trust_len={}, permit_len={}",
+                    netuid,
+                    trust.len(),
+                    permit.len()
+                );
+                return Err(sp_runtime::DispatchError::Other(
+                    "validator_meta_len_mismatch",
+                ));
+            }
+
+            // Helper: pick target validator uid, only among permitted validators, by highest trust.
+            let pick_target_uid = |trust: &Vec<u16>, permit: &Vec<bool>| -> Option<u16> {
+                let mut best_uid: Option<usize> = None;
+                let mut best_trust: u16 = 0;
+                for (i, (&t, &p)) in trust.iter().zip(permit.iter()).enumerate() {
+                    if p && (best_uid.is_none() || t > best_trust) {
+                        best_uid = Some(i);
+                        best_trust = t;
+                    }
+                }
+                best_uid.map(|i| i as u16)
             };
 
             for CloseItem { owner, pos_id } in to_close.into_iter() {
@@ -1259,14 +1280,12 @@ impl<T: Config> Pallet<T> {
                             if alpha_total_from_pool > AlphaCurrency::ZERO {
                                 burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
                             }
-
                             log::debug!(
-                                "dissolve_all_lp: burned protocol position: netuid={:?}, pos_id={:?}, τ={:?}, α_principal={:?}, α_fees={:?}",
+                                "dissolve_all_lp: burned protocol pos: netuid={:?}, pos_id={:?}, τ={:?}, α_total={:?}",
                                 netuid,
                                 pos_id,
                                 rm.tao,
-                                rm.alpha,
-                                rm.fee_alpha
+                                alpha_total_from_pool
                             );
                         } else {
                             // ---------------- USER: refund τ and convert α → τ ----------------
@@ -1278,41 +1297,40 @@ impl<T: Config> Pallet<T> {
                                 T::BalanceOps::decrease_provided_tao_reserve(netuid, rm.tao);
                             }
 
-                            // 2) Convert ALL α withdrawn (principal + fees) to τ and refund τ to user.
+                            // 2) Stake ALL withdrawn α (principal + fees) to the best permitted validator.
                             if alpha_total_from_pool > AlphaCurrency::ZERO {
-                                let sell_amount: u64 = alpha_total_from_pool.into();
+                                if let Some(target_uid) = pick_target_uid(&trust, &permit) {
+                                    let validator_hotkey: T::AccountId =
+                                        T::SubnetInfo::hotkey_of_uid(netuid.into(), target_uid)
+                                            .ok_or(sp_runtime::DispatchError::Other(
+                                                "validator_hotkey_missing",
+                                            ))?;
 
-                                if let Some(limit_sqrt_price) = compute_limit() {
-                                    match Self::do_swap(
+                                    // Stake α from LP owner (coldkey) to chosen validator (hotkey).
+                                    T::BalanceOps::increase_stake(
+                                        &owner,
+                                        &validator_hotkey,
                                         netuid,
-                                        OrderType::Sell,
-                                        sell_amount,
-                                        limit_sqrt_price,
-                                        true,
-                                        false,
-                                    ) {
-                                        Ok(sres) => {
-                                            let tao_out: TaoCurrency = sres.amount_paid_out.into();
-                                            if tao_out > TaoCurrency::ZERO {
-                                                T::BalanceOps::increase_balance(&owner, tao_out);
-                                                user_refunded_tao =
-                                                    user_refunded_tao.saturating_add(tao_out);
-                                            }
-                                        }
-                                        Err(e) => {
-                                            log::debug!(
-                                                "dissolve_all_lp: α→τ swap failed on dissolve: netuid={:?}, owner={:?}, pos_id={:?}, α={:?}, err={:?}",
-                                                netuid,
-                                                owner,
-                                                pos_id,
-                                                alpha_total_from_pool,
-                                                e
-                                            );
-                                        }
-                                    }
-                                } else {
+                                        alpha_total_from_pool,
+                                    )?;
+
+                                    user_staked_alpha =
+                                        user_staked_alpha.saturating_add(alpha_total_from_pool);
+
                                     log::debug!(
-                                        "dissolve_all_lp: invalid price limit during α→τ on dissolve: netuid={:?}, owner={:?}, pos_id={:?}, α={:?}",
+                                        "dissolve_all_lp: user dissolved & staked α: netuid={:?}, owner={:?}, pos_id={:?}, α_staked={:?}, target_uid={}",
+                                        netuid,
+                                        owner,
+                                        pos_id,
+                                        alpha_total_from_pool,
+                                        target_uid
+                                    );
+                                } else {
+                                    // No permitted validators; burn to avoid balance drift.
+                                    burned_alpha =
+                                        burned_alpha.saturating_add(alpha_total_from_pool);
+                                    log::debug!(
+                                        "dissolve_all_lp: no permitted validators; α burned: netuid={:?}, owner={:?}, pos_id={:?}, α_total={:?}",
                                         netuid,
                                         owner,
                                         pos_id,
@@ -1325,17 +1343,6 @@ impl<T: Config> Pallet<T> {
                                     alpha_total_from_pool,
                                 );
                             }
-
-                            log::debug!(
-                                "dissolve_all_lp: user dissolved: netuid={:?}, owner={:?}, pos_id={:?}, τ_refunded={:?}, α_total_converted={:?} (α_principal={:?}, α_fees={:?})",
-                                netuid,
-                                owner,
-                                pos_id,
-                                rm.tao,
-                                alpha_total_from_pool,
-                                rm.alpha,
-                                rm.fee_alpha
-                            );
                         }
                     }
                     Err(e) => {
@@ -1373,9 +1380,10 @@ impl<T: Config> Pallet<T> {
             EnabledUserLiquidity::<T>::remove(netuid);
 
             log::debug!(
-                "dissolve_all_liquidity_providers: netuid={:?}, users_refunded_total_τ={:?}; protocol_burned: τ={:?}, α={:?}; state cleared",
+                "dissolve_all_liquidity_providers: netuid={:?}, users_refunded_total_τ={:?}, users_staked_total_α={:?}; protocol_burned: τ={:?}, α={:?}; state cleared",
                 netuid,
                 user_refunded_tao,
+                user_staked_alpha,
                 burned_tao,
                 burned_alpha
             );
