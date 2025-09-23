@@ -2536,3 +2536,177 @@ fn refund_alpha_same_cold_multiple_hotkeys_conserved_to_owner() {
         );
     });
 }
+
+#[test]
+fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
+    new_test_ext().execute_with(|| {
+        // --- Setup ---
+        let netuid = NetUid::from(42);
+        let cold = OK_COLDKEY_ACCOUNT_ID;
+        let hot = OK_HOTKEY_ACCOUNT_ID;
+
+        assert_ok!(Swap::toggle_user_liquidity(
+            RuntimeOrigin::root(),
+            netuid.into(),
+            true
+        ));
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+        assert!(SwapV3Initialized::<Test>::get(netuid));
+
+        // Tight in‑range band so BOTH τ and α are required.
+        let ct = CurrentTick::<Test>::get(netuid);
+        let tick_low = ct.saturating_sub(10);
+        let tick_high = ct.saturating_add(10);
+        let liquidity: u64 = 1_250_000;
+
+        // Add liquidity and capture required τ/α.
+        let (_pos_id, tao_needed, alpha_needed) =
+            Pallet::<Test>::do_add_liquidity(netuid, &cold, &hot, tick_low, tick_high, liquidity)
+                .expect("add in-range liquidity");
+        assert!(tao_needed > 0, "in-range pos must require TAO");
+        assert!(alpha_needed > 0, "in-range pos must require ALPHA");
+
+        // Determine the permitted validator with the highest trust (green path).
+        let trust = <Test as Config>::SubnetInfo::get_validator_trust(netuid.into());
+        let permit = <Test as Config>::SubnetInfo::get_validator_permit(netuid.into());
+        assert_eq!(trust.len(), permit.len(), "trust/permit must align");
+        let target_uid: u16 = trust
+            .iter()
+            .zip(permit.iter())
+            .enumerate()
+            .filter(|(_, (_t, p))| **p)
+            .max_by_key(|(_, (t, _))| *t)
+            .map(|(i, _)| i as u16)
+            .expect("at least one permitted validator");
+        let validator_hotkey: <Test as frame_system::Config>::AccountId =
+            <Test as Config>::SubnetInfo::hotkey_of_uid(netuid.into(), target_uid)
+                .expect("uid -> hotkey mapping must exist");
+
+        // --- Snapshot BEFORE we withdraw τ/α to fund the position ---
+        let tao_before = <Test as Config>::BalanceOps::tao_balance(&cold);
+
+        let alpha_before_hot =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot);
+        let alpha_before_owner =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &cold);
+        let alpha_before_val =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &validator_hotkey);
+
+        let alpha_before_total = if validator_hotkey == hot {
+            // Avoid double counting when validator == user's hotkey.
+            alpha_before_hot + alpha_before_owner
+        } else {
+            alpha_before_hot + alpha_before_owner + alpha_before_val
+        };
+
+        // --- Mirror extrinsic bookkeeping: withdraw τ & α; bump provided reserves ---
+        let tao_taken = <Test as Config>::BalanceOps::decrease_balance(&cold, tao_needed.into())
+            .expect("decrease TAO");
+        let alpha_taken = <Test as Config>::BalanceOps::decrease_stake(
+            &cold,
+            &hot,
+            netuid.into(),
+            alpha_needed.into(),
+        )
+        .expect("decrease ALPHA");
+
+        <Test as Config>::BalanceOps::increase_provided_tao_reserve(netuid.into(), tao_taken);
+        <Test as Config>::BalanceOps::increase_provided_alpha_reserve(netuid.into(), alpha_taken);
+
+        // --- Act: dissolve (GREEN PATH: permitted validators exist) ---
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
+
+        // --- Assert: τ principal refunded to user ---
+        let tao_after = <Test as Config>::BalanceOps::tao_balance(&cold);
+        assert_eq!(tao_after, tao_before, "TAO principal must be refunded");
+
+        // --- α ledger assertions ---
+        let alpha_after_hot =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot);
+        let alpha_after_owner =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &cold);
+        let alpha_after_val =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &validator_hotkey);
+
+        // Owner ledger must be unchanged in the green path.
+        assert_eq!(
+            alpha_after_owner, alpha_before_owner,
+            "Owner α ledger must be unchanged (staked to validator, not refunded)"
+        );
+
+        if validator_hotkey == hot {
+            // Net effect: user's hot ledger returns to its original balance.
+            assert_eq!(
+                alpha_after_hot, alpha_before_hot,
+                "When validator == hotkey, user's hot ledger must net back to its original balance"
+            );
+
+            // Totals without double-counting the same ledger.
+            let alpha_after_total = alpha_after_hot + alpha_after_owner;
+            assert_eq!(
+                alpha_after_total, alpha_before_total,
+                "Total α for the coldkey must be conserved (validator==hotkey)"
+            );
+        } else {
+            assert!(
+                alpha_before_hot >= alpha_after_hot,
+                "hot ledger should not increase"
+            );
+            assert!(
+                alpha_after_val >= alpha_before_val,
+                "validator ledger should not decrease"
+            );
+
+            let hot_loss = alpha_before_hot - alpha_after_hot;
+            let val_gain = alpha_after_val - alpha_before_val;
+
+            assert_eq!(
+                val_gain, hot_loss,
+                "α that left the user's hot ledger must equal α credited to the validator ledger"
+            );
+
+            // Totals across distinct ledgers must be conserved.
+            let alpha_after_total = alpha_after_hot + alpha_after_owner + alpha_after_val;
+            assert_eq!(
+                alpha_after_total, alpha_before_total,
+                "Total α for the coldkey must be conserved"
+            );
+        }
+
+        // --- Assert: All positions (user + protocol) removed and V3 state cleared ---
+        let protocol_id = Pallet::<Test>::protocol_account_id();
+
+        assert_eq!(Pallet::<Test>::count_positions(netuid, &cold), 0);
+        let prot_positions_after =
+            Positions::<Test>::iter_prefix_values((netuid, protocol_id)).collect::<Vec<_>>();
+        assert!(
+            prot_positions_after.is_empty(),
+            "protocol positions must be removed"
+        );
+
+        // Ticks / liquidity / price / flags cleared
+        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks::<Test>::get(netuid, TickIndex::MIN).is_none());
+        assert!(Ticks::<Test>::get(netuid, TickIndex::MAX).is_none());
+        assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
+        assert!(!CurrentTick::<Test>::contains_key(netuid));
+        assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
+        assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
+
+        // Fee globals cleared
+        assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
+        assert!(!FeeGlobalAlpha::<Test>::contains_key(netuid));
+
+        // Active tick bitmap cleared
+        assert!(
+            TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
+                .next()
+                .is_none(),
+            "active tick bitmap words must be cleared"
+        );
+
+        // Knobs removed
+        assert!(!FeeRate::<Test>::contains_key(netuid));
+        assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
+    });
+}
