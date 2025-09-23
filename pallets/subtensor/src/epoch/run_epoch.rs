@@ -1128,7 +1128,7 @@ impl<T: Config> Pallet<T> {
                 if let Some(row) = weights.get_mut(uid_i as usize) {
                     row.push((*uid_j, I32F32::saturating_from_num(*weight_ij)));
                 } else {
-                    log::error!("uid_i {uid_i:?} is filtered to be less than n");
+                    log::error!("math error: uid_i {uid_i:?} is filtered to be less than n");
                 }
             }
         }
@@ -1391,7 +1391,7 @@ impl<T: Config> Pallet<T> {
 
         if weights.len() != bonds.len() {
             log::error!(
-                "compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                "math error: compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
                 weights.len(),
                 bonds.len()
             );
@@ -1444,7 +1444,7 @@ impl<T: Config> Pallet<T> {
 
         if weights.len() != bonds.len() {
             log::error!(
-                "compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                "math error: compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
                 weights.len(),
                 bonds.len()
             );
