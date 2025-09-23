@@ -1241,11 +1241,10 @@ impl<T: Config> Pallet<T> {
             let permit: Vec<bool> = T::SubnetInfo::get_validator_permit(netuid.into());
 
             if trust.len() != permit.len() {
+                let trust_len = trust.len();
+                let permit_len = permit.len();
                 log::debug!(
-                    "dissolve_all_lp: ValidatorTrust/Permit length mismatch: netuid={:?}, trust_len={}, permit_len={}",
-                    netuid,
-                    trust.len(),
-                    permit.len()
+                    "dissolve_all_lp: ValidatorTrust/Permit length mismatch: netuid={netuid:?}, trust_len={trust_len}, permit_len={permit_len}"
                 );
                 return Err(sp_runtime::DispatchError::Other(
                     "validator_meta_len_mismatch",
@@ -1280,12 +1279,9 @@ impl<T: Config> Pallet<T> {
                             if alpha_total_from_pool > AlphaCurrency::ZERO {
                                 burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
                             }
+                            let tao = rm.tao;
                             log::debug!(
-                                "dissolve_all_lp: burned protocol pos: netuid={:?}, pos_id={:?}, τ={:?}, α_total={:?}",
-                                netuid,
-                                pos_id,
-                                rm.tao,
-                                alpha_total_from_pool
+                                "dissolve_all_lp: burned protocol pos: netuid={netuid:?}, pos_id={pos_id:?}, τ={tao:?}, α_total={alpha_total_from_pool:?}"
                             );
                         } else {
                             // ---------------- USER: refund τ and convert α → τ ----------------
@@ -1318,23 +1314,14 @@ impl<T: Config> Pallet<T> {
                                         user_staked_alpha.saturating_add(alpha_total_from_pool);
 
                                     log::debug!(
-                                        "dissolve_all_lp: user dissolved & staked α: netuid={:?}, owner={:?}, pos_id={:?}, α_staked={:?}, target_uid={}",
-                                        netuid,
-                                        owner,
-                                        pos_id,
-                                        alpha_total_from_pool,
-                                        target_uid
+                                        "dissolve_all_lp: user dissolved & staked α: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, α_staked={alpha_total_from_pool:?}, target_uid={target_uid}"
                                     );
                                 } else {
                                     // No permitted validators; burn to avoid balance drift.
                                     burned_alpha =
                                         burned_alpha.saturating_add(alpha_total_from_pool);
                                     log::debug!(
-                                        "dissolve_all_lp: no permitted validators; α burned: netuid={:?}, owner={:?}, pos_id={:?}, α_total={:?}",
-                                        netuid,
-                                        owner,
-                                        pos_id,
-                                        alpha_total_from_pool
+                                        "dissolve_all_lp: no permitted validators; α burned: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, α_total={alpha_total_from_pool:?}"
                                     );
                                 }
 
@@ -1347,11 +1334,7 @@ impl<T: Config> Pallet<T> {
                     }
                     Err(e) => {
                         log::debug!(
-                            "dissolve_all_lp: force-close failed: netuid={:?}, owner={:?}, pos_id={:?}, err={:?}",
-                            netuid,
-                            owner,
-                            pos_id,
-                            e
+                            "dissolve_all_lp: force-close failed: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, err={e:?}"
                         );
                         continue;
                     }
@@ -1380,12 +1363,7 @@ impl<T: Config> Pallet<T> {
             EnabledUserLiquidity::<T>::remove(netuid);
 
             log::debug!(
-                "dissolve_all_liquidity_providers: netuid={:?}, users_refunded_total_τ={:?}, users_staked_total_α={:?}; protocol_burned: τ={:?}, α={:?}; state cleared",
-                netuid,
-                user_refunded_tao,
-                user_staked_alpha,
-                burned_tao,
-                burned_alpha
+                "dissolve_all_liquidity_providers: netuid={netuid:?}, users_refunded_total_τ={user_refunded_tao:?}, users_staked_total_α={user_staked_alpha:?}; protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
             );
 
             return Ok(());
@@ -1413,8 +1391,7 @@ impl<T: Config> Pallet<T> {
         EnabledUserLiquidity::<T>::remove(netuid);
 
         log::debug!(
-            "dissolve_all_liquidity_providers: netuid={:?}, mode=V2-or-nonV3, state_cleared",
-            netuid
+            "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, state_cleared"
         );
 
         Ok(())
