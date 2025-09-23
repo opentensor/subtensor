@@ -233,7 +233,7 @@ mod dispatches {
         ///
         #[pallet::call_index(96)]
         #[pallet::weight((Weight::from_parts(67_770_000, 0)
-		.saturating_add(T::DbWeight::get().reads(9_u64))
+		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
             origin: T::RuntimeOrigin,
@@ -302,7 +302,7 @@ mod dispatches {
         ///
         #[pallet::call_index(100)]
         #[pallet::weight((Weight::from_parts(100_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(10_u64))
+        .saturating_add(T::DbWeight::get().reads(11_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
             origin: OriginFor<T>,
@@ -457,18 +457,18 @@ mod dispatches {
         /// * `TooManyUnrevealedCommits`:
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
-        #[pallet::call_index(99)]
-        #[pallet::weight((Weight::from_parts(77_750_000, 0)
-		.saturating_add(T::DbWeight::get().reads(9_u64))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_crv3_weights(
-            origin: T::RuntimeOrigin,
-            netuid: NetUid,
-            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
-            reveal_round: u64,
-        ) -> DispatchResult {
-            Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
-        }
+        // #[pallet::call_index(99)]
+        // #[pallet::weight((Weight::from_parts(77_750_000, 0)
+        // .saturating_add(T::DbWeight::get().reads(9_u64))
+        // .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        // pub fn commit_crv3_weights(
+        //     origin: T::RuntimeOrigin,
+        //     netuid: NetUid,
+        //     commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+        //     reveal_round: u64,
+        // ) -> DispatchResult {
+        //     Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
+        // }
 
         /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed for mechanisms.
         ///
@@ -1314,8 +1314,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(37_u64))
-		.saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(39_u64))
+		.saturating_add(T::DbWeight::get().writes(57_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1601,8 +1601,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
-            .saturating_add(T::DbWeight::get().reads(36_u64))
-            .saturating_add(T::DbWeight::get().writes(50_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().reads(38_u64))
+            .saturating_add(T::DbWeight::get().writes(56_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2265,7 +2265,7 @@ mod dispatches {
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
         #[pallet::weight((Weight::from_parts(80_690_000, 0)
-		.saturating_add(T::DbWeight::get().reads(9_u64))
+		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
             origin: T::RuntimeOrigin,
@@ -2357,6 +2357,17 @@ mod dispatches {
                 reveal_round,
                 commit_reveal_version,
             )
+        }
+
+        /// Remove a subnetwork
+        /// The caller must be root
+        #[pallet::call_index(120)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::do_dissolve_network(netuid)
         }
     }
 }

@@ -9,7 +9,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, NetUidStorageIndex};
 
 use super::mock;
 use super::mock::*;
@@ -2145,6 +2145,45 @@ fn test_registration_disabled() {
         assert_eq!(
             result,
             Err(Error::<Test>::SubNetRegistrationDisabled.into())
+        );
+    });
+}
+
+#[test]
+fn test_last_update_correctness() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
+        //add network
+        SubtensorModule::set_burn(netuid, burn_cost.into());
+        add_network(netuid, tempo, 0);
+
+        let reserve = 1_000_000_000_000;
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
+
+        // Simulate existing neurons
+        let existing_neurons = 3;
+        SubnetworkN::<Test>::insert(netuid, existing_neurons);
+
+        // Simulate no LastUpdate so far (can happen on mechanisms)
+        LastUpdate::<Test>::remove(NetUidStorageIndex::from(netuid));
+
+        // Give some $$$ to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        // Subscribe and check extrinsic output
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id
+        ));
+
+        // Check that LastUpdate has existing_neurons + 1 elements now
+        assert_eq!(
+            LastUpdate::<Test>::get(NetUidStorageIndex::from(netuid)).len(),
+            (existing_neurons + 1) as usize
         );
     });
 }

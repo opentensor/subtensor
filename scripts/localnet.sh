@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# If binaries are compiled in CI then skip this script
+if [ -n "$BUILT_IN_CI" ]; then
+  echo "[*] BUILT_IN_CI is set to '$BUILT_IN_CI'. Skipping script..."
+  exit 0
+fi
+
 # Check if `--no-purge` passed as a parameter
 NO_PURGE=0
 
@@ -54,9 +60,25 @@ if [ ! -d "$SPEC_PATH" ]; then
   mkdir -p "$SPEC_PATH"
 fi
 
-if [[ $BUILD_BINARY == "1" ]]; then
+if [[ "$BUILD_BINARY" == "1" ]]; then
   echo "*** Building substrate binary..."
-  CARGO_TARGET_DIR="$BUILD_DIR" cargo build --workspace --profile=release --features "$FEATURES" --manifest-path "$BASE_DIR/Cargo.toml"
+
+  BUILD_CMD=(
+    cargo build
+    --workspace
+    --profile=release
+    --features "$FEATURES"
+    --manifest-path "$BASE_DIR/Cargo.toml"
+  )
+
+  if [[ -n "$CARGO_BUILD_TARGET" ]]; then
+    echo "[+] Cross-compiling for target: $CARGO_BUILD_TARGET"
+    BUILD_CMD+=(--target "$CARGO_BUILD_TARGET")
+  else
+    echo "[+] Building for host architecture"
+  fi
+
+  CARGO_TARGET_DIR="$BUILD_DIR" "${BUILD_CMD[@]}"
   echo "*** Binary compiled"
 fi
 

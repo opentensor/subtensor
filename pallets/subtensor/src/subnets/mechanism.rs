@@ -39,6 +39,15 @@ impl<T: Config> Pallet<T> {
             .into()
     }
 
+    pub fn get_netuid(netuid_index: NetUidStorageIndex) -> NetUid {
+        if let Some(netuid) = u16::from(netuid_index).checked_rem(GLOBAL_MAX_SUBNET_COUNT) {
+            NetUid::from(netuid)
+        } else {
+            // Because GLOBAL_MAX_SUBNET_COUNT is not zero, this never happens
+            NetUid::ROOT
+        }
+    }
+
     pub fn get_netuid_and_subid(
         netuid_index: NetUidStorageIndex,
     ) -> Result<(NetUid, MechId), Error<T>> {
