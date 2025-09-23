@@ -14,11 +14,13 @@ use sp_runtime::{
     BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
+use subtensor_swap_interface::Order;
 
-use crate::pallet::EnabledUserLiquidity;
+use crate::pallet::{EnabledUserLiquidity, FeeGlobalAlpha, FeeGlobalTao};
 
 construct_runtime!(
     pub enum Test {
@@ -85,7 +87,8 @@ parameter_types! {
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
 
-pub(crate) struct TaoReserve;
+#[derive(Clone)]
+pub struct TaoReserve;
 
 impl CurrencyReserve<TaoCurrency> for TaoReserve {
     fn reserve(netuid: NetUid) -> TaoCurrency {
@@ -97,11 +100,12 @@ impl CurrencyReserve<TaoCurrency> for TaoReserve {
         .into()
     }
 
-    fn increase_provided(netuid: NetUid, amount: TaoCurrency) {}
-    fn decrease_provided(netuid: NetUid, amount: TaoCurrency) {}
+    fn increase_provided(_: NetUid, _: TaoCurrency) {}
+    fn decrease_provided(_: NetUid, _: TaoCurrency) {}
 }
 
-pub(crate) struct AlphaReserve;
+#[derive(Clone)]
+pub struct AlphaReserve;
 
 impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
     fn reserve(netuid: NetUid) -> AlphaCurrency {
@@ -112,8 +116,59 @@ impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
         }
     }
 
-    fn increase_provided(netuid: NetUid, amount: AlphaCurrency) {}
-    fn decrease_provided(netuid: NetUid, amount: AlphaCurrency) {}
+    fn increase_provided(_: NetUid, _: AlphaCurrency) {}
+    fn decrease_provided(_: NetUid, _: AlphaCurrency) {}
+}
+
+pub type AlphaForTao = subtensor_swap_interface::AlphaForTao<TaoReserve, AlphaReserve>;
+pub type TaoForAlpha = subtensor_swap_interface::TaoForAlpha<AlphaReserve, TaoReserve>;
+
+pub(crate) trait GlobalFeeInfo: Currency {
+    fn global_fee(&self, netuid: NetUid) -> U64F64;
+}
+
+impl GlobalFeeInfo for TaoCurrency {
+    fn global_fee(&self, netuid: NetUid) -> U64F64 {
+        FeeGlobalTao::<Test>::get(netuid)
+    }
+}
+
+impl GlobalFeeInfo for AlphaCurrency {
+    fn global_fee(&self, netuid: NetUid) -> U64F64 {
+        FeeGlobalAlpha::<Test>::get(netuid)
+    }
+}
+
+pub(crate) trait TestExt<O: Order> {
+    fn approx_expected_swap_output(
+        sqrt_current_price: f64,
+        liquidity_before: f64,
+        order_liquidity: f64,
+    ) -> f64;
+}
+
+impl TestExt<AlphaForTao> for Test {
+    fn approx_expected_swap_output(
+        sqrt_current_price: f64,
+        liquidity_before: f64,
+        order_liquidity: f64,
+    ) -> f64 {
+        let denom = sqrt_current_price * (sqrt_current_price * liquidity_before + order_liquidity);
+        let per_order_liq = liquidity_before / denom;
+        per_order_liq * order_liquidity
+    }
+}
+
+impl TestExt<TaoForAlpha> for Test {
+    fn approx_expected_swap_output(
+        sqrt_current_price: f64,
+        liquidity_before: f64,
+        order_liquidity: f64,
+    ) -> f64 {
+        let denom = liquidity_before / sqrt_current_price + order_liquidity;
+        let per_order_liq = sqrt_current_price * liquidity_before / denom;
+        per_order_liq * order_liquidity
+    }
 }
 
 // Mock implementor of SubnetInfo trait

@@ -14,7 +14,7 @@ pub trait Order: Clone {
     fn is_beyond_price_limit(&self, alpha_sqrt_price: U64F64, limit_sqrt_price: U64F64) -> bool;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct AlphaForTao<ReserveIn, ReserveOut>
 where
     ReserveIn: CurrencyReserve<TaoCurrency>,
@@ -50,7 +50,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TaoForAlpha<ReserveIn, ReserveOut>
 where
     ReserveIn: CurrencyReserve<AlphaCurrency>,
