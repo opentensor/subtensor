@@ -194,6 +194,7 @@ where
         destination_netuid: U256,
         amount_alpha: U256,
     ) -> EvmResult<()> {
+        log::error!("================== {} {}", file!(), line!());
         let account_id = handle.caller_account_id::<R>();
         let destination_coldkey = R::AccountId::from(destination_coldkey.0);
         let hotkey = R::AccountId::from(hotkey.0);

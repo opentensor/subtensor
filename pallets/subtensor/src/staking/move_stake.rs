@@ -126,8 +126,10 @@ impl<T: Config> Pallet<T> {
         destination_netuid: NetUid,
         alpha_amount: AlphaCurrency,
     ) -> dispatch::DispatchResult {
+        log::error!("================== {} {}", file!(), line!());
         // Ensure the extrinsic is signed by the origin_coldkey.
         let coldkey = ensure_signed(origin)?;
+        log::error!("================== {} {}", file!(), line!());
 
         // Validate input and move stake
         let tao_moved = Self::transition_stake_internal(
@@ -148,6 +150,7 @@ impl<T: Config> Pallet<T> {
         log::debug!(
             "StakeTransferred(origin_coldkey: {coldkey:?}, destination_coldkey: {destination_coldkey:?}, hotkey: {hotkey:?}, origin_netuid: {origin_netuid:?}, destination_netuid: {destination_netuid:?}, amount: {tao_moved:?})"
         );
+        log::error!("================== {} {}", file!(), line!());
         Self::deposit_event(Event::StakeTransferred(
             coldkey,
             destination_coldkey,
@@ -156,7 +159,7 @@ impl<T: Config> Pallet<T> {
             destination_netuid,
             tao_moved,
         ));
-
+        log::error!("================== {} {}", file!(), line!());
         // 10. Return success.
         Ok(())
     }
@@ -308,6 +311,7 @@ impl<T: Config> Pallet<T> {
         check_transfer_toggle: bool,
         set_limit: bool,
     ) -> Result<TaoCurrency, DispatchError> {
+        log::error!("================== {} {}", file!(), line!());
         // Cap the alpha_amount at available Alpha because user might be paying transaxtion fees
         // in Alpha and their total is already reduced by now.
         let alpha_available = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -315,7 +319,9 @@ impl<T: Config> Pallet<T> {
             origin_coldkey,
             origin_netuid,
         );
+        log::error!("================== {} {}", file!(), line!());
         let alpha_amount = alpha_amount.min(alpha_available);
+        log::error!("================== {} {}", file!(), line!());
 
         // Calculate the maximum amount that can be executed
         let max_amount = if origin_netuid != destination_netuid {
@@ -327,7 +333,7 @@ impl<T: Config> Pallet<T> {
         } else {
             alpha_amount
         };
-
+        log::error!("================== {} {}", file!(), line!());
         // Validate user input
         Self::validate_stake_transition(
             origin_coldkey,
@@ -341,18 +347,20 @@ impl<T: Config> Pallet<T> {
             maybe_allow_partial,
             check_transfer_toggle,
         )?;
-
+        log::error!("================== {} {}", file!(), line!());
         // Calculate the amount that should be moved in this operation
         let move_amount = if alpha_amount < max_amount {
             alpha_amount
         } else {
             max_amount
         };
+        log::error!("================== {} {}", file!(), line!());
 
         if origin_netuid != destination_netuid {
             // Any way to charge fees that works
             let drop_fee_origin = origin_netuid == NetUid::ROOT;
             let drop_fee_destination = !drop_fee_origin;
+            log::error!("================== {} {}", file!(), line!());
 
             // do not pay remove fees to avoid double fees in moves transactions
             let tao_unstaked = Self::unstake_from_subnet(
@@ -368,10 +376,12 @@ impl<T: Config> Pallet<T> {
             // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
             // do not restake.
             if tao_unstaked >= DefaultMinStake::<T>::get() {
+                log::error!("================== {} {}", file!(), line!());
                 // If the coldkey is not the owner, make the hotkey a delegate.
                 if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
                     Self::maybe_become_delegate(destination_hotkey);
                 }
+                log::error!("================== {} {}", file!(), line!());
 
                 Self::stake_into_subnet(
                     destination_hotkey,
@@ -386,6 +396,7 @@ impl<T: Config> Pallet<T> {
 
             Ok(tao_unstaked)
         } else {
+            log::error!("================== {} {}", file!(), line!());
             Self::transfer_stake_within_subnet(
                 origin_coldkey,
                 origin_hotkey,
