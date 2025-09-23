@@ -1982,7 +1982,6 @@ fn test_swap_subtoken_disabled() {
     });
 }
 
-/// V3 path: protocol + user positions exist, fees accrued, everything must be removed.
 #[test]
 fn test_liquidate_v3_removes_positions_ticks_and_state() {
     new_test_ext().execute_with(|| {
@@ -1992,7 +1991,7 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
         assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
         assert!(SwapV3Initialized::<Test>::get(netuid));
 
-        // Enable user LP (mock usually enables for 0..=100, but be explicit and consistent)
+        // Enable user LP
         assert_ok!(Swap::toggle_user_liquidity(
             RuntimeOrigin::root(),
             netuid.into(),
@@ -2041,14 +2040,14 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
         assert!(Ticks::<Test>::get(netuid, TickIndex::MAX).is_some());
         assert!(CurrentLiquidity::<Test>::get(netuid) > 0);
 
-        // There should be some bitmap words (active ticks) after adding a position.
         let had_bitmap_words = TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
             .next()
             .is_some();
         assert!(had_bitmap_words);
 
-        // ACT: Liquidate & reset swap state
+        // ACT: users-only liquidation then protocol clear
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
 
         // ASSERT: positions cleared (both user and protocol)
         assert_eq!(
@@ -2091,12 +2090,11 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
     });
 }
 
-/// V3 path with user liquidity disabled at teardown: must still remove all positions and clear state.
+/// V3 path with user liquidity disabled at teardown:
+/// must still remove positions and clear state (after protocol clear).
 #[test]
 fn test_liquidate_v3_with_user_liquidity_disabled() {
     new_test_ext().execute_with(|| {
-        // Pick a netuid the mock treats as "disabled" by default (per your comment >100),
-        // then explicitly walk through enable -> add -> disable -> liquidate.
         let netuid = NetUid::from(101);
 
         assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
@@ -2125,15 +2123,16 @@ fn test_liquidate_v3_with_user_liquidity_disabled() {
         )
         .expect("add liquidity");
 
-        // Disable user LP *before* liquidation to validate that removal ignores this flag.
+        // Disable user LP *before* liquidation; removal must ignore this flag.
         assert_ok!(Swap::toggle_user_liquidity(
             RuntimeOrigin::root(),
             netuid.into(),
             false
         ));
 
-        // ACT
+        // Users-only dissolve, then clear protocol liquidity/state.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
 
         // ASSERT: positions & ticks gone, state reset
         assert_eq!(
@@ -2158,7 +2157,7 @@ fn test_liquidate_v3_with_user_liquidity_disabled() {
         assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
         assert!(!FeeGlobalAlpha::<Test>::contains_key(netuid));
 
-        // `EnabledUserLiquidity` is removed by liquidation.
+        // `EnabledUserLiquidity` is removed by protocol clear stage.
         assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
     });
 }
@@ -2205,7 +2204,6 @@ fn test_liquidate_non_v3_uninitialized_ok_and_clears() {
     });
 }
 
-/// Idempotency: calling liquidation twice is safe (both V3 and non‑V3 flavors).
 #[test]
 fn test_liquidate_idempotent() {
     // V3 flavor
@@ -2230,10 +2228,13 @@ fn test_liquidate_idempotent() {
             123_456_789
         ));
 
-        // 1st liquidation
+        // Users-only liquidations are idempotent.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
-        // 2nd liquidation (no state left) — must still succeed
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
+
+        // Now clear protocol liquidity/state—also idempotent.
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
 
         // State remains empty
         assert!(
@@ -2254,7 +2255,7 @@ fn test_liquidate_idempotent() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(8);
 
-        // Never initialize V3
+        // Never initialize V3; both calls no-op and succeed.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
@@ -2286,7 +2287,7 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         ));
         assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
 
-        // Use distinct cold/hot to demonstrate alpha refund goes to (owner, owner).
+        // Use distinct cold/hot to demonstrate alpha refund/stake accounting.
         let cold = OK_COLDKEY_ACCOUNT_ID;
         let hot = OK_HOTKEY_ACCOUNT_ID;
 
@@ -2322,15 +2323,14 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         <Test as Config>::BalanceOps::increase_provided_tao_reserve(netuid.into(), tao_taken);
         <Test as Config>::BalanceOps::increase_provided_alpha_reserve(netuid.into(), alpha_taken);
 
-        // Liquidate everything on the subnet.
+        // Users‑only liquidation.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // Expect balances restored to BEFORE snapshots (no swaps ran -> zero fees).
-        // TAO: we withdrew 'need_tao' above and liquidation refunded it, so we should be back to 'tao_before'.
         let tao_after = <Test as Config>::BalanceOps::tao_balance(&cold);
         assert_eq!(tao_after, tao_before, "TAO principal must be refunded");
 
-        // ALPHA: refund is credited to (coldkey=cold, hotkey=cold). Compare totals across both ledgers.
+        // ALPHA totals conserved to owner (distribution may differ).
         let alpha_after_hot =
             <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot);
         let alpha_after_owner =
@@ -2338,8 +2338,11 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         let alpha_after_total = alpha_after_hot + alpha_after_owner;
         assert_eq!(
             alpha_after_total, alpha_before_total,
-            "ALPHA principal must be refunded to the account (may be credited to (owner, owner))"
+            "ALPHA principal must be refunded/staked for the account (check totals)"
         );
+
+        // Clear protocol liquidity and V3 state now.
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
 
         // User position(s) are gone and all V3 state cleared.
         assert_eq!(Pallet::<Test>::count_positions(netuid, &cold), 0);
@@ -2386,10 +2389,10 @@ fn refund_alpha_single_provider_exact() {
         .expect("decrease ALPHA");
         <Test as Config>::BalanceOps::increase_provided_alpha_reserve(netuid.into(), alpha_taken);
 
-        // --- Act: dissolve (calls refund_alpha inside).
+        // --- Act: users‑only dissolve.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
-        // --- Assert: refunded back to the owner (may credit to (cold,cold)).
+        // --- Assert: total α conserved to owner (may be staked to validator).
         let alpha_after_hot =
             <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot);
         let alpha_after_owner =
@@ -2397,8 +2400,11 @@ fn refund_alpha_single_provider_exact() {
         let alpha_after_total = alpha_after_hot + alpha_after_owner;
         assert_eq!(
             alpha_after_total, alpha_before_total,
-            "ALPHA principal must be conserved to the owner"
+            "ALPHA principal must be conserved to the account"
         );
+
+        // Clear protocol liquidity and V3 state now.
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
 
         // --- State is cleared.
         assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
@@ -2593,7 +2599,6 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
             <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &validator_hotkey);
 
         let alpha_before_total = if validator_hotkey == hot {
-            // Avoid double counting when validator == user's hotkey.
             alpha_before_hot + alpha_before_owner
         } else {
             alpha_before_hot + alpha_before_owner + alpha_before_val
@@ -2635,13 +2640,10 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
         );
 
         if validator_hotkey == hot {
-            // Net effect: user's hot ledger returns to its original balance.
             assert_eq!(
                 alpha_after_hot, alpha_before_hot,
                 "When validator == hotkey, user's hot ledger must net back to its original balance"
             );
-
-            // Totals without double-counting the same ledger.
             let alpha_after_total = alpha_after_hot + alpha_after_owner;
             assert_eq!(
                 alpha_after_total, alpha_before_total,
@@ -2659,13 +2661,11 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
 
             let hot_loss = alpha_before_hot - alpha_after_hot;
             let val_gain = alpha_after_val - alpha_before_val;
-
             assert_eq!(
                 val_gain, hot_loss,
                 "α that left the user's hot ledger must equal α credited to the validator ledger"
             );
 
-            // Totals across distinct ledgers must be conserved.
             let alpha_after_total = alpha_after_hot + alpha_after_owner + alpha_after_val;
             assert_eq!(
                 alpha_after_total, alpha_before_total,
@@ -2673,9 +2673,10 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
             );
         }
 
-        // --- Assert: All positions (user + protocol) removed and V3 state cleared ---
-        let protocol_id = Pallet::<Test>::protocol_account_id();
+        // Now clear protocol liquidity & state and assert full reset.
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
 
+        let protocol_id = Pallet::<Test>::protocol_account_id();
         assert_eq!(Pallet::<Test>::count_positions(netuid, &cold), 0);
         let prot_positions_after =
             Positions::<Test>::iter_prefix_values((netuid, protocol_id)).collect::<Vec<_>>();
@@ -2684,7 +2685,6 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
             "protocol positions must be removed"
         );
 
-        // Ticks / liquidity / price / flags cleared
         assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
         assert!(Ticks::<Test>::get(netuid, TickIndex::MIN).is_none());
         assert!(Ticks::<Test>::get(netuid, TickIndex::MAX).is_none());
@@ -2693,11 +2693,9 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
         assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
 
-        // Fee globals cleared
         assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
         assert!(!FeeGlobalAlpha::<Test>::contains_key(netuid));
 
-        // Active tick bitmap cleared
         assert!(
             TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
                 .next()
@@ -2705,8 +2703,89 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
             "active tick bitmap words must be cleared"
         );
 
+        assert!(!FeeRate::<Test>::contains_key(netuid));
+        assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
+    });
+}
+
+#[test]
+fn test_clear_protocol_liquidity_green_path() {
+    new_test_ext().execute_with(|| {
+        // --- Arrange ---
+        let netuid = NetUid::from(55);
+
+        // Ensure the "user liquidity enabled" flag exists so we can verify it's removed later.
+        assert_ok!(Pallet::<Test>::toggle_user_liquidity(
+            RuntimeOrigin::root(),
+            netuid,
+            true
+        ));
+
+        // Initialize V3 state; this should set price/tick flags and create a protocol position.
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+        assert!(
+            SwapV3Initialized::<Test>::get(netuid),
+            "V3 must be initialized"
+        );
+
+        // Sanity: protocol positions exist before clearing.
+        let protocol_id = Pallet::<Test>::protocol_account_id();
+        let prot_positions_before =
+            Positions::<Test>::iter_prefix_values((netuid, protocol_id)).collect::<Vec<_>>();
+        assert!(
+            !prot_positions_before.is_empty(),
+            "protocol positions should exist after V3 init"
+        );
+
+        // --- Act ---
+        // Green path: just clear protocol liquidity and wipe all V3 state.
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+
+        // --- Assert: all protocol positions removed ---
+        let prot_positions_after =
+            Positions::<Test>::iter_prefix_values((netuid, protocol_id)).collect::<Vec<_>>();
+        assert!(
+            prot_positions_after.is_empty(),
+            "protocol positions must be removed by do_clear_protocol_liquidity"
+        );
+
+        // --- Assert: V3 data wiped (idempotent even if some maps were empty) ---
+        // Ticks / active tick bitmap
+        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(
+            TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
+                .next()
+                .is_none(),
+            "active tick bitmap words must be cleared"
+        );
+
+        // Fee globals
+        assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
+        assert!(!FeeGlobalAlpha::<Test>::contains_key(netuid));
+
+        // Price / tick / liquidity / flags
+        assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
+        assert!(!CurrentTick::<Test>::contains_key(netuid));
+        assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
+        assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
+
         // Knobs removed
         assert!(!FeeRate::<Test>::contains_key(netuid));
         assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
+
+        // --- And it's idempotent ---
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        assert!(
+            Positions::<Test>::iter_prefix_values((netuid, protocol_id))
+                .next()
+                .is_none()
+        );
+        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(
+            TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
+                .next()
+                .is_none()
+        );
+        assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
     });
 }
