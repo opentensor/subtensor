@@ -1243,17 +1243,6 @@ impl<T: Config> Pallet<T> {
             let trust: Vec<u16> = T::SubnetInfo::get_validator_trust(netuid.into());
             let permit: Vec<bool> = T::SubnetInfo::get_validator_permit(netuid.into());
 
-            if trust.len() != permit.len() {
-                let trust_len = trust.len();
-                let permit_len = permit.len();
-                log::debug!(
-                    "dissolve_all_lp: ValidatorTrust/Permit length mismatch: netuid={netuid:?}, trust_len={trust_len}, permit_len={permit_len}"
-                );
-                return Err(sp_runtime::DispatchError::Other(
-                    "validator_meta_len_mismatch",
-                ));
-            }
-
             // Helper: pick target validator uid, only among permitted validators, by highest trust.
             let pick_target_uid = |trust: &Vec<u16>, permit: &Vec<bool>| -> Option<u16> {
                 let mut best_uid: Option<usize> = None;
