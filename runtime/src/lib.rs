@@ -1649,9 +1649,7 @@ impl Contains<RuntimeCall> for ContractCallFilter {
             ),
             RuntimeCall::Proxy(inner) => matches!(
                 inner,
-                pallet_proxy::Call::proxy { .. }
-                    | pallet_proxy::Call::add_proxy { .. }
-                    | pallet_proxy::Call::create_pure { .. }
+                pallet_proxy::Call::proxy { .. } | pallet_proxy::Call::add_proxy { .. }
             ),
             _ => false,
         }
