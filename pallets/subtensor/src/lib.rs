@@ -2146,6 +2146,18 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn is_subtoken_enabled(netuid: NetUid) -> bool {
         SubtokenEnabled::<T>::get(netuid)
     }
+
+    fn get_validator_trust(netuid: NetUid) -> Vec<u16> {
+        ValidatorTrust::<T>::get(netuid)
+    }
+
+    fn get_validator_permit(netuid: NetUid) -> Vec<bool> {
+        ValidatorPermit::<T>::get(netuid)
+    }
+
+    fn hotkey_of_uid(netuid: NetUid, uid: u16) -> Option<T::AccountId> {
+        Keys::<T>::try_get(netuid, uid).ok()
+    }
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
