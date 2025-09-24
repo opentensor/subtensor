@@ -2,8 +2,8 @@
 pragma solidity >=0.8.2 <0.9.0;
 
 interface IStaking {
-    function transferStake(bytes32 coldkey, bytes32 hotkey, uint256 netuid, uint256 amount) external;
-    function moveStake(bytes32 coldkey, bytes32 hotkey, uint256 netuid, uint256 amount) external;
+    function transferStake(bytes32 coldkey, bytes32 hotkey, uint256 netuid1, uint256 netuid2, uint256 amount) external;
+    function moveStake(bytes32 hotkey1, bytes32 hotkey2, uint256 netuid1, uint256 netuid2, uint256 amount) external;
 }
 
 contract AlphaPool {
