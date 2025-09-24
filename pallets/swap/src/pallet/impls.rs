@@ -1286,7 +1286,7 @@ impl<T: Config> Pallet<T> {
                                 T::BalanceOps::increase_stake(
                                     &owner,
                                     &validator_hotkey,
-                                    netuid,
+                                    NetUid::ROOT,
                                     alpha_total_from_pool,
                                 )?;
 
