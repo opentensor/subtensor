@@ -1,13 +1,13 @@
 use crate::tests::mock::{RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext};
 use crate::{
     NetworksAdded, RootClaimable, SubnetAlphaIn, SubnetMechanism, SubnetTAO, SubtokenEnabled,
-    pallet,
+    Tempo, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use sp_core::U256;
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -707,5 +707,67 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             new_stake2 + estimated_stake_increment3 as u64,
             epsilon = 10000u64,
         );
+    });
+}
+
+#[test]
+fn test_claim_root_with_run_coinbase() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        Tempo::<Test>::insert(netuid, 1);
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let root_stake = 200_000_000u64;
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(root_stake));
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        // Distribute pending root alpha
+
+        let initial_stake: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
+                .into();
+        assert_eq!(initial_stake, 0u64);
+
+        let block_emissions = 1_000_000u64;
+        SubtensorModule::run_coinbase(U96F32::from(block_emissions));
+
+        // Claim root alpha
+
+        let initial_stake: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
+                .into();
+        assert_eq!(initial_stake, 0u64);
+
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            RootClaimTypeEnum::Keep
+        ),);
+        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
+
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+
+        let new_stake: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
+                .into();
+
+        assert!(new_stake > 0);
     });
 }
