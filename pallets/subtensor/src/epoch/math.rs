@@ -294,7 +294,7 @@ pub fn inplace_row_normalize_64(x: &mut [Vec<I64F64>]) {
 pub fn vecdiv(x: &[I32F32], y: &[I32F32]) -> Vec<I32F32> {
     if x.len() != y.len() {
         log::error!(
-            "vecdiv input lengths are not equal: {:?} != {:?}",
+            "math error: vecdiv input lengths are not equal: {:?} != {:?}",
             x.len(),
             y.len()
         );
@@ -487,7 +487,7 @@ pub fn inplace_col_max_upscale(x: &mut [Vec<I32F32>]) {
 pub fn inplace_mask_vector(mask: &[bool], vector: &mut [I32F32]) {
     if mask.len() != vector.len() {
         log::error!(
-            "inplace_mask_vector input lengths are not equal: {:?} != {:?}",
+            "math error: inplace_mask_vector input lengths are not equal: {:?} != {:?}",
             mask.len(),
             vector.len()
         );
@@ -508,7 +508,7 @@ pub fn inplace_mask_vector(mask: &[bool], vector: &mut [I32F32]) {
 pub fn inplace_mask_matrix(mask: &[Vec<bool>], matrix: &mut [Vec<I32F32>]) {
     if mask.len() != matrix.len() {
         log::error!(
-            "inplace_mask_matrix input sizes are not equal: {:?} != {:?}",
+            "math error: inplace_mask_matrix input sizes are not equal: {:?} != {:?}",
             mask.len(),
             matrix.len()
         );
@@ -538,7 +538,7 @@ pub fn inplace_mask_matrix(mask: &[Vec<bool>], matrix: &mut [Vec<I32F32>]) {
 pub fn inplace_mask_rows(mask: &[bool], matrix: &mut [Vec<I32F32>]) {
     if mask.len() != matrix.len() {
         log::error!(
-            "inplace_mask_rows input sizes are not equal: {:?} != {:?}",
+            "math error: inplace_mask_rows input sizes are not equal: {:?} != {:?}",
             mask.len(),
             matrix.len()
         );
@@ -560,7 +560,7 @@ pub fn inplace_mask_rows(mask: &[bool], matrix: &mut [Vec<I32F32>]) {
 pub fn inplace_mask_cols(mask: &[bool], matrix: &mut [Vec<I32F32>]) {
     if mask.len() != matrix.len() {
         log::error!(
-            "inplace_mask_cols input sizes are not equal: {:?} != {:?}",
+            "math error: inplace_mask_cols input sizes are not equal: {:?} != {:?}",
             mask.len(),
             matrix.len()
         );
@@ -591,7 +591,7 @@ pub fn inplace_mask_diag(matrix: &mut [Vec<I32F32>]) {
     // with no action. Log error if this happens.
     if matrix.len() != first_row.len() {
         log::error!(
-            "inplace_mask_diag: matrix.len {:?} != first_row.len {:?}",
+            "math error: inplace_mask_diag: matrix.len {:?} != first_row.len {:?}",
             matrix.len(),
             first_row.len()
         );
@@ -641,7 +641,7 @@ pub fn inplace_mask_diag_except_index(matrix: &mut [Vec<I32F32>], except_index: 
     }
     if matrix.len() != first_row.len() {
         log::error!(
-            "inplace_mask_diag input matrix is now square: {:?} != {:?}",
+            "math error: inplace_mask_diag input matrix is now square: {:?} != {:?}",
             matrix.len(),
             first_row.len()
         );
@@ -794,7 +794,7 @@ pub fn matmul(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<I32F32> {
     }
     if matrix.len() != vector.len() {
         log::error!(
-            "matmul input sizes are not equal: {:?} != {:?}",
+            "math error: matmul input sizes are not equal: {:?} != {:?}",
             matrix.len(),
             vector.len()
         );
@@ -830,11 +830,11 @@ pub fn matmul_transpose(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<I32F32
     if first_row.is_empty() {
         return vec![];
     }
-    if matrix.len() != first_row.len() {
+    if vector.len() != first_row.len() {
         log::error!(
-            "matmul_transpose matrix is not square: {:?} != {:?}",
-            matrix.len(),
-            first_row.len()
+            "math error: matmul_transpose matrix width doesn't match to vector height: {:?} != {:?}",
+            first_row.len(),
+            vector.len()
         );
     }
 
@@ -983,7 +983,7 @@ pub fn weighted_median(
     let zero = I32F32::saturating_from_num(0.0);
     if stake.len() != score.len() {
         log::error!(
-            "weighted_median stake and score have different lengths: {:?} != {:?}",
+            "math error: weighted_median stake and score have different lengths: {:?} != {:?}",
             stake.len(),
             score.len()
         );
@@ -1082,7 +1082,7 @@ pub fn weighted_median_col(
                         use_stake.push(zero);
                         use_score.push(zero);
                         log::error!(
-                            "weighted_median_col row.len() != columns: {:?} != {:?}",
+                            "math error: weighted_median_col row.len() != columns: {:?} != {:?}",
                             row.len(),
                             columns
                         );
@@ -1189,7 +1189,7 @@ pub fn interpolate(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>], ratio: I32F32) ->
     }
     if mat1.len() != mat2.len() {
         log::error!(
-            "interpolate mat1.len() != mat2.len(): {:?} != {:?}",
+            "math error: interpolate mat1.len() != mat2.len(): {:?} != {:?}",
             mat1.len(),
             mat2.len()
         );
@@ -1213,12 +1213,12 @@ pub fn interpolate(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>], ratio: I32F32) ->
 
     for row1 in mat1.iter() {
         let (Some(row2), Some(out_row)) = (m2_it.next(), out_it.next()) else {
-            log::error!("interpolate: No more rows in mat2");
+            log::error!("math error: interpolate: No more rows in mat2");
             break;
         };
         if row1.len() != row2.len() {
             log::error!(
-                "interpolate row1.len() != row2.len(): {:?} != {:?}",
+                "math error: interpolate row1.len() != row2.len(): {:?} != {:?}",
                 row1.len(),
                 row2.len()
             );
@@ -1259,7 +1259,7 @@ pub fn interpolate_sparse(
     if mat1.len() != mat2.len() {
         // In case if sizes mismatch, return clipped weights
         log::error!(
-            "interpolate_sparse: mat1.len() != mat2.len(): {:?} != {:?}",
+            "math error: interpolate_sparse: mat1.len() != mat2.len(): {:?} != {:?}",
             mat1.len(),
             mat2.len()
         );
@@ -1410,7 +1410,7 @@ pub fn mat_ema_sparse(
 ) -> Vec<Vec<(u16, I32F32)>> {
     if new.len() != old.len() {
         log::error!(
-            "mat_ema_sparse: new.len() == old.len(): {:?} != {:?}",
+            "math error: mat_ema_sparse: new.len() == old.len(): {:?} != {:?}",
             new.len(),
             old.len()
         );
@@ -1469,7 +1469,7 @@ pub fn mat_ema_alpha_sparse(
     // If shapes don't match, just return `new`
     if new.len() != old.len() || new.len() != alpha.len() {
         log::error!(
-            "mat_ema_alpha_sparse shapes don't match: {:?} vs. {:?} vs. {:?}",
+            "math error: mat_ema_alpha_sparse shapes don't match: {:?} vs. {:?} vs. {:?}",
             old.len(),
             new.len(),
             alpha.len()
@@ -1489,15 +1489,6 @@ pub fn mat_ema_alpha_sparse(
         let Some(alpha_row) = alf_it.next() else {
             break;
         };
-
-        if new_row.len() != old_row.len() || new_row.len() != alpha_row.len() {
-            log::error!(
-                "mat_ema_alpha_sparse row shapes don't match: {:?} vs. {:?} vs. {:?}",
-                old_row.len(),
-                new_row.len(),
-                alpha_row.len()
-            );
-        }
 
         // Densified accumulator sized to alpha_row length (columns outside are ignored).
         let mut decayed_values = vec![zero; alpha_row.len()];
@@ -1546,7 +1537,7 @@ pub fn mat_ema_alpha(
     // If outer dimensions don't match, return bonds unchanged
     if new.len() != old.len() || new.len() != alpha.len() {
         log::error!(
-            "mat_ema_alpha shapes don't match: {:?} vs. {:?} vs. {:?}",
+            "math error: mat_ema_alpha shapes don't match: {:?} vs. {:?} vs. {:?}",
             old.len(),
             new.len(),
             alpha.len()
