@@ -17,7 +17,7 @@ use sp_runtime::transaction_validity::{
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 
 #[freeze_struct("2e02eb32e5cb25d3")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
@@ -53,7 +53,7 @@ where
         if let Err(err) = result {
             Err(match err {
                 Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow.into(),
-                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetDoesntExist.into(),
+                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetNotExists.into(),
                 Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow.into(),
                 Error::<T>::HotKeyAccountNotExists => {
                     CustomTransactionError::HotkeyAccountDoesntExist.into()
@@ -149,7 +149,7 @@ where
                 if Self::check_weights_min_stake(who, *netuid) {
                     let provided_hash = Pallet::<T>::get_commit_hash(
                         who,
-                        *netuid,
+                        NetUidStorageIndex::from(*netuid),
                         uids,
                         values,
                         salt,
@@ -186,7 +186,7 @@ where
                             .map(|i| {
                                 Pallet::<T>::get_commit_hash(
                                     who,
-                                    *netuid,
+                                    NetUidStorageIndex::from(*netuid),
                                     uids_list.get(i).unwrap_or(&Vec::new()),
                                     values_list.get(i).unwrap_or(&Vec::new()),
                                     salts_list.get(i).unwrap_or(&Vec::new()),
@@ -279,7 +279,7 @@ where
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::register_network { .. }) => {
-                if !Pallet::<T>::passes_rate_limit(&TransactionType::RegisterNetwork, who) {
+                if !TransactionType::RegisterNetwork.passes_rate_limit::<T>(who) {
                     return Err(CustomTransactionError::RateLimitExceeded.into());
                 }
 
