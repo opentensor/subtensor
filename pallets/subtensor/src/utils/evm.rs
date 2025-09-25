@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
-        Self::ensure_evm_key_associate_rate_limit(&hotkey, netuid, uid)?;
+        Self::ensure_evm_key_associate_rate_limit(netuid, uid)?;
 
         let block_hash = keccak_256(block_number.encode().as_ref());
         let message = [hotkey.encode().as_ref(), block_hash.as_ref()].concat();
@@ -104,18 +104,14 @@ impl<T: Config> Pallet<T> {
         ret_val
     }
 
-    pub fn ensure_evm_key_associate_rate_limit(
-        hotkey: &T::AccountId,
-        netuid: NetUid,
-        uid: u16,
-    ) -> DispatchResult {
+    pub fn ensure_evm_key_associate_rate_limit(netuid: NetUid, uid: u16) -> DispatchResult {
         let now = Self::get_current_block_as_u64();
         let block_associated = match AssociatedEvmAddress::<T>::get(netuid, uid) {
             Some((_, block_associated)) => block_associated,
             None => 0,
         };
         let block_diff = now.saturating_sub(block_associated);
-        if block_diff < EvmKeyAssociateRateLimit::<T>::get() {
+        if block_diff < T::EvmKeyAssociateRateLimit::get() {
             return Err(Error::<T>::EvmKeyAssociateRateLimitExceeded.into());
         }
         Ok(())

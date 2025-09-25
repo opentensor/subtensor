@@ -2002,6 +2002,8 @@ pub enum CustomTransactionError {
     CommitNotFound,
     CommitBlockNotInRevealRange,
     InputLengthsUnequal,
+    UidNotFound,
+    EvmKeyAssociateRateLimitExceeded,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -2027,6 +2029,8 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::CommitNotFound => 16,
             CustomTransactionError::CommitBlockNotInRevealRange => 17,
             CustomTransactionError::InputLengthsUnequal => 18,
+            CustomTransactionError::UidNotFound => 19,
+            CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
         }
     }
 }
