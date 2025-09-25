@@ -7,6 +7,7 @@ mod difficulty;
 mod emission;
 mod ensure;
 mod epoch;
+mod epoch_logs;
 mod evm;
 mod leasing;
 mod math;
