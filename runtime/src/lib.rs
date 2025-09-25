@@ -1188,7 +1188,7 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
 
-    pub const SubtensorInitialEvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT; // 100 blocks
+    pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT; // 100 blocks
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1268,6 +1268,7 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
 parameter_types! {
