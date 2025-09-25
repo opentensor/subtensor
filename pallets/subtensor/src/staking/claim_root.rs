@@ -1,13 +1,14 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
+use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     pub fn block_hash_to_indices(block_hash: T::Hash, k: u64, n: u64) -> Vec<u64> {
         let block_hash_bytes = block_hash.as_ref();
-        let mut indices: Vec<u64> = Vec::new();
+        let mut indices: BTreeSet<u64> = BTreeSet::new();
         // k < n
         let start_index: u64 = u64::from_be_bytes(
             block_hash_bytes
@@ -30,10 +31,10 @@ impl<T: Config> Pallet<T> {
                 .saturating_add(idx_step)
                 .checked_rem(n)
                 .unwrap_or(0);
-            indices.push(idx);
+            indices.insert(idx);
             last_idx = idx;
         }
-        indices
+        indices.into_iter().collect()
     }
 
     pub fn increase_root_claimable_for_hotkey_and_subnet(
@@ -277,6 +278,15 @@ impl<T: Config> Pallet<T> {
         Weight::default()
     }
 
+    pub fn maybe_add_coldkey_index(coldkey: &T::AccountId) {
+        if !StakingColdkeys::<T>::contains_key(coldkey) {
+            let n = NumStakingColdkeys::<T>::get();
+            StakingColdkeysByIndex::<T>::insert(n, coldkey.clone());
+            StakingColdkeys::<T>::insert(coldkey.clone(), n);
+            NumStakingColdkeys::<T>::mutate(|n| *n = n.saturating_add(1));
+        }
+    }
+
     pub fn run_auto_claim_root_divs(last_block_hash: T::Hash) -> Weight {
         let mut weight: Weight = Weight::default();
 
@@ -289,7 +299,7 @@ impl<T: Config> Pallet<T> {
 
         for i in coldkeys_to_claim.iter() {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
-            if let Ok(coldkey) = StakingColdkeys::<T>::try_get(i) {
+            if let Ok(coldkey) = StakingColdkeysByIndex::<T>::try_get(i) {
                 weight.saturating_accrue(Self::do_root_claim(coldkey.clone()));
             }
 

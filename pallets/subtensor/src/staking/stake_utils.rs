@@ -830,6 +830,7 @@ impl<T: Config> Pallet<T> {
             // Adjust root claimed for this hotkey and coldkey.
             let alpha = swap_result.amount_paid_out.into();
             Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
+            Self::maybe_add_coldkey_index(coldkey);
         }
 
         // Deposit and log the staking event.

@@ -1865,7 +1865,11 @@ pub mod pallet {
     >;
 
     #[pallet::storage] // --- MAP ( u64 ) --> coldkey | Maps coldkeys that have stake to an index
-    pub type StakingColdkeys<T: Config> = StorageMap<_, Identity, u64, T::AccountId, OptionQuery>;
+    pub type StakingColdkeysByIndex<T: Config> =
+        StorageMap<_, Identity, u64, T::AccountId, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( coldkey ) --> index | Maps index that have stake to a coldkey
+    pub type StakingColdkeys<T: Config> = StorageMap<_, Identity, T::AccountId, u64, OptionQuery>;
 
     #[pallet::storage] // --- Value --> num_staking_coldkeys
     pub type NumStakingColdkeys<T: Config> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
