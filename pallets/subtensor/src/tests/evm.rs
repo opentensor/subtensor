@@ -58,9 +58,8 @@ fn test_associate_evm_key_success() {
         let signature = sign_evm_message(&pair, message);
 
         assert_ok!(SubtensorModule::associate_evm_key(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid,
-            hotkey,
             evm_key,
             block_number,
             signature,
@@ -105,9 +104,8 @@ fn test_associate_evm_key_different_block_number_success() {
         let signature = sign_evm_message(&pair, message);
 
         assert_ok!(SubtensorModule::associate_evm_key(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid,
-            hotkey,
             evm_key,
             block_number,
             signature,
@@ -150,9 +148,8 @@ fn test_associate_evm_key_coldkey_does_not_own_hotkey() {
 
         assert_err!(
             SubtensorModule::associate_evm_key(
-                RuntimeOrigin::signed(coldkey),
+                RuntimeOrigin::signed(hotkey),
                 netuid,
-                hotkey,
                 evm_key,
                 block_number,
                 signature,
@@ -188,9 +185,8 @@ fn test_associate_evm_key_hotkey_not_registered_in_subnet() {
 
         assert_err!(
             SubtensorModule::associate_evm_key(
-                RuntimeOrigin::signed(coldkey),
+                RuntimeOrigin::signed(hotkey),
                 netuid,
-                hotkey,
                 evm_key,
                 block_number,
                 signature,
@@ -229,9 +225,8 @@ fn test_associate_evm_key_using_wrong_hash_function() {
 
         assert_err!(
             SubtensorModule::associate_evm_key(
-                RuntimeOrigin::signed(coldkey),
+                RuntimeOrigin::signed(hotkey),
                 netuid,
-                hotkey,
                 evm_key,
                 block_number,
                 signature,

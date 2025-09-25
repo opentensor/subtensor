@@ -46,17 +46,11 @@ impl<T: Config> Pallet<T> {
     pub fn do_associate_evm_key(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        hotkey: T::AccountId,
         evm_key: H160,
         block_number: u64,
         mut signature: Signature,
     ) -> dispatch::DispatchResult {
-        let coldkey = ensure_signed(origin)?;
-
-        ensure!(
-            Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
-            Error::<T>::NonAssociatedColdKey
-        );
+        let hotkey = ensure_signed(origin)?;
 
         // Normalize the v value to 0 or 1
         if signature.0[64] >= 27 {
@@ -64,6 +58,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
+        Self::ensure_evm_key_associate_rate_limit(&hotkey, netuid, uid)?;
 
         let block_hash = keccak_256(block_number.encode().as_ref());
         let message = [hotkey.encode().as_ref(), block_hash.as_ref()].concat();
@@ -107,5 +102,22 @@ impl<T: Config> Pallet<T> {
             .collect::<Vec<(u16, u64)>>();
         ret_val.sort_by(|(_, block1), (_, block2)| block1.cmp(block2));
         ret_val
+    }
+
+    pub fn ensure_evm_key_associate_rate_limit(
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+        uid: u16,
+    ) -> DispatchResult {
+        let now = Self::get_current_block_as_u64();
+        let block_associated = match AssociatedEvmAddress::<T>::get(netuid, uid) {
+            Some((_, block_associated)) => block_associated,
+            None => 0,
+        };
+        let block_diff = now.saturating_sub(block_associated);
+        if block_diff < EvmKeyAssociateRateLimit::<T>::get() {
+            return Err(Error::<T>::EvmKeyAssociateRateLimitExceeded.into());
+        }
+        Ok(())
     }
 }

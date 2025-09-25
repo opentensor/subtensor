@@ -1117,6 +1117,8 @@ pub const INITIAL_SUBNET_TEMPO: u16 = prod_or_fast!(360, 10);
 // 30 days at 12 seconds per block = 216000
 pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = prod_or_fast!(216000, 5);
 
+pub const EVM_KEY_ASSOCIATE_RATELIMIT: u64 = prod_or_fast!(7200, 1); // 24 * 60 * 60 / 12; // 1 day
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -1185,6 +1187,8 @@ parameter_types! {
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
+
+    pub const SubtensorInitialEvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT; // 100 blocks
 }
 
 impl pallet_subtensor::Config for Runtime {
