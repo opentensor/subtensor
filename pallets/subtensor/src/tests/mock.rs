@@ -224,7 +224,7 @@ parameter_types! {
     pub const MaxContributorsPerLeaseToRemove: u32 = 3;
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
-    pub const EvmKeyAssociateRateLimit: u64 = 0;
+    pub const EvmKeyAssociateRateLimit: u64 = 10;
 }
 
 // Configure collective pallet for council
