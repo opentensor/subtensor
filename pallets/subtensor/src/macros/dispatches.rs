@@ -2037,9 +2037,8 @@ mod dispatches {
         /// ```
         ///
         /// # Arguments
-        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `origin` - The origin of the transaction, which must be signed by the `hotkey`.
         /// * `netuid` - The netuid that the `hotkey` belongs to.
-        /// * `hotkey` - The hotkey associated with the `origin`.
         /// * `evm_key` - The EVM key to associate with the `hotkey`.
         /// * `block_number` - The block number used in the `signature`.
         /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
@@ -2047,7 +2046,6 @@ mod dispatches {
         /// # Errors
         /// Returns an error if:
         /// * The transaction is not signed.
-        /// * The hotkey is not owned by the origin coldkey.
         /// * The hotkey does not belong to the subnet identified by the netuid.
         /// * The EVM key cannot be recovered from the signature.
         /// * The EVM key recovered from the signature does not match the given EVM key.
