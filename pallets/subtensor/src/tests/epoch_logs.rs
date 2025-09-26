@@ -7,13 +7,13 @@
 // Run all tests
 // cargo test --package pallet-subtensor --lib -- tests::epoch_logs --show-output
 
+use super::mock::*;
 use crate::*;
 use frame_support::assert_ok;
 use sp_core::U256;
 use std::io::{Result as IoResult, Write};
 use std::sync::{Arc, Mutex};
 use subtensor_runtime_common::{AlphaCurrency, MechId};
-use super::mock::*;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt};
 
 const NETUID: u16 = 1;
@@ -63,6 +63,7 @@ fn setup_epoch(neurons: Vec<Neuron>, mechanism_count: u8) {
     ActivityCutoff::<Test>::insert(netuid, ACTIVITY_CUTOFF);
     Tempo::<Test>::insert(netuid, TEMPO);
     SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+    MechanismCountCurrent::<Test>::insert(netuid, MechId::from(mechanism_count));
 
     // Setup neurons
     let mut last_update_vec: Vec<u64> = Vec::new();
@@ -102,6 +103,15 @@ fn set_weights(netuid: NetUid, weights: Vec<Vec<u16>>, indices: Vec<u16>) {
             weight.to_vec(),
             0
         ));
+    }
+}
+
+/// Write sparse weight rows **for a specific mechanism**.
+/// `rows` is a list of `(validator_uid, row)` where `row` is `[(dest_uid, weight_u16)]`.
+fn set_weights_for_mech(netuid: NetUid, mecid: MechId, rows: Vec<(u16, Vec<(u16, u16)>)>) {
+    let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
+    for (uid, sparse_row) in rows {
+        Weights::<Test>::insert(netuid_index, uid, sparse_row);
     }
 }
 
@@ -343,7 +353,10 @@ fn epoch_topk_validator_permits() {
         });
 
         let has = |s: &str| logs.contains(s);
-        assert!(has("Normalised Stake: [0.666"), "sanity: asymmetric stake normalized");
+        assert!(
+            has("Normalised Stake: [0.666"),
+            "sanity: asymmetric stake normalized"
+        );
         assert!(has("max_allowed_validators: 1"));
         assert!(has("new_validator_permits: [true, false]"));
     });
@@ -370,7 +383,7 @@ fn epoch_yuma3_bonds_pipeline() {
         let has = |s: &str| logs.contains(s);
         // These appear only in the Yuma3 branch:
         assert!(has("Bonds: "));
-        assert!(has("emaB: [" ));
+        assert!(has("emaB: ["));
         assert!(has("emaB norm: "));
         assert!(has("total_bonds_per_validator: "));
     });
@@ -470,8 +483,8 @@ fn test_validator_splits_weight_across_two_servers() {
                 Neuron::new(0, 11, true,  1_000_000_000, 0, 1),
                 Neuron::new(1, 22, true,  1_000_000_000, 0, 1),
                 Neuron::new(2, 33, true,  1_000_000_000, 0, 1),
-                Neuron::new(3, 44, false, 0,              0, 1),
-                Neuron::new(4, 55, false, 0,              0, 1),
+                Neuron::new(3, 44, false, 0,             0, 1),
+                Neuron::new(4, 55, false, 0,             0, 1),
             ];
             setup_epoch(neurons.to_vec(), 1);
 
@@ -499,5 +512,145 @@ fn test_validator_splits_weight_across_two_servers() {
         assert!(has("Dividends: [0.25, 0.25, 0.5, 0, 0]"));
         assert!(has("Normalized Combined Emission: [0.125, 0.125, 0.25, 0.25, 0.25]"));
         assert!(!has("math error:"));
+    });
+}
+
+#[test]
+fn epoch_mechanism_reads_weights_per_mechanism() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(NETUID);
+
+        // 3 validators (0,1,2) and 2 servers (3,4)
+        #[rustfmt::skip]
+        let neurons = [
+            Neuron::new(0, 11, true,  1_000_000_000, 0, 1),
+            Neuron::new(1, 22, true,  1_000_000_000, 0, 1),
+            Neuron::new(2, 33, true,  1_000_000_000, 0, 1),
+            Neuron::new(3, 44, false, 0,             0, 1),
+            Neuron::new(4, 55, false, 0,             0, 1),
+        ];
+        setup_epoch(neurons.to_vec(), 2); // 2 mechanisms
+
+        // Mech 0: V0,V2 -> server 3 ; V1 -> server 4
+        set_weights_for_mech(
+            netuid,
+            MechId::from(0),
+            vec![
+                (0, vec![(3, u16::MAX)]),
+                (1, vec![(4, u16::MAX)]),
+                (2, vec![(3, u16::MAX)]),
+            ],
+        );
+        let logs_m0 = with_log_capture("trace", || {
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), AlphaCurrency::from(1_000));
+        });
+
+        // Mech 1: flipped routing: V0,V2 -> server 4 ; V1 -> server 3
+        set_weights_for_mech(
+            netuid,
+            MechId::from(1),
+            vec![
+                (0, vec![(4, u16::MAX)]),
+                (1, vec![(3, u16::MAX)]),
+                (2, vec![(4, u16::MAX)]),
+            ],
+        );
+        let logs_m1 = with_log_capture("trace", || {
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(1), AlphaCurrency::from(1_000));
+        });
+
+        // Both should run the full pipeline…
+        assert!(logs_m0.contains("Active Stake: [0.3333333333, 0.3333333333, 0.3333333333, 0, 0]"));
+        assert!(logs_m1.contains("Active Stake: [0.3333333333, 0.3333333333, 0.3333333333, 0, 0]"));
+        assert!(logs_m0.contains("Weights (mask+norm): [[(3, 1)], [(4, 1)], [(3, 1)], [], []]"));
+        assert!(logs_m1.contains("Weights (mask+norm): [[(4, 1)], [(3, 1)], [(4, 1)], [], []]"));
+        assert!(logs_m0.contains("Ranks (before): [0, 0, 0, 0.6666666665, 0.3333333333]"));
+        assert!(logs_m1.contains("Ranks (before): [0, 0, 0, 0.3333333333, 0.6666666665]"));
+        assert!(logs_m0.contains("ΔB (norm): [[(3, 0.5)], [], [(3, 0.5)], [], []]"));
+        assert!(logs_m1.contains("ΔB (norm): [[(4, 0.5)], [], [(4, 0.5)], [], []]"));
+        assert!(logs_m0.contains("Normalized Combined Emission: [0.25, 0, 0.25, 0.5, 0]"));
+        assert!(logs_m1.contains("Normalized Combined Emission: [0.25, 0, 0.25, 0, 0.5]"));
+
+        // ...and produce different logs because weights differ per mechanism.
+        assert_ne!(
+            logs_m0, logs_m1,
+            "mechanism-specific weights should yield different outcomes/logs"
+        );
+    });
+}
+
+#[test]
+fn epoch_mechanism_three_mechanisms_separate_state() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(NETUID);
+
+        // 2 validators, 2 servers
+        #[rustfmt::skip]
+        let neurons = [
+            Neuron::new(0, 11, true,  1_000_000_000, 0, 1),
+            Neuron::new(1, 22, true,  1_000_000_000, 0, 1),
+            Neuron::new(2, 44, false, 0,             0, 1),
+            Neuron::new(3, 55, false, 0,             0, 1),
+        ];
+        setup_epoch(neurons.to_vec(), 3); // 3 mechanisms
+
+        // Mech 0: all validators -> server 2
+        set_weights_for_mech(
+            netuid,
+            MechId::from(0),
+            vec![(0, vec![(2, u16::MAX)]), (1, vec![(2, u16::MAX)])],
+        );
+
+        // Mech 1: split across both servers (two nonzero entries per row)
+        set_weights_for_mech(
+            netuid,
+            MechId::from(1),
+            vec![
+                (0, vec![(2, u16::MAX), (3, u16::MAX)]),
+                (1, vec![(2, u16::MAX), (3, u16::MAX)]),
+            ],
+        );
+
+        // Mech 2: all validators -> server 3
+        set_weights_for_mech(
+            netuid,
+            MechId::from(2),
+            vec![(0, vec![(3, u16::MAX)]), (1, vec![(3, u16::MAX)])],
+        );
+
+        let l0 = with_log_capture("trace", || {
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), AlphaCurrency::from(1_000));
+        });
+        let l1 = with_log_capture("trace", || {
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(1), AlphaCurrency::from(1_000));
+        });
+        let l2 = with_log_capture("trace", || {
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(2), AlphaCurrency::from(1_000));
+        });
+
+        // Check major epoch indicators
+        assert!(l0.contains("Weights (mask+norm): [[(2, 1)], [(2, 1)], [], []]"));
+        assert!(l0.contains("Ranks (before): [0, 0, 1, 0]"));
+        assert!(l0.contains("ΔB (norm): [[(2, 0.5)], [(2, 0.5)], [], []]"));
+        assert!(l0.contains("Normalized Combined Emission: [0.25, 0.25, 0.5, 0] "));
+
+        assert!(
+            l1.contains(
+                "Weights (mask+norm): [[(2, 0.5), (3, 0.5)], [(2, 0.5), (3, 0.5)], [], []]"
+            )
+        );
+        assert!(l1.contains("Ranks (before): [0, 0, 0.5, 0.5]"));
+        assert!(l1.contains("ΔB (norm): [[(2, 0.5), (3, 0.5)], [(2, 0.5), (3, 0.5)], [], []]"));
+        assert!(l1.contains("Normalized Combined Emission: [0.25, 0.25, 0.25, 0.25]"));
+
+        assert!(l2.contains("Weights (mask+norm): [[(3, 1)], [(3, 1)], [], []]"));
+        assert!(l2.contains("Ranks (before): [0, 0, 0, 1]"));
+        assert!(l2.contains("ΔB (norm): [[(3, 0.5)], [(3, 0.5)], [], []]"));
+        assert!(l2.contains("Normalized Combined Emission: [0.25, 0.25, 0, 0.5]"));
+
+        // Distinct outcomes
+        assert_ne!(l0, l1);
+        assert_ne!(l1, l2);
+        assert_ne!(l0, l2);
     });
 }
