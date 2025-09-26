@@ -38,6 +38,7 @@ fn test_associate_evm_key_success() {
         let modality: u16 = 2;
 
         add_network(netuid, tempo, modality);
+        System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -86,6 +87,7 @@ fn test_associate_evm_key_different_block_number_success() {
         let modality: u16 = 2;
 
         add_network(netuid, tempo, modality);
+        System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -204,6 +206,7 @@ fn test_associate_evm_key_using_wrong_hash_function() {
         let modality: u16 = 2;
 
         add_network(netuid, tempo, modality);
+        System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
