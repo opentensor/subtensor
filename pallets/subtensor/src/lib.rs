@@ -81,6 +81,7 @@ pub mod pallet {
     use runtime_common::prod_or_fast;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
+    use sp_std::collections::btree_map::BTreeMap;
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
@@ -896,8 +897,8 @@ pub mod pallet {
 
     #[pallet::type_value]
     /// Default subnet root claimable
-    pub fn DefaultRootClaimable<T: Config>() -> I96F32 {
-        I96F32::saturating_from_num(0.0)
+    pub fn DefaultRootClaimable<T: Config>() -> BTreeMap<NetUid, I96F32> {
+        Default::default()
     }
     #[pallet::type_value]
     /// Default value for Share Pool variables
@@ -1821,14 +1822,12 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    #[pallet::storage] // --- DMAP ( hot, netuid ) --> claimable_dividends | Root claimable dividends.
-    pub type RootClaimable<T: Config> = StorageDoubleMap<
+    #[pallet::storage] // --- MAP ( hot ) --> MAP(netuid ) --> claimable_dividends | Root claimable dividends.
+    pub type RootClaimable<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         T::AccountId,
-        Identity,
-        NetUid,
-        I96F32,
+        BTreeMap<NetUid, I96F32>,
         ValueQuery,
         DefaultRootClaimable<T>,
     >;

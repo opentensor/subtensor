@@ -89,7 +89,9 @@ fn test_claim_root_with_drain_emissions() {
 
         // Check claimable
 
-        let claimable = RootClaimable::<Test>::get(hotkey, netuid);
+        let claimable = *RootClaimable::<Test>::get(hotkey)
+            .get(&netuid)
+            .expect("claimable must exist at this point");
         let calculated_rate =
             (pending_root_alpha as f64) * (1f64 - validator_take_percent) / (root_stake as f64);
 
@@ -135,7 +137,9 @@ fn test_claim_root_with_drain_emissions() {
 
         // Check claimable (round 2)
 
-        let claimable2 = RootClaimable::<Test>::get(hotkey, netuid);
+        let claimable2 = *RootClaimable::<Test>::get(hotkey)
+            .get(&netuid)
+            .expect("claimable must exist at this point");
         let calculated_rate =
             (pending_root_alpha as f64) * (1f64 - validator_take_percent) / (root_stake as f64);
 

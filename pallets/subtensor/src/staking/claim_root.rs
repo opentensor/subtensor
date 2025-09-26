@@ -58,8 +58,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // Increment claimable for this subnet.
-        RootClaimable::<T>::mutate(hotkey, netuid, |total| {
-            *total = total.saturating_add(increment);
+        RootClaimable::<T>::mutate(hotkey, |claimable| {
+            claimable
+                .entry(netuid)
+                .and_modify(|total| *total = total.saturating_add(increment))
+                .or_insert(increment);
         });
     }
 
@@ -74,7 +77,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // Get the total claimable_rate for this hotkey and this network
-        let claimable_rate: I96F32 = RootClaimable::<T>::get(hotkey, netuid);
+        let claimable_rate: I96F32 = *RootClaimable::<T>::get(hotkey)
+            .get(&netuid)
+            .unwrap_or(&I96F32::from(0));
 
         // Compute the proportion owed to this coldkey via balance.
         let claimable: I96F32 = claimable_rate.saturating_mul(root_stake);
@@ -199,11 +204,12 @@ impl<T: Config> Pallet<T> {
         let root_claim_type = RootClaimType::<T>::get(coldkey);
 
         // Iterate over all the subnets this hotkey has claimable for root.
-        RootClaimable::<T>::iter_prefix(hotkey).for_each(|(netuid, _)| {
+        let root_claimable = RootClaimable::<T>::get(hotkey);
+        root_claimable.iter().for_each(|(netuid, _)| {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
             weight.saturating_accrue(Self::root_claim_on_subnet_weight(root_claim_type.clone()));
 
-            Self::root_claim_on_subnet(hotkey, coldkey, netuid, root_claim_type.clone());
+            Self::root_claim_on_subnet(hotkey, coldkey, *netuid, root_claim_type.clone());
         });
 
         weight
@@ -215,7 +221,8 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) {
         // Iterate over all the subnets this hotkey is staked on for root.
-        for (netuid, claimable_rate) in RootClaimable::<T>::iter_prefix(hotkey) {
+        let root_claimable = RootClaimable::<T>::get(hotkey);
+        for (netuid, claimable_rate) in root_claimable.iter() {
             // Get current staker root claimed value.
             let root_claimed: u128 = RootClaimed::<T>::get((hotkey, coldkey, netuid));
 
@@ -237,8 +244,9 @@ impl<T: Config> Pallet<T> {
         amount: AlphaCurrency,
     ) {
         // Iterate over all the subnets this hotkey is staked on for root.
-        for (netuid, claimable_rate) in RootClaimable::<T>::iter_prefix(hotkey) {
-            if netuid == NetUid::ROOT.into() {
+        let root_claimable = RootClaimable::<T>::get(hotkey);
+        for (netuid, claimable_rate) in root_claimable.iter() {
+            if *netuid == NetUid::ROOT.into() {
                 continue; // Skip the root netuid.
             }
 
