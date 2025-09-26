@@ -7,16 +7,14 @@
 // Run all tests
 // cargo test --package pallet-subtensor --lib -- tests::epoch_logs --show-output
 
-use serial_test::serial;
+use crate::*;
+use frame_support::assert_ok;
 use sp_core::U256;
-use subtensor_runtime_common::{AlphaCurrency, MechId};
-
 use std::io::{Result as IoResult, Write};
 use std::sync::{Arc, Mutex};
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt};
-
+use subtensor_runtime_common::{AlphaCurrency, MechId};
 use super::mock::*;
-use crate::*;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt};
 
 const NETUID: u16 = 1;
 const TEMPO: u16 = 10;
@@ -59,10 +57,12 @@ fn setup_epoch(neurons: Vec<Neuron>, mechanism_count: u8) {
     let netuid = NetUid::from(NETUID);
 
     // Setup subnet parameters
+    NetworksAdded::<Test>::insert(netuid, true);
     let network_n = neurons.len() as u16;
     SubnetworkN::<Test>::insert(netuid, network_n);
     ActivityCutoff::<Test>::insert(netuid, ACTIVITY_CUTOFF);
     Tempo::<Test>::insert(netuid, TEMPO);
+    SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
     // Setup neurons
     let mut last_update_vec: Vec<u64> = Vec::new();
@@ -71,6 +71,7 @@ fn setup_epoch(neurons: Vec<Neuron>, mechanism_count: u8) {
         let hotkey = U256::from(neuron.hotkey);
 
         Keys::<Test>::insert(netuid, neuron.uid, hotkey);
+        Uids::<Test>::insert(netuid, hotkey, neuron.uid);
         BlockAtRegistration::<Test>::insert(netuid, neuron.uid, neuron.registration_block);
         last_update_vec.push(neuron.last_update);
         permit_vec.push(neuron.validator);
@@ -88,6 +89,19 @@ fn setup_epoch(neurons: Vec<Neuron>, mechanism_count: u8) {
     for m in 0..mechanism_count {
         let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, m.into());
         LastUpdate::<Test>::insert(netuid_index, last_update_vec.clone());
+    }
+}
+
+fn set_weights(netuid: NetUid, weights: Vec<Vec<u16>>, indices: Vec<u16>) {
+    for (uid, weight) in weights.iter().enumerate() {
+        let hotkey = Keys::<Test>::get(netuid, uid as u16);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            indices.clone(),
+            weight.to_vec(),
+            0
+        ));
     }
 }
 
@@ -140,7 +154,6 @@ where
 }
 
 #[test]
-#[serial]
 fn test_simple() {
     new_test_ext(1).execute_with(|| {
         let logs = with_log_capture("trace", || {
@@ -180,7 +193,6 @@ fn test_simple() {
 }
 
 #[test]
-#[serial]
 fn test_bad_permit_vector() {
     new_test_ext(1).execute_with(|| {
         let logs = with_log_capture("trace", || {
@@ -203,5 +215,289 @@ fn test_bad_permit_vector() {
         assert!(has(
             "math error: inplace_mask_vector input lengths are not equal"
         ));
+        assert!(has(
+            "Validator Emission: [AlphaCurrency(1000000000), AlphaCurrency(0)]"
+        ));
+    });
+}
+
+#[test]
+fn test_inactive_mask_zeroes_active_stake() {
+    // Big block so updated + activity_cutoff < current_block
+    new_test_ext(1_000_000).execute_with(|| {
+        let logs = with_log_capture("trace", || {
+            #[rustfmt::skip]
+            let neurons = [
+                //          uid  hotkey  vali   stake          reg  upd
+                Neuron::new(  0,     11, true,  1_000_000_000,  0,   0 ),
+                Neuron::new(  1,     22, true,  1_000_000_000,  0,   0 ),
+            ];
+            setup_epoch(neurons.to_vec(), 1);
+
+            let emission = AlphaCurrency::from(1_000_000_000);
+            SubtensorModule::epoch_mechanism(NetUid::from(NETUID), MechId::from(0), emission);
+        });
+
+        let has = |s: &str| logs.contains(s);
+        assert!(has("Number of Neurons in Network: 2"));
+        assert!(has("Inactive: [true, true]"));
+        // After masking + renormalizing, both entries are zero.
+        assert!(has("Active Stake: [0, 0]"));
+    });
+}
+
+#[test]
+fn test_validator_permit_masks_active_stake() {
+    new_test_ext(1).execute_with(|| {
+        let logs = with_log_capture("trace", || {
+            #[rustfmt::skip]
+            let neurons = [
+                //          uid  hotkey  vali   stake          reg  upd
+                Neuron::new(  0,     11, true,  1_000_000_000,  0,   1 ),
+                Neuron::new(  1,     22, true,  1_000_000_000,  0,   1 ),
+            ];
+            setup_epoch(neurons.to_vec(), 1);
+
+            // Forbid validator #1
+            let netuid = NetUid::from(NETUID);
+            ValidatorPermit::<Test>::insert(netuid, vec![true, false]);
+
+            let emission = AlphaCurrency::from(1_000_000_000);
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
+        });
+
+        let has = |s: &str| logs.contains(s);
+        assert!(has("validator_permits: [true, false]"));
+        // After masking and renormalizing, only the first stays: [1, 0]
+        assert!(logs.contains("Active Stake: [1, 0]"));
+    });
+}
+
+#[test]
+fn yuma_emergency_mode() {
+    // Large block so everyone is inactive (updated + cutoff < current_block)
+    new_test_ext(1_000_000).execute_with(|| {
+        let logs = with_log_capture("trace", || {
+            #[rustfmt::skip]
+            let neurons = [
+                //          uid  hotkey  vali   stake          reg  upd
+                Neuron::new(  0,     11, true,  1_000_000_000,  0,   0 ),
+                Neuron::new(  1,     22, true,  1_000_000_000,  0,   0 ),
+            ];
+            setup_epoch(neurons.to_vec(), 1);
+
+            // No weights needed; keep defaults empty to make ranks/dividends zero.
+            let emission = AlphaCurrency::from(1_000_000_000);
+            SubtensorModule::epoch_mechanism(NetUid::from(NETUID), MechId::from(0), emission);
+        });
+
+        let has = |s: &str| logs.contains(s);
+        assert!(has("Inactive: [true, true]"));
+        // Because emission_sum == 0 and active_stake == 0, we expect fallback to normalized stake.
+        assert!(has("Normalized Combined Emission: [0.5, 0.5]"));
+    });
+}
+
+#[test]
+fn epoch_uses_active_stake_when_nonzero_active() {
+    new_test_ext(1000).execute_with(|| {
+        let logs = with_log_capture("trace", || {
+            #[rustfmt::skip]
+            let neurons = [
+                //          uid  hotkey  vali   stake          reg  upd
+                Neuron::new(  0,     11, true,  1_000_000_000,  0,  999 ), // active
+                Neuron::new(  1,     22, true,  1_000_000_000,  0,   1  ), // inactive
+            ];
+            setup_epoch(neurons.to_vec(), 1);
+
+            let emission = AlphaCurrency::from(1_000_000_000);
+            SubtensorModule::epoch_mechanism(NetUid::from(NETUID), MechId::from(0), emission);
+        });
+
+        let has = |s: &str| logs.contains(s);
+        assert!(has("Inactive: [false, true]"));
+        // With ranks/dividends zero, fallback should mirror active_stake ~ [1, 0].
+        assert!(has("Active Stake: [1, 0]"));
+        assert!(has("Normalized Combined Emission: [1, 0]"));
+    });
+}
+
+#[test]
+fn epoch_topk_validator_permits() {
+    new_test_ext(1).execute_with(|| {
+        let logs = with_log_capture("trace", || {
+            #[rustfmt::skip]
+            let neurons = [
+                //          uid  hotkey  vali   stake          reg  upd
+                Neuron::new(  0,     11, true,  2_000_000_000,  0,   1 ),
+                Neuron::new(  1,     22, true,  1_000_000_000,  0,   1 ),
+            ];
+            setup_epoch(neurons.to_vec(), 1);
+
+            // K = 1 (one validator allowed)
+            let netuid = NetUid::from(NETUID);
+            MaxAllowedValidators::<Test>::insert(netuid, 1u16);
+
+            let emission = AlphaCurrency::from(1_000_000_000);
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
+        });
+
+        let has = |s: &str| logs.contains(s);
+        assert!(has("Normalised Stake: [0.666"), "sanity: asymmetric stake normalized");
+        assert!(has("max_allowed_validators: 1"));
+        assert!(has("new_validator_permits: [true, false]"));
+    });
+}
+
+#[test]
+fn epoch_yuma3_bonds_pipeline() {
+    new_test_ext(1).execute_with(|| {
+        let logs = with_log_capture("trace", || {
+            #[rustfmt::skip]
+            let neurons = [
+                Neuron::new(0, 11, true, 1_000_000_000, 0, 1),
+                Neuron::new(1, 22, true, 1_000_000_000, 0, 1),
+            ];
+            setup_epoch(neurons.to_vec(), 1);
+
+            let netuid = NetUid::from(NETUID);
+            Yuma3On::<Test>::insert(netuid, true);
+
+            let emission = AlphaCurrency::from(1_000_000_000);
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
+        });
+
+        let has = |s: &str| logs.contains(s);
+        // These appear only in the Yuma3 branch:
+        assert!(has("Bonds: "));
+        assert!(has("emaB: [" ));
+        assert!(has("emaB norm: "));
+        assert!(has("total_bonds_per_validator: "));
+    });
+}
+
+#[test]
+fn epoch_original_yuma_bonds_pipeline() {
+    new_test_ext(1).execute_with(|| {
+        let logs = with_log_capture("trace", || {
+            #[rustfmt::skip]
+            let neurons = [
+                Neuron::new(0, 11, true, 1_000_000_000, 0, 1),
+                Neuron::new(1, 22, true, 1_000_000_000, 0, 1),
+            ];
+            setup_epoch(neurons.to_vec(), 1);
+
+            let netuid = NetUid::from(NETUID);
+            Yuma3On::<Test>::insert(netuid, false);
+
+            let emission = AlphaCurrency::from(1_000_000_000);
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
+        });
+
+        let has = |s: &str| logs.contains(s);
+        // These strings are present in the non-Yuma3 branch:
+        assert!(has("B (outdatedmask): "));
+        assert!(has("ΔB (norm): "));
+        assert!(has("Exponential Moving Average Bonds: "));
+    });
+}
+
+#[test]
+fn test_validators_weight_two_distinct_servers() {
+    new_test_ext(1).execute_with(|| {
+        let logs = with_log_capture("trace", || {
+            #[rustfmt::skip]
+            let neurons = [
+                //           uid  hotkey  vali    stake          reg  upd
+                Neuron::new(  0,     11,  true,  1_000_000_000,  0,   1 ), // validator
+                Neuron::new(  1,     22,  true,  1_000_000_000,  0,   1 ), // validator
+                Neuron::new(  2,     33,  true,  1_000_000_000,  0,   1 ), // validator
+                Neuron::new(  3,     44, false,  0,              0,   1 ), // server
+                Neuron::new(  4,     55, false,  0,              0,   1 ), // server
+            ];
+            setup_epoch(neurons.to_vec(), 1);
+
+            let netuid = NetUid::from(NETUID);
+
+            // rows are per-validator; columns correspond to server UIDs [3, 4]
+            // V0 -> [MAX, 0] (server 3)
+            // V1 -> [0, MAX] (server 4)
+            // V2 -> [MAX, 0] (server 3)
+            CommitRevealWeightsEnabled::<Test>::insert(netuid, false);
+            set_weights(
+                netuid,
+                vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]],
+                vec![3, 4],
+            );
+
+            let emission = AlphaCurrency::from(1_000_000_000);
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
+        });
+
+        let has = |s: &str| logs.contains(s);
+
+        // topology sanity
+        assert!(has("Number of Neurons in Network: 5"));
+        assert!(has("validator_permits: [true, true, true, false, false]"));
+
+        // weight pipeline exercised
+        assert!(has("Weights: [[(3, 65535), (4, 0)], [(3, 0), (4, 65535)], [(3, 65535), (4, 0)], [], []]"));
+        assert!(has("Weights (permit): [[(3, 65535), (4, 0)], [(3, 0), (4, 65535)], [(3, 65535), (4, 0)], [], []]"));
+        assert!(has("Weights (permit+diag): [[(3, 65535), (4, 0)], [(3, 0), (4, 65535)], [(3, 65535), (4, 0)], [], []]"));
+        assert!(has("Weights (mask+norm): [[(3, 1), (4, 0)], [(3, 0), (4, 1)], [(3, 1), (4, 0)], [], []]"));
+
+        // downstream signals present
+        assert!(has("Ranks (before): [0, 0, 0, 0.6666666665, 0.3333333333]"));
+        assert!(has("Consensus: [0, 0, 0, 1, 0]"));
+        assert!(has("Validator Trust: [1, 0, 1, 0, 0]"));
+        assert!(has("Ranks (after): [0, 0, 0, 0.6666666665, 0]"));
+        assert!(has("Trust: [0, 0, 0, 1, 0]"));
+        assert!(has("Dividends: [0.5, 0, 0.5, 0, 0]"));
+        assert!(has("Normalized Combined Emission: [0.25, 0, 0.25, 0.5, 0]"));
+        assert!(has("Pruning Scores: [0.25, 0, 0.25, 0.5, 0]"));
+
+        // math is ok
+        assert!(!has("math error:"));
+    });
+}
+
+#[test]
+fn test_validator_splits_weight_across_two_servers() {
+    new_test_ext(1).execute_with(|| {
+        let logs = with_log_capture("trace", || {
+            #[rustfmt::skip]
+            let neurons = [
+                Neuron::new(0, 11, true,  1_000_000_000, 0, 1),
+                Neuron::new(1, 22, true,  1_000_000_000, 0, 1),
+                Neuron::new(2, 33, true,  1_000_000_000, 0, 1),
+                Neuron::new(3, 44, false, 0,              0, 1),
+                Neuron::new(4, 55, false, 0,              0, 1),
+            ];
+            setup_epoch(neurons.to_vec(), 1);
+
+            let netuid = NetUid::from(NETUID);
+
+            // V2 splits: both entries nonzero; row normalization should make ~[0.5, 0.5] for V2
+            CommitRevealWeightsEnabled::<Test>::insert(netuid, false);
+            set_weights(
+                netuid,
+                vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, u16::MAX]],
+                vec![3, 4],
+            );
+
+            let emission = AlphaCurrency::from(1_000_000_000);
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
+        });
+
+        let has = |s: &str| logs.contains(s);
+
+        assert!(has("validator_permits: [true, true, true, false, false]"));
+        assert!(has("Weights (mask+norm): [[(3, 1), (4, 0)], [(3, 0), (4, 1)], [(3, 0.5), (4, 0.5)], [], []]"));
+        assert!(has("Ranks (before): [0, 0, 0, 0.4999999998, 0.4999999998]"));
+        assert!(has("Ranks (after): [0, 0, 0, 0.333333333, 0.333333333]"));
+        assert!(has("ΔB (norm): [[(3, 0.5), (4, 0)], [(3, 0), (4, 0.5)], [(3, 0.5), (4, 0.5)], [], []]"));
+        assert!(has("Dividends: [0.25, 0.25, 0.5, 0, 0]"));
+        assert!(has("Normalized Combined Emission: [0.125, 0.125, 0.25, 0.25, 0.25]"));
+        assert!(!has("math error:"));
     });
 }
