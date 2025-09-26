@@ -133,7 +133,6 @@ fn test_associate_evm_key_coldkey_does_not_own_hotkey() {
 
         add_network(netuid, tempo, modality);
 
-        let coldkey = U256::from(1);
         let hotkey = U256::from(2);
 
         let pair = ecdsa::Pair::generate().0;

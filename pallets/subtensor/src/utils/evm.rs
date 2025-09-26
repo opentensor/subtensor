@@ -51,6 +51,10 @@ impl<T: Config> Pallet<T> {
         mut signature: Signature,
     ) -> dispatch::DispatchResult {
         let hotkey = ensure_signed(origin)?;
+        ensure!(
+            Self::get_owning_coldkey_for_hotkey(&hotkey) != DefaultAccount::<T>::get(),
+            Error::<T>::NonAssociatedColdKey
+        );
 
         // Normalize the v value to 0 or 1
         if signature.0[64] >= 27 {
