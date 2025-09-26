@@ -36,9 +36,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `origin` - The origin of the call, which should be the coldkey that owns the hotkey.
+    /// * `origin` - The origin of the call, which should be the hotkey.
     /// * `netuid` - The unique identifier for the subnet that the hotkey belongs to.
-    /// * `hotkey` - The hotkey associated with the `origin` coldkey.
     /// * `evm_key` - The EVM address to associate with the `hotkey`.
     /// * `block_number` - The block number used in the `signature`.
     /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed
