@@ -267,7 +267,7 @@ fn test_associate_evm_key_rate_limit_exceeded() {
             netuid,
             evm_key,
             block_number,
-            signature.clone(),
+            signature,
         ));
 
         System::set_block_number(System::block_number() + 1);
@@ -284,7 +284,7 @@ fn test_associate_evm_key_rate_limit_exceeded() {
                 netuid,
                 evm_key,
                 block_number,
-                signature.clone(),
+                signature,
             ),
             Error::<Test>::EvmKeyAssociateRateLimitExceeded
         );
@@ -301,7 +301,7 @@ fn test_associate_evm_key_rate_limit_exceeded() {
             netuid,
             evm_key,
             block_number,
-            signature.clone(),
+            signature,
         ));
     });
 }
@@ -334,7 +334,7 @@ fn test_associate_evm_key_uid_not_found() {
                 netuid,
                 evm_key,
                 block_number,
-                signature.clone(),
+                signature,
             ),
             Error::<Test>::NonAssociatedColdKey
         );
