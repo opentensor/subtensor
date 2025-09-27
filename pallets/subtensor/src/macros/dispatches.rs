@@ -1672,7 +1672,7 @@ mod dispatches {
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(358_500_000, 0)
         .saturating_add(T::DbWeight::get().reads(38_u64))
-        .saturating_add(T::DbWeight::get().writes(21_u64)), DispatchClass::Operational, Pays::Yes))]
+        .saturating_add(T::DbWeight::get().writes(21_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
