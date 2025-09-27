@@ -40,7 +40,6 @@ sp-core.workspace = true
 sc-executor.workspace = true
 sc-service.workspace = true
 sc-telemetry.workspace = true
-sc-keystore.workspace = true
 sc-transaction-pool.workspace = true
 sc-transaction-pool-api.workspace = true
 sc-offchain.workspace = true
@@ -51,7 +50,6 @@ sp-consensus-babe.workspace = true
 sc-consensus-babe-rpc.workspace = true
 sc-consensus.workspace = true
 sc-consensus-grandpa.workspace = true
-sc-consensus-grandpa-rpc.workspace = true
 sp-consensus-grandpa.workspace = true
 sc-chain-spec.workspace = true
 sc-consensus-slots.workspace = true
@@ -59,15 +57,11 @@ sc-client-api.workspace = true
 sp-runtime.workspace = true
 sp-io.workspace = true
 sp-timestamp.workspace = true
-sp-transaction-pool = { workspace = true, features = ["default"] }
 sp-inherents.workspace = true
 sp-keyring.workspace = true
-sp-offchain.workspace = true
-sp-session.workspace = true
 frame-metadata-hash-extension.workspace = true
 frame-system.workspace = true
 pallet-transaction-payment.workspace = true
-pallet-commitments.workspace = true
 pallet-drand.workspace = true
 sp-crypto-ec-utils = { workspace = true, default-features = true, features = [
 	"bls12-381",
@@ -80,14 +74,11 @@ cumulus-primitives-proof-size-hostfunction.workspace = true
 jsonrpsee = { workspace = true, features = ["server"] }
 sc-rpc.workspace = true
 sp-api.workspace = true
-sc-rpc-api.workspace = true
 sp-blockchain.workspace = true
 sp-block-builder.workspace = true
 sc-basic-authorship.workspace = true
 substrate-frame-rpc-system.workspace = true
 pallet-transaction-payment-rpc.workspace = true
-frame-system-rpc-runtime-api.workspace = true
-pallet-transaction-payment-rpc-runtime-api.workspace = true
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking.workspace = true
@@ -109,16 +100,12 @@ fc-rpc = { workspace = true, features = ["rpc-binary-search-estimate"] }
 fc-rpc-core.workspace = true
 fp-rpc.workspace = true
 fc-aura.workspace = true
-fp-consensus.workspace = true
-num-traits = { workspace = true, features = ["std"] }
 
 # Local Dependencies
 node-subtensor-runtime = { workspace = true, features = ["std"] }
 subtensor-runtime-common = { workspace = true, features = ["std"] }
 subtensor-custom-rpc = { workspace = true, features = ["std"] }
-subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-rpc = { workspace = true, features = ["std"] }
-pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
 
 [build-dependencies]
 substrate-build-script-utils.workspace = true
@@ -148,7 +135,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-commitments/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 ]
@@ -161,7 +147,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-commitments/try-runtime",
 	"pallet-drand/try-runtime",
 ]
 
