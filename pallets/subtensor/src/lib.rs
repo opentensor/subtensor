@@ -42,7 +42,7 @@ pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
-use crate::utils::rate_limiting::TransactionType;
+use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 #[cfg(test)]
@@ -86,7 +86,9 @@ pub mod pallet {
     use sp_std::vec::Vec;
     use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
-    use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+    use subtensor_runtime_common::{
+        AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
+    };
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -303,6 +305,15 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
+    /// Enum for recycle or burn for the owner_uid(s)
+    #[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug)]
+    pub enum RecycleOrBurnEnum {
+        /// Burn the miner emission sent to the burn UID
+        Burn,
+        /// Recycle the miner emission sent to the recycle UID
+        Recycle,
+    }
+
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -491,11 +502,6 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default value for modality.
-    pub fn DefaultModality<T: Config>() -> u16 {
-        0
-    }
-    #[pallet::type_value]
     /// Default value for hotkeys.
     pub fn DefaultHotkeys<T: Config>() -> Vec<u16> {
         vec![]
@@ -526,11 +532,6 @@ pub mod pallet {
         T::InitialNetworkImmunityPeriod::get()
     }
     #[pallet::type_value]
-    /// Default value for network min allowed UIDs.
-    pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
-        T::InitialNetworkMinAllowedUids::get()
-    }
-    #[pallet::type_value]
     /// Default value for network min lock cost.
     pub fn DefaultNetworkMinLockCost<T: Config>() -> TaoCurrency {
         T::InitialNetworkMinLockCost::get().into()
@@ -546,12 +547,22 @@ pub mod pallet {
         T::InitialSubnetOwnerCut::get()
     }
     #[pallet::type_value]
+    /// Default value for recycle or burn.
+    pub fn DefaultRecycleOrBurn<T: Config>() -> RecycleOrBurnEnum {
+        RecycleOrBurnEnum::Burn // default to burn
+    }
+    #[pallet::type_value]
     /// Default value for network rate limit.
     pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
         if cfg!(feature = "pow-faucet") {
             return 0;
         }
         T::InitialNetworkRateLimit::get()
+    }
+    #[pallet::type_value]
+    /// Default value for network rate limit.
+    pub fn DefaultNetworkRegistrationStartBlock<T: Config>() -> u64 {
+        0
     }
     #[pallet::type_value]
     /// Default value for weights version key rate limit.
@@ -616,9 +627,19 @@ pub mod pallet {
         T::InitialKappa::get()
     }
     #[pallet::type_value]
+    /// Default value for network min allowed UIDs.
+    pub fn DefaultMinAllowedUids<T: Config>() -> u16 {
+        T::InitialMinAllowedUids::get()
+    }
+    #[pallet::type_value]
     /// Default maximum allowed UIDs.
     pub fn DefaultMaxAllowedUids<T: Config>() -> u16 {
         T::InitialMaxAllowedUids::get()
+    }
+    #[pallet::type_value]
+    /// -- Rate limit for set max allowed UIDs
+    pub fn MaxUidsTrimmingRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(30 * 7200, 1)
     }
     #[pallet::type_value]
     /// Default immunity period.
@@ -864,14 +885,42 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default number of terminal blocks in a tempo during which admin operations are prohibited
+    pub fn DefaultAdminFreezeWindow<T: Config>() -> u16 {
+        10
+    }
+
+    #[pallet::type_value]
+    /// Default number of tempos for owner hyperparameter update rate limit
+    pub fn DefaultOwnerHyperparamRateLimit<T: Config>() -> u16 {
+        2
+    }
+
+    #[pallet::type_value]
     /// Default value for ck burn, 18%.
     pub fn DefaultCKBurn<T: Config>() -> u64 {
         0
     }
 
+    #[pallet::type_value]
+    /// Default value for subnet limit.
+    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
+        128
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
+
+    #[pallet::storage]
+    /// Global window (in blocks) at the end of each tempo where admin ops are disallowed
+    pub type AdminFreezeWindow<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultAdminFreezeWindow<T>>;
+
+    #[pallet::storage]
+    /// Global number of epochs used to rate limit subnet owner hyperparameter updates
+    pub type OwnerHyperparamRateLimit<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
@@ -1045,6 +1094,9 @@ pub mod pallet {
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
+
+    #[pallet::storage] // --- ITEM ( maximum_number_of_networks )
+    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, TaoCurrency, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
@@ -1237,10 +1289,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
     pub type SubnetworkN<T: Config> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultN<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> modality   TEXT: 0, IMAGE: 1, TENSOR: 2
-    pub type NetworkModality<T> =
-        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultModality<T>>;
-    #[pallet::storage]
     /// --- MAP ( netuid ) --> network_is_added
     pub type NetworksAdded<T: Config> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultNeworksAdded<T>>;
@@ -1301,6 +1349,10 @@ pub mod pallet {
     pub type SubnetOwnerHotkey<T: Config> =
         StorageMap<_, Identity, NetUid, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> recycle_or_burn
+    pub type RecycleOrBurn<T: Config> =
+        StorageMap<_, Identity, NetUid, RecycleOrBurnEnum, ValueQuery, DefaultRecycleOrBurn<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> serving_rate_limit
     pub type ServingRateLimit<T> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultServingRateLimit<T>>;
@@ -1326,6 +1378,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> burn_registrations_this_interval
     pub type BurnRegistrationsThisInterval<T: Config> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> min_allowed_uids
+    pub type MinAllowedUids<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMinAllowedUids<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> max_allowed_uids
     pub type MaxAllowedUids<T> =
@@ -1490,7 +1546,7 @@ pub mod pallet {
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
     #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight | weight for stake used in YC.
-    pub(super) type StakeWeight<T: Config> =
+    pub type StakeWeight<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- DMAP ( netuid, hotkey ) --> uid
@@ -1531,7 +1587,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> incentive
     pub type Incentive<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+        StorageMap<_, Identity, NetUidStorageIndex, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> dividends
     pub type Dividends<T: Config> =
@@ -1542,7 +1598,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> last_update
     pub type LastUpdate<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+        StorageMap<_, Identity, NetUidStorageIndex, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> validator_trust
     pub type ValidatorTrust<T: Config> =
@@ -1560,7 +1616,7 @@ pub mod pallet {
     pub type Weights<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        NetUid,
+        NetUidStorageIndex,
         Identity,
         u16,
         Vec<(u16, u16)>,
@@ -1572,7 +1628,7 @@ pub mod pallet {
     pub type Bonds<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        NetUid,
+        NetUidStorageIndex,
         Identity,
         u16,
         Vec<(u16, u16)>,
@@ -1682,7 +1738,7 @@ pub mod pallet {
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         T::AccountId,
         VecDeque<(H256, u64, u64, u64)>,
@@ -1694,7 +1750,7 @@ pub mod pallet {
     pub type TimelockedWeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         u64, // epoch key
         VecDeque<(
@@ -1711,7 +1767,7 @@ pub mod pallet {
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         u64, // epoch key
         VecDeque<(
@@ -1727,7 +1783,7 @@ pub mod pallet {
     pub type CRV3WeightCommitsV2<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         u64, // epoch key
         VecDeque<(
@@ -1808,6 +1864,43 @@ pub mod pallet {
     /// --- ITEM ( CommitRevealWeightsVersion )
     pub type CommitRevealWeightsVersion<T> =
         StorageValue<_, u16, ValueQuery, DefaultCommitRevealWeightsVersion<T>>;
+
+    #[pallet::storage]
+    /// ITEM( NetworkRegistrationStartBlock )
+    pub type NetworkRegistrationStartBlock<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
+
+    /// ============================
+    /// ==== Subnet Mechanisms =====
+    /// ============================
+    #[pallet::type_value]
+    /// -- ITEM (Default number of sub-subnets)
+    pub fn DefaultMechanismCount<T: Config>() -> MechId {
+        MechId::from(1)
+    }
+    #[pallet::type_value]
+    /// -- ITEM (Maximum number of sub-subnets)
+    pub fn MaxMechanismCount<T: Config>() -> MechId {
+        MechId::from(2)
+    }
+    #[pallet::type_value]
+    /// -- ITEM (Rate limit for mechanism count updates)
+    pub fn MechanismCountSetRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(7_200, 1)
+    }
+    #[pallet::type_value]
+    /// -- ITEM (Rate limit for mechanism emission distribution updates)
+    pub fn MechanismEmissionRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(7_200, 1)
+    }
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Current number of subnet mechanisms
+    pub type MechanismCountCurrent<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, MechId, ValueQuery, DefaultMechanismCount<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Normalized vector of emission split proportion between subnet mechanisms
+    pub type MechanismEmissionSplit<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, Vec<u16>, OptionQuery>;
 
     /// ==================
     /// ==== Genesis =====
@@ -1892,7 +1985,7 @@ pub enum CustomTransactionError {
     ColdkeyInSwapSchedule,
     StakeAmountTooLow,
     BalanceTooLow,
-    SubnetDoesntExist,
+    SubnetNotExists,
     HotkeyAccountDoesntExist,
     NotEnoughStakeToWithdraw,
     RateLimitExceeded,
@@ -1909,6 +2002,8 @@ pub enum CustomTransactionError {
     CommitNotFound,
     CommitBlockNotInRevealRange,
     InputLengthsUnequal,
+    UidNotFound,
+    EvmKeyAssociateRateLimitExceeded,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -1917,7 +2012,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::ColdkeyInSwapSchedule => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
             CustomTransactionError::BalanceTooLow => 2,
-            CustomTransactionError::SubnetDoesntExist => 3,
+            CustomTransactionError::SubnetNotExists => 3,
             CustomTransactionError::HotkeyAccountDoesntExist => 4,
             CustomTransactionError::NotEnoughStakeToWithdraw => 5,
             CustomTransactionError::RateLimitExceeded => 6,
@@ -1934,6 +2029,8 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::CommitNotFound => 16,
             CustomTransactionError::CommitBlockNotInRevealRange => 17,
             CustomTransactionError::InputLengthsUnequal => 18,
+            CustomTransactionError::UidNotFound => 19,
+            CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
         }
     }
 }
@@ -2053,6 +2150,18 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn is_subtoken_enabled(netuid: NetUid) -> bool {
         SubtokenEnabled::<T>::get(netuid)
     }
+
+    fn get_validator_trust(netuid: NetUid) -> Vec<u16> {
+        ValidatorTrust::<T>::get(netuid)
+    }
+
+    fn get_validator_permit(netuid: NetUid) -> Vec<bool> {
+        ValidatorPermit::<T>::get(netuid)
+    }
+
+    fn hotkey_of_uid(netuid: NetUid, uid: u16) -> Option<T::AccountId> {
+        Keys::<T>::try_get(netuid, uid).ok()
+    }
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
@@ -2146,6 +2255,8 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(NetUid),
+    // Generic rate limit for subnet-owner hyperparameter updates (per netuid)
+    OwnerHyperparamUpdate(NetUid, Hyperparameter),
     // Subnet registration rate limit
     NetworkLastRegistered,
     // Last tx block limit per account ID
@@ -2170,4 +2281,9 @@ impl<T> ProxyInterface<T> for () {
     fn remove_lease_beneficiary_proxy(_: &T, _: &T) -> DispatchResult {
         Ok(())
     }
+}
+
+/// Pallets that hold per-subnet commitments implement this to purge all state for `netuid`.
+pub trait CommitmentsInterface {
+    fn purge_netuid(netuid: NetUid);
 }
