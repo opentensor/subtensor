@@ -6872,9 +6872,6 @@ dependencies = [
 name = "node-subtensor-runtime"
 version = "4.0.0-dev"
 dependencies = [
- "ark-serialize 0.4.2",
- "fp-account",
- "fp-evm",
  "fp-rpc",
  "fp-self-contained",
  "frame-benchmarking",
@@ -6887,47 +6884,27 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "getrandom 0.2.16",
- "hex",
  "log",
  "pallet-admin-utils",
  "pallet-aura",
- "pallet-authority-discovery",
- "pallet-authorship",
- "pallet-babe",
- "pallet-bags-list",
  "pallet-balances",
  "pallet-base-fee",
  "pallet-collective",
  "pallet-commitments",
  "pallet-crowdloan",
  "pallet-drand",
- "pallet-election-provider-multi-phase",
  "pallet-ethereum",
  "pallet-evm",
  "pallet-evm-chain-id",
- "pallet-evm-precompile-modexp",
- "pallet-evm-precompile-sha3fips",
- "pallet-evm-precompile-simple",
- "pallet-fast-unstake",
  "pallet-grandpa",
- "pallet-hotfix-sufficients",
  "pallet-insecure-randomness-collective-flip",
  "pallet-membership",
  "pallet-multisig",
- "pallet-nomination-pools",
- "pallet-nomination-pools-runtime-api",
- "pallet-offences",
  "pallet-preimage",
  "pallet-proxy 40.1.0",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
- "pallet-session",
- "pallet-staking",
- "pallet-staking-reward-curve",
- "pallet-staking-reward-fn",
- "pallet-staking-runtime-api",
  "pallet-subtensor",
  "pallet-subtensor-swap",
  "pallet-subtensor-swap-runtime-api",
@@ -6938,28 +6915,18 @@ dependencies = [
  "pallet-utility 40.0.0",
  "parity-scale-codec",
  "polkadot-runtime-common",
- "precompile-utils",
- "rand_chacha 0.3.1",
  "scale-info",
- "serde_json",
- "sha2 0.10.9",
- "smallvec",
  "sp-api",
- "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-consensus-babe",
- "sp-consensus-grandpa",
- "sp-consensus-slots",
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
- "sp-npos-elections",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
- "sp-staking",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "sp-storage 22.0.0",
  "sp-tracing 17.1.0",
@@ -6973,8 +6940,6 @@ dependencies = [
  "subtensor-runtime-common",
  "subtensor-swap-interface",
  "subtensor-transaction-fee",
- "tle",
- "w3f-bls",
 ]
 
 [[package]]
@@ -7443,27 +7408,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-bags-list"
-version = "39.1.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
-dependencies = [
- "aquamarine",
- "docify",
- "frame-benchmarking",
- "frame-election-provider-support",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-tracing 17.1.0",
-]
-
-[[package]]
 name = "pallet-balances"
 version = "41.1.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
@@ -7792,21 +7736,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-hotfix-sufficients"
-version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=830e61f370d88f7ace1c5a5659dd58db75a19844#830e61f370d88f7ace1c5a5659dd58db75a19844"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-evm",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-runtime",
-]
-
-[[package]]
 name = "pallet-identity"
 version = "40.1.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
@@ -7889,49 +7818,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
-]
-
-[[package]]
-name = "pallet-nomination-pools"
-version = "38.1.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-tracing 17.1.0",
-]
-
-[[package]]
-name = "pallet-nomination-pools-runtime-api"
-version = "36.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
-dependencies = [
- "pallet-nomination-pools",
- "parity-scale-codec",
- "sp-api",
-]
-
-[[package]]
-name = "pallet-offences"
-version = "39.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-runtime",
- "sp-staking",
 ]
 
 [[package]]
@@ -8082,33 +7968,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-reward-curve"
-version = "12.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
-dependencies = [
- "proc-macro-crate 3.3.0",
- "proc-macro2",
- "quote",
- "syn 2.0.104",
-]
-
-[[package]]
 name = "pallet-staking-reward-fn"
 version = "22.0.1"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
 dependencies = [
  "log",
  "sp-arithmetic",
-]
-
-[[package]]
-name = "pallet-staking-runtime-api"
-version = "26.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
-dependencies = [
- "parity-scale-codec",
- "sp-api",
- "sp-staking",
 ]
 
 [[package]]
