@@ -2037,9 +2037,8 @@ mod dispatches {
         /// ```
         ///
         /// # Arguments
-        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `origin` - The origin of the transaction, which must be signed by the `hotkey`.
         /// * `netuid` - The netuid that the `hotkey` belongs to.
-        /// * `hotkey` - The hotkey associated with the `origin`.
         /// * `evm_key` - The EVM key to associate with the `hotkey`.
         /// * `block_number` - The block number used in the `signature`.
         /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
@@ -2047,7 +2046,6 @@ mod dispatches {
         /// # Errors
         /// Returns an error if:
         /// * The transaction is not signed.
-        /// * The hotkey is not owned by the origin coldkey.
         /// * The hotkey does not belong to the subnet identified by the netuid.
         /// * The EVM key cannot be recovered from the signature.
         /// * The EVM key recovered from the signature does not match the given EVM key.
@@ -2058,17 +2056,16 @@ mod dispatches {
         #[pallet::weight((
             Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
             DispatchClass::Normal,
-            Pays::Yes
+            Pays::No
         ))]
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            hotkey: T::AccountId,
             evm_key: H160,
             block_number: u64,
             signature: Signature,
         ) -> DispatchResult {
-            Self::do_associate_evm_key(origin, netuid, hotkey, evm_key, block_number, signature)
+            Self::do_associate_evm_key(origin, netuid, evm_key, block_number, signature)
         }
 
         /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet

@@ -36,6 +36,7 @@ pub trait SwapHandler<AccountId> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
     fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
+    fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
 }
 
 #[derive(Debug, PartialEq)]
