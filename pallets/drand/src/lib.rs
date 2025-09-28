@@ -512,10 +512,7 @@ impl<T: Config> Pallet<T> {
                         ),
                     }
                 } else {
-                    log::debug!(
-                        "Drand: No local account available to submit round {:?}",
-                        round
-                    );
+                    log::debug!("Drand: No local account available to submit round {round:?}");
                 }
             }
         }
