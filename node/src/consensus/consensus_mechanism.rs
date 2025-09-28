@@ -7,6 +7,7 @@ use sc_consensus_aura::AuraApi;
 use sc_consensus_slots::BackoffAuthoringBlocksStrategy;
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_consensus_slots::SlotProportion;
+use sc_network_sync::SyncingService;
 use sc_service::{TaskManager, error::Error as ServiceError};
 use sc_telemetry::TelemetryHandle;
 use sp_api::ProvideRuntimeApi;
@@ -123,7 +124,8 @@ pub trait ConsensusMechanism {
         &self,
         task_manager: &mut TaskManager,
         client: Arc<FullClient>,
-        triggered: Option<Arc<AtomicBool>>,
+        custom_service_signal: Option<Arc<AtomicBool>>,
+        sync_service: Arc<SyncingService<Block>>,
     ) -> Result<(), ServiceError>;
 
     /// Returns any consensus mechanism specific rpc methods to register.
