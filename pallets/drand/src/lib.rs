@@ -309,6 +309,7 @@ pub mod pallet {
                         signature,
                         &payload.block_number,
                         &payload.public,
+                        None,
                     )
                 }
                 Call::write_pulse {
@@ -316,11 +317,13 @@ pub mod pallet {
                     signature,
                 } => {
                     let signature = signature.as_ref().ok_or(InvalidTransaction::BadSigner)?;
+                    let rounds: Vec<RoundNumber> = payload.pulses.iter().map(|p| p.round).collect();
                     Self::validate_signature_and_parameters(
                         payload,
                         signature,
                         &payload.block_number,
                         &payload.public,
+                        Some(&rounds),
                     )
                 }
                 _ => InvalidTransaction::Call.into(),
@@ -482,32 +485,37 @@ impl<T: Config> Pallet<T> {
                 pulses.push(pulse);
             }
 
-            let signer = Signer::<T, T::AuthorityId>::all_accounts();
+            let signer = Signer::<T, T::AuthorityId>::any_account();
 
-            let results = signer.send_unsigned_transaction(
-                |account| PulsesPayload {
-                    block_number,
-                    pulses: pulses.clone(),
-                    public: account.public.clone(),
-                },
-                |pulses_payload, signature| Call::write_pulse {
-                    pulses_payload,
-                    signature: Some(signature),
-                },
-            );
+            // Submit one tx per pulse, ascending rounds.
+            for pulse in pulses.into_iter() {
+                let round = pulse.round;
 
-            for (acc, res) in &results {
-                match res {
-                    Ok(()) => log::debug!(
-                        "Drand: [{:?}] Submitted new pulses up to round: {:?}",
-                        acc.id,
-                        last_stored_round.saturating_add(rounds_to_fetch)
-                    ),
-                    Err(e) => log::error!(
-                        "Drand: [{:?}] Failed to submit transaction: {:?}",
-                        acc.id,
-                        e
-                    ),
+                if let Some((acc, res)) = signer.send_unsigned_transaction(
+                    |account| PulsesPayload {
+                        block_number,
+                        pulses: vec![pulse.clone()],
+                        public: account.public.clone(),
+                    },
+                    |pulses_payload, signature| Call::write_pulse {
+                        pulses_payload,
+                        signature: Some(signature),
+                    },
+                ) {
+                    match res {
+                        Ok(()) => log::debug!("Drand: [{:?}] submitted round {:?}", acc.id, round),
+                        Err(e) => log::debug!(
+                            "Drand: [{:?}] failed to submit round {:?}: {:?}",
+                            acc.id,
+                            round,
+                            e
+                        ),
+                    }
+                } else {
+                    log::debug!(
+                        "Drand: No local account available to submit round {:?}",
+                        round
+                    );
                 }
             }
         }
@@ -633,54 +641,74 @@ impl<T: Config> Pallet<T> {
         signature: &T::Signature,
         block_number: &BlockNumberFor<T>,
         public: &T::Public,
+        rounds: Option<&[RoundNumber]>,
     ) -> TransactionValidity {
         let signature_valid =
             SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
         if !signature_valid {
             return InvalidTransaction::BadProof.into();
         }
-        Self::validate_transaction_parameters(block_number, public)
+        Self::validate_transaction_parameters(block_number, public, rounds)
     }
 
     fn validate_transaction_parameters(
         block_number: &BlockNumberFor<T>,
         public: &T::Public,
+        rounds: Option<&[RoundNumber]>,
     ) -> TransactionValidity {
-        // Now let's check if the transaction has any chance to succeed.
         let next_unsigned_at = NextUnsignedAt::<T>::get();
-        if &next_unsigned_at > block_number {
-            return InvalidTransaction::Stale.into();
-        }
-        // Let's make sure to reject transactions from the future.
         let current_block = frame_system::Pallet::<T>::block_number();
-        if &current_block < block_number {
+
+        if current_block < *block_number {
             return InvalidTransaction::Future.into();
         }
 
-        let provides_tag = (next_unsigned_at, public.encode()).using_encoded(blake2_256);
+        match rounds {
+            Some(rs) => {
+                let r_opt = rs.first().copied();
+                let has_second = rs.get(1).is_some();
+                let r = match (r_opt, has_second) {
+                    (Some(round), false) => round,
+                    _ => return InvalidTransaction::Call.into(),
+                };
 
-        ValidTransaction::with_tag_prefix("DrandOffchainWorker")
-            // We set the priority to the value stored at `UnsignedPriority`.
-            .priority(T::UnsignedPriority::get())
-            // This transaction does not require anything else to go before into the pool.
-            // In theory we could require `previous_unsigned_at` transaction to go first,
-            // but it's not necessary in our case.
-            // We set the `provides` tag to be the same as `next_unsigned_at`. This makes
-            // sure only one transaction produced after `next_unsigned_at` will ever
-            // get to the transaction pool and will end up in the block.
-            // We can still have multiple transactions compete for the same "spot",
-            // and the one with higher priority will replace other one in the pool.
-            .and_provides(provides_tag)
-            // The transaction is only valid for next block. After that it's
-            // going to be revalidated by the pool.
-            .longevity(1)
-            // It's fine to propagate that transaction to other peers, which means it can be
-            // created even by nodes that don't produce blocks.
-            // Note that sometimes it's better to keep it for yourself (if you are the block
-            // producer), since for instance in some schemes others may copy your solution and
-            // claim a reward.
-            .propagate(true)
-            .build()
+                // Allow multiple unsigned txs in the same block even after the first updates the gate.
+                if next_unsigned_at > current_block {
+                    return InvalidTransaction::Stale.into();
+                }
+
+                // Drop stale rounds at mempool time to avoid re-including last block's rounds.
+                let last = LastStoredRound::<T>::get();
+                if r <= last {
+                    return InvalidTransaction::Stale.into();
+                }
+
+                // Priority favors lower rounds first.
+                let priority =
+                    T::UnsignedPriority::get().saturating_add(u64::MAX.saturating_sub(r));
+
+                ValidTransaction::with_tag_prefix("DrandOffchainWorker")
+                    .priority(priority)
+                    .and_provides((b"drand", r).using_encoded(blake2_256))
+                    .longevity(3)
+                    .propagate(false)
+                    .build()
+            }
+
+            None => {
+                if next_unsigned_at > *block_number {
+                    return InvalidTransaction::Stale.into();
+                }
+
+                let provides_tag = (next_unsigned_at, public.encode()).using_encoded(blake2_256);
+                ValidTransaction::with_tag_prefix("DrandOffchainWorker")
+                    .priority(T::UnsignedPriority::get())
+                    .and_provides(provides_tag)
+                    .longevity(1)
+                    .propagate(true)
+                    .build()
+            }
+        }
     }
 
     fn prune_old_pulses(last_stored_round: RoundNumber) {
