@@ -777,6 +777,11 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// The result of the last call made by the proxy (key).
+    #[pallet::storage]
+    pub type LastCallResult<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, DispatchResult, OptionQuery>;
+
     #[pallet::view_functions_experimental]
     impl<T: Config> Pallet<T> {
         /// Check if a `RuntimeCall` is allowed for a given `ProxyType`.
@@ -1022,7 +1027,7 @@ impl<T: Config> Pallet<T> {
     ) {
         use frame::traits::{InstanceFilter as _, OriginTrait as _};
         // This is a freshly authenticated new account, the origin restrictions doesn't apply.
-        let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real).into();
+        let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real.clone()).into();
         origin.add_filter(move |c: &<T as frame_system::Config>::RuntimeCall| {
             let c = <T as Config>::RuntimeCall::from_ref(c);
             // We make sure the proxy call does access this pallet to change modify proxies.
@@ -1046,6 +1051,9 @@ impl<T: Config> Pallet<T> {
             }
         });
         let e = call.dispatch(origin);
+
+        LastCallResult::<T>::insert(real, e.map(|_| ()).map_err(|e| e.error));
+
         Self::deposit_event(Event::ProxyExecuted {
             result: e.map(|_| ()).map_err(|e| e.error),
         });

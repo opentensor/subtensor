@@ -42,6 +42,7 @@ where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
+        + pallet_system::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
@@ -153,7 +154,26 @@ where
             call: Box::new(call),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))?;
+
+        let last_call_result = pallet_proxy::pallet::Pallet::<R>::LastCallResult::get(real);
+        match last_call_result {
+            Some(last_call_result) => match last_call_result {
+                Ok(()) => {
+                    return Ok(());
+                }
+                Err(e) => {
+                    return Err(PrecompileFailure::Error {
+                        exit_status: ExitError::Other(e.to_string()),
+                    });
+                }
+            },
+            None => {
+                return Err(PrecompileFailure::Error {
+                    exit_status: ExitError::Other("Proxy execution failed".into()),
+                });
+            }
+        }
     }
 
     #[precompile::public("addProxy(bytes32,uint8,uint32)")]
