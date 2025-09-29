@@ -2876,4 +2876,3 @@ fn test_incentive_goes_to_hotkey_when_no_autostake_destination() {
         );
     });
 }
-
