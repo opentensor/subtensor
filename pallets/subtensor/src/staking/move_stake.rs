@@ -126,7 +126,6 @@ impl<T: Config> Pallet<T> {
         destination_netuid: NetUid,
         alpha_amount: AlphaCurrency,
     ) -> dispatch::DispatchResult {
-        log::error!("alpha_amount is {:?} ", alpha_amount.to_u64());
         // Ensure the extrinsic is signed by the origin_coldkey.
         let coldkey = ensure_signed(origin)?;
 
@@ -145,8 +144,6 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        log::error!("tao_moved is {} ", tao_moved.to_u64());
-
         // 9. Emit an event for logging/monitoring.
         log::debug!(
             "StakeTransferred(origin_coldkey: {coldkey:?}, destination_coldkey: {destination_coldkey:?}, hotkey: {hotkey:?}, origin_netuid: {origin_netuid:?}, destination_netuid: {destination_netuid:?}, amount: {tao_moved:?})"
@@ -160,8 +157,6 @@ impl<T: Config> Pallet<T> {
             destination_netuid,
             tao_moved,
         ));
-
-        log::error!("tao_moved  {}", tao_moved.to_u64());
 
         // 10. Return success.
         Ok(())
@@ -321,7 +316,6 @@ impl<T: Config> Pallet<T> {
             origin_coldkey,
             origin_netuid,
         );
-
         let alpha_amount = alpha_amount.min(alpha_available);
 
         // Calculate the maximum amount that can be executed
@@ -335,7 +329,6 @@ impl<T: Config> Pallet<T> {
             alpha_amount
         };
 
-        log::error!("alpha_amount is {:?} ", &max_amount);
         // Validate user input
         Self::validate_stake_transition(
             origin_coldkey,
@@ -357,8 +350,6 @@ impl<T: Config> Pallet<T> {
             max_amount
         };
 
-        log::error!("move_amount is {:?} ", move_amount.to_u64());
-
         if origin_netuid != destination_netuid {
             // Any way to charge fees that works
             let drop_fee_origin = origin_netuid == NetUid::ROOT;
@@ -373,7 +364,6 @@ impl<T: Config> Pallet<T> {
                 T::SwapInterface::min_price().into(),
                 drop_fee_origin,
             )?;
-            log::error!("tao_unstaked is {:?} ", tao_unstaked.to_u64());
 
             // Stake the unstaked amount into the destination.
             // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,

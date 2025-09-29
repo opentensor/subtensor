@@ -1123,7 +1123,6 @@ impl<T: Config> Pallet<T> {
             Self::if_subnet_exist(origin_netuid),
             Error::<T>::SubnetNotExists
         );
-
         if origin_netuid != destination_netuid {
             ensure!(
                 Self::if_subnet_exist(destination_netuid),
@@ -1159,7 +1158,6 @@ impl<T: Config> Pallet<T> {
             origin_coldkey,
             origin_netuid,
         );
-
         ensure!(
             alpha_amount <= origin_alpha,
             Error::<T>::NotEnoughStakeToWithdraw
@@ -1195,7 +1193,6 @@ impl<T: Config> Pallet<T> {
                 TransferToggle::<T>::get(origin_netuid),
                 Error::<T>::TransferDisallowed
             );
-
             if origin_netuid != destination_netuid {
                 ensure!(
                     TransferToggle::<T>::get(destination_netuid),
