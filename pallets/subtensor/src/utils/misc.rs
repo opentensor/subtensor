@@ -206,8 +206,16 @@ impl<T: Config> Pallet<T> {
     pub fn get_dividends(netuid: NetUid) -> Vec<u16> {
         Dividends::<T>::get(netuid)
     }
-    pub fn get_last_update(netuid: NetUidStorageIndex) -> Vec<u64> {
-        LastUpdate::<T>::get(netuid)
+    /// Fetch LastUpdate for `netuid` and ensure its length is at least `get_subnetwork_n(netuid)`,
+    /// padding with zeros if needed. Returns the (possibly padded) vector.
+    pub fn get_last_update(netuid_index: NetUidStorageIndex) -> Vec<u64> {
+        let netuid = Self::get_netuid(netuid_index);
+        let target_len = Self::get_subnetwork_n(netuid) as usize;
+        let mut v = LastUpdate::<T>::get(netuid_index);
+        if v.len() < target_len {
+            v.resize(target_len, 0);
+        }
+        v
     }
     pub fn get_pruning_score(netuid: NetUid) -> Vec<u16> {
         PruningScores::<T>::get(netuid)
@@ -245,12 +253,19 @@ impl<T: Config> Pallet<T> {
             SubnetworkN::<T>::get(netuid)
         );
         log::debug!("uid = {uid:?}");
-        assert!(uid < SubnetworkN::<T>::get(netuid));
-        PruningScores::<T>::mutate(netuid, |v| {
-            if let Some(s) = v.get_mut(uid as usize) {
-                *s = pruning_score;
-            }
-        });
+        if uid < SubnetworkN::<T>::get(netuid) {
+            PruningScores::<T>::mutate(netuid, |v| {
+                if let Some(s) = v.get_mut(uid as usize) {
+                    *s = pruning_score;
+                }
+            });
+        } else {
+            log::error!(
+                "set_pruning_score_for_uid: uid >= SubnetworkN::<T>::get(netuid): {:?} >= {:?}",
+                uid,
+                SubnetworkN::<T>::get(netuid)
+            );
+        }
     }
     pub fn set_validator_permit_for_uid(netuid: NetUid, uid: u16, validator_permit: bool) {
         let mut updated_validator_permits = Self::get_validator_permit(netuid);

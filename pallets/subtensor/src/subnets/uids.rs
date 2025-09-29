@@ -117,7 +117,7 @@ impl<T: Config> Pallet<T> {
         for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
             let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
             Incentive::<T>::mutate(netuid_index, |v| v.push(0));
-            LastUpdate::<T>::mutate(netuid_index, |v| v.push(block_number));
+            Self::set_last_update_for_uid(netuid_index, next_uid, block_number);
         }
         Dividends::<T>::mutate(netuid, |v| v.push(0));
         PruningScores::<T>::mutate(netuid, |v| v.push(0));
@@ -133,10 +133,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn trim_to_max_allowed_uids(netuid: NetUid, max_n: u16) -> DispatchResult {
         // Reasonable limits
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::MechanismDoesNotExist
-        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         ensure!(
             max_n >= MinAllowedUids::<T>::get(netuid),
             Error::<T>::InvalidValue

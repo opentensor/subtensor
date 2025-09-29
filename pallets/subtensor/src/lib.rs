@@ -1992,7 +1992,7 @@ pub enum CustomTransactionError {
     ColdkeyInSwapSchedule,
     StakeAmountTooLow,
     BalanceTooLow,
-    SubnetDoesntExist,
+    SubnetNotExists,
     HotkeyAccountDoesntExist,
     NotEnoughStakeToWithdraw,
     RateLimitExceeded,
@@ -2009,6 +2009,8 @@ pub enum CustomTransactionError {
     CommitNotFound,
     CommitBlockNotInRevealRange,
     InputLengthsUnequal,
+    UidNotFound,
+    EvmKeyAssociateRateLimitExceeded,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -2017,7 +2019,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::ColdkeyInSwapSchedule => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
             CustomTransactionError::BalanceTooLow => 2,
-            CustomTransactionError::SubnetDoesntExist => 3,
+            CustomTransactionError::SubnetNotExists => 3,
             CustomTransactionError::HotkeyAccountDoesntExist => 4,
             CustomTransactionError::NotEnoughStakeToWithdraw => 5,
             CustomTransactionError::RateLimitExceeded => 6,
@@ -2034,6 +2036,8 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::CommitNotFound => 16,
             CustomTransactionError::CommitBlockNotInRevealRange => 17,
             CustomTransactionError::InputLengthsUnequal => 18,
+            CustomTransactionError::UidNotFound => 19,
+            CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
         }
     }
 }
@@ -2152,6 +2156,18 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 
     fn is_subtoken_enabled(netuid: NetUid) -> bool {
         SubtokenEnabled::<T>::get(netuid)
+    }
+
+    fn get_validator_trust(netuid: NetUid) -> Vec<u16> {
+        ValidatorTrust::<T>::get(netuid)
+    }
+
+    fn get_validator_permit(netuid: NetUid) -> Vec<bool> {
+        ValidatorPermit::<T>::get(netuid)
+    }
+
+    fn hotkey_of_uid(netuid: NetUid, uid: u16) -> Option<T::AccountId> {
+        Keys::<T>::try_get(netuid, uid).ok()
     }
 }
 

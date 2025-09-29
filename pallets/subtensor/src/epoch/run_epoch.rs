@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
         Self::epoch_dense_mechanism(netuid, MechId::MAIN, rao_emission)
     }
 
-    /// Persists per-subsubnet epoch output in state
+    /// Persists per-mechanism epoch output in state
     pub fn persist_mechanism_epoch_terms(
         netuid: NetUid,
         mecid: MechId,
@@ -1128,7 +1128,7 @@ impl<T: Config> Pallet<T> {
                 if let Some(row) = weights.get_mut(uid_i as usize) {
                     row.push((*uid_j, I32F32::saturating_from_num(*weight_ij)));
                 } else {
-                    log::error!("uid_i {uid_i:?} is filtered to be less than n");
+                    log::error!("math error: uid_i {uid_i:?} is filtered to be less than n");
                 }
             }
         }
@@ -1387,13 +1387,20 @@ impl<T: Config> Pallet<T> {
         bonds: &[Vec<I32F32>],   // previous epoch bonds
         consensus: &[I32F32],    // previous epoch consensus weights
     ) -> Vec<Vec<I32F32>> {
-        assert!(weights.len() == bonds.len());
+        let mut alphas = Vec::new();
+
+        if weights.len() != bonds.len() {
+            log::error!(
+                "math error: compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                weights.len(),
+                bonds.len()
+            );
+            return alphas;
+        }
 
         // Get the high and low alpha values for the network.
         let alpha_sigmoid_steepness: I32F32 = Self::get_alpha_sigmoid_steepness(netuid);
         let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
-
-        let mut alphas = Vec::new();
 
         for (w_row, b_row) in weights.iter().zip(bonds.iter()) {
             let mut row_alphas = Vec::new();
@@ -1433,12 +1440,20 @@ impl<T: Config> Pallet<T> {
         bonds: &[Vec<(u16, I32F32)>],   // previous epoch bonds
         consensus: &[I32F32],           // previous epoch consensus weights
     ) -> Vec<Vec<I32F32>> {
-        assert!(weights.len() == bonds.len());
+        let mut alphas = Vec::with_capacity(consensus.len());
+
+        if weights.len() != bonds.len() {
+            log::error!(
+                "math error: compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                weights.len(),
+                bonds.len()
+            );
+            return alphas;
+        }
 
         let alpha_sigmoid_steepness: I32F32 = Self::get_alpha_sigmoid_steepness(netuid);
         let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
 
-        let mut alphas = Vec::with_capacity(consensus.len());
         let zero = I32F32::from_num(0.0);
 
         // iterate over rows

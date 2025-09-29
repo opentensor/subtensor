@@ -38,6 +38,7 @@ fn test_associate_evm_key_success() {
         let modality: u16 = 2;
 
         add_network(netuid, tempo, modality);
+        System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -58,9 +59,8 @@ fn test_associate_evm_key_success() {
         let signature = sign_evm_message(&pair, message);
 
         assert_ok!(SubtensorModule::associate_evm_key(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid,
-            hotkey,
             evm_key,
             block_number,
             signature,
@@ -87,6 +87,7 @@ fn test_associate_evm_key_different_block_number_success() {
         let modality: u16 = 2;
 
         add_network(netuid, tempo, modality);
+        System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -105,9 +106,8 @@ fn test_associate_evm_key_different_block_number_success() {
         let signature = sign_evm_message(&pair, message);
 
         assert_ok!(SubtensorModule::associate_evm_key(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid,
-            hotkey,
             evm_key,
             block_number,
             signature,
@@ -135,7 +135,6 @@ fn test_associate_evm_key_coldkey_does_not_own_hotkey() {
 
         add_network(netuid, tempo, modality);
 
-        let coldkey = U256::from(1);
         let hotkey = U256::from(2);
 
         let pair = ecdsa::Pair::generate().0;
@@ -150,9 +149,8 @@ fn test_associate_evm_key_coldkey_does_not_own_hotkey() {
 
         assert_err!(
             SubtensorModule::associate_evm_key(
-                RuntimeOrigin::signed(coldkey),
+                RuntimeOrigin::signed(hotkey),
                 netuid,
-                hotkey,
                 evm_key,
                 block_number,
                 signature,
@@ -188,9 +186,8 @@ fn test_associate_evm_key_hotkey_not_registered_in_subnet() {
 
         assert_err!(
             SubtensorModule::associate_evm_key(
-                RuntimeOrigin::signed(coldkey),
+                RuntimeOrigin::signed(hotkey),
                 netuid,
-                hotkey,
                 evm_key,
                 block_number,
                 signature,
@@ -209,6 +206,7 @@ fn test_associate_evm_key_using_wrong_hash_function() {
         let modality: u16 = 2;
 
         add_network(netuid, tempo, modality);
+        System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -229,14 +227,119 @@ fn test_associate_evm_key_using_wrong_hash_function() {
 
         assert_err!(
             SubtensorModule::associate_evm_key(
-                RuntimeOrigin::signed(coldkey),
+                RuntimeOrigin::signed(hotkey),
                 netuid,
-                hotkey,
                 evm_key,
                 block_number,
                 signature,
             ),
             Error::<Test>::InvalidRecoveredPublicKey
+        );
+    });
+}
+
+#[test]
+fn test_associate_evm_key_rate_limit_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+
+        let tempo: u16 = 2;
+        let modality: u16 = 2;
+        add_network(netuid, tempo, modality);
+        System::set_block_number(EvmKeyAssociateRateLimit::get());
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        let pair = ecdsa::Pair::generate().0;
+        let public = pair.public();
+        let evm_key = public_to_evm_key(&public);
+        let block_number = frame_system::Pallet::<Test>::block_number();
+        let hashed_block_number = keccak_256(block_number.encode().as_ref());
+        let hotkey_bytes = hotkey.encode();
+
+        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let signature = sign_evm_message(&pair, message);
+
+        // First association should succeed
+        assert_ok!(SubtensorModule::associate_evm_key(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            evm_key,
+            block_number,
+            signature,
+        ));
+
+        System::set_block_number(System::block_number() + 1);
+        let block_number = frame_system::Pallet::<Test>::block_number();
+        let hashed_block_number = keccak_256(block_number.encode().as_ref());
+        let hotkey_bytes = hotkey.encode();
+        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let signature = sign_evm_message(&pair, message);
+
+        // Second association should fail due to rate limit
+        assert_noop!(
+            SubtensorModule::associate_evm_key(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                evm_key,
+                block_number,
+                signature,
+            ),
+            Error::<Test>::EvmKeyAssociateRateLimitExceeded
+        );
+
+        System::set_block_number(System::block_number() + EvmKeyAssociateRateLimit::get());
+        let block_number = frame_system::Pallet::<Test>::block_number();
+        let hashed_block_number = keccak_256(block_number.encode().as_ref());
+        let hotkey_bytes = hotkey.encode();
+        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let signature = sign_evm_message(&pair, message);
+
+        assert_ok!(SubtensorModule::associate_evm_key(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            evm_key,
+            block_number,
+            signature,
+        ));
+    });
+}
+
+#[test]
+fn test_associate_evm_key_uid_not_found() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+
+        let tempo: u16 = 2;
+        let modality: u16 = 2;
+
+        add_network(netuid, tempo, modality);
+
+        let hotkey = U256::from(2);
+
+        let pair = ecdsa::Pair::generate().0;
+        let public = pair.public();
+        let evm_key = public_to_evm_key(&public);
+        let block_number = frame_system::Pallet::<Test>::block_number();
+        let hashed_block_number = keccak_256(block_number.encode().as_ref());
+        let hotkey_bytes = hotkey.encode();
+
+        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let signature = sign_evm_message(&pair, message);
+
+        assert_noop!(
+            SubtensorModule::associate_evm_key(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                evm_key,
+                block_number,
+                signature,
+            ),
+            Error::<Test>::NonAssociatedColdKey
         );
     });
 }

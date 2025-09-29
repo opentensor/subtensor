@@ -9,6 +9,7 @@ use sc_consensus::{BasicQueue, BoxBlockImport};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_consensus_slots::SlotProportion;
+use sc_keystore::LocalKeystore;
 use sc_network::config::SyncMode;
 use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
@@ -16,6 +17,9 @@ use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::H256;
+use sp_core::crypto::KeyTypeId;
+use sp_keystore::Keystore;
+use sp_runtime::key_types;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -30,6 +34,8 @@ use crate::ethereum::{
     BackendType, EthConfiguration, FrontierBackend, FrontierPartialComponents, StorageOverride,
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
+
+const LOG_TARGET: &str = "node-service";
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -93,6 +99,13 @@ pub fn new_partial(
             telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
             executor,
         )?;
+
+    // Prepare keystore for authoring Babe blocks.
+    copy_keys(
+        &keystore_container.local_keystore(),
+        key_types::AURA,
+        key_types::BABE,
+    )?;
 
     let client = Arc::new(client);
 
@@ -271,12 +284,6 @@ where
         other: (mut telemetry, block_import, grandpa_link, frontier_backend, storage_override),
     } = new_partial(&config, &eth_config, build_import_queue)?;
 
-    consensus_mechanism.spawn_essential_handles(
-        &mut task_manager,
-        client.clone(),
-        custom_service_signal,
-    )?;
-
     let FrontierPartialComponents {
         filter_pool,
         fee_history_cache,
@@ -306,10 +313,13 @@ where
     let warp_sync_config = if sealing.is_some() {
         None
     } else {
-        let set_id: u64 = if config.chain_spec.chain_type() == ChainType::Live {
-            3 // mainnet patch
-        } else {
-            2 // testnet patch
+        let set_id = match config.chain_spec.chain_type() {
+            // Finney patch
+            ChainType::Live => 3,
+            // Testnet patch
+            ChainType::Development => 2,
+            // All others (e.g. localnet)
+            _ => 0,
         };
         log::warn!(
             "Grandpa warp sync patch enabled. Chain type = {:?}. Set ID = {set_id}",
@@ -339,6 +349,13 @@ where
             block_relay: None,
             metrics,
         })?;
+
+    consensus_mechanism.spawn_essential_handles(
+        &mut task_manager,
+        client.clone(),
+        custom_service_signal,
+        sync_service.clone(),
+    )?;
 
     if config.offchain_worker.enabled && config.role.is_authority() {
         let public_keys = keystore_container
@@ -756,5 +773,51 @@ fn run_manual_seal_authorship(
     task_manager
         .spawn_essential_handle()
         .spawn_blocking("manual-seal", None, manual_seal);
+    Ok(())
+}
+
+/// Copy `from_key_type` keys to also exist as `to_key_type`.
+///
+/// Used for the Aura to Babe migration, where Aura validators need their keystore to copy their
+/// Aura keys over to Babe. This works because Aura and Babe keys use identical crypto.
+///
+/// While not required to retain beyond the initial Aura to Babe migration, it is nice to leave it
+/// so the node always retains the ability to perform Aura to Babe migrations in the future, in case
+/// there is a requirement to do something like regenesis testnet.
+fn copy_keys(
+    keystore: &LocalKeystore,
+    from_key_type: KeyTypeId,
+    to_key_type: KeyTypeId,
+) -> sc_keystore::Result<()> {
+    use std::collections::HashSet;
+
+    let from_keys: HashSet<_> = keystore
+        .raw_public_keys(from_key_type)?
+        .into_iter()
+        .collect();
+    let to_keys: HashSet<_> = keystore.raw_public_keys(to_key_type)?.into_iter().collect();
+    let to_copy: Vec<_> = from_keys.difference(&to_keys).collect();
+
+    log::debug!(target: LOG_TARGET, "from_keys: {from_keys:?}");
+    log::debug!(target: LOG_TARGET, "to_keys: {to_keys:?}");
+    log::debug!(target: LOG_TARGET, "to_copy: {:?} from {:?} to {:?}", &to_copy, from_key_type, to_key_type);
+
+    for public in to_copy {
+        if let Some(phrase) = keystore.key_phrase_by_type(public, from_key_type)? {
+            if keystore.insert(to_key_type, &phrase, public).is_err() {
+                log::error!(
+                    target: LOG_TARGET,
+                    "Failed to copy key {:?} into keystore, insert operation failed.",
+                    &public,
+                );
+            };
+        } else {
+            log::error!(
+                target: LOG_TARGET,
+                "Failed to copy key from {from_key_type:?} to {to_key_type:?} as the key phrase is not available"
+            );
+        }
+    }
+
     Ok(())
 }

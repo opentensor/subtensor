@@ -443,10 +443,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn destroy_alpha_in_out_stakes(netuid: NetUid) -> DispatchResult {
         // 1) Ensure the subnet exists.
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::MechanismDoesNotExist
-        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // 2) Owner / lock cost.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
