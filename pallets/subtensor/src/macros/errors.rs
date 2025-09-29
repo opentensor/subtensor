@@ -258,5 +258,7 @@ mod errors {
         EvmKeyAssociateRateLimitExceeded,
         /// The UID map for the subnet could not be cleared
         UidMapCouldNotBeCleared,
+        /// Trimming would exceed the max immune neurons percentage
+        TrimmingWouldExceedMaxImmunePercentage,
     }
 }

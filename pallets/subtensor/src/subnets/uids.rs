@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
             let immune_percentage = Percent::from_rational(immune_count, max_n);
             ensure!(
                 immune_percentage < T::MaxImmuneUidsPercentage::get(),
-                Error::<T>::InvalidValue
+                Error::<T>::TrimmingWouldExceedMaxImmunePercentage
             );
 
             // Get all emissions with their UIDs and sort by emission (descending)
