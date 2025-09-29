@@ -2496,22 +2496,22 @@ fn test_trim_to_max_allowed_uids() {
         AssociatedEvmAddress::<Test>::insert(
             netuid,
             6,
-            (sp_core::H160::from_slice(b"0x12345678901234567890"), now),
+            (sp_core::H160::from_slice(b"12345678901234567890"), now),
         );
         AssociatedEvmAddress::<Test>::insert(
             netuid,
             11,
-            (sp_core::H160::from_slice(b"0xA2345678901234567890"), now),
+            (sp_core::H160::from_slice(b"A2345678901234567890"), now),
         );
         AssociatedEvmAddress::<Test>::insert(
             netuid,
             7,
-            (sp_core::H160::from_slice(b"0xB2345678901234567890"), now),
+            (sp_core::H160::from_slice(b"B2345678901234567890"), now),
         );
         AssociatedEvmAddress::<Test>::insert(
             netuid,
             14,
-            (sp_core::H160::from_slice(b"0xC2345678901234567890"), now),
+            (sp_core::H160::from_slice(b"C2345678901234567890"), now),
         );
 
         // And some temporally immune uids
