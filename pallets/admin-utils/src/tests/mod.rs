@@ -2713,7 +2713,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
         TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
         ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
-        MinAllowedUids::<Test>::set(netuid, 4);
+        MinAllowedUids::<Test>::set(netuid, 2);
 
         // Add 5 neurons
         let max_n = 5;
@@ -2751,7 +2751,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
                 netuid,
                 4
             ),
-            pallet_subtensor::Error::<Test>::InvalidValue
+            pallet_subtensor::Error::<Test>::TrimmingWouldExceedMaxImmunePercentage
         );
 
         // Try to trim to 3 UIDs - this should also fail because 4/3 > 80% immune (>= 80%)
@@ -2761,7 +2761,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
                 netuid,
                 3
             ),
-            pallet_subtensor::Error::<Test>::InvalidValue
+            pallet_subtensor::Error::<Test>::TrimmingWouldExceedMaxImmunePercentage
         );
 
         // Now test a scenario where trimming should succeed
@@ -2772,10 +2772,6 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         Keys::<Test>::remove(netuid, uid_to_remove);
         Uids::<Test>::remove(netuid, hotkey_to_remove);
         BlockAtRegistration::<Test>::remove(netuid, uid_to_remove);
-
-        // Now we have 3 immune out of 4 total UIDs
-        // Try to trim to 3 UIDs - this should succeed because 3/3 = 100% immune, but that's exactly 80%
-        // Wait, 100% is > 80%, so this should fail. Let me test with a scenario where we have fewer immune UIDs
 
         // Remove another immune UID to make it 2 immune out of 3 total
         let uid_to_remove2 = 2;
