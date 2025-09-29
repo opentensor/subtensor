@@ -1561,9 +1561,20 @@ mod pallet_benchmarks {
     fn set_coldkey_auto_stake_hotkey() {
         let coldkey: T::AccountId = whitelisted_caller();
         let netuid = NetUid::from(1);
-        let hot: T::AccountId = account("A", 0, 1);
+        let hotkey: T::AccountId = account("A", 0, 1);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::init_new_network(netuid, 1);
+        let amount = 900_000_000_000;
+
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), netuid, hot.clone());
+        _(RawOrigin::Signed(coldkey.clone()), netuid, hotkey.clone());
     }
 }
