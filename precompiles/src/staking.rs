@@ -194,8 +194,14 @@ where
         destination_netuid: U256,
         amount_alpha: U256,
     ) -> EvmResult<()> {
-        log::error!("================== {} {}", file!(), line!());
+        log::error!("++++++++++++++++++ {} {}", file!(), line!());
         let account_id = handle.caller_account_id::<R>();
+        log::error!("account id is {:?} ", &account_id);
+        log::error!("destination_coldkey is {:?} ", &destination_coldkey);
+        log::error!("hotkey is {:?} ", &hotkey);
+        log::error!("origin_netuid is {:?} ", &origin_netuid);
+        log::error!("destination_netuid is {:?} ", &destination_netuid);
+        log::error!("amount_alpha is {:?} ", &amount_alpha);
         let destination_coldkey = R::AccountId::from(destination_coldkey.0);
         let hotkey = R::AccountId::from(hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;

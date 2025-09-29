@@ -861,6 +861,10 @@ impl<T: Config> Pallet<T> {
             netuid,
             alpha,
         );
+        log::error!(
+            "actual_alpha_decrease is {} ",
+            actual_alpha_decrease.to_u64()
+        );
 
         // Increase alpha on destination keys
         let actual_alpha_moved = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -869,6 +873,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             actual_alpha_decrease,
         );
+        log::error!("actual_alpha_moved is {} ", actual_alpha_moved.to_u64());
 
         // Calculate TAO equivalent based on current price (it is accurate because
         // there's no slippage in this move)
@@ -878,6 +883,7 @@ impl<T: Config> Pallet<T> {
             .saturating_mul(U96F32::saturating_from_num(actual_alpha_moved))
             .saturating_to_num::<u64>()
             .into();
+        log::error!("tao_equivalent is {} ", tao_equivalent.to_u64());
 
         // Ensure tao_equivalent is above DefaultMinStake
         ensure!(
@@ -1107,68 +1113,68 @@ impl<T: Config> Pallet<T> {
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
     ) -> Result<(), Error<T>> {
-        log::error!("================== {} {}", file!(), line!());
+
         // Ensure stake transition is actually happening
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
-        log::error!("================== {} {}", file!(), line!());
+
         Self::ensure_stake_operation_limit_not_exceeded(
             origin_hotkey,
             origin_coldkey,
             origin_netuid.into(),
         )?;
-        log::error!("================== {} {}", file!(), line!());
+
 
         // Ensure that both subnets exist.
         ensure!(
             Self::if_subnet_exist(origin_netuid),
             Error::<T>::SubnetNotExists
         );
-        log::error!("================== {} {}", file!(), line!());
+
         if origin_netuid != destination_netuid {
             ensure!(
                 Self::if_subnet_exist(destination_netuid),
                 Error::<T>::SubnetNotExists
             );
         }
-        log::error!("================== {} {}", file!(), line!());
+
 
         ensure!(
             SubtokenEnabled::<T>::get(origin_netuid),
             Error::<T>::SubtokenDisabled
         );
-        log::error!("================== {} {}", file!(), line!());
+
 
         ensure!(
             SubtokenEnabled::<T>::get(destination_netuid),
             Error::<T>::SubtokenDisabled
         );
-        log::error!("================== {} {}", file!(), line!());
+
         // Ensure that the origin hotkey account exists
         ensure!(
             Self::hotkey_account_exists(origin_hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
-        log::error!("================== {} {}", file!(), line!());
+
         // Ensure that the destination hotkey account exists
         ensure!(
             Self::hotkey_account_exists(destination_hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
-        log::error!("================== {} {}", file!(), line!());
+
         // Ensure there is enough stake in the origin subnet.
         let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
             origin_hotkey,
             origin_coldkey,
             origin_netuid,
         );
-        log::error!("================== {} {}", file!(), line!());
+
         ensure!(
             alpha_amount <= origin_alpha,
             Error::<T>::NotEnoughStakeToWithdraw
         );
-        log::error!("================== {} {}", file!(), line!());
+
         // If origin and destination netuid are different, do the swap-related checks
         if origin_netuid != destination_netuid {
             // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
@@ -1183,25 +1189,25 @@ impl<T: Config> Pallet<T> {
                 TaoCurrency::from(tao_equivalent) > DefaultMinStake::<T>::get(),
                 Error::<T>::AmountTooLow
             );
-            log::error!("================== {} {}", file!(), line!());
+
             // Ensure that if partial execution is not allowed, the amount will not cause
             // slippage over desired
             if let Some(allow_partial) = maybe_allow_partial {
                 if !allow_partial {
-                    log::error!("================== {} {}", file!(), line!());
+
                     ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
                 }
             }
         }
 
         if check_transfer_toggle {
-            log::error!("================== {} {}", file!(), line!());
+
             // Ensure transfer is toggled.
             ensure!(
                 TransferToggle::<T>::get(origin_netuid),
                 Error::<T>::TransferDisallowed
             );
-            log::error!("================== {} {}", file!(), line!());
+
             if origin_netuid != destination_netuid {
                 ensure!(
                     TransferToggle::<T>::get(destination_netuid),
