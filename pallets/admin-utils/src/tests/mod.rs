@@ -2631,11 +2631,10 @@ fn test_trim_to_max_allowed_uids() {
         // Actual number of neurons on the network updated after trimming
         assert_eq!(SubnetworkN::<Test>::get(netuid), new_max_n);
 
-        for i in 0..new_max_n {
-            let i = i as u16;
+        for i in 0..new_max_n.into() {
             let hotkey = Keys::<Test>::get(netuid, i);
             let uid = Uids::<Test>::get(netuid, hotkey);
-            assert_eq!(uid.unwrap(), i);
+            assert_eq!(uid, Some(i));
         }
 
         // Non existent subnet
