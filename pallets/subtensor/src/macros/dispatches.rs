@@ -2301,8 +2301,27 @@ mod dispatches {
             hotkey: T::AccountId,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(
+                Uids::<T>::contains_key(netuid, &hotkey),
+                Error::<T>::HotKeyNotRegisteredInSubNet
+            );
 
-            AutoStakeDestination::<T>::insert(coldkey, netuid, hotkey.clone());
+            let current_hotkey = AutoStakeDestination::<T>::get(coldkey.clone(), netuid);
+            if let Some(current_hotkey) = current_hotkey {
+                ensure!(
+                    current_hotkey != hotkey,
+                    Error::<T>::SameAutoStakeDestinationAlreadySet
+                );
+            }
+
+            AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
+
+            Self::deposit_event(Event::AutoStakeDestinationSet {
+                coldkey,
+                netuid,
+                hotkey,
+            });
 
             Ok(())
         }
