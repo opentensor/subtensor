@@ -148,7 +148,6 @@ impl<T: Config> Pallet<T> {
         log::debug!(
             "StakeTransferred(origin_coldkey: {coldkey:?}, destination_coldkey: {destination_coldkey:?}, hotkey: {hotkey:?}, origin_netuid: {origin_netuid:?}, destination_netuid: {destination_netuid:?}, amount: {tao_moved:?})"
         );
-
         Self::deposit_event(Event::StakeTransferred(
             coldkey,
             destination_coldkey,
