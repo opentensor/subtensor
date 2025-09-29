@@ -58,11 +58,16 @@ describe("bridge token contract deployment", () => {
     assert.ok(stakeFromContract > stakeBefore)
     const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
     assert.ok(stakeAfter > stakeBefore)
+    assert.ok(stakeFromContract > tao(20))
   })
 
 
   it("Can deploy alpha pool smart contract", async () => {
     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
+    const stakingPrecompile = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet);
+
+    const stakeBeforeDeposit = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
+
     const contractFactory = new ethers.ContractFactory(ALPHA_POOL_CONTRACT_ABI, ALPHA_POOL_CONTRACT_BYTECODE, wallet)
     const contract = await contractFactory.deploy(hotkey.publicKey)
     await contract.waitForDeployment()
@@ -79,29 +84,38 @@ describe("bridge token contract deployment", () => {
     assert.ok(code.length > 100)
     assert.ok(code.includes("0x60806040523480156"))
 
-    console.log("======== deployment contractAddress: ", contractAddress)
+    console.log("deployment contractAddress: ", contractAddress)
 
     const contractForCall = new ethers.Contract(contractAddress, ALPHA_POOL_CONTRACT_ABI, wallet)
     const setContractColdkeyTx = await contractForCall.setContractColdkey(contractPublicKey)
     await setContractColdkeyTx.wait()
 
+    // check contract coldkey and hotkey
     const contractColdkey = await contractForCall.contract_coldkey()
     assert.equal(contractColdkey, u8aToHex(contractPublicKey))
     const contractHotkey = await contractForCall.contract_hotkey()
     assert.equal(contractHotkey, u8aToHex(hotkey.publicKey))
 
-    const depositAlphaTx = await contractForCall.depositAlpha(netuid, tao(10 ** 9), hotkey.publicKey)
+    const depositAlphaTx = await contractForCall.depositAlpha(netuid, tao(10).toString(), hotkey.publicKey)
     await depositAlphaTx.wait()
 
-    const alphaOnChain = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
-    console.log("alphaOnChain", alphaOnChain)
+    // compare wallet stake
+    const stakeAftereDeposit = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
+    assert.ok(stakeAftereDeposit < stakeBeforeDeposit)
 
-    const alphaOnChain2 = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(contractPublicKey), convertH160ToSS58(wallet.address), netuid)
-    console.log("alphaOnChain", alphaOnChain2)
+    // check the contract stake
+    const ContractStake = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(contractAddress), netuid)
+    assert.ok(ContractStake > 0)
 
-    // const alphaBalance = await contractForCall.alphaBalance(convertH160ToSS58(wallet.address), netuid)
-    // assert.equal(alphaBalance, tao(10))
-    // console.log("alphaBalance", alphaBalance)
+    // check the wallet alpha balance in contract
+    const alphaBalanceOnContract = await contractForCall.alphaBalance(wallet.address, netuid)
+    assert.equal(alphaBalanceOnContract, tao(10))
+
+    // check the contract stake from the staking precompile
+    const stakeFromContract = BigInt(
+      await stakingPrecompile.getStake(hotkey.publicKey, contractPublicKey, netuid)
+    );
+    assert.ok(stakeFromContract >= tao(10))
   });
 
 });
