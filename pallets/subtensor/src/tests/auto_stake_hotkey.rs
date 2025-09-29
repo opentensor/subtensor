@@ -60,7 +60,7 @@ fn test_set_coldkey_auto_stake_hotkey_success() {
         Uids::<Test>::insert(netuid, hotkey, 1);
 
         // Verify no destination is set initially
-        assert_eq!(AutoStakeDestination::<Test>::get(&coldkey, netuid), None);
+        assert_eq!(AutoStakeDestination::<Test>::get(coldkey, netuid), None);
 
         // Call should succeed
         assert_ok!(SubtensorModule::set_coldkey_auto_stake_hotkey(
@@ -71,7 +71,7 @@ fn test_set_coldkey_auto_stake_hotkey_success() {
 
         // Verify destination is now set
         assert_eq!(
-            AutoStakeDestination::<Test>::get(&coldkey, netuid),
+            AutoStakeDestination::<Test>::get(coldkey, netuid),
             Some(hotkey)
         );
     });
