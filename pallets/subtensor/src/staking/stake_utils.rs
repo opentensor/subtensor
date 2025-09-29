@@ -861,10 +861,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             alpha,
         );
-        log::error!(
-            "actual_alpha_decrease is {} ",
-            actual_alpha_decrease.to_u64()
-        );
 
         // Increase alpha on destination keys
         let actual_alpha_moved = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -873,7 +869,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             actual_alpha_decrease,
         );
-        log::error!("actual_alpha_moved is {} ", actual_alpha_moved.to_u64());
 
         // Calculate TAO equivalent based on current price (it is accurate because
         // there's no slippage in this move)
@@ -883,7 +878,6 @@ impl<T: Config> Pallet<T> {
             .saturating_mul(U96F32::saturating_from_num(actual_alpha_moved))
             .saturating_to_num::<u64>()
             .into();
-        log::error!("tao_equivalent is {} ", tao_equivalent.to_u64());
 
         // Ensure tao_equivalent is above DefaultMinStake
         ensure!(
@@ -1113,7 +1107,6 @@ impl<T: Config> Pallet<T> {
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
     ) -> Result<(), Error<T>> {
-
         // Ensure stake transition is actually happening
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
@@ -1124,7 +1117,6 @@ impl<T: Config> Pallet<T> {
             origin_coldkey,
             origin_netuid.into(),
         )?;
-
 
         // Ensure that both subnets exist.
         ensure!(
@@ -1139,12 +1131,10 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-
         ensure!(
             SubtokenEnabled::<T>::get(origin_netuid),
             Error::<T>::SubtokenDisabled
         );
-
 
         ensure!(
             SubtokenEnabled::<T>::get(destination_netuid),
@@ -1194,14 +1184,12 @@ impl<T: Config> Pallet<T> {
             // slippage over desired
             if let Some(allow_partial) = maybe_allow_partial {
                 if !allow_partial {
-
                     ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
                 }
             }
         }
 
         if check_transfer_toggle {
-
             // Ensure transfer is toggled.
             ensure!(
                 TransferToggle::<T>::get(origin_netuid),
