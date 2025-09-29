@@ -27,6 +27,6 @@ fi
 # replace
 perl -0777 -i -pe 's|pub const DurationOfStartCall: u64 = prod_or_fast!\(7 \* 24 \* 60 \* 60 / 12, 10\);|pub const DurationOfStartCall: u64 = prod_or_fast!(5, 10);|' "$DurationOfStartCall"
 perl -0777 -i -pe 's|pub fn DefaultPendingCooldown<T: Config>\(\) -> u64 \{\s*prod_or_fast!\(7_200, 15\)\s*\}|pub fn DefaultPendingCooldown<T: Config>() -> u64 {\n        prod_or_fast!(15, 15)\n    }|g' "$DefaultPendingCooldown"
-perl -0777 -i -pe 's|Self::SetChildren => 150, // 30 minutes|Self::SetChildren => 15, // 3 min|' "$SetChildren"
+perl -0777 -i -pe 's|Self::SetChildren => 150, // 30 minutes|Self::SetChildren => 30, // 6 min|' "$SetChildren"
 
 echo "Patch applied successfully."
