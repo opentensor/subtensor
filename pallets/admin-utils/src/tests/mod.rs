@@ -2492,6 +2492,28 @@ fn test_trim_to_max_allowed_uids() {
         BlockAtRegistration::<Test>::set(netuid, 6, now);
         BlockAtRegistration::<Test>::set(netuid, 11, now);
 
+        // Set some evm addresses
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            6,
+            (sp_core::H160::from_slice(b"0x12345678901234567890"), now),
+        );
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            11,
+            (sp_core::H160::from_slice(b"0xA2345678901234567890"), now),
+        );
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            7,
+            (sp_core::H160::from_slice(b"0xB2345678901234567890"), now),
+        );
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            14,
+            (sp_core::H160::from_slice(b"0xC2345678901234567890"), now),
+        );
+
         // And some temporally immune uids
         Keys::<Test>::insert(netuid, 7, sn_owner_hotkey1);
         Uids::<Test>::insert(netuid, sn_owner_hotkey1, 7);
@@ -2574,6 +2596,7 @@ fn test_trim_to_max_allowed_uids() {
         for uid in new_max_n..max_n {
             assert!(!Keys::<Test>::contains_key(netuid, uid));
             assert!(!BlockAtRegistration::<Test>::contains_key(netuid, uid));
+            assert!(!AssociatedEvmAddress::<Test>::contains_key(netuid, uid));
             for mecid in 0..mechanism_count.into() {
                 let netuid_index =
                     SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mecid));
@@ -2631,6 +2654,7 @@ fn test_trim_to_max_allowed_uids() {
         // Actual number of neurons on the network updated after trimming
         assert_eq!(SubnetworkN::<Test>::get(netuid), new_max_n);
 
+        // Uids match enumeration order
         for i in 0..new_max_n.into() {
             let hotkey = Keys::<Test>::get(netuid, i);
             let uid = Uids::<Test>::get(netuid, hotkey);

@@ -209,6 +209,7 @@ impl<T: Config> Pallet<T> {
                     #[allow(unknown_lints)]
                     Keys::<T>::remove(netuid, neuron_uid);
                     BlockAtRegistration::<T>::remove(netuid, neuron_uid);
+                    AssociatedEvmAddress::<T>::remove(netuid, neuron_uid);
                     for mecid in 0..mechanisms_count {
                         let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
                         Weights::<T>::remove(netuid_index, neuron_uid);
@@ -315,6 +316,7 @@ impl<T: Config> Pallet<T> {
 
                 // Swap uid specific storage items to new compressed positions
                 Keys::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
+                AssociatedEvmAddress::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
                 BlockAtRegistration::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
 
                 for mecid in 0..mechanisms_count {
