@@ -9,7 +9,7 @@ use jsonrpsee::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{AccountId32, traits::Block as BlockT};
 use std::sync::Arc;
-use subtensor_runtime_common::{NetUid, SubId, TaoCurrency};
+use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
 
 use sp_api::ProvideRuntimeApi;
 
@@ -72,13 +72,13 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_all_metagraphs(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getMetagraph")]
     fn get_metagraph(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
-    #[method(name = "subnetInfo_getAllSubMetagraphs")]
-    fn get_all_submetagraphs(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
-    #[method(name = "subnetInfo_getSubMetagraph")]
-    fn get_submetagraph(
+    #[method(name = "subnetInfo_getAllMechagraphs")]
+    fn get_all_mechagraphs(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getMechagraph")]
+    fn get_mechagraph(
         &self,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
@@ -92,14 +92,16 @@ pub trait SubtensorCustomApi<BlockHash> {
         metagraph_index: Vec<u16>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
-    #[method(name = "subnetInfo_getSelectiveSubMetagraph")]
-    fn get_selective_submetagraph(
+    #[method(name = "subnetInfo_getSelectiveMechagraph")]
+    fn get_selective_mechagraph(
         &self,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         metagraph_index: Vec<u16>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetToPrune")]
+    fn get_subnet_to_prune(&self, at: Option<BlockHash>) -> RpcResult<Option<NetUid>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -336,11 +338,11 @@ where
         }
     }
 
-    fn get_all_submetagraphs(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+    fn get_all_mechagraphs(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        match api.get_all_submetagraphs(at) {
+        match api.get_all_mechagraphs(at) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!("Unable to get metagraps: {e:?}")).into()),
         }
@@ -379,15 +381,15 @@ where
         }
     }
 
-    fn get_submetagraph(
+    fn get_mechagraph(
         &self,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        match api.get_submetagraph(at, netuid, subid) {
+        match api.get_mechagraph(at, netuid, mecid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
                 "Unable to get dynamic subnets info: {e:?}"
@@ -472,20 +474,35 @@ where
         }
     }
 
-    fn get_selective_submetagraph(
+    fn get_selective_mechagraph(
         &self,
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         metagraph_index: Vec<u16>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        match api.get_selective_submetagraph(at, netuid, subid, metagraph_index) {
+        match api.get_selective_mechagraph(at, netuid, mecid, metagraph_index) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
                 Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())
+            }
+        }
+    }
+
+    fn get_subnet_to_prune(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Option<NetUid>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_subnet_to_prune(at) {
+            Ok(result) => Ok(result),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get subnet to prune: {e:?}")).into())
             }
         }
     }

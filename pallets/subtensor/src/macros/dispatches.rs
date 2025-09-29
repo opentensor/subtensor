@@ -53,7 +53,7 @@ mod dispatches {
         /// 	- On successfully setting the weights on chain.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -94,7 +94,7 @@ mod dispatches {
             }
         }
 
-        /// --- Sets the caller weights for the incentive mechanism for subsubnets. The call
+        /// --- Sets the caller weights for the incentive mechanism for mechanisms. The call
         /// can be made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
         /// checks that the passed weights meet the requirements. Stored as u16s they represent
@@ -114,8 +114,8 @@ mod dispatches {
         /// * `netuid` (u16):
         /// 	- The network uid we are setting these weights on.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechnism identifier.
         ///
         /// * `dests` (Vec<u16>):
         /// 	- The edge endpoint for the weight, i.e. j for w_ij.
@@ -132,7 +132,7 @@ mod dispatches {
         /// 	- On successfully setting the weights on chain.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -159,10 +159,10 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(4111))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn set_sub_weights(
+        pub fn set_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             dests: Vec<u16>,
             weights: Vec<u16>,
             version_key: u64,
@@ -170,7 +170,7 @@ mod dispatches {
             if Self::get_commit_reveal_weights_enabled(netuid) {
                 Err(Error::<T>::CommitRevealEnabled.into())
             } else {
-                Self::do_set_sub_weights(origin, netuid, subid, dests, weights, version_key)
+                Self::do_set_mechanism_weights(origin, netuid, mecid, dests, weights, version_key)
             }
         }
 
@@ -233,7 +233,7 @@ mod dispatches {
         ///
         #[pallet::call_index(96)]
         #[pallet::weight((Weight::from_parts(67_770_000, 0)
-		.saturating_add(T::DbWeight::get().reads(9_u64))
+		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
             origin: T::RuntimeOrigin,
@@ -243,7 +243,7 @@ mod dispatches {
             Self::do_commit_weights(origin, netuid, commit_hash)
         }
 
-        /// ---- Used to commit a hash of your weight values to later be revealed for subsubnets.
+        /// ---- Used to commit a hash of your weight values to later be revealed for mechanisms.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -252,8 +252,8 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
         ///
         /// * `commit_hash` (`H256`):
         ///   - The hash representing the committed weights.
@@ -269,13 +269,13 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(55_130_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_sub_weights(
+        pub fn commit_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             commit_hash: H256,
         ) -> DispatchResult {
-            Self::do_commit_sub_weights(origin, netuid, subid, commit_hash)
+            Self::do_commit_mechanism_weights(origin, netuid, mecid, commit_hash)
         }
 
         /// --- Allows a hotkey to commit weight hashes for multiple netuids as a batch.
@@ -302,7 +302,7 @@ mod dispatches {
         ///
         #[pallet::call_index(100)]
         #[pallet::weight((Weight::from_parts(100_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(8))
+        .saturating_add(T::DbWeight::get().reads(11_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
             origin: OriginFor<T>,
@@ -364,7 +364,7 @@ mod dispatches {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
-        /// ---- Used to reveal the weights for a previously committed hash for subsubnets.
+        /// ---- Used to reveal the weights for a previously committed hash for mechanisms.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -373,8 +373,8 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
         ///
         /// * `uids` (`Vec<u16>`):
         ///   - The uids for the weights being revealed.
@@ -408,16 +408,24 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(122_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn reveal_sub_weights(
+        pub fn reveal_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             uids: Vec<u16>,
             values: Vec<u16>,
             salt: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            Self::do_reveal_sub_weights(origin, netuid, subid, uids, values, salt, version_key)
+            Self::do_reveal_mechanism_weights(
+                origin,
+                netuid,
+                mecid,
+                uids,
+                values,
+                salt,
+                version_key,
+            )
         }
 
         /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
@@ -449,20 +457,20 @@ mod dispatches {
         /// * `TooManyUnrevealedCommits`:
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
-        #[pallet::call_index(99)]
-        #[pallet::weight((Weight::from_parts(77_750_000, 0)
-		.saturating_add(T::DbWeight::get().reads(9_u64))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_crv3_weights(
-            origin: T::RuntimeOrigin,
-            netuid: NetUid,
-            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
-            reveal_round: u64,
-        ) -> DispatchResult {
-            Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
-        }
+        // #[pallet::call_index(99)]
+        // #[pallet::weight((Weight::from_parts(77_750_000, 0)
+        // .saturating_add(T::DbWeight::get().reads(9_u64))
+        // .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        // pub fn commit_crv3_weights(
+        //     origin: T::RuntimeOrigin,
+        //     netuid: NetUid,
+        //     commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+        //     reveal_round: u64,
+        // ) -> DispatchResult {
+        //     Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
+        // }
 
-        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed for subsubnets.
+        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed for mechanisms.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -471,8 +479,8 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
         ///
         /// * `commit` (`Vec<u8>`):
         ///   - The encrypted compressed commit.
@@ -498,14 +506,21 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(77_750_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_crv3_sub_weights(
+        pub fn commit_crv3_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
         ) -> DispatchResult {
-            Self::do_commit_timelocked_sub_weights(origin, netuid, subid, commit, reveal_round, 4)
+            Self::do_commit_timelocked_mechanism_weights(
+                origin,
+                netuid,
+                mecid,
+                commit,
+                reveal_round,
+                4,
+            )
         }
 
         /// ---- The implementation for batch revealing committed weights.
@@ -782,7 +797,7 @@ mod dispatches {
         /// 	- On successfully serving the axon info.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -866,7 +881,7 @@ mod dispatches {
         /// 	- On successfully serving the axon info.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -882,7 +897,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(40)]
-        #[pallet::weight((Weight::from_parts(41_240_000, 0)
+        #[pallet::weight((Weight::from_parts(32_510_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon_tls(
@@ -932,7 +947,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(42_000_000, 0)
+        #[pallet::weight((Weight::from_parts(29_760_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -975,7 +990,7 @@ mod dispatches {
         /// 	- On successfully registering a uid to a neuron slot on a subnetwork.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to register to a non existent network.
         ///
         /// * 'TooManyRegistrationsThisBlock':
@@ -1299,8 +1314,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(36))
-		.saturating_add(T::DbWeight::get().writes(52)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(39_u64))
+		.saturating_add(T::DbWeight::get().writes(57_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1333,11 +1348,11 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
-            coldkey: T::AccountId,
+            _coldkey: T::AccountId,
             netuid: NetUid,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::user_remove_network(coldkey, netuid)
+            Self::do_dissolve_network(netuid)
         }
 
         /// Set a single child for a given hotkey on a specified network.
@@ -1366,7 +1381,7 @@ mod dispatches {
         ///     - On successfully registering a child to a hotkey.
         ///
         /// # Errors:
-        /// * `SubNetworkDoesNotExist`:
+        /// * `MechanismDoesNotExist`:
         ///     - Attempting to register to a non-existent network.
         /// * `RegistrationNotPermittedOnRootSubnet`:
         ///     - Attempting to register a child on the root network.
@@ -1586,8 +1601,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
-            .saturating_add(T::DbWeight::get().reads(35))
-            .saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().reads(38_u64))
+            .saturating_add(T::DbWeight::get().writes(56_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2022,9 +2037,8 @@ mod dispatches {
         /// ```
         ///
         /// # Arguments
-        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `origin` - The origin of the transaction, which must be signed by the `hotkey`.
         /// * `netuid` - The netuid that the `hotkey` belongs to.
-        /// * `hotkey` - The hotkey associated with the `origin`.
         /// * `evm_key` - The EVM key to associate with the `hotkey`.
         /// * `block_number` - The block number used in the `signature`.
         /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
@@ -2032,7 +2046,6 @@ mod dispatches {
         /// # Errors
         /// Returns an error if:
         /// * The transaction is not signed.
-        /// * The hotkey is not owned by the origin coldkey.
         /// * The hotkey does not belong to the subnet identified by the netuid.
         /// * The EVM key cannot be recovered from the signature.
         /// * The EVM key recovered from the signature does not match the given EVM key.
@@ -2043,17 +2056,16 @@ mod dispatches {
         #[pallet::weight((
             Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
             DispatchClass::Normal,
-            Pays::Yes
+            Pays::No
         ))]
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            hotkey: T::AccountId,
             evm_key: H160,
             block_number: u64,
             signature: Signature,
         ) -> DispatchResult {
-            Self::do_associate_evm_key(origin, netuid, hotkey, evm_key, block_number, signature)
+            Self::do_associate_evm_key(origin, netuid, evm_key, block_number, signature)
         }
 
         /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -2068,7 +2080,7 @@ mod dispatches {
         /// Emits a `TokensRecycled` event on success.
         #[pallet::call_index(101)]
         #[pallet::weight((
-            Weight::from_parts(92_600_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
+            Weight::from_parts(113_400_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -2093,7 +2105,7 @@ mod dispatches {
         /// Emits a `TokensBurned` event on success.
         #[pallet::call_index(102)]
         #[pallet::weight((
-            Weight::from_parts(90_880_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
+            Weight::from_parts(112_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -2250,7 +2262,7 @@ mod dispatches {
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
         #[pallet::weight((Weight::from_parts(80_690_000, 0)
-		.saturating_add(T::DbWeight::get().reads(9_u64))
+		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
             origin: T::RuntimeOrigin,
@@ -2295,7 +2307,7 @@ mod dispatches {
         }
 
         /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed for
-        /// a subsubnet.
+        /// a mechanism.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -2304,8 +2316,8 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `subid` (`u8`):
-        ///   - The u8 subsubnet identifier.
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
         ///
         /// * `commit` (`Vec<u8>`):
         ///   - The encrypted compressed commit.
@@ -2326,22 +2338,33 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(84_020_000, 0)
 		.saturating_add(T::DbWeight::get().reads(9_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_timelocked_sub_weights(
+        pub fn commit_timelocked_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            subid: SubId,
+            mecid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
             commit_reveal_version: u16,
         ) -> DispatchResult {
-            Self::do_commit_timelocked_sub_weights(
+            Self::do_commit_timelocked_mechanism_weights(
                 origin,
                 netuid,
-                subid,
+                mecid,
                 commit,
                 reveal_round,
                 commit_reveal_version,
             )
+        }
+
+        /// Remove a subnetwork
+        /// The caller must be root
+        #[pallet::call_index(120)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::do_dissolve_network(netuid)
         }
     }
 }

@@ -55,7 +55,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully registereing a uid to a neuron slot on a subnetwork.
     ///
     /// # Raises:
-    /// * 'SubNetworkDoesNotExist':
+    /// * 'MechanismDoesNotExist':
     ///     - Attempting to registed to a non existent network.
     ///
     /// * 'TooManyRegistrationsThisBlock':
@@ -78,10 +78,7 @@ impl<T: Config> Pallet<T> {
             !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
-        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
@@ -193,7 +190,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully registereing a uid to a neuron slot on a subnetwork.
     ///
     /// # Raises:
-    /// *'SubNetworkDoesNotExist':
+    /// *'MechanismDoesNotExist':
     ///     - Attempting to registed to a non existent network.
     ///
     /// *'TooManyRegistrationsThisBlock':
@@ -236,10 +233,7 @@ impl<T: Config> Pallet<T> {
             !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
-        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
@@ -389,6 +383,20 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_immune_owner_hotkeys(netuid: NetUid, coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        Self::get_immune_owner_tuples(netuid, coldkey)
+            .into_iter()
+            .map(|(_, hk)| hk)
+            .collect()
+    }
+
+    pub fn get_immune_owner_uids(netuid: NetUid, coldkey: &T::AccountId) -> Vec<u16> {
+        Self::get_immune_owner_tuples(netuid, coldkey)
+            .into_iter()
+            .map(|(uid, _)| uid)
+            .collect()
+    }
+
+    fn get_immune_owner_tuples(netuid: NetUid, coldkey: &T::AccountId) -> Vec<(u16, T::AccountId)> {
         // Gather (block, uid, hotkey) only for hotkeys that have a UID and a registration block.
         let mut triples: Vec<(u64, u16, T::AccountId)> = OwnedHotkeys::<T>::get(coldkey)
             .into_iter()
@@ -411,22 +419,24 @@ impl<T: Config> Pallet<T> {
             triples.truncate(limit);
         }
 
-        // Project to just hotkeys
-        let mut immune_hotkeys: Vec<T::AccountId> =
-            triples.into_iter().map(|(_, _, hk)| hk).collect();
+        // Project to uid/hotkey tuple
+        let mut immune_tuples: Vec<(u16, T::AccountId)> =
+            triples.into_iter().map(|(_, uid, hk)| (uid, hk)).collect();
 
         // Insert subnet owner hotkey in the beginning of the list if valid and not
         // already present
         if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-            if Uids::<T>::get(netuid, &owner_hk).is_some() && !immune_hotkeys.contains(&owner_hk) {
-                immune_hotkeys.insert(0, owner_hk);
-                if immune_hotkeys.len() > limit {
-                    immune_hotkeys.truncate(limit);
+            if let Some(owner_uid) = Uids::<T>::get(netuid, &owner_hk) {
+                if !immune_tuples.contains(&(owner_uid, owner_hk.clone())) {
+                    immune_tuples.insert(0, (owner_uid, owner_hk.clone()));
+                    if immune_tuples.len() > limit {
+                        immune_tuples.truncate(limit);
+                    }
                 }
             }
         }
 
-        immune_hotkeys
+        immune_tuples
     }
 
     /// Determine which peer to prune from the network by finding the element with the lowest pruning score out of

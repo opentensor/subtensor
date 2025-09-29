@@ -3,7 +3,7 @@ use ark_serialize::CanonicalDeserialize;
 use codec::Decode;
 use frame_support::{dispatch, traits::OriginTrait};
 use scale_info::prelude::collections::VecDeque;
-use subtensor_runtime_common::{NetUid, SubId};
+use subtensor_runtime_common::{MechId, NetUid};
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,
@@ -44,10 +44,10 @@ impl<T: Config> Pallet<T> {
         // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
         let reveal_epoch = cur_epoch.saturating_sub(reveal_period);
 
-        // All subsubnets share the same epoch, so the reveal_period/reveal_epoch are also the same
-        // Reveal for all subsubnets
-        for subid in 0..SubsubnetCountCurrent::<T>::get(netuid).into() {
-            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+        // All mechanisms share the same epoch, so the reveal_period/reveal_epoch are also the same
+        // Reveal for all mechanisms
+        for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
 
             // Clean expired commits
             for (epoch, _) in TimelockedWeightCommits::<T>::iter_prefix(netuid_index) {
@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
 
             // No commits to reveal until at least epoch reveal_period.
             if cur_epoch < reveal_period {
-                log::trace!("Failed to reveal commit for subsubnet {netuid_index} Too early");
+                log::trace!("Failed to reveal commit for mechanism {netuid_index} Too early");
                 return Ok(());
             }
 
@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
                     None => {
                         // Round number used was not found on the chain. Skip this commit.
                         log::trace!(
-                            "Failed to reveal commit for subsubnet {netuid_index} submitted by {who:?} on block {commit_block} due to missing round number {round_number}; will retry every block in reveal epoch."
+                            "Failed to reveal commit for mechanism {netuid_index} submitted by {who:?} on block {commit_block} due to missing round number {round_number}; will retry every block in reveal epoch."
                         );
                         unrevealed.push_back((
                             who,
@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
                     Ok(c) => c,
                     Err(e) => {
                         log::trace!(
-                            "Failed to reveal commit for subsubnet {netuid_index} submitted by {who:?} due to error deserializing the commit: {e:?}"
+                            "Failed to reveal commit for mechanism {netuid_index} submitted by {who:?} due to error deserializing the commit: {e:?}"
                         );
                         continue;
                     }
@@ -110,7 +110,7 @@ impl<T: Config> Pallet<T> {
                     Ok(s) => s,
                     Err(e) => {
                         log::trace!(
-                            "Failed to reveal commit for subsubnet {netuid_index} submitted by {who:?} due to error deserializing signature from drand pallet: {e:?}"
+                            "Failed to reveal commit for mechanism {netuid_index} submitted by {who:?} due to error deserializing signature from drand pallet: {e:?}"
                         );
                         continue;
                     }
@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
                     Ok(d) => d,
                     Err(e) => {
                         log::trace!(
-                            "Failed to reveal commit for subsubnet {netuid_index} submitted by {who:?} due to error decrypting the commit: {e:?}"
+                            "Failed to reveal commit for mechanism {netuid_index} submitted by {who:?} due to error decrypting the commit: {e:?}"
                         );
                         continue;
                     }
@@ -142,7 +142,7 @@ impl<T: Config> Pallet<T> {
                             }
                             Ok(_) => {
                                 log::trace!(
-                                    "Failed to reveal commit for subsubnet {netuid_index} submitted by {who:?} due to hotkey mismatch in payload"
+                                    "Failed to reveal commit for mechanism {netuid_index} submitted by {who:?} due to hotkey mismatch in payload"
                                 );
                                 continue;
                             }
@@ -152,7 +152,7 @@ impl<T: Config> Pallet<T> {
                                     Ok(legacy) => (legacy.uids, legacy.values, legacy.version_key),
                                     Err(_) => {
                                         log::trace!(
-                                            "Failed to reveal commit for subsubnet {netuid_index} submitted by {who:?} due to error deserializing hotkey: {e:?}"
+                                            "Failed to reveal commit for mechanism {netuid_index} submitted by {who:?} due to error deserializing hotkey: {e:?}"
                                         );
                                         continue;
                                     }
@@ -166,7 +166,7 @@ impl<T: Config> Pallet<T> {
                             Ok(legacy) => (legacy.uids, legacy.values, legacy.version_key),
                             Err(e) => {
                                 log::trace!(
-                                    "Failed to reveal commit for subsubnet {netuid_index} submitted by {who:?} due to error deserializing both payload formats: {e:?}"
+                                    "Failed to reveal commit for mechanism {netuid_index} submitted by {who:?} due to error deserializing both payload formats: {e:?}"
                                 );
                                 continue;
                             }
@@ -177,16 +177,16 @@ impl<T: Config> Pallet<T> {
                 // ------------------------------------------------------------------
                 //                          Apply weights
                 // ------------------------------------------------------------------
-                if let Err(e) = Self::do_set_sub_weights(
+                if let Err(e) = Self::do_set_mechanism_weights(
                     T::RuntimeOrigin::signed(who.clone()),
                     netuid,
-                    SubId::from(subid),
+                    MechId::from(mecid),
                     uids,
                     values,
                     version_key,
                 ) {
                     log::trace!(
-                        "Failed to `do_set_sub_weights` for subsubnet {netuid_index} submitted by {who:?}: {e:?}"
+                        "Failed to `do_set_mechanism_weights` for mechanism {netuid_index} submitted by {who:?}: {e:?}"
                     );
                     continue;
                 }
