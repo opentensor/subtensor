@@ -1597,4 +1597,20 @@ mod pallet_benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hot.clone());
     }
+    #[benchmark]
+    fn set_root_claim_type() {
+        let coldkey: T::AccountId = whitelisted_caller();
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), RootClaimTypeEnum::Keep);
+    }
+
+    // TODO: rework after subnets argument
+    #[benchmark]
+    fn claim_root() {
+        let coldkey: T::AccountId = whitelisted_caller();
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()));
+    }
 }

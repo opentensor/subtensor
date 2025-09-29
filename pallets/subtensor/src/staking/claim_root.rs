@@ -193,23 +193,24 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    // TODO: weight
     fn root_claim_on_subnet_weight(_root_claim_type: RootClaimTypeEnum) -> Weight {
-        Weight::default()
+        Weight::from_parts(60_000_000, 6987)
+            .saturating_add(T::DbWeight::get().reads(7_u64))
+            .saturating_add(T::DbWeight::get().writes(5_u64))
     }
     pub fn root_claim_all(hotkey: &T::AccountId, coldkey: &T::AccountId) -> Weight {
         let mut weight = Weight::default();
 
-        weight.saturating_accrue(T::DbWeight::get().reads(1));
         let root_claim_type = RootClaimType::<T>::get(coldkey);
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
 
         // Iterate over all the subnets this hotkey has claimable for root.
         let root_claimable = RootClaimable::<T>::get(hotkey);
-        root_claimable.iter().for_each(|(netuid, _)| {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            weight.saturating_accrue(Self::root_claim_on_subnet_weight(root_claim_type.clone()));
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
 
+        root_claimable.iter().for_each(|(netuid, _)| {
             Self::root_claim_on_subnet(hotkey, coldkey, *netuid, root_claim_type.clone());
+            weight.saturating_accrue(Self::root_claim_on_subnet_weight(root_claim_type.clone()));
         });
 
         weight
@@ -281,9 +282,9 @@ impl<T: Config> Pallet<T> {
         weight
     }
 
-    // TODO:
-    fn block_hash_to_indices_weight(_k: u64, _n: u64) -> Weight {
-        Weight::default()
+    fn block_hash_to_indices_weight(k: u64, _n: u64) -> Weight {
+        Weight::from_parts(3_000_000, 1517)
+            .saturating_add(Weight::from_parts(100_412, 0).saturating_mul(k.into()))
     }
 
     pub fn maybe_add_coldkey_index(coldkey: &T::AccountId) {

@@ -2088,7 +2088,11 @@ mod dispatches {
         /// # Raises:
         ///
         #[pallet::call_index(116)]
-        #[pallet::weight((Weight::from_parts(200_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 2)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((
+            Weight::from_parts(13_000_000, 3994).saturating_add(T::DbWeight::get().reads(1_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
         pub fn claim_root(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let coldkey: T::AccountId = ensure_signed(origin)?;
 
@@ -2106,7 +2110,11 @@ mod dispatches {
         /// 	- On the successfully setting the root claim type for the coldkey.
         ///
         #[pallet::call_index(117)]
-        #[pallet::weight((Weight::from_parts(45_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((
+            Weight::from_parts(6_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
         pub fn set_root_claim_type(
             origin: OriginFor<T>,
             new_root_claim_type: RootClaimTypeEnum,
