@@ -191,6 +191,26 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
     fn is_subtoken_enabled(netuid: NetUid) -> bool {
         netuid.inner() != SUBTOKEN_DISABLED_NETUID
     }
+
+    fn get_validator_trust(netuid: NetUid) -> Vec<u16> {
+        match netuid.into() {
+            123u16 => vec![4000, 3000, 2000, 1000],
+            WRAPPING_FEES_NETUID => vec![8000, 7000, 6000, 5000],
+            _ => vec![1000, 800, 600, 400],
+        }
+    }
+
+    fn get_validator_permit(netuid: NetUid) -> Vec<bool> {
+        match netuid.into() {
+            123u16 => vec![true, true, false, true],
+            WRAPPING_FEES_NETUID => vec![true, true, true, true],
+            _ => vec![true, true, true, true],
+        }
+    }
+
+    fn hotkey_of_uid(_netuid: NetUid, uid: u16) -> Option<AccountId> {
+        Some(uid as AccountId)
+    }
 }
 
 pub struct MockBalanceOps;

@@ -1,5 +1,5 @@
 [package]
-name = "pallet-proxy"
+name = "pallet-subtensor-proxy"
 version = "40.1.0"
 authors = ["Bittensor Nucleus Team"]
 edition.workspace = true
@@ -22,22 +22,18 @@ subtensor-macros.workspace = true
 
 [dev-dependencies]
 pallet-balances = { default-features = true, workspace = true }
-pallet-utility = { default-features = true, workspace = true }
+pallet-subtensor-utility = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"frame/std",
-	"scale-info/std",
-]
+std = ["codec/std", "frame/std", "scale-info/std"]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
+	"pallet-subtensor-utility/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-utility/try-runtime",
+	"pallet-subtensor-utility/try-runtime",
 ]

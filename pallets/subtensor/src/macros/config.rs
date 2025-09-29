@@ -66,6 +66,9 @@ mod config {
         ///  Interface to clean commitments on network dissolution.
         type CommitmentsInterface: CommitmentsInterface;
 
+        /// Rate limit for associating an EVM key.
+        type EvmKeyAssociateRateLimit: Get<u64>;
+
         /// =================================
         /// ==== Initial Value Constants ====
         /// =================================
