@@ -361,7 +361,7 @@ impl<T: Config> Pallet<T> {
             );
 
             // Insert the new UIDs
-            for (old_uid, new_uid) in &old_to_new_uid {
+            for new_uid in old_to_new_uid.values() {
                 // Get the hotkey using Keys map and new UID.
                 let hotkey = Keys::<T>::get(netuid, *new_uid as u16);
                 Uids::<T>::insert(netuid, hotkey, *new_uid as u16);
