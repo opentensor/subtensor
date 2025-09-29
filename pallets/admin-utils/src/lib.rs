@@ -25,7 +25,10 @@ pub mod pallet {
     use frame_support::{dispatch::DispatchResult, pallet_prelude::StorageMap};
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
-    use pallet_subtensor::utils::rate_limiting::{Hyperparameter, TransactionType};
+    use pallet_subtensor::{
+        DefaultMaxAllowedUids,
+        utils::rate_limiting::{Hyperparameter, TransactionType},
+    };
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
     use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
@@ -110,6 +113,10 @@ pub mod pallet {
         MinAllowedUidsGreaterThanCurrentUids,
         /// The minimum allowed UIDs must be less than the maximum allowed UIDs.
         MinAllowedUidsGreaterThanMaxAllowedUids,
+        /// The maximum allowed UIDs must be greater than the minimum allowed UIDs.
+        MaxAllowedUidsLessThanMinAllowedUids,
+        /// The maximum allowed UIDs must be less than the default maximum allowed UIDs.
+        MaxAllowedUidsGreaterThanDefaultMaxAllowedUids,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -517,7 +524,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the maximum allowed UIDs for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account and subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the maximum allowed UIDs for a subnet.
         #[pallet::call_index(15)]
         #[pallet::weight(Weight::from_parts(18_800_000, 0)
@@ -528,16 +535,33 @@ pub mod pallet {
             netuid: NetUid,
             max_allowed_uids: u16,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::MaxAllowedUids.into()],
+            )?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             ensure!(
+                max_allowed_uids > pallet_subtensor::Pallet::<T>::get_min_allowed_uids(netuid),
+                Error::<T>::MaxAllowedUidsLessThanMinAllowedUids
+            );
+            ensure!(
                 pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid) < max_allowed_uids,
                 Error::<T>::MaxAllowedUIdsLessThanCurrentUIds
             );
+            ensure!(
+                max_allowed_uids <= DefaultMaxAllowedUids::<T>::get(),
+                Error::<T>::MaxAllowedUidsGreaterThanDefaultMaxAllowedUids
+            );
             pallet_subtensor::Pallet::<T>::set_max_allowed_uids(netuid, max_allowed_uids);
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::MaxAllowedUids.into()],
+            );
             log::debug!(
                 "MaxAllowedUidsSet( netuid: {netuid:?} max_allowed_uids: {max_allowed_uids:?} ) "
             );
