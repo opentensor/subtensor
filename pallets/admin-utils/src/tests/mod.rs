@@ -2492,33 +2492,33 @@ fn test_trim_to_max_allowed_uids() {
         BlockAtRegistration::<Test>::set(netuid, 6, now);
         BlockAtRegistration::<Test>::set(netuid, 11, now);
 
-        // Set some evm addresses
-        AssociatedEvmAddress::<Test>::insert(
-            netuid,
-            6,
-            (sp_core::H160::from_slice(b"12345678901234567890"), now),
-        );
-        AssociatedEvmAddress::<Test>::insert(
-            netuid,
-            11,
-            (sp_core::H160::from_slice(b"A2345678901234567890"), now),
-        );
-        AssociatedEvmAddress::<Test>::insert(
-            netuid,
-            7,
-            (sp_core::H160::from_slice(b"B2345678901234567890"), now),
-        );
-        AssociatedEvmAddress::<Test>::insert(
-            netuid,
-            14,
-            (sp_core::H160::from_slice(b"C2345678901234567890"), now),
-        );
-
         // And some temporally immune uids
         Keys::<Test>::insert(netuid, 7, sn_owner_hotkey1);
         Uids::<Test>::insert(netuid, sn_owner_hotkey1, 7);
         Keys::<Test>::insert(netuid, 14, sn_owner_hotkey2);
         Uids::<Test>::insert(netuid, sn_owner_hotkey2, 14);
+
+        // Set some evm addresses
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            6,
+            (sp_core::H160::from_slice(b"12345678901234567891"), now),
+        );
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            10,
+            (sp_core::H160::from_slice(b"12345678901234567892"), now),
+        );
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            12,
+            (sp_core::H160::from_slice(b"12345678901234567893"), now),
+        );
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            14,
+            (sp_core::H160::from_slice(b"12345678901234567894"), now),
+        );
 
         // Populate Weights and Bonds storage items to test trimming
         // Create weights and bonds that span across the range that will be trimmed
@@ -2660,6 +2660,16 @@ fn test_trim_to_max_allowed_uids() {
             let uid = Uids::<Test>::get(netuid, hotkey);
             assert_eq!(uid, Some(i));
         }
+
+        // EVM association have been remapped correctly (uids: 7 -> 2, 14 -> 7)
+        assert_eq!(
+            AssociatedEvmAddress::<Test>::get(netuid, 2),
+            Some((sp_core::H160::from_slice(b"12345678901234567891"), now))
+        );
+        assert_eq!(
+            AssociatedEvmAddress::<Test>::get(netuid, 7),
+            Some((sp_core::H160::from_slice(b"12345678901234567894"), now))
+        );
 
         // Non existent subnet
         assert_err!(
