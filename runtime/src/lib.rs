@@ -37,7 +37,10 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
+use pallet_subtensor_collective as pallet_collective;
+use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::SimSwapResult;
+use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -220,7 +223,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 319,
+    spec_version: 323,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -357,6 +360,31 @@ impl pallet_grandpa::Config for Runtime {
 
     type EquivocationReportSystem = ();
 }
+
+/// Babe epoch duration.
+///
+/// Staging this Babe constant prior to enacting the full Babe upgrade so the node
+/// can build itself a `BabeConfiguration` prior to the upgrade taking place.
+pub const EPOCH_DURATION_IN_SLOTS: u64 = prod_or_fast!(4 * HOURS as u64, MINUTES as u64 / 6);
+
+/// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
+/// The choice of is done in accordance to the slot duration and expected target
+/// block time, for safely resisting network delays of maximum two seconds.
+/// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+///
+/// Staging this Babe constant prior to enacting the full Babe upgrade so the node
+/// can build itself a `BabeConfiguration` prior to the upgrade taking place.
+pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+
+/// The BABE epoch configuration at genesis.
+///
+/// Staging this Babe constant prior to enacting the full Babe upgrade so the node
+/// can build itself a `BabeConfiguration` prior to the upgrade taking place.
+pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+    sp_consensus_babe::BabeEpochConfiguration {
+        c: PRIMARY_PROBABILITY,
+        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
+    };
 
 impl pallet_timestamp::Config for Runtime {
     // A timestamp: milliseconds since the unix epoch.
@@ -1117,6 +1145,8 @@ pub const INITIAL_SUBNET_TEMPO: u16 = prod_or_fast!(360, 10);
 // 30 days at 12 seconds per block = 216000
 pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = prod_or_fast!(216000, 5);
 
+pub const EVM_KEY_ASSOCIATE_RATELIMIT: u64 = prod_or_fast!(7200, 1); // 24 * 60 * 60 / 12; // 1 day
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -1185,6 +1215,7 @@ parameter_types! {
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
+    pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1264,6 +1295,7 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
 parameter_types! {

@@ -254,5 +254,7 @@ mod errors {
         SubnetLimitReached,
         /// Insufficient funds to meet the subnet lock cost
         CannotAffordLockCost,
+        /// exceeded the rate limit for associating an EVM key.
+        EvmKeyAssociateRateLimitExceeded,
     }
 }
