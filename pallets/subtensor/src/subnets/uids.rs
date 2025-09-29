@@ -352,6 +352,21 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
+            // Clear the UID map for the subnet
+            let clear_result = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
+            // Shouldn't happen, but possible.
+            ensure!(
+                clear_result.maybe_cursor.is_none(),
+                Error::<T>::UidMapCouldNotBeCleared
+            );
+
+            // Insert the new UIDs
+            for (old_uid, new_uid) in &old_to_new_uid {
+                // Get the hotkey using Keys map and new UID.
+                let hotkey = Keys::<T>::get(netuid, *new_uid as u16);
+                Uids::<T>::insert(netuid, hotkey, *new_uid as u16);
+            }
+
             // Update the subnet's uid count to reflect the new maximum
             SubnetworkN::<T>::insert(netuid, max_n);
         }
