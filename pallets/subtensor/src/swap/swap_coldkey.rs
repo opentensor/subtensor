@@ -173,6 +173,11 @@ impl<T: Config> Pallet<T> {
                 );
                 // Remove the value from the old account.
                 Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
+
+                // Register new coldkey with root stake
+                if new_alpha > U64F64::from(0u64) && netuid == NetUid::ROOT {
+                    Self::maybe_add_coldkey_index(&new_coldkey);
+                }
             }
             // Add the weight for the read and write.
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));

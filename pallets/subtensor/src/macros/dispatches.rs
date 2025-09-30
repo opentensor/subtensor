@@ -2096,6 +2096,8 @@ mod dispatches {
         pub fn claim_root(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let coldkey: T::AccountId = ensure_signed(origin)?;
 
+            Self::maybe_add_coldkey_index(&coldkey);
+
             let weight = Self::do_root_claim(coldkey);
             Ok((Some(weight), Pays::Yes).into())
         }
@@ -2120,6 +2122,8 @@ mod dispatches {
             new_root_claim_type: RootClaimTypeEnum,
         ) -> DispatchResult {
             let coldkey: T::AccountId = ensure_signed(origin)?;
+
+            Self::maybe_add_coldkey_index(&coldkey);
 
             Self::change_root_claim_type(&coldkey, new_root_claim_type);
             Ok(())
