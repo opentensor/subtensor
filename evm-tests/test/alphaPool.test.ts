@@ -96,6 +96,9 @@ describe("bridge token contract deployment", () => {
     const contractHotkey = await contractForCall.contract_hotkey()
     assert.equal(contractHotkey, u8aToHex(hotkey.publicKey))
 
+    const alphaInPool = await contractForCall.getContractStake(netuid)
+    assert.equal(alphaInPool, BigInt(0))
+
     const depositAlphaTx = await contractForCall.depositAlpha(netuid, tao(10).toString(), hotkey.publicKey)
     await depositAlphaTx.wait()
 
@@ -107,15 +110,16 @@ describe("bridge token contract deployment", () => {
     const ContractStake = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(contractAddress), netuid)
     assert.ok(ContractStake > 0)
 
-    // check the wallet alpha balance in contract
+    // check the wallet alpha balance in contract, the actual swapped alpha could be less than alphaAmount in deposit call
     const alphaBalanceOnContract = await contractForCall.alphaBalance(wallet.address, netuid)
-    assert.equal(alphaBalanceOnContract, tao(10))
+    assert.ok(tao(10) - alphaBalanceOnContract < BigInt(1000))
 
     // check the contract stake from the staking precompile
     const stakeFromContract = BigInt(
       await stakingPrecompile.getStake(hotkey.publicKey, contractPublicKey, netuid)
     );
-    assert.ok(stakeFromContract >= tao(10))
+    assert.equal(stakeFromContract, await contractForCall.getContractStake(netuid))
+
   });
 
 });
