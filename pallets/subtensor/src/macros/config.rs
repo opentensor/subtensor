@@ -6,6 +6,7 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod config {
 
+    use crate::CommitmentsInterface;
     use pallet_commitments::GetCommitments;
     use subtensor_swap_interface::SwapHandler;
 
@@ -61,6 +62,12 @@ mod config {
 
         /// Interface to get commitments.
         type GetCommitments: GetCommitments<Self::AccountId>;
+
+        ///  Interface to clean commitments on network dissolution.
+        type CommitmentsInterface: CommitmentsInterface;
+
+        /// Rate limit for associating an EVM key.
+        type EvmKeyAssociateRateLimit: Get<u64>;
 
         /// =================================
         /// ==== Initial Value Constants ====
@@ -132,7 +139,10 @@ mod config {
         /// Kappa constant.
         #[pallet::constant]
         type InitialKappa: Get<u16>;
-        /// Max UID constant.
+        /// Initial minimum allowed network UIDs
+        #[pallet::constant]
+        type InitialMinAllowedUids: Get<u16>;
+        /// Initial maximum allowed network UIDs
         #[pallet::constant]
         type InitialMaxAllowedUids: Get<u16>;
         /// Initial validator context pruning length.
@@ -195,9 +205,6 @@ mod config {
         /// Initial network immunity period
         #[pallet::constant]
         type InitialNetworkImmunityPeriod: Get<u64>;
-        /// Initial minimum allowed network UIDs
-        #[pallet::constant]
-        type InitialNetworkMinAllowedUids: Get<u16>;
         /// Initial network minimum burn cost
         #[pallet::constant]
         type InitialNetworkMinLockCost: Get<u64>;
@@ -254,5 +261,8 @@ mod config {
         /// Number of blocks between dividends distribution.
         #[pallet::constant]
         type LeaseDividendsDistributionInterval: Get<BlockNumberFor<Self>>;
+        /// Maximum percentage of immune UIDs.
+        #[pallet::constant]
+        type MaxImmuneUidsPercentage: Get<Percent>;
     }
 }
