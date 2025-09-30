@@ -1,10 +1,7 @@
 use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };
-use crate::{
-    NetworksAdded, RootClaimable, SubnetAlphaIn, SubnetMechanism, SubnetTAO, SubtokenEnabled,
-    Tempo, pallet,
-};
+use crate::{NetworksAdded, RootClaimable, SubnetAlphaIn, SubnetMechanism, SubnetTAO, SubtokenEnabled, Tempo, pallet, NumStakingColdkeys, StakingColdkeys, StakingColdkeysByIndex};
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
@@ -866,5 +863,52 @@ fn test_claim_root_with_block_emissions() {
                 .into();
 
         assert!(new_stake > 0);
+    });
+}
+#[test]
+fn test_populate_staking_maps() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1000);
+        let coldkey1 = U256::from(1001);
+        let coldkey2 = U256::from(1002);
+        let coldkey3 = U256::from(1003);
+        let hotkey = U256::from(1004);
+        let _netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        let netuid2 = NetUid::from(2);
+
+        let root_stake = 200_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey1,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey2,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey3,
+            netuid2,
+            root_stake.into(),
+        );
+
+        assert_eq!(NumStakingColdkeys::<Test>::get(), 0);
+
+        // Populate maps through block step
+
+        run_to_block(2);
+
+        assert_eq!(NumStakingColdkeys::<Test>::get(), 2);
+
+        assert!(StakingColdkeysByIndex::<Test>::contains_key(&0));
+        assert!(StakingColdkeysByIndex::<Test>::contains_key(&1));
+
+        assert!(StakingColdkeys::<Test>::contains_key(&coldkey1));
+        assert!(StakingColdkeys::<Test>::contains_key(&coldkey2));
+        assert!(!StakingColdkeys::<Test>::contains_key(&coldkey3));
     });
 }

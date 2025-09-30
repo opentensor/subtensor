@@ -327,4 +327,54 @@ impl<T: Config> Pallet<T> {
             *total = total.saturating_sub(amount);
         });
     }
+
+    /// The function clears Alpha map in batches. Each run will check ALPHA_MAP_CLEAN_BATCH_SIZE
+    /// alphas. It keeps the alpha value stored when it's >= than MIN_ALPHA.
+    /// The function uses AlphaMapCleanLastKey as a storage for key iterator between runs.
+    pub fn populate_root_coldkey_staking_maps() {
+        // Get starting key for the batch. Get the first key if we restart the process.
+        let mut starting_raw_key = AlphaMapLastKey::<T>::get();
+        let mut starting_key = None;
+        if starting_raw_key.is_none() {
+            starting_key = Alpha::<T>::iter_keys().next();
+            starting_raw_key = starting_key.as_ref().map(Alpha::<T>::hashed_key_for);
+        }
+
+        if let Some(starting_raw_key) = starting_raw_key {
+            // Get the key batch
+            let mut keys = Alpha::<T>::iter_keys_from(starting_raw_key)
+                .take(ALPHA_MAP_BATCH_SIZE)
+                .collect::<Vec<_>>();
+
+            // New iteration: insert the starting key in the batch if it's a new iteration
+            // iter_keys_from() skips the starting key
+            if let Some(starting_key) = starting_key {
+                if keys.len() == ALPHA_MAP_BATCH_SIZE {
+                    keys.remove(keys.len().saturating_sub(1));
+                }
+                keys.insert(0, starting_key);
+            }
+
+            let mut new_starting_key = None;
+            let new_iteration = keys.len() < ALPHA_MAP_BATCH_SIZE;
+
+            // Check and remove alphas if necessary
+            for key in keys {
+                let (_, coldkey, netuid) = key.clone();
+
+                if netuid == NetUid::ROOT {
+                    Self::maybe_add_coldkey_index(&coldkey);
+                }
+
+                new_starting_key = Some(Alpha::<T>::hashed_key_for(key));
+            }
+
+            // Restart the process if it's the last batch
+            if new_iteration {
+                new_starting_key = None;
+            }
+
+            AlphaMapLastKey::<T>::put(new_starting_key);
+        }
+    }
 }

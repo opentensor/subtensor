@@ -54,6 +54,8 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
+pub const ALPHA_MAP_BATCH_SIZE: usize = 30;
+
 #[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
@@ -926,6 +928,12 @@ pub mod pallet {
         50400
     }
 
+    /// Default last Alpha map key for iteration
+    #[pallet::type_value]
+    pub fn DefaultAlphaIterationLastKey<T: Config>() -> Option<Vec<u8>> {
+        None
+    }
+
     #[pallet::type_value]
     /// Default value for ck burn, 18%.
     pub fn DefaultCKBurn<T: Config>() -> u64 {
@@ -1199,6 +1207,11 @@ pub mod pallet {
         U64F64, // Shares
         ValueQuery,
     >;
+
+    #[pallet::storage] // Contains last Alpha storage map key to iterate (check first)
+    pub type AlphaMapLastKey<T: Config> =
+        StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
+
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
