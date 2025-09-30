@@ -527,8 +527,8 @@ pub mod pallet {
         /// It is only callable by the root account and subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the maximum allowed UIDs for a subnet.
         #[pallet::call_index(15)]
-        #[pallet::weight(Weight::from_parts(18_800_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+        #[pallet::weight(Weight::from_parts(32_140_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(5_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_allowed_uids(
             origin: OriginFor<T>,
@@ -837,7 +837,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the difficulty.
         #[pallet::call_index(24)]
-        #[pallet::weight(Weight::from_parts(26_230_000, 0)
+        #[pallet::weight(Weight::from_parts(38_500_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_difficulty(
