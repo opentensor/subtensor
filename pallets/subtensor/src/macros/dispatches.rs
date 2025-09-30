@@ -2311,7 +2311,7 @@ mod dispatches {
             if let Some(current_hotkey) = current_hotkey {
                 ensure!(
                     current_hotkey != hotkey,
-                    Error::<T>::SameAutoStakeDestinationAlreadySet
+                    Error::<T>::SameAutoStakeHotkeyAlreadySet
                 );
             }
 

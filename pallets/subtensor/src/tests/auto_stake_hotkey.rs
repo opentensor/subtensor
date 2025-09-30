@@ -106,7 +106,7 @@ fn test_set_coldkey_auto_stake_hotkey_same_hotkey_again() {
                 netuid,
                 hotkey,
             ),
-            Error::<Test>::SameAutoStakeDestinationAlreadySet
+            Error::<Test>::SameAutoStakeHotkeyAlreadySet
         );
     });
 }

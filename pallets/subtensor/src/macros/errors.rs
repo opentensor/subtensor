@@ -256,7 +256,7 @@ mod errors {
         CannotAffordLockCost,
         /// exceeded the rate limit for associating an EVM key.
         EvmKeyAssociateRateLimitExceeded,
-        /// Same auto stake destination already set
-        SameAutoStakeDestinationAlreadySet,
+        /// Same auto stake hotkey already set
+        SameAutoStakeHotkeyAlreadySet,
     }
 }
