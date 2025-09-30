@@ -15,7 +15,9 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
-use pallet_collective::MemberCount;
+use pallet_subtensor_collective as pallet_collective;
+use pallet_subtensor_collective::MemberCount;
+use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -224,6 +226,7 @@ parameter_types! {
     pub const MaxContributorsPerLeaseToRemove: u32 = 3;
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
+    pub const EvmKeyAssociateRateLimit: u64 = 10;
 }
 
 // Configure collective pallet for council
@@ -462,6 +465,7 @@ impl crate::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
 // Swap-related parameter types
