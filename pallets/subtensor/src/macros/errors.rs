@@ -256,5 +256,9 @@ mod errors {
         CannotAffordLockCost,
         /// exceeded the rate limit for associating an EVM key.
         EvmKeyAssociateRateLimitExceeded,
+        /// The UID map for the subnet could not be cleared
+        UidMapCouldNotBeCleared,
+        /// Trimming would exceed the max immune neurons percentage
+        TrimmingWouldExceedMaxImmunePercentage,
     }
 }
