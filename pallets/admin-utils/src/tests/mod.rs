@@ -2502,6 +2502,28 @@ fn test_trim_to_max_allowed_uids() {
         Keys::<Test>::insert(netuid, 14, sn_owner_hotkey2);
         Uids::<Test>::insert(netuid, sn_owner_hotkey2, 14);
 
+        // Set some evm addresses
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            6,
+            (sp_core::H160::from_slice(b"12345678901234567891"), now),
+        );
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            10,
+            (sp_core::H160::from_slice(b"12345678901234567892"), now),
+        );
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            12,
+            (sp_core::H160::from_slice(b"12345678901234567893"), now),
+        );
+        AssociatedEvmAddress::<Test>::insert(
+            netuid,
+            14,
+            (sp_core::H160::from_slice(b"12345678901234567894"), now),
+        );
+
         // Populate Weights and Bonds storage items to test trimming
         // Create weights and bonds that span across the range that will be trimmed
         for uid in 0..max_n {
@@ -2578,6 +2600,7 @@ fn test_trim_to_max_allowed_uids() {
         for uid in new_max_n..max_n {
             assert!(!Keys::<Test>::contains_key(netuid, uid));
             assert!(!BlockAtRegistration::<Test>::contains_key(netuid, uid));
+            assert!(!AssociatedEvmAddress::<Test>::contains_key(netuid, uid));
             for mecid in 0..mechanism_count.into() {
                 let netuid_index =
                     SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mecid));
@@ -2635,6 +2658,23 @@ fn test_trim_to_max_allowed_uids() {
         // Actual number of neurons on the network updated after trimming
         assert_eq!(SubnetworkN::<Test>::get(netuid), new_max_n);
 
+        // Uids match enumeration order
+        for i in 0..new_max_n.into() {
+            let hotkey = Keys::<Test>::get(netuid, i);
+            let uid = Uids::<Test>::get(netuid, hotkey);
+            assert_eq!(uid, Some(i));
+        }
+
+        // EVM association have been remapped correctly (uids: 7 -> 2, 14 -> 7)
+        assert_eq!(
+            AssociatedEvmAddress::<Test>::get(netuid, 2),
+            Some((sp_core::H160::from_slice(b"12345678901234567891"), now))
+        );
+        assert_eq!(
+            AssociatedEvmAddress::<Test>::get(netuid, 7),
+            Some((sp_core::H160::from_slice(b"12345678901234567894"), now))
+        );
+
         // Non existent subnet
         assert_err!(
             AdminUtils::sudo_trim_to_max_allowed_uids(
@@ -2677,7 +2717,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
         TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
         ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
-        MinAllowedUids::<Test>::set(netuid, 4);
+        MinAllowedUids::<Test>::set(netuid, 2);
 
         // Add 5 neurons
         let max_n = 5;
@@ -2715,7 +2755,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
                 netuid,
                 4
             ),
-            pallet_subtensor::Error::<Test>::InvalidValue
+            pallet_subtensor::Error::<Test>::TrimmingWouldExceedMaxImmunePercentage
         );
 
         // Try to trim to 3 UIDs - this should also fail because 4/3 > 80% immune (>= 80%)
@@ -2725,7 +2765,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
                 netuid,
                 3
             ),
-            pallet_subtensor::Error::<Test>::InvalidValue
+            pallet_subtensor::Error::<Test>::TrimmingWouldExceedMaxImmunePercentage
         );
 
         // Now test a scenario where trimming should succeed
@@ -2736,10 +2776,6 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         Keys::<Test>::remove(netuid, uid_to_remove);
         Uids::<Test>::remove(netuid, hotkey_to_remove);
         BlockAtRegistration::<Test>::remove(netuid, uid_to_remove);
-
-        // Now we have 3 immune out of 4 total UIDs
-        // Try to trim to 3 UIDs - this should succeed because 3/3 = 100% immune, but that's exactly 80%
-        // Wait, 100% is > 80%, so this should fail. Let me test with a scenario where we have fewer immune UIDs
 
         // Remove another immune UID to make it 2 immune out of 3 total
         let uid_to_remove2 = 2;
