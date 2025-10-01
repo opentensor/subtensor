@@ -545,11 +545,11 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             ensure!(
-                max_allowed_uids > pallet_subtensor::Pallet::<T>::get_min_allowed_uids(netuid),
+                max_allowed_uids >= pallet_subtensor::Pallet::<T>::get_min_allowed_uids(netuid),
                 Error::<T>::MaxAllowedUidsLessThanMinAllowedUids
             );
             ensure!(
-                pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid) < max_allowed_uids,
+                pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid) <= max_allowed_uids,
                 Error::<T>::MaxAllowedUIdsLessThanCurrentUIds
             );
             ensure!(
