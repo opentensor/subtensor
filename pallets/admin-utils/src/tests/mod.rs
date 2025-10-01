@@ -580,6 +580,40 @@ fn test_sudo_set_max_allowed_uids() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), to_be_set);
+
+        // Exact current case
+        assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            SubtensorModule::get_subnetwork_n(netuid)
+        ));
+        assert_eq!(
+            SubtensorModule::get_max_allowed_uids(netuid),
+            SubtensorModule::get_subnetwork_n(netuid)
+        );
+
+        // Lower bound case
+        SubtensorModule::set_min_allowed_uids(netuid, SubtensorModule::get_subnetwork_n(netuid));
+        assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            SubtensorModule::get_min_allowed_uids(netuid)
+        ));
+        assert_eq!(
+            SubtensorModule::get_max_allowed_uids(netuid),
+            SubtensorModule::get_min_allowed_uids(netuid)
+        );
+
+        // Upper bound case
+        assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            DefaultMaxAllowedUids::<Test>::get(),
+        ));
+        assert_eq!(
+            SubtensorModule::get_max_allowed_uids(netuid),
+            DefaultMaxAllowedUids::<Test>::get()
+        );
     });
 }
 
