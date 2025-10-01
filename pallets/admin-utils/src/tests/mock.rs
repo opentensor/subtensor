@@ -3,18 +3,17 @@
 use core::num::NonZeroU64;
 
 use frame_support::{
-    assert_ok, derive_impl, parameter_types,
+    PalletId, assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
-    PalletId,
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
-use frame_system::{limits, EnsureNever, EnsureRoot};
+use frame_system::{EnsureNever, EnsureRoot, limits};
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
+    BuildStorage, KeyTypeId, Perbill, Percent,
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    BuildStorage, KeyTypeId, Perbill, Percent,
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
@@ -407,8 +406,8 @@ pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
 
 mod test_crypto {
     use super::KEY_TYPE;
-    use sp_core::sr25519::{Public as Sr25519Public, Signature as Sr25519Signature};
     use sp_core::U256;
+    use sp_core::sr25519::{Public as Sr25519Public, Signature as Sr25519Signature};
     use sp_runtime::{
         app_crypto::{app_crypto, sr25519},
         traits::IdentifyAccount,

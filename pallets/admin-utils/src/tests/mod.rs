@@ -9,16 +9,16 @@ use pallet_subtensor::{
     TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit, *,
 };
 // use pallet_subtensor::{migrations, Event};
-use pallet_subtensor::{utils::rate_limiting::TransactionType, Event};
+use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{ed25519, Get, Pair, U256};
-use sp_runtime::traits::Zero;
+use sp_core::{Get, Pair, U256, ed25519};
 use sp_runtime::Percent;
+use sp_runtime::traits::Zero;
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{Currency, MechId, NetUid, TaoCurrency};
 
-use crate::pallet::PrecompileEnable;
 use crate::Error;
+use crate::pallet::PrecompileEnable;
 use mock::*;
 
 mod mock;
@@ -192,8 +192,10 @@ fn test_sudo_set_weights_version_key_rate_limit() {
 
         // Try to set again with
         // Assert rate limit not passed
-        assert!(!TransactionType::SetWeightsVersionKey
-            .passes_rate_limit_on_subnet::<Test>(&sn_owner, netuid));
+        assert!(
+            !TransactionType::SetWeightsVersionKey
+                .passes_rate_limit_on_subnet::<Test>(&sn_owner, netuid)
+        );
 
         // Try transaction
         assert_noop!(
@@ -207,8 +209,10 @@ fn test_sudo_set_weights_version_key_rate_limit() {
 
         // Wait for rate limit to pass
         run_to_block(rate_limit_period + 1);
-        assert!(TransactionType::SetWeightsVersionKey
-            .passes_rate_limit_on_subnet::<Test>(&sn_owner, netuid));
+        assert!(
+            TransactionType::SetWeightsVersionKey
+                .passes_rate_limit_on_subnet::<Test>(&sn_owner, netuid)
+        );
 
         // Try transaction
         assert_ok!(AdminUtils::sudo_set_weights_version_key(
