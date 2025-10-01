@@ -5,7 +5,7 @@ use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::{DispatchResult, Vec, traits::AccountIdConversion};
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo, TaoCurrency,
@@ -1212,6 +1212,199 @@ impl<T: Config> Pallet<T> {
     pub fn protocol_account_id() -> T::AccountId {
         T::ProtocolId::get().into_account_truncating()
     }
+
+    /// Dissolve all LPs and clean state.
+    pub fn do_dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
+        if SwapV3Initialized::<T>::get(netuid) {
+            // 1) Snapshot only *non‑protocol* positions: (owner, position_id).
+            struct CloseItem<A> {
+                owner: A,
+                pos_id: PositionId,
+            }
+            let protocol_account = Self::protocol_account_id();
+
+            let mut to_close: sp_std::vec::Vec<CloseItem<T::AccountId>> = sp_std::vec::Vec::new();
+            for ((owner, pos_id), _pos) in Positions::<T>::iter_prefix((netuid,)) {
+                if owner != protocol_account {
+                    to_close.push(CloseItem { owner, pos_id });
+                }
+            }
+
+            if to_close.is_empty() {
+                log::debug!(
+                    "dissolve_all_lp: no user positions; netuid={netuid:?}, protocol liquidity untouched"
+                );
+                return Ok(());
+            }
+
+            let mut user_refunded_tao = TaoCurrency::ZERO;
+            let mut user_staked_alpha = AlphaCurrency::ZERO;
+
+            let trust: Vec<u16> = T::SubnetInfo::get_validator_trust(netuid.into());
+            let permit: Vec<bool> = T::SubnetInfo::get_validator_permit(netuid.into());
+
+            // Helper: pick target validator uid, only among permitted validators, by highest trust.
+            let pick_target_uid = |trust: &Vec<u16>, permit: &Vec<bool>| -> Option<u16> {
+                let mut best_uid: Option<usize> = None;
+                let mut best_trust: u16 = 0;
+                for (i, (&t, &p)) in trust.iter().zip(permit.iter()).enumerate() {
+                    if p && (best_uid.is_none() || t > best_trust) {
+                        best_uid = Some(i);
+                        best_trust = t;
+                    }
+                }
+                best_uid.map(|i| i as u16)
+            };
+
+            for CloseItem { owner, pos_id } in to_close.into_iter() {
+                match Self::do_remove_liquidity(netuid, &owner, pos_id) {
+                    Ok(rm) => {
+                        // α withdrawn from the pool = principal + accrued fees
+                        let alpha_total_from_pool: AlphaCurrency =
+                            rm.alpha.saturating_add(rm.fee_alpha);
+
+                        // ---------------- USER: refund τ and convert α → stake ----------------
+
+                        // 1) Refund τ principal directly.
+                        if rm.tao > TaoCurrency::ZERO {
+                            T::BalanceOps::increase_balance(&owner, rm.tao);
+                            user_refunded_tao = user_refunded_tao.saturating_add(rm.tao);
+                            T::BalanceOps::decrease_provided_tao_reserve(netuid, rm.tao);
+                        }
+
+                        // 2) Stake ALL withdrawn α (principal + fees) to the best permitted validator.
+                        if alpha_total_from_pool > AlphaCurrency::ZERO {
+                            if let Some(target_uid) = pick_target_uid(&trust, &permit) {
+                                let validator_hotkey: T::AccountId =
+                                    T::SubnetInfo::hotkey_of_uid(netuid.into(), target_uid).ok_or(
+                                        sp_runtime::DispatchError::Other(
+                                            "validator_hotkey_missing",
+                                        ),
+                                    )?;
+
+                                // Stake α from LP owner (coldkey) to chosen validator (hotkey).
+                                T::BalanceOps::increase_stake(
+                                    &owner,
+                                    &validator_hotkey,
+                                    netuid,
+                                    alpha_total_from_pool,
+                                )?;
+
+                                user_staked_alpha =
+                                    user_staked_alpha.saturating_add(alpha_total_from_pool);
+
+                                log::debug!(
+                                    "dissolve_all_lp: user dissolved & staked α: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, α_staked={alpha_total_from_pool:?}, target_uid={target_uid}"
+                                );
+                            } else {
+                                // No permitted validators; burn to avoid balance drift.
+                                log::debug!(
+                                    "dissolve_all_lp: no permitted validators; α burned: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, α_total={alpha_total_from_pool:?}"
+                                );
+                            }
+
+                            T::BalanceOps::decrease_provided_alpha_reserve(
+                                netuid,
+                                alpha_total_from_pool,
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        log::debug!(
+                            "dissolve_all_lp: force-close failed: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, err={e:?}"
+                        );
+                        continue;
+                    }
+                }
+            }
+
+            log::debug!(
+                "dissolve_all_liquidity_providers (users-only): netuid={netuid:?}, users_refunded_total_τ={user_refunded_tao:?}, users_staked_total_α={user_staked_alpha:?}; protocol liquidity untouched"
+            );
+
+            return Ok(());
+        }
+
+        log::debug!(
+            "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, leaving all liquidity/state intact"
+        );
+
+        Ok(())
+    }
+
+    /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
+    pub fn do_clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
+        let protocol_account = Self::protocol_account_id();
+
+        // 1) Force-close only protocol positions, burning proceeds.
+        let mut burned_tao = TaoCurrency::ZERO;
+        let mut burned_alpha = AlphaCurrency::ZERO;
+
+        // Collect protocol position IDs first to avoid mutating while iterating.
+        let protocol_pos_ids: sp_std::vec::Vec<PositionId> = Positions::<T>::iter_prefix((netuid,))
+            .filter_map(|((owner, pos_id), _)| {
+                if owner == protocol_account {
+                    Some(pos_id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for pos_id in protocol_pos_ids {
+            match Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
+                Ok(rm) => {
+                    let alpha_total_from_pool: AlphaCurrency =
+                        rm.alpha.saturating_add(rm.fee_alpha);
+                    let tao = rm.tao;
+
+                    if tao > TaoCurrency::ZERO {
+                        burned_tao = burned_tao.saturating_add(tao);
+                    }
+                    if alpha_total_from_pool > AlphaCurrency::ZERO {
+                        burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
+                    }
+
+                    log::debug!(
+                        "clear_protocol_liquidity: burned protocol pos: netuid={netuid:?}, pos_id={pos_id:?}, τ={tao:?}, α_total={alpha_total_from_pool:?}"
+                    );
+                }
+                Err(e) => {
+                    log::debug!(
+                        "clear_protocol_liquidity: force-close failed: netuid={netuid:?}, pos_id={pos_id:?}, err={e:?}"
+                    );
+                    continue;
+                }
+            }
+        }
+
+        // 2) Clear active tick index entries, then all swap state (idempotent even if empty/non‑V3).
+        let active_ticks: sp_std::vec::Vec<TickIndex> =
+            Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
+        for ti in active_ticks {
+            ActiveTickIndexManager::<T>::remove(netuid, ti);
+        }
+
+        let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
+        let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
+
+        FeeGlobalTao::<T>::remove(netuid);
+        FeeGlobalAlpha::<T>::remove(netuid);
+        CurrentLiquidity::<T>::remove(netuid);
+        CurrentTick::<T>::remove(netuid);
+        AlphaSqrtPrice::<T>::remove(netuid);
+        SwapV3Initialized::<T>::remove(netuid);
+
+        let _ = TickIndexBitmapWords::<T>::clear_prefix((netuid,), u32::MAX, None);
+        FeeRate::<T>::remove(netuid);
+        EnabledUserLiquidity::<T>::remove(netuid);
+
+        log::debug!(
+            "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
+        );
+
+        Ok(())
+    }
 }
 
 impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
@@ -1303,6 +1496,15 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
 
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
         EnabledUserLiquidity::<T>::get(netuid)
+    }
+    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
+        Self::do_dissolve_all_liquidity_providers(netuid)
+    }
+    fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
+        EnabledUserLiquidity::<T>::insert(netuid, enabled)
+    }
+    fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
+        Self::do_clear_protocol_liquidity(netuid)
     }
 }
 

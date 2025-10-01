@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
+use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::DispatchInfo;
 use frame_support::sp_runtime::{DispatchError, transaction_validity::TransactionSource};
@@ -8,7 +9,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, NetUidStorageIndex};
 
 use super::mock;
 use super::mock::*;
@@ -1335,6 +1336,92 @@ fn test_registration_get_uid_to_prune_none_in_immunity_period() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::registration::test_registration_get_uid_to_prune_owner_immortality --exact --show-output --nocapture
+#[test]
+fn test_registration_get_uid_to_prune_owner_immortality() {
+    new_test_ext(1).execute_with(|| {
+        [
+            // Burn key limit to 1 - testing the limits
+            // Other owner's hotkey is pruned because there's only 1 immune key and
+            // pruning score of owner key is lower
+            (1, 1),
+            // Burn key limit to 2 - both owner keys are immune
+            (2, 2),
+        ]
+        .iter()
+        .for_each(|(limit, uid_to_prune)| {
+            let subnet_owner_ck = U256::from(0);
+            let subnet_owner_hk = U256::from(1);
+
+            // Other hk owned by owner
+            let other_owner_hk = U256::from(2);
+            Owner::<Test>::insert(other_owner_hk, subnet_owner_ck);
+            OwnedHotkeys::<Test>::insert(subnet_owner_ck, vec![subnet_owner_hk, other_owner_hk]);
+
+            // Another hk not owned by owner
+            let non_owner_hk = U256::from(3);
+
+            let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+            BlockAtRegistration::<Test>::insert(netuid, 1, 1);
+            BlockAtRegistration::<Test>::insert(netuid, 2, 2);
+            Uids::<Test>::insert(netuid, other_owner_hk, 1);
+            Uids::<Test>::insert(netuid, non_owner_hk, 2);
+            Keys::<Test>::insert(netuid, 1, other_owner_hk);
+            Keys::<Test>::insert(netuid, 2, non_owner_hk);
+            ImmunityPeriod::<Test>::insert(netuid, 1);
+            SubnetworkN::<Test>::insert(netuid, 3);
+
+            step_block(10);
+
+            ImmuneOwnerUidsLimit::<Test>::insert(netuid, *limit);
+
+            // Set lower pruning score to sn owner keys
+            PruningScores::<Test>::insert(netuid, vec![0, 0, 1]);
+
+            assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), *uid_to_prune);
+        });
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::registration::test_registration_get_uid_to_prune_owner_immortality_all_immune --exact --show-output --nocapture
+#[test]
+fn test_registration_get_uid_to_prune_owner_immortality_all_immune() {
+    new_test_ext(1).execute_with(|| {
+        let limit = 2;
+        let uid_to_prune = 2;
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        // Other hk owned by owner
+        let other_owner_hk = U256::from(2);
+        Owner::<Test>::insert(other_owner_hk, subnet_owner_ck);
+        OwnedHotkeys::<Test>::insert(subnet_owner_ck, vec![subnet_owner_hk, other_owner_hk]);
+
+        // Another hk not owned by owner
+        let non_owner_hk = U256::from(3);
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        BlockAtRegistration::<Test>::insert(netuid, 0, 12);
+        BlockAtRegistration::<Test>::insert(netuid, 1, 11);
+        BlockAtRegistration::<Test>::insert(netuid, 2, 10);
+        Uids::<Test>::insert(netuid, other_owner_hk, 1);
+        Uids::<Test>::insert(netuid, non_owner_hk, 2);
+        Keys::<Test>::insert(netuid, 1, other_owner_hk);
+        Keys::<Test>::insert(netuid, 2, non_owner_hk);
+        ImmunityPeriod::<Test>::insert(netuid, 100);
+        SubnetworkN::<Test>::insert(netuid, 3);
+
+        step_block(20);
+
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, limit);
+
+        // Set lower pruning score to sn owner keys
+        PruningScores::<Test>::insert(netuid, vec![0, 0, 1]);
+
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), uid_to_prune);
+    });
+}
+
 #[test]
 fn test_registration_pruning() {
     new_test_ext(1).execute_with(|| {
@@ -2058,6 +2145,45 @@ fn test_registration_disabled() {
         assert_eq!(
             result,
             Err(Error::<Test>::SubNetRegistrationDisabled.into())
+        );
+    });
+}
+
+#[test]
+fn test_last_update_correctness() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
+        //add network
+        SubtensorModule::set_burn(netuid, burn_cost.into());
+        add_network(netuid, tempo, 0);
+
+        let reserve = 1_000_000_000_000;
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
+
+        // Simulate existing neurons
+        let existing_neurons = 3;
+        SubnetworkN::<Test>::insert(netuid, existing_neurons);
+
+        // Simulate no LastUpdate so far (can happen on mechanisms)
+        LastUpdate::<Test>::remove(NetUidStorageIndex::from(netuid));
+
+        // Give some $$$ to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        // Subscribe and check extrinsic output
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id
+        ));
+
+        // Check that LastUpdate has existing_neurons + 1 elements now
+        assert_eq!(
+            LastUpdate::<Test>::get(NetUidStorageIndex::from(netuid)).len(),
+            (existing_neurons + 1) as usize
         );
     });
 }

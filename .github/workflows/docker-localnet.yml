@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       branch-or-tag:
-        description: "Branch or tag to use for the Docker image tag and ref to checkout (optional)"
+        description: "The branch or tag to use as the Docker image tag (optional)."
         required: false
         default: ""
   push:
@@ -15,7 +15,7 @@ on:
       - main
       - testnet
       - devnet
-      
+
 concurrency:
   group: docker-localnet-${{ github.ref }}
   cancel-in-progress: true
@@ -27,29 +27,130 @@ permissions:
   security-events: write
 
 jobs:
-  publish:
-    runs-on: [self-hosted, type-ccx53, type-ccx43, type-ccx33]
-
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      ref: ${{ steps.vars.outputs.ref }}
+      latest_tag: ${{ steps.vars.outputs.latest_tag }}
     steps:
       - name: Determine Docker tag and ref
-        id: tag
+        id: vars
         run: |
-          branch_or_tag="${{ github.event.inputs.branch-or-tag || github.ref_name }}"
-          echo "Determined branch or tag: $branch_or_tag"
-          echo "tag=$branch_or_tag" >> $GITHUB_ENV
-          echo "ref=$branch_or_tag" >> $GITHUB_ENV
-
-          # Check if this is a tagged release (not devnet-ready/devnet/testnet)
-          if [[ "$branch_or_tag" != "devnet-ready" ]]; then
-            echo "latest_tag=true" >> $GITHUB_ENV
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "ref=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ github.base_ref }}" >> $GITHUB_OUTPUT
           else
-            echo "latest_tag=false" >> $GITHUB_ENV
+            tag="${{ github.event.inputs.branch-or-tag || github.ref_name }}"
+            echo "ref=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "tag=$tag" >> $GITHUB_OUTPUT
+          fi
+      
+          if [[ "$tag" != "devnet-ready" ]]; then
+            echo "latest_tag=true" >> $GITHUB_OUTPUT
+          else
+            echo "latest_tag=false" >> $GITHUB_OUTPUT
           fi
 
+  # build artifacts for fast-runtime and non-fast-runtime
+  artifacts:
+    name: Node • ${{ matrix.runtime }} • ${{ matrix.platform.arch }}
+    needs: setup
+    strategy:
+      matrix:
+        platform:
+          # triple names used `in scripts/install_prebuilt_binaries.sh` file
+          - runner: [self-hosted, type-ccx33]
+            triple: x86_64-unknown-linux-gnu
+            arch: amd64
+          - runner: [ubuntu-24.04-arm]
+            triple: aarch64-unknown-linux-gnu
+            arch: arm64
+
+        runtime: ["fast-runtime", "non-fast-runtime"]
+
+    runs-on: ${{ matrix.platform.runner }}
+
+    steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.ref }}
+          ref: ${{ needs.setup.outputs.ref }}
+
+      - name: Install Rust + dependencies
+        run: |
+          chmod +x ./scripts/install_build_env.sh
+          ./scripts/install_build_env.sh
+
+      - name: Add Rust target triple
+        run: |
+          source "$HOME/.cargo/env"
+          rustup target add ${{ matrix.platform.triple }}
+
+      - name: Patch limits for local run
+        run: |
+          chmod +x ./scripts/localnet_patch.sh
+          ./scripts/localnet_patch.sh
+
+      - name: Build binaries
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          export CARGO_BUILD_TARGET="${{ matrix.platform.triple }}"
+
+          if [ "${{ matrix.runtime }}" = "fast-runtime" ]; then
+            ./scripts/localnet.sh --build-only
+          else
+            ./scripts/localnet.sh False --build-only
+          fi
+
+        # use `ci_target` name bc .dockerignore excludes `target`
+      - name: Prepare artifacts for upload
+        run: |
+          RUNTIME="${{ matrix.runtime }}"
+          TRIPLE="${{ matrix.platform.triple }}"
+
+          mkdir -p build/ci_target/${RUNTIME}/${TRIPLE}/release/
+          cp -v target/${RUNTIME}/${TRIPLE}/release/node-subtensor \
+            build/ci_target/${RUNTIME}/${TRIPLE}/release/
+
+          mkdir -p build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
+          cp -v target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
+            build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.platform.triple }}-${{ matrix.runtime }}
+          path: build/
+          if-no-files-found: error
+
+  # Collect all artifacts and publish them to docker repo
+  docker:
+    needs: [setup, artifacts]
+    runs-on: [self-hosted, type-ccx33]
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.setup.outputs.ref }}
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: binaries-*
+          path: build/
+          merge-multiple: true
+
+      - name: Show current Git branch
+        run: |
+          echo "==============================="
+          echo "Current Git branch:"
+          git rev-parse --abbrev-ref HEAD
+          echo "==============================="
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -64,18 +165,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Patch non-fast-block node
-        run: |
-          chmod +x ./scripts/localnet_patch.sh
-          ./scripts/localnet_patch.sh
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile-localnet
+          build-args: |
+            BUILT_IN_CI="Boom shakalaka"
+
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository }}-localnet:${{ env.tag }}
-            ${{ env.latest_tag == 'true' && format('ghcr.io/{0}-localnet:latest', github.repository) || '' }}
+            ghcr.io/${{ github.repository }}-localnet:${{ needs.setup.outputs.tag }}
+            ${{ needs.setup.outputs.latest_tag == 'true' && format('ghcr.io/{0}-localnet:latest', github.repository) || '' }}

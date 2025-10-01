@@ -1,7 +1,7 @@
 mod aura_consensus;
-mod aura_wrapped_import_queue;
 mod babe_consensus;
 mod consensus_mechanism;
+mod hybrid_import_queue;
 
 pub use aura_consensus::AuraConsensus;
 pub use babe_consensus::BabeConsensus;

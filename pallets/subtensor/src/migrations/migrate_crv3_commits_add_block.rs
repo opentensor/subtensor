@@ -22,9 +22,10 @@ pub fn migrate_crv3_commits_add_block<T: Config>() -> Weight {
     log::info!("Running migration '{}'", String::from_utf8_lossy(&mig_name));
 
     // iterate over *all* (netuid, epoch, queue) triples
-    for (netuid, epoch, old_q) in CRV3WeightCommits::<T>::drain() {
+    for (netuid_index, epoch, old_q) in CRV3WeightCommits::<T>::drain() {
         total_weight = total_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
+        let (netuid, _) = Pallet::<T>::get_netuid_and_subid(netuid_index).unwrap_or_default();
         let commit_block = Pallet::<T>::get_first_block_of_epoch(netuid, epoch);
 
         // convert VecDeque<(who,cipher,rnd)> → VecDeque<(who,cb,cipher,rnd)>
@@ -34,7 +35,7 @@ pub fn migrate_crv3_commits_add_block<T: Config>() -> Weight {
             .collect();
 
         // write back under *new* storage definition
-        CRV3WeightCommitsV2::<T>::insert(netuid, epoch, new_q);
+        CRV3WeightCommitsV2::<T>::insert(netuid_index, epoch, new_q);
     }
 
     // mark as done

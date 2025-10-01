@@ -96,9 +96,9 @@ mod genesis {
             Active::<T>::mutate(netuid, |v| v.push(true));
             Emission::<T>::mutate(netuid, |v| v.push(0.into()));
             Consensus::<T>::mutate(netuid, |v| v.push(0));
-            Incentive::<T>::mutate(netuid, |v| v.push(0));
+            Incentive::<T>::mutate(NetUidStorageIndex::from(netuid), |v| v.push(0));
             Dividends::<T>::mutate(netuid, |v| v.push(0));
-            LastUpdate::<T>::mutate(netuid, |v| v.push(block_number));
+            LastUpdate::<T>::mutate(NetUidStorageIndex::from(netuid), |v| v.push(block_number));
             PruningScores::<T>::mutate(netuid, |v| v.push(0));
             ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
             ValidatorPermit::<T>::mutate(netuid, |v| v.push(false));

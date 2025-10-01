@@ -14,6 +14,7 @@ import {
     forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, setWeightsSetRateLimit, burnedRegister,
     setTempo, setCommitRevealWeightsInterval,
     startCall,
+    disableAdminFreezeWindowAndOwnerHyperparamRateLimit,
 } from "../src/subtensor"
 
 // hardcode some values for reveal hash
@@ -70,6 +71,7 @@ describe("Test neuron precompile reveal weights", () => {
         await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
+        await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
 
         await setWeightsSetRateLimit(api, netuid, BigInt(0))
 
