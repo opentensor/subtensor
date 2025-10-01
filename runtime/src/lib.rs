@@ -604,8 +604,6 @@ parameter_types! {
     // this is an unbounded number. We just set it to a reasonably high value, 1 full page
     // of nominators.
     pub const MaxNominators: u32 = 512;
-    // pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
-    // 16
     pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
 
@@ -672,7 +670,6 @@ impl pallet_staking::Config for Runtime {
     type MaxControllersInDeprecationBatch = ConstU32<5314>;
     type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
     type RuntimeHoldReason = RuntimeHoldReason;
-    // type EventListeners = NominationPools;
     type EventListeners = ();
     type WeightInfo = ();
     type Filter = StakingBlacklistFilter;
@@ -1792,7 +1789,6 @@ impl pallet_evm::Config for Runtime {
     type OnChargeTransaction = ();
     type OnCreate = ();
     type FindAuthor = FindAuthorTruncated<Babe>;
-    // type FindAuthor = FindAuthorTruncated<Aura>;
     type GasLimitPovSizeRatio = GasLimitPovSizeRatio;
     type Timestamp = Timestamp;
     type WeightInfo = pallet_evm::weights::SubstrateWeight<Self>;
@@ -2258,13 +2254,12 @@ impl_runtime_apis! {
 
         fn generate_key_ownership_proof(
             _set_id: fg_primitives::SetId,
-            authority_id: fg_primitives::AuthorityId,
+            _authority_id: fg_primitives::AuthorityId,
         ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
-            use codec::Encode;
-
-            Historical::prove((fg_primitives::KEY_TYPE, authority_id))
-                .map(|p| p.encode())
-                .map(fg_primitives::OpaqueKeyOwnershipProof::new)
+            // NOTE: this is the only implementation possible since we've
+            // defined our key owner proof type as a bottom type (i.e. a type
+            // with no values).
+            None
         }
     }
 
@@ -2768,20 +2763,6 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
-        fn nominations_quota(balance: Balance) -> u32 {
-            Staking::api_nominations_quota(balance)
-        }
-
-        fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
-            Staking::api_eras_stakers_page_count(era, account)
-        }
-
-        fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
-            Staking::api_pending_rewards(era, account)
-        }
-    }
-
     impl sp_consensus_babe::BabeApi<Block> for Runtime {
         fn configuration() -> sp_consensus_babe::BabeConfiguration {
             let epoch_config = Babe::epoch_config().unwrap_or(BABE_GENESIS_EPOCH_CONFIG);
@@ -2828,6 +2809,20 @@ impl_runtime_apis! {
                 equivocation_proof,
                 key_owner_proof,
             )
+        }
+    }
+
+    impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
+        fn nominations_quota(balance: Balance) -> u32 {
+            Staking::api_nominations_quota(balance)
+        }
+
+        fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
+            Staking::api_eras_stakers_page_count(era, account)
+        }
+
+        fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
+            Staking::api_pending_rewards(era, account)
         }
     }
 
