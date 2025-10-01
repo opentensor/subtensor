@@ -26,7 +26,7 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering};
 use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{Order as OrderT, SwapEngine, SwapExt};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -457,7 +457,8 @@ impl crate::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
-    type SwapInterface = Swap;
+    type SwapExt = Swap;
+    type SwapEngine<O: OrderT> = Swap<O>;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = FakeProxier;
@@ -980,7 +981,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         coldkey,
         netuid,
         tao_staked,
-        <Test as Config>::SwapInterface::max_price().into(),
+        <Test as Config>::SwapExt::max_price().into(),
         false,
         false,
     )
@@ -1016,11 +1017,11 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurre
         return (tao.to_u64().into(), 0);
     }
 
-    let result = <Test as pallet::Config>::SwapInterface::swap(
+    let result = <Test as pallet::Config>::SwapEngine::swap(
         netuid.into(),
         OrderType::Buy,
         tao.into(),
-        <Test as pallet::Config>::SwapInterface::max_price(),
+        <Test as pallet::Config>::SwapExt::max_price(),
         false,
         true,
     );
@@ -1045,15 +1046,15 @@ pub(crate) fn swap_alpha_to_tao_ext(
     }
 
     println!(
-        "<Test as pallet::Config>::SwapInterface::min_price() = {:?}",
-        <Test as pallet::Config>::SwapInterface::min_price()
+        "<Test as pallet::Config>::SwapExt::min_price() = {:?}",
+        <Test as pallet::Config>::SwapExt::min_price()
     );
 
-    let result = <Test as pallet::Config>::SwapInterface::swap(
+    let result = <Test as pallet::Config>::SwapEngine::swap(
         netuid.into(),
         OrderType::Sell,
         alpha.into(),
-        <Test as pallet::Config>::SwapInterface::min_price(),
+        <Test as pallet::Config>::SwapExt::min_price(),
         drop_fees,
         true,
     );

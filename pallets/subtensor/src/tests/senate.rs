@@ -14,7 +14,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Hash},
 };
 use subtensor_runtime_common::TaoCurrency;
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapEngine, SwapExt};
 
 use super::mock;
 use super::mock::*;
@@ -724,10 +724,8 @@ fn test_adjust_senate_events() {
         let max_senate_size: u16 = SenateMaxMembers::get() as u16;
         let stake_threshold = {
             let default_stake = DefaultMinStake::<Test>::get().to_u64();
-            let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
-                netuid,
-                default_stake.into(),
-            );
+            let fee =
+                <Test as pallet::Config>::SwapExt::approx_fee_amount(netuid, default_stake.into());
             default_stake + fee
         };
 

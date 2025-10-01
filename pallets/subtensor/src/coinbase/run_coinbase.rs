@@ -3,7 +3,7 @@ use alloc::collections::BTreeMap;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::SwapExt;
 
 // Distribute dividends to each hotkey
 macro_rules! asfloat {
@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get subnet price.
-            let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
+            let price_i = T::SwapExt::current_alpha_price((*netuid_i).into());
             log::debug!("price_i: {price_i:?}");
             // Get subnet TAO.
             let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
                 let buy_swap_result = Self::swap_tao_for_alpha(
                     *netuid_i,
                     tou64!(difference_tao).into(),
-                    T::SwapInterface::max_price().into(),
+                    T::SwapExt::max_price(),
                     true,
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
@@ -159,7 +159,7 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tao_in_i.into());
             });
             // Adjust protocol liquidity based on new reserves
-            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
+            T::SwapExt::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
         }
 
         // --- 5. Compute owner cuts and remove them from alpha_out remaining.
@@ -220,14 +220,14 @@ impl<T: Config> Pallet<T> {
                 let swap_result = Self::swap_alpha_for_tao(
                     *netuid_i,
                     tou64!(root_alpha).into(),
-                    T::SwapInterface::min_price().into(),
+                    T::SwapExt::min_price(),
                     true,
                 );
                 if let Ok(ok_result) = swap_result {
-                    let root_tao: u64 = ok_result.amount_paid_out;
+                    let root_tao = ok_result.amount_paid_out;
                     // Accumulate root divs for subnet.
                     PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(root_tao.into());
+                        *total = total.saturating_add(root_tao);
                     });
                 }
             }

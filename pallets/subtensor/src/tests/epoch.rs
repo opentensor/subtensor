@@ -12,7 +12,7 @@ use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRan
 use sp_core::{Get, U256};
 use substrate_fixed::types::I32F32;
 use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapEngine, SwapExt};
 
 use super::mock::*;
 use crate::epoch::math::{fixed, u16_proportion_to_fixed};
@@ -1322,7 +1322,7 @@ fn test_set_alpha_disabled() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+        let fee = <Test as pallet::Config>::SwapExt::approx_fee_amount(
             netuid.into(),
             DefaultMinStake::<Test>::get().into(),
         );
@@ -2292,7 +2292,7 @@ fn test_get_set_alpha() {
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
         SubtokenEnabled::<Test>::insert(netuid, true);
 
-        let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+        let fee = <Test as pallet::Config>::SwapExt::approx_fee_amount(
             netuid.into(),
             DefaultMinStake::<Test>::get().into(),
         );

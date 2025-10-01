@@ -8,7 +8,7 @@ mod config {
 
     use crate::CommitmentsInterface;
     use pallet_commitments::GetCommitments;
-    use subtensor_swap_interface::SwapHandler;
+    use subtensor_swap_interface::{Order as OrderT, SwapEngine, SwapExt};
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -54,8 +54,11 @@ mod config {
         /// the preimage to store the call data.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-        /// Swap interface.
-        type SwapInterface: SwapHandler<Self::AccountId>;
+        /// Implementor of `SwapExt` interface from `subtensor_swap_interface`
+        type SwapExt: SwapExt;
+
+        /// Implementor of `SwapEngine` interface from `subtensor_swap_interface`
+        type SwapEngine<Order: OrderT>: SwapEngine<Order>;
 
         /// Interface to allow interacting with the proxy pallet.
         type ProxyInterface: crate::ProxyInterface<Self::AccountId>;

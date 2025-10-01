@@ -5,7 +5,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{Get, U256};
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::TaoCurrency;
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapEngine, SwapExt};
 
 use super::mock;
 use super::mock::*;
@@ -33,7 +33,7 @@ fn test_do_move_success() {
             &coldkey,
             netuid.into(),
             stake_amount,
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -110,7 +110,7 @@ fn test_do_move_different_subnets() {
             &coldkey,
             origin_netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -140,10 +140,8 @@ fn test_do_move_different_subnets() {
             ),
             AlphaCurrency::ZERO
         );
-        let fee = <Test as Config>::SwapInterface::approx_fee_amount(
-            destination_netuid.into(),
-            alpha.into(),
-        );
+        let fee =
+            <Test as Config>::SwapExt::approx_fee_amount(destination_netuid.into(), alpha.into());
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination_hotkey,
@@ -180,7 +178,7 @@ fn test_do_move_nonexistent_subnet() {
             &coldkey,
             origin_netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -284,7 +282,7 @@ fn test_do_move_nonexistent_destination_hotkey() {
             &coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -349,7 +347,7 @@ fn test_do_move_partial_stake() {
                     &coldkey,
                     netuid,
                     total_stake.into(),
-                    <Test as Config>::SwapInterface::max_price().into(),
+                    <Test as Config>::SwapExt::max_price().into(),
                     false,
                     false,
                 )
@@ -418,7 +416,7 @@ fn test_do_move_multiple_times() {
             &coldkey,
             netuid,
             initial_stake.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -490,7 +488,7 @@ fn test_do_move_wrong_origin() {
             &coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -557,7 +555,7 @@ fn test_do_move_same_hotkey_fails() {
             &coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -608,7 +606,7 @@ fn test_do_move_event_emission() {
             &coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -621,8 +619,7 @@ fn test_do_move_event_emission() {
 
         // Move stake and capture events
         System::reset_events();
-        let current_price =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        let current_price = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
         let tao_equivalent = (current_price * U96F32::from_num(alpha)).to_num::<u64>(); // no fee conversion
         assert_ok!(SubtensorModule::do_move_stake(
             RuntimeOrigin::signed(coldkey),
@@ -669,7 +666,7 @@ fn test_do_move_storage_updates() {
             &coldkey,
             origin_netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -736,7 +733,7 @@ fn test_move_full_amount_same_netuid() {
             &coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -804,7 +801,7 @@ fn test_do_move_max_values() {
             &coldkey,
             netuid,
             max_stake.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -910,7 +907,7 @@ fn test_do_transfer_success() {
             &origin_coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1019,7 +1016,7 @@ fn test_do_transfer_insufficient_stake() {
             &origin_coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1060,7 +1057,7 @@ fn test_do_transfer_wrong_origin() {
             &origin_coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1098,7 +1095,7 @@ fn test_do_transfer_minimum_stake_check() {
             &origin_coldkey,
             netuid,
             stake_amount,
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1146,7 +1143,7 @@ fn test_do_transfer_different_subnets() {
             &origin_coldkey,
             origin_netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1212,7 +1209,7 @@ fn test_do_swap_success() {
             &coldkey,
             origin_netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1320,7 +1317,7 @@ fn test_do_swap_insufficient_stake() {
             &coldkey,
             netuid1,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1355,7 +1352,7 @@ fn test_do_swap_wrong_origin() {
             &real_coldkey,
             netuid1,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1393,7 +1390,7 @@ fn test_do_swap_minimum_stake_check() {
             &coldkey,
             netuid1,
             total_stake,
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1429,7 +1426,7 @@ fn test_do_swap_same_subnet() {
             &coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1474,7 +1471,7 @@ fn test_do_swap_partial_stake() {
             &coldkey,
             origin_netuid,
             total_stake_tao.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1526,7 +1523,7 @@ fn test_do_swap_storage_updates() {
             &coldkey,
             origin_netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1586,7 +1583,7 @@ fn test_do_swap_multiple_times() {
             &coldkey,
             netuid1,
             initial_stake.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1657,7 +1654,7 @@ fn test_do_swap_allows_non_owned_hotkey() {
             &coldkey,
             origin_netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1805,7 +1802,7 @@ fn test_transfer_stake_rate_limited() {
             &origin_coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             true,
             false,
         )
@@ -1850,7 +1847,7 @@ fn test_transfer_stake_doesnt_limit_destination_coldkey() {
             &origin_coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )
@@ -1896,7 +1893,7 @@ fn test_swap_stake_limits_destination_netuid() {
             &origin_coldkey,
             netuid,
             stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
+            <Test as Config>::SwapExt::max_price().into(),
             false,
             false,
         )

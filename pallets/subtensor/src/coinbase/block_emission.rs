@@ -6,7 +6,7 @@ use substrate_fixed::{
     types::{I96F32, U96F32},
 };
 use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::SwapExt;
 
 impl<T: Config> Pallet<T> {
     /// Calculates the dynamic TAO emission for a given subnet.
@@ -40,7 +40,7 @@ impl<T: Config> Pallet<T> {
         let float_alpha_block_emission: U96F32 = U96F32::saturating_from_num(alpha_block_emission);
 
         // Get alpha price for subnet.
-        let alpha_price = T::SwapInterface::current_alpha_price(netuid.into());
+        let alpha_price = T::SwapExt::current_alpha_price(netuid.into());
         log::debug!("{netuid:?} - alpha_price: {alpha_price:?}");
 
         // Get initial alpha_in

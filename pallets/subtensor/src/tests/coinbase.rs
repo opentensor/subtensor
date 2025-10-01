@@ -10,7 +10,7 @@ use pallet_subtensor_swap::position::PositionId;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapEngine, SwapExt};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -488,8 +488,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         .unwrap();
 
         // Get the prices before the run_coinbase
-        let price_1_before = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
-        let price_2_before = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid2);
+        let price_1_before = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid1);
+        let price_2_before = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid2);
 
         // Set issuance at 21M
         SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(21_000_000_000_000_000)); // Set issuance above 21M
@@ -499,8 +499,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
 
         // Get the prices after the run_coinbase
-        let price_1_after = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
-        let price_2_after = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid2);
+        let price_1_after = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid1);
+        let price_2_after = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid2);
 
         // AlphaIn gets decreased beacuse of a buy
         assert!(u64::from(SubnetAlphaIn::<Test>::get(netuid1)) < initial_alpha);

@@ -25,7 +25,7 @@ use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::SwapExt;
 
 pub type LeaseId = u32;
 
@@ -310,7 +310,7 @@ impl<T: Config> Pallet<T> {
             &lease.coldkey,
             lease.netuid,
             total_contributors_cut_alpha,
-            T::SwapInterface::min_price().into(),
+            T::SwapExt::min_price(),
             false,
         ) {
             Ok(tao_unstaked) => tao_unstaked,

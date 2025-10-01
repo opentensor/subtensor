@@ -7,7 +7,7 @@ use frame_support::{
 };
 use sp_core::U256;
 use subtensor_runtime_common::{AlphaCurrency, Currency, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapEngine, SwapExt};
 
 use super::mock;
 use super::mock::*;
@@ -38,7 +38,7 @@ fn test_stake_base_case() {
             SubtensorModule::swap_tao_for_alpha(
                 netuid,
                 tao_to_swap,
-                <Test as Config>::SwapInterface::max_price().into(),
+                <Test as Config>::SwapExt::max_price().into(),
                 false,
             )
             .unwrap()
@@ -699,7 +699,7 @@ fn test_stake_fee_api() {
             stake_amount,
         );
         let dynamic_fee_0 =
-            <Test as Config>::SwapInterface::approx_fee_amount(netuid0.into(), stake_amount);
+            <Test as Config>::SwapExt::approx_fee_amount(netuid0.into(), stake_amount);
         assert_eq!(stake_fee_0, dynamic_fee_0);
 
         // Test stake fee for remove on root
@@ -711,7 +711,7 @@ fn test_stake_fee_api() {
             stake_amount,
         );
         let dynamic_fee_1 =
-            <Test as Config>::SwapInterface::approx_fee_amount(root_netuid.into(), stake_amount);
+            <Test as Config>::SwapExt::approx_fee_amount(root_netuid.into(), stake_amount);
         assert_eq!(stake_fee_1, dynamic_fee_1);
 
         // Test stake fee for move from root to non-root
@@ -723,7 +723,7 @@ fn test_stake_fee_api() {
             stake_amount,
         );
         let dynamic_fee_2 =
-            <Test as Config>::SwapInterface::approx_fee_amount(netuid0.into(), stake_amount);
+            <Test as Config>::SwapExt::approx_fee_amount(netuid0.into(), stake_amount);
         assert_eq!(stake_fee_2, dynamic_fee_2);
 
         // Test stake fee for move between hotkeys on root
@@ -735,7 +735,7 @@ fn test_stake_fee_api() {
             stake_amount,
         );
         let dynamic_fee_3 =
-            <Test as Config>::SwapInterface::approx_fee_amount(root_netuid.into(), stake_amount);
+            <Test as Config>::SwapExt::approx_fee_amount(root_netuid.into(), stake_amount);
         assert_eq!(stake_fee_3, dynamic_fee_3);
 
         // Test stake fee for move between coldkeys on root
@@ -747,7 +747,7 @@ fn test_stake_fee_api() {
             stake_amount,
         );
         let dynamic_fee_4 =
-            <Test as Config>::SwapInterface::approx_fee_amount(root_netuid.into(), stake_amount);
+            <Test as Config>::SwapExt::approx_fee_amount(root_netuid.into(), stake_amount);
         assert_eq!(stake_fee_4, dynamic_fee_4);
 
         // Test stake fee for *swap* from non-root to root
@@ -759,7 +759,7 @@ fn test_stake_fee_api() {
             stake_amount,
         );
         let dynamic_fee_5 =
-            <Test as Config>::SwapInterface::approx_fee_amount(root_netuid.into(), stake_amount);
+            <Test as Config>::SwapExt::approx_fee_amount(root_netuid.into(), stake_amount);
         assert_eq!(stake_fee_5, dynamic_fee_5);
 
         // Test stake fee for move between hotkeys on non-root
@@ -771,7 +771,7 @@ fn test_stake_fee_api() {
             stake_amount,
         );
         let dynamic_fee_6 =
-            <Test as Config>::SwapInterface::approx_fee_amount(netuid0.into(), stake_amount);
+            <Test as Config>::SwapExt::approx_fee_amount(netuid0.into(), stake_amount);
         assert_eq!(stake_fee_6, dynamic_fee_6);
 
         // Test stake fee for move between coldkeys on non-root
@@ -783,7 +783,7 @@ fn test_stake_fee_api() {
             stake_amount,
         );
         let dynamic_fee_7 =
-            <Test as Config>::SwapInterface::approx_fee_amount(netuid0.into(), stake_amount);
+            <Test as Config>::SwapExt::approx_fee_amount(netuid0.into(), stake_amount);
         assert_eq!(stake_fee_7, dynamic_fee_7);
 
         // Test stake fee for *swap* from non-root to non-root
@@ -795,7 +795,7 @@ fn test_stake_fee_api() {
             stake_amount,
         );
         let dynamic_fee_8 =
-            <Test as Config>::SwapInterface::approx_fee_amount(netuid1.into(), stake_amount);
+            <Test as Config>::SwapExt::approx_fee_amount(netuid1.into(), stake_amount);
         assert_eq!(stake_fee_8, dynamic_fee_8);
     });
 }
@@ -847,32 +847,29 @@ fn test_stake_fee_calculation() {
         // Test stake fee for add_stake
 
         // Default for adding stake
-        let stake_fee =
-            <Test as Config>::SwapInterface::approx_fee_amount(netuid0.into(), stake_amount);
+        let stake_fee = <Test as Config>::SwapExt::approx_fee_amount(netuid0.into(), stake_amount);
         assert_eq!(stake_fee, default_fee);
 
         // Test stake fee for remove on root
         let stake_fee =
-            <Test as Config>::SwapInterface::approx_fee_amount(root_netuid.into(), stake_amount); // Default for removing stake from root
+            <Test as Config>::SwapExt::approx_fee_amount(root_netuid.into(), stake_amount); // Default for removing stake from root
         assert_eq!(stake_fee, default_fee);
 
         // Test stake fee for move from root to non-root
 
         // Default for moving stake from root to non-root
-        let stake_fee =
-            <Test as Config>::SwapInterface::approx_fee_amount(netuid0.into(), stake_amount);
+        let stake_fee = <Test as Config>::SwapExt::approx_fee_amount(netuid0.into(), stake_amount);
         assert_eq!(stake_fee, default_fee);
 
         // Test stake fee for move between hotkeys on root
         let stake_fee =
-            <Test as Config>::SwapInterface::approx_fee_amount(root_netuid.into(), stake_amount); // Default for moving stake between hotkeys on root
+            <Test as Config>::SwapExt::approx_fee_amount(root_netuid.into(), stake_amount); // Default for moving stake between hotkeys on root
         assert_eq!(stake_fee, default_fee);
 
         // Test stake fee for *swap* from non-root to non-root
 
         // Charged a dynamic fee
-        let stake_fee =
-            <Test as Config>::SwapInterface::approx_fee_amount(netuid1.into(), stake_amount);
+        let stake_fee = <Test as Config>::SwapExt::approx_fee_amount(netuid1.into(), stake_amount);
         assert_ne!(stake_fee, default_fee);
     });
 }

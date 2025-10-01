@@ -615,11 +615,11 @@ pub(crate) fn swap_alpha_to_tao_ext(
         return (alpha.into(), 0);
     }
 
-    let result = <Test as pallet::Config>::SwapInterface::swap(
+    let result = <Test as pallet::Config>::SwapEngine::swap(
         netuid.into(),
         OrderType::Sell,
         alpha.into(),
-        <Test as pallet::Config>::SwapInterface::min_price(),
+        <Test as pallet::Config>::SwapExt::min_price(),
         drop_fees,
         true,
     );

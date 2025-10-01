@@ -7,7 +7,7 @@ use sp_core::U256;
 use sp_std::collections::btree_map::BTreeMap;
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{SwapEngine, SwapExt};
 
 #[test]
 fn test_registration_ok() {
@@ -225,8 +225,7 @@ fn dissolve_owner_cut_refund_logic() {
             .saturating_to_num::<u64>();
 
         // Current α→τ price for this subnet.
-        let price: U96F32 =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
+        let price: U96F32 = <Test as pallet::Config>::SwapExt::current_alpha_price(net.into());
         let owner_emission_tao_u64: u64 = U96F32::from_num(owner_alpha_u64)
             .saturating_mul(price)
             .floor()
@@ -782,7 +781,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         // Runtime-exact min amount = min_stake + fee
         let min_amount = {
             let min_stake = DefaultMinStake::<Test>::get();
-            let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+            let fee = <Test as pallet::Config>::SwapExt::approx_fee_amount(
                 netuid.into(),
                 min_stake.into(),
             );
@@ -869,7 +868,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             .floor()
             .saturating_to_num::<u64>();
 
-        let owner_emission_tao_u64: u64 = <Test as pallet::Config>::SwapInterface::sim_swap(
+        let owner_emission_tao_u64: u64 = <Test as pallet::Config>::SwapEngine::sim_swap(
             netuid.into(),
             OrderType::Sell,
             owner_alpha_u64,
@@ -878,7 +877,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         .unwrap_or_else(|_| {
             // Fallback matches the pallet's fallback
             let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+                <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()

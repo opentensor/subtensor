@@ -15,7 +15,7 @@ use sp_runtime::traits::{DispatchInfoOf, TransactionExtension};
 use sp_runtime::{DispatchError, traits::TxBaseImplication};
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, SubnetInfo, TaoCurrency};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{SwapEngine, SwapExt};
 
 use super::mock;
 use super::mock::*;
