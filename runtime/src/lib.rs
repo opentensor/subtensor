@@ -261,7 +261,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 320,
+    spec_version: 324,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1491,6 +1491,8 @@ pub const INITIAL_SUBNET_TEMPO: u16 = prod_or_fast!(360, 10);
 // 30 days at 12 seconds per block = 216000
 pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = prod_or_fast!(216000, 5);
 
+pub const EVM_KEY_ASSOCIATE_RATELIMIT: u64 = prod_or_fast!(7200, 1); // 24 * 60 * 60 / 12; // 1 day
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -1559,6 +1561,7 @@ parameter_types! {
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
+    pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1638,6 +1641,7 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
 parameter_types! {
@@ -2729,6 +2733,10 @@ impl_runtime_apis! {
         }
         fn get_subnet_to_prune() -> Option<NetUid> {
         pallet_subtensor::Pallet::<Runtime>::get_network_to_prune()
+        }
+
+        fn get_coldkey_auto_stake_hotkey(coldkey: AccountId32, netuid: NetUid) -> Option<AccountId32> {
+            SubtensorModule::get_coldkey_auto_stake_hotkey(coldkey, netuid)
         }
 
         fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {

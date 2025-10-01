@@ -446,5 +446,19 @@ mod events {
 
         /// The minimum allowed UIDs for a subnet have been set.
         MinAllowedUidsSet(NetUid, u16),
+
+        /// The auto stake destination has been set.
+        ///
+        /// - **coldkey**: The account ID of the coldkey.
+        /// - **netuid**: The network identifier.
+        /// - **hotkey**: The account ID of the hotkey.
+        AutoStakeDestinationSet {
+            /// The account ID of the coldkey.
+            coldkey: T::AccountId,
+            /// The network identifier.
+            netuid: NetUid,
+            /// The account ID of the hotkey.
+            hotkey: T::AccountId,
+        },
     }
 }

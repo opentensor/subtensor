@@ -1086,7 +1086,7 @@ mod dispatches {
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(15_u64))
+        .saturating_add(T::DbWeight::get().reads(16_u64))
         .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
@@ -2037,9 +2037,8 @@ mod dispatches {
         /// ```
         ///
         /// # Arguments
-        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `origin` - The origin of the transaction, which must be signed by the `hotkey`.
         /// * `netuid` - The netuid that the `hotkey` belongs to.
-        /// * `hotkey` - The hotkey associated with the `origin`.
         /// * `evm_key` - The EVM key to associate with the `hotkey`.
         /// * `block_number` - The block number used in the `signature`.
         /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
@@ -2047,7 +2046,6 @@ mod dispatches {
         /// # Errors
         /// Returns an error if:
         /// * The transaction is not signed.
-        /// * The hotkey is not owned by the origin coldkey.
         /// * The hotkey does not belong to the subnet identified by the netuid.
         /// * The EVM key cannot be recovered from the signature.
         /// * The EVM key recovered from the signature does not match the given EVM key.
@@ -2058,17 +2056,16 @@ mod dispatches {
         #[pallet::weight((
             Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
             DispatchClass::Normal,
-            Pays::Yes
+            Pays::No
         ))]
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            hotkey: T::AccountId,
             evm_key: H160,
             block_number: u64,
             signature: Signature,
         ) -> DispatchResult {
-            Self::do_associate_evm_key(origin, netuid, hotkey, evm_key, block_number, signature)
+            Self::do_associate_evm_key(origin, netuid, evm_key, block_number, signature)
         }
 
         /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -2295,16 +2292,36 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
-        #[pallet::weight((Weight::from_parts(5_170_000, 0)
-		.saturating_add(T::DbWeight::get().reads(0_u64))
+        #[pallet::weight((Weight::from_parts(29_930_000, 0)
+		.saturating_add(T::DbWeight::get().reads(3_u64))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: T::RuntimeOrigin,
+            netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(
+                Uids::<T>::contains_key(netuid, &hotkey),
+                Error::<T>::HotKeyNotRegisteredInSubNet
+            );
 
-            AutoStakeDestination::<T>::insert(coldkey, hotkey.clone());
+            let current_hotkey = AutoStakeDestination::<T>::get(coldkey.clone(), netuid);
+            if let Some(current_hotkey) = current_hotkey {
+                ensure!(
+                    current_hotkey != hotkey,
+                    Error::<T>::SameAutoStakeHotkeyAlreadySet
+                );
+            }
+
+            AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
+
+            Self::deposit_event(Event::AutoStakeDestinationSet {
+                coldkey,
+                netuid,
+                hotkey,
+            });
 
             Ok(())
         }

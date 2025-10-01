@@ -226,6 +226,7 @@ parameter_types! {
     pub const MaxContributorsPerLeaseToRemove: u32 = 3;
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
+    pub const EvmKeyAssociateRateLimit: u64 = 10;
 }
 
 // Configure collective pallet for council
@@ -464,6 +465,7 @@ impl crate::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
 // Swap-related parameter types

@@ -9,7 +9,7 @@ use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-    MultiSignature,
+    MultiSignature, Vec,
     traits::{IdentifyAccount, Verify},
 };
 use subtensor_macros::freeze_struct;
@@ -176,6 +176,9 @@ pub trait SubnetInfo<AccountId> {
     fn mechanism(netuid: NetUid) -> u16;
     fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
     fn is_subtoken_enabled(netuid: NetUid) -> bool;
+    fn get_validator_trust(netuid: NetUid) -> Vec<u16>;
+    fn get_validator_permit(netuid: NetUid) -> Vec<bool>;
+    fn hotkey_of_uid(netuid: NetUid, uid: u16) -> Option<AccountId>;
 }
 
 pub trait BalanceOps<AccountId> {

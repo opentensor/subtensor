@@ -151,6 +151,7 @@ parameter_types! {
     pub const HotkeySwapOnSubnetInterval: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
+    pub const EvmKeyAssociateRateLimit: u64 = 0;
 }
 
 impl pallet_subtensor::Config for Test {
@@ -230,6 +231,7 @@ impl pallet_subtensor::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
 parameter_types! {
