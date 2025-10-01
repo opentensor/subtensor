@@ -120,8 +120,8 @@ impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
     fn decrease_provided(_: NetUid, _: AlphaCurrency) {}
 }
 
-pub type AlphaForTao = subtensor_swap_interface::AlphaForTao<TaoReserve, AlphaReserve>;
-pub type TaoForAlpha = subtensor_swap_interface::TaoForAlpha<AlphaReserve, TaoReserve>;
+pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;
+pub type GetTaoForAlpha = subtensor_swap_interface::GetTaoForAlpha<AlphaReserve, TaoReserve>;
 
 pub(crate) trait GlobalFeeInfo: Currency {
     fn global_fee(&self, netuid: NetUid) -> U64F64;
@@ -147,7 +147,7 @@ pub(crate) trait TestExt<O: Order> {
     ) -> f64;
 }
 
-impl TestExt<AlphaForTao> for Test {
+impl TestExt<GetAlphaForTao> for Test {
     fn approx_expected_swap_output(
         sqrt_current_price: f64,
         liquidity_before: f64,
@@ -159,7 +159,7 @@ impl TestExt<AlphaForTao> for Test {
     }
 }
 
-impl TestExt<TaoForAlpha> for Test {
+impl TestExt<GetTaoForAlpha> for Test {
     fn approx_expected_swap_output(
         sqrt_current_price: f64,
         liquidity_before: f64,

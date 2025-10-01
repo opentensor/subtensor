@@ -15,7 +15,7 @@ pub trait Order: Clone {
 }
 
 #[derive(Clone, Default)]
-pub struct AlphaForTao<ReserveIn, ReserveOut>
+pub struct GetAlphaForTao<ReserveIn, ReserveOut>
 where
     ReserveIn: CurrencyReserve<TaoCurrency>,
     ReserveOut: CurrencyReserve<AlphaCurrency>,
@@ -24,7 +24,7 @@ where
     _phantom: PhantomData<(ReserveIn, ReserveOut)>,
 }
 
-impl<ReserveIn, ReserveOut> Order for AlphaForTao<ReserveIn, ReserveOut>
+impl<ReserveIn, ReserveOut> Order for GetAlphaForTao<ReserveIn, ReserveOut>
 where
     ReserveIn: CurrencyReserve<TaoCurrency> + Clone,
     ReserveOut: CurrencyReserve<AlphaCurrency> + Clone,
@@ -51,7 +51,7 @@ where
 }
 
 #[derive(Clone, Default)]
-pub struct TaoForAlpha<ReserveIn, ReserveOut>
+pub struct GetTaoForAlpha<ReserveIn, ReserveOut>
 where
     ReserveIn: CurrencyReserve<AlphaCurrency>,
     ReserveOut: CurrencyReserve<TaoCurrency>,
@@ -60,7 +60,7 @@ where
     _phantom: PhantomData<(ReserveIn, ReserveOut)>,
 }
 
-impl<ReserveIn, ReserveOut> Order for TaoForAlpha<ReserveIn, ReserveOut>
+impl<ReserveIn, ReserveOut> Order for GetTaoForAlpha<ReserveIn, ReserveOut>
 where
     ReserveIn: CurrencyReserve<AlphaCurrency> + Clone,
     ReserveOut: CurrencyReserve<TaoCurrency> + Clone,

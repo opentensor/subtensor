@@ -10,7 +10,7 @@ use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
 use subtensor_swap_interface::{
-    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
+    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapExt, SwapResult,
 };
 
 use super::pallet::*;
@@ -984,6 +984,7 @@ impl<T: Config> DefaultPriceLimit<AlphaCurrency, TaoCurrency> for Pallet<T> {
 impl<T: Config, Order> SwapEngine<Order> for Pallet<T>
 where
     Order: OrderT,
+    Self: DefaultPriceLimit<Order::PaidIn, Order::PaidOut>,
     BasicSwapStep<T, Order::PaidIn, Order::PaidOut>: SwapStep<T, Order::PaidIn, Order::PaidOut>,
 {
     fn swap(
@@ -1007,49 +1008,16 @@ where
         )
         .map_err(Into::into)
     }
-}
 
-impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
-    fn swap<Order>(
+    fn sim_swap(
         netuid: NetUid,
         order: Order,
-        price_limit: TaoCurrency,
-        drop_fees: bool,
-        should_rollback: bool,
-    ) -> Result<SwapResult<Order::PaidIn, Order::PaidOut>, DispatchError>
-    where
-        Order: OrderT,
-        Self: SwapEngine<Order>,
-    {
-        <Self as SwapEngine<Order>>::swap(
-            NetUid::from(netuid),
-            order,
-            price_limit,
-            drop_fees,
-            should_rollback,
-        )
-        .map_err(Into::into)
-    }
-
-    fn sim_swap<Order>(
-        netuid: NetUid,
-        order: Order,
-    ) -> Result<SwapResult<Order::PaidIn, Order::PaidOut>, DispatchError>
-    where
-        Order: OrderT,
-        Self: DefaultPriceLimit<Order::PaidIn, Order::PaidOut> + SwapEngine<Order>,
-    {
+    ) -> Result<SwapResult<Order::PaidIn, Order::PaidOut>, DispatchError> {
         match T::SubnetInfo::mechanism(netuid) {
             1 => {
                 let price_limit = Self::default_price_limit::<TaoCurrency>();
 
-                <Self as SwapHandler<T::AccountId>>::swap::<Order>(
-                    netuid,
-                    order,
-                    price_limit,
-                    false,
-                    true,
-                )
+                Self::swap(netuid, order, price_limit, false, true)
             }
             _ => {
                 let actual_amount = if T::SubnetInfo::exists(netuid) {
@@ -1065,7 +1033,9 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             }
         }
     }
+}
 
+impl<T: Config> SwapExt for Pallet<T> {
     fn approx_fee_amount<C: Currency>(netuid: NetUid, amount: C) -> C {
         Self::calculate_fee_amount(netuid, amount, false)
     }

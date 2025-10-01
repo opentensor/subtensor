@@ -666,7 +666,7 @@ fn test_modify_position_basic() {
 
             // Swap to create fees on the position
             let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-            let order = AlphaForTao::with_amount(liquidity / 10);
+            let order = GetAlphaForTao::with_amount(liquidity / 10);
             Pallet::<Test>::do_swap(netuid, order, sqrt_limit_price, false, false).unwrap();
 
             // Modify liquidity (also causes claiming of fees)
@@ -864,21 +864,21 @@ fn test_swap_basic() {
         // Test case is (order_type, liquidity, limit_price, output_amount)
         perform_test(
             1.into(),
-            AlphaForTao::with_amount(1_000),
+            GetAlphaForTao::with_amount(1_000),
             1000.0,
             3990,
             true,
         );
         perform_test(
             2.into(),
-            TaoForAlpha::with_amount(1_000),
+            GetTaoForAlpha::with_amount(1_000),
             0.0001,
             250,
             false,
         );
         perform_test(
             3.into(),
-            AlphaForTao::with_amount(500_000_000),
+            GetAlphaForTao::with_amount(500_000_000),
             1000.0,
             2_000_000_000,
             true,
@@ -1105,7 +1105,7 @@ fn test_swap_single_position() {
             // order_liquidity is represented as a fraction of position_liquidity
             for liquidity_fraction in [0.0001, 0.001, 0.01, 0.1, 0.2, 0.5] {
                 perform_test!(
-                    AlphaForTao,
+                    GetAlphaForTao,
                     price_low_offset,
                     price_high_offset,
                     position_liquidity,
@@ -1114,7 +1114,7 @@ fn test_swap_single_position() {
                     true
                 );
                 perform_test!(
-                    TaoForAlpha,
+                    GetTaoForAlpha,
                     price_low_offset,
                     price_high_offset,
                     position_liquidity,
@@ -1264,8 +1264,8 @@ fn test_swap_multiple_positions() {
             (1_000_000_000),
             (10_000_000_000),
         ] {
-            perform_test!(AlphaForTao, order_liquidity, 1000.0_f64, true);
-            perform_test!(TaoForAlpha, order_liquidity, 0.0001_f64, false);
+            perform_test!(GetAlphaForTao, order_liquidity, 1000.0_f64, true);
+            perform_test!(GetTaoForAlpha, order_liquidity, 0.0001_f64, false);
         }
 
         // Current price shouldn't be much different from the original
@@ -1285,7 +1285,7 @@ fn test_swap_multiple_positions() {
 fn test_swap_precision_edge_case() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(123); // 123 is netuid with low edge case liquidity
-        let order = TaoForAlpha::with_amount(1_000_000_000_000_000_000);
+        let order = GetTaoForAlpha::with_amount(1_000_000_000_000_000_000);
         let tick_low = TickIndex::MIN;
 
         let sqrt_limit_price: SqrtPrice = tick_low.try_to_sqrt_price().unwrap();
@@ -1502,7 +1502,7 @@ fn test_swap_fee_correctness() {
         // Swap buy and swap sell
         Pallet::<Test>::do_swap(
             netuid,
-            AlphaForTao::with_amount(liquidity / 10),
+            GetAlphaForTao::with_amount(liquidity / 10),
             u64::MAX.into(),
             false,
             false,
@@ -1510,7 +1510,7 @@ fn test_swap_fee_correctness() {
         .unwrap();
         Pallet::<Test>::do_swap(
             netuid,
-            TaoForAlpha::with_amount(liquidity / 10),
+            GetTaoForAlpha::with_amount(liquidity / 10),
             0_u64.into(),
             false,
             false,
@@ -1607,7 +1607,7 @@ fn test_rollback_works() {
         assert_eq!(
             Pallet::<Test>::do_swap(
                 netuid,
-                AlphaForTao::with_amount(1_000_000),
+                GetAlphaForTao::with_amount(1_000_000),
                 u64::MAX.into(),
                 false,
                 true
@@ -1615,7 +1615,7 @@ fn test_rollback_works() {
             .unwrap(),
             Pallet::<Test>::do_swap(
                 netuid,
-                AlphaForTao::with_amount(1_000_000),
+                GetAlphaForTao::with_amount(1_000_000),
                 u64::MAX.into(),
                 false,
                 false
@@ -1659,7 +1659,7 @@ fn test_new_lp_doesnt_get_old_fees() {
         // Swap buy and swap sell
         Pallet::<Test>::do_swap(
             netuid,
-            AlphaForTao::with_amount(liquidity / 10),
+            GetAlphaForTao::with_amount(liquidity / 10),
             u64::MAX.into(),
             false,
             false,
@@ -1667,7 +1667,7 @@ fn test_new_lp_doesnt_get_old_fees() {
         .unwrap();
         Pallet::<Test>::do_swap(
             netuid,
-            TaoForAlpha::with_amount(liquidity / 10),
+            GetTaoForAlpha::with_amount(liquidity / 10),
             0_u64.into(),
             false,
             false,
@@ -1738,11 +1738,11 @@ fn test_wrapping_fees() {
 
         print_current_price(netuid);
 
-        let order = TaoForAlpha::with_amount(800_000_000);
+        let order = GetTaoForAlpha::with_amount(800_000_000);
         let sqrt_limit_price = SqrtPrice::from_num(0.000001);
         Pallet::<Test>::do_swap(netuid, order, sqrt_limit_price, false, false).unwrap();
 
-        let order = AlphaForTao::with_amount(1_850_000_000);
+        let order = GetAlphaForTao::with_amount(1_850_000_000);
         let sqrt_limit_price = SqrtPrice::from_num(1_000_000.0);
 
         print_current_price(netuid);
@@ -1761,7 +1761,7 @@ fn test_wrapping_fees() {
         )
         .unwrap();
 
-        let order = TaoForAlpha::with_amount(1_800_000_000);
+        let order = GetTaoForAlpha::with_amount(1_800_000_000);
         let sqrt_limit_price = SqrtPrice::from_num(0.000001);
 
         let initial_sqrt_price = AlphaSqrtPrice::<Test>::get(netuid);
@@ -1844,7 +1844,7 @@ fn test_less_price_movement() {
                 // Buy Alpha
                 assert_ok!(Pallet::<Test>::do_swap(
                     netuid,
-                    AlphaForTao::with_amount(initial_stake_liquidity),
+                    GetAlphaForTao::with_amount(initial_stake_liquidity),
                     SqrtPrice::from_num(10_000_000_000_u64),
                     false,
                     false
@@ -1891,10 +1891,10 @@ fn test_less_price_movement() {
     }
 
     for provided_liquidity in [0, 1_000_000_000_000_u64] {
-        perform_test!(AlphaForTao, provided_liquidity, 1000.0_f64, true);
+        perform_test!(GetAlphaForTao, provided_liquidity, 1000.0_f64, true);
     }
     for provided_liquidity in [0, 1_000_000_000_000_u64] {
-        perform_test!(TaoForAlpha, provided_liquidity, 0.001_f64, false);
+        perform_test!(GetTaoForAlpha, provided_liquidity, 0.001_f64, false);
     }
 }
 
@@ -1972,7 +1972,7 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
         let sqrt_limit_price = SqrtPrice::from_num(1_000_000.0);
         assert_ok!(Pallet::<Test>::do_swap(
             netuid,
-            AlphaForTao::with_amount(1_000_000),
+            GetAlphaForTao::with_amount(1_000_000),
             sqrt_limit_price,
             false,
             false
