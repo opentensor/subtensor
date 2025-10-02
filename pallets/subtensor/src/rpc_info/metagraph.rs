@@ -870,7 +870,7 @@ impl<T: Config> Pallet<T> {
         } else {
             let mut result = SelectiveMetagraph::default();
 
-            // alwayseven the metagraph_indexes doesn't contain it
+            // always include netuid even the metagraph_indexes doesn't contain it
             result.netuid = netuid.into();
 
             for index in metagraph_indexes.iter() {
