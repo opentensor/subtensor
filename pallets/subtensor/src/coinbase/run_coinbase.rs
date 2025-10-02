@@ -41,6 +41,8 @@ impl<T: Config> Pallet<T> {
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
+        let mut tao_to_stake = U96F32::saturating_from_num(0.0);
+
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get subnet price.
@@ -52,6 +54,11 @@ impl<T: Config> Pallet<T> {
                 .copied()
                 .unwrap_or(asfloat!(0));
             log::debug!("default_tao_in_i: {default_tao_in_i:?}");
+
+            let default_alpha_in_i: U96F32 =
+                default_tao_in_i.safe_div_or(price_i, U96F32::saturating_from_num(0.0));
+            log::debug!("default_alpha_in_i: {default_alpha_in_i:?}");
+
             // Get alpha_emission total
             let alpha_emission_i: U96F32 = asfloat!(
                 Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i).into())
@@ -59,36 +66,18 @@ impl<T: Config> Pallet<T> {
             );
             log::debug!("alpha_emission_i: {alpha_emission_i:?}");
 
-            // Get initial alpha_in
             let mut alpha_in_i: U96F32;
             let mut tao_in_i: U96F32;
-            let tao_in_ratio: U96F32 = default_tao_in_i.safe_div_or(
-                U96F32::saturating_from_num(block_emission),
-                U96F32::saturating_from_num(0.0),
-            );
-            if price_i < tao_in_ratio {
-                tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
-                alpha_in_i = block_emission;
+            if default_alpha_in_i > alpha_emission_i {
+                alpha_in_i = alpha_emission_i;
+                tao_in_i = alpha_in_i.saturating_mul(price_i);
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
-                // Difference becomes buy.
-                let buy_swap_result = Self::swap_tao_for_alpha(
-                    *netuid_i,
-                    tou64!(difference_tao).into(),
-                    T::SwapInterface::max_price(),
-                    true,
-                );
-                if let Ok(buy_swap_result_ok) = buy_swap_result {
-                    let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_sub(bought_alpha);
-                    });
-                }
-                is_subsidized.insert(*netuid_i, true);
+                tao_to_stake = tao_to_stake.saturating_add(difference_tao);
             } else {
+                alpha_in_i = default_alpha_in_i;
                 tao_in_i = default_tao_in_i;
-                alpha_in_i = tao_in_i.safe_div_or(price_i, alpha_emission_i);
-                is_subsidized.insert(*netuid_i, false);
             }
+            log::debug!("tao_in_i: {tao_in_i:?}");
             log::debug!("alpha_in_i: {alpha_in_i:?}");
 
             // Get alpha_out.
@@ -106,6 +95,29 @@ impl<T: Config> Pallet<T> {
             alpha_in.insert(*netuid_i, alpha_in_i);
             alpha_out.insert(*netuid_i, alpha_out_i);
         }
+
+        let amount_per_subnet: U96F32 = tao_to_stake.safe_div_or(
+            U96F32::saturating_from_num(subnets_to_emit_to.len()),
+            U96F32::saturating_from_num(0.0),
+        );
+
+        for netuid_i in subnets_to_emit_to.iter() {
+            let buy_swap_result = Self::swap_tao_for_alpha(
+                *netuid_i,
+                tou64!(amount_per_subnet).into(),
+                T::SwapInterface::max_price().into(),
+                true,
+            );
+            if let Ok(buy_swap_result_ok) = buy_swap_result {
+                let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
+                SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_sub(bought_alpha);
+                });
+            }
+            is_subsidized.insert(*netuid_i, true);
+        }
+
+        log::debug!("tao_to_stake: {tao_to_stake:?}");
         log::debug!("tao_in: {tao_in:?}");
         log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
@@ -134,12 +146,16 @@ impl<T: Config> Pallet<T> {
             SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_i));
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(amount_per_subnet.into());
             });
+
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(amount_per_subnet.into());
             });
             TotalIssuance::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(amount_per_subnet.into());
             });
             // Adjust protocol liquidity based on new reserves
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
