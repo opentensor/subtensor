@@ -4,6 +4,7 @@ use frame_support::pallet_prelude::Weight;
 use sp_io::KillStorageResult;
 use sp_io::hashing::twox_128;
 use sp_io::storage::clear_prefix;
+pub mod migrate_auto_stake_destination;
 pub mod migrate_chain_identity;
 pub mod migrate_coldkey_swap_scheduled;
 pub mod migrate_commit_reveal_settings;

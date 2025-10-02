@@ -135,6 +135,7 @@ impl<T: Config> Pallet<T> {
         let pruning_score = extract_from_sorted_terms!(terms_sorted, pruning_score);
         let validator_trust = extract_from_sorted_terms!(terms_sorted, validator_trust);
         let new_validator_permit = extract_from_sorted_terms!(terms_sorted, new_validator_permit);
+        let stake_weight = extract_from_sorted_terms!(terms_sorted, stake_weight);
 
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, emission);
@@ -145,6 +146,7 @@ impl<T: Config> Pallet<T> {
         PruningScores::<T>::insert(netuid, pruning_score);
         ValidatorTrust::<T>::insert(netuid, validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permit);
+        StakeWeight::<T>::insert(netuid, stake_weight);
     }
 
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
