@@ -265,7 +265,7 @@ mod pallet {
         ReservesTooLow,
 
         /// The subnet does not exist.
-        SubNetworkDoesNotExist,
+        MechanismDoesNotExist,
 
         /// User liquidity operations are disabled for this subnet
         UserLiquidityDisabled,
@@ -294,7 +294,7 @@ mod pallet {
             // Ensure that the subnet exists.
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
             );
 
             ensure!(rate <= T::MaxFeeRate::get(), Error::<T>::FeeRateTooHigh);
@@ -331,7 +331,7 @@ mod pallet {
 
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
             );
 
             EnabledUserLiquidity::<T>::insert(netuid, enable);
@@ -366,7 +366,7 @@ mod pallet {
             // Ensure that the subnet exists.
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
             );
 
             ensure!(
@@ -434,7 +434,7 @@ mod pallet {
             // Ensure that the subnet exists.
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
             );
 
             // Remove liquidity
@@ -494,7 +494,7 @@ mod pallet {
             // Ensure that the subnet exists.
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
             );
 
             ensure!(

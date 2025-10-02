@@ -37,7 +37,10 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
+use pallet_subtensor_collective as pallet_collective;
+use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::SimSwapResult;
+use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -50,7 +53,7 @@ use sp_core::{
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
@@ -220,7 +223,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 316,
+    spec_version: 324,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -358,6 +361,31 @@ impl pallet_grandpa::Config for Runtime {
     type EquivocationReportSystem = ();
 }
 
+/// Babe epoch duration.
+///
+/// Staging this Babe constant prior to enacting the full Babe upgrade so the node
+/// can build itself a `BabeConfiguration` prior to the upgrade taking place.
+pub const EPOCH_DURATION_IN_SLOTS: u64 = prod_or_fast!(4 * HOURS as u64, MINUTES as u64 / 6);
+
+/// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
+/// The choice of is done in accordance to the slot duration and expected target
+/// block time, for safely resisting network delays of maximum two seconds.
+/// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+///
+/// Staging this Babe constant prior to enacting the full Babe upgrade so the node
+/// can build itself a `BabeConfiguration` prior to the upgrade taking place.
+pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+
+/// The BABE epoch configuration at genesis.
+///
+/// Staging this Babe constant prior to enacting the full Babe upgrade so the node
+/// can build itself a `BabeConfiguration` prior to the upgrade taking place.
+pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+    sp_consensus_babe::BabeEpochConfiguration {
+        c: PRIMARY_PROBABILITY,
+        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
+    };
+
 impl pallet_timestamp::Config for Runtime {
     // A timestamp: milliseconds since the unix epoch.
     type Moment = u64;
@@ -490,7 +518,9 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
+use pallet_subtensor::{
+    CollectiveInterface, CommitmentsInterface, MemberManagement, ProxyInterface,
+};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -884,6 +914,7 @@ impl pallet_proxy::Config for Runtime {
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
+    type BlockNumberProvider = System;
 }
 
 pub struct Proxier;
@@ -907,6 +938,13 @@ impl ProxyInterface<AccountId> for Proxier {
             ProxyType::SubnetLeaseBeneficiary,
             0,
         )
+    }
+}
+
+pub struct CommitmentsI;
+impl CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(netuid: NetUid) {
+        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid);
     }
 }
 
@@ -1056,10 +1094,10 @@ pub struct ResetBondsOnCommit;
 impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
-        // Reset bonds for each subsubnet of this subnet
-        let subsub_count = SubtensorModule::get_current_subsubnet_count(netuid);
-        for subid in 0..u8::from(subsub_count) {
-            let netuid_index = SubtensorModule::get_subsubnet_storage_index(netuid, subid.into());
+        // Reset bonds for each mechanism of this subnet
+        let mechanism_count = SubtensorModule::get_current_mechanism_count(netuid);
+        for mecid in 0..u8::from(mechanism_count) {
+            let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid.into());
             let _ = SubtensorModule::do_reset_bonds(netuid_index, address);
         }
     }
@@ -1107,6 +1145,8 @@ pub const INITIAL_SUBNET_TEMPO: u16 = prod_or_fast!(360, 10);
 // 30 days at 12 seconds per block = 216000
 pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = prod_or_fast!(216000, 5);
 
+pub const EVM_KEY_ASSOCIATE_RATELIMIT: u64 = prod_or_fast!(7200, 1); // 24 * 60 * 60 / 12; // 1 day
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -1151,8 +1191,8 @@ parameter_types! {
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
-    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
-    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialNetworkImmunity: u64 = 1_296_000;
+    pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
@@ -1174,6 +1214,8 @@ parameter_types! {
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
+    pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
+    pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1188,6 +1230,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRho = SubtensorInitialRho;
     type InitialAlphaSigmoidSteepness = SubtensorInitialAlphaSigmoidSteepness;
     type InitialKappa = SubtensorInitialKappa;
+    type InitialMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
     type InitialBondsPenalty = SubtensorInitialBondsPenalty;
@@ -1228,7 +1271,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
-    type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
@@ -1251,6 +1293,9 @@ impl pallet_subtensor::Config for Runtime {
     type ProxyInterface = Proxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = GetCommitmentsStruct;
+    type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
+    type CommitmentsInterface = CommitmentsI;
+    type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
 parameter_types! {
@@ -2331,8 +2376,8 @@ impl_runtime_apis! {
             SubtensorModule::get_metagraph(netuid)
         }
 
-        fn get_submetagraph(netuid: NetUid, subid: SubId) -> Option<Metagraph<AccountId32>> {
-            SubtensorModule::get_submetagraph(netuid, subid)
+        fn get_mechagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_mechagraph(netuid, mecid)
         }
 
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>> {
@@ -2343,8 +2388,8 @@ impl_runtime_apis! {
             SubtensorModule::get_all_metagraphs()
         }
 
-        fn get_all_submetagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
-            SubtensorModule::get_all_submetagraphs()
+        fn get_all_mechagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
+            SubtensorModule::get_all_mechagraphs()
         }
 
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
@@ -2354,9 +2399,16 @@ impl_runtime_apis! {
         fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
         }
+        fn get_subnet_to_prune() -> Option<NetUid> {
+        pallet_subtensor::Pallet::<Runtime>::get_network_to_prune()
+        }
 
-        fn get_selective_submetagraph(netuid: NetUid, subid: SubId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
-            SubtensorModule::get_selective_submetagraph(netuid, subid, metagraph_indexes)
+        fn get_coldkey_auto_stake_hotkey(coldkey: AccountId32, netuid: NetUid) -> Option<AccountId32> {
+            SubtensorModule::get_coldkey_auto_stake_hotkey(coldkey, netuid)
+        }
+
+        fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_mechagraph(netuid, mecid, metagraph_indexes)
         }
     }
 

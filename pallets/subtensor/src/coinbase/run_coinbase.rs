@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
             );
             if price_i < tao_in_ratio {
                 tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
-                alpha_in_i = alpha_emission_i;
+                alpha_in_i = block_emission;
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
                 // Difference becomes buy.
                 let buy_swap_result = Self::swap_tao_for_alpha(
@@ -499,11 +499,22 @@ impl<T: Config> Pallet<T> {
                 log::debug!(
                     "incentives: hotkey: {hotkey:?} is SN owner hotkey or associated hotkey, skipping {incentive:?}"
                 );
+                // Check if we should recycle or burn the incentive
+                match RecycleOrBurn::<T>::try_get(netuid) {
+                    Ok(RecycleOrBurnEnum::Recycle) => {
+                        log::debug!("recycling {incentive:?}");
+                        Self::recycle_subnet_alpha(netuid, incentive);
+                    }
+                    Ok(RecycleOrBurnEnum::Burn) | Err(_) => {
+                        log::debug!("burning {incentive:?}");
+                        Self::burn_subnet_alpha(netuid, incentive);
+                    }
+                }
                 continue;
             }
 
             let owner: T::AccountId = Owner::<T>::get(&hotkey);
-            let maybe_dest = AutoStakeDestination::<T>::get(&owner);
+            let maybe_dest = AutoStakeDestination::<T>::get(&owner, netuid);
 
             // Always stake but only emit event if autostake is set.
             let destination = maybe_dest.clone().unwrap_or(hotkey.clone());
@@ -648,7 +659,7 @@ impl<T: Config> Pallet<T> {
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
-            Self::epoch_with_subsubnets(netuid, pending_alpha.saturating_add(pending_swapped));
+            Self::epoch_with_mechanisms(netuid, pending_alpha.saturating_add(pending_swapped));
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
         // Compute the pending validator alpha.

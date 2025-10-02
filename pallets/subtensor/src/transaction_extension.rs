@@ -53,7 +53,7 @@ where
         if let Err(err) = result {
             Err(match err {
                 Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow.into(),
-                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetDoesntExist.into(),
+                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetNotExists.into(),
                 Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow.into(),
                 Error::<T>::HotKeyAccountNotExists => {
                     CustomTransactionError::HotkeyAccountDoesntExist.into()
@@ -279,11 +279,24 @@ where
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::register_network { .. }) => {
-                if !Pallet::<T>::passes_rate_limit(&TransactionType::RegisterNetwork, who) {
+                if !TransactionType::RegisterNetwork.passes_rate_limit::<T>(who) {
                     return Err(CustomTransactionError::RateLimitExceeded.into());
                 }
 
                 Ok((Default::default(), Some(who.clone()), origin))
+            }
+            Some(Call::associate_evm_key { netuid, .. }) => {
+                match Pallet::<T>::get_uid_for_net_and_hotkey(*netuid, who) {
+                    Ok(uid) => {
+                        match Pallet::<T>::ensure_evm_key_associate_rate_limit(*netuid, uid) {
+                            Ok(_) => Ok((Default::default(), Some(who.clone()), origin)),
+                            Err(_) => {
+                                Err(CustomTransactionError::EvmKeyAssociateRateLimitExceeded.into())
+                            }
+                        }
+                    }
+                    Err(_) => Err(CustomTransactionError::UidNotFound.into()),
+                }
             }
             _ => Ok((Default::default(), Some(who.clone()), origin)),
         }

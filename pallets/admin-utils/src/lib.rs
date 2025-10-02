@@ -25,10 +25,10 @@ pub mod pallet {
     use frame_support::{dispatch::DispatchResult, pallet_prelude::StorageMap};
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
-    use pallet_subtensor::utils::rate_limiting::TransactionType;
+    use pallet_subtensor::utils::rate_limiting::{Hyperparameter, TransactionType};
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
-    use subtensor_runtime_common::{NetUid, SubId, TaoCurrency};
+    use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -106,6 +106,10 @@ pub mod pallet {
         NegativeSigmoidSteepness,
         /// Value not in allowed bounds.
         ValueNotInBounds,
+        /// The minimum allowed UIDs must be less than the current number of UIDs in the subnet.
+        MinAllowedUidsGreaterThanCurrentUids,
+        /// The minimum allowed UIDs must be less than the maximum allowed UIDs.
+        MinAllowedUidsGreaterThanMaxAllowedUids,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -205,8 +209,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the serving rate limit.
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::from_parts(6_522_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+        #[pallet::weight(Weight::from_parts(22_980_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_serving_rate_limit(
             origin: OriginFor<T>,
@@ -216,14 +220,14 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::ServingRateLimit.into()],
             )?;
             pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, serving_rate_limit);
             log::debug!("ServingRateLimitSet( serving_rate_limit: {serving_rate_limit:?} ) ");
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::ServingRateLimit.into()],
             );
             Ok(())
         }
@@ -232,8 +236,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum difficulty.
         #[pallet::call_index(4)]
-        #[pallet::weight(Weight::from_parts(15_230_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_390_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_difficulty(
             origin: OriginFor<T>,
@@ -257,8 +261,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the maximum difficulty.
         #[pallet::call_index(5)]
-        #[pallet::weight(Weight::from_parts(15_700_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_990_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_difficulty(
             origin: OriginFor<T>,
@@ -268,7 +272,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MaxDifficulty.into()],
             )?;
 
             ensure!(
@@ -282,7 +286,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MaxDifficulty.into()],
             );
             Ok(())
         }
@@ -291,8 +295,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the weights version key.
         #[pallet::call_index(6)]
-        #[pallet::weight(Weight::from_parts(17_460_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_220_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_weights_version_key(
             origin: OriginFor<T>,
@@ -302,10 +306,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin.clone(),
                 netuid,
-                &[
-                    TransactionType::OwnerHyperparamUpdate,
-                    TransactionType::SetWeightsVersionKey,
-                ],
+                &[TransactionType::SetWeightsVersionKey],
             )?;
 
             ensure!(
@@ -316,10 +317,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[
-                    TransactionType::OwnerHyperparamUpdate,
-                    TransactionType::SetWeightsVersionKey,
-                ],
+                &[TransactionType::SetWeightsVersionKey],
             );
 
             pallet_subtensor::Pallet::<T>::set_weights_version_key(netuid, weights_version_key);
@@ -399,7 +397,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::AdjustmentAlpha.into()],
             )?;
 
             ensure!(
@@ -410,7 +408,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::AdjustmentAlpha.into()],
             );
             log::debug!("AdjustmentAlphaSet( adjustment_alpha: {adjustment_alpha:?} ) ");
             Ok(())
@@ -420,8 +418,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the adjustment beta.
         #[pallet::call_index(12)]
-        #[pallet::weight(Weight::from_parts(15_170_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_890_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_weight_limit(
             origin: OriginFor<T>,
@@ -431,7 +429,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MaxWeightLimit.into()],
             )?;
 
             ensure!(
@@ -442,7 +440,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MaxWeightLimit.into()],
             );
             log::debug!(
                 "MaxWeightLimitSet( netuid: {netuid:?} max_weight_limit: {max_weight_limit:?} ) "
@@ -454,8 +452,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the immunity period.
         #[pallet::call_index(13)]
-        #[pallet::weight(Weight::from_parts(15_510_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_620_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_immunity_period(
             origin: OriginFor<T>,
@@ -465,7 +463,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::ImmunityPeriod.into()],
             )?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -476,7 +474,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::ImmunityPeriod.into()],
             );
             log::debug!(
                 "ImmunityPeriodSet( netuid: {netuid:?} immunity_period: {immunity_period:?} ) "
@@ -488,8 +486,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum allowed weights.
         #[pallet::call_index(14)]
-        #[pallet::weight(Weight::from_parts(15_220_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_630_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_allowed_weights(
             origin: OriginFor<T>,
@@ -499,7 +497,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MinAllowedWeights.into()],
             )?;
 
             ensure!(
@@ -513,7 +511,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MinAllowedWeights.into()],
             );
             Ok(())
         }
@@ -550,14 +548,14 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the kappa.
         #[pallet::call_index(16)]
-        #[pallet::weight(Weight::from_parts(16_740_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_210_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_kappa(origin: OriginFor<T>, netuid: NetUid, kappa: u16) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::Kappa.into()],
             )?;
 
             ensure!(
@@ -569,7 +567,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::Kappa.into()],
             );
             Ok(())
         }
@@ -578,14 +576,14 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the rho.
         #[pallet::call_index(17)]
-        #[pallet::weight(Weight::from_parts(12_570_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(23_360_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_rho(origin: OriginFor<T>, netuid: NetUid, rho: u16) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::Rho.into()],
             )?;
 
             ensure!(
@@ -597,7 +595,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::Rho.into()],
             );
             Ok(())
         }
@@ -606,8 +604,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the activity cutoff.
         #[pallet::call_index(18)]
-        #[pallet::weight(Weight::from_parts(17_510_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+        #[pallet::weight(Weight::from_parts(28_720_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_activity_cutoff(
             origin: OriginFor<T>,
@@ -617,7 +615,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::ActivityCutoff.into()],
             )?;
 
             ensure!(
@@ -637,7 +635,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::ActivityCutoff.into()],
             );
             Ok(())
         }
@@ -685,7 +683,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::PowRegistrationAllowed.into()],
             )?;
 
             pallet_subtensor::Pallet::<T>::set_network_pow_registration_allowed(
@@ -698,7 +696,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::PowRegistrationAllowed.into()],
             );
             Ok(())
         }
@@ -707,8 +705,8 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the target registrations per interval.
         #[pallet::call_index(21)]
-        #[pallet::weight(Weight::from_parts(15_320_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(25_860_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_target_registrations_per_interval(
             origin: OriginFor<T>,
@@ -735,8 +733,8 @@ pub mod pallet {
         /// It is only callable by root and subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum burn.
         #[pallet::call_index(22)]
-        #[pallet::weight(Weight::from_parts(18_870_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+        #[pallet::weight(Weight::from_parts(29_970_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_burn(
             origin: OriginFor<T>,
@@ -746,7 +744,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MinBurn.into()],
             )?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -766,7 +764,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MinBurn.into()],
             );
             Ok(())
         }
@@ -775,8 +773,8 @@ pub mod pallet {
         /// It is only callable by root and subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the maximum burn.
         #[pallet::call_index(23)]
-        #[pallet::weight(Weight::from_parts(19_420_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+        #[pallet::weight(Weight::from_parts(30_510_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_burn(
             origin: OriginFor<T>,
@@ -786,7 +784,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MaxBurn.into()],
             )?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -806,7 +804,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::MaxBurn.into()],
             );
             Ok(())
         }
@@ -815,8 +813,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the difficulty.
         #[pallet::call_index(24)]
-        #[pallet::weight(Weight::from_parts(15_650_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_230_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_difficulty(
             origin: OriginFor<T>,
@@ -837,8 +835,8 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the maximum allowed validators.
         #[pallet::call_index(25)]
-        #[pallet::weight(Weight::from_parts(19_300_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+        #[pallet::weight(Weight::from_parts(30_930_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_allowed_validators(
             origin: OriginFor<T>,
@@ -870,8 +868,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the bonds moving average.
         #[pallet::call_index(26)]
-        #[pallet::weight(Weight::from_parts(15_140_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_270_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_bonds_moving_average(
             origin: OriginFor<T>,
@@ -881,7 +879,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::BondsMovingAverage.into()],
             )?;
             if maybe_owner.is_some() {
                 ensure!(
@@ -901,7 +899,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::BondsMovingAverage.into()],
             );
             Ok(())
         }
@@ -910,8 +908,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the bonds penalty.
         #[pallet::call_index(60)]
-        #[pallet::weight(Weight::from_parts(16_220_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_890_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_bonds_penalty(
             origin: OriginFor<T>,
@@ -921,7 +919,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::BondsPenalty.into()],
             )?;
 
             ensure!(
@@ -933,7 +931,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::BondsPenalty.into()],
             );
             Ok(())
         }
@@ -942,8 +940,8 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the maximum registrations per block.
         #[pallet::call_index(27)]
-        #[pallet::weight(Weight::from_parts(15_080_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_970_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_registrations_per_block(
             origin: OriginFor<T>,
@@ -1010,8 +1008,8 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the tempo.
         #[pallet::call_index(30)]
-        #[pallet::weight(Weight::from_parts(15_180_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(25_790_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
@@ -1083,6 +1081,23 @@ pub mod pallet {
 
             log::debug!("NetworkMinLockCost( lock_cost: {lock_cost:?} ) ");
 
+            Ok(())
+        }
+
+        /// The extrinsic sets the subnet limit for the network.
+        /// It is only callable by the root account.
+        /// The extrinsic will call the Subtensor pallet to set the subnet limit.
+        #[pallet::call_index(37)]
+        #[pallet::weight((
+			Weight::from_parts(14_000_000, 0)
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
+			Pays::No
+		))]
+        pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_max_subnets(max_subnets);
+            log::debug!("MaxSubnets ( max_subnets: {max_subnets:?} ) ");
             Ok(())
         }
 
@@ -1194,8 +1209,8 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the value.
         #[pallet::call_index(49)]
-        #[pallet::weight(Weight::from_parts(15_150_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_730_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_commit_reveal_weights_enabled(
             origin: OriginFor<T>,
@@ -1205,7 +1220,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::CommitRevealEnabled.into()],
             )?;
 
             ensure!(
@@ -1218,7 +1233,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::CommitRevealEnabled.into()],
             );
             Ok(())
         }
@@ -1242,14 +1257,14 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::LiquidAlphaEnabled.into()],
             )?;
             pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
             log::debug!("LiquidAlphaEnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::LiquidAlphaEnabled.into()],
             );
             Ok(())
         }
@@ -1266,7 +1281,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin.clone(),
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::AlphaValues.into()],
             )?;
             let res = pallet_subtensor::Pallet::<T>::do_set_alpha_values(
                 origin, netuid, alpha_low, alpha_high,
@@ -1275,7 +1290,7 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::record_owner_rl(
                     maybe_owner,
                     netuid,
-                    &[TransactionType::OwnerHyperparamUpdate],
+                    &[Hyperparameter::AlphaValues.into()],
                 );
             }
             res
@@ -1362,8 +1377,8 @@ pub mod pallet {
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(57)]
-        #[pallet::weight(Weight::from_parts(19_320_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        #[pallet::weight(Weight::from_parts(26_950_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_commit_reveal_weights_interval(
             origin: OriginFor<T>,
@@ -1373,7 +1388,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::WeightCommitInterval.into()],
             )?;
 
             ensure!(
@@ -1387,7 +1402,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::WeightCommitInterval.into()],
             );
 
             Ok(())
@@ -1465,17 +1480,49 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::TransferEnabled.into()],
             )?;
             let res = pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle);
             if res.is_ok() {
                 pallet_subtensor::Pallet::<T>::record_owner_rl(
                     maybe_owner,
                     netuid,
-                    &[TransactionType::OwnerHyperparamUpdate],
+                    &[Hyperparameter::TransferEnabled.into()],
                 );
             }
             res
+        }
+
+        /// Set the behaviour of the "burn" UID(s) for a given subnet.
+        /// If set to `Burn`, the miner emission sent to the burn UID(s) will be burned.
+        /// If set to `Recycle`, the miner emission sent to the burn UID(s) will be recycled.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `recycle_or_burn`: The desired behaviour of the "burn" UID(s) for the subnet.
+        ///
+        #[pallet::call_index(80)]
+        #[pallet::weight((1_000_000, DispatchClass::Normal, Pays::Yes))] // TODO: add proper weights
+        pub fn sudo_set_recycle_or_burn(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            recycle_or_burn: pallet_subtensor::RecycleOrBurnEnum,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::RecycleOrBurn.into()],
+            )?;
+
+            pallet_subtensor::Pallet::<T>::set_recycle_or_burn(netuid, recycle_or_burn);
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::RecycleOrBurn.into()],
+            );
+
+            Ok(())
         }
 
         /// Toggles the enablement of an EVM precompile.
@@ -1607,7 +1654,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin.clone(),
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::AlphaSigmoidSteepness.into()],
             )?;
 
             ensure!(
@@ -1627,7 +1674,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::AlphaSigmoidSteepness.into()],
             );
             Ok(())
         }
@@ -1651,7 +1698,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::Yuma3Enabled.into()],
             )?;
             pallet_subtensor::Pallet::<T>::set_yuma3_enabled(netuid, enabled);
 
@@ -1660,7 +1707,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::Yuma3Enabled.into()],
             );
             Ok(())
         }
@@ -1684,7 +1731,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::BondsResetEnabled.into()],
             )?;
             pallet_subtensor::Pallet::<T>::set_bonds_reset(netuid, enabled);
 
@@ -1693,7 +1740,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::BondsResetEnabled.into()],
             );
             Ok(())
         }
@@ -1786,8 +1833,8 @@ pub mod pallet {
 
         /// Sets the number of immune owner neurons
         #[pallet::call_index(72)]
-        #[pallet::weight(Weight::from_parts(4_639_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+        #[pallet::weight(Weight::from_parts(18_020_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_owner_immune_neuron_limit(
             origin: OriginFor<T>,
@@ -1797,13 +1844,13 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::ImmuneNeuronLimit.into()],
             )?;
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::OwnerHyperparamUpdate],
+                &[Hyperparameter::ImmuneNeuronLimit.into()],
             );
             Ok(())
         }
@@ -1825,7 +1872,12 @@ pub mod pallet {
         /// Sets the admin freeze window length (in blocks) at the end of a tempo.
         /// Only callable by root.
         #[pallet::call_index(74)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((
+			Weight::from_parts(5_771_000, 0)
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)),
+			DispatchClass::Operational
+		))]
         pub fn sudo_set_admin_freeze_window(origin: OriginFor<T>, window: u16) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_admin_freeze_window(window);
@@ -1833,52 +1885,57 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the owner hyperparameter rate limit (in blocks).
+        /// Sets the owner hyperparameter rate limit in epochs (global multiplier).
         /// Only callable by root.
         #[pallet::call_index(75)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((
+			Weight::from_parts(5_701_000, 0)
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)),
+			DispatchClass::Operational
+		))]
         pub fn sudo_set_owner_hparam_rate_limit(
             origin: OriginFor<T>,
-            limit: u64,
+            epochs: u16,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_owner_hyperparam_rate_limit(limit);
-            log::debug!("OwnerHyperparamRateLimitSet( limit: {limit:?} ) ");
+            pallet_subtensor::Pallet::<T>::set_owner_hyperparam_rate_limit(epochs);
+            log::debug!("OwnerHyperparamRateLimitSet( epochs: {epochs:?} ) ");
             Ok(())
         }
 
-        /// Sets the desired number of subsubnets in a subnet
+        /// Sets the desired number of mechanisms in a subnet
         #[pallet::call_index(76)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_subsubnet_count(
+        pub fn sudo_set_mechanism_count(
             origin: OriginFor<T>,
             netuid: NetUid,
-            subsub_count: SubId,
+            mechanism_count: MechId,
         ) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::SubsubnetParameterUpdate],
+                &[TransactionType::MechanismCountUpdate],
             )?;
 
-            pallet_subtensor::Pallet::<T>::do_set_subsubnet_count(netuid, subsub_count)?;
+            pallet_subtensor::Pallet::<T>::do_set_mechanism_count(netuid, mechanism_count)?;
 
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::SubsubnetParameterUpdate],
+                &[TransactionType::MechanismCountUpdate],
             );
             Ok(())
         }
 
-        /// Sets the emission split between subsubnets in a subnet
+        /// Sets the emission split between mechanisms in a subnet
         #[pallet::call_index(77)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_subsubnet_emission_split(
+        pub fn sudo_set_mechanism_emission_split(
             origin: OriginFor<T>,
             netuid: NetUid,
             maybe_split: Option<Vec<u16>>,
@@ -1886,7 +1943,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::SubsubnetParameterUpdate],
+                &[TransactionType::MechanismEmission],
             )?;
 
             pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
@@ -1894,7 +1951,71 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::SubsubnetParameterUpdate],
+                &[TransactionType::MechanismEmission],
+            );
+            Ok(())
+        }
+
+        /// Trims the maximum number of UIDs for a subnet.
+        ///
+        /// The trimming is done by sorting the UIDs by emission descending and then trimming
+        /// the lowest emitters while preserving temporally and owner immune UIDs. The UIDs are
+        /// then compressed to the left and storage is migrated to the new compressed UIDs.
+        #[pallet::call_index(78)]
+        #[pallet::weight(Weight::from_parts(32_880_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(6_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_trim_to_max_allowed_uids(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            max_n: u16,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin.clone(),
+                netuid,
+                &[TransactionType::MaxUidsTrimming],
+            )?;
+
+            pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::MaxUidsTrimming],
+            );
+            Ok(())
+        }
+
+        /// The extrinsic sets the minimum allowed UIDs for a subnet.
+        /// It is only callable by the root account.
+        #[pallet::call_index(79)]
+        #[pallet::weight(Weight::from_parts(31_550_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(5_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_min_allowed_uids(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            min_allowed_uids: u16,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(
+                min_allowed_uids < pallet_subtensor::Pallet::<T>::get_max_allowed_uids(netuid),
+                Error::<T>::MinAllowedUidsGreaterThanMaxAllowedUids
+            );
+            ensure!(
+                min_allowed_uids < pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid),
+                Error::<T>::MinAllowedUidsGreaterThanCurrentUids
+            );
+
+            pallet_subtensor::Pallet::<T>::set_min_allowed_uids(netuid, min_allowed_uids);
+
+            log::debug!(
+                "MinAllowedUidsSet( netuid: {netuid:?} min_allowed_uids: {min_allowed_uids:?} ) "
             );
             Ok(())
         }

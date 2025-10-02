@@ -6,7 +6,7 @@ use crate::epoch::run_epoch::EpochTerms;
 use alloc::collections::BTreeMap;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, SubId};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex};
 
 pub type LeaseId = u32;
 
@@ -27,21 +27,30 @@ pub type BalanceOf<T> =
 ///
 pub const GLOBAL_MAX_SUBNET_COUNT: u16 = 4096;
 
-// Theoretical maximum number of subsubnets per subnet
-// GLOBAL_MAX_SUBNET_COUNT * MAX_SUBSUBNET_COUNT_PER_SUBNET should be 0x10000
-pub const MAX_SUBSUBNET_COUNT_PER_SUBNET: u8 = 16;
+// Theoretical maximum number of mechanisms per subnet
+// GLOBAL_MAX_SUBNET_COUNT * MAX_MECHANISM_COUNT_PER_SUBNET should be 0x10000
+pub const MAX_MECHANISM_COUNT_PER_SUBNET: u8 = 16;
 
 impl<T: Config> Pallet<T> {
-    pub fn get_subsubnet_storage_index(netuid: NetUid, sub_id: SubId) -> NetUidStorageIndex {
+    pub fn get_mechanism_storage_index(netuid: NetUid, sub_id: MechId) -> NetUidStorageIndex {
         u16::from(sub_id)
             .saturating_mul(GLOBAL_MAX_SUBNET_COUNT)
             .saturating_add(u16::from(netuid))
             .into()
     }
 
+    pub fn get_netuid(netuid_index: NetUidStorageIndex) -> NetUid {
+        if let Some(netuid) = u16::from(netuid_index).checked_rem(GLOBAL_MAX_SUBNET_COUNT) {
+            NetUid::from(netuid)
+        } else {
+            // Because GLOBAL_MAX_SUBNET_COUNT is not zero, this never happens
+            NetUid::ROOT
+        }
+    }
+
     pub fn get_netuid_and_subid(
         netuid_index: NetUidStorageIndex,
-    ) -> Result<(NetUid, SubId), Error<T>> {
+    ) -> Result<(NetUid, MechId), Error<T>> {
         let maybe_netuid = u16::from(netuid_index).checked_rem(GLOBAL_MAX_SUBNET_COUNT);
         if let Some(netuid_u16) = maybe_netuid {
             let netuid = NetUid::from(netuid_u16);
@@ -49,68 +58,68 @@ impl<T: Config> Pallet<T> {
             // Make sure the base subnet exists
             ensure!(
                 Self::if_subnet_exist(netuid),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
             );
 
             // Extract sub_id
             let sub_id_u8 = u8::try_from(u16::from(netuid_index).safe_div(GLOBAL_MAX_SUBNET_COUNT))
-                .map_err(|_| Error::<T>::SubNetworkDoesNotExist)?;
-            let sub_id = SubId::from(sub_id_u8);
+                .map_err(|_| Error::<T>::MechanismDoesNotExist)?;
+            let sub_id = MechId::from(sub_id_u8);
 
-            if SubsubnetCountCurrent::<T>::get(netuid) > sub_id {
+            if MechanismCountCurrent::<T>::get(netuid) > sub_id {
                 Ok((netuid, sub_id))
             } else {
-                Err(Error::<T>::SubNetworkDoesNotExist.into())
+                Err(Error::<T>::MechanismDoesNotExist.into())
             }
         } else {
-            Err(Error::<T>::SubNetworkDoesNotExist.into())
+            Err(Error::<T>::MechanismDoesNotExist.into())
         }
     }
 
-    pub fn get_current_subsubnet_count(netuid: NetUid) -> SubId {
-        SubsubnetCountCurrent::<T>::get(netuid)
+    pub fn get_current_mechanism_count(netuid: NetUid) -> MechId {
+        MechanismCountCurrent::<T>::get(netuid)
     }
 
-    pub fn ensure_subsubnet_exists(netuid: NetUid, sub_id: SubId) -> DispatchResult {
+    pub fn ensure_mechanism_exists(netuid: NetUid, sub_id: MechId) -> DispatchResult {
         // Make sure the base subnet exists
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
-        // Make sure the subsub limit is not exceeded
+        // Make sure the mechanism limit is not exceeded
         ensure!(
-            SubsubnetCountCurrent::<T>::get(netuid) > sub_id,
-            Error::<T>::SubNetworkDoesNotExist
+            MechanismCountCurrent::<T>::get(netuid) > sub_id,
+            Error::<T>::MechanismDoesNotExist
         );
         Ok(())
     }
 
     /// Set the desired valus of sub-subnet count for a subnet identified
     /// by netuid
-    pub fn do_set_subsubnet_count(netuid: NetUid, subsubnet_count: SubId) -> DispatchResult {
+    pub fn do_set_mechanism_count(netuid: NetUid, mechanism_count: MechId) -> DispatchResult {
         // Make sure the subnet exists
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
         // Count cannot be zero
-        ensure!(subsubnet_count > 0.into(), Error::<T>::InvalidValue);
+        ensure!(mechanism_count > 0.into(), Error::<T>::InvalidValue);
 
         // Make sure we are not exceeding the max sub-subnet count
         ensure!(
-            subsubnet_count <= MaxSubsubnetCount::<T>::get(),
+            mechanism_count <= MaxMechanismCount::<T>::get(),
             Error::<T>::InvalidValue
         );
 
         // Make sure we are not allowing numbers that will break the math
         ensure!(
-            subsubnet_count <= SubId::from(MAX_SUBSUBNET_COUNT_PER_SUBNET),
+            mechanism_count <= MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET),
             Error::<T>::InvalidValue
         );
 
-        Self::update_subsubnet_counts_if_needed(netuid, subsubnet_count);
+        Self::update_mechanism_counts_if_needed(netuid, mechanism_count);
 
         Ok(())
     }
@@ -118,14 +127,14 @@ impl<T: Config> Pallet<T> {
     /// Update current count for a subnet identified by netuid
     /// - Cleans up all sub-subnet maps if count is reduced
     ///
-    pub fn update_subsubnet_counts_if_needed(netuid: NetUid, new_count: SubId) {
-        let old_count = u8::from(SubsubnetCountCurrent::<T>::get(netuid));
+    pub fn update_mechanism_counts_if_needed(netuid: NetUid, new_count: MechId) {
+        let old_count = u8::from(MechanismCountCurrent::<T>::get(netuid));
         let new_count_u8 = u8::from(new_count);
         if old_count != new_count_u8 {
             if old_count > new_count_u8 {
-                for subid in new_count_u8..old_count {
+                for mecid in new_count_u8..old_count {
                     let netuid_index =
-                        Self::get_subsubnet_storage_index(netuid, SubId::from(subid));
+                        Self::get_mechanism_storage_index(netuid, MechId::from(mecid));
 
                     // Cleanup Weights
                     let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
@@ -148,10 +157,10 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            SubsubnetCountCurrent::<T>::insert(netuid, SubId::from(new_count));
+            MechanismCountCurrent::<T>::insert(netuid, MechId::from(new_count));
 
             // Reset split back to even
-            SubsubnetEmissionSplit::<T>::remove(netuid);
+            MechanismEmissionSplit::<T>::remove(netuid);
         }
     }
 
@@ -159,35 +168,35 @@ impl<T: Config> Pallet<T> {
         // Make sure the subnet exists
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            Error::<T>::MechanismDoesNotExist
         );
 
         if let Some(split) = maybe_split {
             // Check the length
             ensure!(!split.is_empty(), Error::<T>::InvalidValue);
             ensure!(
-                split.len() <= u8::from(SubsubnetCountCurrent::<T>::get(netuid)) as usize,
+                split.len() <= u8::from(MechanismCountCurrent::<T>::get(netuid)) as usize,
                 Error::<T>::InvalidValue
             );
 
             // Check that values add up to 65535
             let total: u64 = split.iter().map(|s| *s as u64).sum();
-            ensure!(total <= u16::MAX as u64, Error::<T>::InvalidValue);
+            ensure!(total == u16::MAX as u64, Error::<T>::InvalidValue);
 
-            SubsubnetEmissionSplit::<T>::insert(netuid, split);
+            MechanismEmissionSplit::<T>::insert(netuid, split);
         } else {
-            SubsubnetEmissionSplit::<T>::remove(netuid);
+            MechanismEmissionSplit::<T>::remove(netuid);
         }
 
         Ok(())
     }
 
     /// Split alpha emission in sub-subnet proportions
-    /// stored in SubsubnetEmissionSplit
+    /// stored in MechanismEmissionSplit
     ///
     pub fn split_emissions(netuid: NetUid, alpha: AlphaCurrency) -> Vec<AlphaCurrency> {
-        let subsubnet_count = u64::from(SubsubnetCountCurrent::<T>::get(netuid));
-        let maybe_split = SubsubnetEmissionSplit::<T>::get(netuid);
+        let mechanism_count = u64::from(MechanismCountCurrent::<T>::get(netuid));
+        let maybe_split = MechanismEmissionSplit::<T>::get(netuid);
 
         // Unset split means even distribution
         let mut result: Vec<AlphaCurrency> = if let Some(split) = maybe_split {
@@ -202,16 +211,16 @@ impl<T: Config> Pallet<T> {
                 })
                 .collect()
         } else {
-            let per_subsubnet = u64::from(alpha).safe_div(subsubnet_count);
-            vec![AlphaCurrency::from(per_subsubnet); subsubnet_count as usize]
+            let per_mechanism = u64::from(alpha).safe_div(mechanism_count);
+            vec![AlphaCurrency::from(per_mechanism); mechanism_count as usize]
         };
 
-        // Trim / extend and pad with zeroes if result is shorter than subsubnet_count
-        if result.len() != subsubnet_count as usize {
-            result.resize(subsubnet_count as usize, 0u64.into()); // pad with AlphaCurrency::from(0)
+        // Trim / extend and pad with zeroes if result is shorter than mechanism_count
+        if result.len() != mechanism_count as usize {
+            result.resize(mechanism_count as usize, 0u64.into()); // pad with AlphaCurrency::from(0)
         }
 
-        // If there's any rounding error or lost due to truncation emission, credit it to subsubnet 0
+        // If there's any rounding error or lost due to truncation emission, credit it to mechanism 0
         let rounding_err =
             u64::from(alpha).saturating_sub(result.iter().map(|s| u64::from(*s)).sum());
         if let Some(cell) = result.first_mut() {
@@ -242,7 +251,7 @@ impl<T: Config> Pallet<T> {
     /// Runs the epoch function for each sub-subnet and consolidates hotkey_emission
     /// into a single vector.
     ///
-    pub fn epoch_with_subsubnets(
+    pub fn epoch_with_mechanisms(
         netuid: NetUid,
         rao_emission: AlphaCurrency,
     ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
@@ -250,18 +259,18 @@ impl<T: Config> Pallet<T> {
             Self::split_emissions(netuid, rao_emission)
                 .into_iter()
                 .enumerate()
-                // Run epoch function for each subsubnet to distribute its portion of emissions
+                // Run epoch function for each mechanism to distribute its portion of emissions
                 .flat_map(|(sub_id_usize, sub_emission)| {
                     let sub_id_u8: u8 = sub_id_usize.try_into().unwrap_or_default();
-                    let sub_id = SubId::from(sub_id_u8);
+                    let sub_id = MechId::from(sub_id_u8);
 
-                    // Run epoch function on the subsubnet emission
-                    let epoch_output = Self::epoch_subsubnet(netuid, sub_id, sub_emission);
-                    Self::persist_subsub_epoch_terms(netuid, sub_id, epoch_output.as_map());
+                    // Run epoch function on the mechanism emission
+                    let epoch_output = Self::epoch_mechanism(netuid, sub_id, sub_emission);
+                    Self::persist_mechanism_epoch_terms(netuid, sub_id, epoch_output.as_map());
 
-                    // Calculate subsubnet weight from the split emission (not the other way because preserving
+                    // Calculate mechanism weight from the split emission (not the other way because preserving
                     // emission accuracy is the priority)
-                    // For zero emission the first subsubnet gets full weight
+                    // For zero emission the first mechanism gets full weight
                     let sub_weight = U64F64::saturating_from_num(sub_emission).safe_div_or(
                         U64F64::saturating_from_num(rao_emission),
                         U64F64::saturating_from_num(if sub_id_u8 == 0 { 1 } else { 0 }),
@@ -277,7 +286,7 @@ impl<T: Config> Pallet<T> {
                 .fold(BTreeMap::new(), |mut acc, (hotkey, (terms, sub_weight))| {
                     acc.entry(hotkey)
                         .and_modify(|acc_terms| {
-                            // Server and validator emission come from subsubnet emission and need to be added up
+                            // Server and validator emission come from mechanism emission and need to be added up
                             acc_terms.validator_emission = acc_terms
                                 .validator_emission
                                 .saturating_add(terms.validator_emission);

@@ -6,7 +6,7 @@ use safe_math::*;
 use sp_std::collections::btree_map::IntoIter;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, SubId};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex};
 
 #[derive(Debug, Default)]
 pub struct EpochTerms {
@@ -65,11 +65,11 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         rao_emission: AlphaCurrency,
     ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
-        // Run subsubnet-style epoch
-        let output = Self::epoch_subsubnet(netuid, SubId::MAIN, rao_emission);
+        // Run mechanism-style epoch
+        let output = Self::epoch_mechanism(netuid, MechId::MAIN, rao_emission);
 
         // Persist values in legacy format
-        Self::persist_subsub_epoch_terms(netuid, SubId::MAIN, output.as_map());
+        Self::persist_mechanism_epoch_terms(netuid, MechId::MAIN, output.as_map());
         Self::persist_netuid_epoch_terms(netuid, output.as_map());
 
         // Remap and return
@@ -84,16 +84,16 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         rao_emission: AlphaCurrency,
     ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
-        Self::epoch_dense_subsubnet(netuid, SubId::MAIN, rao_emission)
+        Self::epoch_dense_mechanism(netuid, MechId::MAIN, rao_emission)
     }
 
-    /// Persists per-subsubnet epoch output in state
-    pub fn persist_subsub_epoch_terms(
+    /// Persists per-mechanism epoch output in state
+    pub fn persist_mechanism_epoch_terms(
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         output: &BTreeMap<T::AccountId, EpochTerms>,
     ) {
-        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
         let mut terms_sorted: sp_std::vec::Vec<&EpochTerms> = output.values().collect();
         terms_sorted.sort_unstable_by_key(|t| t.uid);
 
@@ -135,6 +135,7 @@ impl<T: Config> Pallet<T> {
         let pruning_score = extract_from_sorted_terms!(terms_sorted, pruning_score);
         let validator_trust = extract_from_sorted_terms!(terms_sorted, validator_trust);
         let new_validator_permit = extract_from_sorted_terms!(terms_sorted, new_validator_permit);
+        let stake_weight = extract_from_sorted_terms!(terms_sorted, stake_weight);
 
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, emission);
@@ -145,18 +146,19 @@ impl<T: Config> Pallet<T> {
         PruningScores::<T>::insert(netuid, pruning_score);
         ValidatorTrust::<T>::insert(netuid, validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permit);
+        StakeWeight::<T>::insert(netuid, stake_weight);
     }
 
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     /// (Dense version used only for testing purposes.)
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch_dense_subsubnet(
+    pub fn epoch_dense_mechanism(
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         rao_emission: AlphaCurrency,
     ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
         // Calculate netuid storage index
-        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
@@ -585,13 +587,13 @@ impl<T: Config> Pallet<T> {
     ///  * 'debug' ( bool ):
     ///     - Print debugging outputs.
     ///
-    pub fn epoch_subsubnet(
+    pub fn epoch_mechanism(
         netuid: NetUid,
-        subid: SubId,
+        mecid: MechId,
         rao_emission: AlphaCurrency,
     ) -> EpochOutput<T> {
         // Calculate netuid storage index
-        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
         // Initialize output keys (neuron hotkeys) and UIDs
         let mut terms_map: BTreeMap<T::AccountId, EpochTerms> = Keys::<T>::iter_prefix(netuid)
@@ -1128,7 +1130,7 @@ impl<T: Config> Pallet<T> {
                 if let Some(row) = weights.get_mut(uid_i as usize) {
                     row.push((*uid_j, I32F32::saturating_from_num(*weight_ij)));
                 } else {
-                    log::error!("uid_i {uid_i:?} is filtered to be less than n");
+                    log::error!("math error: uid_i {uid_i:?} is filtered to be less than n");
                 }
             }
         }
@@ -1387,13 +1389,20 @@ impl<T: Config> Pallet<T> {
         bonds: &[Vec<I32F32>],   // previous epoch bonds
         consensus: &[I32F32],    // previous epoch consensus weights
     ) -> Vec<Vec<I32F32>> {
-        assert!(weights.len() == bonds.len());
+        let mut alphas = Vec::new();
+
+        if weights.len() != bonds.len() {
+            log::error!(
+                "math error: compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                weights.len(),
+                bonds.len()
+            );
+            return alphas;
+        }
 
         // Get the high and low alpha values for the network.
         let alpha_sigmoid_steepness: I32F32 = Self::get_alpha_sigmoid_steepness(netuid);
         let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
-
-        let mut alphas = Vec::new();
 
         for (w_row, b_row) in weights.iter().zip(bonds.iter()) {
             let mut row_alphas = Vec::new();
@@ -1433,12 +1442,20 @@ impl<T: Config> Pallet<T> {
         bonds: &[Vec<(u16, I32F32)>],   // previous epoch bonds
         consensus: &[I32F32],           // previous epoch consensus weights
     ) -> Vec<Vec<I32F32>> {
-        assert!(weights.len() == bonds.len());
+        let mut alphas = Vec::with_capacity(consensus.len());
+
+        if weights.len() != bonds.len() {
+            log::error!(
+                "math error: compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                weights.len(),
+                bonds.len()
+            );
+            return alphas;
+        }
 
         let alpha_sigmoid_steepness: I32F32 = Self::get_alpha_sigmoid_steepness(netuid);
         let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
 
-        let mut alphas = Vec::with_capacity(consensus.len());
         let zero = I32F32::from_num(0.0);
 
         // iterate over rows

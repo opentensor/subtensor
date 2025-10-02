@@ -116,8 +116,8 @@ mod events {
         TxChildKeyTakeRateLimitSet(u64),
         /// setting the admin freeze window length (last N blocks of tempo)
         AdminFreezeWindowSet(u16),
-        /// setting the owner hyperparameter rate limit (in blocks)
-        OwnerHyperparamRateLimitSet(u64),
+        /// setting the owner hyperparameter rate limit in epochs
+        OwnerHyperparamRateLimitSet(u16),
         /// minimum childkey take set
         MinChildKeyTakeSet(u16),
         /// maximum childkey take set
@@ -151,7 +151,7 @@ mod events {
         /// the network minimum locking cost is set.
         NetworkMinLockCostSet(TaoCurrency),
         /// the maximum number of subnets is set
-        // SubnetLimitSet(u16),
+        SubnetLimitSet(u16),
         /// the lock cost reduction is set
         NetworkLockCostReductionIntervalSet(u64),
         /// the take for a delegate is decreased.
@@ -438,6 +438,23 @@ mod events {
             netuid: NetUidStorageIndex,
             /// UID-indexed array of miner incentive alpha; index equals UID.
             emissions: Vec<AlphaCurrency>,
+        },
+
+        /// The minimum allowed UIDs for a subnet have been set.
+        MinAllowedUidsSet(NetUid, u16),
+
+        /// The auto stake destination has been set.
+        ///
+        /// - **coldkey**: The account ID of the coldkey.
+        /// - **netuid**: The network identifier.
+        /// - **hotkey**: The account ID of the hotkey.
+        AutoStakeDestinationSet {
+            /// The account ID of the coldkey.
+            coldkey: T::AccountId,
+            /// The network identifier.
+            netuid: NetUid,
+            /// The account ID of the hotkey.
+            hotkey: T::AccountId,
         },
     }
 }
