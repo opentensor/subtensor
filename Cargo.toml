@@ -83,7 +83,6 @@ libsecp256k1 = { version = "0.7.2", default-features = false }
 log = { version = "0.4.21", default-features = false }
 memmap2 = "0.9.4"
 ndarray = { version = "0.15.6", default-features = false }
-parity-util-mem = "0.12.0"
 rand = "0.8.5"
 scale-info = { version = "2.11.2", default-features = false }
 serde = { version = "1.0.214", default-features = false }
