@@ -58,6 +58,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 #[derive(
     Encode,
     Decode,
+    DecodeWithMemTracking,
     Clone,
     Copy,
     Eq,
@@ -684,6 +685,17 @@ pub mod pallet {
             proxy_type: T::ProxyType,
             disambiguation_index: u16,
         },
+        /// A pure proxy was killed by its spawner.
+        PureKilled {
+            // The pure proxy account that was destroyed.
+            pure: T::AccountId,
+            // The account that created the pure proxy.
+            spawner: T::AccountId,
+            // The proxy type of the pure proxy that was destroyed.
+            proxy_type: T::ProxyType,
+            // The index originally passed to `create_pure` when this pure proxy was created.
+            disambiguation_index: u16,
+        },
         /// An announcement was placed to make a call in the future.
         Announced {
             real: T::AccountId,
@@ -703,17 +715,6 @@ pub mod pallet {
             delegatee: T::AccountId,
             proxy_type: T::ProxyType,
             delay: BlockNumberFor<T>,
-        },
-        /// A pure proxy was killed by its spawner.
-        PureKilled {
-            // The pure proxy account that was destroyed.
-            pure: T::AccountId,
-            // The account that created the pure proxy.
-            spawner: T::AccountId,
-            // The proxy type of the pure proxy that was destroyed.
-            proxy_type: T::ProxyType,
-            // The index originally passed to `create_pure` when this pure proxy was created.
-            disambiguation_index: u16,
         },
         /// A deposit stored for proxies or announcements was poked / updated.
         DepositPoked {
