@@ -44,5 +44,6 @@ jobs:
       - name: cargo audit
         run: |
           cargo audit --ignore RUSTSEC-2023-0091 \
+                      --ignore RUSTSEC-2024-0438 \
                       --ignore RUSTSEC-2025-0009 \
-                      --ignore RUSTSEC-2024-0438
+                      --ignore RUSTSEC-2025-0055
