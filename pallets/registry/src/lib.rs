@@ -35,6 +35,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config {
         /// Currency type that will be used to place deposits on neurons
+        #[allow(deprecated)]
         type Currency: fungible::Mutate<Self::AccountId>
             + fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
