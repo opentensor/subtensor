@@ -123,7 +123,7 @@ frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "
 frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-try-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-metadata = { version = "20.0.0", default-features = false }
+frame-metadata = { version = "23.0.0", default-features = false }
 
 pallet-subtensor-proxy = { path = "pallets/proxy", default-features = false }
 pallet-subtensor-utility = { path = "pallets/utility", default-features = false }
