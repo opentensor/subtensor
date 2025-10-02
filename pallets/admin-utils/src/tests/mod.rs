@@ -2421,6 +2421,7 @@ fn test_sudo_set_mechanism_count_and_emissions() {
     });
 }
 
+#[test]
 fn test_trim_to_max_allowed_uids() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
@@ -2857,68 +2858,6 @@ fn test_sudo_set_min_allowed_uids() {
     });
 }
 
-// #[test]
-// fn test_validator_cut_bounds() {
-//     new_test_ext().execute_with(|| {
-//         let netuid = NetUid::from(5);
-//         let min_cut: u64 = 0; // 0% cut
-//         let max_cut: u64 = u64::MAX; // 100% cut
-//         let to_be_set: u64 = 10000; // 100% cut
-
-//         // Set up a network
-//         add_network(netuid, 10);
-
-//         // Test minimum value
-//         SubtensorModule::set_validator_cut(netuid, min_cut);
-//         assert_eq!(SubtensorModule::get_validator_cut(netuid), min_cut);
-
-//         // Test maximum value
-//         SubtensorModule::set_validator_cut(netuid, max_cut);
-//         assert_eq!(SubtensorModule::get_validator_cut(netuid), max_cut);
-//         assert_eq!(SubtensorModule::get_min_allowed_uids(netuid), to_be_set);
-
-//         // Non root
-//         assert_err!(
-//             AdminUtils::sudo_set_min_allowed_uids(
-//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-//                 netuid,
-//                 to_be_set
-//             ),
-//             DispatchError::BadOrigin
-//         );
-
-//         // Non existent subnet
-//         assert_err!(
-//             AdminUtils::sudo_set_min_allowed_uids(
-//                 <<Test as Config>::RuntimeOrigin>::root(),
-//                 NetUid::from(42),
-//                 to_be_set
-//             ),
-//             Error::<Test>::SubnetDoesNotExist
-//         );
-
-//         // Min allowed uids greater than max allowed uids
-//         assert_err!(
-//             AdminUtils::sudo_set_min_allowed_uids(
-//                 <<Test as Config>::RuntimeOrigin>::root(),
-//                 netuid,
-//                 SubtensorModule::get_max_allowed_uids(netuid) + 1
-//             ),
-//             Error::<Test>::MinAllowedUidsGreaterThanMaxAllowedUids
-//         );
-
-//         // Min allowed uids greater than current uids
-//         assert_err!(
-//             AdminUtils::sudo_set_min_allowed_uids(
-//                 <<Test as Config>::RuntimeOrigin>::root(),
-//                 netuid,
-//                 SubtensorModule::get_subnetwork_n(netuid) + 1
-//             ),
-//             Error::<Test>::MinAllowedUidsGreaterThanCurrentUids
-//         );
-//     });
-// }
-
 #[test]
 fn test_get_validator_cut() {
     new_test_ext().execute_with(|| {
@@ -3017,22 +2956,22 @@ fn test_sudo_set_validator_cut_root() {
     });
 }
 
-// #[test]
-// fn test_validator_cut_bounds() {
-//     new_test_ext().execute_with(|| {
-//         let netuid = NetUid::from(5);
-//         let min_cut: u16 = 0; // 0% cut
-//         let max_cut: u16 = u16::MAX; // 100% cut
+#[test]
+fn test_validator_cut_bounds() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(5);
+        let min_cut: u64 = 0; // 0% cut
+        let max_cut: u64 = u64::MAX; // 100% cut
 
-//         // Set up a network
-//         add_network(netuid, 10);
+        // Set up a network
+        add_network(netuid, 10);
 
-//         // Test minimum value
-//         SubtensorModule::set_validator_cut(netuid, min_cut);
-//         assert_eq!(SubtensorModule::get_validator_cut(netuid), min_cut);
+        // Test minimum value
+        SubtensorModule::set_validator_cut(netuid, min_cut);
+        assert_eq!(SubtensorModule::get_validator_cut(netuid), min_cut);
 
-//         // Test maximum value
-//         SubtensorModule::set_validator_cut(netuid, max_cut);
-//         assert_eq!(SubtensorModule::get_validator_cut(netuid), max_cut);
-//     });
-// }
+        // Test maximum value
+        SubtensorModule::set_validator_cut(netuid, max_cut);
+        assert_eq!(SubtensorModule::get_validator_cut(netuid), max_cut);
+    });
+}

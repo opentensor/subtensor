@@ -684,13 +684,6 @@ impl<T: Config> Pallet<T> {
                 .saturating_div(u64::MAX.into())
                 .saturating_mul(U96F32::from(validator_cut))
                 .saturating_sub(U96F32::from(pending_swapped.to_u64()));
-            // log::error!("result: {result:?}");
-            // pending_alpha
-            //     .saturating_add(pending_swapped)
-            //     // .saturating_div(2.into())
-            //     .saturating_div(AlphaCurrency::from(u16::MAX as u64))
-            //     .saturating_mul(AlphaCurrency::from(validator_cut as u64))
-            //     .saturating_sub(pending_swapped)
             result.saturating_to_num::<u64>().into()
         } else {
             // If the incentive is 0, then Validators get 100% of the alpha.
