@@ -60,10 +60,10 @@ impl<T: Config> Pallet<T> {
             log::debug!("default_alpha_in_i: {default_alpha_in_i:?}");
 
             // Get alpha_emission total
-            let alpha_emission_i: U96F32 = asfloat!(Self::get_block_emission_for_issuance(
-                Self::get_alpha_issuance(*netuid_i).into()
-            )
-            .unwrap_or(0));
+            let alpha_emission_i: U96F32 = asfloat!(
+                Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i).into())
+                    .unwrap_or(0)
+            );
             log::debug!("alpha_emission_i: {alpha_emission_i:?}");
 
             let mut alpha_in_i: U96F32;
@@ -208,7 +208,7 @@ impl<T: Config> Pallet<T> {
             let root_alpha: U96F32 = root_proportion
                 .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
                 .saturating_mul(asfloat!(0.5)); // 50% to validators.
-                                                // Remove root alpha from alpha_out.
+            // Remove root alpha from alpha_out.
             log::debug!("root_alpha: {root_alpha:?}");
             // Get pending alpha as original alpha_out - root_alpha.
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
