@@ -869,10 +869,14 @@ impl<T: Config> Pallet<T> {
             None
         } else {
             let mut result = SelectiveMetagraph::default();
+
             for index in metagraph_indexes.iter() {
                 let value = Self::get_single_selective_mechagraph(netuid, mecid, *index);
                 result.merge_value(&value, *index as usize);
             }
+            // always include netuid even the metagraph_indexes doesn't contain it
+            result.netuid = netuid.into();
+
             Some(result)
         }
     }
