@@ -1,7 +1,11 @@
 use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };
-use crate::{NetworksAdded, RootClaimable, SubnetAlphaIn, SubnetMechanism, SubnetTAO, SubtokenEnabled, Tempo, pallet, NumStakingColdkeys, StakingColdkeys, StakingColdkeysByIndex};
+use crate::{
+    NetworksAdded, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, StakingColdkeys,
+    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetTAO, SubtokenEnabled, Tempo,
+    pallet,
+};
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
@@ -910,5 +914,79 @@ fn test_populate_staking_maps() {
         assert!(StakingColdkeys::<Test>::contains_key(&coldkey1));
         assert!(StakingColdkeys::<Test>::contains_key(&coldkey2));
         assert!(!StakingColdkeys::<Test>::contains_key(&coldkey3));
+    });
+}
+
+#[test]
+fn test_claim_root_coinbase_distribution() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        Tempo::<Test>::insert(netuid, 1);
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let root_stake = 200_000_000u64;
+        let initial_tao = 200_000_000u64;
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(initial_tao));
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
+        let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
+
+        // Check total issuance (saved to pending alpha divs)
+
+        run_to_block(2);
+
+        let alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
+        assert_eq!(initial_alpha_issuance + alpha_emissions, alpha_issuance);
+
+        let root_prop = initial_tao as f64 / (u64::from(alpha_issuance) + initial_tao) as f64;
+        let root_validators_share = 0.5f64;
+
+        let expected_pending_root_alpha_divs =
+            u64::from(alpha_emissions) as f64 * root_prop * root_validators_share;
+        assert_abs_diff_eq!(
+            u64::from(PendingRootAlphaDivs::<Test>::get(netuid)) as f64,
+            expected_pending_root_alpha_divs,
+            epsilon = 100f64
+        );
+
+        // Epoch pending alphas divs is distributed
+
+        run_to_block(3);
+
+        assert_eq!(u64::from(PendingRootAlphaDivs::<Test>::get(netuid)), 0u64);
+
+        let claimable = *RootClaimable::<Test>::get(hotkey)
+            .get(&netuid)
+            .expect("claimable must exist at this point");
+
+        let validator_take_percent = 0.18f64;
+        let calculated_rate = (expected_pending_root_alpha_divs * 2f64)
+            * (1f64 - validator_take_percent)
+            / (root_stake as f64);
+
+        assert_abs_diff_eq!(
+            claimable.saturating_to_num::<f64>(),
+            calculated_rate,
+            epsilon = 0.001f64,
+        );
     });
 }
