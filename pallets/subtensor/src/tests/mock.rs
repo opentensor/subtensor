@@ -1070,7 +1070,9 @@ pub(crate) fn last_event() -> RuntimeEvent {
     System::events().pop().expect("RuntimeEvent expected").event
 }
 
-pub fn assert_last_event<T: frame_system::pallet::Config>(generic_event: <T as frame_system::pallet::Config>::RuntimeEvent) {
+pub fn assert_last_event<T: frame_system::pallet::Config>(
+    generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
+) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 

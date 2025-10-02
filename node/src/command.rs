@@ -194,7 +194,7 @@ pub fn run() -> sc_cli::Result<()> {
                     BenchmarkCmd::Storage(cmd) => {
                         let db = backend.expose_db();
                         let storage = backend.expose_storage();
-						let shared_cache = backend.expose_shared_trie_cache();
+                        let shared_cache = backend.expose_shared_trie_cache();
 
                         cmd.run(config, client, db, storage, shared_cache)
                     }
