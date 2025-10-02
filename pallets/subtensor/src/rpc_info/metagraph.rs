@@ -869,6 +869,8 @@ impl<T: Config> Pallet<T> {
             None
         } else {
             let mut result = SelectiveMetagraph::default();
+
+            result.netuid = netuid.into();
             let netuid_in_metagraph_index =
                 SelectiveMetagraphIndex::from_index(SelectiveMetagraphIndex::Netuid as usize);
 
