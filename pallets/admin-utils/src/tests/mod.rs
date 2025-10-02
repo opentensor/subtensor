@@ -10,8 +10,7 @@ use pallet_subtensor::{
 };
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
-use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{Get, Pair, U256, ed25519};
+use sp_core::{Get, U256};
 use sp_runtime::Percent;
 use sp_runtime::traits::Zero;
 use substrate_fixed::types::I96F32;
@@ -1968,6 +1967,7 @@ fn test_sudo_set_node_validator_emissions_percent() {
     });
 }
 
+#[test]
 fn test_sudo_set_admin_freeze_window_and_rate() {
     new_test_ext().execute_with(|| {
         // Non-root fails
