@@ -475,16 +475,5 @@ mod events {
             /// Claim type
             root_claim_type: RootClaimTypeEnum,
         },
-
-        /// Root claim frequency for a coldkey has been set.
-        /// Parameters:
-        /// (coldkey, u8)
-        RootClaimFrequencySet {
-            /// Claim coldkey
-            coldkey: T::AccountId,
-
-            /// Claim type
-            root_claim_type: RootClaimTypeEnum,
-        },
     }
 }

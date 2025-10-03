@@ -360,14 +360,6 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
-    /// Default root claim frequency.
-    /// This is the frequency of root claims for a coldkey.
-    /// This is set by the user. Either auto or manual.
-    pub fn DefaultRootClaimFrequency<T: Config>() -> RootClaimFrequencyEnum {
-        RootClaimFrequencyEnum::default()
-    }
-
-    #[pallet::type_value]
     /// Default number of root claims per claim call.
     /// Ideally this is calculated using the number of staking coldkey
     /// and the block time.
@@ -1929,16 +1921,6 @@ pub mod pallet {
         ValueQuery,
         DefaultRootClaimType<T>,
     >;
-    #[pallet::storage] // -- MAP ( cold ) --> root_claim_frequency enum
-    pub type RootClaimFrequency<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        RootClaimFrequencyEnum,
-        ValueQuery,
-        DefaultRootClaimFrequency<T>,
-    >;
-
     #[pallet::storage] // --- MAP ( u64 ) --> coldkey | Maps coldkeys that have stake to an index
     pub type StakingColdkeysByIndex<T: Config> =
         StorageMap<_, Identity, u64, T::AccountId, OptionQuery>;
