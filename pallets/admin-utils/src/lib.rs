@@ -371,7 +371,7 @@ pub mod pallet {
         /// It is only callable by the root account, not changeable by the subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the adjustment interval.
         #[pallet::call_index(8)]
-        #[pallet::weight(Weight::from_parts(15_100_000, 0)
+        #[pallet::weight(Weight::from_parts(21_320_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_adjustment_interval(
@@ -734,7 +734,7 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the target registrations per interval.
         #[pallet::call_index(21)]
-        #[pallet::weight(Weight::from_parts(25_860_000, 0)
+        #[pallet::weight(Weight::from_parts(44_320_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_target_registrations_per_interval(
@@ -1307,7 +1307,7 @@ pub mod pallet {
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(50)]
         #[pallet::weight((
-            Weight::from_parts(4_840_000, 0)
+            Weight::from_parts(18_300_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1335,8 +1335,8 @@ pub mod pallet {
         /// Sets values for liquid alpha
         #[pallet::call_index(51)]
         #[pallet::weight((
-            Weight::from_parts(14_960_000, 4089)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
+            Weight::from_parts(25_280_000, 4089)
+                .saturating_add(T::DbWeight::get().reads(3_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1551,7 +1551,7 @@ pub mod pallet {
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(61)]
         #[pallet::weight((
-            Weight::from_parts(7_514_000, 0)
+            Weight::from_parts(20_460_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1745,8 +1745,8 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(68)]
         #[pallet::weight((
-            Weight::from_parts(12_160_000, 4045)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
+            Weight::from_parts(23_140_000, 4045)
+                .saturating_add(T::DbWeight::get().reads(3_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1795,7 +1795,7 @@ pub mod pallet {
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(69)]
         #[pallet::weight((
-            Weight::from_parts(7_374_000, 0)
+            Weight::from_parts(20_460_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1833,7 +1833,7 @@ pub mod pallet {
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(70)]
         #[pallet::weight((
-            Weight::from_parts(8_000_000, 0)
+            Weight::from_parts(22_340_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1920,7 +1920,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(66)]
         #[pallet::weight((
-            Weight::from_parts(4_448_000, 0)
+            Weight::from_parts(17_980_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
