@@ -2663,7 +2663,6 @@ fn test_trim_to_max_allowed_uids() {
             assert!(!AlphaDividendsPerSubnet::<Test>::contains_key(
                 netuid, hotkey
             ));
-            assert!(!TaoDividendsPerSubnet::<Test>::contains_key(netuid, hotkey));
             assert!(!Axons::<Test>::contains_key(netuid, hotkey));
             assert!(!NeuronCertificates::<Test>::contains_key(netuid, hotkey));
             assert!(!Prometheus::<Test>::contains_key(netuid, hotkey));

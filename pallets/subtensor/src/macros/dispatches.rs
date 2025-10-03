@@ -2387,7 +2387,6 @@ mod dispatches {
             Self::do_dissolve_network(netuid)
         }
 
-
         /// --- Claims the root emissions for a coldkey.
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):

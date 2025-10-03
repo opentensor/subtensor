@@ -377,7 +377,7 @@ impl<T: Config> Pallet<T> {
 
             AlphaMapLastKey::<T>::put(new_starting_key);
         }
-	}
+    }
 
     pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaCurrency) {
         // Do nothing; TODO: record burned alpha in a tracker

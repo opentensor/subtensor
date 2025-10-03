@@ -477,7 +477,7 @@ impl<T: Config> Pallet<T> {
         FirstEmissionBlockNumber::<T>::remove(netuid);
         PendingEmission::<T>::remove(netuid);
         PendingRootDivs::<T>::remove(netuid);
-        PendingAlphaSwapped::<T>::remove(netuid);
+        PendingRootAlphaDivs::<T>::remove(netuid);
         PendingOwnerCut::<T>::remove(netuid);
         BlocksSinceLastStep::<T>::remove(netuid);
         LastMechansimStepBlock::<T>::remove(netuid);
@@ -510,6 +510,7 @@ impl<T: Config> Pallet<T> {
         RAORecycledForRegistration::<T>::remove(netuid);
         MaxRegistrationsPerBlock::<T>::remove(netuid);
         WeightsVersionKey::<T>::remove(netuid);
+        PendingRootAlphaDivs::<T>::remove(netuid);
 
         // --- 17. Subtoken / feature flags.
         LiquidAlphaOn::<T>::remove(netuid);
@@ -528,7 +529,6 @@ impl<T: Config> Pallet<T> {
         let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 

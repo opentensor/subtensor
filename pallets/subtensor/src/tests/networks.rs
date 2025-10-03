@@ -357,7 +357,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         NetworkPowRegistrationAllowed::<Test>::insert(net, true);
         PendingEmission::<Test>::insert(net, AlphaCurrency::from(1));
         PendingRootDivs::<Test>::insert(net, TaoCurrency::from(1));
-        PendingAlphaSwapped::<Test>::insert(net, AlphaCurrency::from(1));
+        PendingRootAlphaDivs::<Test>::insert(net, AlphaCurrency::from(1));
         PendingOwnerCut::<Test>::insert(net, AlphaCurrency::from(1));
         BlocksSinceLastStep::<Test>::insert(net, 1u64);
         LastMechansimStepBlock::<Test>::insert(net, 1u64);
@@ -405,7 +405,6 @@ fn dissolve_clears_all_per_subnet_storages() {
 
         // Per‑subnet dividends
         AlphaDividendsPerSubnet::<Test>::insert(net, owner_hot, AlphaCurrency::from(1));
-        TaoDividendsPerSubnet::<Test>::insert(net, owner_hot, TaoCurrency::from(1));
 
         // Parent/child topology + takes
         ChildkeyTake::<Test>::insert(owner_hot, net, 1u16);
@@ -515,7 +514,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!NetworkPowRegistrationAllowed::<Test>::contains_key(net));
         assert!(!PendingEmission::<Test>::contains_key(net));
         assert!(!PendingRootDivs::<Test>::contains_key(net));
-        assert!(!PendingAlphaSwapped::<Test>::contains_key(net));
+        assert!(!PendingRootAlphaDivs::<Test>::contains_key(net));
         assert!(!PendingOwnerCut::<Test>::contains_key(net));
         assert!(!BlocksSinceLastStep::<Test>::contains_key(net));
         assert!(!LastMechansimStepBlock::<Test>::contains_key(net));
@@ -565,7 +564,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!AlphaDividendsPerSubnet::<Test>::contains_key(
             net, owner_hot
         ));
-        assert!(!TaoDividendsPerSubnet::<Test>::contains_key(net, owner_hot));
 
         // Parent/child topology + takes
         assert!(!ChildkeyTake::<Test>::contains_key(owner_hot, net));
