@@ -908,12 +908,12 @@ fn test_populate_staking_maps() {
 
         assert_eq!(NumStakingColdkeys::<Test>::get(), 2);
 
-        assert!(StakingColdkeysByIndex::<Test>::contains_key(&0));
-        assert!(StakingColdkeysByIndex::<Test>::contains_key(&1));
+        assert!(StakingColdkeysByIndex::<Test>::contains_key(0));
+        assert!(StakingColdkeysByIndex::<Test>::contains_key(1));
 
-        assert!(StakingColdkeys::<Test>::contains_key(&coldkey1));
-        assert!(StakingColdkeys::<Test>::contains_key(&coldkey2));
-        assert!(!StakingColdkeys::<Test>::contains_key(&coldkey3));
+        assert!(StakingColdkeys::<Test>::contains_key(coldkey1));
+        assert!(StakingColdkeys::<Test>::contains_key(coldkey2));
+        assert!(!StakingColdkeys::<Test>::contains_key(coldkey3));
     });
 }
 

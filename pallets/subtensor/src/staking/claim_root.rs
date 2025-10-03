@@ -130,7 +130,10 @@ impl<T: Config> Pallet<T> {
         // Substract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
-        if owed == 0 || owed < I96F32::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
+        if owed < I96F32::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
+            log::debug!(
+                "root claim on subnet {netuid} is skipped: {owed:?} for h={hotkey:?},c={coldkey:?} "
+            );
             return; // no-op
         }
 
@@ -142,6 +145,9 @@ impl<T: Config> Pallet<T> {
         };
 
         if owed_u64 == 0 {
+            log::debug!(
+                "root claim on subnet {netuid} is skipped: {owed:?} for h={hotkey:?},c={coldkey:?}"
+            );
             return; // no-op
         }
 

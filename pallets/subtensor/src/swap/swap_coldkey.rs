@@ -176,7 +176,7 @@ impl<T: Config> Pallet<T> {
 
                 // Register new coldkey with root stake
                 if new_alpha > U64F64::from(0u64) && netuid == NetUid::ROOT {
-                    Self::maybe_add_coldkey_index(&new_coldkey);
+                    Self::maybe_add_coldkey_index(new_coldkey);
                 }
             }
             // Add the weight for the read and write.
