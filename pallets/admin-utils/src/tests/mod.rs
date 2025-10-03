@@ -513,69 +513,107 @@ fn test_sudo_set_min_allowed_weights() {
 fn test_sudo_set_max_allowed_uids() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set: u16 = 10;
+        let to_be_set: u16 = 12;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
-        assert_eq!(
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
+        TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
+
+        // Register some neurons
+        for i in 0..=8 {
+            register_ok_neuron(netuid, U256::from(i * 1000), U256::from(i * 1000 + i), 0);
+        }
+
+        // Bad origin that is not root or subnet owner
+        assert_noop!(
             AdminUtils::sudo_set_max_allowed_uids(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(42)),
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin)
+            DispatchError::BadOrigin
         );
-        assert_eq!(
+
+        // Random netuid that doesn't exist
+        assert_noop!(
             AdminUtils::sudo_set_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                NetUid::from(42),
                 to_be_set
             ),
-            Err(Error::<Test>::SubnetDoesNotExist.into())
+            Error::<Test>::SubnetDoesNotExist
         );
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
+
+        // Trying to set max allowed uids less than min allowed uids
+        assert_noop!(
+            AdminUtils::sudo_set_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_min_allowed_uids(netuid) - 1
+            ),
+            Error::<Test>::MaxAllowedUidsLessThanMinAllowedUids
+        );
+
+        // Trying to set max allowed uids less than current uids
+        assert_noop!(
+            AdminUtils::sudo_set_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                SubtensorModule::get_subnetwork_n(netuid) - 1
+            ),
+            Error::<Test>::MaxAllowedUIdsLessThanCurrentUIds
+        );
+
+        // Trying to set max allowed uids greater than default max allowed uids
+        assert_noop!(
+            AdminUtils::sudo_set_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                DefaultMaxAllowedUids::<Test>::get() + 1
+            ),
+            Error::<Test>::MaxAllowedUidsGreaterThanDefaultMaxAllowedUids
+        );
+
+        // Normal case
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), to_be_set);
-    });
-}
 
-#[test]
-fn test_sudo_set_and_decrease_max_allowed_uids() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        let to_be_set: u16 = 10;
-        add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
-        assert_eq!(
-            AdminUtils::sudo_set_max_allowed_uids(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(
-            AdminUtils::sudo_set_max_allowed_uids(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
-                to_be_set
-            ),
-            Err(Error::<Test>::SubnetDoesNotExist.into())
-        );
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
+        // Exact current case
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
-            to_be_set
+            SubtensorModule::get_subnetwork_n(netuid)
         ));
+        assert_eq!(
+            SubtensorModule::get_max_allowed_uids(netuid),
+            SubtensorModule::get_subnetwork_n(netuid)
+        );
+
+        // Lower bound case
+        SubtensorModule::set_min_allowed_uids(netuid, SubtensorModule::get_subnetwork_n(netuid));
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
-            to_be_set - 1
+            SubtensorModule::get_min_allowed_uids(netuid)
         ));
+        assert_eq!(
+            SubtensorModule::get_max_allowed_uids(netuid),
+            SubtensorModule::get_min_allowed_uids(netuid)
+        );
+
+        // Upper bound case
+        assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            DefaultMaxAllowedUids::<Test>::get(),
+        ));
+        assert_eq!(
+            SubtensorModule::get_max_allowed_uids(netuid),
+            DefaultMaxAllowedUids::<Test>::get()
+        );
     });
 }
 
