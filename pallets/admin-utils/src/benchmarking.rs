@@ -470,6 +470,7 @@ mod benchmarks {
     #[benchmark]
     fn sudo_set_liquid_alpha_enabled() {
         let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             netuid, 1u16, // tempo
         );
@@ -481,6 +482,7 @@ mod benchmarks {
     #[benchmark]
     fn sudo_set_alpha_values() {
         let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             netuid, 1u16, // tempo
         );
@@ -505,6 +507,7 @@ mod benchmarks {
     #[benchmark]
     fn sudo_set_toggle_transfer() {
         let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             netuid, 1u16, // tempo
         );
@@ -540,7 +543,7 @@ mod benchmarks {
     #[benchmark]
     fn sudo_set_alpha_sigmoid_steepness() {
         let netuid = NetUid::from(1);
-
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             netuid, 1u16, // tempo
         );
@@ -552,7 +555,7 @@ mod benchmarks {
     #[benchmark]
     fn sudo_set_yuma3_enabled() {
         let netuid = NetUid::from(1);
-
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             netuid, 1u16, // tempo
         );
@@ -564,7 +567,7 @@ mod benchmarks {
     #[benchmark]
     fn sudo_set_bonds_reset_enabled() {
         let netuid = NetUid::from(1);
-
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             netuid, 1u16, // tempo
         );
@@ -589,7 +592,7 @@ mod benchmarks {
     #[benchmark]
     fn sudo_set_subtoken_enabled() {
         let netuid = NetUid::from(1);
-
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
         pallet_subtensor::Pallet::<T>::init_new_network(
             netuid, 1u16, // tempo
         );
