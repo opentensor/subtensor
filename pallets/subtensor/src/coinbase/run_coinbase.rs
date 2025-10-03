@@ -675,14 +675,14 @@ impl<T: Config> Pallet<T> {
         log::debug!("incentive_sum: {incentive_sum:?}");
 
         let validator_cut = Self::get_validator_cut(netuid);
-        log::error!("validator_cut: {validator_cut:?}");
-        // log::error!("incentive_sum: {:?}"), ;
+        log::debug!("validator_cut: {validator_cut:?}");
+
         let pending_validator_alpha = if !incentive_sum.is_zero() {
             let pending_alpha_f = U96F32::from(pending_alpha.to_u64());
+            let rate = U96F32::from(validator_cut).saturating_div(u64::MAX.into());
             let result = pending_alpha_f
                 .saturating_add(U96F32::from(pending_swapped.to_u64()))
-                .saturating_div(u64::MAX.into())
-                .saturating_mul(U96F32::from(validator_cut))
+                .saturating_mul(rate)
                 .saturating_sub(U96F32::from(pending_swapped.to_u64()));
             result.saturating_to_num::<u64>().into()
         } else {
