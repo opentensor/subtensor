@@ -3,7 +3,7 @@ extern crate alloc;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapExt;
+use subtensor_swap_interface::SwapHandler;
 
 use super::*;
 
@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
             0_u64
         } else {
             let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
-            T::SwapExt::approx_fee_amount(netuid.into(), TaoCurrency::from(amount)).to_u64()
+            T::SwapInterface::approx_fee_amount(netuid.into(), TaoCurrency::from(amount)).to_u64()
         }
     }
 }

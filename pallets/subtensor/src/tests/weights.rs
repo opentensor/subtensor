@@ -22,7 +22,7 @@ use sp_runtime::{
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
 use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::{SwapEngine, SwapExt};
+use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,
     ibe::fullident::Identity,
@@ -282,12 +282,12 @@ fn test_set_weights_validate() {
 
         // Increase the stake and make it to be equal to the minimum threshold
         let fee =
-            <Test as pallet::Config>::SwapExt::approx_fee_amount(netuid.into(), min_stake.into());
+            <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake + fee.into()
+            min_stake + fee
         ));
         let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
 

@@ -10,29 +10,33 @@ pub use order::*;
 
 mod order;
 
-pub trait SwapEngine<OrderT: Order>: DefaultPriceLimit<OrderT::PaidIn, OrderT::PaidOut> {
+pub trait SwapEngine<O: Order>: DefaultPriceLimit<O::PaidIn, O::PaidOut> {
     fn swap(
         netuid: NetUid,
-        order: OrderT,
+        order: O,
         price_limit: TaoCurrency,
         drop_fees: bool,
         should_rollback: bool,
-    ) -> Result<SwapResult<OrderT::PaidIn, OrderT::PaidOut>, DispatchError>;
-    fn sim_swap(
+    ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>;
+}
+
+pub trait SwapHandler {
+    fn swap<O: Order>(
         netuid: NetUid,
-        order: OrderT,
-    ) -> Result<SwapResult<OrderT::PaidIn, OrderT::PaidOut>, DispatchError>;
-}
+        order: O,
+        price_limit: TaoCurrency,
+        drop_fees: bool,
+        should_rollback: bool,
+    ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
+    where
+        Self: SwapEngine<O>;
+    fn sim_swap<O: Order>(
+        netuid: NetUid,
+        order: O,
+    ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
+    where
+        Self: SwapEngine<O>;
 
-pub trait DefaultPriceLimit<PaidIn, PaidOut>
-where
-    PaidIn: Currency,
-    PaidOut: Currency,
-{
-    fn default_price_limit<C: Currency>() -> C;
-}
-
-pub trait SwapExt {
     fn approx_fee_amount<T: Currency>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U96F32;
     fn max_price<C: Currency>() -> C;
@@ -46,6 +50,14 @@ pub trait SwapExt {
     fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
+}
+
+pub trait DefaultPriceLimit<PaidIn, PaidOut>
+where
+    PaidIn: Currency,
+    PaidOut: Currency,
+{
+    fn default_price_limit<C: Currency>() -> C;
 }
 
 #[freeze_struct("d3d0b124fe5a97c8")]

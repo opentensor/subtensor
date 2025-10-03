@@ -8,7 +8,7 @@ use frame_support::traits::{
 use safe_math::*;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::{Order, SwapEngine, SwapExt};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 use super::*;
 
@@ -51,8 +51,9 @@ impl<T: Config> Pallet<T> {
                 let alpha = U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
                     hotkey, netuid,
                 ));
-                let alpha_price =
-                    U96F32::saturating_from_num(T::SwapExt::current_alpha_price(netuid.into()));
+                let alpha_price = U96F32::saturating_from_num(
+                    T::SwapInterface::current_alpha_price(netuid.into()),
+                );
                 alpha.saturating_mul(alpha_price)
             })
             .sum::<U96F32>()
@@ -73,10 +74,12 @@ impl<T: Config> Pallet<T> {
                             hotkey, coldkey, netuid,
                         );
                         let order = GetTaoForAlpha::<T>::with_amount(alpha_stake);
-                        T::SwapEngine::sim_swap(netuid.into(), order)
+                        T::SwapInterface::sim_swap(netuid.into(), order)
                             .map(|r| {
                                 let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
-                                    .saturating_mul(T::SwapExt::current_alpha_price(netuid.into()))
+                                    .saturating_mul(T::SwapInterface::current_alpha_price(
+                                        netuid.into(),
+                                    ))
                                     .saturating_to_num();
                                 r.amount_paid_out.to_u64().saturating_add(fee)
                             })
@@ -184,7 +187,7 @@ impl<T: Config> Pallet<T> {
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
             let min_alpha_stake =
                 U96F32::saturating_from_num(Self::get_nominator_min_required_stake())
-                    .safe_div(T::SwapExt::current_alpha_price(netuid))
+                    .safe_div(T::SwapInterface::current_alpha_price(netuid))
                     .saturating_to_num::<u64>();
             if alpha_stake > 0.into() && alpha_stake < min_alpha_stake.into() {
                 // Log the clearing of a small nomination
@@ -196,7 +199,7 @@ impl<T: Config> Pallet<T> {
                     coldkey,
                     netuid,
                     alpha_stake,
-                    T::SwapExt::min_price(),
+                    T::SwapInterface::min_price(),
                     false,
                 );
 
@@ -313,7 +316,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
-        T::SwapExt::is_user_liquidity_enabled(netuid)
+        T::SwapInterface::is_user_liquidity_enabled(netuid)
     }
 
     pub fn recycle_subnet_alpha(netuid: NetUid, amount: AlphaCurrency) {

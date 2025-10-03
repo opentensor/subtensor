@@ -10,7 +10,7 @@ use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
 use subtensor_swap_interface::{
-    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapExt, SwapResult,
+    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
 };
 
 use super::pallet::*;
@@ -172,7 +172,7 @@ impl<T: Config> Pallet<T> {
     /// - `amount`: The amount of tokens to swap.
     /// - `limit_sqrt_price`: A price limit (expressed as a square root) to bound the swap.
     /// - `simulate`: If `true`, the function runs in simulation mode and does not persist any
-    /// changes.
+    ///   changes.
     ///
     /// # Returns
     /// Returns a [`Result`] with a [`SwapResult`] on success, or a [`DispatchError`] on failure.
@@ -185,7 +185,7 @@ impl<T: Config> Pallet<T> {
     /// When `simulate` is set to `true`, the function:
     /// 1. Executes all logic without persisting any state changes (i.e., performs a dry run).
     /// 2. Skips reserve checks — it may return an `amount_paid_out` greater than the available
-    ///       reserve.
+    ///    reserve.
     ///
     /// Use simulation mode to preview the outcome of a swap without modifying the blockchain state.
     pub(crate) fn do_swap<Order>(
@@ -981,25 +981,26 @@ impl<T: Config> DefaultPriceLimit<AlphaCurrency, TaoCurrency> for Pallet<T> {
     }
 }
 
-impl<T: Config, Order> SwapEngine<Order> for Pallet<T>
+impl<T, O> SwapEngine<O> for Pallet<T>
 where
-    Order: OrderT,
-    Self: DefaultPriceLimit<Order::PaidIn, Order::PaidOut>,
-    BasicSwapStep<T, Order::PaidIn, Order::PaidOut>: SwapStep<T, Order::PaidIn, Order::PaidOut>,
+    T: Config,
+    O: OrderT,
+    BasicSwapStep<T, O::PaidIn, O::PaidOut>: SwapStep<T, O::PaidIn, O::PaidOut>,
+    Self: DefaultPriceLimit<O::PaidIn, O::PaidOut>,
 {
     fn swap(
         netuid: NetUid,
-        order: Order,
+        order: O,
         price_limit: TaoCurrency,
         drop_fees: bool,
         should_rollback: bool,
-    ) -> Result<SwapResult<Order::PaidIn, Order::PaidOut>, DispatchError> {
+    ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError> {
         let limit_sqrt_price = SqrtPrice::saturating_from_num(price_limit.to_u64())
             .safe_div(SqrtPrice::saturating_from_num(1_000_000_000))
             .checked_sqrt(SqrtPrice::saturating_from_num(0.0000000001))
             .ok_or(Error::<T>::PriceLimitExceeded)?;
 
-        Self::do_swap::<Order>(
+        Self::do_swap::<O>(
             NetUid::from(netuid),
             order,
             limit_sqrt_price,
@@ -1008,22 +1009,42 @@ where
         )
         .map_err(Into::into)
     }
+}
 
-    fn sim_swap(
+impl<T: Config> SwapHandler for Pallet<T> {
+    fn swap<O>(
         netuid: NetUid,
-        order: Order,
-    ) -> Result<SwapResult<Order::PaidIn, Order::PaidOut>, DispatchError> {
+        order: O,
+        price_limit: TaoCurrency,
+        drop_fees: bool,
+        should_rollback: bool,
+    ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
+    where
+        O: OrderT,
+        Self: SwapEngine<O>,
+    {
+        <Self as SwapEngine<O>>::swap(netuid, order, price_limit, drop_fees, should_rollback)
+    }
+
+    fn sim_swap<O>(
+        netuid: NetUid,
+        order: O,
+    ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
+    where
+        O: OrderT,
+        Self: SwapEngine<O>,
+    {
         match T::SubnetInfo::mechanism(netuid) {
             1 => {
                 let price_limit = Self::default_price_limit::<TaoCurrency>();
 
-                Self::swap(netuid, order, price_limit, false, true)
+                <Self as SwapEngine<O>>::swap(netuid, order, price_limit, false, true)
             }
             _ => {
                 let actual_amount = if T::SubnetInfo::exists(netuid) {
                     order.amount()
                 } else {
-                    Order::PaidIn::ZERO
+                    O::PaidIn::ZERO
                 };
                 Ok(SwapResult {
                     amount_paid_in: actual_amount,
@@ -1033,9 +1054,7 @@ where
             }
         }
     }
-}
 
-impl<T: Config> SwapExt for Pallet<T> {
     fn approx_fee_amount<C: Currency>(netuid: NetUid, amount: C) -> C {
         Self::calculate_fee_amount(netuid, amount, false)
     }

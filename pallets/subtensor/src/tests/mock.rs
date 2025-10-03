@@ -26,7 +26,7 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering};
 use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::{Order as OrderT, SwapEngine, SwapExt};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -457,8 +457,7 @@ impl crate::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
-    type SwapExt = Swap;
-    type SwapEngine<O: OrderT> = Swap<O>;
+    type SwapInterface = pallet_subtensor_swap::Pallet<Self>;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = FakeProxier;
@@ -483,6 +482,8 @@ impl pallet_subtensor_swap::Config for Test {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
+    type TaoReserve = TaoCurrencyReserve<Self>;
+    type AlphaReserve = AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -981,7 +982,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         coldkey,
         netuid,
         tao_staked,
-        <Test as Config>::SwapExt::max_price().into(),
+        <Test as Config>::SwapInterface::max_price(),
         false,
         false,
     )
@@ -1017,11 +1018,11 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurre
         return (tao.to_u64().into(), 0);
     }
 
-    let result = <Test as pallet::Config>::SwapEngine::swap(
+    let order = GetAlphaForTao::<Test>::with_amount(tao);
+    let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid.into(),
-        OrderType::Buy,
-        tao.into(),
-        <Test as pallet::Config>::SwapExt::max_price(),
+        order,
+        <Test as pallet::Config>::SwapInterface::max_price(),
         false,
         true,
     );
@@ -1031,9 +1032,9 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurre
     let result = result.unwrap();
 
     // we don't want to have silent 0 comparissons in tests
-    assert!(result.amount_paid_out > 0);
+    assert!(result.amount_paid_out > AlphaCurrency::ZERO);
 
-    (result.amount_paid_out.into(), result.fee_paid)
+    (result.amount_paid_out, result.fee_paid.into())
 }
 
 pub(crate) fn swap_alpha_to_tao_ext(
@@ -1046,15 +1047,15 @@ pub(crate) fn swap_alpha_to_tao_ext(
     }
 
     println!(
-        "<Test as pallet::Config>::SwapExt::min_price() = {:?}",
-        <Test as pallet::Config>::SwapExt::min_price()
+        "<Test as pallet::Config>::SwapInterface::min_price() = {:?}",
+        <Test as pallet::Config>::SwapInterface::min_price::<TaoCurrency>()
     );
 
-    let result = <Test as pallet::Config>::SwapEngine::swap(
+    let order = GetTaoForAlpha::<Test>::with_amount(alpha);
+    let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid.into(),
-        OrderType::Sell,
-        alpha.into(),
-        <Test as pallet::Config>::SwapExt::min_price(),
+        order,
+        <Test as pallet::Config>::SwapInterface::min_price(),
         drop_fees,
         true,
     );
@@ -1064,9 +1065,9 @@ pub(crate) fn swap_alpha_to_tao_ext(
     let result = result.unwrap();
 
     // we don't want to have silent 0 comparissons in tests
-    assert!(result.amount_paid_out > 0);
+    assert!(!result.amount_paid_out.is_zero());
 
-    (result.amount_paid_out.into(), result.fee_paid)
+    (result.amount_paid_out, result.fee_paid.into())
 }
 
 pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (TaoCurrency, u64) {

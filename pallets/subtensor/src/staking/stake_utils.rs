@@ -4,7 +4,7 @@ use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
-use subtensor_swap_interface::{Order, SwapEngine, SwapExt, SwapResult};
+use subtensor_swap_interface::{Order, SwapHandler, SwapResult};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -58,7 +58,8 @@ impl<T: Config> Pallet<T> {
         // We can use unsigned type here: U96F32
         let one_minus_alpha: U96F32 = U96F32::saturating_from_num(1.0).saturating_sub(alpha);
         let current_price: U96F32 = alpha.saturating_mul(
-            T::SwapExt::current_alpha_price(netuid.into()).min(U96F32::saturating_from_num(1.0)),
+            T::SwapInterface::current_alpha_price(netuid.into())
+                .min(U96F32::saturating_from_num(1.0)),
         );
         let current_moving: U96F32 =
             one_minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
@@ -583,7 +584,7 @@ impl<T: Config> Pallet<T> {
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         let swap_result = if mechanism_id == 1 {
             let order = GetAlphaForTao::<T>::with_amount(tao);
-            T::SwapEngine::swap(netuid.into(), order, price_limit.into(), drop_fees, false)?
+            T::SwapInterface::swap(netuid.into(), order, price_limit.into(), drop_fees, false)?
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             SwapResult {
@@ -593,7 +594,7 @@ impl<T: Config> Pallet<T> {
             }
         };
 
-        let alpha_decrease = swap_result.paid_out_reserve_delta_i64().unsigned_abs() as u64;
+        let alpha_decrease = swap_result.paid_out_reserve_delta_i64().unsigned_abs();
 
         // Decrease Alpha reserves.
         Self::decrease_provided_alpha_reserve(netuid.into(), alpha_decrease.into());
@@ -607,7 +608,7 @@ impl<T: Config> Pallet<T> {
         // (SubnetTAO + SubnetTaoProvided) in tao_reserve(), so it is irrelevant
         // which one to increase.
         SubnetTAO::<T>::mutate(netuid, |total| {
-            let delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs() as u64;
+            let delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs();
             *total = total.saturating_add(delta.into());
         });
 
@@ -636,7 +637,7 @@ impl<T: Config> Pallet<T> {
         // Step 2: Swap alpha and attain tao
         let swap_result = if mechanism_id == 1 {
             let order = GetTaoForAlpha::<T>::with_amount(alpha);
-            T::SwapEngine::swap(netuid.into(), order, price_limit.into(), drop_fees, false)?
+            T::SwapInterface::swap(netuid.into(), order, price_limit.into(), drop_fees, false)?
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             SwapResult {
@@ -649,7 +650,7 @@ impl<T: Config> Pallet<T> {
         // Increase only the protocol Alpha reserve. We only use the sum of
         // (SubnetAlphaIn + SubnetAlphaInProvided) in alpha_reserve(), so it is irrelevant
         // which one to increase.
-        let alpha_delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs() as u64;
+        let alpha_delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs();
         SubnetAlphaIn::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha_delta.into());
         });
@@ -661,7 +662,7 @@ impl<T: Config> Pallet<T> {
         });
 
         // Decrease tao reserves.
-        let tao_delta = swap_result.paid_out_reserve_delta_i64().unsigned_abs() as u64;
+        let tao_delta = swap_result.paid_out_reserve_delta_i64().unsigned_abs();
         Self::decrease_provided_tao_reserve(netuid.into(), tao_delta.into());
 
         // Reduce total TAO reserves.
@@ -847,7 +848,8 @@ impl<T: Config> Pallet<T> {
 
         // Calculate TAO equivalent based on current price (it is accurate because
         // there's no slippage in this move)
-        let current_price = <T as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+        let current_price =
+            <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         let tao_equivalent: TaoCurrency = current_price
             .saturating_mul(U96F32::saturating_from_num(actual_alpha_moved))
             .saturating_to_num::<u64>()
@@ -921,9 +923,9 @@ impl<T: Config> Pallet<T> {
         let min_stake = DefaultMinStake::<T>::get();
         let min_amount = {
             let order = GetAlphaForTao::<T>::with_amount(min_stake);
-            let fee = T::SwapEngine::sim_swap(netuid.into(), order)
+            let fee = T::SwapInterface::sim_swap(netuid.into(), order)
                 .map(|res| res.fee_paid)
-                .unwrap_or(T::SwapExt::approx_fee_amount(
+                .unwrap_or(T::SwapInterface::approx_fee_amount(
                     netuid.into(),
                     min_stake.into(),
                 ));
@@ -954,7 +956,7 @@ impl<T: Config> Pallet<T> {
         );
 
         let order = GetAlphaForTao::<T>::with_amount(stake_to_be_added);
-        let swap_result = T::SwapEngine::sim_swap(netuid.into(), order)
+        let swap_result = T::SwapInterface::sim_swap(netuid.into(), order)
             .map_err(|_| Error::<T>::InsufficientLiquidity)?;
 
         // Check that actual withdrawn TAO amount is not lower than the minimum stake
@@ -1005,7 +1007,7 @@ impl<T: Config> Pallet<T> {
         let remaining_alpha_stake =
             Self::calculate_reduced_stake_on_subnet(hotkey, coldkey, netuid, alpha_unstaked)?;
         let order = GetTaoForAlpha::<T>::with_amount(alpha_unstaked);
-        match T::SwapEngine::sim_swap(netuid.into(), order) {
+        match T::SwapInterface::sim_swap(netuid.into(), order) {
             Ok(res) => {
                 if !remaining_alpha_stake.is_zero() {
                     ensure!(
@@ -1143,7 +1145,7 @@ impl<T: Config> Pallet<T> {
         if origin_netuid != destination_netuid {
             // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
             let order = GetTaoForAlpha::<T>::with_amount(alpha_amount);
-            let tao_equivalent = T::SwapEngine::sim_swap(origin_netuid.into(), order)
+            let tao_equivalent = T::SwapInterface::sim_swap(origin_netuid.into(), order)
                 .map(|res| res.amount_paid_out)
                 .map_err(|_| Error::<T>::InsufficientLiquidity)?;
             ensure!(

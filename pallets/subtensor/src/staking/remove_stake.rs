@@ -1,9 +1,7 @@
-use subtensor_swap_interface::{SwapEngine, SwapExt};
-
 use super::*;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
-use subtensor_swap_interface::Order;
+use subtensor_swap_interface::{Order, SwapHandler};
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -74,7 +72,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             netuid,
             alpha_unstaked,
-            T::SwapExt::min_price(),
+            T::SwapInterface::min_price(),
             false,
         )?;
 
@@ -169,7 +167,7 @@ impl<T: Config> Pallet<T> {
                     &coldkey,
                     netuid,
                     alpha_unstaked,
-                    T::SwapExt::min_price(),
+                    T::SwapInterface::min_price(),
                     false,
                 )?;
 
@@ -262,7 +260,7 @@ impl<T: Config> Pallet<T> {
                         &coldkey,
                         netuid,
                         alpha_unstaked,
-                        T::SwapExt::min_price(),
+                        T::SwapInterface::min_price(),
                         false,
                     )?;
 
@@ -281,7 +279,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             NetUid::ROOT,
             total_tao_unstaked,
-            T::SwapExt::max_price(),
+            T::SwapInterface::max_price(),
             false, // no limit for Root subnet
             false,
         )?;
@@ -407,7 +405,7 @@ impl<T: Config> Pallet<T> {
 
         // Use reverting swap to estimate max limit amount
         let order = GetTaoForAlpha::<T>::with_amount(u64::MAX);
-        let result = T::SwapEngine::swap(netuid.into(), order, limit_price.into(), false, true)
+        let result = T::SwapInterface::swap(netuid.into(), order, limit_price.into(), false, true)
             .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
             .map_err(|_| Error::ZeroMaxStakeAmount)?;
 
@@ -465,13 +463,13 @@ impl<T: Config> Pallet<T> {
 
         let owner_emission_tao: TaoCurrency = if owner_alpha_u64 > 0 {
             let order = GetTaoForAlpha::<T>::with_amount(owner_alpha_u64);
-            match T::SwapEngine::sim_swap(netuid.into(), order) {
+            match T::SwapInterface::sim_swap(netuid.into(), order) {
                 Ok(sim) => sim.amount_paid_out,
                 Err(e) => {
                     log::debug!(
                         "destroy_alpha_in_out_stakes: sim_swap owner α→τ failed (netuid={netuid:?}, alpha={owner_alpha_u64}, err={e:?}); falling back to price multiply.",
                     );
-                    let cur_price: U96F32 = T::SwapExt::current_alpha_price(netuid.into());
+                    let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
                     let val_u64: u64 = U96F32::from_num(owner_alpha_u64)
                         .saturating_mul(cur_price)
                         .floor()

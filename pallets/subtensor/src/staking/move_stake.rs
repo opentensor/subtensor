@@ -3,7 +3,7 @@ use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapExt;
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Moves stake from one hotkey to another across subnets.
@@ -360,7 +360,7 @@ impl<T: Config> Pallet<T> {
                 origin_coldkey,
                 origin_netuid,
                 move_amount,
-                T::SwapExt::min_price(),
+                T::SwapInterface::min_price(),
                 drop_fee_origin,
             )?;
 
@@ -378,7 +378,7 @@ impl<T: Config> Pallet<T> {
                     destination_coldkey,
                     destination_netuid,
                     tao_unstaked,
-                    T::SwapExt::max_price(),
+                    T::SwapInterface::max_price(),
                     set_limit,
                     drop_fee_destination,
                 )?;
@@ -499,8 +499,9 @@ impl<T: Config> Pallet<T> {
         let limit_price_float: U64F64 = U64F64::saturating_from_num(limit_price)
             .checked_div(U64F64::saturating_from_num(1_000_000_000))
             .unwrap_or(U64F64::saturating_from_num(0));
-        let current_price = T::SwapExt::current_alpha_price(origin_netuid.into())
-            .safe_div(T::SwapExt::current_alpha_price(destination_netuid.into()));
+        let current_price = T::SwapInterface::current_alpha_price(origin_netuid.into()).safe_div(
+            T::SwapInterface::current_alpha_price(destination_netuid.into()),
+        );
         if limit_price_float > current_price {
             return Err(Error::ZeroMaxStakeAmount);
         }

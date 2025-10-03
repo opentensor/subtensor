@@ -24,7 +24,7 @@ use sp_runtime::{
 use pallet_subtensor::Call as SubtensorCall;
 use pallet_transaction_payment::Config as PTPConfig;
 use pallet_transaction_payment::OnChargeTransaction;
-use subtensor_swap_interface::SwapExt;
+use subtensor_swap_interface::SwapHandler;
 
 // Misc
 use core::marker::PhantomData;

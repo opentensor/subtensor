@@ -3,7 +3,7 @@ use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
 use subtensor_runtime_common::{Currency, NetUid};
-use subtensor_swap_interface::SwapExt;
+use subtensor_swap_interface::SwapHandler;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &str = "runtime::subtensor::registration";
@@ -133,9 +133,13 @@ impl<T: Config> Pallet<T> {
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost.into())?;
 
         // Tokens are swapped and then burned.
-        let burned_alpha =
-            Self::swap_tao_for_alpha(netuid, actual_burn_amount, T::SwapExt::max_price(), false)?
-                .amount_paid_out;
+        let burned_alpha = Self::swap_tao_for_alpha(
+            netuid,
+            actual_burn_amount,
+            T::SwapInterface::max_price(),
+            false,
+        )?
+        .amount_paid_out;
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(burned_alpha.into())
         });

@@ -1,6 +1,6 @@
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::{Order, SwapEngine, SwapExt};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 use super::*;
 
@@ -74,7 +74,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             netuid,
             tao_staked.saturating_to_num::<u64>().into(),
-            T::SwapExt::max_price(),
+            T::SwapInterface::max_price(),
             true,
             false,
         )?;
@@ -194,7 +194,7 @@ impl<T: Config> Pallet<T> {
 
         // Use reverting swap to estimate max limit amount
         let order = GetAlphaForTao::<T>::with_amount(u64::MAX);
-        let result = T::SwapEngine::swap(netuid.into(), order, limit_price, false, true)
+        let result = T::SwapInterface::swap(netuid.into(), order, limit_price, false, true)
             .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
             .map_err(|_| Error::ZeroMaxStakeAmount)?;
 

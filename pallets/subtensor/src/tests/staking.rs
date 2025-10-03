@@ -16,7 +16,7 @@ use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
 use subtensor_runtime_common::{
     AlphaCurrency, Currency as CurrencyT, NetUid, NetUidStorageIndex, TaoCurrency,
 };
-use subtensor_swap_interface::{SwapEngine, SwapExt};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 use super::mock;
 use super::mock::*;
@@ -84,12 +84,14 @@ fn test_add_stake_ok_no_emission() {
         ));
 
         let (tao_expected, _) = mock::swap_alpha_to_tao(netuid, alpha_staked);
-        let approx_fee =
-            <Test as pallet::Config>::SwapExt::approx_fee_amount(netuid.into(), amount);
+        let approx_fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+            netuid.into(),
+            TaoCurrency::from(amount),
+        );
 
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            tao_expected + approx_fee.into(), // swap returns value after fee, so we need to compensate it
+            tao_expected + approx_fee, // swap returns value after fee, so we need to compensate it
             epsilon = 10000.into(),
         );
 
@@ -581,7 +583,8 @@ fn test_add_stake_partial_below_min_stake_fails() {
         .unwrap();
 
         // Get the current price (should be 1.0)
-        let current_price = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         assert_eq!(current_price.to_num::<f64>(), 1.0);
 
         // Set limit price close to 1.0 so that we hit the limit on adding and the amount is lower than min stake
@@ -601,7 +604,7 @@ fn test_add_stake_partial_below_min_stake_fails() {
         );
 
         let new_current_price =
-            <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         assert_eq!(new_current_price.to_num::<f64>(), 1.0);
     });
 }
@@ -714,7 +717,7 @@ fn test_remove_stake_total_balance_no_change() {
 
         // Add subnet TAO for the equivalent amount added at price
         let amount_tao = U96F32::saturating_from_num(amount)
-            * <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+            * <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         SubnetTAO::<Test>::mutate(netuid, |v| {
             *v += amount_tao.saturating_to_num::<u64>().into()
         });
@@ -728,7 +731,11 @@ fn test_remove_stake_total_balance_no_change() {
             amount.into()
         ));
 
-        let fee = <Test as Config>::SwapExt::approx_fee_amount(netuid.into(), amount);
+        let fee = <Test as Config>::SwapInterface::approx_fee_amount(
+            netuid.into(),
+            TaoCurrency::from(amount),
+        )
+        .to_u64();
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             amount - fee,
@@ -863,7 +870,7 @@ fn test_remove_stake_insufficient_liquidity() {
             &coldkey,
             netuid,
             amount_staked.into(),
-            <Test as Config>::SwapExt::max_price().into(),
+            <Test as Config>::SwapInterface::max_price(),
             false,
             false,
         )
@@ -2171,7 +2178,8 @@ fn test_get_total_delegated_stake_after_unstaking() {
             netuid,
             unstake_amount_alpha.into()
         ));
-        let current_price = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
 
         // Calculate the expected delegated stake
         let unstake_amount =
@@ -2874,7 +2882,7 @@ fn test_max_amount_add_dynamic() {
             if !alpha_in.is_zero() {
                 let expected_price = U96F32::from_num(tao_in) / U96F32::from_num(alpha_in);
                 assert_abs_diff_eq!(
-                    <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into())
+                    <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
                         .to_num::<f64>(),
                     expected_price.to_num::<f64>(),
                     epsilon = expected_price.to_num::<f64>() / 1_000_f64
@@ -3089,7 +3097,7 @@ fn test_max_amount_remove_dynamic() {
                 if !alpha_in.is_zero() {
                     let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
                     assert_eq!(
-                        <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into()),
+                        <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
                         expected_price
                     );
                 }
@@ -3260,7 +3268,7 @@ fn test_max_amount_move_stable_dynamic() {
         SubnetTAO::<Test>::insert(dynamic_netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(dynamic_netuid, alpha_in);
         let current_price =
-            <Test as pallet::Config>::SwapExt::current_alpha_price(dynamic_netuid.into());
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(dynamic_netuid.into());
         assert_eq!(current_price, U96F32::from_num(0.5));
 
         // The tests below just mimic the add_stake_limit tests for reverted price
@@ -3360,7 +3368,7 @@ fn test_max_amount_move_dynamic_stable() {
         SubnetTAO::<Test>::insert(dynamic_netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(dynamic_netuid, alpha_in);
         let current_price =
-            <Test as pallet::Config>::SwapExt::current_alpha_price(dynamic_netuid.into());
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(dynamic_netuid.into());
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // The tests below just mimic the remove_stake_limit tests
@@ -3665,9 +3673,9 @@ fn test_max_amount_move_dynamic_dynamic() {
                     if dest_price != 0 {
                         let expected_price = origin_price / dest_price;
                         assert_eq!(
-                            <Test as pallet::Config>::SwapExt::current_alpha_price(
+                            <Test as pallet::Config>::SwapInterface::current_alpha_price(
                                 origin_netuid.into()
-                            ) / <Test as pallet::Config>::SwapExt::current_alpha_price(
+                            ) / <Test as pallet::Config>::SwapInterface::current_alpha_price(
                                 destination_netuid.into()
                             ),
                             expected_price
@@ -3704,7 +3712,8 @@ fn test_add_stake_limit_ok() {
         let tao_reserve = TaoCurrency::from(150_000_000_000);
         let alpha_in = AlphaCurrency::from(100_000_000_000);
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
-        let current_price = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Give it some $$$ in his coldkey balance
@@ -3738,10 +3747,11 @@ fn test_add_stake_limit_ok() {
         );
 
         // Check that 450 TAO less fees balance still remains free on coldkey
-        let fee = <tests::mock::Test as pallet::Config>::SwapExt::approx_fee_amount(
+        let fee = <tests::mock::Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
-            amount / 2,
-        ) as f64;
+            TaoCurrency::from(amount / 2),
+        )
+        .to_u64() as f64;
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             amount / 2 - fee as u64,
@@ -3750,7 +3760,8 @@ fn test_add_stake_limit_ok() {
 
         // Check that price has updated to ~24 = (150+450) / (100 - 75)
         let exp_price = U96F32::from_num(24.0);
-        let current_price = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         assert_abs_diff_eq!(
             exp_price.to_num::<f64>(),
             current_price.to_num::<f64>(),
@@ -3774,7 +3785,8 @@ fn test_add_stake_limit_fill_or_kill() {
         let alpha_in = AlphaCurrency::from(100_000_000_000);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
-        let current_price = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         // FIXME it's failing because in the swap pallet, the alpha price is set only after an
         // initial swap
         assert_eq!(current_price, U96F32::from_num(1.5));
@@ -3880,7 +3892,8 @@ fn test_remove_stake_limit_ok() {
         );
 
         // Setup limit price to 99% of current price
-        let current_price = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         let limit_price = (current_price.to_num::<f64>() * 990_000_000_f64) as u64;
 
         // Alpha unstaked - calculated using formula from delta_in()
@@ -3936,7 +3949,8 @@ fn test_remove_stake_limit_fill_or_kill() {
         let alpha_in = AlphaCurrency::from(100_000_000_000);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
-        let current_price = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Setup limit price so that it doesn't drop by more than 10% from current price
@@ -4019,18 +4033,16 @@ fn test_add_stake_specific_stake_into_subnet_fail() {
         );
 
         // Add stake as new hotkey
-        let expected_alpha = AlphaCurrency::from(
-            <Test as Config>::SwapEngine::swap(
-                netuid.into(),
-                OrderType::Buy,
-                tao_staked.into(),
-                <Test as Config>::SwapExt::max_price(),
-                false,
-                true,
-            )
-            .map(|v| v.amount_paid_out)
-            .unwrap_or_default(),
-        );
+        let order = GetAlphaForTao::<Test>::with_amount(tao_staked);
+        let expected_alpha = <Test as Config>::SwapInterface::swap(
+            netuid.into(),
+            order,
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+            true,
+        )
+        .map(|v| v.amount_paid_out)
+        .unwrap_or_default();
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -4213,7 +4225,7 @@ fn test_move_stake_limit_partial() {
         SubnetTAO::<Test>::insert(destination_netuid, tao_reserve * 100_000.into());
         SubnetAlphaIn::<Test>::insert(destination_netuid, alpha_in * 100_000.into());
         let current_price =
-            <Test as pallet::Config>::SwapExt::current_alpha_price(origin_netuid.into());
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid.into());
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // The relative price between origin and destination subnets is 1.
@@ -4456,14 +4468,15 @@ fn test_stake_into_subnet_ok() {
         let alpha_in = AlphaCurrency::from(1_000_000_000_000);
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
         let current_price =
-            <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into()).to_num::<f64>();
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                .to_num::<f64>();
 
         // Initialize swap v3
-        assert_ok!(<tests::mock::Test as pallet::Config>::SwapEngine::swap(
+        let order = GetAlphaForTao::<Test>::with_amount(0);
+        assert_ok!(<tests::mock::Test as pallet::Config>::SwapInterface::swap(
             netuid.into(),
-            OrderType::Buy,
-            0,
-            u64::MAX,
+            order,
+            TaoCurrency::MAX,
             false,
             true
         ));
@@ -4509,14 +4522,15 @@ fn test_stake_into_subnet_low_amount() {
         let alpha_in = AlphaCurrency::from(1_000_000_000_000);
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
         let current_price =
-            <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into()).to_num::<f64>();
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                .to_num::<f64>();
 
         // Initialize swap v3
-        assert_ok!(<tests::mock::Test as pallet::Config>::SwapEngine::swap(
+        let order = GetAlphaForTao::<Test>::with_amount(0);
+        assert_ok!(<tests::mock::Test as pallet::Config>::SwapInterface::swap(
             netuid.into(),
-            OrderType::Buy,
-            0,
-            u64::MAX,
+            order,
+            TaoCurrency::MAX,
             false,
             true
         ));
@@ -4560,11 +4574,11 @@ fn test_unstake_from_subnet_low_amount() {
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Initialize swap v3
-        assert_ok!(<tests::mock::Test as pallet::Config>::SwapEngine::swap(
+        let order = GetAlphaForTao::<Test>::with_amount(0);
+        assert_ok!(<tests::mock::Test as pallet::Config>::SwapInterface::swap(
             netuid.into(),
-            OrderType::Buy,
-            0,
-            u64::MAX,
+            order,
+            TaoCurrency::MAX,
             false,
             true
         ));
@@ -4618,11 +4632,11 @@ fn test_stake_into_subnet_prohibitive_limit() {
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Initialize swap v3
-        assert_ok!(<tests::mock::Test as pallet::Config>::SwapEngine::swap(
+        let order = GetAlphaForTao::<Test>::with_amount(0);
+        assert_ok!(<tests::mock::Test as pallet::Config>::SwapInterface::swap(
             netuid.into(),
-            OrderType::Buy,
-            0,
-            u64::MAX,
+            order,
+            TaoCurrency::MAX,
             false,
             true
         ));
@@ -4674,11 +4688,11 @@ fn test_unstake_from_subnet_prohibitive_limit() {
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Initialize swap v3
-        assert_ok!(<tests::mock::Test as pallet::Config>::SwapEngine::swap(
+        let order = GetAlphaForTao::<Test>::with_amount(0);
+        assert_ok!(<tests::mock::Test as pallet::Config>::SwapInterface::swap(
             netuid.into(),
-            OrderType::Buy,
-            0,
-            u64::MAX,
+            order,
+            TaoCurrency::MAX,
             false,
             true
         ));
@@ -4750,11 +4764,11 @@ fn test_unstake_full_amount() {
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Initialize swap v3
-        assert_ok!(<tests::mock::Test as pallet::Config>::SwapEngine::swap(
+        let order = GetAlphaForTao::<Test>::with_amount(0);
+        assert_ok!(<tests::mock::Test as pallet::Config>::SwapInterface::swap(
             netuid.into(),
-            OrderType::Buy,
-            0,
-            u64::MAX,
+            order,
+            TaoCurrency::MAX,
             false,
             true
         ));
@@ -4875,15 +4889,16 @@ fn test_swap_fees_tao_correctness() {
 
         // Add owner coldkey Alpha as concentrated liquidity
         // between current price current price + 0.01
-        let current_price = <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into())
-            .to_num::<f64>()
-            + 0.0001;
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                .to_num::<f64>()
+                + 0.0001;
         let limit_price = current_price + 0.01;
         let tick_low = price_to_tick(current_price);
         let tick_high = price_to_tick(limit_price);
         let liquidity = amount;
 
-        assert_ok!(<Test as pallet::Config>::SwapExt::do_add_liquidity(
+        assert_ok!(<Test as pallet::Config>::SwapInterface::do_add_liquidity(
             netuid.into(),
             &owner_coldkey,
             &owner_hotkey,
@@ -5135,7 +5150,7 @@ fn test_default_min_stake_sufficiency() {
         let alpha_in = AlphaCurrency::from(21_000_000_000_000_000);
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
         let current_price_before =
-            <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
 
         // Stake and unstake
         assert_ok!(SubtensorModule::add_stake(
@@ -5146,7 +5161,7 @@ fn test_default_min_stake_sufficiency() {
         ));
         let fee_stake = (fee_rate * amount as f64) as u64;
         let current_price_after_stake =
-            <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         remove_stake_rate_limit_for_tests(&owner_hotkey, &coldkey, netuid);
         let user_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &owner_hotkey,
@@ -5161,7 +5176,7 @@ fn test_default_min_stake_sufficiency() {
         ));
         let fee_unstake = (fee_rate * user_alpha.to_u64() as f64) as u64;
         let current_price_after_unstake =
-            <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into());
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
 
         assert!(fee_stake > 0);
         assert!(fee_unstake > 0);
@@ -5205,7 +5220,7 @@ fn test_update_position_fees() {
             // Add owner coldkey Alpha as concentrated liquidity
             // between current price current price + 0.01
             let current_price =
-                <Test as pallet::Config>::SwapExt::current_alpha_price(netuid.into())
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
                     .to_num::<f64>()
                     + 0.0001;
             let limit_price = current_price + 0.001;
@@ -5213,7 +5228,7 @@ fn test_update_position_fees() {
             let tick_high = price_to_tick(limit_price);
             let liquidity = amount;
 
-            let (position_id, _, _) = <Test as pallet::Config>::SwapExt::do_add_liquidity(
+            let (position_id, _, _) = <Test as pallet::Config>::SwapInterface::do_add_liquidity(
                 NetUid::from(netuid),
                 &owner_coldkey,
                 &owner_hotkey,
