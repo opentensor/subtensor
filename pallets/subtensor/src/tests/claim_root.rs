@@ -780,7 +780,7 @@ fn test_claim_root_with_run_coinbase() {
 }
 
 #[test]
-fn test_claim_root_bloch_hash_indices() {
+fn test_claim_root_block_hash_indices() {
     new_test_ext(1).execute_with(|| {
         let k = 15u64;
         let n = 15000u64;
