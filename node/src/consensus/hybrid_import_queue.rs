@@ -200,7 +200,7 @@ where
 {
     async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
         let number: NumberFor<B> = *block.post_header().number();
-        log::debug!("Verifying block: {:?}", number);
+        log::debug!("Verifying block: {number:?}");
         if is_babe_digest(block.header.digest()) {
             self.inner_babe.verify(block).await
         } else {

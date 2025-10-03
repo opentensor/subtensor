@@ -145,7 +145,8 @@ describe("Balance transfers between substrate and EVM", () => {
             max_priority_fee_per_gas: undefined,
             input: Binary.fromText(""),
             nonce: undefined,
-            access_list: []
+            access_list: [],
+            authorization_list: []
         })
         // txFee not accurate
         const txFee = (await tx.getPaymentInfo(ss58Address)).partial_fee
@@ -313,7 +314,8 @@ describe("Balance transfers between substrate and EVM", () => {
                 max_priority_fee_per_gas: undefined,
                 input: Binary.fromText(""),
                 nonce: undefined,
-                access_list: []
+                access_list: [],
+                authorization_list: []
             })
             await waitForTransactionCompletion(api, tx, signer)
                 .then(() => { })
