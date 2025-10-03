@@ -92,7 +92,7 @@ parameter_types! {
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMinAllowedUids: u16 = 2;
-    pub const InitialMaxAllowedUids: u16 = 4;
+    pub const InitialMaxAllowedUids: u16 = 16;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty: u16 = u16::MAX;
     pub const InitialBondsResetOn: bool = false;

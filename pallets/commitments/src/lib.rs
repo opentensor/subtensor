@@ -337,7 +337,7 @@ pub mod pallet {
 			.saturating_add(T::DbWeight::get().reads(0_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn set_max_space(origin: OriginFor<T>, new_limit: u32) -> DispatchResult {
             ensure_root(origin)?;

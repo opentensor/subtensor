@@ -233,24 +233,6 @@ export async function setActivityCutoff(api: TypedApi<typeof devnet>, netuid: nu
     assert.equal(activityCutoff, await api.query.SubtensorModule.ActivityCutoff.getValue(netuid))
 }
 
-export async function setMaxAllowedUids(api: TypedApi<typeof devnet>, netuid: number, maxAllowedUids: number) {
-    const value = await api.query.SubtensorModule.MaxAllowedUids.getValue(netuid)
-    if (value === maxAllowedUids) {
-        return;
-    }
-
-    const alice = getAliceSigner()
-
-    const internalCall = api.tx.AdminUtils.sudo_set_max_allowed_uids({
-        netuid: netuid,
-        max_allowed_uids: maxAllowedUids
-    })
-    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
-
-    await waitForTransactionWithRetry(api, tx, alice)
-    assert.equal(maxAllowedUids, await api.query.SubtensorModule.MaxAllowedUids.getValue(netuid))
-}
-
 export async function setMinDelegateTake(api: TypedApi<typeof devnet>, minDelegateTake: number) {
     const value = await api.query.SubtensorModule.MinDelegateTake.getValue()
     if (value === minDelegateTake) {
