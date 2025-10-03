@@ -2,14 +2,15 @@ use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };
 use crate::{
-    NetworksAdded, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, StakingColdkeys,
-    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetTAO, SubtokenEnabled, Tempo,
-    pallet,
+    Error, MAX_NUM_ROOT_CLAIMS, NetworksAdded, NumRootClaim, NumStakingColdkeys,
+    PendingRootAlphaDivs, RootClaimable, StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn,
+    SubnetMechanism, SubnetTAO, SubtokenEnabled, Tempo, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
 use sp_core::{H256, U256};
+use sp_runtime::DispatchError;
 use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
@@ -988,5 +989,38 @@ fn test_claim_root_coinbase_distribution() {
             calculated_rate,
             epsilon = 0.001f64,
         );
+    });
+}
+
+#[test]
+fn test_sudo_set_num_root_claims() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1003);
+
+        assert_noop!(
+            SubtensorModule::sudo_set_num_root_claims(RuntimeOrigin::signed(coldkey), 50u64),
+            DispatchError::BadOrigin
+        );
+
+        assert_noop!(
+            SubtensorModule::sudo_set_num_root_claims(RuntimeOrigin::root(), 0u64),
+            Error::<Test>::InvalidNumRootClaim
+        );
+
+        assert_noop!(
+            SubtensorModule::sudo_set_num_root_claims(
+                RuntimeOrigin::root(),
+                MAX_NUM_ROOT_CLAIMS + 1,
+            ),
+            Error::<Test>::InvalidNumRootClaim
+        );
+
+        let new_value = 27u64;
+        assert_ok!(SubtensorModule::sudo_set_num_root_claims(
+            RuntimeOrigin::root(),
+            new_value,
+        ),);
+
+        assert_eq!(NumRootClaim::<Test>::get(), new_value);
     });
 }

@@ -12,6 +12,8 @@ mod dispatches {
     use sp_core::ecdsa::Signature;
     use sp_runtime::{Percent, traits::Saturating};
 
+    use crate::MAX_NUM_ROOT_CLAIMS;
+
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
@@ -2437,6 +2439,34 @@ mod dispatches {
             Self::maybe_add_coldkey_index(&coldkey);
 
             Self::change_root_claim_type(&coldkey, new_root_claim_type);
+            Ok(())
+        }
+
+        /// --- Sets the root claim type for the coldkey.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// # Event:
+        /// * RootClaimTypeSet;
+        /// 	- On the successfully setting the root claim type for the coldkey.
+        ///
+        #[pallet::call_index(123)]
+        #[pallet::weight((
+            Weight::from_parts(4_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ensure!(
+                new_value > 0 && new_value <= MAX_NUM_ROOT_CLAIMS,
+                Error::<T>::InvalidNumRootClaim
+            );
+
+            NumRootClaim::<T>::set(new_value);
+
             Ok(())
         }
     }

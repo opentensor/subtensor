@@ -56,6 +56,8 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
 pub const ALPHA_MAP_BATCH_SIZE: usize = 30;
 
+pub const MAX_NUM_ROOT_CLAIMS: u64 = 50;
+
 #[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]

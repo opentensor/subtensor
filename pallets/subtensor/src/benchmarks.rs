@@ -1593,4 +1593,10 @@ mod pallet_benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()));
     }
+
+    #[benchmark]
+    fn sudo_set_num_root_claims() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100);
+    }
 }
