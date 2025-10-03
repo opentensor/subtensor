@@ -21,7 +21,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,
@@ -340,8 +340,14 @@ fn test_reveal_weights_validate() {
             version_key,
         });
 
-        let commit_hash: H256 =
-            SubtensorModule::get_commit_hash(&who, netuid, &dests, &weights, &salt, version_key);
+        let commit_hash: H256 = SubtensorModule::get_commit_hash(
+            &who,
+            NetUidStorageIndex::from(netuid),
+            &dests,
+            &weights,
+            &salt,
+            version_key,
+        );
         let commit_block = SubtensorModule::get_current_block_as_u64();
         let (first_reveal_block, last_reveal_block) =
             SubtensorModule::get_reveal_blocks(netuid, commit_block);
@@ -412,7 +418,7 @@ fn test_reveal_weights_validate() {
         );
 
         // Add the commit to the hotkey
-        WeightCommits::<Test>::mutate(netuid, hotkey, |maybe_commits| {
+        WeightCommits::<Test>::mutate(NetUidStorageIndex::from(netuid), hotkey, |maybe_commits| {
             let mut commits: VecDeque<(H256, u64, u64, u64)> =
                 maybe_commits.take().unwrap_or_default();
             commits.push_back((
@@ -1377,7 +1383,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
         assert_ok!(result);
 
         // Get max-upscaled unnormalized weights.
-        let all_weights: Vec<Vec<I32F32>> = SubtensorModule::get_weights(netuid);
+        let all_weights: Vec<Vec<I32F32>> = SubtensorModule::get_weights(netuid.into());
         let weights_set: &[I32F32] = &all_weights[neuron_uid as usize];
         assert_eq!(weights_set[0], I32F32::from_num(u16::MAX));
         assert_eq!(weights_set[1], I32F32::from_num(u16::MAX));
@@ -2535,8 +2541,9 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Check that commits before the revealed one are removed
-        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
-            .expect("expected 8 remaining commits");
+        let remaining_commits =
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+                .expect("expected 8 remaining commits");
         assert_eq!(remaining_commits.len(), 8); // 10 commits - 2 removed (index 0 and 1)
 
         // 4. Reveal the last commit next
@@ -2551,7 +2558,8 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Remaining commits should have removed up to index 9
-        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let remaining_commits =
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(remaining_commits.is_none()); // All commits removed
 
         // After revealing all commits, attempt to commit again should now succeed
@@ -2796,7 +2804,8 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Check that the first commit has been removed
-        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let remaining_commits =
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(remaining_commits.is_none());
 
         // Attempting to reveal the first commit should fail as it was removed
@@ -2956,7 +2965,8 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
 
         // 6. Verify that the number of unrevealed, non-expired commits is now 6
         let commits: VecDeque<(H256, u64, u64, u64)> =
-            crate::WeightCommits::<Test>::get(netuid, hotkey).expect("Expected a commit");
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+                .expect("Expected a commit");
         assert_eq!(commits.len(), 6); // 5 non-expired commits from epoch 1 + new commit
 
         // 7. Attempt to reveal an expired commit (from epoch 0)
@@ -3002,7 +3012,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         ));
 
         // 10. Verify that all commits have been revealed and the queue is empty
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(commits.is_none());
 
         // 11. Attempt to reveal again, should fail with NoWeightsCommitFound
@@ -3193,7 +3203,7 @@ fn test_reveal_at_exact_epoch() {
                 Error::<Test>::ExpiredWeightCommit
             );
 
-            crate::WeightCommits::<Test>::remove(netuid, hotkey);
+            crate::WeightCommits::<Test>::remove(NetUidStorageIndex::from(netuid), hotkey);
         }
     });
 }
@@ -3471,7 +3481,8 @@ fn test_commit_reveal_order_enforcement() {
 
         // Check that commits A and B are removed
         let remaining_commits =
-            crate::WeightCommits::<Test>::get(netuid, hotkey).expect("expected 1 remaining commit");
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+                .expect("expected 1 remaining commit");
         assert_eq!(remaining_commits.len(), 1); // Only commit C should remain
 
         // Attempt to reveal C (index 2), should succeed
@@ -3652,7 +3663,7 @@ fn test_reveal_at_exact_block() {
             );
 
             // Clean up for next iteration
-            crate::WeightCommits::<Test>::remove(netuid, hotkey);
+            crate::WeightCommits::<Test>::remove(NetUidStorageIndex::from(netuid), hotkey);
         }
     });
 }
@@ -3730,7 +3741,7 @@ fn test_successful_batch_reveal() {
         ));
 
         // 4. Ensure all commits are removed
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(commits.is_none());
     });
 }
@@ -3831,8 +3842,8 @@ fn test_batch_reveal_with_expired_commits() {
         assert_err!(result, Error::<Test>::ExpiredWeightCommit);
 
         // 5. Expired commit is not removed until a successful call
-        let commits =
-            crate::WeightCommits::<Test>::get(netuid, hotkey).expect("Expected remaining commits");
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+            .expect("Expected remaining commits");
         assert_eq!(commits.len(), 3);
 
         // 6. Try revealing the remaining commits
@@ -3851,7 +3862,7 @@ fn test_batch_reveal_with_expired_commits() {
         ));
 
         // 7. Ensure all commits are removed
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(commits.is_none());
     });
 }
@@ -4258,7 +4269,7 @@ fn test_batch_reveal_with_out_of_order_commits() {
         ));
 
         // 6. Ensure all commits are removed
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(commits.is_none());
     });
 }
@@ -4322,7 +4333,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         for i in 0..commits_per_hotkey {
             for hotkey in &hotkeys {
 
-                let current_commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
+                let current_commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
                     .unwrap_or_default();
                 if current_commits.len() >= max_unrevealed_commits {
                     continue;
@@ -4671,7 +4682,7 @@ fn test_get_reveal_blocks() {
         assert_err!(result, Error::<Test>::NoWeightsCommitFound);
 
         // **15. Verify that All Commits Have Been Removed from Storage**
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(
             commits.is_none(),
             "Commits should be cleared after successful reveal"
@@ -4727,7 +4738,7 @@ fn test_commit_weights_rate_limit() {
 
         let neuron_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("expected uid");
-        SubtensorModule::set_last_update_for_uid(netuid, neuron_uid, 0);
+        SubtensorModule::set_last_update_for_uid(NetUidStorageIndex::from(netuid), neuron_uid, 0);
 
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -4984,7 +4995,7 @@ fn test_reveal_crv3_commits_success() {
         // Step epochs to run the epoch via the blockstep
         step_epochs(3, netuid);
 
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid1 as usize).cloned().unwrap_or_default();
 
         assert!(
@@ -5106,7 +5117,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         step_epochs(3, netuid);
 
         // Verify that weights are not set
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse
             .get(neuron_uid1 as usize)
             .cloned()
@@ -5141,7 +5152,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
 
         // Verify that the weights for the neuron have not been set
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse
             .get(neuron_uid1 as usize)
             .cloned()
@@ -5181,7 +5192,8 @@ fn test_do_commit_crv3_weights_success() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = TimelockedWeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits =
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), cur_epoch);
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].0, hotkey);
         assert_eq!(commits[0].2, commit_data);
@@ -5264,7 +5276,7 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         let neuron_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("Expected uid");
-        SubtensorModule::set_last_update_for_uid(netuid, neuron_uid, 0);
+        SubtensorModule::set_last_update_for_uid(NetUidStorageIndex::from(netuid), neuron_uid, 0);
 
         assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
@@ -5478,7 +5490,7 @@ fn test_reveal_crv3_commits_decryption_failure() {
 
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
-        let weights_matrix = SubtensorModule::get_weights(netuid);
+        let weights_matrix = SubtensorModule::get_weights(netuid.into());
         let weights = weights_matrix.get(neuron_uid).cloned().unwrap_or_default();
         assert!(weights.iter().all(|&w| w == I32F32::from_num(0)));
     });
@@ -5591,7 +5603,7 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
         // Verify that weights are set for hotkey1
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1") as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights1 = weights_sparse.get(neuron_uid1).cloned().unwrap_or_default();
         assert!(
             !weights1.is_empty(),
@@ -5686,7 +5698,7 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
         // Verify that weights are not set due to `do_set_weights` failure
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid).cloned().unwrap_or_default();
         assert!(
             weights.is_empty(),
@@ -5764,7 +5776,7 @@ fn test_reveal_crv3_commits_payload_decoding_failure() {
         // Verify that weights are not set
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid).cloned().unwrap_or_default();
         assert!(
             weights.is_empty(),
@@ -5846,7 +5858,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
         // Verify that weights are not set
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid).cloned().unwrap_or_default();
         assert!(
             weights.is_empty(),
@@ -5911,7 +5923,7 @@ fn test_reveal_crv3_commits_with_empty_commit_queue() {
 
         step_epochs(2, netuid);
 
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         assert!(
             weights_sparse.is_empty(),
             "Weights should be empty as there were no commits to reveal"
@@ -5998,7 +6010,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
 
         // Verify that weights are not set due to decryption failure
         let neuron_uid = neuron_uid as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid).cloned().unwrap_or_default();
         assert!(
             weights.is_empty(),
@@ -6036,7 +6048,8 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = TimelockedWeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits =
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), cur_epoch);
         assert_eq!(
             commits.len(),
             10,
@@ -6071,7 +6084,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
             let bounded_commit = vec![epoch as u8; 5].try_into().expect("bounded vec");
 
             assert_ok!(TimelockedWeightCommits::<Test>::try_mutate(
-                netuid,
+                NetUidStorageIndex::from(netuid),
                 epoch,
                 |q| -> DispatchResult {
                     q.push_back((hotkey, cur_block, bounded_commit, reveal_round));
@@ -6081,8 +6094,14 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         }
 
         // Sanity – both epochs presently hold a commit.
-        assert!(!TimelockedWeightCommits::<Test>::get(netuid, past_epoch).is_empty());
-        assert!(!TimelockedWeightCommits::<Test>::get(netuid, reveal_epoch).is_empty());
+        assert!(
+            !TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), past_epoch)
+                .is_empty()
+        );
+        assert!(
+            !TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), reveal_epoch)
+                .is_empty()
+        );
 
         // ---------------------------------------------------------------------
         // Run the reveal pass WITHOUT a pulse – only expiry housekeeping runs.
@@ -6091,13 +6110,15 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
 
         // past_epoch (< reveal_epoch) must be gone
         assert!(
-            TimelockedWeightCommits::<Test>::get(netuid, past_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), past_epoch)
+                .is_empty(),
             "expired epoch {past_epoch} should be cleared"
         );
 
         // reveal_epoch queue is *kept* because its commit could still be revealed later.
         assert!(
-            !TimelockedWeightCommits::<Test>::get(netuid, reveal_epoch).is_empty(),
+            !TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), reveal_epoch)
+                .is_empty(),
             "reveal-epoch {reveal_epoch} must be retained until commit can be revealed"
         );
     });
@@ -6208,7 +6229,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
         step_epochs(2, netuid);
 
         // ───── assertions ───────────────────────────────────────────────────
-        let w_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let w_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         for hk in hotkeys {
             let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk).unwrap() as usize;
             assert!(
@@ -6323,7 +6344,7 @@ fn test_reveal_crv3_commits_max_neurons() {
         step_epochs(2, netuid);
 
         // ───── verify weights ───────────────────────────────────────────────
-        let w_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let w_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         for hk in &committing_hotkeys {
             let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, hk).unwrap() as usize;
             assert!(
@@ -6553,7 +6574,7 @@ fn test_reveal_crv3_commits_hotkey_check() {
         // Step epochs to run the epoch via the blockstep
         step_epochs(3, netuid);
 
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid1 as usize).cloned().unwrap_or_default();
 
         assert!(
@@ -6670,7 +6691,7 @@ fn test_reveal_crv3_commits_hotkey_check() {
         // Step epochs to run the epoch via the blockstep
         step_epochs(3, netuid);
 
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid1 as usize).cloned().unwrap_or_default();
 
         assert!(
@@ -6773,10 +6794,11 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         ));
 
         // epoch in which commit was stored
-        let stored_epoch = TimelockedWeightCommits::<Test>::iter_prefix(netuid)
-            .next()
-            .map(|(e, _)| e)
-            .expect("commit stored");
+        let stored_epoch =
+            TimelockedWeightCommits::<Test>::iter_prefix(NetUidStorageIndex::from(netuid))
+                .next()
+                .map(|(e, _)| e)
+                .expect("commit stored");
 
         // first block of reveal epoch (commit_epoch + RP)
         let first_reveal_epoch = stored_epoch + SubtensorModule::get_reveal_period(netuid);
@@ -6787,7 +6809,8 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         // run *one* block inside reveal epoch without pulse → commit should stay queued
         step_block(1);
         assert!(
-            !TimelockedWeightCommits::<Test>::get(netuid, stored_epoch).is_empty(),
+            !TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), stored_epoch)
+                .is_empty(),
             "commit must remain queued when pulse is missing"
         );
 
@@ -6808,14 +6831,15 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
 
         step_block(1); // automatic reveal runs here
 
-        let weights = SubtensorModule::get_weights_sparse(netuid)
+        let weights = SubtensorModule::get_weights_sparse(netuid.into())
             .get(uid as usize)
             .cloned()
             .unwrap_or_default();
         assert!(!weights.is_empty(), "weights must be set after pulse");
 
         assert!(
-            TimelockedWeightCommits::<Test>::get(netuid, stored_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), stored_epoch)
+                .is_empty(),
             "queue should be empty after successful reveal"
         );
     });
@@ -6943,7 +6967,7 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
         // ─────────────────────────────────────
         // 5 ▸ assertions
         // ─────────────────────────────────────
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let w1 = weights_sparse
             .get(uid1 as usize)
             .cloned()
@@ -6958,7 +6982,8 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
 
         // commit should be gone
         assert!(
-            TimelockedWeightCommits::<Test>::get(netuid, commit_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), commit_epoch)
+                .is_empty(),
             "commit storage should be cleaned after reveal"
         );
     });

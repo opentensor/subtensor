@@ -9,7 +9,7 @@ use jsonrpsee::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{AccountId32, traits::Block as BlockT};
 use std::sync::Arc;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
 
 use sp_api::ProvideRuntimeApi;
 
@@ -72,6 +72,15 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_all_metagraphs(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getMetagraph")]
     fn get_metagraph(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getAllMechagraphs")]
+    fn get_all_mechagraphs(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getMechagraph")]
+    fn get_mechagraph(
+        &self,
+        netuid: NetUid,
+        mecid: MechId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
     fn get_subnet_state(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getLockCost")]
@@ -83,6 +92,23 @@ pub trait SubtensorCustomApi<BlockHash> {
         metagraph_index: Vec<u16>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getColdkeyAutoStakeHotkey")]
+    fn get_coldkey_auto_stake_hotkey(
+        &self,
+        coldkey: AccountId32,
+        netuid: NetUid,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSelectiveMechagraph")]
+    fn get_selective_mechagraph(
+        &self,
+        netuid: NetUid,
+        mecid: MechId,
+        metagraph_index: Vec<u16>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetToPrune")]
+    fn get_subnet_to_prune(&self, at: Option<BlockHash>) -> RpcResult<Option<NetUid>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -319,6 +345,16 @@ where
         }
     }
 
+    fn get_all_mechagraphs(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_all_mechagraphs(at) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get metagraps: {e:?}")).into()),
+        }
+    }
+
     fn get_dynamic_info(
         &self,
         netuid: NetUid,
@@ -344,6 +380,23 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
         match api.get_metagraph(at, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get dynamic subnets info: {e:?}"
+            ))
+            .into()),
+        }
+    }
+
+    fn get_mechagraph(
+        &self,
+        netuid: NetUid,
+        mecid: MechId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+        match api.get_mechagraph(at, netuid, mecid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
                 "Unable to get dynamic subnets info: {e:?}"
@@ -424,6 +477,57 @@ where
             Ok(result) => Ok(result.encode()),
             Err(e) => {
                 Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())
+            }
+        }
+    }
+
+    fn get_coldkey_auto_stake_hotkey(
+        &self,
+        coldkey: AccountId32,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_coldkey_auto_stake_hotkey(at, coldkey, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get coldkey auto stake hotkey: {e:?}"
+            ))
+            .into()),
+        }
+    }
+
+    fn get_selective_mechagraph(
+        &self,
+        netuid: NetUid,
+        mecid: MechId,
+        metagraph_index: Vec<u16>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_selective_mechagraph(at, netuid, mecid, metagraph_index) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())
+            }
+        }
+    }
+
+    fn get_subnet_to_prune(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Option<NetUid>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_subnet_to_prune(at) {
+            Ok(result) => Ok(result),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get subnet to prune: {e:?}")).into())
             }
         }
     }

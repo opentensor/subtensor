@@ -6,9 +6,10 @@ import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { tao } from "../src/balance-math"
 import {
     forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister,
-    setTxRateLimit, setTempo, setWeightsSetRateLimit, setSubnetOwnerCut, setMaxAllowedUids,
+    setTxRateLimit, setTempo, setWeightsSetRateLimit, setSubnetOwnerCut,
     setMinDelegateTake, setActivityCutoff, addStake, setWeight, rootRegister,
-    startCall
+    startCall,
+    disableAdminFreezeWindowAndOwnerHyperparamRateLimit
 } from "../src/subtensor"
 
 describe("Test neuron precompile reward", () => {
@@ -39,6 +40,7 @@ describe("Test neuron precompile reward", () => {
         await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
+        await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
 
         await setTxRateLimit(api, BigInt(0))
         await setTempo(api, root_netuid, root_tempo)
@@ -50,7 +52,6 @@ describe("Test neuron precompile reward", () => {
         await burnedRegister(api, netuid, convertPublicKeyToSs58(nominator.publicKey), coldkey)
         await setSubnetOwnerCut(api, 0)
         await setActivityCutoff(api, netuid, 65535)
-        await setMaxAllowedUids(api, netuid, 65535)
         await setMinDelegateTake(api, 0)
     })
 

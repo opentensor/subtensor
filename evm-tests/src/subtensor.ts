@@ -7,7 +7,7 @@ import { convertH160ToSS58, convertPublicKeyToSs58, ethAddressToH160 } from './a
 import { tao } from './balance-math'
 import internal from "stream";
 
-// create a new subnet and return netuid 
+// create a new subnet and return netuid
 export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: KeyPair, coldkey: KeyPair) {
     const alice = getAliceSigner()
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
@@ -233,24 +233,6 @@ export async function setActivityCutoff(api: TypedApi<typeof devnet>, netuid: nu
     assert.equal(activityCutoff, await api.query.SubtensorModule.ActivityCutoff.getValue(netuid))
 }
 
-export async function setMaxAllowedUids(api: TypedApi<typeof devnet>, netuid: number, maxAllowedUids: number) {
-    const value = await api.query.SubtensorModule.MaxAllowedUids.getValue(netuid)
-    if (value === maxAllowedUids) {
-        return;
-    }
-
-    const alice = getAliceSigner()
-
-    const internalCall = api.tx.AdminUtils.sudo_set_max_allowed_uids({
-        netuid: netuid,
-        max_allowed_uids: maxAllowedUids
-    })
-    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
-
-    await waitForTransactionWithRetry(api, tx, alice)
-    assert.equal(maxAllowedUids, await api.query.SubtensorModule.MaxAllowedUids.getValue(netuid))
-}
-
 export async function setMinDelegateTake(api: TypedApi<typeof devnet>, minDelegateTake: number) {
     const value = await api.query.SubtensorModule.MinDelegateTake.getValue()
     if (value === minDelegateTake) {
@@ -377,4 +359,28 @@ export async function setTargetRegistrationsPerInterval(
         call: internal_tx.decodedCall,
     });
     await waitForTransactionWithRetry(api, tx, alice);
+}
+
+// Disable admin freeze window and owner hyperparam rate limiting for tests
+export async function disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api: TypedApi<typeof devnet>) {
+    const alice = getAliceSigner()
+
+    const currentAdminFreezeWindow = await api.query.SubtensorModule.AdminFreezeWindow.getValue()
+    if (currentAdminFreezeWindow !== 0) {
+        // Set AdminFreezeWindow to 0
+        const setFreezeWindow = api.tx.AdminUtils.sudo_set_admin_freeze_window({ window: 0 })
+        const sudoFreezeTx = api.tx.Sudo.sudo({ call: setFreezeWindow.decodedCall })
+        await waitForTransactionWithRetry(api, sudoFreezeTx, alice)
+    }
+
+    const currentOwnerHyperparamRateLimit = await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue()
+    if (currentOwnerHyperparamRateLimit !== 0) {
+        // Set OwnerHyperparamRateLimit to 0
+        const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ epochs: 0 })
+        const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
+        await waitForTransactionWithRetry(api, sudoOwnerRateTx, alice)
+    }
+
+    assert.equal(0, await api.query.SubtensorModule.AdminFreezeWindow.getValue())
+    assert.equal(BigInt(0), await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue())
 }

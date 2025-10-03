@@ -1067,38 +1067,6 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn commit_crv3_weights() {
-        let hotkey: T::AccountId = whitelisted_caller();
-        let netuid = NetUid::from(1);
-        let vec_commit: Vec<u8> = vec![0; MAX_CRV3_COMMIT_SIZE_BYTES as usize];
-        let commit: BoundedVec<_, _> = vec_commit.try_into().unwrap();
-        let round: u64 = 0;
-
-        Subtensor::<T>::init_new_network(netuid, 1);
-        Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
-        SubtokenEnabled::<T>::insert(netuid, true);
-
-        let reg_fee = Subtensor::<T>::get_burn(netuid);
-        Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.to_u64().saturating_mul(2));
-
-        assert_ok!(Subtensor::<T>::burned_register(
-            RawOrigin::Signed(hotkey.clone()).into(),
-            netuid,
-            hotkey.clone()
-        ));
-
-        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
-
-        #[extrinsic_call]
-        _(
-            RawOrigin::Signed(hotkey.clone()),
-            netuid,
-            commit.clone(),
-            round,
-        );
-    }
-
-    #[benchmark]
     fn decrease_take() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("Alice", 0, 1);
@@ -1592,10 +1560,22 @@ mod pallet_benchmarks {
     #[benchmark]
     fn set_coldkey_auto_stake_hotkey() {
         let coldkey: T::AccountId = whitelisted_caller();
-        let hot: T::AccountId = account("A", 0, 1);
+        let netuid = NetUid::from(1);
+        let hotkey: T::AccountId = account("A", 0, 1);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::init_new_network(netuid, 1);
+        let amount = 900_000_000_000;
+
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), hot.clone());
+        _(RawOrigin::Signed(coldkey.clone()), netuid, hotkey.clone());
     }
     #[benchmark]
     fn set_root_claim_type() {

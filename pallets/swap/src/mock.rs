@@ -11,7 +11,7 @@ use frame_support::{
 use frame_system::{self as system};
 use sp_core::H256;
 use sp_runtime::{
-    BuildStorage,
+    BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
 use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, SubnetInfo, TaoCurrency};
@@ -36,7 +36,7 @@ pub const OK_HOTKEY_ACCOUNT_ID_RICH: AccountId = 1005;
 pub const NOT_SUBNET_OWNER: AccountId = 666;
 pub const NON_EXISTENT_NETUID: u16 = 999;
 pub const WRAPPING_FEES_NETUID: u16 = 124;
-
+pub const SUBTOKEN_DISABLED_NETUID: u16 = 13579;
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
@@ -114,6 +114,31 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
 
     fn is_owner(account_id: &AccountId, _netuid: NetUid) -> bool {
         *account_id != NOT_SUBNET_OWNER
+    }
+
+    // Only disable one subnet for testing
+    fn is_subtoken_enabled(netuid: NetUid) -> bool {
+        netuid.inner() != SUBTOKEN_DISABLED_NETUID
+    }
+
+    fn get_validator_trust(netuid: NetUid) -> Vec<u16> {
+        match netuid.into() {
+            123u16 => vec![4000, 3000, 2000, 1000],
+            WRAPPING_FEES_NETUID => vec![8000, 7000, 6000, 5000],
+            _ => vec![1000, 800, 600, 400],
+        }
+    }
+
+    fn get_validator_permit(netuid: NetUid) -> Vec<bool> {
+        match netuid.into() {
+            123u16 => vec![true, true, false, true],
+            WRAPPING_FEES_NETUID => vec![true, true, true, true],
+            _ => vec![true, true, true, true],
+        }
+    }
+
+    fn hotkey_of_uid(_netuid: NetUid, uid: u16) -> Option<AccountId> {
+        Some(uid as AccountId)
     }
 }
 

@@ -2,7 +2,7 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex};
 
 #[freeze_struct("9e5a291e7e71482d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -87,16 +87,16 @@ impl<T: Config> Pallet<T> {
         let active = Self::get_active_for_uid(netuid, uid);
         let rank = Self::get_rank_for_uid(netuid, uid);
         let emission = Self::get_emission_for_uid(netuid, uid);
-        let incentive = Self::get_incentive_for_uid(netuid, uid);
+        let incentive = Self::get_incentive_for_uid(netuid.into(), uid);
         let consensus = Self::get_consensus_for_uid(netuid, uid);
         let trust = Self::get_trust_for_uid(netuid, uid);
         let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
         let dividends = Self::get_dividends_for_uid(netuid, uid);
         let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
-        let last_update = Self::get_last_update_for_uid(netuid, uid);
+        let last_update = Self::get_last_update_for_uid(NetUidStorageIndex::from(netuid), uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
-        let weights = Weights::<T>::get(netuid, uid)
+        let weights = Weights::<T>::get(NetUidStorageIndex::from(netuid), uid)
             .into_iter()
             .filter_map(|(i, w)| {
                 if w > 0 {
@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
             })
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
 
-        let bonds = <Bonds<T>>::get(netuid, uid)
+        let bonds = Bonds::<T>::get(NetUidStorageIndex::from(netuid), uid)
             .iter()
             .filter_map(|(i, b)| {
                 if *b > 0 {
@@ -173,13 +173,13 @@ impl<T: Config> Pallet<T> {
         let active = Self::get_active_for_uid(netuid, uid);
         let rank = Self::get_rank_for_uid(netuid, uid);
         let emission = Self::get_emission_for_uid(netuid, uid);
-        let incentive = Self::get_incentive_for_uid(netuid, uid);
+        let incentive = Self::get_incentive_for_uid(netuid.into(), uid);
         let consensus = Self::get_consensus_for_uid(netuid, uid);
         let trust = Self::get_trust_for_uid(netuid, uid);
         let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
         let dividends = Self::get_dividends_for_uid(netuid, uid);
         let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
-        let last_update = Self::get_last_update_for_uid(netuid, uid);
+        let last_update = Self::get_last_update_for_uid(NetUidStorageIndex::from(netuid), uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
         let stake: Vec<(T::AccountId, Compact<AlphaCurrency>)> = vec![(

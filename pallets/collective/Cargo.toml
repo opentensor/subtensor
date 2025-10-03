@@ -1,5 +1,5 @@
 [package]
-name = "pallet-collective"
+name = "pallet-subtensor-collective"
 version = "4.0.0-dev"
 authors = ["Parity Technologies <admin@parity.io>, Opentensor Technologies"]
 edition.workspace = true

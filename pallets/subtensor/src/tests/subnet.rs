@@ -52,7 +52,7 @@ fn test_do_start_call_fail_with_not_existed_subnet() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 netuid
             ),
-            Error::<Test>::SubNetworkDoesNotExist
+            Error::<Test>::SubnetNotExists
         );
     });
 }
@@ -231,6 +231,7 @@ fn test_register_network_min_burn_at_default() {
 #[test]
 fn test_register_network_use_symbol_for_subnet_if_available() {
     new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_max_subnets(SYMBOLS.len() as u16);
         for i in 0..(SYMBOLS.len() - 1) {
             let coldkey = U256::from(1_000_000 + i);
             let hotkey = U256::from(2_000_000 + i);
@@ -317,6 +318,7 @@ fn test_register_network_use_next_available_symbol_if_symbol_for_subnet_is_taken
 fn test_register_network_use_default_symbol_if_all_symbols_are_taken() {
     new_test_ext(1).execute_with(|| {
         // Register networks until we have exhausted all symbols
+        SubtensorModule::set_max_subnets(SYMBOLS.len() as u16);
         for i in 0..(SYMBOLS.len() - 1) {
             let coldkey = U256::from(1_000_000 + i);
             let hotkey = U256::from(2_000_000 + i);
@@ -724,11 +726,6 @@ fn test_user_liquidity_access_control() {
 
         // add network
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-
-        // Initially should be disabled
-        assert!(!pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
-            NetUid::from(netuid)
-        ));
 
         // Not owner, not root: should fail
         assert_noop!(

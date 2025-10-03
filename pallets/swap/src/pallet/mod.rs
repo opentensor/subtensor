@@ -265,10 +265,13 @@ mod pallet {
         ReservesTooLow,
 
         /// The subnet does not exist.
-        SubNetworkDoesNotExist,
+        MechanismDoesNotExist,
 
         /// User liquidity operations are disabled for this subnet
         UserLiquidityDisabled,
+
+        /// The subnet does not have subtoken enabled
+        SubtokenDisabled,
     }
 
     #[pallet::call]
@@ -291,7 +294,7 @@ mod pallet {
             // Ensure that the subnet exists.
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
             );
 
             ensure!(rate <= T::MaxFeeRate::get(), Error::<T>::FeeRateTooHigh);
@@ -328,7 +331,7 @@ mod pallet {
 
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
             );
 
             EnabledUserLiquidity::<T>::insert(netuid, enable);
@@ -363,7 +366,12 @@ mod pallet {
             // Ensure that the subnet exists.
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
+            );
+
+            ensure!(
+                T::SubnetInfo::is_subtoken_enabled(netuid.into()),
+                Error::<T>::SubtokenDisabled
             );
 
             let (position_id, tao, alpha) = Self::do_add_liquidity(
@@ -426,7 +434,7 @@ mod pallet {
             // Ensure that the subnet exists.
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
             );
 
             // Remove liquidity
@@ -486,7 +494,12 @@ mod pallet {
             // Ensure that the subnet exists.
             ensure!(
                 T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::SubNetworkDoesNotExist
+                Error::<T>::MechanismDoesNotExist
+            );
+
+            ensure!(
+                T::SubnetInfo::is_subtoken_enabled(netuid.into()),
+                Error::<T>::SubtokenDisabled
             );
 
             // Add or remove liquidity

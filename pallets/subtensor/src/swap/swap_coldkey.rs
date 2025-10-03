@@ -62,10 +62,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToPaySwapColdKey
         );
 
-        // 7. Remove and burn the swap cost from the old coldkey's account
+        // 7. Remove and recycle the swap cost from the old coldkey's account
         let actual_burn_amount =
             Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost.into())?;
-        Self::burn_tokens(actual_burn_amount);
+        Self::recycle_tao(actual_burn_amount);
 
         // 8. Update the weight for the balance operations
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
@@ -155,6 +155,12 @@ impl<T: Config> Pallet<T> {
                 SubnetOwner::<T>::insert(netuid, new_coldkey.clone());
             }
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+            if let Some(old_auto_stake_hotkey) = AutoStakeDestination::<T>::get(old_coldkey, netuid)
+            {
+                AutoStakeDestination::<T>::remove(old_coldkey, netuid);
+                AutoStakeDestination::<T>::insert(new_coldkey, netuid, old_auto_stake_hotkey);
+            }
         }
 
         // 3. Swap Stake.
@@ -181,11 +187,6 @@ impl<T: Config> Pallet<T> {
             }
             // Add the weight for the read and write.
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-        }
-
-        if let Some(old_auto_stake_hotkey) = AutoStakeDestination::<T>::get(old_coldkey) {
-            AutoStakeDestination::<T>::remove(old_coldkey);
-            AutoStakeDestination::<T>::insert(new_coldkey, old_auto_stake_hotkey);
         }
 
         // 4. Swap TotalColdkeyAlpha (DEPRECATED)

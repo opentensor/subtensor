@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
             );
             if price_i < tao_in_ratio {
                 tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
-                alpha_in_i = alpha_emission_i;
+                alpha_in_i = block_emission;
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
                 // Difference becomes buy.
                 let buy_swap_result = Self::swap_tao_for_alpha(
@@ -405,7 +405,7 @@ impl<T: Config> Pallet<T> {
         (prop_alpha_dividends, root_alpha_dividends)
     }
 
-    fn get_immune_owner_hotkeys(netuid: NetUid, coldkey: &T::AccountId) -> Vec<T::AccountId> {
+    fn get_owner_hotkeys(netuid: NetUid, coldkey: &T::AccountId) -> Vec<T::AccountId> {
         // Gather (block, uid, hotkey) only for hotkeys that have a UID and a registration block.
         let mut triples: Vec<(u64, u16, T::AccountId)> = OwnedHotkeys::<T>::get(coldkey)
             .into_iter()
@@ -422,28 +422,19 @@ impl<T: Config> Pallet<T> {
         // Recent registration is priority so that we can let older keys expire (get non-immune)
         triples.sort_by(|(b1, u1, _), (b2, u2, _)| b2.cmp(b1).then(u1.cmp(u2)));
 
-        // Keep first ImmuneOwnerUidsLimit
-        let limit = ImmuneOwnerUidsLimit::<T>::get(netuid).into();
-        if triples.len() > limit {
-            triples.truncate(limit);
-        }
-
         // Project to just hotkeys
-        let mut immune_hotkeys: Vec<T::AccountId> =
+        let mut owner_hotkeys: Vec<T::AccountId> =
             triples.into_iter().map(|(_, _, hk)| hk).collect();
 
         // Insert subnet owner hotkey in the beginning of the list if valid and not
         // already present
         if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-            if Uids::<T>::get(netuid, &owner_hk).is_some() && !immune_hotkeys.contains(&owner_hk) {
-                immune_hotkeys.insert(0, owner_hk);
-                if immune_hotkeys.len() > limit {
-                    immune_hotkeys.truncate(limit);
-                }
+            if Uids::<T>::get(netuid, &owner_hk).is_some() && !owner_hotkeys.contains(&owner_hk) {
+                owner_hotkeys.insert(0, owner_hk);
             }
         }
 
-        immune_hotkeys
+        owner_hotkeys
     }
 
     pub fn distribute_dividends_and_incentives(
@@ -475,7 +466,7 @@ impl<T: Config> Pallet<T> {
 
         // Distribute mining incentives.
         let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
-        let owner_hotkeys = Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey);
+        let owner_hotkeys = Self::get_owner_hotkeys(netuid, &subnet_owner_coldkey);
         log::debug!("incentives: owner hotkeys: {owner_hotkeys:?}");
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {incentive:?}");
@@ -485,11 +476,35 @@ impl<T: Config> Pallet<T> {
                 log::debug!(
                     "incentives: hotkey: {hotkey:?} is SN owner hotkey or associated hotkey, skipping {incentive:?}"
                 );
+                // Check if we should recycle or burn the incentive
+                match RecycleOrBurn::<T>::try_get(netuid) {
+                    Ok(RecycleOrBurnEnum::Recycle) => {
+                        log::debug!("recycling {incentive:?}");
+                        Self::recycle_subnet_alpha(netuid, incentive);
+                    }
+                    Ok(RecycleOrBurnEnum::Burn) | Err(_) => {
+                        log::debug!("burning {incentive:?}");
+                        Self::burn_subnet_alpha(netuid, incentive);
+                    }
+                }
                 continue;
             }
 
             let owner: T::AccountId = Owner::<T>::get(&hotkey);
-            let destination = AutoStakeDestination::<T>::get(&owner).unwrap_or(hotkey.clone());
+            let maybe_dest = AutoStakeDestination::<T>::get(&owner, netuid);
+
+            // Always stake but only emit event if autostake is set.
+            let destination = maybe_dest.clone().unwrap_or(hotkey.clone());
+
+            if let Some(dest) = maybe_dest {
+                Self::deposit_event(Event::<T>::AutoStakeAdded {
+                    netuid,
+                    destination: dest,
+                    hotkey: hotkey.clone(),
+                    owner: owner.clone(),
+                    incentive,
+                });
+            }
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination,
                 &owner,
@@ -614,7 +629,7 @@ impl<T: Config> Pallet<T> {
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
-            Self::epoch(netuid, pending_alpha.saturating_add(pending_root_alpha));
+            Self::epoch_with_mechanisms(netuid, pending_alpha.saturating_add(pending_root_alpha));
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
         // Compute the pending validator alpha.
@@ -800,7 +815,7 @@ impl<T: Config> Pallet<T> {
                 parent_emission = parent_emission.saturating_sub(child_take);
                 total_child_take = total_child_take.saturating_add(child_take);
 
-                Self::burn_subnet_alpha(
+                Self::recycle_subnet_alpha(
                     netuid,
                     AlphaCurrency::from(burn_take.saturating_to_num::<u64>()),
                 );

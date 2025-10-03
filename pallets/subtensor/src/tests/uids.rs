@@ -5,7 +5,7 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::{H160, U256};
-use subtensor_runtime_common::AlphaCurrency;
+use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex};
 
 /********************************************
     tests for uids.rs file
@@ -63,13 +63,13 @@ fn test_replace_neuron() {
         Consensus::<Test>::mutate(netuid, |v| {
             SubtensorModule::set_element_at(v, neuron_uid as usize, 5u16)
         });
-        Incentive::<Test>::mutate(netuid, |v| {
+        Incentive::<Test>::mutate(NetUidStorageIndex::from(netuid), |v| {
             SubtensorModule::set_element_at(v, neuron_uid as usize, 5u16)
         });
         Dividends::<Test>::mutate(netuid, |v| {
             SubtensorModule::set_element_at(v, neuron_uid as usize, 5u16)
         });
-        Bonds::<Test>::insert(netuid, neuron_uid, vec![(0, 1)]);
+        Bonds::<Test>::insert(NetUidStorageIndex::from(netuid), neuron_uid, vec![(0, 1)]);
 
         // serve axon mock address
         let ip: u128 = 1676056785;
@@ -130,7 +130,7 @@ fn test_replace_neuron() {
             0
         );
         assert_eq!(
-            SubtensorModule::get_incentive_for_uid(netuid, neuron_uid),
+            SubtensorModule::get_incentive_for_uid(netuid.into(), neuron_uid),
             0
         );
         assert_eq!(
@@ -145,7 +145,10 @@ fn test_replace_neuron() {
         assert_eq!(axon_info.ip_type, 0);
 
         // Check bonds are cleared.
-        assert_eq!(Bonds::<Test>::get(netuid, neuron_uid), vec![]);
+        assert_eq!(
+            Bonds::<Test>::get(NetUidStorageIndex::from(netuid), neuron_uid),
+            vec![]
+        );
         assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
     });
 }
@@ -189,7 +192,7 @@ fn test_bonds_cleared_on_replace() {
         let neuron_uid = neuron_uid.unwrap();
         AssociatedEvmAddress::<Test>::insert(netuid, neuron_uid, (evm_address, 1));
         // set non-default bonds
-        Bonds::<Test>::insert(netuid, neuron_uid, vec![(0, 1)]);
+        Bonds::<Test>::insert(NetUidStorageIndex::from(netuid), neuron_uid, vec![(0, 1)]);
 
         // Replace the neuron.
         SubtensorModule::replace_neuron(netuid, neuron_uid, &new_hotkey_account_id, block_number);
@@ -214,7 +217,10 @@ fn test_bonds_cleared_on_replace() {
         assert_eq!(curr_hotkey.unwrap(), new_hotkey_account_id);
 
         // Check bonds are cleared.
-        assert_eq!(Bonds::<Test>::get(netuid, neuron_uid), vec![]);
+        assert_eq!(
+            Bonds::<Test>::get(NetUidStorageIndex::from(netuid), neuron_uid),
+            vec![]
+        );
         assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
     });
 }

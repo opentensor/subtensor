@@ -7,7 +7,7 @@ import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { generateRandomEthersWallet } from "../src/utils";
 import { ISubnetABI, ISUBNET_ADDRESS } from "../src/contracts/subnet"
 import { ethers } from "ethers"
-import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor"
+import { disableAdminFreezeWindowAndOwnerHyperparamRateLimit, forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor"
 
 describe("Test the Subnet precompile contract", () => {
     // init eth part
@@ -25,6 +25,8 @@ describe("Test the Subnet precompile contract", () => {
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey1.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey2.publicKey))
         await forceSetBalanceToEthAddress(api, wallet.address)
+
+        await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
     })
 
     it("Can register network without identity info", async () => {

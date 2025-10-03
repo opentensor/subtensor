@@ -1,3 +1,4 @@
+mod auto_stake_hotkey;
 mod batch_tx;
 mod children;
 mod claim_root;
@@ -6,10 +7,12 @@ mod consensus;
 mod delegate_info;
 mod difficulty;
 mod emission;
+mod ensure;
 mod epoch;
 mod evm;
 mod leasing;
 mod math;
+mod mechanism;
 mod migration;
 mod mock;
 mod move_stake;

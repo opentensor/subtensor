@@ -10,15 +10,15 @@ mod mock;
 pub mod types;
 pub mod weights;
 
-pub use pallet::*;
-pub use types::*;
-pub use weights::WeightInfo;
-
 use ark_serialize::CanonicalDeserialize;
+use codec::Encode;
+use frame_support::IterableStorageDoubleMap;
 use frame_support::{
     BoundedVec,
     traits::{Currency, Get},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
+pub use pallet::*;
 use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, Weight, traits::Zero};
@@ -29,7 +29,9 @@ use tle::{
     stream_ciphers::AESGCMStreamCipherProvider,
     tlock::{TLECiphertext, tld},
 };
+pub use types::*;
 use w3f_bls::EngineBLS;
+pub use weights::WeightInfo;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -335,7 +337,7 @@ pub mod pallet {
 			.saturating_add(T::DbWeight::get().reads(0_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn set_max_space(origin: OriginFor<T>, new_limit: u32) -> DispatchResult {
             ensure_root(origin)?;
@@ -549,5 +551,41 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(total_weight)
+    }
+    pub fn get_commitments(netuid: NetUid) -> Vec<(T::AccountId, Vec<u8>)> {
+        let commitments: Vec<(T::AccountId, Vec<u8>)> =
+            <CommitmentOf<T> as IterableStorageDoubleMap<
+                NetUid,
+                T::AccountId,
+                Registration<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
+            >>::iter_prefix(netuid)
+            .map(|(account, registration)| {
+                let bytes = registration.encode();
+                (account, bytes)
+            })
+            .collect();
+        commitments
+    }
+
+    pub fn purge_netuid(netuid: NetUid) {
+        let _ = CommitmentOf::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = LastCommitment::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = LastBondsReset::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = RevealedCommitments::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = UsedSpaceOf::<T>::clear_prefix(netuid, u32::MAX, None);
+
+        TimelockedIndex::<T>::mutate(|index| {
+            index.retain(|(n, _)| *n != netuid);
+        });
+    }
+}
+
+pub trait GetCommitments<AccountId> {
+    fn get_commitments(netuid: NetUid) -> Vec<(AccountId, Vec<u8>)>;
+}
+
+impl<AccountId> GetCommitments<AccountId> for () {
+    fn get_commitments(_netuid: NetUid) -> Vec<(AccountId, Vec<u8>)> {
+        Vec::new()
     }
 }

@@ -53,7 +53,7 @@ mod dispatches {
         /// 	- On successfully setting the weights on chain.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -78,7 +78,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4111))
+        .saturating_add(T::DbWeight::get().reads(4112_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
@@ -91,6 +91,86 @@ mod dispatches {
                 Err(Error::<T>::CommitRevealEnabled.into())
             } else {
                 Self::do_set_weights(origin, netuid, dests, weights, version_key)
+            }
+        }
+
+        /// --- Sets the caller weights for the incentive mechanism for mechanisms. The call
+        /// can be made from the hotkey account so is potentially insecure, however, the damage
+        /// of changing weights is minimal if caught early. This function includes all the
+        /// checks that the passed weights meet the requirements. Stored as u16s they represent
+        /// rational values in the range [0,1] which sum to 1 and can be interpreted as
+        /// probabilities. The specific weights determine how inflation propagates outward
+        /// from this peer.
+        ///
+        /// Note: The 16 bit integers weights should represent 1.0 as the max u16.
+        /// However, the function normalizes all integers to u16_max anyway. This means that if the sum of all
+        /// elements is larger or smaller than the amount of elements * u16_max, all elements
+        /// will be corrected for this deviation.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuid` (u16):
+        /// 	- The network uid we are setting these weights on.
+        ///
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechnism identifier.
+        ///
+        /// * `dests` (Vec<u16>):
+        /// 	- The edge endpoint for the weight, i.e. j for w_ij.
+        ///
+        /// * 'weights' (Vec<u16>):
+        /// 	- The u16 integer encoded weights. Interpreted as rational
+        /// 		values in the range [0,1]. They must sum to in32::MAX.
+        ///
+        /// * 'version_key' ( u64 ):
+        /// 	- The network version key to check if the validator is up to date.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        ///
+        /// # Raises:
+        /// * 'MechanismDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'WeightVecNotEqualSize':
+        /// 	- Attempting to set weights with uids not of same length.
+        ///
+        /// * 'DuplicateUids':
+        /// 	- Attempting to set weights with duplicate uids.
+        ///
+        ///     * 'UidsLengthExceedUidsInSubNet':
+        /// 	- Attempting to set weights above the max allowed uids.
+        ///
+        /// * 'UidVecContainInvalidOne':
+        /// 	- Attempting to set weights with invalid uids.
+        ///
+        /// * 'WeightVecLengthIsLow':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        /// * 'MaxWeightExceeded':
+        /// 	- Attempting to set weights with max value exceeding limit.
+        #[pallet::call_index(119)]
+        #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4111))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn set_mechanism_weights(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            mecid: MechId,
+            dests: Vec<u16>,
+            weights: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            if Self::get_commit_reveal_weights_enabled(netuid) {
+                Err(Error::<T>::CommitRevealEnabled.into())
+            } else {
+                Self::do_set_mechanism_weights(origin, netuid, mecid, dests, weights, version_key)
             }
         }
 
@@ -121,7 +201,7 @@ mod dispatches {
         ///
         #[pallet::call_index(80)]
         #[pallet::weight((Weight::from_parts(95_460_000, 0)
-        .saturating_add(T::DbWeight::get().reads(14_u64))
+        .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
@@ -152,8 +232,8 @@ mod dispatches {
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(96)]
-        #[pallet::weight((Weight::from_parts(55_130_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7))
+        #[pallet::weight((Weight::from_parts(67_770_000, 0)
+		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
             origin: T::RuntimeOrigin,
@@ -161,6 +241,41 @@ mod dispatches {
             commit_hash: H256,
         ) -> DispatchResult {
             Self::do_commit_weights(origin, netuid, commit_hash)
+        }
+
+        /// ---- Used to commit a hash of your weight values to later be revealed for mechanisms.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The signature of the committing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
+        ///
+        /// * `commit_hash` (`H256`):
+        ///   - The hash representing the committed weights.
+        ///
+        /// # Raises:
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
+        ///
+        /// * `TooManyUnrevealedCommits`:
+        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
+        ///
+        #[pallet::call_index(115)]
+        #[pallet::weight((Weight::from_parts(55_130_000, 0)
+		.saturating_add(T::DbWeight::get().reads(7))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn commit_mechanism_weights(
+            origin: T::RuntimeOrigin,
+            netuid: NetUid,
+            mecid: MechId,
+            commit_hash: H256,
+        ) -> DispatchResult {
+            Self::do_commit_mechanism_weights(origin, netuid, mecid, commit_hash)
         }
 
         /// --- Allows a hotkey to commit weight hashes for multiple netuids as a batch.
@@ -186,8 +301,8 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(82_010_000, 0)
-        .saturating_add(T::DbWeight::get().reads(8))
+        #[pallet::weight((Weight::from_parts(100_500_000, 0)
+        .saturating_add(T::DbWeight::get().reads(11_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
             origin: OriginFor<T>,
@@ -236,7 +351,7 @@ mod dispatches {
         ///
         #[pallet::call_index(97)]
         #[pallet::weight((Weight::from_parts(122_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().reads(17_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
             origin: T::RuntimeOrigin,
@@ -247,6 +362,70 @@ mod dispatches {
             version_key: u64,
         ) -> DispatchResult {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
+        }
+
+        /// ---- Used to reveal the weights for a previously committed hash for mechanisms.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The signature of the revealing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
+        ///
+        /// * `uids` (`Vec<u16>`):
+        ///   - The uids for the weights being revealed.
+        ///
+        /// * `values` (`Vec<u16>`):
+        ///   - The values of the weights being revealed.
+        ///
+        /// * `salt` (`Vec<u16>`):
+        ///   - The salt used to generate the commit hash.
+        ///
+        /// * `version_key` (`u64`):
+        ///   - The network version key.
+        ///
+        /// # Raises:
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to reveal weights when the commit-reveal mechanism is disabled.
+        ///
+        /// * `NoWeightsCommitFound`:
+        ///   - Attempting to reveal weights without an existing commit.
+        ///
+        /// * `ExpiredWeightCommit`:
+        ///   - Attempting to reveal a weight commit that has expired.
+        ///
+        /// * `RevealTooEarly`:
+        ///   - Attempting to reveal weights outside the valid reveal period.
+        ///
+        /// * `InvalidRevealCommitHashNotMatch`:
+        ///   - The revealed hash does not match any committed hash.
+        ///
+        #[pallet::call_index(116)]
+        #[pallet::weight((Weight::from_parts(122_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn reveal_mechanism_weights(
+            origin: T::RuntimeOrigin,
+            netuid: NetUid,
+            mecid: MechId,
+            uids: Vec<u16>,
+            values: Vec<u16>,
+            salt: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            Self::do_reveal_mechanism_weights(
+                origin,
+                netuid,
+                mecid,
+                uids,
+                values,
+                salt,
+                version_key,
+            )
         }
 
         /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
@@ -278,17 +457,70 @@ mod dispatches {
         /// * `TooManyUnrevealedCommits`:
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
-        #[pallet::call_index(99)]
+        // #[pallet::call_index(99)]
+        // #[pallet::weight((Weight::from_parts(77_750_000, 0)
+        // .saturating_add(T::DbWeight::get().reads(9_u64))
+        // .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        // pub fn commit_crv3_weights(
+        //     origin: T::RuntimeOrigin,
+        //     netuid: NetUid,
+        //     commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+        //     reveal_round: u64,
+        // ) -> DispatchResult {
+        //     Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
+        // }
+
+        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed for mechanisms.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The committing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
+        ///
+        /// * `commit` (`Vec<u8>`):
+        ///   - The encrypted compressed commit.
+        ///     The steps for this are:
+        ///     1. Instantiate [`WeightsTlockPayload`]
+        ///     2. Serialize it using the `parity_scale_codec::Encode` trait
+        ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
+        ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
+        ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
+        ///
+        /// * reveal_round (`u64`):
+        ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
+        ///      epoch.
+        ///
+        /// # Raises:
+        /// * `CommitRevealV3Disabled`:
+        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
+        ///
+        /// * `TooManyUnrevealedCommits`:
+        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
+        ///
+        #[pallet::call_index(117)]
         #[pallet::weight((Weight::from_parts(77_750_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_crv3_weights(
+        pub fn commit_crv3_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
+            mecid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
         ) -> DispatchResult {
-            Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
+            Self::do_commit_timelocked_mechanism_weights(
+                origin,
+                netuid,
+                mecid,
+                commit,
+                reveal_round,
+                4,
+            )
         }
 
         /// ---- The implementation for batch revealing committed weights.
@@ -332,7 +564,7 @@ mod dispatches {
         ///   - The input vectors are of mismatched lengths.
         #[pallet::call_index(98)]
         #[pallet::weight((Weight::from_parts(412_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().reads(17_u64))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: T::RuntimeOrigin,
@@ -473,7 +705,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(2)]
-        #[pallet::weight((Weight::from_parts(340_400_000, 0)
+        #[pallet::weight((Weight::from_parts(340_800_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
 		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake(
@@ -565,7 +797,7 @@ mod dispatches {
         /// 	- On successfully serving the axon info.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -649,7 +881,7 @@ mod dispatches {
         /// 	- On successfully serving the axon info.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -665,7 +897,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(40)]
-        #[pallet::weight((Weight::from_parts(32_310_000, 0)
+        #[pallet::weight((Weight::from_parts(32_510_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon_tls(
@@ -715,7 +947,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(28_660_000, 0)
+        #[pallet::weight((Weight::from_parts(29_760_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -758,7 +990,7 @@ mod dispatches {
         /// 	- On successfully registering a uid to a neuron slot on a subnetwork.
         ///
         /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
+        /// * 'MechanismDoesNotExist':
         /// 	- Attempting to register to a non existent network.
         ///
         /// * 'TooManyRegistrationsThisBlock':
@@ -778,7 +1010,7 @@ mod dispatches {
         ///
         #[pallet::call_index(6)]
         #[pallet::weight((Weight::from_parts(197_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().reads(27_u64))
 		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Normal, Pays::Yes))]
         pub fn register(
             origin: OriginFor<T>,
@@ -794,16 +1026,16 @@ mod dispatches {
 
         /// Register the hotkey to root network
         #[pallet::call_index(62)]
-        #[pallet::weight((Weight::from_parts(111_700_000, 0)
-		.saturating_add(T::DbWeight::get().reads(23))
-		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(135_900_000, 0)
+		.saturating_add(T::DbWeight::get().reads(24_u64))
+		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::Yes))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
         }
 
         /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_parts(60_720_000, 0)
+        #[pallet::weight((Weight::from_parts(58_980_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(4)), DispatchClass::Normal, Pays::Yes))]
         pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -813,7 +1045,7 @@ mod dispatches {
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(354_200_000, 0)
-		.saturating_add(T::DbWeight::get().reads(49))
+		.saturating_add(T::DbWeight::get().reads(50_u64))
 		.saturating_add(T::DbWeight::get().writes(43)), DispatchClass::Normal, Pays::Yes))]
         pub fn burned_register(
             origin: OriginFor<T>,
@@ -854,8 +1086,8 @@ mod dispatches {
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(15_u64))
-        .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
+        .saturating_add(T::DbWeight::get().reads(16_u64))
+        .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::Yes))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
@@ -933,11 +1165,11 @@ mod dispatches {
         ///
         #[pallet::call_index(69)]
         #[pallet::weight((
-            Weight::from_parts(5_912_000, 0)
+            Weight::from_parts(5_660_000, 0)
             .saturating_add(T::DbWeight::get().reads(0))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
             origin: OriginFor<T>,
@@ -965,7 +1197,7 @@ mod dispatches {
             .saturating_add(T::DbWeight::get().reads(1))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn sudo_set_min_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
@@ -990,7 +1222,7 @@ mod dispatches {
             .saturating_add(T::DbWeight::get().reads(1))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn sudo_set_max_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
@@ -1019,7 +1251,7 @@ mod dispatches {
         /// ## Complexity
         /// - O(1).
         #[pallet::call_index(51)]
-        #[pallet::weight((Weight::from_parts(111_100_000, 0), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(111_100_000, 0), DispatchClass::Operational, Pays::Yes))]
         pub fn sudo(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
@@ -1044,7 +1276,7 @@ mod dispatches {
         /// - O(1).
         #[allow(deprecated)]
         #[pallet::call_index(52)]
-        #[pallet::weight((*weight, call.get_dispatch_info().class, Pays::No))]
+        #[pallet::weight((*weight, call.get_dispatch_info().class, Pays::Yes))]
         pub fn sudo_unchecked_weight(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
@@ -1082,8 +1314,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(36))
-		.saturating_add(T::DbWeight::get().writes(52)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(39_u64))
+		.saturating_add(T::DbWeight::get().writes(57_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1113,14 +1345,14 @@ mod dispatches {
         #[pallet::call_index(61)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
-            coldkey: T::AccountId,
+            _coldkey: T::AccountId,
             netuid: NetUid,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::user_remove_network(coldkey, netuid)
+            Self::do_dissolve_network(netuid)
         }
 
         /// Set a single child for a given hotkey on a specified network.
@@ -1149,7 +1381,7 @@ mod dispatches {
         ///     - On successfully registering a child to a hotkey.
         ///
         /// # Errors:
-        /// * `SubNetworkDoesNotExist`:
+        /// * `MechanismDoesNotExist`:
         ///     - Attempting to register to a non-existent network.
         /// * `RegistrationNotPermittedOnRootSubnet`:
         ///     - Attempting to register a child on the root network.
@@ -1295,7 +1527,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(68)]
-        #[pallet::weight((Weight::from_parts(30_550_000, 0)
+        #[pallet::weight((Weight::from_parts(38_230_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_identity(
@@ -1337,7 +1569,7 @@ mod dispatches {
         /// * `subnet_contact` (Vec<u8>):
         ///     - The contact information for the subnet.
         #[pallet::call_index(78)]
-        #[pallet::weight((Weight::from_parts(18_980_000, 0)
+        #[pallet::weight((Weight::from_parts(24_350_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_subnet_identity(
@@ -1369,8 +1601,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
-                .saturating_add(T::DbWeight::get().reads(35))
-                .saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Normal, Pays::No))]
+            .saturating_add(T::DbWeight::get().reads(38_u64))
+            .saturating_add(T::DbWeight::get().writes(56_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1682,7 +1914,7 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(377_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(30))
+		.saturating_add(T::DbWeight::get().reads(30_u64))
 		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
@@ -1805,9 +2037,8 @@ mod dispatches {
         /// ```
         ///
         /// # Arguments
-        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `origin` - The origin of the transaction, which must be signed by the `hotkey`.
         /// * `netuid` - The netuid that the `hotkey` belongs to.
-        /// * `hotkey` - The hotkey associated with the `origin`.
         /// * `evm_key` - The EVM key to associate with the `hotkey`.
         /// * `block_number` - The block number used in the `signature`.
         /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
@@ -1815,7 +2046,6 @@ mod dispatches {
         /// # Errors
         /// Returns an error if:
         /// * The transaction is not signed.
-        /// * The hotkey is not owned by the origin coldkey.
         /// * The hotkey does not belong to the subnet identified by the netuid.
         /// * The EVM key cannot be recovered from the signature.
         /// * The EVM key recovered from the signature does not match the given EVM key.
@@ -1826,7 +2056,7 @@ mod dispatches {
         #[pallet::weight((
             Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
             DispatchClass::Normal,
-            Pays::Yes
+            Pays::No
         ))]
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
@@ -1850,7 +2080,7 @@ mod dispatches {
         /// Emits a `TokensRecycled` event on success.
         #[pallet::call_index(101)]
         #[pallet::weight((
-            Weight::from_parts(92_600_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
+            Weight::from_parts(113_400_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -1875,7 +2105,7 @@ mod dispatches {
         /// Emits a `TokensBurned` event on success.
         #[pallet::call_index(102)]
         #[pallet::weight((
-            Weight::from_parts(90_880_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
+            Weight::from_parts(112_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -1890,7 +2120,7 @@ mod dispatches {
 
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
-        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::Yes))]
         pub fn set_pending_childkey_cooldown(
             origin: OriginFor<T>,
             cooldown: u64,
@@ -2031,8 +2261,8 @@ mod dispatches {
         /// * commit_reveal_version (`u16`):
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
-        #[pallet::weight((Weight::from_parts(80_690_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7_u64))
+        #[pallet::weight((Weight::from_parts(63_160_000, 0)
+		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
             origin: T::RuntimeOrigin,
@@ -2053,7 +2283,7 @@ mod dispatches {
         /// Set the autostake destination hotkey for a coldkey.
         ///
         /// The caller selects a hotkey where all future rewards
-        /// will be automatically staked.  
+        /// will be automatically staked.
         ///
         /// # Args:
         /// * `origin` - (<T as frame_system::Config>::Origin):
@@ -2062,19 +2292,101 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
-        #[pallet::weight(
-            Weight::from_parts(5_170_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
-        )]
+        #[pallet::weight((Weight::from_parts(29_930_000, 0)
+		.saturating_add(T::DbWeight::get().reads(3_u64))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: T::RuntimeOrigin,
+            netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(
+                Uids::<T>::contains_key(netuid, &hotkey),
+                Error::<T>::HotKeyNotRegisteredInSubNet
+            );
 
-            AutoStakeDestination::<T>::insert(coldkey, hotkey.clone());
+            let current_hotkey = AutoStakeDestination::<T>::get(coldkey.clone(), netuid);
+            if let Some(current_hotkey) = current_hotkey {
+                ensure!(
+                    current_hotkey != hotkey,
+                    Error::<T>::SameAutoStakeHotkeyAlreadySet
+                );
+            }
+
+            AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
+
+            Self::deposit_event(Event::AutoStakeDestinationSet {
+                coldkey,
+                netuid,
+                hotkey,
+            });
 
             Ok(())
         }
+
+        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed for
+        /// a mechanism.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The committing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `mecid` (`u8`):
+        ///   - The u8 mechanism identifier.
+        ///
+        /// * `commit` (`Vec<u8>`):
+        ///   - The encrypted compressed commit.
+        ///     The steps for this are:
+        ///     1. Instantiate [`WeightsTlockPayload`]
+        ///     2. Serialize it using the `parity_scale_codec::Encode` trait
+        ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
+        ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
+        ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
+        ///
+        /// * reveal_round (`u64`):
+        ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
+        ///      epoch.
+        ///
+        /// * commit_reveal_version (`u16`):
+        ///     - The client (bittensor-drand) version
+        #[pallet::call_index(118)]
+        #[pallet::weight((Weight::from_parts(84_020_000, 0)
+		.saturating_add(T::DbWeight::get().reads(9_u64))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn commit_timelocked_mechanism_weights(
+            origin: T::RuntimeOrigin,
+            netuid: NetUid,
+            mecid: MechId,
+            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            reveal_round: u64,
+            commit_reveal_version: u16,
+        ) -> DispatchResult {
+            Self::do_commit_timelocked_mechanism_weights(
+                origin,
+                netuid,
+                mecid,
+                commit,
+                reveal_round,
+                commit_reveal_version,
+            )
+        }
+
+        /// Remove a subnetwork
+        /// The caller must be root
+        #[pallet::call_index(120)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::do_dissolve_network(netuid)
+        }
+
 
         /// --- Claims the root emissions for a coldkey.
         /// # Args:
@@ -2087,7 +2399,7 @@ mod dispatches {
         ///
         /// # Raises:
         ///
-        #[pallet::call_index(116)]
+        #[pallet::call_index(121)]
         #[pallet::weight((
             Weight::from_parts(13_000_000, 3994).saturating_add(T::DbWeight::get().reads(1_u64)),
             DispatchClass::Normal,
@@ -2111,7 +2423,7 @@ mod dispatches {
         /// * RootClaimTypeSet;
         /// 	- On the successfully setting the root claim type for the coldkey.
         ///
-        #[pallet::call_index(117)]
+        #[pallet::call_index(122)]
         #[pallet::weight((
             Weight::from_parts(6_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,

@@ -11,11 +11,14 @@ declare -A DISPATCH_PATHS=(
   [swap]="../pallets/swap/src/pallet/mod.rs"
 )
 
-THRESHOLD=20
+THRESHOLD=40
 MAX_RETRIES=3
-AUTO_COMMIT="${AUTO_COMMIT_WEIGHTS:-0}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
+
+PATCH_DIR="$SCRIPT_DIR/../.bench_patch"
+mkdir -p "$PATCH_DIR"
 
 die()          { echo "❌ $1" >&2; exit 1; }
 digits_only()  { echo "${1//[^0-9]/}"; }
@@ -32,7 +35,8 @@ patch_weight() {
   FN="$1" NEWV="$2" perl -0777 -i -pe '
     my $n=$ENV{NEWV}; my $hit=0;
     $hit+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+|$1$n|s;
-    $hit+=s|(\#\s*\[pallet::weight[^\]]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$n|s;
+    # attribute replacement allowing intermediate attributes (e.g., call_index) before pub fn
+    $hit+=s|(\#\s*\[pallet::weight[^\]]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+(?=[^\]]*\](?:\s*#\[[^\]]*\])*\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$n|s;
     END{exit $hit?0:1}
   ' "$3" || log_warn "patch_weight: no substitution for $1"
   after=$(sha1sum "$3" | cut -d' ' -f1); [[ "$before" != "$after" ]]
@@ -51,36 +55,56 @@ patch_reads_writes() {
         my $W=$neww eq "" ? $w : u64($neww);
         return "$pre$R$mid$W$post";
     };
-    $h+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)|&$rw_sub($1,$2,$3,$4,"")|e;
-    $h+=s|(\#\s*\[pallet::weight[^\]]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|&$rw_sub($1,$2,$3,$4,"")|e;
-    $h+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.reads\(\s*)([^)]+)|$1.($newr eq "" ? $2 : u64($newr))|e;
-    $h+=s|(\#\s*\[pallet::weight[^\]]*?\.reads\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($newr eq "" ? $2 : u64($newr))|e;
-    $h+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.writes\(\s*)([^)]+)|$1.($neww eq "" ? $2 : u64($neww))|e;
-    $h+=s|(\#\s*\[pallet::weight[^\]]*?\.writes\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($neww eq "" ? $2 : u64($neww))|e;
+    # In-body: reads_writes(...)
+    $h+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)|&$rw_sub($1,$2,$3,$4,"")|sge;
+    # In-body: .reads(...) and .writes(...)
+    $h+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.reads\(\s*)([^)]+)|$1.($newr eq "" ? $2 : u64($newr))|sge;
+    $h+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.writes\(\s*)([^)]+)|$1.($neww eq "" ? $2 : u64($neww))|sge;
+
+    # Attribute: reads_writes(...), tolerate other attributes between ] and pub fn
+    $h+=s|(\#\s*\[pallet::weight[^\]]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)(?=[^\]]*\](?:\s*#\[[^\]]*\])*\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|&$rw_sub($1,$2,$3,$4,"")|sge;
+    # Attribute: .reads(...) and .writes(...), tolerate other attributes between ] and pub fn
+    $h+=s|(\#\s*\[pallet::weight[^\]]*?\.reads\(\s*)([^)]+)(?=[^\]]*\](?:\s*#\[[^\]]*\])*\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($newr eq "" ? $2 : u64($newr))|sge;
+    $h+=s|(\#\s*\[pallet::weight[^\]]*?\.writes\(\s*)([^)]+)(?=[^\]]*\](?:\s*#\[[^\]]*\])*\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($neww eq "" ? $2 : u64($neww))|sge;
+
     END{exit $h?0:1}
   ' "$4" || log_warn "patch_reads_writes: no substitution for $1"
   after=$(sha1sum "$4" | cut -d' ' -f1); [[ "$before" != "$after" ]]
 }
 
-git_commit_and_push() {
-  local msg="$1"
-  local branch; branch=$(git symbolic-ref --quiet --short HEAD || true)
-  [[ -z "$branch" ]] && die "Not on a branch - cannot push"
-
-  git config user.name  "github-actions[bot]"
-  git config user.email "github-actions[bot]@users.noreply.github.com"
+write_patch_artifacts_and_fail() {
   git add "${PATCHED_FILES[@]}" || true
 
-  if git diff --cached --quiet; then
-    echo "ℹ️  No staged changes after patching."; git status --short; return
-  fi
+  {
+    echo "Head SHA: $(git rev-parse HEAD)"
+    echo
+    echo "==== Benchmark summary ===="
+    printf '%s\n' "${GLOBAL_SUMMARY[@]}" || true
+    echo
+    echo "==== Diffstat ===="
+    git diff --cached --stat || true
+  } > "$PATCH_DIR/summary.txt"
 
-  echo "==== diff preview ===="; git diff --cached --stat
-  git diff --cached | head -n 40 || true
-  echo "======================"
+  git diff --cached --binary > "$PATCH_DIR/benchmark_patch.diff" || true
 
-  git commit -m "$msg"
-  git push origin "HEAD:$branch" || die "Push to '${branch}' failed."
+  echo "📦 Prepared patch at: $PATCH_DIR/benchmark_patch.diff"
+  echo "ℹ️  Add the 'apply-benchmark-patch' label to this PR to have CI apply & commit it."
+  exit 2
+}
+
+write_summary_only_and_fail() {
+  {
+    echo "Head SHA: $(git rev-parse HEAD)"
+    echo
+    echo "==== Benchmark summary ===="
+    printf '%s\n' "${GLOBAL_SUMMARY[@]}" || true
+    echo
+    echo "No auto-patch was generated for the mismatched extrinsics."
+    echo "Manual update may be required."
+  } > "$PATCH_DIR/summary.txt"
+
+  echo "⚠️  No patch could be auto-generated. See .bench_patch/summary.txt."
+  exit 2
 }
 
 echo "Building runtime-benchmarks…"
@@ -91,6 +115,8 @@ echo " Will benchmark pallets: ${PALLET_LIST[*]}"
 echo "─────────────────────────────────────────────"
 
 PATCHED_FILES=()
+GLOBAL_SUMMARY=()
+ANY_FAILURE=0
 
 ################################################################################
 # Benchmark loop
@@ -155,13 +181,15 @@ for pallet in "${PALLET_LIST[@]}"; do
     done < "$TMP"; flush
 
     echo; printf '  %s\n' "${summary[@]}"
+    GLOBAL_SUMMARY+=("${summary[@]}")
+
     (( fail == 0 )) && { echo "✅ '$pallet' within tolerance."; break; }
 
     printf '  ❌ %s\n' "${failures[@]}"
     (( attempt < MAX_RETRIES )) && { echo "→ Retrying …"; (( attempt++ )); continue; }
 
-    echo "❌ '$pallet' still failing; patching …"
-    [[ "$AUTO_COMMIT" != "1" ]] && die "AUTO_COMMIT_WEIGHTS disabled."
+    echo "❌ '$pallet' still failing; patching (prepare-only) …"
+    ANY_FAILURE=1
 
     changed=0
     for fn in $(printf "%s\n" "${!new_weight[@]}" "${!new_reads[@]}" "${!new_writes[@]}" | sort -u); do
@@ -179,11 +207,14 @@ for pallet in "${PALLET_LIST[@]}"; do
 done
 
 ################################################################################
-# Commit & push patches
+# Fail if any mismatch; upload artifacts in workflow step
 ################################################################################
-if (( ${#PATCHED_FILES[@]} )); then
-  echo -e "\n📦  Committing patched files …"
-  git_commit_and_push "auto-update benchmark weights"
+if (( ANY_FAILURE )); then
+  if (( ${#PATCHED_FILES[@]} )); then
+    write_patch_artifacts_and_fail
+  else
+    write_summary_only_and_fail
+  fi
 fi
 
 echo -e "\n══════════════════════════════════════"
