@@ -325,7 +325,6 @@ type TriumvirateCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TriumvirateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = GetSenateMemberCount;
@@ -360,7 +359,6 @@ type SenateCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<SenateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = SenateMaxMembers;
@@ -389,7 +387,6 @@ impl pallet_membership::Config<SenateMembership> for Test {
 }
 
 impl crate::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
@@ -478,7 +475,6 @@ parameter_types! {
 }
 
 impl pallet_subtensor_swap::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
@@ -526,7 +522,6 @@ impl pallet_scheduler::Config for Test {
 }
 
 impl pallet_utility::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
@@ -585,7 +580,6 @@ impl pallet_crowdloan::Config for Test {
     type PalletId = CrowdloanPalletId;
     type Currency = Balances;
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Test>;
     type Preimages = Preimage;
     type MinimumDeposit = MinimumDeposit;
@@ -631,7 +625,6 @@ mod test_crypto {
 pub type TestAuthId = test_crypto::TestAuthId;
 
 impl pallet_drand::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -657,7 +650,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_inherent(call)
     }
 }
@@ -1079,7 +1072,9 @@ pub(crate) fn last_event() -> RuntimeEvent {
     System::events().pop().expect("RuntimeEvent expected").event
 }
 
-pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+pub fn assert_last_event<T: frame_system::pallet::Config>(
+    generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
+) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 

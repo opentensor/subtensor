@@ -1,3 +1,4 @@
+mod auto_stake_hotkey;
 mod batch_tx;
 mod children;
 mod coinbase;

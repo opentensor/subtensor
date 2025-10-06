@@ -101,8 +101,6 @@ mod mock_democracy {
 
         #[pallet::config]
         pub trait Config: frame_system::Config + Sized {
-            type RuntimeEvent: From<Event<Self>>
-                + IsType<<Self as frame_system::Config>::RuntimeEvent>;
             type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
         }
 
@@ -205,7 +203,6 @@ type CouncilCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<CouncilCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = MotionDuration;
     type MaxProposals = MaxProposals;
     type MaxMembers = MaxMembers;
@@ -237,11 +234,9 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
     }
 }
 impl mock_democracy::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
 impl Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();

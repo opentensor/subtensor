@@ -409,9 +409,9 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
 
-        // Sort by BlockAtRegistration (descending), then by uid (ascending)
+        // Sort by BlockAtRegistration (ascending), then by uid (ascending)
         // Recent registration is priority so that we can let older keys expire (get non-immune)
-        triples.sort_by(|(b1, u1, _), (b2, u2, _)| b2.cmp(b1).then(u1.cmp(u2)));
+        triples.sort_by(|(b1, u1, _), (b2, u2, _)| b1.cmp(b2).then(u1.cmp(u2)));
 
         // Keep first ImmuneOwnerUidsLimit
         let limit = ImmuneOwnerUidsLimit::<T>::get(netuid).into();

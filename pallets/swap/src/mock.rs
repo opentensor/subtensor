@@ -271,7 +271,6 @@ impl BalanceOps<AccountId> for MockBalanceOps {
 }
 
 impl crate::pallet::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type SubnetInfo = MockLiquidityProvider;
     type TaoReserve = TaoReserve;
     type AlphaReserve = AlphaReserve;
