@@ -159,7 +159,11 @@ impl<T: Config> Pallet<T> {
             if let Some(old_auto_stake_hotkey) = AutoStakeDestination::<T>::get(old_coldkey, netuid)
             {
                 AutoStakeDestination::<T>::remove(old_coldkey, netuid);
-                AutoStakeDestination::<T>::insert(new_coldkey, netuid, old_auto_stake_hotkey.clone());
+                AutoStakeDestination::<T>::insert(
+                    new_coldkey,
+                    netuid,
+                    old_auto_stake_hotkey.clone(),
+                );
                 AutoStakeDestinationColdkeys::<T>::mutate(old_auto_stake_hotkey, netuid, |v| {
                     // Remove old/new coldkeys (avoid duplicates), then add the new one.
                     v.retain(|c| *c != *old_coldkey && *c != *new_coldkey);
