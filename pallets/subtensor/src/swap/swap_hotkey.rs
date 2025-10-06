@@ -530,7 +530,7 @@ impl<T: Config> Pallet<T> {
         {
             // Move the vector from old hotkey to new hotkey.
             for coldkey in &old_auto_stake_coldkeys {
-                AutoStakeDestination::<T>::insert(coldkey, netuid, &new_hotkey);
+                AutoStakeDestination::<T>::insert(coldkey, netuid, new_hotkey);
             }
             AutoStakeDestinationColdkeys::<T>::remove(old_hotkey, netuid);
             AutoStakeDestinationColdkeys::<T>::insert(new_hotkey, netuid, old_auto_stake_coldkeys);
