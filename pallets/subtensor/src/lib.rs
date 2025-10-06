@@ -1158,7 +1158,7 @@ pub mod pallet {
         Identity,
         NetUid,
         Vec<T::AccountId>,
-        OptionQuery,
+        ValueQuery,
     >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> (block_expected, new_coldkey) | Maps coldkey to the block to swap at and new coldkey.
