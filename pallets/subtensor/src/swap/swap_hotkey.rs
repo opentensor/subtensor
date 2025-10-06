@@ -528,12 +528,13 @@ impl<T: Config> Pallet<T> {
         if let Ok(old_auto_stake_coldkeys) =
             AutoStakeDestinationColdkeys::<T>::try_get(old_hotkey, netuid)
         {
+            // Move the vector from old hotkey to new hotkey.
+            for coldkey in &old_auto_stake_coldkeys {
+                AutoStakeDestination::<T>::insert(coldkey, netuid, &new_hotkey);
+            }
             AutoStakeDestinationColdkeys::<T>::remove(old_hotkey, netuid);
             AutoStakeDestinationColdkeys::<T>::insert(new_hotkey, netuid, old_auto_stake_coldkeys);
-            for &coldkey in old_auto_stake_coldkeys.iter() {
-                AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, new_hotkey.clone());
-            }
-        };
+        }
 
         // 7. Swap SubnetOwnerHotkey
         // SubnetOwnerHotkey( netuid ) --> hotkey -- the hotkey that is the owner of the subnet.

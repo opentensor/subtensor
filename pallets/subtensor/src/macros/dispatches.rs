@@ -2316,7 +2316,7 @@ mod dispatches {
 
                 // Remove the coldkey from the old hotkey (if present)
                 AutoStakeDestinationColdkeys::<T>::mutate(current_hotkey.clone(), netuid, |v| {
-                    v = v.iter().filter(|c| *c != coldkey).collect();
+                    v.retain(|c| c != &coldkey);
                 });
 
                 // Add the coldkey to the new hotkey (if not already present)
