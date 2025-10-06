@@ -2044,3 +2044,115 @@ fn test_migrate_restore_subnet_locked_65_128() {
         );
     });
 }
+
+#[test]
+fn test_migrate_network_lock_cost_2500_sets_price_and_decay() {
+    new_test_ext(0).execute_with(|| {
+        // ── constants ───────────────────────────────────────────────────────
+        const RAO_PER_TAO: u64 = 1_000_000_000;
+        const TARGET_COST_TAO: u64 = 2_500;
+        const TARGET_COST_RAO: u64 = TARGET_COST_TAO * RAO_PER_TAO;
+        const NEW_LAST_LOCK_RAO: u64 = (TARGET_COST_TAO / 2) * RAO_PER_TAO;
+
+        let migration_key = b"migrate_network_lock_cost_2500".to_vec();
+
+        // ── pre ──────────────────────────────────────────────────────────────
+        assert!(
+            !HasMigrationRun::<Test>::get(migration_key.clone()),
+            "HasMigrationRun should be false before migration"
+        );
+
+        // Ensure current_block > 0 so mult == 2 in get_network_lock_cost()
+        step_block(1);
+        let current_block_before = Pallet::<Test>::get_current_block_as_u64();
+
+        // Snapshot interval to ensure migration doesn't change it
+        let interval_before = NetworkLockReductionInterval::<Test>::get();
+
+        // ── run migration ────────────────────────────────────────────────────
+        let weight = crate::migrations::migrate_network_lock_cost_2500::migrate_network_lock_cost_2500::<Test>();
+        assert!(!weight.is_zero(), "migration weight should be > 0");
+
+        // ── asserts: params & flags ─────────────────────────────────────────
+        assert_eq!(
+            Pallet::<Test>::get_network_last_lock(),
+            NEW_LAST_LOCK_RAO.into(),
+            "last_lock should be set to 1,250 TAO (in rao)"
+        );
+        assert_eq!(
+            Pallet::<Test>::get_network_last_lock_block(),
+            current_block_before,
+            "last_lock_block should be set to the current block"
+        );
+
+        // Lock cost should be exactly 2,500 TAO immediately after migration
+        let lock_cost_now = Pallet::<Test>::get_network_lock_cost();
+        assert_eq!(
+            lock_cost_now,
+            TARGET_COST_RAO.into(),
+            "lock cost should be 2,500 TAO right after migration"
+        );
+
+        // Interval should be unchanged by this migration
+        assert_eq!(
+            NetworkLockReductionInterval::<Test>::get(),
+            interval_before,
+            "lock reduction interval should not be modified by this migration"
+        );
+
+        assert!(
+            HasMigrationRun::<Test>::get(migration_key.clone()),
+            "HasMigrationRun should be true after migration"
+        );
+
+        // ── decay check (1 block later) ─────────────────────────────────────
+        // Expected: cost = max(min_lock, 2*L - floor(L / eff_interval) * delta_blocks)
+        let eff_interval = Pallet::<Test>::get_lock_reduction_interval();
+        let per_block_decrement: u64 = if eff_interval == 0 {
+            0
+        } else {
+            NEW_LAST_LOCK_RAO / eff_interval
+        };
+
+        let min_lock_rao: u64 = Pallet::<Test>::get_network_min_lock().to_u64();
+
+        step_block(1);
+        let expected_after_1: u64 = core::cmp::max(
+            min_lock_rao,
+            TARGET_COST_RAO.saturating_sub(per_block_decrement),
+        );
+        let lock_cost_after_1 = Pallet::<Test>::get_network_lock_cost();
+        assert_eq!(
+            lock_cost_after_1,
+            expected_after_1.into(),
+            "lock cost should decay by one per-block step after 1 block"
+        );
+
+        // ── idempotency: running the migration again should do nothing ──────
+        let last_lock_before_rerun = Pallet::<Test>::get_network_last_lock();
+        let last_lock_block_before_rerun = Pallet::<Test>::get_network_last_lock_block();
+        let cost_before_rerun = Pallet::<Test>::get_network_lock_cost();
+
+        let _weight2 = crate::migrations::migrate_network_lock_cost_2500::migrate_network_lock_cost_2500::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(migration_key.clone()),
+            "HasMigrationRun remains true on second run"
+        );
+        assert_eq!(
+            Pallet::<Test>::get_network_last_lock(),
+            last_lock_before_rerun,
+            "second run should not modify last_lock"
+        );
+        assert_eq!(
+            Pallet::<Test>::get_network_last_lock_block(),
+            last_lock_block_before_rerun,
+            "second run should not modify last_lock_block"
+        );
+        assert_eq!(
+            Pallet::<Test>::get_network_lock_cost(),
+            cost_before_rerun,
+            "second run should not change current lock cost"
+        );
+    });
+}
