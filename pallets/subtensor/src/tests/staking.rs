@@ -4168,7 +4168,7 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
         ));
 
         // Check that all alpha was unstaked and 99% TAO balance was returned (less fees)
-        // let fee = <Test as Config>::SwapExt::approx_fee_amount(netuid.into(), (amount as f64 * 0.99) as u64);
+        // let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), (amount as f64 * 0.99) as u64);
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (amount as f64 * 0.99) as u64 - fee,

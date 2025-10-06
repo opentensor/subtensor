@@ -630,7 +630,7 @@ pub(crate) fn swap_alpha_to_tao_ext(
 
     let result = result.unwrap();
 
-    // we don't want to have silent 0 comparissons in tests
+    // we don't want to have silent 0 comparisons in tests
     assert!(!result.amount_paid_out.is_zero());
 
     (result.amount_paid_out.to_u64(), result.fee_paid.to_u64())
