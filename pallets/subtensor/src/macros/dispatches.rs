@@ -2318,15 +2318,15 @@ mod dispatches {
                 AutoStakeDestinationColdkeys::<T>::mutate(current_hotkey.clone(), netuid, |v| {
                     v.retain(|c| c != &coldkey);
                 });
-
-                // Add the coldkey to the new hotkey (if not already present)
-                AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
-                AutoStakeDestinationColdkeys::<T>::mutate(hotkey.clone(), netuid, |v| {
-                    if !v.contains(&coldkey) {
-                        v.push(coldkey.clone());
-                    }
-                });
             }
+
+            // Add the coldkey to the new hotkey (if not already present)
+            AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
+            AutoStakeDestinationColdkeys::<T>::mutate(hotkey.clone(), netuid, |v| {
+                if !v.contains(&coldkey) {
+                    v.push(coldkey.clone());
+                }
+            });
 
             Self::deposit_event(Event::AutoStakeDestinationSet {
                 coldkey,
