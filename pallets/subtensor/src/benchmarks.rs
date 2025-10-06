@@ -1585,13 +1585,70 @@ mod pallet_benchmarks {
         _(RawOrigin::Signed(coldkey.clone()), RootClaimTypeEnum::Keep);
     }
 
-    // TODO: rework after subnets argument
     #[benchmark]
     fn claim_root() {
         let coldkey: T::AccountId = whitelisted_caller();
+        let hotkey: T::AccountId = account("A", 0, 1);
+
+        let netuid = Subtensor::<T>::get_next_netuid();
+
+        let lock_cost = Subtensor::<T>::get_network_lock_cost();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, lock_cost.into());
+
+        assert_ok!(Subtensor::<T>::register_network(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone()
+        ));
+
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+        NetworkRegistrationAllowed::<T>::insert(netuid, true);
+        FirstEmissionBlockNumber::<T>::insert(netuid, 0);
+
+        SubnetMechanism::<T>::insert(netuid, 1);
+        SubnetworkN::<T>::insert(netuid, 1);
+        Subtensor::<T>::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let root_stake = 100_000_000u64;
+        Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 100_000_000u64;
+        Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let pending_root_alpha = 10_000_000u64;
+        Subtensor::<T>::drain_pending_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        let initial_stake =
+            Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        assert_ok!(Subtensor::<T>::set_root_claim_type(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            RootClaimTypeEnum::Keep
+        ),);
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()));
+
+        // Verification
+        let new_stake =
+            Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        assert!(new_stake > initial_stake);
     }
 
     #[benchmark]
