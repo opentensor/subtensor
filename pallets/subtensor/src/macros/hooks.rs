@@ -147,7 +147,9 @@ mod hooks {
                 // Migrate Lock Reduction Interval
                 .saturating_add(migrations::migrate_network_lock_reduction_interval::migrate_network_lock_reduction_interval::<T>())
                 // Migrate subnet locked balances
-                .saturating_add(migrations::migrate_subnet_locked::migrate_restore_subnet_locked::<T>());
+                .saturating_add(migrations::migrate_subnet_locked::migrate_restore_subnet_locked::<T>())
+                // Migrate subnet burn cost to 2500
+                .saturating_add(migrations::migrate_network_lock_cost_2500::migrate_network_lock_cost_2500::<T>());
             weight
         }
 
