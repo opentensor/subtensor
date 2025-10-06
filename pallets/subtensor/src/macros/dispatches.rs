@@ -2315,7 +2315,18 @@ mod dispatches {
                 );
             }
 
+            // Remove the coldkey from the old hotkey (if present)
+            AutoStakeDestinationColdkeys::<T>::mutate((current_hotkey.clone(), netuid), |v| {
+                v = v.iter().filter(|c| *c != coldkey).collect();
+            });
+
+            // Add the coldkey to the new hotkey (if not already present)
             AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
+            AutoStakeDestinationColdkeys::<T>::mutate((hotkey.clone(), netuid), |v| {
+                if !v.contains(&coldkey) {
+                    v.push(coldkey.clone());
+                }
+            });
 
             Self::deposit_event(Event::AutoStakeDestinationSet {
                 coldkey,

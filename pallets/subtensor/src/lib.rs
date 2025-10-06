@@ -1150,6 +1150,16 @@ pub mod pallet {
         T::AccountId,
         OptionQuery,
     >;
+    #[pallet::storage] // --- DMAP ( hot, netuid )--> Vec<cold> | Returns a list of coldkeys that are autostaking to a hotkey.
+    pub type AutoStakeDestinationColdkeys<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        NetUid,
+        Vec<T::AccountId>,
+        OptionQuery,
+    >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> (block_expected, new_coldkey) | Maps coldkey to the block to swap at and new coldkey.
     pub type ColdkeySwapScheduled<T: Config> = StorageMap<
