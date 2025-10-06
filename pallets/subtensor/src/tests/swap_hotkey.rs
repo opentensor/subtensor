@@ -1497,7 +1497,7 @@ fn test_swap_auto_stake_destination_coldkeys() {
         assert!(AutoStakeDestinationColdkeys::<Test>::get(old_hotkey, netuid).is_empty());
         assert_eq!(
             AutoStakeDestination::<Test>::get(coldkey, netuid),
-            new_hotkey
+            Some(new_hotkey)
         );
     });
 }

@@ -2645,11 +2645,11 @@ fn test_swap_auto_stake_destination_coldkeys() {
         assert!(!new_coldkeys.contains(&old_coldkey));
         assert_eq!(
             AutoStakeDestination::<Test>::try_get(old_coldkey, netuid),
-            None
+            Err(())
         );
         assert_eq!(
             AutoStakeDestination::<Test>::try_get(new_coldkey, netuid),
-            Some(hotkey)
+            Ok(hotkey)
         );
     });
 }
