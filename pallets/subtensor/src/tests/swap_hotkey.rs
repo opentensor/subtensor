@@ -1472,7 +1472,7 @@ fn test_swap_auto_stake_destination_coldkeys() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = NetUid::from(0u16);
+        let netuid = NetUid::from(2u16); // Can't be root
         let coldkeys = vec![U256::from(4), U256::from(5)];
         let mut weight = Weight::zero();
 
