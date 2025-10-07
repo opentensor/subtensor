@@ -153,7 +153,7 @@ fn test_coinbase_tao_issuance_different_prices() {
     new_test_ext(1).execute_with(|| {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
-        let emission = 100_000_000;
+        let emission = 1_000_000_000;
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
 
@@ -198,17 +198,17 @@ fn test_coinbase_tao_issuance_different_prices() {
         // Assert tao emission is split evenly.
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid1),
-            TaoCurrency::from(initial_tao + emission / 3),
+            TaoCurrency::from(initial_tao + 45 * emission / 100),
             epsilon = 1.into(),
         );
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid2),
-            TaoCurrency::from(initial_tao + 2 * emission / 3),
+            TaoCurrency::from(initial_tao + 55 * emission / 100),
             epsilon = 1.into(),
         );
 
         // Prices are low => we limit tao issued (buy alpha with it)
-        let tao_issued = TaoCurrency::from(((0.1 + 0.2) * emission as f64) as u64);
+        let tao_issued = TaoCurrency::from((emission as f64) as u64);
         assert_abs_diff_eq!(
             TotalIssuance::<Test>::get(),
             tao_issued,

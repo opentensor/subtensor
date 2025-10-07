@@ -40,7 +40,6 @@ impl<T: Config> Pallet<T> {
         let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
         let mut tao_to_stake = U96F32::saturating_from_num(0.0);
 
         // Only calculate for subnets that we are emitting to.
@@ -68,8 +67,9 @@ impl<T: Config> Pallet<T> {
 
             let mut alpha_in_i: U96F32;
             let mut tao_in_i: U96F32;
-            if default_alpha_in_i > alpha_emission_i {
-                alpha_in_i = alpha_emission_i;
+            let min_alpha_emission = alpha_emission_i.min(block_emission);
+            if default_alpha_in_i > min_alpha_emission {
+                alpha_in_i = min_alpha_emission;
                 tao_in_i = alpha_in_i.saturating_mul(price_i);
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
                 tao_to_stake = tao_to_stake.saturating_add(difference_tao);
@@ -101,20 +101,21 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(0.0),
         );
 
-        for netuid_i in subnets_to_emit_to.iter() {
-            let buy_swap_result = Self::swap_tao_for_alpha(
-                *netuid_i,
-                tou64!(amount_per_subnet).into(),
-                T::SwapInterface::max_price().into(),
-                true,
-            );
-            if let Ok(buy_swap_result_ok) = buy_swap_result {
-                let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_sub(bought_alpha);
-                });
+        if amount_per_subnet > asfloat!(0.0) {
+            for netuid_i in subnets_to_emit_to.iter() {
+                let buy_swap_result = Self::swap_tao_for_alpha(
+                    *netuid_i,
+                    tou64!(amount_per_subnet).into(),
+                    T::SwapInterface::max_price().into(),
+                    true,
+                );
+                if let Ok(buy_swap_result_ok) = buy_swap_result {
+                    let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
+                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
+                        *total = total.saturating_sub(bought_alpha);
+                    });
+                }
             }
-            is_subsidized.insert(*netuid_i, true);
         }
 
         log::debug!("tao_to_stake: {tao_to_stake:?}");
@@ -146,12 +147,10 @@ impl<T: Config> Pallet<T> {
             SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_i));
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tao_in_i.into());
-                *total = total.saturating_add(tou64!(amount_per_subnet).into());
             });
 
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_in_i.into());
-                *total = total.saturating_add(tou64!(amount_per_subnet).into());
             });
             TotalIssuance::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_in_i.into());
@@ -214,21 +213,18 @@ impl<T: Config> Pallet<T> {
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
             log::debug!("pending_alpha: {pending_alpha:?}");
             // Sell root emission through the pool (do not pay fees)
-            let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
-            if !subsidized {
-                let swap_result = Self::swap_alpha_for_tao(
-                    *netuid_i,
-                    tou64!(root_alpha).into(),
-                    T::SwapInterface::min_price(),
-                    true,
-                );
-                if let Ok(ok_result) = swap_result {
-                    let root_tao = ok_result.amount_paid_out;
-                    // Accumulate root divs for subnet.
-                    PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(root_tao);
-                    });
-                }
+            let swap_result = Self::swap_alpha_for_tao(
+                *netuid_i,
+                tou64!(root_alpha).into(),
+                T::SwapInterface::min_price().into(),
+                true,
+            );
+            if let Ok(ok_result) = swap_result {
+                let root_tao: u64 = ok_result.amount_paid_out;
+                // Accumulate root divs for subnet.
+                PendingRootDivs::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(root_tao.into());
+                });
             }
             // Accumulate alpha emission in pending.
             PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
