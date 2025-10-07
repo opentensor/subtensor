@@ -9,6 +9,7 @@ frame-support.workspace = true
 scale-info.workspace = true
 substrate-fixed.workspace = true
 subtensor-runtime-common.workspace = true
+subtensor-macros.workspace = true
 
 [lints]
 workspace = true

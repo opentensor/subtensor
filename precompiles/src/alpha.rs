@@ -7,7 +7,7 @@ use sp_core::U256;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{Currency, NetUid};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 use crate::PrecompileExt;
 
@@ -36,9 +36,7 @@ where
     #[precompile::view]
     fn get_alpha_price(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
         let price =
-            <pallet_subtensor_swap::Pallet<R> as SwapHandler<R::AccountId>>::current_alpha_price(
-                netuid.into(),
-            );
+            <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(netuid.into());
         let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
         let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
             .map(|amount| amount.into_u256())
@@ -104,16 +102,13 @@ where
         netuid: u16,
         tao: u64,
     ) -> EvmResult<U256> {
+        let order = pallet_subtensor::GetAlphaForTao::<R>::with_amount(tao);
         let swap_result =
-            <pallet_subtensor_swap::Pallet<R> as SwapHandler<R::AccountId>>::sim_swap(
-                netuid.into(),
-                OrderType::Buy,
-                tao,
-            )
-            .map_err(|e| PrecompileFailure::Error {
-                exit_status: ExitError::Other(Into::<&'static str>::into(e).into()),
-            })?;
-        Ok(U256::from(swap_result.amount_paid_out))
+            <pallet_subtensor_swap::Pallet<R> as SwapHandler>::sim_swap(netuid.into(), order)
+                .map_err(|e| PrecompileFailure::Error {
+                    exit_status: ExitError::Other(Into::<&'static str>::into(e).into()),
+                })?;
+        Ok(U256::from(swap_result.amount_paid_out.to_u64()))
     }
 
     #[precompile::public("simSwapAlphaForTao(uint16,uint64)")]
@@ -123,16 +118,13 @@ where
         netuid: u16,
         alpha: u64,
     ) -> EvmResult<U256> {
+        let order = pallet_subtensor::GetTaoForAlpha::<R>::with_amount(alpha);
         let swap_result =
-            <pallet_subtensor_swap::Pallet<R> as SwapHandler<R::AccountId>>::sim_swap(
-                netuid.into(),
-                OrderType::Sell,
-                alpha,
-            )
-            .map_err(|e| PrecompileFailure::Error {
-                exit_status: ExitError::Other(Into::<&'static str>::into(e).into()),
-            })?;
-        Ok(U256::from(swap_result.amount_paid_out))
+            <pallet_subtensor_swap::Pallet<R> as SwapHandler>::sim_swap(netuid.into(), order)
+                .map_err(|e| PrecompileFailure::Error {
+                    exit_status: ExitError::Other(Into::<&'static str>::into(e).into()),
+                })?;
+        Ok(U256::from(swap_result.amount_paid_out.to_u64()))
     }
 
     #[precompile::public("getSubnetMechanism(uint16)")]
@@ -201,8 +193,7 @@ where
 
         let mut sum_alpha_price: U96F32 = U96F32::from_num(0);
         for (netuid, _) in netuids {
-            let price =
-            <pallet_subtensor_swap::Pallet<R> as SwapHandler<R::AccountId>>::current_alpha_price(
+            let price = <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(
                 netuid.into(),
             );
 

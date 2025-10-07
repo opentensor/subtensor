@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{DispatchError, transaction_validity::TransactionValidityError};
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, NetUid, TaoCurrency};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -2141,17 +2141,48 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
     }
 }
 
-impl<T: Config + pallet_balances::Config<Balance = u64>>
-    subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
-{
-    fn tao_reserve(netuid: NetUid) -> TaoCurrency {
+#[derive(Clone)]
+pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
+
+impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
+    fn reserve(netuid: NetUid) -> TaoCurrency {
         SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
     }
 
-    fn alpha_reserve(netuid: NetUid) -> AlphaCurrency {
+    fn increase_provided(netuid: NetUid, tao: TaoCurrency) {
+        Pallet::<T>::increase_provided_tao_reserve(netuid, tao);
+    }
+
+    fn decrease_provided(netuid: NetUid, tao: TaoCurrency) {
+        Pallet::<T>::decrease_provided_tao_reserve(netuid, tao);
+    }
+}
+
+#[derive(Clone)]
+pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
+
+impl<T: Config> CurrencyReserve<AlphaCurrency> for AlphaCurrencyReserve<T> {
+    fn reserve(netuid: NetUid) -> AlphaCurrency {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
     }
 
+    fn increase_provided(netuid: NetUid, alpha: AlphaCurrency) {
+        Pallet::<T>::increase_provided_alpha_reserve(netuid, alpha);
+    }
+
+    fn decrease_provided(netuid: NetUid, alpha: AlphaCurrency) {
+        Pallet::<T>::decrease_provided_alpha_reserve(netuid, alpha);
+    }
+}
+
+pub type GetAlphaForTao<T> =
+    subtensor_swap_interface::GetAlphaForTao<TaoCurrencyReserve<T>, AlphaCurrencyReserve<T>>;
+pub type GetTaoForAlpha<T> =
+    subtensor_swap_interface::GetTaoForAlpha<AlphaCurrencyReserve<T>, TaoCurrencyReserve<T>>;
+
+impl<T: Config + pallet_balances::Config<Balance = u64>>
+    subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
+{
     fn exists(netuid: NetUid) -> bool {
         Self::if_subnet_exist(netuid)
     }
@@ -2247,22 +2278,6 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey, coldkey, netuid, alpha,
         ))
-    }
-
-    fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        Self::increase_provided_tao_reserve(netuid, tao);
-    }
-
-    fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        Self::decrease_provided_tao_reserve(netuid, tao);
-    }
-
-    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        Self::increase_provided_alpha_reserve(netuid, alpha);
-    }
-
-    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        Self::decrease_provided_alpha_reserve(netuid, alpha);
     }
 }
 

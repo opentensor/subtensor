@@ -227,7 +227,9 @@ macro_rules! impl_approx {
     };
 }
 
-pub trait Currency: ToFixed + Into<u64> + From<u64> + Clone + Copy {
+pub trait Currency:
+    ToFixed + Into<u64> + From<u64> + Clone + Copy + Eq + Ord + PartialEq + PartialOrd + Display
+{
     const MAX: Self;
     const ZERO: Self;
 

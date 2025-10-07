@@ -18000,6 +18000,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "substrate-fixed",
+ "subtensor-macros",
  "subtensor-runtime-common",
 ]
 

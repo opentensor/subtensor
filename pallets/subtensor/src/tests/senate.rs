@@ -723,12 +723,10 @@ fn test_adjust_senate_events() {
 
         let max_senate_size: u16 = SenateMaxMembers::get() as u16;
         let stake_threshold = {
-            let default_stake = DefaultMinStake::<Test>::get().to_u64();
-            let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
-                netuid,
-                default_stake.into(),
-            );
-            default_stake + fee
+            let default_stake = DefaultMinStake::<Test>::get();
+            let fee =
+                <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid, default_stake);
+            (default_stake + fee).to_u64()
         };
 
         // We will be registering MaxMembers hotkeys and two more to try a replace
