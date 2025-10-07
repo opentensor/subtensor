@@ -699,8 +699,8 @@ fn test_emission_single_validator_multiple_miners_varying_cuts() {
                 SubtensorModule::get_total_stake_for_coldkey(&validator_coldkey) - validator_before;
             let miners_emissions: Vec<_> = miner_coldkeys
                 .iter()
-                .enumerate()
-                .map(|(i, ck)| SubtensorModule::get_total_stake_for_coldkey(ck) - miners_before[i])
+                .zip(miners_before.iter())
+                .map(|(ck, before)| SubtensorModule::get_total_stake_for_coldkey(ck) - *before)
                 .collect();
 
             let total_miner_emission = miners_emissions.iter().fold(0.into(), |acc, e| acc + *e);
