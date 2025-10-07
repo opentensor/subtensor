@@ -691,7 +691,7 @@ impl<T: Config> Pallet<T> {
                     .saturating_mul(miner_rate)
                     .saturating_to_num::<u64>()
                     .into();
-                (hotkey.clone(), result.clone(), reward.clone())
+                (hotkey.clone(), result, *reward)
             })
             .collect();
 

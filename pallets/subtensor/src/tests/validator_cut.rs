@@ -626,7 +626,7 @@ fn test_emission_single_validator_multiple_miners_varying_cuts() {
         let validator_coldkey = U256::from(1);
         let validator_hotkey = U256::from(2);
         let miner_coldkeys = vec![U256::from(3), U256::from(5), U256::from(7), U256::from(9)];
-        let miner_hotkeys = vec![U256::from(4), U256::from(6), U256::from(8), U256::from(10)];
+        let miner_hotkeys = [U256::from(4), U256::from(6), U256::from(8), U256::from(10)];
         let netuid = NetUid::from(1);
         let subnet_tempo = 10;
         let stake = 100_000_000_000;
@@ -689,7 +689,7 @@ fn test_emission_single_validator_multiple_miners_varying_cuts() {
             let validator_before = SubtensorModule::get_total_stake_for_coldkey(&validator_coldkey);
             let miners_before: Vec<_> = miner_coldkeys
                 .iter()
-                .map(|ck| SubtensorModule::get_total_stake_for_coldkey(ck))
+                .map(SubtensorModule::get_total_stake_for_coldkey)
                 .collect();
 
             SubtensorModule::set_validator_cut(netuid, cut);
