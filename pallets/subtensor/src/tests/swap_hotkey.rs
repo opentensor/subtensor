@@ -1465,3 +1465,39 @@ fn test_swap_hotkey_swap_rate_limits() {
         );
     });
 }
+
+#[test]
+fn test_swap_auto_stake_destination_coldkeys() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = NetUid::from(2u16); // Can't be root
+        let coldkeys = vec![U256::from(4), U256::from(5), coldkey];
+        let mut weight = Weight::zero();
+
+        // Initialize ChildKeys for old_hotkey
+        add_network(netuid, 1, 0);
+        AutoStakeDestinationColdkeys::<Test>::insert(old_hotkey, netuid, coldkeys.clone());
+        AutoStakeDestination::<Test>::insert(coldkey, netuid, old_hotkey);
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
+
+        // Verify the swap
+        assert_eq!(
+            AutoStakeDestinationColdkeys::<Test>::get(new_hotkey, netuid),
+            coldkeys
+        );
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(old_hotkey, netuid).is_empty());
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(coldkey, netuid),
+            Some(new_hotkey)
+        );
+    });
+}

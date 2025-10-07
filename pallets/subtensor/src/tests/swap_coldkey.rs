@@ -2619,3 +2619,37 @@ fn test_coldkey_in_swap_schedule_prevents_critical_calls() {
         );
     });
 }
+
+#[test]
+fn test_swap_auto_stake_destination_coldkeys() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let netuid = NetUid::from(1u16);
+        let coldkeys = vec![U256::from(4), U256::from(5), old_coldkey];
+
+        add_network(netuid, 1, 0);
+        AutoStakeDestinationColdkeys::<Test>::insert(hotkey, netuid, coldkeys.clone());
+        AutoStakeDestination::<Test>::insert(old_coldkey, netuid, hotkey);
+
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            &mut weight
+        ));
+
+        let new_coldkeys = AutoStakeDestinationColdkeys::<Test>::get(hotkey, netuid);
+        assert!(new_coldkeys.contains(&new_coldkey));
+        assert!(!new_coldkeys.contains(&old_coldkey));
+        assert_eq!(
+            AutoStakeDestination::<Test>::try_get(old_coldkey, netuid),
+            Err(())
+        );
+        assert_eq!(
+            AutoStakeDestination::<Test>::try_get(new_coldkey, netuid),
+            Ok(hotkey)
+        );
+    });
+}

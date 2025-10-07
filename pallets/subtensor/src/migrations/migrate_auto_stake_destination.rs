@@ -57,6 +57,11 @@ pub fn migrate_auto_stake_destination<T: Config>() -> Weight {
                     continue;
                 }
                 AutoStakeDestination::<T>::insert(coldkey, netuid, hotkey.clone());
+                AutoStakeDestinationColdkeys::<T>::mutate(hotkey.clone(), netuid, |v| {
+                    if !v.contains(coldkey) {
+                        v.push(coldkey.clone());
+                    }
+                });
             }
 
             old::AutoStakeDestination::<T>::remove(coldkey);
