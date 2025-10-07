@@ -2,7 +2,6 @@ use super::*;
 use sp_core::Get;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
-
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
     ///

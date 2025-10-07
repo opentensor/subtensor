@@ -94,7 +94,6 @@ impl pallet_commitments::CanCommit<u64> for TestCanCommit {
 }
 
 impl pallet_commitments::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = ();
     type MaxFields = TestMaxFields;
@@ -118,7 +117,6 @@ impl pallet_commitments::GetTempoInterface for MockTempoInterface {
 }
 
 impl pallet_drand::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = test_crypto::TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -172,7 +170,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_inherent(call)
     }
 }

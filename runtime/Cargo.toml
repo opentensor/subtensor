@@ -38,7 +38,7 @@ frame-system = { workspace = true }
 frame-try-runtime = { workspace = true, optional = true }
 pallet-timestamp.workspace = true
 pallet-transaction-payment.workspace = true
-pallet-utility.workspace = true
+pallet-subtensor-utility.workspace = true
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
 sp-api.workspace = true
@@ -65,14 +65,14 @@ pallet-sudo.workspace = true
 pallet-admin-utils.workspace = true
 
 # Used for sudo decentralization
-pallet-collective.workspace = true
+pallet-subtensor-collective.workspace = true
 pallet-membership.workspace = true
 
 # Multisig
 pallet-multisig.workspace = true
 
 # Proxy Pallet
-pallet-proxy.workspace = true
+pallet-subtensor-proxy.workspace = true
 
 # Scheduler pallet
 pallet-scheduler.workspace = true
@@ -148,6 +148,8 @@ ark-serialize = { workspace = true, features = ["derive"] }
 # Crowdloan
 pallet-crowdloan.workspace = true
 
+ethereum.workspace = true
+
 [dev-dependencies]
 frame-metadata.workspace = true
 sp-io.workspace = true
@@ -184,10 +186,10 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
-	"pallet-utility/std",
+	"pallet-subtensor-utility/std",
 	"pallet-sudo/std",
 	"pallet-multisig/std",
-	"pallet-proxy/std",
+	"pallet-subtensor-proxy/std",
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
 	"pallet-commitments/std",
@@ -203,7 +205,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"pallet-collective/std",
+	"pallet-subtensor-collective/std",
 	"pallet-membership/std",
 	"pallet-registry/std",
 	"pallet-admin-utils/std",
@@ -267,6 +269,7 @@ std = [
 	"pallet-subtensor-swap/std",
 	"pallet-subtensor-swap-runtime-api/std",
 	"subtensor-swap-interface/std",
+	"ethereum/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -276,13 +279,13 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
+	"pallet-subtensor-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-safe-mode/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
+	"pallet-subtensor-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
+	"pallet-subtensor-proxy/runtime-benchmarks",
 	"pallet-registry/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-admin-utils/runtime-benchmarks",
@@ -325,12 +328,12 @@ try-runtime = [
 	"pallet-insecure-randomness-collective-flip/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"pallet-utility/try-runtime",
+	"pallet-subtensor-utility/try-runtime",
 	"pallet-safe-mode/try-runtime",
 	"pallet-subtensor/try-runtime",
-	"pallet-collective/try-runtime",
+	"pallet-subtensor-collective/try-runtime",
 	"pallet-membership/try-runtime",
-	"pallet-proxy/try-runtime",
+	"pallet-subtensor-proxy/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-preimage/try-runtime",

@@ -7,7 +7,7 @@ use sp_core::U256;
 use sp_std::collections::btree_map::BTreeMap;
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 #[test]
 fn test_registration_ok() {
@@ -71,6 +71,10 @@ fn dissolve_refunds_full_lock_cost_when_no_emission() {
         let hot = U256::from(4);
         let net = add_dynamic_network(&hot, &cold);
 
+        // Mark this subnet as *legacy* so owner refund path is enabled.
+        let reg_at = NetworkRegisteredAt::<Test>::get(net);
+        NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
+
         let lock: TaoCurrency = TaoCurrency::from(1_000_000);
         SubtensorModule::set_subnet_locked_balance(net, lock);
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(0));
@@ -126,6 +130,10 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         let oh = U256::from(51);
         let net = add_dynamic_network(&oh, &oc);
 
+        // Mark this subnet as *legacy* so owner refund path is enabled.
+        let reg_at = NetworkRegisteredAt::<Test>::get(net);
+        NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
+
         let (s1_hot, s1_cold, a1) = (U256::from(201), U256::from(301), 300u128);
         let (s2_hot, s2_cold, a2) = (U256::from(202), U256::from(302), 700u128);
 
@@ -134,7 +142,7 @@ fn dissolve_two_stakers_pro_rata_distribution() {
 
         let pot: u64 = 10_000;
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(pot));
-        SubtensorModule::set_subnet_locked_balance(net, 5_000.into()); // owner refund path present but emission = 0
+        SubtensorModule::set_subnet_locked_balance(net, 5_000.into()); // owner refund path present; emission = 0
 
         // Cold-key balances before
         let s1_before = SubtensorModule::get_coldkey_balance(&s1_cold);
@@ -198,6 +206,10 @@ fn dissolve_owner_cut_refund_logic() {
         let oc = U256::from(70);
         let oh = U256::from(71);
         let net = add_dynamic_network(&oh, &oc);
+
+        // Mark this subnet as *legacy* so owner refund path is enabled.
+        let reg_at = NetworkRegisteredAt::<Test>::get(net);
+        NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
 
         // One staker and a TAO pot (not relevant to refund amount).
         let sh = U256::from(77);
@@ -683,6 +695,10 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         let owner_hot = U256::from(20);
         let netuid = add_dynamic_network(&owner_hot, &owner_cold);
 
+        // Mark this subnet as *legacy* so owner refund path is enabled.
+        let reg_at = NetworkRegisteredAt::<Test>::get(netuid);
+        NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
+
         // 2. Two stakers on that subnet
         let (c1, h1) = (U256::from(111), U256::from(211));
         let (c2, h2) = (U256::from(222), U256::from(333));
@@ -779,14 +795,18 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         SubtensorModule::set_max_registrations_per_block(netuid, 1_000u16);
         SubtensorModule::set_target_registrations_per_interval(netuid, 1_000u16);
 
+        // Mark this subnet as *legacy* so owner refund path is enabled.
+        let reg_at = NetworkRegisteredAt::<Test>::get(netuid);
+        NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
+
         // Runtime-exact min amount = min_stake + fee
         let min_amount = {
             let min_stake = DefaultMinStake::<Test>::get();
             let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
                 netuid.into(),
-                min_stake.into(),
+                min_stake,
             );
-            min_stake.saturating_add(fee.into())
+            min_stake.saturating_add(fee)
         };
 
         const N: usize = 20;
@@ -869,23 +889,22 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             .floor()
             .saturating_to_num::<u64>();
 
-        let owner_emission_tao_u64: u64 = <Test as pallet::Config>::SwapInterface::sim_swap(
-            netuid.into(),
-            OrderType::Sell,
-            owner_alpha_u64,
-        )
-        .map(|res| res.amount_paid_out)
-        .unwrap_or_else(|_| {
-            // Fallback matches the pallet's fallback
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
-            U96F32::from_num(owner_alpha_u64)
-                .saturating_mul(price)
-                .floor()
-                .saturating_to_num::<u64>()
-        });
+        let order = GetTaoForAlpha::<Test>::with_amount(owner_alpha_u64);
+        let owner_emission_tao =
+            <Test as pallet::Config>::SwapInterface::sim_swap(netuid.into(), order)
+                .map(|res| res.amount_paid_out)
+                .unwrap_or_else(|_| {
+                    // Fallback matches the pallet's fallback
+                    let price: U96F32 =
+                        <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+                    U96F32::from_num(owner_alpha_u64)
+                        .saturating_mul(price)
+                        .floor()
+                        .saturating_to_num::<u64>()
+                        .into()
+                });
 
-        let expected_refund: u64 = lock.saturating_sub(owner_emission_tao_u64);
+        let expected_refund = lock.saturating_sub(owner_emission_tao.to_u64());
 
         // ── 6) run distribution (credits τ to coldkeys, wipes α state) ─────
         assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
@@ -911,6 +930,139 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid), 0.into());
         assert_eq!(SubnetAlphaOut::<Test>::get(netuid), 0.into());
         assert_eq!(SubtensorModule::get_subnet_locked_balance(netuid), 0.into());
+    });
+}
+
+#[test]
+fn destroy_alpha_out_refund_gating_by_registration_block() {
+    // ──────────────────────────────────────────────────────────────────────
+    // Case A: LEGACY subnet → refund applied
+    // ──────────────────────────────────────────────────────────────────────
+    new_test_ext(0).execute_with(|| {
+        // Owner + subnet
+        let owner_cold = U256::from(10_000);
+        let owner_hot = U256::from(20_000);
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+
+        // Mark as *legacy*: registered_at < start_block
+        let reg_at = NetworkRegisteredAt::<Test>::get(netuid);
+        NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
+
+        // Lock and (nonzero) emissions
+        let lock_u64: u64 = 50_000;
+        SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(lock_u64));
+        Emission::<Test>::insert(
+            netuid,
+            vec![AlphaCurrency::from(1_500u64), AlphaCurrency::from(3_000u64)], // total 4_500 α
+        );
+        // Owner cut ≈ 50%
+        SubnetOwnerCut::<Test>::put(32_768u16);
+
+        // Compute expected refund using the same math as the pallet
+        let frac: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let total_emitted_alpha: u64 = 1_500 + 3_000; // 4_500 α
+        let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha)
+            .saturating_mul(frac)
+            .floor()
+            .saturating_to_num::<u64>();
+
+        // Prefer sim_swap; fall back to current price if unavailable.
+        let order = GetTaoForAlpha::<Test>::with_amount(owner_alpha_u64);
+        let owner_emission_tao_u64 =
+            <Test as pallet::Config>::SwapInterface::sim_swap(netuid.into(), order)
+                .map(|res| res.amount_paid_out.to_u64())
+                .unwrap_or_else(|_| {
+                    let price: U96F32 =
+                        <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+                    U96F32::from_num(owner_alpha_u64)
+                        .saturating_mul(price)
+                        .floor()
+                        .saturating_to_num::<u64>()
+                });
+
+        let expected_refund: u64 = lock_u64.saturating_sub(owner_emission_tao_u64);
+
+        // Balances before
+        let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
+
+        // Run the path under test
+        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+
+        // Owner received their refund…
+        let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
+        assert_eq!(owner_after, owner_before + expected_refund);
+
+        // …and the lock is always cleared to zero by destroy_alpha_in_out_stakes.
+        assert_eq!(
+            SubtensorModule::get_subnet_locked_balance(netuid),
+            TaoCurrency::from(0u64)
+        );
+    });
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Case B: NON‑LEGACY subnet → NO refund;
+    // ──────────────────────────────────────────────────────────────────────
+    new_test_ext(0).execute_with(|| {
+        // Owner + subnet
+        let owner_cold = U256::from(1_111);
+        let owner_hot = U256::from(2_222);
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+
+        // Explicitly set start_block <= registered_at to make it non‑legacy.
+        let reg_at = NetworkRegisteredAt::<Test>::get(netuid);
+        NetworkRegistrationStartBlock::<Test>::put(reg_at);
+
+        // Lock and emissions present (should be ignored for refund)
+        let lock_u64: u64 = 42_000;
+        SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(lock_u64));
+        Emission::<Test>::insert(netuid, vec![AlphaCurrency::from(5_000u64)]);
+        SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
+
+        // Balances before
+        let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
+
+        // Run the path under test
+        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+
+        // No refund for non‑legacy
+        let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
+        assert_eq!(owner_after, owner_before);
+
+        // Lock is still cleared to zero by the routine
+        assert_eq!(
+            SubtensorModule::get_subnet_locked_balance(netuid),
+            TaoCurrency::from(0u64)
+        );
+    });
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Case C: LEGACY subnet but lock = 0 → no refund;
+    // ──────────────────────────────────────────────────────────────────────
+    new_test_ext(0).execute_with(|| {
+        // Owner + subnet
+        let owner_cold = U256::from(9_999);
+        let owner_hot = U256::from(8_888);
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+
+        // Mark as *legacy*
+        let reg_at = NetworkRegisteredAt::<Test>::get(netuid);
+        NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
+
+        // lock = 0; emissions present (must not matter)
+        SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(0u64));
+        Emission::<Test>::insert(netuid, vec![AlphaCurrency::from(10_000u64)]);
+        SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
+
+        let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
+        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
+
+        // No refund possible when lock = 0
+        assert_eq!(owner_after, owner_before);
+        assert_eq!(
+            SubtensorModule::get_subnet_locked_balance(netuid),
+            TaoCurrency::from(0u64)
+        );
     });
 }
 
@@ -1979,19 +2131,17 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         pallet_subtensor_swap::AlphaSqrtPrice::<Test>::set(net_new, sqrt1);
 
         // Compute the exact min stake per the pallet rule: DefaultMinStake + fee(DefaultMinStake).
-        let min_stake_u64: u64 = DefaultMinStake::<Test>::get().into();
-        let fee_for_min: u64 = pallet_subtensor_swap::Pallet::<Test>::sim_swap(
+        let min_stake = DefaultMinStake::<Test>::get();
+		let order = GetAlphaForTao::<Test>::with_amount(min_stake);
+        let fee_for_min = pallet_subtensor_swap::Pallet::<Test>::sim_swap(
             net_new,
-            subtensor_swap_interface::OrderType::Buy,
-            min_stake_u64,
+			order,
         )
         .map(|r| r.fee_paid)
         .unwrap_or_else(|_e| {
-            <pallet_subtensor_swap::Pallet<Test> as subtensor_swap_interface::SwapHandler<
-                <Test as frame_system::Config>::AccountId,
-            >>::approx_fee_amount(net_new, min_stake_u64)
+            <pallet_subtensor_swap::Pallet<Test> as subtensor_swap_interface::SwapHandler>::approx_fee_amount(net_new, min_stake)
         });
-        let min_amount_required: u64 = min_stake_u64.saturating_add(fee_for_min);
+        let min_amount_required = min_stake.saturating_add(fee_for_min).to_u64();
 
         // Re‑stake from three coldkeys; choose a specific DISTINCT hotkey per cold.
         for &cold in &cold_lps[0..3] {
@@ -2002,10 +2152,10 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             let a_prev: u64 = Alpha::<Test>::get((hot1, cold, net_new)).saturating_to_num();
 
             // Expected α for this exact τ, using the same sim path as the pallet.
-            let expected_alpha_out: u64 = pallet_subtensor_swap::Pallet::<Test>::sim_swap(
+			let order = GetAlphaForTao::<Test>::with_amount(min_amount_required);
+            let expected_alpha_out = pallet_subtensor_swap::Pallet::<Test>::sim_swap(
                 net_new,
-                subtensor_swap_interface::OrderType::Buy,
-                min_amount_required,
+				order,
             )
             .map(|r| r.amount_paid_out)
             .expect("sim_swap must succeed for fresh net and min amount");
@@ -2030,7 +2180,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
 
             // α minted equals the simulated swap’s net out for that same τ.
             assert_eq!(
-                a_delta, expected_alpha_out,
+                a_delta, expected_alpha_out.to_u64(),
                 "α minted mismatch for cold {cold:?} (hot {hot1:?}) on new net (αΔ {a_delta}, expected {expected_alpha_out})"
             );
         }

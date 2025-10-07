@@ -197,6 +197,7 @@ pub enum Hyperparameter {
     BondsResetEnabled = 22,
     ImmuneNeuronLimit = 23,
     RecycleOrBurn = 24,
+    MaxAllowedUids = 25,
 }
 
 impl<T: Config> Pallet<T> {
