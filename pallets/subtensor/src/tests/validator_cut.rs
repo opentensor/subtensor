@@ -640,8 +640,8 @@ fn test_emission_single_validator_multiple_miners_varying_cuts() {
         RegistrationsThisInterval::<Test>::set(netuid, 0);
         RegistrationsThisBlock::<Test>::set(netuid, 0);
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
-        for i in 0..4 {
-            register_ok_neuron(netuid, miner_hotkeys[i], miner_coldkeys[i], (i + 1) as u64);
+        for (i, (hotkey, coldkey)) in miner_hotkeys.iter().zip(miner_coldkeys.iter()).enumerate() {
+            register_ok_neuron(netuid, *hotkey, *coldkey, (i + 1) as u64);
         }
 
         // Add balance
