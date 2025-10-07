@@ -2729,13 +2729,13 @@ fn test_max_amount_add_root() {
         // 0 price on root => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_add(NetUid::ROOT, TaoCurrency::ZERO),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
 
         // 0.999999... price on root => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_add(NetUid::ROOT, TaoCurrency::from(999_999_999)),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
 
         // 1.0 price on root => max is u64::MAX
@@ -2767,13 +2767,13 @@ fn test_max_amount_add_stable() {
         // 0 price => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_add(netuid, TaoCurrency::ZERO),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
 
         // 0.999999... price => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_add(netuid, TaoCurrency::from(999_999_999)),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
 
         // 1.0 price => max is u64::MAX
@@ -2806,7 +2806,9 @@ fn test_max_amount_add_dynamic() {
             1_000_000_000,
             1_000_000_000,
             0,
-            Err(Error::<Test>::ZeroMaxStakeAmount),
+            Err(DispatchError::from(
+                pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+            )),
         ),
         // Low bounds
         (100, 100, 1_100_000_000, Ok(4)),
@@ -2827,25 +2829,33 @@ fn test_max_amount_add_dynamic() {
             150_000_000_000,
             100_000_000_000,
             0,
-            Err(Error::<Test>::ZeroMaxStakeAmount),
+            Err(DispatchError::from(
+                pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+            )),
         ),
         (
             150_000_000_000,
             100_000_000_000,
             100_000_000,
-            Err(Error::<Test>::ZeroMaxStakeAmount),
+            Err(DispatchError::from(
+                pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+            )),
         ),
         (
             150_000_000_000,
             100_000_000_000,
             500_000_000,
-            Err(Error::<Test>::ZeroMaxStakeAmount),
+            Err(DispatchError::from(
+                pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+            )),
         ),
         (
             150_000_000_000,
             100_000_000_000,
             1_499_999_999,
-            Err(Error::<Test>::ZeroMaxStakeAmount),
+            Err(DispatchError::from(
+                pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+            )),
         ),
         (150_000_000_000, 100_000_000_000, 1_500_000_000, Ok(5)),
         (150_000_000_000, 100_000_000_000, 1_500_000_001, Ok(51)),
@@ -2934,13 +2944,13 @@ fn test_max_amount_remove_root() {
         // 1.000...001 price on root => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_remove(NetUid::ROOT, TaoCurrency::from(1_000_000_001)),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
 
         // 2.0 price on root => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_remove(NetUid::ROOT, TaoCurrency::from(2_000_000_000)),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
     });
 }
@@ -2972,13 +2982,13 @@ fn test_max_amount_remove_stable() {
         // 1.000...001 price => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_remove(netuid, TaoCurrency::from(1_000_000_001)),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
 
         // 2.0 price => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_remove(netuid, TaoCurrency::from(2_000_000_000)),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
     });
 }
@@ -2998,13 +3008,17 @@ fn test_max_amount_remove_dynamic() {
                 0,
                 1_000_000_000,
                 100,
-                Err(Error::<Test>::ZeroMaxStakeAmount),
+                Err(DispatchError::from(
+                    pallet_subtensor_swap::Error::<Test>::ReservesTooLow,
+                )),
             ),
             (
                 1_000_000_000,
                 0,
                 100,
-                Err(Error::<Test>::ZeroMaxStakeAmount),
+                Err(DispatchError::from(
+                    pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+                )),
             ),
             (10_000_000_000, 10_000_000_000, 0, Ok(u64::MAX)),
             // Low bounds (numbers are empirical, it is only important that result
@@ -3043,13 +3057,17 @@ fn test_max_amount_remove_dynamic() {
                 200_000_000_000,
                 100_000_000_000,
                 2_000_000_000,
-                Err(Error::<Test>::ZeroMaxStakeAmount),
+                Err(DispatchError::from(
+                    pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+                )),
             ),
             (
                 200_000_000_000,
                 100_000_000_000,
                 2_000_000_001,
-                Err(Error::<Test>::ZeroMaxStakeAmount),
+                Err(DispatchError::from(
+                    pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+                )),
             ),
             (200_000_000_000, 100_000_000_000, 1_999_999_999, Ok(24)),
             (200_000_000_000, 100_000_000_000, 1_999_999_990, Ok(252)),
@@ -3065,7 +3083,9 @@ fn test_max_amount_remove_dynamic() {
                 21_000_000_000_000_000,
                 1_000_000_000_000_000_000,
                 u64::MAX,
-                Err(Error::<Test>::ZeroMaxStakeAmount),
+                Err(DispatchError::from(
+                    pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+                )),
             ),
             (
                 21_000_000_000_000_000,
@@ -3086,39 +3106,36 @@ fn test_max_amount_remove_dynamic() {
                 Ok(u64::MAX),
             ),
         ]
-        .iter()
-        .for_each(
-            |&(tao_in, alpha_in, limit_price, ref expected_max_swappable)| {
-                let alpha_in = AlphaCurrency::from(alpha_in);
-                // Forse-set alpha in and tao reserve to achieve relative price of subnets
-                SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(tao_in));
-                SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+        .into_iter()
+        .for_each(|(tao_in, alpha_in, limit_price, expected_max_swappable)| {
+            let alpha_in = AlphaCurrency::from(alpha_in);
+            // Forse-set alpha in and tao reserve to achieve relative price of subnets
+            SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(tao_in));
+            SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
-                if !alpha_in.is_zero() {
-                    let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
-                    assert_eq!(
-                        <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
-                        expected_price
+            if !alpha_in.is_zero() {
+                let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
+                assert_eq!(
+                    <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+                    expected_price
+                );
+            }
+
+            match expected_max_swappable {
+                Err(e) => assert_err!(
+                    SubtensorModule::get_max_amount_remove(netuid, limit_price.into()),
+                    DispatchError::from(e)
+                ),
+                Ok(v) => {
+                    let v = AlphaCurrency::from(v);
+                    assert_abs_diff_eq!(
+                        SubtensorModule::get_max_amount_remove(netuid, limit_price.into()).unwrap(),
+                        v,
+                        epsilon = v / 100.into()
                     );
                 }
-
-                match expected_max_swappable {
-                    Err(_) => assert_err!(
-                        SubtensorModule::get_max_amount_remove(netuid, limit_price.into()),
-                        Error::<Test>::ZeroMaxStakeAmount
-                    ),
-                    Ok(v) => {
-                        let v = AlphaCurrency::from(*v);
-                        assert_abs_diff_eq!(
-                            SubtensorModule::get_max_amount_remove(netuid, limit_price.into())
-                                .unwrap(),
-                            v,
-                            epsilon = v / 100.into()
-                        );
-                    }
-                }
-            },
-        );
+            }
+        });
     });
 }
 
@@ -3169,7 +3186,7 @@ fn test_max_amount_move_root_root() {
                 NetUid::ROOT,
                 TaoCurrency::from(1_000_000_001)
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
 
         // 2.0 price on (root, root) => max is 0
@@ -3179,7 +3196,7 @@ fn test_max_amount_move_root_root() {
                 NetUid::ROOT,
                 TaoCurrency::from(2_000_000_000)
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
     });
 }
@@ -3234,7 +3251,7 @@ fn test_max_amount_move_root_stable() {
                 netuid,
                 TaoCurrency::from(1_000_000_001)
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
 
         // 2.0 price on (root, stable) => max is 0
@@ -3244,7 +3261,7 @@ fn test_max_amount_move_root_stable() {
                 netuid,
                 TaoCurrency::from(2_000_000_000)
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
     });
 }
@@ -3286,7 +3303,7 @@ fn test_max_amount_move_stable_dynamic() {
                 dynamic_netuid,
                 TaoCurrency::from(2_000_000_000)
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(Error::<Test>::ZeroMaxStakeAmount.into())
         );
 
         // 3.0 price => max is 0
@@ -3296,7 +3313,7 @@ fn test_max_amount_move_stable_dynamic() {
                 dynamic_netuid,
                 TaoCurrency::from(3_000_000_000)
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded.into())
         );
 
         // 2x price => max is 1x TAO
@@ -3328,7 +3345,7 @@ fn test_max_amount_move_stable_dynamic() {
         // Max price doesn't panic and returns something meaningful
         assert_eq!(
             SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, TaoCurrency::MAX),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded.into())
         );
         assert_eq!(
             SubtensorModule::get_max_amount_move(
@@ -3336,7 +3353,7 @@ fn test_max_amount_move_stable_dynamic() {
                 dynamic_netuid,
                 TaoCurrency::MAX - 1.into()
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded.into())
         );
         assert_eq!(
             SubtensorModule::get_max_amount_move(
@@ -3344,7 +3361,7 @@ fn test_max_amount_move_stable_dynamic() {
                 dynamic_netuid,
                 TaoCurrency::MAX / 2.into()
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded.into())
         );
     });
 }
@@ -3400,7 +3417,7 @@ fn test_max_amount_move_dynamic_stable() {
                 stable_netuid,
                 1_500_000_001.into()
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount)
+            Err(pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded.into())
         );
 
         // 1.5 price => max is 0 because of non-zero slippage
@@ -3853,7 +3870,7 @@ fn test_add_stake_limit_partial_zero_max_stake_amount_error() {
                 limit_price,
                 true
             ),
-            Error::<Test>::ZeroMaxStakeAmount
+            DispatchError::from(pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded)
         );
     });
 }
@@ -4652,7 +4669,7 @@ fn test_stake_into_subnet_prohibitive_limit() {
                 TaoCurrency::ZERO,
                 true,
             ),
-            Error::<Test>::ZeroMaxStakeAmount
+            DispatchError::from(pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded)
         );
 
         // Check if stake has NOT increased
@@ -4725,7 +4742,7 @@ fn test_unstake_from_subnet_prohibitive_limit() {
                 TaoCurrency::MAX,
                 true,
             ),
-            Error::<Test>::ZeroMaxStakeAmount
+            DispatchError::from(pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded)
         );
 
         // Check if stake has NOT decreased

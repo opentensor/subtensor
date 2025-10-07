@@ -180,7 +180,10 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_add(netuid: NetUid, limit_price: TaoCurrency) -> Result<u64, Error<T>> {
+    pub fn get_max_amount_add(
+        netuid: NetUid,
+        limit_price: TaoCurrency,
+    ) -> Result<u64, DispatchError> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // higher, then max_amount equals u64::MAX, otherwise it is 0.
@@ -188,20 +191,19 @@ impl<T: Config> Pallet<T> {
             if limit_price >= 1_000_000_000.into() {
                 return Ok(u64::MAX);
             } else {
-                return Err(Error::ZeroMaxStakeAmount);
+                return Err(Error::<T>::ZeroMaxStakeAmount.into());
             }
         }
 
         // Use reverting swap to estimate max limit amount
         let order = GetAlphaForTao::<T>::with_amount(u64::MAX);
         let result = T::SwapInterface::swap(netuid.into(), order, limit_price, false, true)
-            .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
-            .map_err(|_| Error::ZeroMaxStakeAmount)?;
+            .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))?;
 
         if !result.is_zero() {
             Ok(result.into())
         } else {
-            Err(Error::ZeroMaxStakeAmount)
+            Err(Error::<T>::ZeroMaxStakeAmount.into())
         }
     }
 }
