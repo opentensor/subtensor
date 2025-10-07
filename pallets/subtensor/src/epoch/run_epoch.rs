@@ -1553,13 +1553,8 @@ impl<T: Config> Pallet<T> {
         alpha_low: u16,
         alpha_high: u16,
     ) -> Result<(), DispatchError> {
-        // --- 1. Ensure the function caller is a signed user.
-        ensure_signed(origin.clone())?;
-
-        // --- 2. Ensure the function caller is the subnet owner or root.
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-        // --- 3. Ensure liquid alpha is enabled
         ensure!(
             Self::get_liquid_alpha_enabled(netuid),
             Error::<T>::LiquidAlphaDisabled
@@ -1569,10 +1564,8 @@ impl<T: Config> Pallet<T> {
         let min_alpha_low: u16 = (max_u16.safe_div(40)) as u16; // 1638
         let min_alpha_high: u16 = min_alpha_low;
 
-        // --- 4. Ensure alpha high is greater than the minimum
         ensure!(alpha_high >= min_alpha_high, Error::<T>::AlphaHighTooLow);
 
-        // -- 5. Ensure alpha low is within range
         ensure!(
             alpha_low >= min_alpha_low && alpha_low <= alpha_high,
             Error::<T>::AlphaLowOutOfRange

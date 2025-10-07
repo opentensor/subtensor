@@ -1140,9 +1140,26 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
-    #[pallet::storage] // --- MAP ( cold ) --> hot | Returns the hotkey a coldkey will autostake to with mining rewards.
-    pub type AutoStakeDestination<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, OptionQuery>;
+    #[pallet::storage] // --- DMAP ( cold, netuid )--> hot | Returns the hotkey a coldkey will autostake to with mining rewards.
+    pub type AutoStakeDestination<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        NetUid,
+        T::AccountId,
+        OptionQuery,
+    >;
+    #[pallet::storage] // --- DMAP ( hot, netuid )--> Vec<cold> | Returns a list of coldkeys that are autostaking to a hotkey.
+    pub type AutoStakeDestinationColdkeys<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        NetUid,
+        Vec<T::AccountId>,
+        ValueQuery,
+    >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> (block_expected, new_coldkey) | Maps coldkey to the block to swap at and new coldkey.
     pub type ColdkeySwapScheduled<T: Config> = StorageMap<
