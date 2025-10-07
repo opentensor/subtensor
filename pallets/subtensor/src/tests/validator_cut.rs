@@ -811,10 +811,8 @@ fn test_emission_all_validator_miners_varying_cuts() {
 
             let emissions: Vec<_> = participants
                 .iter()
-                .enumerate()
-                .map(|(i, (ck, _))| {
-                    SubtensorModule::get_total_stake_for_coldkey(ck) - stakes_before[i]
-                })
+                .zip(stakes_before.iter())
+                .map(|((ck, _), before)| SubtensorModule::get_total_stake_for_coldkey(ck) - *before)
                 .collect();
 
             let total_emission: u64 = emissions.iter().map(|e| e.to_u64()).sum();
