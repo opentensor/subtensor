@@ -54,7 +54,6 @@ impl pallet_balances::Config for Test {
 }
 
 impl pallet_utility::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
@@ -121,7 +120,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = ProxyType;

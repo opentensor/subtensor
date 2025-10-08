@@ -152,6 +152,8 @@ ark-serialize = { workspace = true, features = ["derive"] }
 # Crowdloan
 pallet-crowdloan.workspace = true
 
+ethereum.workspace = true
+
 [dev-dependencies]
 frame-metadata.workspace = true
 sp-io.workspace = true
@@ -272,6 +274,7 @@ std = [
 	"pallet-subtensor-swap-runtime-api/std",
 	"subtensor-swap-interface/std",
 	"pallet-contracts/std",
+	"ethereum/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

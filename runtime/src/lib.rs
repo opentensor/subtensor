@@ -18,6 +18,7 @@ pub mod transaction_payment_wrapper;
 extern crate alloc;
 
 use codec::{Compact, Decode, Encode};
+use ethereum::AuthorizationList;
 use frame_support::{
     PalletId,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -68,7 +69,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -108,7 +109,6 @@ use pallet_evm::{
 
 // Drand
 impl pallet_drand::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = pallet_drand::crypto::TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -128,8 +128,8 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl frame_system::offchain::CreateInherent<pallet_drand::Call<Runtime>> for Runtime {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+impl frame_system::offchain::CreateBare<pallet_drand::Call<Runtime>> for Runtime {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_bare(call)
     }
 }
@@ -224,7 +224,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 322,
+    spec_version: 326,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -396,7 +396,6 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 impl pallet_utility::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
@@ -591,7 +590,6 @@ type TriumvirateCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TriumvirateCollective> for Runtime {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = GetSenateMemberCount;
@@ -903,7 +901,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 }
 
 impl pallet_proxy::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = ProxyType;
@@ -1051,7 +1048,6 @@ parameter_types! {
 }
 
 impl pallet_registry::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeHoldReason = RuntimeHoldReason;
     type Currency = Balances;
     type CanRegister = AllowIdentityReg;
@@ -1115,7 +1111,6 @@ impl GetCommitments<AccountId> for GetCommitmentsStruct {
 }
 
 impl pallet_commitments::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = pallet_commitments::weights::SubstrateWeight<Runtime>;
 
@@ -1220,7 +1215,6 @@ parameter_types! {
 }
 
 impl pallet_subtensor::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
@@ -1309,10 +1303,11 @@ parameter_types! {
 }
 
 impl pallet_subtensor_swap::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
+    type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
+    type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -1343,7 +1338,6 @@ impl pallet_admin_utils::GrandpaInterface<Runtime> for GrandpaInterfaceImpl {
 }
 
 impl pallet_admin_utils::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AuraId;
     type MaxAuthorities = ConstU32<32>;
     type Aura = AuraPalletIntrf;
@@ -1463,7 +1457,6 @@ impl pallet_evm::Config for Runtime {
     type WithdrawOrigin = pallet_evm::EnsureAddressTruncated;
     type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
     type Currency = Balances;
-    type RuntimeEvent = RuntimeEvent;
     type PrecompilesType = Precompiles<Self>;
     type PrecompilesValue = PrecompilesValue;
     type ChainId = ConfigurableChainId;
@@ -1494,7 +1487,6 @@ impl sp_core::Get<sp_version::RuntimeVersion> for Runtime {
 }
 
 impl pallet_ethereum::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type StateRoot = pallet_ethereum::IntermediateStateRoot<Self>;
     type PostLogContent = PostBlockAndTxnHashes;
     type ExtraDataLength = ConstU32<30>;
@@ -1521,7 +1513,6 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
     }
 }
 impl pallet_base_fee::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type Threshold = BaseFeeThreshold;
     type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
     type DefaultElasticity = DefaultElasticity;
@@ -1623,7 +1614,6 @@ parameter_types! {
 
 impl pallet_crowdloan::Config for Runtime {
     type PalletId = CrowdloanPalletId;
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Runtime>;
@@ -1968,7 +1958,7 @@ impl_runtime_apis! {
         ) -> TransactionValidity {
             use codec::DecodeLimit;
             use frame_support::pallet_prelude::{InvalidTransaction, TransactionValidityError};
-            use frame_support::traits::ExtrinsicCall;
+            use sp_runtime::traits::ExtrinsicCall;
             let encoded = tx.call().encode();
             if RuntimeCall::decode_all_with_depth_limit(8, &mut encoded.as_slice()).is_err() {
                 log::warn!("failed to decode with depth limit of 8");
@@ -2130,6 +2120,7 @@ impl_runtime_apis! {
             nonce: Option<U256>,
             estimate: bool,
             access_list: Option<Vec<(H160, Vec<H256>)>>,
+            authorization_list: Option<AuthorizationList>,
         ) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
             use pallet_evm::GasWeightMapping as _;
 
@@ -2191,6 +2182,7 @@ impl_runtime_apis! {
                 max_priority_fee_per_gas,
                 nonce,
                 access_list.unwrap_or_default(),
+                authorization_list.unwrap_or_default(),
                 false,
                 true,
                 weight_limit,
@@ -2209,6 +2201,7 @@ impl_runtime_apis! {
             nonce: Option<U256>,
             estimate: bool,
             access_list: Option<Vec<(H160, Vec<H256>)>>,
+            authorization_list: Option<AuthorizationList>,
         ) -> Result<pallet_evm::CreateInfo, sp_runtime::DispatchError> {
             use pallet_evm::GasWeightMapping as _;
 
@@ -2273,6 +2266,7 @@ impl_runtime_apis! {
                 access_list.unwrap_or_default(),
                 whitelist,
                 whitelist_disabled,
+                authorization_list.unwrap_or_default(),
                 false,
                 true,
                 weight_limit,
@@ -2579,6 +2573,10 @@ impl_runtime_apis! {
         pallet_subtensor::Pallet::<Runtime>::get_network_to_prune()
         }
 
+        fn get_coldkey_auto_stake_hotkey(coldkey: AccountId32, netuid: NetUid) -> Option<AccountId32> {
+            SubtensorModule::get_coldkey_auto_stake_hotkey(coldkey, netuid)
+        }
+
         fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_mechagraph(netuid, mecid, metagraph_indexes)
         }
@@ -2673,10 +2671,10 @@ impl_runtime_apis! {
         }
 
         fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
+            let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
-                OrderType::Buy,
-                tao.into(),
+                order,
             )
             .map_or_else(
                 |_| SimSwapResult {
@@ -2695,10 +2693,10 @@ impl_runtime_apis! {
         }
 
         fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
+            let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
-                OrderType::Sell,
-                alpha.into(),
+                order,
             )
             .map_or_else(
                 |_| SimSwapResult {

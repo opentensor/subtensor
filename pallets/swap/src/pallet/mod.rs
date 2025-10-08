@@ -5,7 +5,7 @@ use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo, TaoCurrency,
+    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
 
 use crate::{
@@ -17,6 +17,7 @@ use crate::{
 pub use pallet::*;
 
 mod impls;
+mod swap_step;
 #[cfg(test)]
 mod tests;
 
@@ -32,12 +33,15 @@ mod pallet {
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        /// Because this pallet emits events, it depends on the runtime's definition of an event.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// Implementor of
         /// [`SubnetInfo`](subtensor_swap_interface::SubnetInfo).
         type SubnetInfo: SubnetInfo<Self::AccountId>;
+
+        /// Tao reserves info.
+        type TaoReserve: CurrencyReserve<TaoCurrency>;
+
+        /// Alpha reserves info.
+        type AlphaReserve: CurrencyReserve<AlphaCurrency>;
 
         /// Implementor of
         /// [`BalanceOps`](subtensor_swap_interface::BalanceOps).
@@ -394,8 +398,8 @@ mod pallet {
             ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
 
             // Add provided liquidity to user-provided reserves
-            T::BalanceOps::increase_provided_tao_reserve(netuid.into(), tao_provided);
-            T::BalanceOps::increase_provided_alpha_reserve(netuid.into(), alpha_provided);
+            T::TaoReserve::increase_provided(netuid.into(), tao_provided);
+            T::AlphaReserve::increase_provided(netuid.into(), alpha_provided);
 
             // Emit an event
             Self::deposit_event(Event::LiquidityAdded {
@@ -450,8 +454,8 @@ mod pallet {
             )?;
 
             // Remove withdrawn liquidity from user-provided reserves
-            T::BalanceOps::decrease_provided_tao_reserve(netuid.into(), result.tao);
-            T::BalanceOps::decrease_provided_alpha_reserve(netuid.into(), result.alpha);
+            T::TaoReserve::decrease_provided(netuid.into(), result.tao);
+            T::AlphaReserve::decrease_provided(netuid.into(), result.alpha);
 
             // Emit an event
             Self::deposit_event(Event::LiquidityRemoved {
