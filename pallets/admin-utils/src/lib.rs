@@ -731,7 +731,7 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the target registrations per interval.
         #[pallet::call_index(21)]
-        #[pallet::weight(Weight::from_parts(44_320_000, 0)
+        #[pallet::weight(Weight::from_parts(25_980_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_target_registrations_per_interval(
@@ -1249,7 +1249,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the minimum delegate take.
         #[pallet::call_index(46)]
         #[pallet::weight((
-            Weight::from_parts(5_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
+            Weight::from_parts(9_918_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
