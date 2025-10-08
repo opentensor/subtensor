@@ -1147,9 +1147,6 @@ fn test_finalize_succeeds() {
                 amount
             ));
 
-            // run some more blocks past the end of the contribution period
-            run_to_block(60);
-
             // finalize the crowdloan
             assert_ok!(Crowdloan::finalize(
                 RuntimeOrigin::signed(creator),
@@ -1336,54 +1333,6 @@ fn test_finalize_fails_if_not_creator_origin() {
             assert_err!(
                 Crowdloan::finalize(RuntimeOrigin::signed(contributor), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::InvalidOrigin
-            );
-        });
-}
-
-#[test]
-fn test_finalize_fails_if_crowdloan_has_not_ended() {
-    TestState::default()
-        .with_balance(U256::from(1), 100)
-        .with_balance(U256::from(2), 100)
-        .build_and_execute(|| {
-            // create a crowdloan
-            let creator: AccountOf<Test> = U256::from(1);
-            let deposit: BalanceOf<Test> = 50;
-            let min_contribution: BalanceOf<Test> = 10;
-            let cap: BalanceOf<Test> = 100;
-            let end: BlockNumberFor<Test> = 50;
-
-            assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(creator),
-                deposit,
-                min_contribution,
-                cap,
-                end,
-                Some(noop_call()),
-                None,
-            ));
-
-            // run some blocks
-            run_to_block(10);
-
-            // some contribution
-            let crowdloan_id: CrowdloanId = 0;
-            let contributor: AccountOf<Test> = U256::from(2);
-            let amount: BalanceOf<Test> = 50;
-
-            assert_ok!(Crowdloan::contribute(
-                RuntimeOrigin::signed(contributor),
-                crowdloan_id,
-                amount
-            ));
-
-            // run some more blocks before end of contribution period
-            run_to_block(10);
-
-            // try to finalize
-            assert_err!(
-                Crowdloan::finalize(RuntimeOrigin::signed(creator), crowdloan_id),
-                pallet_crowdloan::Error::<Test>::ContributionPeriodNotEnded
             );
         });
 }

@@ -565,14 +565,12 @@ pub mod pallet {
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            let now = frame_system::Pallet::<T>::block_number();
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
 
-            // Ensure the origin is the creator of the crowdloan and the crowdloan has ended,
-            // raised the cap and is not finalized.
+            // Ensure the origin is the creator of the crowdloan and the crowdloan has raised the cap
+            // and is not finalized.
             ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
-            ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
             ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapNotRaised);
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
