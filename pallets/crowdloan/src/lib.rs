@@ -619,7 +619,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Refund a crowdloan that has not reached the cap and has ended.
+        /// Refund contributors of a non-finalized crowdloan.
         ///
         /// The call will try to refund all contributors (excluding the creator) up to the limit defined by the `RefundContributorsLimit`.
         /// If the limit is reached, the call will stop and the crowdloan will be marked as partially refunded.
