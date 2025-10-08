@@ -343,6 +343,10 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The network UID.
     /// * `cut` - The validator cut value to set.
     pub fn set_validator_cut(netuid: NetUid, cut: u64) {
+        ensure!(
+            cut >= MinValidatorCut::<T>::get() && cut <= MaxValidatorCut::<T>::get(),
+            Error::<T>::InvalidValidatorCut
+        );
         ValidatorCut::<T>::insert(netuid, cut);
     }
 

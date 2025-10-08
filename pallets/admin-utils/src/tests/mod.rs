@@ -2939,7 +2939,7 @@ fn test_set_validator_cut() {
 fn test_sudo_set_validator_cut() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(3);
-        let to_be_set: u64 = 4200; // 42% cut
+        let to_be_set: u64 = u64::MAX / 3;
 
         // Set up a network
         add_network(netuid, 10);
@@ -2977,7 +2977,7 @@ fn test_sudo_set_validator_cut() {
 fn test_sudo_set_validator_cut_root() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(4);
-        let to_be_set: u64 = 10000; // 100% cut
+        let to_be_set: u64 = u64::MAX / 3;
 
         // Set up a network
         add_network(netuid, 10);
@@ -3005,11 +3005,19 @@ fn test_validator_cut_bounds() {
         add_network(netuid, 10);
 
         // Test minimum value
-        SubtensorModule::set_validator_cut(netuid, min_cut);
-        assert_eq!(SubtensorModule::get_validator_cut(netuid), min_cut);
+        assert_err!(
+            SubtensorModule::set_validator_cut(netuid, min_cut),
+            Error::<Test>::InvalidValidatorCut
+        );
 
         // Test maximum value
-        SubtensorModule::set_validator_cut(netuid, max_cut);
-        assert_eq!(SubtensorModule::get_validator_cut(netuid), max_cut);
+        assert_err!(
+            SubtensorModule::set_validator_cut(netuid, max_cut),
+            Error::<Test>::InvalidValidatorCut
+        );
+        assert_eq!(
+            SubtensorModule::get_validator_cut(netuid),
+            DefaultValidatorCut::<Test>::get()
+        );
     });
 }
