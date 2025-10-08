@@ -189,7 +189,7 @@ impl<T: Config> Pallet<T> {
 
         // 5. execute the hotkey swap on all subnets
         for netuid in Self::get_all_subnet_netuids() {
-            Self::perform_hotkey_swap_on_one_subnet(old_hotkey, new_hotkey, weight, netuid);
+            Self::perform_hotkey_swap_on_one_subnet(old_hotkey, new_hotkey, weight, netuid)?;
         }
 
         // 6. Swap LastTxBlock
@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 9. Perform the hotkey swap
-        Self::perform_hotkey_swap_on_one_subnet(old_hotkey, new_hotkey, &mut weight, netuid);
+        Self::perform_hotkey_swap_on_one_subnet(old_hotkey, new_hotkey, &mut weight, netuid)?;
 
         // 10. Update the last transaction block for the coldkey
         Self::set_last_tx_block(coldkey, block);
@@ -344,7 +344,7 @@ impl<T: Config> Pallet<T> {
         new_hotkey: &T::AccountId,
         weight: &mut Weight,
         netuid: NetUid,
-    ) {
+    ) -> DispatchResult {
         // 1. Swap total hotkey alpha for all subnets it exists on.
         // TotalHotkeyAlpha( hotkey, netuid ) -> alpha -- the total alpha that the hotkey has on a specific subnet.
         let alpha = TotalHotkeyAlpha::<T>::take(old_hotkey, netuid);
@@ -450,62 +450,9 @@ impl<T: Config> Pallet<T> {
             }
         }
         // 4. Swap ChildKeys.
-        // ChildKeys( parent, netuid ) --> Vec<(proportion,child)> -- the child keys of the parent.
-        let my_children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(old_hotkey, netuid);
-        // Remove the old hotkey's child entries
-        ChildKeys::<T>::remove(old_hotkey, netuid);
-        // Insert the same child entries for the new hotkey
-        ChildKeys::<T>::insert(new_hotkey, netuid, my_children.clone());
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-
-        for (_, child_key_i) in my_children {
-            // For each child, update their parent list
-            let mut child_parents: Vec<(u64, T::AccountId)> =
-                ParentKeys::<T>::get(child_key_i.clone(), netuid);
-            for parent in child_parents.iter_mut() {
-                // If the parent is the old hotkey, replace it with the new hotkey
-                if parent.1 == *old_hotkey {
-                    parent.1 = new_hotkey.clone();
-                }
-            }
-            // Update the child's parent list
-            ParentKeys::<T>::insert(child_key_i, netuid, child_parents);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-        }
-        // }
-
         // 5. Swap ParentKeys.
-        // ParentKeys( child, netuid ) --> Vec<(proportion,parent)> -- the parent keys of the child.
-        let parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(old_hotkey, netuid);
-        // Remove the old hotkey's parent entries
-        ParentKeys::<T>::remove(old_hotkey, netuid);
-        // Insert the same parent entries for the new hotkey
-        ParentKeys::<T>::insert(new_hotkey, netuid, parents.clone());
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-
-        for (_, parent_key_i) in parents {
-            // For each parent, update their children list
-            let mut parent_children: Vec<(u64, T::AccountId)> =
-                ChildKeys::<T>::get(parent_key_i.clone(), netuid);
-            for child in parent_children.iter_mut() {
-                // If the child is the old hotkey, replace it with the new hotkey
-                if child.1 == *old_hotkey {
-                    child.1 = new_hotkey.clone();
-                }
-            }
-            // Update the parent's children list
-            ChildKeys::<T>::insert(parent_key_i, netuid, parent_children);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-        }
-
         // 6. Swap PendingChildKeys.
-        // PendingChildKeys( netuid, parent ) --> Vec<(proportion,child), cool_down_block>
-        if PendingChildKeys::<T>::contains_key(netuid, old_hotkey) {
-            let (children, cool_down_block) = PendingChildKeys::<T>::get(netuid, old_hotkey);
-            PendingChildKeys::<T>::remove(netuid, old_hotkey);
-            PendingChildKeys::<T>::insert(netuid, new_hotkey, (children, cool_down_block));
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-        }
+        Self::parent_child_swap_hotkey(old_hotkey, new_hotkey, netuid, weight)?;
 
         // Also check for others with our hotkey as a child
         for (hotkey, (children, cool_down_block)) in PendingChildKeys::<T>::iter_prefix(netuid) {
@@ -596,5 +543,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
+
+        Ok(())
     }
 }
