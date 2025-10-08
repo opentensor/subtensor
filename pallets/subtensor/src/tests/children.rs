@@ -3007,7 +3007,7 @@ fn test_parent_child_chain_emission() {
             SubtensorModule::swap_tao_for_alpha(
                 netuid,
                 total_tao.to_num::<u64>().into(),
-                <Test as Config>::SwapInterface::max_price().into(),
+                <Test as Config>::SwapInterface::max_price(),
                 false,
             )
             .unwrap()

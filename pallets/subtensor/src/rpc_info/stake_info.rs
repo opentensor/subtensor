@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
             0_u64
         } else {
             let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
-            T::SwapInterface::approx_fee_amount(netuid.into(), amount)
+            T::SwapInterface::approx_fee_amount(netuid.into(), TaoCurrency::from(amount)).to_u64()
         }
     }
 }

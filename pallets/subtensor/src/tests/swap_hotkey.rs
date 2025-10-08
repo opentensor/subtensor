@@ -9,7 +9,7 @@ use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
 use super::mock;
 use super::mock::*;

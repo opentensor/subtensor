@@ -21,8 +21,8 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-pub use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+pub use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 use crate::SubtensorTxFeeHandler;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
@@ -406,6 +406,8 @@ impl pallet_subtensor_swap::Config for Test {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
+    type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
+    type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -611,10 +613,10 @@ pub(crate) fn swap_alpha_to_tao_ext(
         return (alpha.into(), 0);
     }
 
+    let order = GetTaoForAlpha::<Test>::with_amount(alpha);
     let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid.into(),
-        OrderType::Sell,
-        alpha.into(),
+        order,
         <Test as pallet::Config>::SwapInterface::min_price(),
         drop_fees,
         true,
@@ -624,10 +626,10 @@ pub(crate) fn swap_alpha_to_tao_ext(
 
     let result = result.unwrap();
 
-    // we don't want to have silent 0 comparissons in tests
-    assert!(result.amount_paid_out > 0);
+    // we don't want to have silent 0 comparisons in tests
+    assert!(!result.amount_paid_out.is_zero());
 
-    (result.amount_paid_out, result.fee_paid)
+    (result.amount_paid_out.to_u64(), result.fee_paid.to_u64())
 }
 
 pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u64) {

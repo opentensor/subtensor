@@ -6,9 +6,9 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod config {
 
-    use crate::CommitmentsInterface;
+    use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use pallet_commitments::GetCommitments;
-    use subtensor_swap_interface::SwapHandler;
+    use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -51,8 +51,10 @@ mod config {
         /// the preimage to store the call data.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-        /// Swap interface.
-        type SwapInterface: SwapHandler<Self::AccountId>;
+        /// Implementor of `SwapHandler` interface from `subtensor_swap_interface`
+        type SwapInterface: SwapHandler
+            + SwapEngine<GetAlphaForTao<Self>>
+            + SwapEngine<GetTaoForAlpha<Self>>;
 
         /// Interface to allow interacting with the proxy pallet.
         type ProxyInterface: crate::ProxyInterface<Self::AccountId>;
