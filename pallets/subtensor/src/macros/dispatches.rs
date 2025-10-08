@@ -1058,7 +1058,7 @@ mod dispatches {
         /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(47))
+        .saturating_add(T::DbWeight::get().reads(49_u64))
         .saturating_add(T::DbWeight::get().writes(37)), DispatchClass::Normal, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
@@ -2261,7 +2261,7 @@ mod dispatches {
         /// * commit_reveal_version (`u16`):
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
-        #[pallet::weight((Weight::from_parts(63_160_000, 0)
+        #[pallet::weight((Weight::from_parts(92_350_000, 0)
 		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
@@ -2293,8 +2293,8 @@ mod dispatches {
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
         #[pallet::weight((Weight::from_parts(29_930_000, 0)
-		.saturating_add(T::DbWeight::get().reads(3_u64))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(4_u64))
+		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
