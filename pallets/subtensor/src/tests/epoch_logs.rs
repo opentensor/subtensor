@@ -579,6 +579,7 @@ fn epoch_mechanism_reads_weights_per_mechanism() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::epoch_logs::epoch_mechanism_three_mechanisms_separate_state --exact --show-output
 #[test]
 fn epoch_mechanism_three_mechanisms_separate_state() {
     new_test_ext(1).execute_with(|| {
@@ -632,7 +633,7 @@ fn epoch_mechanism_three_mechanisms_separate_state() {
         assert!(l0.contains("Weights (mask+norm): [[(2, 1)], [(2, 1)], [], []]"));
         assert!(l0.contains("Ranks (before): [0, 0, 1, 0]"));
         assert!(l0.contains("ΔB (norm): [[(2, 0.5)], [(2, 0.5)], [], []]"));
-        assert!(l0.contains("Normalized Combined Emission: [0.25, 0.25, 0.5, 0] "));
+        assert!(l0.contains("Normalized Combined Emission: [0.25, 0.25, 0.5, 0]"));
 
         assert!(
             l1.contains(
