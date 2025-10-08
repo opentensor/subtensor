@@ -273,7 +273,7 @@ impl<T: Config> Pallet<T> {
         let new_children_map = relations.children();
         let new_children_vec: Vec<(u64, T::AccountId)> = new_children_map
             .iter()
-            .map(|(c, w)| (*w, c.clone()))
+            .map(|(c, p)| (*p, c.clone()))
             .collect();
 
         let prev_children_vec = ChildKeys::<T>::get(&pivot, netuid);
@@ -293,30 +293,36 @@ impl<T: Config> Pallet<T> {
             .iter()
             .filter(|c| !prev_children_set.contains(*c))
         {
+            let p = match new_children_map.get(added) {
+                Some(p) => *p,
+                None => return Err(Error::<T>::ChildParentInconsistency.into()),
+            };
             let mut pk = ParentKeys::<T>::get(added.clone(), netuid);
-            let w = *new_children_map.get(added).expect("in set; qed");
-            PCRelations::<T>::upsert_edge(&mut pk, w, &pivot);
-            Self::set_parentkeys(added.clone(), netuid, pk.clone());
+            PCRelations::<T>::upsert_edge(&mut pk, p, &pivot);
+            Self::set_parentkeys(added.clone(), netuid, pk);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
 
         // Updated children = intersection where proportion changed
         for common in new_children_set.intersection(&prev_children_set) {
-            let new_p = *new_children_map.get(common).expect("in set; qed");
+            let new_p = match new_children_map.get(common) {
+                Some(p) => *p,
+                None => return Err(Error::<T>::ChildParentInconsistency.into()),
+            };
             let mut pk = ParentKeys::<T>::get(common.clone(), netuid);
             PCRelations::<T>::upsert_edge(&mut pk, new_p, &pivot);
-            Self::set_parentkeys(common.clone(), netuid, pk.clone());
+            Self::set_parentkeys(common.clone(), netuid, pk);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
 
-        // Removed children = prev / new
+        // Removed children = prev \ new  => remove (pivot) from ParentKeys(child)
         for removed in prev_children_set
             .iter()
             .filter(|c| !new_children_set.contains(*c))
         {
-            let mut pk = ParentKeys::<T>::get(&removed, netuid);
+            let mut pk = ParentKeys::<T>::get(removed.clone(), netuid);
             PCRelations::<T>::remove_edge(&mut pk, &pivot);
-            Self::set_parentkeys(removed.clone(), netuid, pk.clone());
+            Self::set_parentkeys(removed.clone(), netuid, pk);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
 
@@ -326,7 +332,7 @@ impl<T: Config> Pallet<T> {
         let new_parents_map = relations.parents();
         let new_parents_vec: Vec<(u64, T::AccountId)> = new_parents_map
             .iter()
-            .map(|(p, w)| (*w, p.clone()))
+            .map(|(p, pr)| (*pr, p.clone()))
             .collect();
 
         let prev_parents_vec = ParentKeys::<T>::get(&pivot, netuid);
@@ -338,28 +344,34 @@ impl<T: Config> Pallet<T> {
             prev_parents_vec.iter().map(|(_, p)| p.clone()).collect();
         let new_parents_set: BTreeSet<T::AccountId> = new_parents_map.keys().cloned().collect();
 
-        // Added parents = new / prev  => ensure ChildKeys(parent) has (w, pivot)
+        // Added parents = new / prev  => ensure ChildKeys(parent) has (p, pivot)
         for added in new_parents_set
             .iter()
             .filter(|p| !prev_parents_set.contains(*p))
         {
+            let p_val = match new_parents_map.get(added) {
+                Some(p) => *p,
+                None => return Err(Error::<T>::ChildParentInconsistency.into()),
+            };
             let mut ck = ChildKeys::<T>::get(added.clone(), netuid);
-            let w = *new_parents_map.get(added).expect("in set; qed");
-            PCRelations::<T>::upsert_edge(&mut ck, w, &pivot);
+            PCRelations::<T>::upsert_edge(&mut ck, p_val, &pivot);
             Self::set_childkeys(added.clone(), netuid, ck);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
 
-        // Updated parents = intersection where weight changed
+        // Updated parents = intersection where proportion changed
         for common in new_parents_set.intersection(&prev_parents_set) {
-            let new_w = *new_parents_map.get(common).expect("in set; qed");
+            let new_p = match new_parents_map.get(common) {
+                Some(p) => *p,
+                None => return Err(Error::<T>::ChildParentInconsistency.into()),
+            };
             let mut ck = ChildKeys::<T>::get(common.clone(), netuid);
-            PCRelations::<T>::upsert_edge(&mut ck, new_w, &pivot);
+            PCRelations::<T>::upsert_edge(&mut ck, new_p, &pivot);
             Self::set_childkeys(common.clone(), netuid, ck);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
 
-        // Removed parents = prev / new  => remove (pivot) from ChildKeys(parent)
+        // Removed parents = prev \ new  => remove (pivot) from ChildKeys(parent)
         for removed in prev_parents_set
             .iter()
             .filter(|p| !new_parents_set.contains(*p))
