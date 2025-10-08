@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{DispatchError, transaction_validity::TransactionValidityError};
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, NetUid, TaoCurrency};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -1140,9 +1140,26 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
-    #[pallet::storage] // --- MAP ( cold ) --> hot | Returns the hotkey a coldkey will autostake to with mining rewards.
-    pub type AutoStakeDestination<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, OptionQuery>;
+    #[pallet::storage] // --- DMAP ( cold, netuid )--> hot | Returns the hotkey a coldkey will autostake to with mining rewards.
+    pub type AutoStakeDestination<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        NetUid,
+        T::AccountId,
+        OptionQuery,
+    >;
+    #[pallet::storage] // --- DMAP ( hot, netuid )--> Vec<cold> | Returns a list of coldkeys that are autostaking to a hotkey.
+    pub type AutoStakeDestinationColdkeys<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        NetUid,
+        Vec<T::AccountId>,
+        ValueQuery,
+    >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> (block_expected, new_coldkey) | Maps coldkey to the block to swap at and new coldkey.
     pub type ColdkeySwapScheduled<T: Config> = StorageMap<
@@ -2002,6 +2019,8 @@ pub enum CustomTransactionError {
     CommitNotFound,
     CommitBlockNotInRevealRange,
     InputLengthsUnequal,
+    UidNotFound,
+    EvmKeyAssociateRateLimitExceeded,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -2027,6 +2046,8 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::CommitNotFound => 16,
             CustomTransactionError::CommitBlockNotInRevealRange => 17,
             CustomTransactionError::InputLengthsUnequal => 18,
+            CustomTransactionError::UidNotFound => 19,
+            CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
         }
     }
 }
@@ -2120,17 +2141,48 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
     }
 }
 
-impl<T: Config + pallet_balances::Config<Balance = u64>>
-    subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
-{
-    fn tao_reserve(netuid: NetUid) -> TaoCurrency {
+#[derive(Clone)]
+pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
+
+impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
+    fn reserve(netuid: NetUid) -> TaoCurrency {
         SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
     }
 
-    fn alpha_reserve(netuid: NetUid) -> AlphaCurrency {
+    fn increase_provided(netuid: NetUid, tao: TaoCurrency) {
+        Pallet::<T>::increase_provided_tao_reserve(netuid, tao);
+    }
+
+    fn decrease_provided(netuid: NetUid, tao: TaoCurrency) {
+        Pallet::<T>::decrease_provided_tao_reserve(netuid, tao);
+    }
+}
+
+#[derive(Clone)]
+pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
+
+impl<T: Config> CurrencyReserve<AlphaCurrency> for AlphaCurrencyReserve<T> {
+    fn reserve(netuid: NetUid) -> AlphaCurrency {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
     }
 
+    fn increase_provided(netuid: NetUid, alpha: AlphaCurrency) {
+        Pallet::<T>::increase_provided_alpha_reserve(netuid, alpha);
+    }
+
+    fn decrease_provided(netuid: NetUid, alpha: AlphaCurrency) {
+        Pallet::<T>::decrease_provided_alpha_reserve(netuid, alpha);
+    }
+}
+
+pub type GetAlphaForTao<T> =
+    subtensor_swap_interface::GetAlphaForTao<TaoCurrencyReserve<T>, AlphaCurrencyReserve<T>>;
+pub type GetTaoForAlpha<T> =
+    subtensor_swap_interface::GetTaoForAlpha<AlphaCurrencyReserve<T>, TaoCurrencyReserve<T>>;
+
+impl<T: Config + pallet_balances::Config<Balance = u64>>
+    subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
+{
     fn exists(netuid: NetUid) -> bool {
         Self::if_subnet_exist(netuid)
     }
@@ -2145,6 +2197,18 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 
     fn is_subtoken_enabled(netuid: NetUid) -> bool {
         SubtokenEnabled::<T>::get(netuid)
+    }
+
+    fn get_validator_trust(netuid: NetUid) -> Vec<u16> {
+        ValidatorTrust::<T>::get(netuid)
+    }
+
+    fn get_validator_permit(netuid: NetUid) -> Vec<bool> {
+        ValidatorPermit::<T>::get(netuid)
+    }
+
+    fn hotkey_of_uid(netuid: NetUid, uid: u16) -> Option<T::AccountId> {
+        Keys::<T>::try_get(netuid, uid).ok()
     }
 }
 
@@ -2214,22 +2278,6 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey, coldkey, netuid, alpha,
         ))
-    }
-
-    fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        Self::increase_provided_tao_reserve(netuid, tao);
-    }
-
-    fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        Self::decrease_provided_tao_reserve(netuid, tao);
-    }
-
-    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        Self::increase_provided_alpha_reserve(netuid, alpha);
-    }
-
-    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        Self::decrease_provided_alpha_reserve(netuid, alpha);
     }
 }
 

@@ -54,7 +54,6 @@ impl pallet_balances::Config for Test {
 }
 
 impl pallet_utility::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
@@ -121,7 +120,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = ProxyType;
@@ -139,7 +137,8 @@ impl Config for Test {
 use super::{Call as ProxyCall, Event as ProxyEvent};
 use frame_system::Call as SystemCall;
 use pallet_balances::{Call as BalancesCall, Error as BalancesError, Event as BalancesEvent};
-use pallet_utility::{Call as UtilityCall, Event as UtilityEvent};
+use pallet_subtensor_utility as pallet_utility;
+use pallet_subtensor_utility::{Call as UtilityCall, Event as UtilityEvent};
 
 type SystemError = frame_system::Error<Test>;
 

@@ -403,4 +403,11 @@ impl<T: Config> Pallet<T> {
             user_liquidity_enabled,
         })
     }
+
+    pub fn get_coldkey_auto_stake_hotkey(
+        coldkey: T::AccountId,
+        netuid: NetUid,
+    ) -> Option<T::AccountId> {
+        AutoStakeDestination::<T>::get(coldkey, netuid)
+    }
 }

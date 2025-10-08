@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
                 let buy_swap_result = Self::swap_tao_for_alpha(
                     *netuid_i,
                     tou64!(difference_tao).into(),
-                    T::SwapInterface::max_price().into(),
+                    T::SwapInterface::max_price(),
                     true,
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
@@ -220,14 +220,14 @@ impl<T: Config> Pallet<T> {
                 let swap_result = Self::swap_alpha_for_tao(
                     *netuid_i,
                     tou64!(root_alpha).into(),
-                    T::SwapInterface::min_price().into(),
+                    T::SwapInterface::min_price(),
                     true,
                 );
                 if let Ok(ok_result) = swap_result {
-                    let root_tao: u64 = ok_result.amount_paid_out;
+                    let root_tao = ok_result.amount_paid_out;
                     // Accumulate root divs for subnet.
                     PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(root_tao.into());
+                        *total = total.saturating_add(root_tao);
                     });
                 }
             }
@@ -516,7 +516,7 @@ impl<T: Config> Pallet<T> {
             }
 
             let owner: T::AccountId = Owner::<T>::get(&hotkey);
-            let maybe_dest = AutoStakeDestination::<T>::get(&owner);
+            let maybe_dest = AutoStakeDestination::<T>::get(&owner, netuid);
 
             // Always stake but only emit event if autostake is set.
             let destination = maybe_dest.clone().unwrap_or(hotkey.clone());

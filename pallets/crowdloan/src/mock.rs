@@ -119,7 +119,6 @@ impl pallet_crowdloan::Config for Test {
     type PalletId = CrowdloanPalletId;
     type Currency = Balances;
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = TestWeightInfo;
     type Preimages = Preimage;
     type MinimumDeposit = MinimumDeposit;

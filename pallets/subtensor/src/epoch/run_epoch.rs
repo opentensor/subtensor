@@ -135,6 +135,7 @@ impl<T: Config> Pallet<T> {
         let pruning_score = extract_from_sorted_terms!(terms_sorted, pruning_score);
         let validator_trust = extract_from_sorted_terms!(terms_sorted, validator_trust);
         let new_validator_permit = extract_from_sorted_terms!(terms_sorted, new_validator_permit);
+        let stake_weight = extract_from_sorted_terms!(terms_sorted, stake_weight);
 
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, emission);
@@ -145,6 +146,7 @@ impl<T: Config> Pallet<T> {
         PruningScores::<T>::insert(netuid, pruning_score);
         ValidatorTrust::<T>::insert(netuid, validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permit);
+        StakeWeight::<T>::insert(netuid, stake_weight);
     }
 
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
@@ -1128,7 +1130,7 @@ impl<T: Config> Pallet<T> {
                 if let Some(row) = weights.get_mut(uid_i as usize) {
                     row.push((*uid_j, I32F32::saturating_from_num(*weight_ij)));
                 } else {
-                    log::error!("uid_i {uid_i:?} is filtered to be less than n");
+                    log::error!("math error: uid_i {uid_i:?} is filtered to be less than n");
                 }
             }
         }
@@ -1391,7 +1393,7 @@ impl<T: Config> Pallet<T> {
 
         if weights.len() != bonds.len() {
             log::error!(
-                "compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                "math error: compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
                 weights.len(),
                 bonds.len()
             );
@@ -1444,7 +1446,7 @@ impl<T: Config> Pallet<T> {
 
         if weights.len() != bonds.len() {
             log::error!(
-                "compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
+                "math error: compute_liquid_alpha_values: weights and bonds have different lengths: {:?} != {:?}",
                 weights.len(),
                 bonds.len()
             );
@@ -1551,13 +1553,8 @@ impl<T: Config> Pallet<T> {
         alpha_low: u16,
         alpha_high: u16,
     ) -> Result<(), DispatchError> {
-        // --- 1. Ensure the function caller is a signed user.
-        ensure_signed(origin.clone())?;
-
-        // --- 2. Ensure the function caller is the subnet owner or root.
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-        // --- 3. Ensure liquid alpha is enabled
         ensure!(
             Self::get_liquid_alpha_enabled(netuid),
             Error::<T>::LiquidAlphaDisabled
@@ -1567,10 +1564,8 @@ impl<T: Config> Pallet<T> {
         let min_alpha_low: u16 = (max_u16.safe_div(40)) as u16; // 1638
         let min_alpha_high: u16 = min_alpha_low;
 
-        // --- 4. Ensure alpha high is greater than the minimum
         ensure!(alpha_high >= min_alpha_high, Error::<T>::AlphaHighTooLow);
 
-        // -- 5. Ensure alpha low is within range
         ensure!(
             alpha_low >= min_alpha_low && alpha_low <= alpha_high,
             Error::<T>::AlphaLowOutOfRange

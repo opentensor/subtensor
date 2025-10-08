@@ -23,7 +23,7 @@ substrate-fixed.workspace = true
 
 pallet-subtensor-swap-runtime-api.workspace = true
 subtensor-macros.workspace = true
-subtensor-runtime-common.workspace = true
+subtensor-runtime-common = { workspace = true, features = ["approx"] }
 subtensor-swap-interface.workspace = true
 
 [dev-dependencies]

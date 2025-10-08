@@ -164,8 +164,6 @@ pub mod pallet {
     {
         /// The identifier type for an offchain worker.
         type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-        /// The overarching runtime event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// something that knows how to verify beacon pulses
         type Verifier: Verifier;
         /// A configuration for base priority of unsigned transactions.

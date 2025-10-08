@@ -34,6 +34,7 @@ serde_json.workspace = true
 sc-chain-spec-derive.workspace = true
 sc-cli.workspace = true
 sc-consensus-babe.workspace = true
+sc-consensus-epochs.workspace = true
 sp-consensus.workspace = true
 sp-consensus-slots.workspace = true
 sp-core.workspace = true
@@ -73,8 +74,9 @@ sp-crypto-ec-utils = { workspace = true, default-features = true, features = [
 	"bls12-381",
 ] }
 sp-keystore.workspace = true
-cumulus-primitives-proof-size-hostfunction.workspace = true
-
+polkadot-sdk = { workspace = true, features = [
+	"cumulus-primitives-proof-size-hostfunction",
+] }
 
 # These dependencies are used for the subtensor's RPCs
 jsonrpsee = { workspace = true, features = ["server"] }
@@ -151,6 +153,7 @@ runtime-benchmarks = [
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
+	"polkadot-sdk/runtime-benchmarks",
 ]
 pow-faucet = []
 
@@ -163,6 +166,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-commitments/try-runtime",
 	"pallet-drand/try-runtime",
+	"polkadot-sdk/try-runtime",
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]

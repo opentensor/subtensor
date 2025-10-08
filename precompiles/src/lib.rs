@@ -18,6 +18,7 @@ use pallet_evm_precompile_dispatch::Dispatch;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
+use pallet_subtensor_proxy as pallet_proxy;
 use sp_core::{H160, U256, crypto::ByteArray};
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::StaticLookup;
