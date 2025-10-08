@@ -4183,9 +4183,11 @@ fn test_set_child_keys_empty_vector_clears_storage() {
 
         // Initialize ChildKeys for `parent` with a non-empty vector
         ChildKeys::<Test>::insert(parent, netuid, vec![(u64::MAX, child)]);
+        ParentKeys::<Test>::insert(child, netuid, vec![(u64::MAX, parent)]);
 
         // Sanity: entry exists right now because we explicitly inserted it
         assert!(ChildKeys::<Test>::contains_key(parent, netuid));
+        assert!(ParentKeys::<Test>::contains_key(child, netuid));
 
         // Set children to empty
         let empty_children: Vec<(u64, U256)> = Vec::new();
@@ -4194,8 +4196,10 @@ fn test_set_child_keys_empty_vector_clears_storage() {
         // When the child vector is empty, we should NOT keep an empty vec in storage.
         // The key must be fully removed (no entry), not just zero-length value.
         assert!(!ChildKeys::<Test>::contains_key(parent, netuid));
+        assert!(!ParentKeys::<Test>::contains_key(child, netuid));
 
         // `get` returns empty due to ValueQuery default, but presence is false.
         assert!(ChildKeys::<Test>::get(parent, netuid).is_empty());
+        assert!(ParentKeys::<Test>::get(child, netuid).is_empty());
     });
 }
