@@ -181,7 +181,10 @@ impl<T: Config> Pallet<T> {
     /// Loads all records from ChildKeys and ParentKeys where (hotkey, netuid) is the key.
     /// Produces a parent->(child->prop) adjacency map that **cannot violate**
     /// the required consistency because all inserts go through `link`.
-    fn load_child_parent_relations(hotkey: &T::AccountId, netuid: NetUid) -> PCRelations<T> {
+    fn load_child_parent_relations(
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> Result<PCRelations<T>, DispatchError> {
         let mut rel = PCRelations::<T>::new(hotkey.clone());
 
         // Load children: (prop, child) from ChildKeys(hotkey, netuid)
@@ -194,7 +197,7 @@ impl<T: Config> Pallet<T> {
             }
         }
         // Validate & set (enforce no self-loop and sum limit)
-        let _ = rel.link_children(children);
+        rel.link_children(children)?;
 
         // Load parents: (prop, parent) from ParentKeys(hotkey, netuid)
         let parent_links = ParentKeys::<T>::get(hotkey, netuid);
@@ -205,9 +208,9 @@ impl<T: Config> Pallet<T> {
             }
         }
         // Keep the same validation rules for parents (no self-loop, bounded sum).
-        let _ = rel.link_parents(parents);
+        rel.link_parents(parents)?;
 
-        rel
+        Ok(rel)
     }
 
     /// Build a `PCRelations` for `pivot` (parent) from the `PendingChildKeys` queue,
@@ -383,7 +386,7 @@ impl<T: Config> Pallet<T> {
         weight: &mut Weight,
     ) -> DispatchResult {
         // 1) Load the current relations around old_hotkey
-        let mut relations = Self::load_child_parent_relations(old_hotkey, netuid);
+        let mut relations = Self::load_child_parent_relations(old_hotkey, netuid)?;
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 0));
 
         // 2) Clean up all storage entries that reference old_hotkey
@@ -514,7 +517,7 @@ impl<T: Config> Pallet<T> {
         //  - Each child is not the hotkey.
         //  - The sum of the proportions does not exceed u64::MAX.
         //  - Bipartite separation (no A <-> B relations)
-        let relations = Self::load_child_parent_relations(&hotkey, netuid);
+        let relations = Self::load_child_parent_relations(&hotkey, netuid)?;
         relations.ensure_pending_consistency(&children)?;
 
         // Check that the parent key has at least the minimum own stake
