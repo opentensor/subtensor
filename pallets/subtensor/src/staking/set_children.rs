@@ -156,6 +156,28 @@ impl<T: Config> PCRelations<T> {
 }
 
 impl<T: Config> Pallet<T> {
+    /// Set childkeys vector making sure there are no empty vectors in the state
+    fn set_childkeys(parent: T::AccountId, netuid: NetUid, childkey_vec: Vec<(u64, T::AccountId)>) {
+        if childkey_vec.is_empty() {
+            ChildKeys::<T>::remove(parent, netuid);
+        } else {
+            ChildKeys::<T>::insert(parent, netuid, childkey_vec);
+        }
+    }
+
+    /// Set parentkeys vector making sure there are no empty vectors in the state
+    fn set_parentkeys(
+        child: T::AccountId,
+        netuid: NetUid,
+        parentkey_vec: Vec<(u64, T::AccountId)>,
+    ) {
+        if parentkey_vec.is_empty() {
+            ParentKeys::<T>::remove(child, netuid);
+        } else {
+            ParentKeys::<T>::insert(child, netuid, parentkey_vec);
+        }
+    }
+
     /// Loads all records from ChildKeys and ParentKeys where (hotkey, netuid) is the key.
     /// Produces a parent->(child->prop) adjacency map that **cannot violate**
     /// the required consistency because all inserts go through `link`.
@@ -757,30 +779,6 @@ impl<T: Config> Pallet<T> {
             "Removed {} empty childkey vectors.",
             to_remove.len()
         );
-    }
-
-    pub fn set_childkeys(
-        parent: T::AccountId,
-        netuid: NetUid,
-        childkey_vec: Vec<(u64, T::AccountId)>,
-    ) {
-        if childkey_vec.is_empty() {
-            ChildKeys::<T>::remove(parent, netuid);
-        } else {
-            ChildKeys::<T>::insert(parent, netuid, childkey_vec);
-        }
-    }
-
-    pub fn set_parentkeys(
-        child: T::AccountId,
-        netuid: NetUid,
-        parentkey_vec: Vec<(u64, T::AccountId)>,
-    ) {
-        if parentkey_vec.is_empty() {
-            ParentKeys::<T>::remove(child, netuid);
-        } else {
-            ParentKeys::<T>::insert(child, netuid, parentkey_vec);
-        }
     }
 
     /// Remove self-loops in `ChildKeys` and `ParentKeys`.
