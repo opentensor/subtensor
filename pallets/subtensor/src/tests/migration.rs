@@ -1581,8 +1581,17 @@ fn test_migrate_auto_stake_destination() {
 					AutoStakeDestination::<Test>::get(coldkey2, *netuid),
 					Some(hotkey2)
 				);
-			}
 
+				// Verify entry for AutoStakeDestinationColdkeys
+				assert_eq!(
+					AutoStakeDestinationColdkeys::<Test>::get(hotkey1, *netuid),
+					vec![coldkey1]
+				);
+				assert_eq!(
+					AutoStakeDestinationColdkeys::<Test>::get(hotkey2, *netuid),
+					vec![coldkey2]
+				);
+			}
 		}
 
         // Verify old format entries are cleared

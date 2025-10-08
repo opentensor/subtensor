@@ -68,7 +68,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -223,7 +223,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 325,
+    spec_version: 326,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1305,6 +1305,8 @@ impl pallet_subtensor_swap::Config for Runtime {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
+    type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
+    type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -2493,10 +2495,10 @@ impl_runtime_apis! {
         }
 
         fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
+            let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
-                OrderType::Buy,
-                tao.into(),
+                order,
             )
             .map_or_else(
                 |_| SimSwapResult {
@@ -2515,10 +2517,10 @@ impl_runtime_apis! {
         }
 
         fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
+            let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
-                OrderType::Sell,
-                alpha.into(),
+                order,
             )
             .map_or_else(
                 |_| SimSwapResult {

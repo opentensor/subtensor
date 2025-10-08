@@ -127,7 +127,7 @@ where
     ///
     /// If this function returns true, but at the time of execution the Alpha price
     /// changes and it becomes impossible to pay tx fee with the Alpha balance,
-    /// the transaction still executes and all Alpha is withdrawn from the account.    
+    /// the transaction still executes and all Alpha is withdrawn from the account.
     fn can_withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],

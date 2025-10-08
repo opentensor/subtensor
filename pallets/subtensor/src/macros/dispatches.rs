@@ -706,7 +706,7 @@ mod dispatches {
         ///
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(340_800_000, 0)
-		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().reads(24_u64))
 		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake(
             origin: OriginFor<T>,
@@ -1671,7 +1671,7 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(358_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(38_u64))
+        .saturating_add(T::DbWeight::get().reads(36_u64))
         .saturating_add(T::DbWeight::get().writes(21_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
@@ -1785,7 +1785,7 @@ mod dispatches {
         #[pallet::call_index(87)]
         #[pallet::weight((
             Weight::from_parts(351_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(37_u64))
+            .saturating_add(T::DbWeight::get().reads(35_u64))
             .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1850,7 +1850,7 @@ mod dispatches {
         ///
         #[pallet::call_index(88)]
         #[pallet::weight((Weight::from_parts(402_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().reads(24_u64))
 		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
@@ -1914,7 +1914,7 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(377_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(30_u64))
+		.saturating_add(T::DbWeight::get().reads(28_u64))
 		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
@@ -1958,7 +1958,7 @@ mod dispatches {
         #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(411_500_000, 0)
-            .saturating_add(T::DbWeight::get().reads(37_u64))
+            .saturating_add(T::DbWeight::get().reads(35_u64))
             .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -2136,7 +2136,7 @@ mod dispatches {
         /// Without limit_price it remove all the stake similar to `remove_stake` extrinsic
         #[pallet::call_index(103)]
         #[pallet::weight((Weight::from_parts(395_300_000, 10142)
-			.saturating_add(T::DbWeight::get().reads(30_u64))
+			.saturating_add(T::DbWeight::get().reads(28_u64))
 			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_full_limit(
             origin: T::RuntimeOrigin,
@@ -2313,9 +2313,20 @@ mod dispatches {
                     current_hotkey != hotkey,
                     Error::<T>::SameAutoStakeHotkeyAlreadySet
                 );
+
+                // Remove the coldkey from the old hotkey (if present)
+                AutoStakeDestinationColdkeys::<T>::mutate(current_hotkey.clone(), netuid, |v| {
+                    v.retain(|c| c != &coldkey);
+                });
             }
 
+            // Add the coldkey to the new hotkey (if not already present)
             AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
+            AutoStakeDestinationColdkeys::<T>::mutate(hotkey.clone(), netuid, |v| {
+                if !v.contains(&coldkey) {
+                    v.push(coldkey.clone());
+                }
+            });
 
             Self::deposit_event(Event::AutoStakeDestinationSet {
                 coldkey,
