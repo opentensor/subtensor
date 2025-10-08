@@ -6,7 +6,7 @@ import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { tao } from "../src/balance-math"
 import {
     forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister,
-    setTxRateLimit, setTempo, setWeightsSetRateLimit, setSubnetOwnerCut, setMaxAllowedUids,
+    setTxRateLimit, setTempo, setWeightsSetRateLimit, setSubnetOwnerCut,
     setMinDelegateTake, setActivityCutoff, addStake, setWeight, rootRegister,
     startCall,
     disableAdminFreezeWindowAndOwnerHyperparamRateLimit
@@ -52,7 +52,6 @@ describe("Test neuron precompile reward", () => {
         await burnedRegister(api, netuid, convertPublicKeyToSs58(nominator.publicKey), coldkey)
         await setSubnetOwnerCut(api, 0)
         await setActivityCutoff(api, netuid, 65535)
-        await setMaxAllowedUids(api, netuid, 65535)
         await setMinDelegateTake(api, 0)
     })
 

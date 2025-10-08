@@ -49,6 +49,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
+use crate as pallet_proxy;
 use frame::weights_prelude::*;
 
 /// Weight functions needed for `pallet_proxy`.

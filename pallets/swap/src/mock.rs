@@ -14,9 +14,13 @@ use sp_runtime::{
     BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, SubnetInfo, TaoCurrency};
+use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::{
+    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+};
+use subtensor_swap_interface::Order;
 
-use crate::pallet::EnabledUserLiquidity;
+use crate::pallet::{EnabledUserLiquidity, FeeGlobalAlpha, FeeGlobalTao};
 
 construct_runtime!(
     pub enum Test {
@@ -83,11 +87,11 @@ parameter_types! {
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
 
-// Mock implementor of SubnetInfo trait
-pub struct MockLiquidityProvider;
+#[derive(Clone)]
+pub struct TaoReserve;
 
-impl SubnetInfo<AccountId> for MockLiquidityProvider {
-    fn tao_reserve(netuid: NetUid) -> TaoCurrency {
+impl CurrencyReserve<TaoCurrency> for TaoReserve {
+    fn reserve(netuid: NetUid) -> TaoCurrency {
         match netuid.into() {
             123u16 => 10_000,
             WRAPPING_FEES_NETUID => 100_000_000_000,
@@ -96,7 +100,15 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
         .into()
     }
 
-    fn alpha_reserve(netuid: NetUid) -> AlphaCurrency {
+    fn increase_provided(_: NetUid, _: TaoCurrency) {}
+    fn decrease_provided(_: NetUid, _: TaoCurrency) {}
+}
+
+#[derive(Clone)]
+pub struct AlphaReserve;
+
+impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
+    fn reserve(netuid: NetUid) -> AlphaCurrency {
         match netuid.into() {
             123u16 => 10_000.into(),
             WRAPPING_FEES_NETUID => 400_000_000_000.into(),
@@ -104,6 +116,65 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
         }
     }
 
+    fn increase_provided(_: NetUid, _: AlphaCurrency) {}
+    fn decrease_provided(_: NetUid, _: AlphaCurrency) {}
+}
+
+pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;
+pub type GetTaoForAlpha = subtensor_swap_interface::GetTaoForAlpha<AlphaReserve, TaoReserve>;
+
+pub(crate) trait GlobalFeeInfo: Currency {
+    fn global_fee(&self, netuid: NetUid) -> U64F64;
+}
+
+impl GlobalFeeInfo for TaoCurrency {
+    fn global_fee(&self, netuid: NetUid) -> U64F64 {
+        FeeGlobalTao::<Test>::get(netuid)
+    }
+}
+
+impl GlobalFeeInfo for AlphaCurrency {
+    fn global_fee(&self, netuid: NetUid) -> U64F64 {
+        FeeGlobalAlpha::<Test>::get(netuid)
+    }
+}
+
+pub(crate) trait TestExt<O: Order> {
+    fn approx_expected_swap_output(
+        sqrt_current_price: f64,
+        liquidity_before: f64,
+        order_liquidity: f64,
+    ) -> f64;
+}
+
+impl TestExt<GetAlphaForTao> for Test {
+    fn approx_expected_swap_output(
+        sqrt_current_price: f64,
+        liquidity_before: f64,
+        order_liquidity: f64,
+    ) -> f64 {
+        let denom = sqrt_current_price * (sqrt_current_price * liquidity_before + order_liquidity);
+        let per_order_liq = liquidity_before / denom;
+        per_order_liq * order_liquidity
+    }
+}
+
+impl TestExt<GetTaoForAlpha> for Test {
+    fn approx_expected_swap_output(
+        sqrt_current_price: f64,
+        liquidity_before: f64,
+        order_liquidity: f64,
+    ) -> f64 {
+        let denom = liquidity_before / sqrt_current_price + order_liquidity;
+        let per_order_liq = sqrt_current_price * liquidity_before / denom;
+        per_order_liq * order_liquidity
+    }
+}
+
+// Mock implementor of SubnetInfo trait
+pub struct MockLiquidityProvider;
+
+impl SubnetInfo<AccountId> for MockLiquidityProvider {
     fn exists(netuid: NetUid) -> bool {
         netuid != NON_EXISTENT_NETUID.into()
     }
@@ -119,6 +190,26 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
     // Only disable one subnet for testing
     fn is_subtoken_enabled(netuid: NetUid) -> bool {
         netuid.inner() != SUBTOKEN_DISABLED_NETUID
+    }
+
+    fn get_validator_trust(netuid: NetUid) -> Vec<u16> {
+        match netuid.into() {
+            123u16 => vec![4000, 3000, 2000, 1000],
+            WRAPPING_FEES_NETUID => vec![8000, 7000, 6000, 5000],
+            _ => vec![1000, 800, 600, 400],
+        }
+    }
+
+    fn get_validator_permit(netuid: NetUid) -> Vec<bool> {
+        match netuid.into() {
+            123u16 => vec![true, true, false, true],
+            WRAPPING_FEES_NETUID => vec![true, true, true, true],
+            _ => vec![true, true, true, true],
+        }
+    }
+
+    fn hotkey_of_uid(_netuid: NetUid, uid: u16) -> Option<AccountId> {
+        Some(uid as AccountId)
     }
 }
 
@@ -177,16 +268,12 @@ impl BalanceOps<AccountId> for MockBalanceOps {
     ) -> Result<AlphaCurrency, DispatchError> {
         Ok(alpha)
     }
-
-    fn increase_provided_tao_reserve(_netuid: NetUid, _tao: TaoCurrency) {}
-    fn decrease_provided_tao_reserve(_netuid: NetUid, _tao: TaoCurrency) {}
-    fn increase_provided_alpha_reserve(_netuid: NetUid, _alpha: AlphaCurrency) {}
-    fn decrease_provided_alpha_reserve(_netuid: NetUid, _alpha: AlphaCurrency) {}
 }
 
 impl crate::pallet::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type SubnetInfo = MockLiquidityProvider;
+    type TaoReserve = TaoReserve;
+    type AlphaReserve = AlphaReserve;
     type BalanceOps = MockBalanceOps;
     type ProtocolId = SwapProtocolId;
     type MaxFeeRate = MaxFeeRate;

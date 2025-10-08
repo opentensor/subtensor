@@ -1,8 +1,7 @@
-use subtensor_swap_interface::{OrderType, SwapHandler};
-
 use super::*;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -73,7 +72,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             netuid,
             alpha_unstaked,
-            T::SwapInterface::min_price().into(),
+            T::SwapInterface::min_price(),
             false,
         )?;
 
@@ -168,7 +167,7 @@ impl<T: Config> Pallet<T> {
                     &coldkey,
                     netuid,
                     alpha_unstaked,
-                    T::SwapInterface::min_price().into(),
+                    T::SwapInterface::min_price(),
                     false,
                 )?;
 
@@ -261,7 +260,7 @@ impl<T: Config> Pallet<T> {
                         &coldkey,
                         netuid,
                         alpha_unstaked,
-                        T::SwapInterface::min_price().into(),
+                        T::SwapInterface::min_price(),
                         false,
                     )?;
 
@@ -280,7 +279,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             NetUid::ROOT,
             total_tao_unstaked,
-            T::SwapInterface::max_price().into(),
+            T::SwapInterface::max_price(),
             false, // no limit for Root subnet
             false,
         )?;
@@ -392,7 +391,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_max_amount_remove(
         netuid: NetUid,
         limit_price: TaoCurrency,
-    ) -> Result<AlphaCurrency, Error<T>> {
+    ) -> Result<AlphaCurrency, DispatchError> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // lower, then max_amount equals u64::MAX, otherwise it is 0.
@@ -400,26 +399,19 @@ impl<T: Config> Pallet<T> {
             if limit_price <= 1_000_000_000.into() {
                 return Ok(AlphaCurrency::MAX);
             } else {
-                return Err(Error::ZeroMaxStakeAmount);
+                return Err(Error::<T>::ZeroMaxStakeAmount.into());
             }
         }
 
         // Use reverting swap to estimate max limit amount
-        let result = T::SwapInterface::swap(
-            netuid.into(),
-            OrderType::Sell,
-            u64::MAX,
-            limit_price.into(),
-            false,
-            true,
-        )
-        .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
-        .map_err(|_| Error::ZeroMaxStakeAmount)?;
+        let order = GetTaoForAlpha::<T>::with_amount(u64::MAX);
+        let result = T::SwapInterface::swap(netuid.into(), order, limit_price.into(), false, true)
+            .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))?;
 
-        if result != 0 {
-            Ok(result.into())
+        if !result.is_zero() {
+            Ok(result)
         } else {
-            Err(Error::ZeroMaxStakeAmount)
+            Err(Error::<T>::ZeroMaxStakeAmount.into())
         }
     }
 
@@ -449,43 +441,55 @@ impl<T: Config> Pallet<T> {
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock_cost: TaoCurrency = Self::get_subnet_locked_balance(netuid);
 
-        // 3) Compute owner's received emission in TAO at current price.
+        // Determine if this subnet is eligible for a lock refund (legacy).
+        let reg_at: u64 = NetworkRegisteredAt::<T>::get(netuid);
+        let start_block: u64 = NetworkRegistrationStartBlock::<T>::get();
+        let should_refund_owner: bool = reg_at < start_block;
+
+        // 3) Compute owner's received emission in TAO at current price (ONLY if we may refund).
         //    Emission::<T> is Vec<AlphaCurrency>. We:
         //      - sum emitted α,
         //      - apply owner fraction to get owner α,
         //      - price that α using a *simulated* AMM swap.
-        let total_emitted_alpha_u128: u128 =
-            Emission::<T>::get(netuid)
-                .into_iter()
-                .fold(0u128, |acc, e_alpha| {
-                    let e_u64: u64 = Into::<u64>::into(e_alpha);
-                    acc.saturating_add(e_u64 as u128)
-                });
+        let mut owner_emission_tao = TaoCurrency::ZERO;
+        if should_refund_owner && !lock_cost.is_zero() {
+            let total_emitted_alpha_u128: u128 =
+                Emission::<T>::get(netuid)
+                    .into_iter()
+                    .fold(0u128, |acc, e_alpha| {
+                        let e_u64: u64 = Into::<u64>::into(e_alpha);
+                        acc.saturating_add(e_u64 as u128)
+                    });
 
-        let owner_fraction: U96F32 = Self::get_float_subnet_owner_cut();
-        let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha_u128)
-            .saturating_mul(owner_fraction)
-            .floor()
-            .saturating_to_num::<u64>();
+            if total_emitted_alpha_u128 > 0 {
+                let owner_fraction: U96F32 = Self::get_float_subnet_owner_cut();
+                let owner_alpha_u64 = U96F32::from_num(total_emitted_alpha_u128)
+                    .saturating_mul(owner_fraction)
+                    .floor()
+                    .saturating_to_num::<u64>();
 
-        let owner_emission_tao: TaoCurrency = if owner_alpha_u64 > 0 {
-            match T::SwapInterface::sim_swap(netuid.into(), OrderType::Sell, owner_alpha_u64) {
-                Ok(sim) => TaoCurrency::from(sim.amount_paid_out),
-                Err(e) => {
-                    log::debug!(
-                        "destroy_alpha_in_out_stakes: sim_swap owner α→τ failed (netuid={netuid:?}, alpha={owner_alpha_u64}, err={e:?}); falling back to price multiply.",
-                    );
-                    let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
-                    let val_u64: u64 = U96F32::from_num(owner_alpha_u64)
-                        .saturating_mul(cur_price)
-                        .floor()
-                        .saturating_to_num::<u64>();
-                    TaoCurrency::from(val_u64)
-                }
+                owner_emission_tao = if owner_alpha_u64 > 0 {
+                    let order = GetTaoForAlpha::with_amount(owner_alpha_u64);
+                    match T::SwapInterface::sim_swap(netuid.into(), order) {
+                        Ok(sim) => TaoCurrency::from(sim.amount_paid_out),
+                        Err(e) => {
+                            log::debug!(
+                                "destroy_alpha_in_out_stakes: sim_swap owner α→τ failed (netuid={netuid:?}, alpha={owner_alpha_u64}, err={e:?}); falling back to price multiply.",
+                            );
+                            let cur_price: U96F32 =
+                                T::SwapInterface::current_alpha_price(netuid.into());
+                            let val_u64 = U96F32::from_num(owner_alpha_u64)
+                                .saturating_mul(cur_price)
+                                .floor()
+                                .saturating_to_num::<u64>();
+                            TaoCurrency::from(val_u64)
+                        }
+                    }
+                } else {
+                    TaoCurrency::ZERO
+                };
             }
-        } else {
-            TaoCurrency::ZERO
-        };
+        }
 
         // 4) Enumerate all α entries on this subnet to build distribution weights and cleanup lists.
         //    - collect keys to remove,
@@ -594,12 +598,18 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaInProvided::<T>::remove(netuid);
         SubnetAlphaOut::<T>::remove(netuid);
 
-        // 8) Refund remaining lock to subnet owner:
-        //    refund = max(0, lock_cost(τ) − owner_received_emission_in_τ).
-        let refund: TaoCurrency = lock_cost.saturating_sub(owner_emission_tao);
-
         // Clear the locked balance on the subnet.
         Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
+
+        // 8) Finalize lock handling:
+        //    - Legacy subnets (registered before NetworkRegistrationStartBlock) receive:
+        //        refund = max(0, lock_cost(τ) − owner_received_emission_in_τ).
+        //    - New subnets: no refund.
+        let refund: TaoCurrency = if should_refund_owner {
+            lock_cost.saturating_sub(owner_emission_tao)
+        } else {
+            TaoCurrency::ZERO
+        };
 
         if !refund.is_zero() {
             Self::add_balance_to_coldkey_account(&owner_coldkey, refund.to_u64());

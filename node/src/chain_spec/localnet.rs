@@ -28,7 +28,7 @@ pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
     .with_name("Bittensor")
     .with_protocol_id("bittensor")
     .with_id("bittensor")
-    .with_chain_type(ChainType::Development)
+    .with_chain_type(ChainType::Local)
     .with_genesis_config_patch(localnet_genesis(
         // Initial PoA authorities (Validators)
         // aura | grandpa
