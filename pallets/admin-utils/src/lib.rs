@@ -1667,31 +1667,31 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Change the SubnetOwnerHotkey for a given subnet.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which must be the subnet owner.
-        /// * `netuid` - The unique identifier for the subnet.
-        /// * `hotkey` - The new hotkey for the subnet owner.
-        ///
-        /// # Errors
-        /// * `BadOrigin` - If the caller is not the subnet owner or root account.
-        ///
-        /// # Weight
-        /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(64)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_subnet_owner_hotkey(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            hotkey: <T as frame_system::Config>::AccountId,
-        ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin.clone(), netuid)?;
-            pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, &hotkey);
+        // /// Change the SubnetOwnerHotkey for a given subnet.
+        // ///
+        // /// # Arguments
+        // /// * `origin` - The origin of the call, which must be the subnet owner.
+        // /// * `netuid` - The unique identifier for the subnet.
+        // /// * `hotkey` - The new hotkey for the subnet owner.
+        // ///
+        // /// # Errors
+        // /// * `BadOrigin` - If the caller is not the subnet owner or root account.
+        // ///
+        // /// # Weight
+        // /// Weight is handled by the `#[pallet::weight]` attribute.
+        // #[pallet::call_index(64)]
+        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_set_subnet_owner_hotkey(
+        //     origin: OriginFor<T>,
+        //     netuid: NetUid,
+        //     hotkey: <T as frame_system::Config>::AccountId,
+        // ) -> DispatchResult {
+        //     pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin.clone(), netuid)?;
+        //     pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, &hotkey);
 
-            log::debug!("SubnetOwnerHotkeySet( netuid: {netuid:?}, hotkey: {hotkey:?} )");
-            Ok(())
-        }
+        //     log::debug!("SubnetOwnerHotkeySet( netuid: {netuid:?}, hotkey: {hotkey:?} )");
+        //     Ok(())
+        // }
 
         ///
         ///
