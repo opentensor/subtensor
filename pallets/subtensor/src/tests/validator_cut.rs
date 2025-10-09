@@ -806,7 +806,7 @@ fn test_emission_all_validator_miners_varying_cuts() {
                 .map(|(ck, _)| SubtensorModule::get_total_stake_for_coldkey(ck))
                 .collect();
 
-            SubtensorModule::set_validator_cut(netuid, cut);
+            assert_ok!(SubtensorModule::set_validator_cut(netuid, cut));
             step_block(subnet_tempo);
 
             let emissions: Vec<_> = participants
@@ -918,7 +918,7 @@ fn test_emission_extreme_cuts_edge_cases() {
             let validator_before = SubtensorModule::get_total_stake_for_coldkey(&validator_coldkey);
             let miner_before = SubtensorModule::get_total_stake_for_coldkey(&miner_coldkey);
 
-            SubtensorModule::set_validator_cut(netuid, u64::MAX);
+            assert_ok!(SubtensorModule::set_validator_cut(netuid, u64::MAX));
             step_block(subnet_tempo);
 
             let validator_emission =
