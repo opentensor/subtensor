@@ -2906,7 +2906,7 @@ fn test_get_validator_cut() {
         add_network(netuid, 10);
 
         // Set a validator cut value
-        SubtensorModule::set_validator_cut(netuid, expected_cut);
+        assert_ok!(SubtensorModule::set_validator_cut(netuid, expected_cut));
 
         // Test that we can retrieve the value
         let retrieved_cut = SubtensorModule::get_validator_cut(netuid);
@@ -2928,7 +2928,7 @@ fn test_set_validator_cut() {
         assert_eq!(SubtensorModule::get_validator_cut(netuid), initial_cut);
 
         // Set new validator cut
-        SubtensorModule::set_validator_cut(netuid, new_cut);
+        assert_ok!(SubtensorModule::set_validator_cut(netuid, new_cut));
 
         // Verify the value was set correctly
         assert_eq!(SubtensorModule::get_validator_cut(netuid), new_cut);

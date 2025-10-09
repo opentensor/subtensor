@@ -899,7 +899,7 @@ fn test_emission_extreme_cuts_edge_cases() {
             let validator_before = SubtensorModule::get_total_stake_for_coldkey(&validator_coldkey);
             let miner_before = SubtensorModule::get_total_stake_for_coldkey(&miner_coldkey);
 
-            SubtensorModule::set_validator_cut(netuid, 0);
+            assert_ok!(SubtensorModule::set_validator_cut(netuid, 0));
             step_block(subnet_tempo);
 
             let validator_emission =
