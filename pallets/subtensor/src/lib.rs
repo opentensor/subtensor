@@ -1561,13 +1561,13 @@ pub mod pallet {
 
     #[pallet::type_value]
     pub fn MinValidatorCut<T: Config>() -> u64 {
-        /// Min validator cut 25%
+        /// Min validator cut 25%, placeholder final value TBD
         u64::MAX
             / 4
     }
 
     #[pallet::type_value]
-    /// Max validator cut 75%
+    /// Max validator cut 75%, placeholder final value TBD
     pub fn MaxValidatorCut<T: Config>() -> u64 {
         u64::MAX / 4 * 3
     }
