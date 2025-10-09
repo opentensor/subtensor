@@ -40,6 +40,7 @@ edition = "2024"
 
 [workspace.lints.clippy]
 arithmetic-side-effects = "deny"
+expect-used = "deny"
 indexing-slicing = "deny"
 manual_inspect = "allow"
 result_large_err = "allow"

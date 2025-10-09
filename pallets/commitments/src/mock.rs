@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)]
 use crate as pallet_commitments;
 use frame_support::{
     derive_impl,

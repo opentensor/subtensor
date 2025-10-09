@@ -56,6 +56,7 @@ fn is_saturating_math_call(func: &Expr) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
     use super::*;
     use quote::quote;
 

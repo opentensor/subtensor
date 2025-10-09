@@ -1,4 +1,4 @@
-#![allow(clippy::indexing_slicing, clippy::unwrap_used)]
+#![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 
 use ark_serialize::CanonicalDeserialize;
 use ark_serialize::CanonicalSerialize;

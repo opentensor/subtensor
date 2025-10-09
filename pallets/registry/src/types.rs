@@ -71,7 +71,7 @@ impl Decode for Data {
             n @ 1..=65 => {
                 let mut r: BoundedVec<_, _> = vec![0u8; (n as usize).saturating_sub(1)]
                     .try_into()
-                    .expect("bound checked in match arm condition; qed");
+                    .map_err(|_| codec::Error::from("bounded vec length exceeds limit"))?;
                 input.read(&mut r[..])?;
                 Data::Raw(r)
             }

@@ -16,7 +16,11 @@
 // limitations under the License.
 
 //! Staking pallet benchmarking.
-#![allow(clippy::arithmetic_side_effects, clippy::indexing_slicing)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing
+)]
 
 use super::*;
 use crate::Pallet as Collective;

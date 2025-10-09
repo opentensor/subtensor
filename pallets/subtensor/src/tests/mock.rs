@@ -1,4 +1,8 @@
-#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::unwrap_used
+)]
 
 use core::num::NonZeroU64;
 
