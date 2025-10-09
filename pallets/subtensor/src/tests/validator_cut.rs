@@ -77,7 +77,7 @@ fn test_emission_with_different_cut() {
             let validator_stake_before =
                 SubtensorModule::get_total_stake_for_coldkey(&validator_coldkey);
             let miner_stake_before = SubtensorModule::get_total_stake_for_coldkey(&miner_coldkey);
-            SubtensorModule::set_validator_cut(netuid, cut);
+            assert_ok!(SubtensorModule::set_validator_cut(netuid, cut));
 
             step_block(subnet_tempo);
 
@@ -316,7 +316,7 @@ fn test_emission_with_multiple_validators_varying_cuts() {
             let miner1_before = SubtensorModule::get_total_stake_for_coldkey(&miner1_coldkey);
             let miner2_before = SubtensorModule::get_total_stake_for_coldkey(&miner2_coldkey);
 
-            SubtensorModule::set_validator_cut(netuid, cut);
+            assert_ok!(SubtensorModule::set_validator_cut(netuid, cut));
             step_block(subnet_tempo);
 
             let val1_emission =
@@ -445,7 +445,7 @@ fn test_emission_with_child_keys_and_varying_cuts() {
             let delegate2_before = SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey2);
             let miner_before = SubtensorModule::get_total_stake_for_coldkey(&miner_coldkey);
 
-            SubtensorModule::set_validator_cut(netuid, cut);
+            assert_ok!(SubtensorModule::set_validator_cut(netuid, cut));
             step_block(subnet_tempo);
 
             let validator_emission =
@@ -582,7 +582,7 @@ fn test_emission_with_unequal_validator_stakes_varying_cuts() {
             let val2_before = SubtensorModule::get_total_stake_for_coldkey(&validator2_coldkey);
             let miner_before = SubtensorModule::get_total_stake_for_coldkey(&miner_coldkey);
 
-            SubtensorModule::set_validator_cut(netuid, cut);
+            assert_ok!(SubtensorModule::set_validator_cut(netuid, cut));
             step_block(subnet_tempo);
 
             let val1_emission =
@@ -692,7 +692,7 @@ fn test_emission_single_validator_multiple_miners_varying_cuts() {
                 .map(SubtensorModule::get_total_stake_for_coldkey)
                 .collect();
 
-            SubtensorModule::set_validator_cut(netuid, cut);
+            assert_ok!(SubtensorModule::set_validator_cut(netuid, cut));
             step_block(subnet_tempo);
 
             let validator_emission =
