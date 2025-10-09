@@ -455,7 +455,7 @@ pub mod pallet {
                     T::AnnouncementDepositFactor::get(),
                     pending.len(),
                 )?
-                .ok_or(Error::<T>::AnnouncementDepositInvariantViolated)?; // <- new error instead of expect
+                .ok_or(Error::<T>::AnnouncementDepositInvariantViolated)?;
 
                 *deposit = new_deposit;
                 Ok::<(), DispatchError>(())
