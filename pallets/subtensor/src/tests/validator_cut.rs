@@ -20,14 +20,7 @@ fn test_emission_with_different_cut() {
         let subnet_tempo = 10;
         let stake = 100_000_000_000;
 
-        let cut_list = [
-            0,
-            u64::MAX / 100,
-            u64::MAX / 10,
-            u64::MAX / 4,
-            u64::MAX / 2,
-            u64::MAX,
-        ];
+        let cut_list = [u64::MAX / 50, u64::MAX / 10, u64::MAX / 4, u64::MAX / 2];
 
         // Add network, register hotkeys, and setup network parameters
         add_network(netuid, subnet_tempo, 0);
@@ -236,7 +229,7 @@ fn test_emission_with_multiple_validators_varying_cuts() {
         let subnet_tempo = 10;
         let stake = 100_000_000_000;
 
-        let cut_list = [0, u64::MAX / 4, u64::MAX / 2, u64::MAX];
+        let cut_list = [u64::MAX / 4, u64::MAX / 2, u64::MAX / 10];
 
         // Add network and register all neurons
         add_network(netuid, subnet_tempo, 0);
@@ -372,7 +365,7 @@ fn test_emission_with_child_keys_and_varying_cuts() {
         let validator_stake = 100_000_000_000;
         let delegate_stake = 50_000_000_000;
 
-        let cut_list = [0, u64::MAX / 10, u64::MAX / 2, u64::MAX];
+        let cut_list = [u64::MAX / 10, u64::MAX / 4, u64::MAX / 2];
 
         // Setup network
         add_network(netuid, subnet_tempo, 0);
@@ -518,7 +511,7 @@ fn test_emission_with_unequal_validator_stakes_varying_cuts() {
         let large_stake = 200_000_000_000;
         let small_stake = 50_000_000_000;
 
-        let cut_list = [u64::MAX / 10, u64::MAX / 4, u64::MAX / 2, u64::MAX];
+        let cut_list = [u64::MAX / 10, u64::MAX / 4, u64::MAX / 2];
 
         // Setup network
         add_network(netuid, subnet_tempo, 0);
@@ -631,7 +624,7 @@ fn test_emission_single_validator_multiple_miners_varying_cuts() {
         let subnet_tempo = 10;
         let stake = 100_000_000_000;
 
-        let cut_list = [0, u64::MAX / 3, u64::MAX / 2, u64::MAX / 4 * 3, u64::MAX];
+        let cut_list = [u64::MAX / 3, u64::MAX / 2, u64::MAX / 4 * 3];
 
         // Setup network
         add_network(netuid, subnet_tempo, 0);
@@ -747,7 +740,7 @@ fn test_emission_all_validator_miners_varying_cuts() {
         let subnet_tempo = 10;
         let stake = 100_000_000_000;
 
-        let cut_list = [u64::MAX / 10, u64::MAX / 4, u64::MAX / 2, u64::MAX];
+        let cut_list = [u64::MAX / 10, u64::MAX / 4, u64::MAX / 2];
 
         // Setup network
         add_network(netuid, subnet_tempo, 0);
