@@ -1560,15 +1560,15 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmuneOwnerUidsLimit<T>>;
 
     #[pallet::type_value]
-    /// Min validator cut 25%, placeholder final value TBD
+    /// Min validator cut 1%, placeholder final value TBD
     pub fn MinValidatorCut<T: Config>() -> u64 {
-        u64::MAX / 4
+        u64::MAX / 100
     }
 
     #[pallet::type_value]
-    /// Max validator cut 75%, placeholder final value TBD
+    /// Max validator cut 99%, placeholder final value TBD
     pub fn MaxValidatorCut<T: Config>() -> u64 {
-        u64::MAX / 4 * 3
+        u64::MAX / 100 * 99
     }
 
     #[pallet::type_value]
