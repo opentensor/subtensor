@@ -1131,6 +1131,7 @@ impl<
     }
 
     #[cfg(feature = "runtime-benchmarks")]
+    #[allow(clippy::expect_used)]
     fn try_successful_origin() -> Result<O, ()> {
         let zero_account_id =
             AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())

@@ -2293,6 +2293,7 @@ impl_runtime_apis! {
             (weight, BlockWeights::get().max_block)
         }
 
+        #[allow(clippy::expect_used)]
         fn execute_block(
             block: Block,
             state_root_check: bool,
