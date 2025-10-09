@@ -306,9 +306,6 @@ w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
 #
 # View code changes here:
 # <https://github.com/paritytech/polkadot-sdk/compare/polkadot-stable2503-6...opentensor:polkadot-sdk:polkadot-stable2503-6-otf-patches>
-#
-# NOTE: The Diener will patch unnecesarry crates while this is waiting to be merged: <https://github.com/paritytech/diener/pull/46>.
-# You may install diener from `liamaharon:ignore-unused-flag` if you like in the meantime.
 [patch."https://github.com/paritytech/polkadot-sdk"]
 frame-support = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "ff7026b2e31fc2b0aaeede8cc259417bce56b2a8" }
 binary-merkle-tree = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "ff7026b2e31fc2b0aaeede8cc259417bce56b2a8" }
