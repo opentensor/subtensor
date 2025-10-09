@@ -547,7 +547,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Finalize a successful crowdloan.
+        /// Finalize crowdloan that has reached the cap.
         ///
         /// The call will transfer the raised amount to the target address if it was provided when the crowdloan was created
         /// and dispatch the call that was provided using the creator origin. The CurrentCrowdloanId will be set to the
@@ -565,14 +565,12 @@ pub mod pallet {
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            let now = frame_system::Pallet::<T>::block_number();
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
 
-            // Ensure the origin is the creator of the crowdloan and the crowdloan has ended,
-            // raised the cap and is not finalized.
+            // Ensure the origin is the creator of the crowdloan and the crowdloan has raised the cap
+            // and is not finalized.
             ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
-            ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
             ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapNotRaised);
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
@@ -621,7 +619,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Refund a failed crowdloan.
+        /// Refund contributors of a non-finalized crowdloan.
         ///
         /// The call will try to refund all contributors (excluding the creator) up to the limit defined by the `RefundContributorsLimit`.
         /// If the limit is reached, the call will stop and the crowdloan will be marked as partially refunded.
@@ -637,13 +635,11 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResultWithPostInfo {
-            let now = frame_system::Pallet::<T>::block_number();
             ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
 
-            // Ensure the crowdloan has ended and is not finalized
-            ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
+            // Ensure the crowdloan is not finalized
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
             let mut refunded_contributors: Vec<T::AccountId> = vec![];
