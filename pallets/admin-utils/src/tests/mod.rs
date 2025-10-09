@@ -2900,7 +2900,7 @@ fn test_sudo_set_min_allowed_uids() {
 fn test_get_validator_cut() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let expected_cut: u64 = 5000; // 50% cut
+        let expected_cut: u64 = u64::MAX / 2; // 50% cut
 
         // Set up a network
         add_network(netuid, 10);
@@ -2919,7 +2919,7 @@ fn test_set_validator_cut() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(2);
         let initial_cut: u64 = pallet_subtensor::DefaultValidatorCut::<Test>::get();
-        let new_cut: u64 = 7500; // 75% cut
+        let new_cut: u64 = u64::MAX / 3; // 33% cut
 
         // Set up a network
         add_network(netuid, 10);
