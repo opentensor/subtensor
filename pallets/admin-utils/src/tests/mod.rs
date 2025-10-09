@@ -3007,7 +3007,7 @@ fn test_validator_cut_bounds() {
         // Test minimum value
         assert_err!(
             SubtensorModule::set_validator_cut(netuid, min_cut),
-            Error::<Test>::InvalidValidatorCut
+            DispatchError::from(Error::<Test>::InvalidValidatorCut)
         );
 
         // Test maximum value
