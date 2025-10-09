@@ -341,7 +341,7 @@ impl<T: Config> Pallet<T> {
         Self::set_parentkeys(pivot.clone(), netuid, new_parents_vec.clone());
 
         let prev_parents_set: BTreeSet<T::AccountId> =
-            prev_parents_vec.iter().map(|(_, p)| p.clone()).collect();
+            prev_parents_vec.into_iter().map(|(_, p)| p).collect();
         let new_parents_set: BTreeSet<T::AccountId> = new_parents_map.keys().cloned().collect();
 
         // Added parents = new / prev  => ensure ChildKeys(parent) has (p, pivot)
@@ -361,12 +361,11 @@ impl<T: Config> Pallet<T> {
 
         // Updated parents = intersection where proportion changed
         for common in new_parents_set.intersection(&prev_parents_set) {
-            let new_p = match new_parents_map.get(common) {
-                Some(p) => *p,
-                None => return Err(Error::<T>::ChildParentInconsistency.into()),
-            };
+            let new_p = new_parents_map
+                .get(common)
+                .ok_or(Error::<T>::ChildParentInconsistency)?;
             let mut ck = ChildKeys::<T>::get(common.clone(), netuid);
-            PCRelations::<T>::upsert_edge(&mut ck, new_p, &pivot);
+            PCRelations::<T>::upsert_edge(&mut ck, *new_p, &pivot);
             Self::set_childkeys(common.clone(), netuid, ck);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
