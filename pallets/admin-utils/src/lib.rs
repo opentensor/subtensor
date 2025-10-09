@@ -2160,7 +2160,7 @@ pub mod pallet {
                 &[TransactionType::SetValidatorCut],
             )?;
 
-            pallet_subtensor::Pallet::<T>::set_validator_cut(netuid, cut);
+            pallet_subtensor::Pallet::<T>::set_validator_cut(netuid, cut)?;
             log::debug!("ValidatorCutSet( netuid: {netuid:?}, cut: {cut:?} ) ");
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
