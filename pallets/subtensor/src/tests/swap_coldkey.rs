@@ -1,4 +1,10 @@
-#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
+#![allow(
+    unused,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 
 use approx::assert_abs_diff_eq;
 use codec::Encode;

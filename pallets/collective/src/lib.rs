@@ -179,6 +179,7 @@ pub struct Votes<AccountId, BlockNumber> {
 
 #[deny(missing_docs)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
     use frame_system::pallet_prelude::*;
@@ -397,6 +398,8 @@ pub mod pallet {
     // Note that councillor operations are assigned to the operational class.
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        #![deny(clippy::expect_used)]
+
         /// Set the collective's membership.
         ///
         /// - `new_members`: The new member list. Be nice to the chain and provide it sorted.

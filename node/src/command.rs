@@ -245,6 +245,7 @@ pub fn run() -> sc_cli::Result<()> {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
@@ -281,6 +282,7 @@ fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
@@ -313,6 +315,7 @@ fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn customise_config(arg_matches: &ArgMatches, config: Configuration) -> Configuration {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
 

@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use super::mock::*;
 use crate::migrations::migrate_network_immunity_period;
 use crate::*;

@@ -77,6 +77,7 @@ impl HybridBlockImport {
             FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
         );
 
+        #[allow(clippy::expect_used)]
         let (babe_import, babe_link) = sc_consensus_babe::block_import(
             babe_config,
             grandpa_block_import.clone(),

@@ -88,6 +88,7 @@ pub type CrowdloanInfoOf<T> = CrowdloanInfo<
 >;
 
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
 
@@ -285,6 +286,8 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Create a crowdloan that will raise funds up to a maximum cap and if successful,
         /// will transfer funds to the target address if provided and dispatch the call
         /// (using creator origin).

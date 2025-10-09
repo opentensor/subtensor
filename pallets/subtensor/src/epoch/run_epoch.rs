@@ -1169,12 +1169,17 @@ impl<T: Config> Pallet<T> {
             Bonds::<T>::iter_prefix(netuid_index).filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec {
-                bonds
-                    .get_mut(uid_i as usize)
-                    .expect("uid_i is filtered to be less than n; qed")
-                    .push((uid_j, u16_to_fixed(bonds_ij)));
+                if let Some(row) = bonds.get_mut(uid_i as usize) {
+                    row.push((uid_j, u16_to_fixed(bonds_ij)));
+                } else {
+                    // If the index is unexpectedly out of bounds, skip and log math error
+                    log::error!(
+                        "math error: bonds row index out of bounds (uid_i={uid_i}, n={n}, netuid_index={netuid_index})",
+                    );
+                }
             }
         }
+
         bonds
     }
 
@@ -1187,14 +1192,22 @@ impl<T: Config> Pallet<T> {
             Bonds::<T>::iter_prefix(netuid_index).filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec.into_iter().filter(|(uid_j, _)| *uid_j < n as u16) {
-                *bonds
-                    .get_mut(uid_i as usize)
-                    .expect("uid_i has been filtered to be less than n; qed")
-                    .get_mut(uid_j as usize)
-                    .expect("uid_j has been filtered to be less than n; qed") =
-                    u16_to_fixed(bonds_ij);
+                if let Some(row) = bonds.get_mut(uid_i as usize) {
+                    if let Some(cell) = row.get_mut(uid_j as usize) {
+                        *cell = u16_to_fixed(bonds_ij);
+                    } else {
+                        log::error!(
+                            "math error: uid_j index out of bounds (uid_i={uid_i}, uid_j={uid_j}, n={n}, netuid_index={netuid_index})"
+                        );
+                    }
+                } else {
+                    log::error!(
+                        "math error: uid_i row index out of bounds (uid_i={uid_i}, n={n}, netuid_index={netuid_index})"
+                    );
+                }
             }
         }
+
         bonds
     }
 
