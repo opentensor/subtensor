@@ -4,9 +4,9 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 #[test]
@@ -2194,5 +2194,107 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 .any(|((n, owner, _pid), _)| n == net_new && owner == who_cold),
             "new position not recorded on the re-registered net"
         );
+    });
+}
+
+#[test]
+fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
+    new_test_ext(0).execute_with(|| {
+        // Create a subnet we can dissolve.
+        let owner_cold = U256::from(123);
+        let owner_hot = U256::from(456);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        // We'll use two mechanisms for this subnet.
+        MechanismCountCurrent::<Test>::insert(net, MechId::from(2));
+        let m0 = MechId::from(0u8);
+        let m1 = MechId::from(1u8);
+
+        let idx0 = SubtensorModule::get_mechanism_storage_index(net, m0);
+        let idx1 = SubtensorModule::get_mechanism_storage_index(net, m1);
+
+        // Minimal content to ensure each storage actually has keys for BOTH mechanisms.
+
+        // --- Weights (DMAP: (netuid_index, uid) -> Vec<(dest_uid, weight_u16)>)
+        Weights::<Test>::insert(idx0, 0u16, vec![(1u16, 1u16)]);
+        Weights::<Test>::insert(idx1, 0u16, vec![(2u16, 1u16)]);
+
+        // --- Bonds (DMAP: (netuid_index, uid) -> Vec<(dest_uid, weight_u16)>)
+        Bonds::<Test>::insert(idx0, 0u16, vec![(1u16, 1u16)]);
+        Bonds::<Test>::insert(idx1, 0u16, vec![(2u16, 1u16)]);
+
+        // --- TimelockedWeightCommits (DMAP: (netuid_index, epoch) -> VecDeque<...>)
+        let hotkey = U256::from(1);
+        TimelockedWeightCommits::<Test>::insert(
+            idx0,
+            1u64,
+            VecDeque::from([(hotkey, 1u64, Default::default(), Default::default())]),
+        );
+        TimelockedWeightCommits::<Test>::insert(
+            idx1,
+            2u64,
+            VecDeque::from([(hotkey, 2u64, Default::default(), Default::default())]),
+        );
+
+        // --- Incentive (MAP: netuid_index -> Vec<u16>)
+        Incentive::<Test>::insert(idx0, vec![1u16, 2u16]);
+        Incentive::<Test>::insert(idx1, vec![3u16, 4u16]);
+
+        // --- LastUpdate (MAP: netuid_index -> Vec<u64>)
+        LastUpdate::<Test>::insert(idx0, vec![42u64]);
+        LastUpdate::<Test>::insert(idx1, vec![84u64]);
+
+        // Sanity: keys are present before dissolve.
+        assert!(Weights::<Test>::contains_key(idx0, 0u16));
+        assert!(Weights::<Test>::contains_key(idx1, 0u16));
+        assert!(Bonds::<Test>::contains_key(idx0, 0u16));
+        assert!(Bonds::<Test>::contains_key(idx1, 0u16));
+        assert!(TimelockedWeightCommits::<Test>::contains_key(idx0, 1u64));
+        assert!(TimelockedWeightCommits::<Test>::contains_key(idx1, 2u64));
+        assert!(Incentive::<Test>::contains_key(idx0));
+        assert!(Incentive::<Test>::contains_key(idx1));
+        assert!(LastUpdate::<Test>::contains_key(idx0));
+        assert!(LastUpdate::<Test>::contains_key(idx1));
+        assert!(MechanismCountCurrent::<Test>::contains_key(net));
+
+        // --- Dissolve the subnet ---
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // After dissolve, ALL mechanism-scoped items must be cleared for ALL mechanisms.
+
+        // Weights/Bonds double-maps should have no entries under either index.
+        assert!(Weights::<Test>::iter_prefix(idx0).next().is_none());
+        assert!(Weights::<Test>::iter_prefix(idx1).next().is_none());
+        assert!(Bonds::<Test>::iter_prefix(idx0).next().is_none());
+        assert!(Bonds::<Test>::iter_prefix(idx1).next().is_none());
+
+        // WeightCommits (OptionQuery) should have no keys remaining.
+        assert!(WeightCommits::<Test>::iter_prefix(idx0).next().is_none());
+        assert!(WeightCommits::<Test>::iter_prefix(idx1).next().is_none());
+        assert!(!WeightCommits::<Test>::contains_key(idx0, owner_hot));
+        assert!(!WeightCommits::<Test>::contains_key(idx1, owner_cold));
+
+        // TimelockedWeightCommits (ValueQuery) — ensure both prefix spaces empty and keys gone.
+        assert!(
+            TimelockedWeightCommits::<Test>::iter_prefix(idx0)
+                .next()
+                .is_none()
+        );
+        assert!(
+            TimelockedWeightCommits::<Test>::iter_prefix(idx1)
+                .next()
+                .is_none()
+        );
+        assert!(!TimelockedWeightCommits::<Test>::contains_key(idx0, 1u64));
+        assert!(!TimelockedWeightCommits::<Test>::contains_key(idx1, 2u64));
+
+        // Single-map per-mechanism vectors cleared.
+        assert!(!Incentive::<Test>::contains_key(idx0));
+        assert!(!Incentive::<Test>::contains_key(idx1));
+        assert!(!LastUpdate::<Test>::contains_key(idx0));
+        assert!(!LastUpdate::<Test>::contains_key(idx1));
+
+        // MechanismCountCurrent cleared
+        assert!(!MechanismCountCurrent::<Test>::contains_key(net));
     });
 }

@@ -24,9 +24,11 @@ use sp_runtime::{
     BuildStorage, Percent,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::{cell::RefCell, cmp::Ordering};
+use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
+use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -671,10 +673,38 @@ where
     }
 }
 
+static TEST_LOGS_INIT: OnceLock<()> = OnceLock::new();
+
+pub fn init_logs_for_tests() {
+    if TEST_LOGS_INIT.get().is_some() {
+        return;
+    }
+
+    // RUST_LOG (full syntax) or "off" if unset
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("off"));
+
+    // Bridge log -> tracing (ok if already set)
+    let _ = tracing_log::LogTracer::init();
+
+    // Simple formatter
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(false)
+        .with_target(true)
+        .with_level(true)
+        .without_time();
+
+    let _ = tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt_layer)
+        .try_init();
+
+    let _ = TEST_LOGS_INIT.set(());
+}
+
 #[allow(dead_code)]
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
-    sp_tracing::try_init_simple();
+    init_logs_for_tests();
     let t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();
@@ -685,7 +715,7 @@ pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
 
 #[allow(dead_code)]
 pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExternalities {
-    sp_tracing::try_init_simple();
+    init_logs_for_tests();
     let mut t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();
