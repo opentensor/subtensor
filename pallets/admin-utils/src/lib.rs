@@ -1249,7 +1249,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the minimum delegate take.
         #[pallet::call_index(46)]
         #[pallet::weight((
-            Weight::from_parts(9_918_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
+            Weight::from_parts(5_500_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
