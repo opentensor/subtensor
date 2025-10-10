@@ -2044,3 +2044,29 @@ fn test_migrate_restore_subnet_locked_65_128() {
         );
     });
 }
+
+#[test]
+fn test_migrate_remove_tao_dividends() {
+    const MIGRATION_NAME: &str = "migrate_remove_tao_dividends";
+    let pallet_name = "SubtensorModule";
+    let storage_name = "TaoDividendsPerSubnet";
+    let migration =
+        crate::migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<Test>;
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        storage_name,
+        migration,
+        200_000,
+    );
+
+    let storage_name = "PendingAlphaSwapped";
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        storage_name,
+        migration,
+        200_000,
+    );
+}
