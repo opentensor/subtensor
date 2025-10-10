@@ -1,5 +1,9 @@
 #![cfg(test)]
-#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::unwrap_used
+)]
 use frame_support::{
     PalletId, derive_impl, parameter_types,
     traits::{OnFinalize, OnInitialize, fungible, fungible::*, tokens::Preservation},

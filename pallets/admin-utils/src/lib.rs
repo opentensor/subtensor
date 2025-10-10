@@ -18,6 +18,7 @@ mod tests;
 
 #[deny(missing_docs)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
@@ -162,6 +163,8 @@ pub mod pallet {
     /// Dispatchable functions allows users to interact with the pallet and invoke state changes.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// The extrinsic sets the new authorities for Aura consensus.
         /// It is only callable by the root account.
         /// The extrinsic will call the Aura pallet to change the authorities.
@@ -731,7 +734,7 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the target registrations per interval.
         #[pallet::call_index(21)]
-        #[pallet::weight(Weight::from_parts(44_320_000, 0)
+        #[pallet::weight(Weight::from_parts(25_980_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_target_registrations_per_interval(

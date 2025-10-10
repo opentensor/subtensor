@@ -37,6 +37,7 @@ type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 #[deny(missing_docs)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, traits::ReservableCurrency};
@@ -204,6 +205,8 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((

@@ -23,6 +23,7 @@ mod tests;
 
 #[allow(clippy::module_inception)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 mod pallet {
     use super::*;
     use frame_system::{ensure_root, ensure_signed};
@@ -280,6 +281,8 @@ mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Set the fee rate for swaps on a specific subnet (normalized value).
         /// For example, 0.3% is approximately 196.
         ///

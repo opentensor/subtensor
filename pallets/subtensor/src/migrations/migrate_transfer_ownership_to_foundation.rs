@@ -5,7 +5,7 @@ use frame_support::{
     traits::{GetStorageVersion, StorageVersion},
     weights::Weight,
 };
-use log::info;
+use log::{error, info};
 use sp_core::Get;
 use sp_std::vec::Vec;
 use subtensor_runtime_common::NetUid;
@@ -41,7 +41,7 @@ pub mod deprecated_loaded_emission_format {
 pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) -> Weight {
     let new_storage_version = 3;
 
-    // Initialize weight counter
+    // Start with one read (on-chain storage version).
     let mut weight = T::DbWeight::get().reads(1);
 
     // Get current on-chain storage version
@@ -54,10 +54,14 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
             "Migrating subnet 1 and 11 to foundation control. Current version: {onchain_version:?}"
         );
 
-        // Decode the foundation's coldkey into an AccountId
-        // TODO: Consider error handling for decoding failure
-        let coldkey_account: T::AccountId = T::AccountId::decode(&mut &coldkey[..])
-            .expect("coldkey should be a valid 32-byte array");
+        // Decode the foundation's coldkey into an AccountId — if it fails, log and abort migration.
+        let Ok(coldkey_account) = T::AccountId::decode(&mut &coldkey[..]) else {
+            error!(
+                target: LOG_TARGET,
+                "migration error: failed to decode foundation coldkey from 32 bytes"
+            );
+            return weight;
+        };
         info!(target: LOG_TARGET, "Foundation coldkey: {coldkey_account:?}");
 
         // Get the current block number

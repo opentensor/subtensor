@@ -1,6 +1,9 @@
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::indexing_slicing)]
-#![allow(clippy::arithmetic_side_effects)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::unwrap_used
+)]
 
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
