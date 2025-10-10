@@ -2783,7 +2783,7 @@ fn proportional_when_price_is_one_and_alpha_is_excess() {
 }
 
 #[test]
-fn proportional_with_higher_price_and_alpha_limiting() {
+fn proportional_with_higher_price_and_tao_limiting() {
     // Choose sqrt_price = 2.0 => price = 4.0 (since implementation squares it)
     let sqrt = U64F64::from_num(2u64);
     let amount_tao: TaoCurrency = 50u64.into();
