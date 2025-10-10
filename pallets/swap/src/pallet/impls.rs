@@ -179,7 +179,7 @@ impl<T: Config> Pallet<T> {
                         .saturating_add(alpha_reservoir),
                 );
 
-            // Update scarp reservoirs
+            // Update scrap reservoirs
             ScrapReservoirTao::<T>::insert(netuid, tao_scrap);
             ScrapReservoirAlpha::<T>::insert(netuid, alpha_scrap);
 
