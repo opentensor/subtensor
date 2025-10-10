@@ -334,14 +334,14 @@ impl<T: Config> Pallet<T> {
     /// The function uses AlphaMapCleanLastKey as a storage for key iterator between runs.
     pub fn populate_root_coldkey_staking_maps() {
         // Get starting key for the batch. Get the first key if we restart the process.
-        let mut starting_raw_key = AlphaMapLastKey::<T>::get();
+        let mut new_starting_raw_key = AlphaMapLastKey::<T>::get();
         let mut starting_key = None;
-        if starting_raw_key.is_none() {
+        if new_starting_raw_key.is_none() {
             starting_key = Alpha::<T>::iter_keys().next();
-            starting_raw_key = starting_key.as_ref().map(Alpha::<T>::hashed_key_for);
+            new_starting_raw_key = starting_key.as_ref().map(Alpha::<T>::hashed_key_for);
         }
 
-        if let Some(starting_raw_key) = starting_raw_key {
+        if let Some(starting_raw_key) = new_starting_raw_key {
             // Get the key batch
             let mut keys = Alpha::<T>::iter_keys_from(starting_raw_key)
                 .take(ALPHA_MAP_BATCH_SIZE)
