@@ -2783,6 +2783,20 @@ fn proportional_when_price_is_one_and_alpha_is_excess() {
 }
 
 #[test]
+fn proportional_with_higher_price_and_alpha_limiting() {
+    // Choose sqrt_price = 2.0 => price = 4.0 (since implementation squares it)
+    let sqrt = U64F64::from_num(2u64);
+    let amount_tao: TaoCurrency = 85u64.into();
+    let amount_alpha: AlphaCurrency = 20u64.into();
+
+    // tao_equivalent = alpha * price = 20 * 4 = 80 < 85 => alpha limits tao
+    // remainders: tao 5, alpha 0
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, amount_tao, amount_alpha);
+    assert_eq!(as_tuple(out), (80, 20, 5, 0));
+}
+
+#[test]
 fn proportional_with_higher_price_and_tao_limiting() {
     // Choose sqrt_price = 2.0 => price = 4.0 (since implementation squares it)
     let sqrt = U64F64::from_num(2u64);
