@@ -223,7 +223,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 328,
+    spec_version: 329,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1297,8 +1297,7 @@ parameter_types! {
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
     pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
-    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(1_000_000)
-        .expect("1_000_000 fits NonZeroU64");
+    pub const SwapMinimumReserve: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1_000_000) };
 }
 
 impl pallet_subtensor_swap::Config for Runtime {
@@ -1526,6 +1525,7 @@ impl<B> Default for TransactionConverter<B> {
     }
 }
 
+#[allow(clippy::expect_used)]
 impl<B: BlockT> fp_rpc::ConvertTransaction<<B as BlockT>::Extrinsic> for TransactionConverter<B> {
     fn convert_transaction(
         &self,
@@ -2293,6 +2293,7 @@ impl_runtime_apis! {
             (weight, BlockWeights::get().max_block)
         }
 
+        #[allow(clippy::expect_used)]
         fn execute_block(
             block: Block,
             state_root_check: bool,

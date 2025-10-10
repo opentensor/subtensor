@@ -264,5 +264,7 @@ mod errors {
         TrimmingWouldExceedMaxImmunePercentage,
         /// Invalid validator cut
         InvalidValidatorCut,
+        /// Violating the rules of Childkey-Parentkey consistency
+        ChildParentInconsistency,
     }
 }

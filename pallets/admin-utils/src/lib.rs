@@ -18,6 +18,7 @@ mod tests;
 
 #[deny(missing_docs)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
@@ -162,6 +163,8 @@ pub mod pallet {
     /// Dispatchable functions allows users to interact with the pallet and invoke state changes.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// The extrinsic sets the new authorities for Aura consensus.
         /// It is only callable by the root account.
         /// The extrinsic will call the Aura pallet to change the authorities.

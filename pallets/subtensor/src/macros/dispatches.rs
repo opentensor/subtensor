@@ -18,6 +18,8 @@ mod dispatches {
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// --- Sets the caller weights for the incentive mechanism. The call can be
         /// made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
