@@ -300,7 +300,10 @@ pow-faucet = []
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
 
 # Patches automatically generated with `diener`:
-# `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit ff7026b2e31fc2b0aaeede8cc259417bce56b2a8 --crates-to-patch ../polkadot-sdk --ignore-unused`
+# `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit ff7026b2e31fc2b0aaeede8cc259417bce56b2a8 --crates-to-patch ../polkadot-sdk`
+#
+# Note you need at least `diener` version 0.6.0, which is not avaliable yet on crates.io, but can be installed from Github:
+# `cargo install --git https://github.com/paritytech/diener --rev 4202bdd8cd94f4d978579dc4833d074b544e547a --locked`
 #
 # Using latest commit from `polkadot-stable2503-6-otf-patches`.
 #
