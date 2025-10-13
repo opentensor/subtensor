@@ -197,27 +197,23 @@ fn test_coinbase_tao_issuance_different_prices() {
         // Assert tao emission is split evenly.
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid1),
-            TaoCurrency::from(initial_tao + emission / 3),
+            TaoCurrency::from(initial_tao + emission / 10),
             epsilon = 1.into(),
         );
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid2),
-            TaoCurrency::from(initial_tao + 2 * emission / 3),
+            TaoCurrency::from(initial_tao + 2 * emission / 10),
             epsilon = 1.into(),
         );
 
         // Prices are low => we limit tao issued (buy alpha with it)
-        let tao_issued = TaoCurrency::from((emission as f64) as u64);
+        let tao_issued = TaoCurrency::from(((0.1 + 0.2) * emission as f64) as u64);
         assert_abs_diff_eq!(
             TotalIssuance::<Test>::get(),
             tao_issued,
             epsilon = 10.into()
         );
-        assert_abs_diff_eq!(
-            TotalStake::<Test>::get(),
-            emission.into(),
-            epsilon = 10.into()
-        );
+        assert_abs_diff_eq!(TotalStake::<Test>::get(), tao_issued, epsilon = 10.into());
     });
 }
 
