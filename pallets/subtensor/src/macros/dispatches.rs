@@ -18,6 +18,8 @@ mod dispatches {
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// --- Sets the caller weights for the incentive mechanism. The call can be
         /// made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
@@ -1058,7 +1060,7 @@ mod dispatches {
         /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(47))
+        .saturating_add(T::DbWeight::get().reads(49_u64))
         .saturating_add(T::DbWeight::get().writes(37)), DispatchClass::Normal, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
@@ -2293,8 +2295,8 @@ mod dispatches {
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
         #[pallet::weight((Weight::from_parts(29_930_000, 0)
-		.saturating_add(T::DbWeight::get().reads(3_u64))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(4_u64))
+		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: T::RuntimeOrigin,
             netuid: NetUid,

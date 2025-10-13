@@ -1,6 +1,9 @@
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::indexing_slicing)]
-#![allow(clippy::arithmetic_side_effects)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::unwrap_used
+)]
 
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -2739,5 +2742,174 @@ fn test_clear_protocol_liquidity_green_path() {
                 .is_none()
         );
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
+    });
+}
+
+fn as_tuple(
+    (t_used, a_used, t_rem, a_rem): (TaoCurrency, AlphaCurrency, TaoCurrency, AlphaCurrency),
+) -> (u64, u64, u64, u64) {
+    (
+        u64::from(t_used),
+        u64::from(a_used),
+        u64::from(t_rem),
+        u64::from(a_rem),
+    )
+}
+
+#[test]
+fn proportional_when_price_is_one_and_tao_is_plenty() {
+    // sqrt_price = 1.0  => price = 1.0
+    let sqrt = U64F64::from_num(1u64);
+    let amount_tao: TaoCurrency = 10u64.into();
+    let amount_alpha: AlphaCurrency = 3u64.into();
+
+    // alpha * price = 3 * 1 = 3 <= amount_tao(10)
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, amount_tao, amount_alpha);
+    assert_eq!(as_tuple(out), (3, 3, 7, 0));
+}
+
+#[test]
+fn proportional_when_price_is_one_and_alpha_is_excess() {
+    // sqrt_price = 1.0  => price = 1.0
+    let sqrt = U64F64::from_num(1u64);
+    let amount_tao: TaoCurrency = 5u64.into();
+    let amount_alpha: AlphaCurrency = 10u64.into();
+
+    // tao is limiting: alpha_equiv = floor(5 / 1) = 5
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, amount_tao, amount_alpha);
+    assert_eq!(as_tuple(out), (5, 5, 0, 5));
+}
+
+#[test]
+fn proportional_with_higher_price_and_alpha_limiting() {
+    // Choose sqrt_price = 2.0 => price = 4.0 (since implementation squares it)
+    let sqrt = U64F64::from_num(2u64);
+    let amount_tao: TaoCurrency = 85u64.into();
+    let amount_alpha: AlphaCurrency = 20u64.into();
+
+    // tao_equivalent = alpha * price = 20 * 4 = 80 < 85 => alpha limits tao
+    // remainders: tao 5, alpha 0
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, amount_tao, amount_alpha);
+    assert_eq!(as_tuple(out), (80, 20, 5, 0));
+}
+
+#[test]
+fn proportional_with_higher_price_and_tao_limiting() {
+    // Choose sqrt_price = 2.0 => price = 4.0 (since implementation squares it)
+    let sqrt = U64F64::from_num(2u64);
+    let amount_tao: TaoCurrency = 50u64.into();
+    let amount_alpha: AlphaCurrency = 20u64.into();
+
+    // tao_equivalent = alpha * price = 20 * 4 = 80 > 50 => tao limits alpha
+    // alpha_equivalent = floor(50 / 4) = 12
+    // remainders: tao 0, alpha 20 - 12 = 8
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, amount_tao, amount_alpha);
+    assert_eq!(as_tuple(out), (50, 12, 0, 8));
+}
+
+#[test]
+fn zero_price_uses_no_tao_and_all_alpha() {
+    // sqrt_price = 0 => price = 0
+    let sqrt = U64F64::from_num(0u64);
+    let amount_tao: TaoCurrency = 42u64.into();
+    let amount_alpha: AlphaCurrency = 17u64.into();
+
+    // tao_equivalent = 17 * 0 = 0 <= 42
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, amount_tao, amount_alpha);
+    assert_eq!(as_tuple(out), (0, 17, 42, 0));
+}
+
+#[test]
+fn rounding_down_behavior_when_dividing_by_price() {
+    // sqrt_price = 2.0 => price = 4.0
+    let sqrt = U64F64::from_num(2u64);
+    let amount_tao: TaoCurrency = 13u64.into();
+    let amount_alpha: AlphaCurrency = 100u64.into();
+
+    // tao is limiting; alpha_equiv = floor(13 / 4) = 3
+    // remainders: tao 0, alpha 100 - 3 = 97
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, amount_tao, amount_alpha);
+    assert_eq!(as_tuple(out), (13, 3, 0, 97));
+}
+
+#[test]
+fn exact_fit_when_tao_matches_alpha_times_price() {
+    // sqrt_price = 1.0 => price = 1.0
+    let sqrt = U64F64::from_num(1u64);
+    let amount_tao: TaoCurrency = 9u64.into();
+    let amount_alpha: AlphaCurrency = 9u64.into();
+
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, amount_tao, amount_alpha);
+    assert_eq!(as_tuple(out), (9, 9, 0, 0));
+}
+
+#[test]
+fn handles_zero_balances() {
+    let sqrt = U64F64::from_num(1u64);
+
+    // Zero TAO, some alpha
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, 0u64.into(), 7u64.into());
+    // tao limits; alpha_equiv = floor(0 / 1) = 0
+    assert_eq!(as_tuple(out), (0, 0, 0, 7));
+
+    // Some TAO, zero alpha
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, 7u64.into(), 0u64.into());
+    // tao_equiv = 0 * 1 = 0 <= 7
+    assert_eq!(as_tuple(out), (0, 0, 7, 0));
+
+    // Both zero
+    let out =
+        Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, 0u64.into(), 0u64.into());
+    assert_eq!(as_tuple(out), (0, 0, 0, 0));
+}
+
+#[test]
+fn adjust_protocol_liquidity_uses_and_sets_scrap_reservoirs() {
+    new_test_ext().execute_with(|| {
+        // --- Arrange
+        let netuid: NetUid = 1u16.into();
+        // Price = 1.0 (since sqrt_price^2 = 1), so proportional match is 1:1
+        AlphaSqrtPrice::<Test>::insert(netuid, U64F64::saturating_from_num(1u64));
+
+        // Start with some non-zero scrap reservoirs
+        ScrapReservoirTao::<Test>::insert(netuid, TaoCurrency::from(7u64));
+        ScrapReservoirAlpha::<Test>::insert(netuid, AlphaCurrency::from(5u64));
+
+        // Create a minimal protocol position so the function’s body executes.
+        let protocol = Pallet::<Test>::protocol_account_id();
+        let position = Position::new(
+            PositionId::from(0),
+            netuid,
+            TickIndex::MIN,
+            TickIndex::MAX,
+            0,
+        );
+        // Ensure collect_fees() returns (0,0) via zeroed fees in `position` (default).
+        Positions::<Test>::insert((netuid, protocol, position.id), position.clone());
+
+        // --- Act
+        // No external deltas or fees; only reservoirs should be considered.
+        // With price=1, the exact proportional pair uses 5 alpha and 5 tao,
+        // leaving tao scrap = 7 - 5 = 2, alpha scrap = 5 - 5 = 0.
+        Pallet::<Test>::adjust_protocol_liquidity(netuid, 0u64.into(), 0u64.into());
+
+        // --- Assert: reservoirs were READ (used in proportional calc) and then SET (updated)
+        assert_eq!(
+            ScrapReservoirTao::<Test>::get(netuid),
+            TaoCurrency::from(2u64)
+        );
+        assert_eq!(
+            ScrapReservoirAlpha::<Test>::get(netuid),
+            AlphaCurrency::from(0u64)
+        );
     });
 }

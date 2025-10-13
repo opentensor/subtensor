@@ -23,6 +23,7 @@ mod tests;
 
 #[allow(clippy::module_inception)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 mod pallet {
     use super::*;
     use frame_system::{ensure_root, ensure_signed};
@@ -145,6 +146,15 @@ mod pallet {
         u128,
         ValueQuery,
     >;
+
+    /// TAO reservoir for scraps of protocol claimed fees.
+    #[pallet::storage]
+    pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+
+    /// Alpha reservoir for scraps of protocol claimed fees.
+    #[pallet::storage]
+    pub type ScrapReservoirAlpha<T> =
+        StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -280,6 +290,8 @@ mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Set the fee rate for swaps on a specific subnet (normalized value).
         /// For example, 0.3% is approximately 196.
         ///

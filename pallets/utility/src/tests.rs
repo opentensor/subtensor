@@ -18,7 +18,11 @@
 // Tests for Utility Pallet
 
 #![cfg(test)]
-#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::unwrap_used
+)]
 
 use super::*;
 
@@ -302,7 +306,7 @@ fn utility_events() -> Vec<Event> {
 #[test]
 fn as_derivative_works() {
     new_test_ext().execute_with(|| {
-        let sub_1_0 = Utility::derivative_account_id(1, 0);
+        let sub_1_0 = Utility::derivative_account_id(1, 0).unwrap();
         assert_ok!(Balances::transfer_allow_death(
             RuntimeOrigin::signed(1),
             sub_1_0,

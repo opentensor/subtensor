@@ -22,6 +22,7 @@ type BalanceOf<T> =
     <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 #[deny(missing_docs)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, traits::tokens::fungible};
@@ -107,6 +108,8 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Register an identity for an account. This will overwrite any existing identity.
         #[pallet::call_index(0)]
         #[pallet::weight((

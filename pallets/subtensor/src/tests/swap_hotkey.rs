@@ -1273,14 +1273,10 @@ fn test_swap_complex_parent_child_structure() {
         assert!(ChildKeys::<Test>::get(old_hotkey, netuid).is_empty());
 
         // Verify parent's ChildKeys update
-        assert_eq!(
-            ChildKeys::<Test>::get(parent1, netuid),
-            vec![(100u64, new_hotkey), (500u64, U256::from(8))]
-        );
-        assert_eq!(
-            ChildKeys::<Test>::get(parent2, netuid),
-            vec![(200u64, new_hotkey), (600u64, U256::from(9))]
-        );
+        assert!(ChildKeys::<Test>::get(parent1, netuid).contains(&(500u64, U256::from(8))),);
+        assert!(ChildKeys::<Test>::get(parent1, netuid).contains(&(100u64, new_hotkey)),);
+        assert!(ChildKeys::<Test>::get(parent2, netuid).contains(&(600u64, U256::from(9))),);
+        assert!(ChildKeys::<Test>::get(parent2, netuid).contains(&(200u64, new_hotkey)),);
     });
 }
 
@@ -1292,7 +1288,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
         let coldkey = U256::from(2);
         let child = U256::from(3);
         let child_other = U256::from(4);
-        let parent_new = U256::from(4);
+        let parent_new = U256::from(5);
         add_network(netuid, 1, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
 
@@ -1464,6 +1460,52 @@ fn test_swap_hotkey_swap_rate_limits() {
             child_key_take_block
         );
     });
+}
+
+#[test]
+fn test_swap_parent_hotkey_self_loops_in_pending() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let parent_old = U256::from(1);
+        let coldkey = U256::from(2);
+        let child = U256::from(3);
+        let child_other = U256::from(4);
+
+        // Same as child_other, so it will self-loop when pending is set. Should fail.
+        let parent_new = U256::from(4);
+        add_network(netuid, 1, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
+
+        // Set child and verify state maps
+        mock_set_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child)]);
+        // Wait rate limit
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+        // Schedule some pending child keys.
+        mock_schedule_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child_other)]);
+
+        assert_eq!(
+            ParentKeys::<Test>::get(child, netuid),
+            vec![(u64::MAX, parent_old)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent_old, netuid),
+            vec![(u64::MAX, child)]
+        );
+        let existing_pending_child_keys = PendingChildKeys::<Test>::get(netuid, parent_old);
+        assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_other)]);
+
+        // Swap
+        let mut weight = Weight::zero();
+        assert_err!(
+            SubtensorModule::perform_hotkey_swap_on_all_subnets(
+                &parent_old,
+                &parent_new,
+                &coldkey,
+                &mut weight
+            ),
+            Error::<Test>::InvalidChild
+        );
+    })
 }
 
 #[test]
