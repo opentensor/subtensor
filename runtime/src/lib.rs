@@ -1691,6 +1691,224 @@ impl Contains<RuntimeCall> for ContractCallFilter {
     }
 }
 
+/// Trait to prevent breaking changes to smart contract APIs.
+/// This trait mirrors all dispatchables exposed through ContractCallFilter.
+/// If any function signature changes, compilation will fail, alerting developers
+/// to potential breaking changes for smart contracts.
+pub trait DoNotBreakSmartContracts {
+    fn add_stake(hotkey: AccountId32, netuid: NetUid, amount_staked: TaoCurrency) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::add_stake(
+            RuntimeOrigin::none(),
+            hotkey,
+            netuid,
+            amount_staked,
+        );
+    }
+
+    fn remove_stake(hotkey: AccountId32, netuid: NetUid, amount_unstaked: AlphaCurrency) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::remove_stake(
+            RuntimeOrigin::none(),
+            hotkey,
+            netuid,
+            amount_unstaked,
+        );
+    }
+
+    fn unstake_all(hotkey: AccountId32) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::unstake_all(RuntimeOrigin::none(), hotkey);
+    }
+
+    fn unstake_all_alpha(hotkey: AccountId32) {
+        let _ =
+            pallet_subtensor::Pallet::<Runtime>::unstake_all_alpha(RuntimeOrigin::none(), hotkey);
+    }
+
+    fn move_stake(
+        origin_hotkey: AccountId32,
+        destination_hotkey: AccountId32,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        alpha_amount: AlphaCurrency,
+    ) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::move_stake(
+            RuntimeOrigin::none(),
+            origin_hotkey,
+            destination_hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+        );
+    }
+
+    fn transfer_stake(
+        destination_coldkey: AccountId32,
+        hotkey: AccountId32,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        alpha_amount: AlphaCurrency,
+    ) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::transfer_stake(
+            RuntimeOrigin::none(),
+            destination_coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+        );
+    }
+
+    fn swap_stake(
+        hotkey: AccountId32,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        alpha_amount: AlphaCurrency,
+    ) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::swap_stake(
+            RuntimeOrigin::none(),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+        );
+    }
+
+    fn add_stake_limit(
+        hotkey: AccountId32,
+        netuid: NetUid,
+        amount_staked: TaoCurrency,
+        limit_price: TaoCurrency,
+        allow_partial: bool,
+    ) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::add_stake_limit(
+            RuntimeOrigin::none(),
+            hotkey,
+            netuid,
+            amount_staked,
+            limit_price,
+            allow_partial,
+        );
+    }
+
+    fn remove_stake_limit(
+        hotkey: AccountId32,
+        netuid: NetUid,
+        amount_unstaked: AlphaCurrency,
+        limit_price: TaoCurrency,
+        allow_partial: bool,
+    ) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::remove_stake_limit(
+            RuntimeOrigin::none(),
+            hotkey,
+            netuid,
+            amount_unstaked,
+            limit_price,
+            allow_partial,
+        );
+    }
+
+    fn swap_stake_limit(
+        hotkey: AccountId32,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        alpha_amount: AlphaCurrency,
+        limit_price: TaoCurrency,
+        allow_partial: bool,
+    ) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::swap_stake_limit(
+            RuntimeOrigin::none(),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+            limit_price,
+            allow_partial,
+        );
+    }
+
+    fn remove_stake_full_limit(
+        hotkey: AccountId32,
+        netuid: NetUid,
+        limit_price: Option<TaoCurrency>,
+    ) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::remove_stake_full_limit(
+            RuntimeOrigin::none(),
+            hotkey,
+            netuid,
+            limit_price,
+        );
+    }
+
+    fn set_coldkey_auto_stake_hotkey(netuid: NetUid, hotkey: AccountId32) {
+        let _ = pallet_subtensor::Pallet::<Runtime>::set_coldkey_auto_stake_hotkey(
+            RuntimeOrigin::none(),
+            netuid,
+            hotkey,
+        );
+    }
+
+    fn proxy(real: AccountId32, force_proxy_type: Option<ProxyType>, call: Box<RuntimeCall>) {
+        if let Some(proxy_type) = force_proxy_type {
+            match proxy_type {
+                ProxyType::Any => {}
+                ProxyType::Owner => {}
+                ProxyType::NonCritical => {}
+                ProxyType::NonTransfer => {}
+                ProxyType::Senate => {}
+                ProxyType::NonFungibile => {}
+                ProxyType::Triumvirate => {}
+                ProxyType::Governance => {}
+                ProxyType::Staking => {}
+                ProxyType::Registration => {}
+                ProxyType::Transfer => {}
+                ProxyType::SmallTransfer => {}
+                ProxyType::RootWeights => {}
+                ProxyType::ChildKeys => {}
+                ProxyType::SudoUncheckedSetCode => {}
+                ProxyType::SwapHotkey => {}
+                ProxyType::SubnetLeaseBeneficiary => {}
+            }
+        };
+
+        let real_lookup = sp_runtime::MultiAddress::Id(real);
+        let _ = pallet_proxy::Pallet::<Runtime>::proxy(
+            RuntimeOrigin::none(),
+            real_lookup,
+            force_proxy_type,
+            call,
+        );
+    }
+
+    fn add_proxy(delegate: AccountId32, proxy_type: ProxyType, delay: BlockNumber) {
+        match proxy_type {
+            ProxyType::Any => {}
+            ProxyType::Owner => {}
+            ProxyType::NonCritical => {}
+            ProxyType::NonTransfer => {}
+            ProxyType::Senate => {}
+            ProxyType::NonFungibile => {}
+            ProxyType::Triumvirate => {}
+            ProxyType::Governance => {}
+            ProxyType::Staking => {}
+            ProxyType::Registration => {}
+            ProxyType::Transfer => {}
+            ProxyType::SmallTransfer => {}
+            ProxyType::RootWeights => {}
+            ProxyType::ChildKeys => {}
+            ProxyType::SudoUncheckedSetCode => {}
+            ProxyType::SwapHotkey => {}
+            ProxyType::SubnetLeaseBeneficiary => {}
+        }
+
+        let delegate_lookup = sp_runtime::MultiAddress::Id(delegate);
+        let _ = pallet_proxy::Pallet::<Runtime>::add_proxy(
+            RuntimeOrigin::none(),
+            delegate_lookup,
+            proxy_type,
+            delay,
+        );
+    }
+}
+
 impl pallet_contracts::Config for Runtime {
     type Time = Timestamp;
     type Randomness = RandomnessCollectiveFlip;
