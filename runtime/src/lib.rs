@@ -1695,7 +1695,7 @@ impl Contains<RuntimeCall> for ContractCallFilter {
 /// This trait mirrors all dispatchables exposed through ContractCallFilter.
 /// If any function signature changes, compilation will fail, alerting developers
 /// to potential breaking changes for smart contracts.
-pub trait DoNotBreakSmartContracts {
+pub trait DoNotBreakSmartContractsV1 {
     fn add_stake(hotkey: AccountId32, netuid: NetUid, amount_staked: TaoCurrency) {
         let _ = pallet_subtensor::Pallet::<Runtime>::add_stake(
             RuntimeOrigin::none(),
