@@ -57,7 +57,6 @@ For security, contracts can only dispatch a limited set of runtime calls:
 - `SubtensorModule::set_coldkey_auto_stake_hotkey` - Configure the automatic stake destination for a coldkey
 - `Proxy::proxy` - Execute proxy calls
 - `Proxy::add_proxy` - Add a proxy relationship
-- `Proxy::create_pure` - Create a pure proxy account
 
 All other runtime calls are restricted and cannot be dispatched from contracts.
 
