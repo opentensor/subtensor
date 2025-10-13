@@ -463,8 +463,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         // Enable emission
         FirstEmissionBlockNumber::<Test>::insert(netuid1, 0);
         FirstEmissionBlockNumber::<Test>::insert(netuid2, 0);
-        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
-        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.2));
 
         // Force the swap to initialize
         SubtensorModule::swap_tao_for_alpha(
@@ -498,7 +498,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         let price_2_after = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid2);
 
         // AlphaIn gets decreased beacuse of a buy
-        assert!(u64::from(SubnetAlphaIn::<Test>::get(netuid1)) < initial_alpha);
+        assert!(u64::from(SubnetAlphaIn::<Test>::get(netuid1)) < initial_alpha); // HERE
         assert_eq!(
             u64::from(SubnetAlphaOut::<Test>::get(netuid2)),
             21_000_000_000_000_000_u64
