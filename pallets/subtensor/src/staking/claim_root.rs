@@ -51,9 +51,12 @@ impl<T: Config> Pallet<T> {
             .checked_div(total)
             .unwrap_or(I96F32::saturating_from_num(0.0));
 
+        // Unlikely to happen. This is mostly for test environment sanity checks.
         if u64::from(amount) > total.saturating_to_num::<u64>() {
-            log::error!("Not enough root stake. NetUID = {netuid}");
+            log::warn!("Not enough root stake. NetUID = {netuid}");
 
+            let owner = Owner::<T>::get(hotkey);
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &owner, netuid, amount);
             return;
         }
 
