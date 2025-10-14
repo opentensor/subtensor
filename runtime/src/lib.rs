@@ -747,6 +747,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                         | RuntimeCall::SubtensorModule(
                             pallet_subtensor::Call::update_symbol { .. }
                         )
+                        | RuntimeCall::Swap(pallet_swap::Call::toggle_user_liquidity { .. })
+                        | RuntimeCall::Swap(pallet_swap::Call::set_fee_rate { .. })
                 ) && !matches!(
                     c,
                     RuntimeCall::AdminUtils(
