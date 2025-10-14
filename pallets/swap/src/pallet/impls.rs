@@ -1,10 +1,12 @@
 use core::ops::Neg;
 
+use frame_support::pallet_prelude::Weight;
 use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::{DispatchResult, Vec, traits::AccountIdConversion};
+use sp_std::collections::btree_map::BTreeMap;
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
@@ -18,7 +20,7 @@ use super::swap_step::{BasicSwapStep, SwapStep, SwapStepAction};
 use crate::{
     SqrtPrice,
     position::{Position, PositionId},
-    tick::{ActiveTickIndexManager, Tick, TickIndex},
+    tick::{ActiveTickIndexManager, Tick128, TickIndex},
 };
 
 const MAX_SWAP_ITERATIONS: u16 = 1000;
@@ -195,8 +197,8 @@ impl<T: Config> Pallet<T> {
                 let liquidity_delta = new_liquidity.saturating_sub(position.liquidity);
 
                 // Update current liquidity
-                CurrentLiquidity::<T>::mutate(netuid, |current_liquidity| {
-                    *current_liquidity = current_liquidity.saturating_add(liquidity_delta);
+                CurrentLiquidity128::<T>::mutate(netuid, |current_liquidity| {
+                    *current_liquidity = current_liquidity.saturating_add(liquidity_delta as u128);
                 });
 
                 // Update protocol position
@@ -311,7 +313,7 @@ impl<T: Config> Pallet<T> {
             log::trace!("\nIteration: {iteration_counter}");
             log::trace!(
                 "\tCurrent Liquidity: {}",
-                CurrentLiquidity::<T>::get(netuid)
+                CurrentLiquidity128::<T>::get(netuid)
             );
 
             // Create and execute a swap step
@@ -381,21 +383,14 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn find_closest_lower_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick> {
+    pub fn find_closest_lower_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick128> {
         ActiveTickIndexManager::<T>::find_closest_lower(netuid, index)
-            .and_then(|ti| Ticks::<T>::get(netuid, ti))
+            .and_then(|ti| Ticks128::<T>::get(netuid, ti))
     }
 
-    pub fn find_closest_higher_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick> {
+    pub fn find_closest_higher_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick128> {
         ActiveTickIndexManager::<T>::find_closest_higher(netuid, index)
-            .and_then(|ti| Ticks::<T>::get(netuid, ti))
-    }
-
-    /// Here we subtract minimum safe liquidity from current liquidity to stay in the safe range
-    pub(crate) fn current_liquidity_safe(netuid: NetUid) -> U64F64 {
-        U64F64::saturating_from_num(
-            CurrentLiquidity::<T>::get(netuid).saturating_sub(T::MinimumLiquidity::get()),
-        )
+            .and_then(|ti| Ticks128::<T>::get(netuid, ti))
     }
 
     /// Adds liquidity to the specified price range.
@@ -461,7 +456,7 @@ impl<T: Config> Pallet<T> {
 
         // Small delta is not allowed
         ensure!(
-            liquidity >= T::MinimumLiquidity::get(),
+            liquidity as u128 >= T::MinimumLiquidity::get(),
             Error::<T>::InvalidLiquidityValue
         );
 
@@ -598,11 +593,11 @@ impl<T: Config> Pallet<T> {
         } else {
             // Update current liquidity if price is in range
             let new_liquidity_curr = if liquidity_delta > 0 {
-                CurrentLiquidity::<T>::get(netuid).saturating_add(delta_liquidity_abs)
+                CurrentLiquidity128::<T>::get(netuid).saturating_add(delta_liquidity_abs as u128)
             } else {
-                CurrentLiquidity::<T>::get(netuid).saturating_sub(delta_liquidity_abs)
+                CurrentLiquidity128::<T>::get(netuid).saturating_sub(delta_liquidity_abs as u128)
             };
-            CurrentLiquidity::<T>::set(netuid, new_liquidity_curr);
+            CurrentLiquidity128::<T>::set(netuid, new_liquidity_curr);
             current_price_sqrt
         };
 
@@ -639,7 +634,7 @@ impl<T: Config> Pallet<T> {
         // withdraw full amounts
         let mut remove = false;
         if (liquidity_delta < 0)
-            && (position.liquidity.saturating_sub(delta_liquidity_abs) < T::MinimumLiquidity::get())
+            && (position.liquidity.saturating_sub(delta_liquidity_abs) < T::MinimumLiquidity::get() as u64)
         {
             delta_liquidity_abs = position.liquidity;
             remove = true;
@@ -694,10 +689,10 @@ impl<T: Config> Pallet<T> {
             liquidity as i128
         };
 
-        Ticks::<T>::mutate(netuid, tick_index, |maybe_tick| match maybe_tick {
+        Ticks128::<T>::mutate(netuid, tick_index, |maybe_tick| match maybe_tick {
             Some(tick) => {
                 tick.liquidity_net = tick.liquidity_net.saturating_add(net_liquidity_change);
-                tick.liquidity_gross = tick.liquidity_gross.saturating_add(liquidity);
+                tick.liquidity_gross = tick.liquidity_gross.saturating_add(liquidity as u128);
             }
             None => {
                 let current_tick = TickIndex::current_bounded::<T>(netuid);
@@ -713,9 +708,9 @@ impl<T: Config> Pallet<T> {
                         I64F64::saturating_from_num(0),
                     )
                 };
-                *maybe_tick = Some(Tick {
+                *maybe_tick = Some(Tick128 {
                     liquidity_net: net_liquidity_change,
-                    liquidity_gross: liquidity,
+                    liquidity_gross: liquidity as u128,
                     fees_out_tao,
                     fees_out_alpha,
                 });
@@ -740,10 +735,10 @@ impl<T: Config> Pallet<T> {
             liquidity as i128
         };
 
-        Ticks::<T>::mutate_exists(netuid, tick_index, |maybe_tick| {
+        Ticks128::<T>::mutate_exists(netuid, tick_index, |maybe_tick| {
             if let Some(tick) = maybe_tick {
                 tick.liquidity_net = tick.liquidity_net.saturating_sub(net_reduction);
-                tick.liquidity_gross = tick.liquidity_gross.saturating_sub(liquidity);
+                tick.liquidity_gross = tick.liquidity_gross.saturating_sub(liquidity as u128);
 
                 // If no liquidity is left at the tick, remove it
                 if tick.liquidity_gross == 0 {
@@ -760,7 +755,7 @@ impl<T: Config> Pallet<T> {
     /// range
     ///
     /// This function handles both increasing and decreasing liquidity based on the sign of the
-    /// liquidity parameter. It uses i128 to safely handle values up to u64::MAX in both positive
+    /// liquidity parameter. It uses i128 to safely handle values up to u128::MAX/2 in both positive
     /// and negative directions.
     fn update_liquidity_if_needed(
         netuid: NetUid,
@@ -770,9 +765,9 @@ impl<T: Config> Pallet<T> {
     ) {
         let current_tick_index = TickIndex::current_bounded::<T>(netuid);
         if (tick_low <= current_tick_index) && (current_tick_index < tick_high) {
-            CurrentLiquidity::<T>::mutate(netuid, |current_liquidity| {
+            CurrentLiquidity128::<T>::mutate(netuid, |current_liquidity| {
                 let is_neg = liquidity.is_negative();
-                let liquidity = liquidity.abs().min(u64::MAX as i128) as u64;
+                let liquidity = liquidity.abs() as u128;
                 if is_neg {
                     *current_liquidity = current_liquidity.saturating_sub(liquidity);
                 } else {
@@ -991,17 +986,17 @@ impl<T: Config> Pallet<T> {
 
         // 2) Clear active tick index entries, then all swap state (idempotent even if empty/non‑V3).
         let active_ticks: sp_std::vec::Vec<TickIndex> =
-            Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
+            Ticks128::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
         for ti in active_ticks {
             ActiveTickIndexManager::<T>::remove(netuid, ti);
         }
 
         let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
-        let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Ticks128::<T>::clear_prefix(netuid, u32::MAX, None);
 
         FeeGlobalTao::<T>::remove(netuid);
         FeeGlobalAlpha::<T>::remove(netuid);
-        CurrentLiquidity::<T>::remove(netuid);
+        CurrentLiquidity128::<T>::remove(netuid);
         CurrentTick::<T>::remove(netuid);
         AlphaSqrtPrice::<T>::remove(netuid);
         SwapV3Initialized::<T>::remove(netuid);
@@ -1016,6 +1011,17 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    fn load_current_ticks() -> BTreeMap<NetUid, TickIndex> {
+        let mut map: BTreeMap<NetUid, TickIndex> = BTreeMap::new();
+
+        // CurrentTick: (netuid) -> TickIndex
+        for (netuid, tick) in CurrentTick::<T>::iter() {
+            map.insert(netuid, tick);
+        }
+
+        map
+    }    
 }
 
 impl<T: Config> DefaultPriceLimit<TaoCurrency, AlphaCurrency> for Pallet<T> {
@@ -1139,5 +1145,84 @@ impl<T: Config> SwapHandler for Pallet<T> {
     }
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
+    }
+
+    /// Migrate Ticks to Ticks128 fixing the overflown ticks
+    fn migrate_fix_liquidity_ticks(weight: &mut Weight) {
+        let mut moved: u64 = 0;
+
+        let current_tick_map = Self::load_current_ticks();
+        let mut keys_to_remove: Vec<(NetUid, TickIndex)> = Vec::new();
+        for (netuid, tick_idx, tick) in Ticks::<T>::iter() {
+            let current_tick = current_tick_map.get(&netuid).copied().unwrap_or_default();
+
+            // Fix ticks that saturated (some low ticks)
+            let tick128 = if (tick_idx < TickIndex::try_from(-400000).unwrap_or_default()) && (tick_idx < current_tick) && (tick.liquidity_gross == 0xFFFFFFFFFFFFFFFF) {
+                Tick128 {
+                    liquidity_net: tick.liquidity_net,
+                    liquidity_gross: tick.liquidity_net.unsigned_abs(),
+                    fees_out_tao: tick.fees_out_tao,
+                    fees_out_alpha: tick.fees_out_alpha,
+                }
+            } else {
+                Tick128 {
+                    liquidity_net: tick.liquidity_net,
+                    liquidity_gross: tick.liquidity_net as u128,
+                    fees_out_tao: tick.fees_out_tao,
+                    fees_out_alpha: tick.fees_out_alpha,
+                }
+            };
+
+            Ticks128::<T>::insert(netuid, tick_idx, tick128);
+            keys_to_remove.push((netuid, tick_idx));
+            moved = moved.saturating_add(1);
+        }
+
+        for (netuid, tick_idx) in keys_to_remove.iter() {
+            Ticks::<T>::remove(netuid, tick_idx);
+        }
+
+        // Return a conservative weight estimate: moved reads + moved writes * 2.
+        *weight = weight.saturating_add(T::DbWeight::get().reads_writes(moved, moved.saturating_mul(2)));
+    }
+
+    /// Migrate CurrentLiquidity to CurrentLiquidity128
+    fn migrate_fix_current_liquidity(weight: &mut Weight) {
+        let mut keys_to_remove: Vec<NetUid> = Vec::new();
+        let mut moved: u64 = 0;
+        for (netuid, liquidity) in CurrentLiquidity::<T>::iter() {
+            CurrentLiquidity128::<T>::insert(netuid, liquidity as u128);
+            keys_to_remove.push(netuid);
+            moved = moved.saturating_add(1);
+        }
+        for netuid in keys_to_remove.iter() {
+            CurrentLiquidity::<T>::remove(netuid);
+        }
+
+        // Return a conservative weight estimate: moved reads + moved writes * 2.
+        *weight = weight.saturating_add(T::DbWeight::get().reads_writes(moved, moved.saturating_mul(2)));
+    }
+
+    /// Get implied reserves for a subnet
+    fn migrate_get_implied_reserves(netuid: NetUid, weight: &mut Weight) -> (TaoCurrency, AlphaCurrency) {
+        // current sqrt(price) for this subnet
+        let current_price_sqrt = AlphaSqrtPrice::<T>::get(netuid);
+        let mut reads: u64 = 1;
+
+        let mut total_tao: TaoCurrency = Default::default();
+        let mut total_alpha: AlphaCurrency = Default::default();
+
+        // Iterate all LP positions for this subnet (triple-key NMap: (netuid, account, position_id))
+        // `iter_prefix(netuid)` yields ((account, position_id), Position<T>)
+        for ((_account, _pos_id), position) in Positions::<T>::iter_prefix((netuid,)) {
+            if let Ok((tao, alpha)) = position.to_token_amounts(current_price_sqrt) {
+                total_tao = total_tao.saturating_add(TaoCurrency::from(tao));
+                total_alpha = total_alpha.saturating_add(AlphaCurrency::from(alpha));
+            }
+            reads = reads.saturating_add(1);
+        }
+        *weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, reads));
+
+        (total_tao, total_alpha)
     }
 }

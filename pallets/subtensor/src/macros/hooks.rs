@@ -153,7 +153,9 @@ mod hooks {
                 // Cleanup child/parent keys
                 .saturating_add(migrations::migrate_fix_childkeys::migrate_fix_childkeys::<T>())
                 // Migrate AutoStakeDestinationColdkeys
-                .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>());
+                .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>())
+                // Migrate and fix LP ticks that saturated
+                .saturating_add(migrations::migrate_fix_liquidity_ticks::migrate_fix_liquidity_ticks::<T>());
             weight
         }
 

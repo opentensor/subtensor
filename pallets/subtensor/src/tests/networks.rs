@@ -2067,7 +2067,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "subnet {net:?} still exists"
             );
             assert!(
-                pallet_subtensor_swap::Ticks::<Test>::iter_prefix(net)
+                pallet_subtensor_swap::Ticks128::<Test>::iter_prefix(net)
                     .next()
                     .is_none(),
                 "ticks not cleared for net {net:?}"
@@ -2088,7 +2088,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "FeeGlobalAlpha nonzero for net {net:?}"
             );
             assert_eq!(
-                pallet_subtensor_swap::CurrentLiquidity::<Test>::get(net),
+                pallet_subtensor_swap::CurrentLiquidity128::<Test>::get(net),
                 0,
                 "CurrentLiquidity not zero for net {net:?}"
             );

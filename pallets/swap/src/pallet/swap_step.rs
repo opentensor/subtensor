@@ -65,7 +65,7 @@ where
         let possible_delta_in = amount_remaining.saturating_sub(fee);
 
         // Target price and quantities
-        let current_liquidity = U64F64::saturating_from_num(CurrentLiquidity::<T>::get(netuid));
+        let current_liquidity = U64F64::saturating_from_num(CurrentLiquidity128::<T>::get(netuid));
         let target_sqrt_price =
             Self::sqrt_price_target(current_liquidity, current_sqrt_price, possible_delta_in);
 
@@ -187,23 +187,24 @@ where
     /// Process a single step of a swap
     fn process_swap(&self) -> Result<SwapStepResult<PaidIn, PaidOut>, Error<T>> {
         // Hold the fees
+        let current_liquidity = CurrentLiquidity128::<T>::get(self.netuid);
         Self::add_fees(
             self.netuid,
-            Pallet::<T>::current_liquidity_safe(self.netuid),
+            current_liquidity,
             self.fee,
         );
         let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
         // log::trace!("\tDelta Out        : {delta_out:?}");
 
         if self.action == SwapStepAction::Crossing {
-            let mut tick = Ticks::<T>::get(self.netuid, self.edge_tick).unwrap_or_default();
+            let mut tick = Ticks128::<T>::get(self.netuid, self.edge_tick).unwrap_or_default();
             tick.fees_out_tao = I64F64::saturating_from_num(FeeGlobalTao::<T>::get(self.netuid))
                 .saturating_sub(tick.fees_out_tao);
             tick.fees_out_alpha =
                 I64F64::saturating_from_num(FeeGlobalAlpha::<T>::get(self.netuid))
                     .saturating_sub(tick.fees_out_alpha);
             Self::update_liquidity_at_crossing(self.netuid)?;
-            Ticks::<T>::insert(self.netuid, self.edge_tick, tick);
+            Ticks128::<T>::insert(self.netuid, self.edge_tick, tick);
         }
 
         // Update current price
@@ -275,16 +276,37 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
         SwapStepAction::Crossing
     }
 
-    fn add_fees(netuid: NetUid, current_liquidity: U64F64, fee: TaoCurrency) {
+    fn add_fees(netuid: NetUid, current_liquidity: u128, fee: TaoCurrency) {
         if current_liquidity == 0 {
             return;
         }
 
-        let fee_fixed = U64F64::saturating_from_num(fee.to_u64());
+        if current_liquidity <= u64::MAX as u128 {
+            let fee_fixed = U64F64::saturating_from_num(fee.to_u64());
+            let current_liquidity_fixed = U64F64::saturating_from_num(current_liquidity);
+            FeeGlobalTao::<T>::mutate(netuid, |value| {
+                *value = value.saturating_add(fee_fixed.safe_div(current_liquidity_fixed))
+            });
+        } else {
+            // Decompose current_liquidity = hi * 2^64 + lo
+            const TWO_POW_64: u128 = 1u128 << 64;
+            let hi: u64 = (current_liquidity.safe_div(TWO_POW_64)) as u64;
+            let lo: u64 = (current_liquidity.checked_rem(TWO_POW_64).unwrap_or_default()) as u64;
 
-        FeeGlobalTao::<T>::mutate(netuid, |value| {
-            *value = value.saturating_add(fee_fixed.safe_div(current_liquidity))
-        });
+            // Build liquidity_factor = 2^-64 / (hi + lo/2^64) in U64F64
+            let s: U64F64 = U64F64::saturating_from_num(hi)
+                .saturating_add(
+                    U64F64::saturating_from_num(lo).safe_div(U64F64::saturating_from_num(TWO_POW_64))
+                );
+            // 2^-64 = from_bits(1)
+            let liquidity_factor: U64F64 = U64F64::from_bits(1).safe_div(s);
+
+            // result = fee * inv
+            let fee_delta = U64F64::saturating_from_num(fee).saturating_mul(liquidity_factor);
+            FeeGlobalTao::<T>::mutate(netuid, |value| {
+                *value = value.saturating_add(fee_delta)
+            });
+        }
     }
 
     fn convert_deltas(netuid: NetUid, delta_in: TaoCurrency) -> AlphaCurrency {
@@ -293,7 +315,7 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
             return AlphaCurrency::ZERO;
         }
 
-        let liquidity_curr = SqrtPrice::saturating_from_num(CurrentLiquidity::<T>::get(netuid));
+        let liquidity_curr = SqrtPrice::saturating_from_num(CurrentLiquidity128::<T>::get(netuid));
         let sqrt_price_curr = AlphaSqrtPrice::<T>::get(netuid);
         let delta_fixed = SqrtPrice::saturating_from_num(delta_in.to_u64());
 
@@ -315,7 +337,7 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
     }
 
     fn update_liquidity_at_crossing(netuid: NetUid) -> Result<(), Error<T>> {
-        let mut liquidity_curr = CurrentLiquidity::<T>::get(netuid);
+        let mut liquidity_curr = CurrentLiquidity128::<T>::get(netuid);
         let current_tick_index = TickIndex::current_bounded::<T>(netuid);
 
         // Find the appropriate tick based on order type
@@ -326,20 +348,20 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
                 current_tick_index.next().unwrap_or(TickIndex::MAX),
             )
             .unwrap_or(TickIndex::MAX);
-            Ticks::<T>::get(netuid, upper_tick)
+            Ticks128::<T>::get(netuid, upper_tick)
         }
         .ok_or(Error::<T>::InsufficientLiquidity)?;
 
-        let liquidity_update_abs_u64 = tick.liquidity_net_as_u64();
+        let liquidity_update_abs_u128 = tick.liquidity_net_as_u128();
 
         // Update liquidity based on the sign of liquidity_net and the order type
         liquidity_curr = if tick.liquidity_net >= 0 {
-            liquidity_curr.saturating_add(liquidity_update_abs_u64)
+            liquidity_curr.saturating_add(liquidity_update_abs_u128)
         } else {
-            liquidity_curr.saturating_sub(liquidity_update_abs_u64)
+            liquidity_curr.saturating_sub(liquidity_update_abs_u128)
         };
 
-        CurrentLiquidity::<T>::set(netuid, liquidity_curr);
+        CurrentLiquidity128::<T>::set(netuid, liquidity_curr);
 
         Ok(())
     }
@@ -411,16 +433,37 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
         SwapStepAction::Stop
     }
 
-    fn add_fees(netuid: NetUid, current_liquidity: U64F64, fee: AlphaCurrency) {
+    fn add_fees(netuid: NetUid, current_liquidity: u128, fee: AlphaCurrency) {
         if current_liquidity == 0 {
             return;
         }
 
-        let fee_fixed = U64F64::saturating_from_num(fee.to_u64());
+        if current_liquidity <= u64::MAX as u128 {
+            let fee_fixed = U64F64::saturating_from_num(fee.to_u64());
+            let current_liquidity_fixed = U64F64::saturating_from_num(current_liquidity);
+            FeeGlobalAlpha::<T>::mutate(netuid, |value| {
+                *value = value.saturating_add(fee_fixed.safe_div(current_liquidity_fixed))
+            });
+        } else {
+            // Decompose current_liquidity = hi * 2^64 + lo
+            const TWO_POW_64: u128 = 1u128 << 64;
+            let hi: u64 = (current_liquidity.safe_div(TWO_POW_64)) as u64;
+            let lo: u64 = (current_liquidity.checked_rem(TWO_POW_64).unwrap_or_default()) as u64;
 
-        FeeGlobalAlpha::<T>::mutate(netuid, |value| {
-            *value = value.saturating_add(fee_fixed.safe_div(current_liquidity))
-        });
+            // Build liquidity_factor = 2^-64 / (hi + lo/2^64) in U64F64
+            let s: U64F64 = U64F64::saturating_from_num(hi)
+                .saturating_add(
+                    U64F64::saturating_from_num(lo).safe_div(U64F64::saturating_from_num(TWO_POW_64))
+                );
+            // 2^-64 = from_bits(1)
+            let liquidity_factor: U64F64 = U64F64::from_bits(1).safe_div(s);
+
+            // result = fee * inv
+            let fee_delta = U64F64::saturating_from_num(fee).saturating_mul(liquidity_factor);
+            FeeGlobalAlpha::<T>::mutate(netuid, |value| {
+                *value = value.saturating_add(fee_delta)
+            });            
+        }
     }
 
     fn convert_deltas(netuid: NetUid, delta_in: AlphaCurrency) -> TaoCurrency {
@@ -429,7 +472,7 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
             return TaoCurrency::ZERO;
         }
 
-        let liquidity_curr = SqrtPrice::saturating_from_num(CurrentLiquidity::<T>::get(netuid));
+        let liquidity_curr = SqrtPrice::saturating_from_num(CurrentLiquidity128::<T>::get(netuid));
         let sqrt_price_curr = AlphaSqrtPrice::<T>::get(netuid);
         let delta_fixed = SqrtPrice::saturating_from_num(delta_in.to_u64());
 
@@ -452,7 +495,7 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
     }
 
     fn update_liquidity_at_crossing(netuid: NetUid) -> Result<(), Error<T>> {
-        let mut liquidity_curr = CurrentLiquidity::<T>::get(netuid);
+        let mut liquidity_curr = CurrentLiquidity128::<T>::get(netuid);
         let current_tick_index = TickIndex::current_bounded::<T>(netuid);
 
         // Find the appropriate tick based on order type
@@ -472,20 +515,20 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
                 )
                 .unwrap_or(TickIndex::MIN)
             };
-            Ticks::<T>::get(netuid, lower_tick)
+            Ticks128::<T>::get(netuid, lower_tick)
         }
         .ok_or(Error::<T>::InsufficientLiquidity)?;
 
-        let liquidity_update_abs_u64 = tick.liquidity_net_as_u64();
+        let liquidity_update_abs_u128 = tick.liquidity_net_as_u128();
 
         // Update liquidity based on the sign of liquidity_net and the order type
         liquidity_curr = if tick.liquidity_net >= 0 {
-            liquidity_curr.saturating_sub(liquidity_update_abs_u64)
+            liquidity_curr.saturating_sub(liquidity_update_abs_u128)
         } else {
-            liquidity_curr.saturating_add(liquidity_update_abs_u64)
+            liquidity_curr.saturating_add(liquidity_update_abs_u128)
         };
 
-        CurrentLiquidity::<T>::set(netuid, liquidity_curr);
+        CurrentLiquidity128::<T>::set(netuid, liquidity_curr);
 
         Ok(())
     }
@@ -531,7 +574,7 @@ where
     fn action_on_edge_sqrt_price() -> SwapStepAction;
 
     /// Add fees to the global fee counters
-    fn add_fees(netuid: NetUid, current_liquidity: U64F64, fee: PaidIn);
+    fn add_fees(netuid: NetUid, current_liquidity: u128, fee: PaidIn);
 
     /// Convert input amount (delta_in) to output amount (delta_out)
     ///

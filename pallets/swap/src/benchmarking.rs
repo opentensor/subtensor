@@ -12,7 +12,7 @@ use subtensor_runtime_common::NetUid;
 
 use crate::{
     pallet::{
-        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet,
+        AlphaSqrtPrice, Call, Config, CurrentLiquidity128, CurrentTick, EnabledUserLiquidity, Pallet,
         Positions, SwapV3Initialized,
     },
     position::{Position, PositionId},
@@ -40,7 +40,7 @@ mod benchmarks {
             SwapV3Initialized::<T>::insert(netuid, true);
             AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
             CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
-            CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
+            CurrentLiquidity128::<T>::insert(netuid, T::MinimumLiquidity::get());
         }
 
         let caller: T::AccountId = whitelisted_caller();
@@ -67,7 +67,7 @@ mod benchmarks {
             SwapV3Initialized::<T>::insert(netuid, true);
             AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
             CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
-            CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
+            CurrentLiquidity128::<T>::insert(netuid, T::MinimumLiquidity::get());
         }
 
         let caller: T::AccountId = whitelisted_caller();
@@ -100,7 +100,7 @@ mod benchmarks {
             SwapV3Initialized::<T>::insert(netuid, true);
             AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
             CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
-            CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
+            CurrentLiquidity128::<T>::insert(netuid, T::MinimumLiquidity::get());
         }
 
         let caller: T::AccountId = whitelisted_caller();

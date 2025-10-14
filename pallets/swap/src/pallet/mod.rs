@@ -10,7 +10,7 @@ use subtensor_runtime_common::{
 
 use crate::{
     position::{Position, PositionId},
-    tick::{LayerLevel, Tick, TickIndex},
+    tick::{LayerLevel, Tick, Tick128, TickIndex},
     weights::WeightInfo,
 };
 
@@ -62,7 +62,7 @@ mod pallet {
 
         /// Minimum liquidity that is safe for rounding and integer math.
         #[pallet::constant]
-        type MinimumLiquidity: Get<u64>;
+        type MinimumLiquidity: Get<u128>;
 
         /// Minimum reserve for tao and alpha
         #[pallet::constant]
@@ -93,6 +93,8 @@ mod pallet {
     /// Storage for all ticks, using subnet ID as the primary key and tick index as the secondary key
     #[pallet::storage]
     pub type Ticks<T> = StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, TickIndex, Tick>;
+    #[pallet::storage]
+    pub type Ticks128<T> = StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, TickIndex, Tick128>;
 
     /// Storage to determine whether swap V3 was initialized for a specific subnet.
     #[pallet::storage]
@@ -109,6 +111,8 @@ mod pallet {
     /// Storage for the current liquidity amount for each subnet.
     #[pallet::storage]
     pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
+    #[pallet::storage]
+    pub type CurrentLiquidity128<T> = StorageMap<_, Twox64Concat, NetUid, u128, ValueQuery>;
 
     /// Indicates whether a subnet has been switched to V3 swap from V2.
     /// If `true`, the subnet is permanently on V3 swap mode allowing add/remove liquidity

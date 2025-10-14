@@ -18,7 +18,7 @@ use subtensor_runtime_common::NetUid;
 
 use crate::SqrtPrice;
 use crate::pallet::{
-    Config, CurrentTick, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
+    Config, CurrentTick, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks128,
 };
 
 const U256_1: U256 = U256::from_limbs([1, 0, 0, 0]);
@@ -88,9 +88,18 @@ pub struct Tick {
     pub fees_out_alpha: I64F64,
 }
 
-impl Tick {
-    pub fn liquidity_net_as_u64(&self) -> u64 {
-        self.liquidity_net.abs().min(u64::MAX as i128) as u64
+#[freeze_struct("eaa387751e7584f8")]
+#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
+pub struct Tick128 {
+    pub liquidity_net: i128,
+    pub liquidity_gross: u128,
+    pub fees_out_tao: I64F64,
+    pub fees_out_alpha: I64F64,
+}
+
+impl Tick128 {
+    pub fn liquidity_net_as_u128(&self) -> u128 {
+        self.liquidity_net.abs() as u128
     }
 }
 
@@ -217,7 +226,7 @@ impl TickIndex {
     pub fn fees_above<T: Config>(&self, netuid: NetUid, quote: bool) -> I64F64 {
         let current_tick = Self::current_bounded::<T>(netuid);
 
-        let tick = Ticks::<T>::get(netuid, *self).unwrap_or_default();
+        let tick = Ticks128::<T>::get(netuid, *self).unwrap_or_default();
         if *self <= current_tick {
             if quote {
                 I64F64::saturating_from_num(FeeGlobalTao::<T>::get(netuid))
@@ -237,7 +246,7 @@ impl TickIndex {
     pub fn fees_below<T: Config>(&self, netuid: NetUid, quote: bool) -> I64F64 {
         let current_tick = Self::current_bounded::<T>(netuid);
 
-        let tick = Ticks::<T>::get(netuid, *self).unwrap_or_default();
+        let tick = Ticks128::<T>::get(netuid, *self).unwrap_or_default();
         if *self <= current_tick {
             if quote {
                 tick.fees_out_tao

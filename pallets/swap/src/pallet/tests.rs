@@ -182,7 +182,7 @@ fn test_swap_initialization() {
         // Calculate expected liquidity
         let expected_liquidity =
             helpers_128bit::sqrt((tao.to_u64() as u128).saturating_mul(alpha.to_u64() as u128))
-                as u64;
+                as i128;
 
         // Get the protocol account
         let protocol_account_id = Pallet::<Test>::protocol_account_id();
@@ -193,24 +193,24 @@ fn test_swap_initialization() {
         assert_eq!(positions.len(), 1);
 
         let position = &positions[0];
-        assert_eq!(position.liquidity, expected_liquidity);
+        assert_eq!(position.liquidity, expected_liquidity as u64);
         assert_eq!(position.tick_low, TickIndex::MIN);
         assert_eq!(position.tick_high, TickIndex::MAX);
         assert_eq!(position.fees_tao, 0);
         assert_eq!(position.fees_alpha, 0);
 
         // Verify ticks were created
-        let tick_low = Ticks::<Test>::get(netuid, TickIndex::MIN).unwrap();
-        let tick_high = Ticks::<Test>::get(netuid, TickIndex::MAX).unwrap();
+        let tick_low = Ticks128::<Test>::get(netuid, TickIndex::MIN).unwrap();
+        let tick_high = Ticks128::<Test>::get(netuid, TickIndex::MAX).unwrap();
 
         // Check liquidity values
-        assert_eq!(tick_low.liquidity_net, expected_liquidity as i128);
-        assert_eq!(tick_low.liquidity_gross, expected_liquidity);
-        assert_eq!(tick_high.liquidity_net, -(expected_liquidity as i128));
-        assert_eq!(tick_high.liquidity_gross, expected_liquidity);
+        assert_eq!(tick_low.liquidity_net, expected_liquidity);
+        assert_eq!(tick_low.liquidity_gross, expected_liquidity as u128);
+        assert_eq!(tick_high.liquidity_net, -(expected_liquidity));
+        assert_eq!(tick_high.liquidity_gross, expected_liquidity as u128);
 
         // Verify current liquidity is set
-        assert_eq!(CurrentLiquidity::<Test>::get(netuid), expected_liquidity);
+        assert_eq!(CurrentLiquidity128::<Test>::get(netuid), expected_liquidity as u128);
     });
 }
 
@@ -275,10 +275,10 @@ fn test_add_liquidity_basic() {
                 let tick_high = price_to_tick(price_high);
 
                 // Get tick infos and liquidity before adding (to account for protocol liquidity)
-                let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
+                let tick_low_info_before = Ticks128::<Test>::get(netuid, tick_low).unwrap_or_default();
                 let tick_high_info_before =
-                    Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
-                let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+                    Ticks128::<Test>::get(netuid, tick_high).unwrap_or_default();
+                let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
 
                 // Add liquidity
                 let (position_id, tao, alpha) = Pallet::<Test>::do_add_liquidity(
@@ -295,12 +295,12 @@ fn test_add_liquidity_basic() {
                 assert_abs_diff_eq!(alpha, expected_alpha, epsilon = alpha / 1000);
 
                 // Check that low and high ticks appear in the state and are properly updated
-                let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
-                let tick_high_info = Ticks::<Test>::get(netuid, tick_high).unwrap();
+                let tick_low_info = Ticks128::<Test>::get(netuid, tick_low).unwrap();
+                let tick_high_info = Ticks128::<Test>::get(netuid, tick_high).unwrap();
                 let expected_liquidity_net_low = liquidity as i128;
-                let expected_liquidity_gross_low = liquidity;
+                let expected_liquidity_gross_low = liquidity as u128;
                 let expected_liquidity_net_high = -(liquidity as i128);
-                let expected_liquidity_gross_high = liquidity;
+                let expected_liquidity_gross_high = liquidity as u128;
 
                 assert_eq!(
                     tick_low_info.liquidity_net - tick_low_info_before.liquidity_net,
@@ -336,12 +336,12 @@ fn test_add_liquidity_basic() {
                 // Current liquidity is updated only when price range includes the current price
                 let expected_liquidity =
                     if (price_high > current_price) && (price_low <= current_price) {
-                        liquidity_before + liquidity
+                        liquidity_before + liquidity as u128
                     } else {
                         liquidity_before
                     };
 
-                assert_eq!(CurrentLiquidity::<Test>::get(netuid), expected_liquidity)
+                assert_eq!(CurrentLiquidity128::<Test>::get(netuid), expected_liquidity)
             },
         );
     });
@@ -538,7 +538,7 @@ fn test_remove_liquidity_basic() {
             let tick_high = price_to_tick(price_high);
 
             assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
-            let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+            let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
 
             // Add liquidity
             let (position_id, _, _) = Pallet::<Test>::do_add_liquidity(
@@ -572,7 +572,7 @@ fn test_remove_liquidity_basic() {
             assert!(Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).is_none());
 
             // Current liquidity is updated (back where it was)
-            assert_eq!(CurrentLiquidity::<Test>::get(netuid), liquidity_before);
+            assert_eq!(CurrentLiquidity128::<Test>::get(netuid), liquidity_before);
         });
     });
 }
@@ -664,8 +664,8 @@ fn test_modify_position_basic() {
             .unwrap();
 
             // Get tick infos before the swap/update
-            let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap();
-            let tick_high_info_before = Ticks::<Test>::get(netuid, tick_high).unwrap();
+            let tick_low_info_before = Ticks128::<Test>::get(netuid, tick_low).unwrap();
+            let tick_high_info_before = Ticks128::<Test>::get(netuid, tick_high).unwrap();
 
             // Swap to create fees on the position
             let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
@@ -673,7 +673,7 @@ fn test_modify_position_basic() {
             Pallet::<Test>::do_swap(netuid, order, sqrt_limit_price, false, false).unwrap();
 
             // Modify liquidity (also causes claiming of fees)
-            let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+            let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
             let modify_result = Pallet::<Test>::do_modify_position(
                 netuid,
                 &OK_COLDKEY_ACCOUNT_ID,
@@ -697,7 +697,7 @@ fn test_modify_position_basic() {
             );
 
             // Current liquidity is reduced with modify_position
-            assert!(CurrentLiquidity::<Test>::get(netuid) < liquidity_before);
+            assert!(CurrentLiquidity128::<Test>::get(netuid) < liquidity_before);
 
             // Position liquidity is reduced
             let position =
@@ -707,15 +707,15 @@ fn test_modify_position_basic() {
             assert_eq!(position.tick_high, tick_high);
 
             // Tick liquidity is updated properly for low and high position ticks
-            let tick_low_info_after = Ticks::<Test>::get(netuid, tick_low).unwrap();
-            let tick_high_info_after = Ticks::<Test>::get(netuid, tick_high).unwrap();
+            let tick_low_info_after = Ticks128::<Test>::get(netuid, tick_low).unwrap();
+            let tick_high_info_after = Ticks128::<Test>::get(netuid, tick_high).unwrap();
 
             assert_eq!(
                 tick_low_info_before.liquidity_net - (liquidity / 10) as i128,
                 tick_low_info_after.liquidity_net,
             );
             assert_eq!(
-                tick_low_info_before.liquidity_gross - (liquidity / 10),
+                tick_low_info_before.liquidity_gross - (liquidity / 10) as u128,
                 tick_low_info_after.liquidity_gross,
             );
             assert_eq!(
@@ -723,7 +723,7 @@ fn test_modify_position_basic() {
                 tick_high_info_after.liquidity_net,
             );
             assert_eq!(
-                tick_high_info_before.liquidity_gross - (liquidity / 10),
+                tick_high_info_before.liquidity_gross - (liquidity / 10) as u128,
                 tick_high_info_after.liquidity_gross,
             );
 
@@ -773,9 +773,9 @@ fn test_swap_basic() {
             assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
 
             // Get tick infos before the swap
-            let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
-            let tick_high_info_before = Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
-            let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+            let tick_low_info_before = Ticks128::<Test>::get(netuid, tick_low).unwrap_or_default();
+            let tick_high_info_before = Ticks128::<Test>::get(netuid, tick_high).unwrap_or_default();
+            let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
 
             // Get current price
             let current_price = Pallet::<Test>::current_price(netuid);
@@ -803,8 +803,8 @@ fn test_swap_basic() {
             );
 
             // Check that low and high ticks' fees were updated properly, and liquidity values were not updated
-            let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
-            let tick_high_info = Ticks::<Test>::get(netuid, tick_high).unwrap();
+            let tick_low_info = Ticks128::<Test>::get(netuid, tick_low).unwrap();
+            let tick_high_info = Ticks128::<Test>::get(netuid, tick_high).unwrap();
             let expected_liquidity_net_low = tick_low_info_before.liquidity_net;
             let expected_liquidity_gross_low = tick_low_info_before.liquidity_gross;
             let expected_liquidity_net_high = tick_high_info_before.liquidity_net;
@@ -849,7 +849,7 @@ fn test_swap_basic() {
             assert_eq!(position.fees_tao, 0);
 
             // Current liquidity is not updated
-            assert_eq!(CurrentLiquidity::<Test>::get(netuid), liquidity_before);
+            assert_eq!(CurrentLiquidity128::<Test>::get(netuid), liquidity_before);
 
             // Assert that price movement is in correct direction
             let sqrt_current_price_after = AlphaSqrtPrice::<Test>::get(netuid);
@@ -958,10 +958,10 @@ fn test_swap_single_position() {
                 );
 
                 // Get tick infos before the swap
-                let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
+                let tick_low_info_before = Ticks128::<Test>::get(netuid, tick_low).unwrap_or_default();
                 let tick_high_info_before =
-                    Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
-                let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+                    Ticks128::<Test>::get(netuid, tick_high).unwrap_or_default();
+                let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
                 assert_abs_diff_eq!(
                     liquidity_before as f64,
                     protocol_liquidity + position_liquidity as f64,
@@ -1018,8 +1018,8 @@ fn test_swap_single_position() {
                 }
 
                 // Check that low and high ticks' fees were updated properly
-                let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
-                let tick_high_info = Ticks::<Test>::get(netuid, tick_high).unwrap();
+                let tick_low_info = Ticks128::<Test>::get(netuid, tick_low).unwrap();
+                let tick_high_info = Ticks128::<Test>::get(netuid, tick_high).unwrap();
                 let expected_liquidity_net_low = tick_low_info_before.liquidity_net;
                 let expected_liquidity_gross_low = tick_low_info_before.liquidity_gross;
                 let expected_liquidity_net_high = tick_high_info_before.liquidity_net;
@@ -1211,7 +1211,7 @@ fn test_swap_multiple_positions() {
 
                 let sqrt_current_price = AlphaSqrtPrice::<Test>::get(netuid);
                 let current_price = (sqrt_current_price * sqrt_current_price).to_num::<f64>();
-                let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+                let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
                 let output_amount = <Test as TestExt<$order_t>>::approx_expected_swap_output(
                     sqrt_current_price.to_num(),
                     liquidity_before as f64,
@@ -1575,7 +1575,7 @@ fn test_current_liquidity_updates() {
             // Calculate ticks (assuming tick math is tested separately)
             let tick_low = price_to_tick(price_low);
             let tick_high = price_to_tick(price_high);
-            let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+            let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
 
             // Add liquidity
             assert_ok!(Pallet::<Test>::do_add_liquidity(
@@ -1591,13 +1591,13 @@ fn test_current_liquidity_updates() {
             let expected_liquidity = if (price_high > current_price) && (price_low <= current_price)
             {
                 assert!(expect_to_update);
-                liquidity_before + liquidity
+                liquidity_before + liquidity as u128
             } else {
                 assert!(!expect_to_update);
                 liquidity_before
             };
 
-            assert_eq!(CurrentLiquidity::<Test>::get(netuid), expected_liquidity)
+            assert_eq!(CurrentLiquidity128::<Test>::get(netuid), expected_liquidity)
         });
     });
 }
@@ -1991,9 +1991,9 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
             .collect::<Vec<_>>();
         assert_eq!(user_positions.len(), 1);
 
-        assert!(Ticks::<Test>::get(netuid, TickIndex::MIN).is_some());
-        assert!(Ticks::<Test>::get(netuid, TickIndex::MAX).is_some());
-        assert!(CurrentLiquidity::<Test>::get(netuid) > 0);
+        assert!(Ticks128::<Test>::get(netuid, TickIndex::MIN).is_some());
+        assert!(Ticks128::<Test>::get(netuid, TickIndex::MAX).is_some());
+        assert!(CurrentLiquidity128::<Test>::get(netuid) > 0);
 
         let had_bitmap_words = TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
             .next()
@@ -2018,9 +2018,9 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
         assert!(user_positions_after.is_empty());
 
         // ASSERT: ticks cleared
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
-        assert!(Ticks::<Test>::get(netuid, TickIndex::MIN).is_none());
-        assert!(Ticks::<Test>::get(netuid, TickIndex::MAX).is_none());
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::get(netuid, TickIndex::MIN).is_none());
+        assert!(Ticks128::<Test>::get(netuid, TickIndex::MAX).is_none());
 
         // ASSERT: fee globals cleared
         assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
@@ -2029,7 +2029,7 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
         // ASSERT: price/tick/liquidity flags cleared
         assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
         assert!(!CurrentTick::<Test>::contains_key(netuid));
-        assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
+        assert!(!CurrentLiquidity128::<Test>::contains_key(netuid));
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
 
         // ASSERT: active tick bitmap cleared
@@ -2099,7 +2099,7 @@ fn test_liquidate_v3_with_user_liquidity_disabled() {
                 .next()
                 .is_none()
         );
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
         assert!(
             TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
                 .next()
@@ -2108,7 +2108,7 @@ fn test_liquidate_v3_with_user_liquidity_disabled() {
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
         assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
         assert!(!CurrentTick::<Test>::contains_key(netuid));
-        assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
+        assert!(!CurrentLiquidity128::<Test>::contains_key(netuid));
         assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
         assert!(!FeeGlobalAlpha::<Test>::contains_key(netuid));
 
@@ -2140,7 +2140,7 @@ fn test_liquidate_non_v3_uninitialized_ok_and_clears() {
                 .next()
                 .is_none()
         );
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
         assert!(
             TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
                 .next()
@@ -2150,7 +2150,7 @@ fn test_liquidate_non_v3_uninitialized_ok_and_clears() {
         // All single-key maps should not have the key after liquidation
         assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
         assert!(!FeeGlobalAlpha::<Test>::contains_key(netuid));
-        assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
+        assert!(!CurrentLiquidity128::<Test>::contains_key(netuid));
         assert!(!CurrentTick::<Test>::contains_key(netuid));
         assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
@@ -2197,7 +2197,7 @@ fn test_liquidate_idempotent() {
                 .next()
                 .is_none()
         );
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
         assert!(
             TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
                 .next()
@@ -2219,7 +2219,7 @@ fn test_liquidate_idempotent() {
                 .next()
                 .is_none()
         );
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
         assert!(
             TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
                 .next()
@@ -2301,7 +2301,7 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
 
         // User position(s) are gone and all V3 state cleared.
         assert_eq!(Pallet::<Test>::count_positions(netuid, &cold), 0);
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
     });
 }
@@ -2362,7 +2362,7 @@ fn refund_alpha_single_provider_exact() {
         assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
 
         // --- State is cleared.
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
         assert_eq!(Pallet::<Test>::count_positions(netuid, &cold), 0);
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
     });
@@ -2640,10 +2640,10 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
             "protocol positions must be removed"
         );
 
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
-        assert!(Ticks::<Test>::get(netuid, TickIndex::MIN).is_none());
-        assert!(Ticks::<Test>::get(netuid, TickIndex::MAX).is_none());
-        assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::get(netuid, TickIndex::MIN).is_none());
+        assert!(Ticks128::<Test>::get(netuid, TickIndex::MAX).is_none());
+        assert!(!CurrentLiquidity128::<Test>::contains_key(netuid));
         assert!(!CurrentTick::<Test>::contains_key(netuid));
         assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
@@ -2706,7 +2706,7 @@ fn test_clear_protocol_liquidity_green_path() {
 
         // --- Assert: V3 data wiped (idempotent even if some maps were empty) ---
         // Ticks / active tick bitmap
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
         assert!(
             TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
                 .next()
@@ -2721,7 +2721,7 @@ fn test_clear_protocol_liquidity_green_path() {
         // Price / tick / liquidity / flags
         assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
         assert!(!CurrentTick::<Test>::contains_key(netuid));
-        assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
+        assert!(!CurrentLiquidity128::<Test>::contains_key(netuid));
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
 
         // Knobs removed
@@ -2735,7 +2735,7 @@ fn test_clear_protocol_liquidity_green_path() {
                 .next()
                 .is_none()
         );
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert!(Ticks128::<Test>::iter_prefix(netuid).next().is_none());
         assert!(
             TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
                 .next()
