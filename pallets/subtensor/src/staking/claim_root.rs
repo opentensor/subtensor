@@ -61,7 +61,7 @@ impl<T: Config> Pallet<T> {
         RootClaimable::<T>::mutate(hotkey, |claimable| {
             claimable
                 .entry(netuid)
-                .and_modify(|total| *total = total.saturating_add(increment))
+                .and_modify(|claim_total| *claim_total = claim_total.saturating_add(increment))
                 .or_insert(increment);
         });
     }
