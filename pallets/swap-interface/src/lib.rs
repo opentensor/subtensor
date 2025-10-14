@@ -54,7 +54,10 @@ pub trait SwapHandler {
     // Migrations
     fn migrate_fix_liquidity_ticks(weight: &mut Weight);
     fn migrate_fix_current_liquidity(weight: &mut Weight);
-    fn migrate_get_implied_reserves(netuid: NetUid, weight: &mut Weight) -> (TaoCurrency, AlphaCurrency);
+    fn migrate_get_implied_reserves(
+        netuid: NetUid,
+        weight: &mut Weight,
+    ) -> (TaoCurrency, AlphaCurrency);
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>

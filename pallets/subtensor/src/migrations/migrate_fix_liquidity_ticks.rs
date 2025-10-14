@@ -33,7 +33,8 @@ pub fn migrate_fix_liquidity_ticks<T: Config>() -> Weight {
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
     for netuid in netuids.into_iter() {
-        let (tao_reserve, alpha_reserve) = T::SwapInterface::migrate_get_implied_reserves(netuid, &mut weight);
+        let (tao_reserve, alpha_reserve) =
+            T::SwapInterface::migrate_get_implied_reserves(netuid, &mut weight);
         SubnetTaoProvided::<T>::insert(netuid, TaoCurrency::from(0));
         SubnetTAO::<T>::insert(netuid, tao_reserve);
         SubnetAlphaInProvided::<T>::insert(netuid, AlphaCurrency::from(0));

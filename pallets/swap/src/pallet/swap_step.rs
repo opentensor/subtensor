@@ -188,11 +188,7 @@ where
     fn process_swap(&self) -> Result<SwapStepResult<PaidIn, PaidOut>, Error<T>> {
         // Hold the fees
         let current_liquidity = CurrentLiquidity128::<T>::get(self.netuid);
-        Self::add_fees(
-            self.netuid,
-            current_liquidity,
-            self.fee,
-        );
+        Self::add_fees(self.netuid, current_liquidity, self.fee);
         let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
         // log::trace!("\tDelta Out        : {delta_out:?}");
 
@@ -291,21 +287,20 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
             // Decompose current_liquidity = hi * 2^64 + lo
             const TWO_POW_64: u128 = 1u128 << 64;
             let hi: u64 = (current_liquidity.safe_div(TWO_POW_64)) as u64;
-            let lo: u64 = (current_liquidity.checked_rem(TWO_POW_64).unwrap_or_default()) as u64;
+            let lo: u64 = (current_liquidity
+                .checked_rem(TWO_POW_64)
+                .unwrap_or_default()) as u64;
 
             // Build liquidity_factor = 2^-64 / (hi + lo/2^64) in U64F64
-            let s: U64F64 = U64F64::saturating_from_num(hi)
-                .saturating_add(
-                    U64F64::saturating_from_num(lo).safe_div(U64F64::saturating_from_num(TWO_POW_64))
-                );
+            let s: U64F64 = U64F64::saturating_from_num(hi).saturating_add(
+                U64F64::saturating_from_num(lo).safe_div(U64F64::saturating_from_num(TWO_POW_64)),
+            );
             // 2^-64 = from_bits(1)
             let liquidity_factor: U64F64 = U64F64::from_bits(1).safe_div(s);
 
             // result = fee * inv
             let fee_delta = U64F64::saturating_from_num(fee).saturating_mul(liquidity_factor);
-            FeeGlobalTao::<T>::mutate(netuid, |value| {
-                *value = value.saturating_add(fee_delta)
-            });
+            FeeGlobalTao::<T>::mutate(netuid, |value| *value = value.saturating_add(fee_delta));
         }
     }
 
@@ -448,21 +443,20 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
             // Decompose current_liquidity = hi * 2^64 + lo
             const TWO_POW_64: u128 = 1u128 << 64;
             let hi: u64 = (current_liquidity.safe_div(TWO_POW_64)) as u64;
-            let lo: u64 = (current_liquidity.checked_rem(TWO_POW_64).unwrap_or_default()) as u64;
+            let lo: u64 = (current_liquidity
+                .checked_rem(TWO_POW_64)
+                .unwrap_or_default()) as u64;
 
             // Build liquidity_factor = 2^-64 / (hi + lo/2^64) in U64F64
-            let s: U64F64 = U64F64::saturating_from_num(hi)
-                .saturating_add(
-                    U64F64::saturating_from_num(lo).safe_div(U64F64::saturating_from_num(TWO_POW_64))
-                );
+            let s: U64F64 = U64F64::saturating_from_num(hi).saturating_add(
+                U64F64::saturating_from_num(lo).safe_div(U64F64::saturating_from_num(TWO_POW_64)),
+            );
             // 2^-64 = from_bits(1)
             let liquidity_factor: U64F64 = U64F64::from_bits(1).safe_div(s);
 
             // result = fee * inv
             let fee_delta = U64F64::saturating_from_num(fee).saturating_mul(liquidity_factor);
-            FeeGlobalAlpha::<T>::mutate(netuid, |value| {
-                *value = value.saturating_add(fee_delta)
-            });            
+            FeeGlobalAlpha::<T>::mutate(netuid, |value| *value = value.saturating_add(fee_delta));
         }
     }
 

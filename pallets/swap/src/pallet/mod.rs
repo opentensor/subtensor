@@ -94,7 +94,8 @@ mod pallet {
     #[pallet::storage]
     pub type Ticks<T> = StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, TickIndex, Tick>;
     #[pallet::storage]
-    pub type Ticks128<T> = StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, TickIndex, Tick128>;
+    pub type Ticks128<T> =
+        StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, TickIndex, Tick128>;
 
     /// Storage to determine whether swap V3 was initialized for a specific subnet.
     #[pallet::storage]

@@ -634,7 +634,8 @@ impl<T: Config> Pallet<T> {
         // withdraw full amounts
         let mut remove = false;
         if (liquidity_delta < 0)
-            && (position.liquidity.saturating_sub(delta_liquidity_abs) < T::MinimumLiquidity::get() as u64)
+            && (position.liquidity.saturating_sub(delta_liquidity_abs)
+                < T::MinimumLiquidity::get() as u64)
         {
             delta_liquidity_abs = position.liquidity;
             remove = true;
@@ -985,8 +986,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // 2) Clear active tick index entries, then all swap state (idempotent even if empty/non‑V3).
-        let active_ticks: sp_std::vec::Vec<TickIndex> =
-            Ticks128::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
+        let active_ticks: sp_std::vec::Vec<TickIndex> = Ticks128::<T>::iter_prefix(netuid)
+            .map(|(ti, _)| ti)
+            .collect();
         for ti in active_ticks {
             ActiveTickIndexManager::<T>::remove(netuid, ti);
         }
@@ -1021,7 +1023,7 @@ impl<T: Config> Pallet<T> {
         }
 
         map
-    }    
+    }
 }
 
 impl<T: Config> DefaultPriceLimit<TaoCurrency, AlphaCurrency> for Pallet<T> {
@@ -1157,7 +1159,10 @@ impl<T: Config> SwapHandler for Pallet<T> {
             let current_tick = current_tick_map.get(&netuid).copied().unwrap_or_default();
 
             // Fix ticks that saturated (some low ticks)
-            let tick128 = if (tick_idx < TickIndex::try_from(-400000).unwrap_or_default()) && (tick_idx < current_tick) && (tick.liquidity_gross == 0xFFFFFFFFFFFFFFFF) {
+            let tick128 = if (tick_idx < TickIndex::try_from(-400000).unwrap_or_default())
+                && (tick_idx < current_tick)
+                && (tick.liquidity_gross == 0xFFFFFFFFFFFFFFFF)
+            {
                 Tick128 {
                     liquidity_net: tick.liquidity_net,
                     liquidity_gross: tick.liquidity_net.unsigned_abs(),
@@ -1183,7 +1188,8 @@ impl<T: Config> SwapHandler for Pallet<T> {
         }
 
         // Return a conservative weight estimate: moved reads + moved writes * 2.
-        *weight = weight.saturating_add(T::DbWeight::get().reads_writes(moved, moved.saturating_mul(2)));
+        *weight =
+            weight.saturating_add(T::DbWeight::get().reads_writes(moved, moved.saturating_mul(2)));
     }
 
     /// Migrate CurrentLiquidity to CurrentLiquidity128
@@ -1200,11 +1206,15 @@ impl<T: Config> SwapHandler for Pallet<T> {
         }
 
         // Return a conservative weight estimate: moved reads + moved writes * 2.
-        *weight = weight.saturating_add(T::DbWeight::get().reads_writes(moved, moved.saturating_mul(2)));
+        *weight =
+            weight.saturating_add(T::DbWeight::get().reads_writes(moved, moved.saturating_mul(2)));
     }
 
     /// Get implied reserves for a subnet
-    fn migrate_get_implied_reserves(netuid: NetUid, weight: &mut Weight) -> (TaoCurrency, AlphaCurrency) {
+    fn migrate_get_implied_reserves(
+        netuid: NetUid,
+        weight: &mut Weight,
+    ) -> (TaoCurrency, AlphaCurrency) {
         // current sqrt(price) for this subnet
         let current_price_sqrt = AlphaSqrtPrice::<T>::get(netuid);
         let mut reads: u64 = 1;

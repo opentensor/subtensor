@@ -210,7 +210,10 @@ fn test_swap_initialization() {
         assert_eq!(tick_high.liquidity_gross, expected_liquidity as u128);
 
         // Verify current liquidity is set
-        assert_eq!(CurrentLiquidity128::<Test>::get(netuid), expected_liquidity as u128);
+        assert_eq!(
+            CurrentLiquidity128::<Test>::get(netuid),
+            expected_liquidity as u128
+        );
     });
 }
 
@@ -275,7 +278,8 @@ fn test_add_liquidity_basic() {
                 let tick_high = price_to_tick(price_high);
 
                 // Get tick infos and liquidity before adding (to account for protocol liquidity)
-                let tick_low_info_before = Ticks128::<Test>::get(netuid, tick_low).unwrap_or_default();
+                let tick_low_info_before =
+                    Ticks128::<Test>::get(netuid, tick_low).unwrap_or_default();
                 let tick_high_info_before =
                     Ticks128::<Test>::get(netuid, tick_high).unwrap_or_default();
                 let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
@@ -774,7 +778,8 @@ fn test_swap_basic() {
 
             // Get tick infos before the swap
             let tick_low_info_before = Ticks128::<Test>::get(netuid, tick_low).unwrap_or_default();
-            let tick_high_info_before = Ticks128::<Test>::get(netuid, tick_high).unwrap_or_default();
+            let tick_high_info_before =
+                Ticks128::<Test>::get(netuid, tick_high).unwrap_or_default();
             let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
 
             // Get current price
@@ -958,7 +963,8 @@ fn test_swap_single_position() {
                 );
 
                 // Get tick infos before the swap
-                let tick_low_info_before = Ticks128::<Test>::get(netuid, tick_low).unwrap_or_default();
+                let tick_low_info_before =
+                    Ticks128::<Test>::get(netuid, tick_low).unwrap_or_default();
                 let tick_high_info_before =
                     Ticks128::<Test>::get(netuid, tick_high).unwrap_or_default();
                 let liquidity_before = CurrentLiquidity128::<Test>::get(netuid);
