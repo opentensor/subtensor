@@ -1,6 +1,6 @@
 //! Benchmarking setup
 #![cfg(feature = "runtime-benchmarks")]
-#![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::arithmetic_side_effects, clippy::expect_used)]
 use super::*;
 
 #[allow(unused)]
@@ -11,7 +11,9 @@ use sp_std::vec;
 
 use sp_runtime::traits::Bounded;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+fn assert_last_event<T: frame_system::pallet::Config>(
+    generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
+) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 

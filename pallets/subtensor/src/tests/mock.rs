@@ -1,4 +1,8 @@
-#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::unwrap_used
+)]
 
 use core::num::NonZeroU64;
 
@@ -24,9 +28,11 @@ use sp_runtime::{
     BuildStorage, Percent,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::{cell::RefCell, cmp::Ordering};
+use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
+use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{Order, SwapHandler};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -325,7 +331,6 @@ type TriumvirateCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TriumvirateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = GetSenateMemberCount;
@@ -360,7 +365,6 @@ type SenateCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<SenateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = SenateMaxMembers;
@@ -389,7 +393,6 @@ impl pallet_membership::Config<SenateMembership> for Test {
 }
 
 impl crate::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
@@ -457,7 +460,7 @@ impl crate::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
-    type SwapInterface = Swap;
+    type SwapInterface = pallet_subtensor_swap::Pallet<Self>;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = FakeProxier;
@@ -478,10 +481,11 @@ parameter_types! {
 }
 
 impl pallet_subtensor_swap::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
+    type TaoReserve = TaoCurrencyReserve<Self>;
+    type AlphaReserve = AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -524,7 +528,6 @@ impl pallet_scheduler::Config for Test {
 }
 
 impl pallet_utility::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
@@ -583,7 +586,6 @@ impl pallet_crowdloan::Config for Test {
     type PalletId = CrowdloanPalletId;
     type Currency = Balances;
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Test>;
     type Preimages = Preimage;
     type MinimumDeposit = MinimumDeposit;
@@ -629,7 +631,6 @@ mod test_crypto {
 pub type TestAuthId = test_crypto::TestAuthId;
 
 impl pallet_drand::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -655,7 +656,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_inherent(call)
     }
 }
@@ -676,10 +677,38 @@ where
     }
 }
 
+static TEST_LOGS_INIT: OnceLock<()> = OnceLock::new();
+
+pub fn init_logs_for_tests() {
+    if TEST_LOGS_INIT.get().is_some() {
+        return;
+    }
+
+    // RUST_LOG (full syntax) or "off" if unset
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("off"));
+
+    // Bridge log -> tracing (ok if already set)
+    let _ = tracing_log::LogTracer::init();
+
+    // Simple formatter
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(false)
+        .with_target(true)
+        .with_level(true)
+        .without_time();
+
+    let _ = tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt_layer)
+        .try_init();
+
+    let _ = TEST_LOGS_INIT.set(());
+}
+
 #[allow(dead_code)]
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
-    sp_tracing::try_init_simple();
+    init_logs_for_tests();
     let t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();
@@ -690,7 +719,7 @@ pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
 
 #[allow(dead_code)]
 pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExternalities {
-    sp_tracing::try_init_simple();
+    init_logs_for_tests();
     let mut t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();
@@ -980,7 +1009,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         coldkey,
         netuid,
         tao_staked,
-        <Test as Config>::SwapInterface::max_price().into(),
+        <Test as Config>::SwapInterface::max_price(),
         false,
         false,
     )
@@ -1016,10 +1045,10 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurre
         return (tao.to_u64().into(), 0);
     }
 
+    let order = GetAlphaForTao::<Test>::with_amount(tao);
     let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid.into(),
-        OrderType::Buy,
-        tao.into(),
+        order,
         <Test as pallet::Config>::SwapInterface::max_price(),
         false,
         true,
@@ -1029,10 +1058,10 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurre
 
     let result = result.unwrap();
 
-    // we don't want to have silent 0 comparissons in tests
-    assert!(result.amount_paid_out > 0);
+    // we don't want to have silent 0 comparisons in tests
+    assert!(result.amount_paid_out > AlphaCurrency::ZERO);
 
-    (result.amount_paid_out.into(), result.fee_paid)
+    (result.amount_paid_out, result.fee_paid.into())
 }
 
 pub(crate) fn swap_alpha_to_tao_ext(
@@ -1046,13 +1075,13 @@ pub(crate) fn swap_alpha_to_tao_ext(
 
     println!(
         "<Test as pallet::Config>::SwapInterface::min_price() = {:?}",
-        <Test as pallet::Config>::SwapInterface::min_price()
+        <Test as pallet::Config>::SwapInterface::min_price::<TaoCurrency>()
     );
 
+    let order = GetTaoForAlpha::<Test>::with_amount(alpha);
     let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid.into(),
-        OrderType::Sell,
-        alpha.into(),
+        order,
         <Test as pallet::Config>::SwapInterface::min_price(),
         drop_fees,
         true,
@@ -1062,10 +1091,10 @@ pub(crate) fn swap_alpha_to_tao_ext(
 
     let result = result.unwrap();
 
-    // we don't want to have silent 0 comparissons in tests
-    assert!(result.amount_paid_out > 0);
+    // we don't want to have silent 0 comparisons in tests
+    assert!(!result.amount_paid_out.is_zero());
 
-    (result.amount_paid_out.into(), result.fee_paid)
+    (result.amount_paid_out, result.fee_paid.into())
 }
 
 pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (TaoCurrency, u64) {
@@ -1077,7 +1106,9 @@ pub(crate) fn last_event() -> RuntimeEvent {
     System::events().pop().expect("RuntimeEvent expected").event
 }
 
-pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+pub fn assert_last_event<T: frame_system::pallet::Config>(
+    generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
+) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 

@@ -54,7 +54,6 @@ impl pallet_balances::Config for Test {
 }
 
 impl pallet_utility::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
@@ -121,7 +120,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = ProxyType;
@@ -496,7 +494,7 @@ fn filtering_works() {
             .into(),
         );
 
-        let derivative_id = Utility::derivative_account_id(1, 0);
+        let derivative_id = Utility::derivative_account_id(1, 0).unwrap();
         Balances::make_free_balance_be(&derivative_id, 1000);
         let inner = Box::new(call_transfer(6, 1));
 
@@ -878,7 +876,7 @@ fn pure_works() {
             0,
             0
         ));
-        let anon = Proxy::pure_account(&1, &ProxyType::Any, 0, None);
+        let anon = Proxy::pure_account(&1, &ProxyType::Any, 0, None).unwrap();
         System::assert_last_event(
             ProxyEvent::PureCreated {
                 pure: anon,
@@ -902,7 +900,7 @@ fn pure_works() {
             0,
             1
         ));
-        let anon2 = Proxy::pure_account(&2, &ProxyType::Any, 0, None);
+        let anon2 = Proxy::pure_account(&2, &ProxyType::Any, 0, None).unwrap();
         assert_ok!(Proxy::create_pure(
             RuntimeOrigin::signed(2),
             ProxyType::Any,

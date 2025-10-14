@@ -1120,6 +1120,48 @@ fn test_swap_child_keys() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_child_keys_self_loop --exact --show-output
+#[test]
+fn test_swap_child_keys_self_loop() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        let amount = AlphaCurrency::from(12345);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+
+        // Only for checking
+        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaCurrency::from(amount));
+
+        let children = vec![(200u64, new_hotkey)];
+
+        // Initialize ChildKeys for old_hotkey
+        ChildKeys::<Test>::insert(old_hotkey, netuid, children.clone());
+
+        // Perform the swap extrinsic
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_err!(
+            SubtensorModule::swap_hotkey(
+                RuntimeOrigin::signed(coldkey),
+                old_hotkey,
+                new_hotkey,
+                Some(netuid)
+            ),
+            Error::<Test>::InvalidChild
+        );
+
+        // Verify the swap didn't happen
+        assert_eq!(ChildKeys::<Test>::get(old_hotkey, netuid), children);
+        assert!(ChildKeys::<Test>::get(new_hotkey, netuid).is_empty());
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), amount);
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
+            AlphaCurrency::from(0)
+        );
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_parent_keys --exact --nocapture
 #[test]
 fn test_swap_parent_keys() {
@@ -1264,14 +1306,10 @@ fn test_swap_complex_parent_child_structure() {
         assert!(ChildKeys::<Test>::get(old_hotkey, netuid).is_empty());
 
         // Verify parent's ChildKeys update
-        assert_eq!(
-            ChildKeys::<Test>::get(parent1, netuid),
-            vec![(100u64, new_hotkey), (500u64, U256::from(8))]
-        );
-        assert_eq!(
-            ChildKeys::<Test>::get(parent2, netuid),
-            vec![(200u64, new_hotkey), (600u64, U256::from(9))]
-        );
+        assert!(ChildKeys::<Test>::get(parent1, netuid).contains(&(500u64, U256::from(8))),);
+        assert!(ChildKeys::<Test>::get(parent1, netuid).contains(&(100u64, new_hotkey)),);
+        assert!(ChildKeys::<Test>::get(parent2, netuid).contains(&(600u64, U256::from(9))),);
+        assert!(ChildKeys::<Test>::get(parent2, netuid).contains(&(200u64, new_hotkey)),);
     });
 }
 
@@ -1282,7 +1320,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
         let coldkey = U256::from(2);
         let child = U256::from(3);
         let child_other = U256::from(4);
-        let parent_new = U256::from(4);
+        let parent_new = U256::from(5);
 
         let netuid = add_dynamic_network(&parent_old, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);

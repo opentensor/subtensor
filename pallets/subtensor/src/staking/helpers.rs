@@ -8,7 +8,7 @@ use frame_support::traits::{
 use safe_math::*;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 use super::*;
 
@@ -73,20 +73,17 @@ impl<T: Config> Pallet<T> {
                         let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
                             hotkey, coldkey, netuid,
                         );
-                        T::SwapInterface::sim_swap(
-                            netuid.into(),
-                            OrderType::Sell,
-                            alpha_stake.into(),
-                        )
-                        .map(|r| {
-                            let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
-                                .saturating_mul(T::SwapInterface::current_alpha_price(
-                                    netuid.into(),
-                                ))
-                                .saturating_to_num();
-                            r.amount_paid_out.saturating_add(fee)
-                        })
-                        .unwrap_or_default()
+                        let order = GetTaoForAlpha::<T>::with_amount(alpha_stake);
+                        T::SwapInterface::sim_swap(netuid.into(), order)
+                            .map(|r| {
+                                let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
+                                    .saturating_mul(T::SwapInterface::current_alpha_price(
+                                        netuid.into(),
+                                    ))
+                                    .saturating_to_num();
+                                r.amount_paid_out.to_u64().saturating_add(fee)
+                            })
+                            .unwrap_or_default()
                     })
                     .sum::<u64>()
             })
@@ -202,7 +199,7 @@ impl<T: Config> Pallet<T> {
                     coldkey,
                     netuid,
                     alpha_stake,
-                    T::SwapInterface::min_price().into(),
+                    T::SwapInterface::min_price(),
                     false,
                 );
 

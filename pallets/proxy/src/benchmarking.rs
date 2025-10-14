@@ -18,7 +18,7 @@
 // Benchmarks for Proxy Pallet
 
 #![cfg(feature = "runtime-benchmarks")]
-#![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
 use super::*;
 use crate::Pallet as Proxy;
@@ -29,11 +29,13 @@ use frame::benchmarking::prelude::{
 
 const SEED: u32 = 0;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+fn assert_last_event<T: frame_system::pallet::Config>(
+    generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
+) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+fn assert_has_event<T: Config>(generic_event: <T as frame_system::pallet::Config>::RuntimeEvent) {
     frame_system::Pallet::<T>::assert_has_event(generic_event.into());
 }
 
@@ -319,7 +321,8 @@ mod benchmarks {
             0,
         );
 
-        let pure_account = Pallet::<T>::pure_account(&caller, &T::ProxyType::default(), 0, None);
+        let pure_account =
+            Pallet::<T>::pure_account(&caller, &T::ProxyType::default(), 0, None).unwrap();
         assert_last_event::<T>(
             Event::PureCreated {
                 pure: pure_account,
@@ -346,7 +349,8 @@ mod benchmarks {
         )?;
         let height = T::BlockNumberProvider::current_block_number();
         let ext_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0);
-        let pure_account = Pallet::<T>::pure_account(&caller, &T::ProxyType::default(), 0, None);
+        let pure_account =
+            Pallet::<T>::pure_account(&caller, &T::ProxyType::default(), 0, None).unwrap();
 
         add_proxies::<T>(p, Some(pure_account.clone()))?;
         ensure!(

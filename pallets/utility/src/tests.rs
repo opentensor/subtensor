@@ -18,7 +18,11 @@
 // Tests for Utility Pallet
 
 #![cfg(test)]
-#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::unwrap_used
+)]
 
 use super::*;
 
@@ -101,8 +105,6 @@ mod mock_democracy {
 
         #[pallet::config]
         pub trait Config: frame_system::Config + Sized {
-            type RuntimeEvent: From<Event<Self>>
-                + IsType<<Self as frame_system::Config>::RuntimeEvent>;
             type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
         }
 
@@ -205,7 +207,6 @@ type CouncilCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<CouncilCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = MotionDuration;
     type MaxProposals = MaxProposals;
     type MaxMembers = MaxMembers;
@@ -237,11 +238,9 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
     }
 }
 impl mock_democracy::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
 impl Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
@@ -307,7 +306,7 @@ fn utility_events() -> Vec<Event> {
 #[test]
 fn as_derivative_works() {
     new_test_ext().execute_with(|| {
-        let sub_1_0 = Utility::derivative_account_id(1, 0);
+        let sub_1_0 = Utility::derivative_account_id(1, 0).unwrap();
         assert_ok!(Balances::transfer_allow_death(
             RuntimeOrigin::signed(1),
             sub_1_0,

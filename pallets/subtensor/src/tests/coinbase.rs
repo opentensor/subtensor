@@ -10,7 +10,7 @@ use pallet_subtensor_swap::position::PositionId;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {

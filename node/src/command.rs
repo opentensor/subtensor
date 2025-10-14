@@ -194,8 +194,9 @@ pub fn run() -> sc_cli::Result<()> {
                     BenchmarkCmd::Storage(cmd) => {
                         let db = backend.expose_db();
                         let storage = backend.expose_storage();
+                        let shared_cache = backend.expose_shared_trie_cache();
 
-                        cmd.run(config, client, db, storage)
+                        cmd.run(config, client, db, storage, shared_cache)
                     }
                     BenchmarkCmd::Overhead(cmd) => {
                         let ext_builder = RemarkBuilder::new(client.clone());
@@ -244,6 +245,7 @@ pub fn run() -> sc_cli::Result<()> {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
@@ -280,6 +282,7 @@ fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
@@ -312,6 +315,7 @@ fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn customise_config(arg_matches: &ArgMatches, config: Configuration) -> Configuration {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
 
@@ -351,6 +355,7 @@ fn override_default_heap_pages(config: Configuration, pages: u64) -> Configurati
         keystore: config.keystore,
         database: config.database,
         trie_cache_maximum_size: config.trie_cache_maximum_size,
+        warm_up_trie_cache: config.warm_up_trie_cache,
         state_pruning: config.state_pruning,
         blocks_pruning: config.blocks_pruning,
         chain_spec: config.chain_spec,

@@ -262,6 +262,8 @@ mod errors {
         UidMapCouldNotBeCleared,
         /// Trimming would exceed the max immune neurons percentage
         TrimmingWouldExceedMaxImmunePercentage,
+        /// Violating the rules of Childkey-Parentkey consistency
+        ChildParentInconsistency,
         /// Invalid number of root claims
         InvalidNumRootClaim,
     }

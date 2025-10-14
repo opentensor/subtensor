@@ -20,6 +20,8 @@ mod dispatches {
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// --- Sets the caller weights for the incentive mechanism. The call can be
         /// made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
@@ -708,7 +710,7 @@ mod dispatches {
         ///
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(340_800_000, 0)
-		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().reads(24_u64))
 		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake(
             origin: OriginFor<T>,
@@ -1060,7 +1062,7 @@ mod dispatches {
         /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(47))
+        .saturating_add(T::DbWeight::get().reads(49_u64))
         .saturating_add(T::DbWeight::get().writes(37)), DispatchClass::Normal, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
@@ -1673,7 +1675,7 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(358_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(38_u64))
+        .saturating_add(T::DbWeight::get().reads(36_u64))
         .saturating_add(T::DbWeight::get().writes(21_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
@@ -1787,7 +1789,7 @@ mod dispatches {
         #[pallet::call_index(87)]
         #[pallet::weight((
             Weight::from_parts(351_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(37_u64))
+            .saturating_add(T::DbWeight::get().reads(35_u64))
             .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1852,7 +1854,7 @@ mod dispatches {
         ///
         #[pallet::call_index(88)]
         #[pallet::weight((Weight::from_parts(402_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().reads(24_u64))
 		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
@@ -1916,7 +1918,7 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(377_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(30_u64))
+		.saturating_add(T::DbWeight::get().reads(28_u64))
 		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
@@ -1960,7 +1962,7 @@ mod dispatches {
         #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(411_500_000, 0)
-            .saturating_add(T::DbWeight::get().reads(37_u64))
+            .saturating_add(T::DbWeight::get().reads(35_u64))
             .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -2138,7 +2140,7 @@ mod dispatches {
         /// Without limit_price it remove all the stake similar to `remove_stake` extrinsic
         #[pallet::call_index(103)]
         #[pallet::weight((Weight::from_parts(395_300_000, 10142)
-			.saturating_add(T::DbWeight::get().reads(30_u64))
+			.saturating_add(T::DbWeight::get().reads(28_u64))
 			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_full_limit(
             origin: T::RuntimeOrigin,
@@ -2295,8 +2297,8 @@ mod dispatches {
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
         #[pallet::weight((Weight::from_parts(29_930_000, 0)
-		.saturating_add(T::DbWeight::get().reads(3_u64))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(4_u64))
+		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
@@ -2315,9 +2317,20 @@ mod dispatches {
                     current_hotkey != hotkey,
                     Error::<T>::SameAutoStakeHotkeyAlreadySet
                 );
+
+                // Remove the coldkey from the old hotkey (if present)
+                AutoStakeDestinationColdkeys::<T>::mutate(current_hotkey.clone(), netuid, |v| {
+                    v.retain(|c| c != &coldkey);
+                });
             }
 
+            // Add the coldkey to the new hotkey (if not already present)
             AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
+            AutoStakeDestinationColdkeys::<T>::mutate(hotkey.clone(), netuid, |v| {
+                if !v.contains(&coldkey) {
+                    v.push(coldkey.clone());
+                }
+            });
 
             Self::deposit_event(Event::AutoStakeDestinationSet {
                 coldkey,

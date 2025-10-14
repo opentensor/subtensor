@@ -69,7 +69,10 @@ use frame_support::{
 };
 use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
+use sp_runtime::{
+    DispatchError,
+    traits::{BadOrigin, Dispatchable, TrailingZeroInput},
+};
 pub use weights::WeightInfo;
 
 use subtensor_macros::freeze_struct;
@@ -77,6 +80,7 @@ use subtensor_macros::freeze_struct;
 pub use pallet::*;
 
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
     use frame_support::{dispatch::DispatchClass, pallet_prelude::*};
@@ -88,9 +92,6 @@ pub mod pallet {
     /// Configuration trait.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
@@ -170,10 +171,14 @@ pub mod pallet {
     pub enum Error<T> {
         /// Too many calls batched.
         TooManyCalls,
+        /// Bad input data for derived account ID
+        InvalidDerivedAccount,
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Send a batch of dispatch calls.
         ///
         /// May be called from any origin except `None`.
@@ -274,7 +279,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let mut origin = origin;
             let who = ensure_signed(origin.clone())?;
-            let pseudonym = Self::derivative_account_id(who, index);
+            let pseudonym = Self::derivative_account_id(who, index)?;
             origin.set_caller_from(frame_system::RawOrigin::Signed(pseudonym));
             let info = call.get_dispatch_info();
             let result = call.dispatch(origin);
@@ -641,9 +646,12 @@ impl TypeId for IndexedUtilityPalletId {
 
 impl<T: Config> Pallet<T> {
     /// Derive a derivative account ID from the owner account and the sub-account index.
-    pub fn derivative_account_id(who: T::AccountId, index: u16) -> T::AccountId {
+    pub fn derivative_account_id(
+        who: T::AccountId,
+        index: u16,
+    ) -> Result<T::AccountId, DispatchError> {
         let entropy = (b"modlpy/utilisuba", who, index).using_encoded(blake2_256);
-        Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
-            .expect("infinite length input; no invalid inputs for type; qed")
+        T::AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+            .map_err(|_| Error::<T>::InvalidDerivedAccount.into())
     }
 }

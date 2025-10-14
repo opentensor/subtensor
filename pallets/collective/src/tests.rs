@@ -15,7 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(non_camel_case_types, clippy::indexing_slicing, clippy::unwrap_used)]
+#![allow(
+    non_camel_case_types,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::unwrap_used
+)]
 
 use super::{Event as CollectiveEvent, *};
 use crate as pallet_collective;
@@ -55,8 +60,6 @@ mod mock_democracy {
 
         #[pallet::config]
         pub trait Config: frame_system::Config + Sized {
-            type RuntimeEvent: From<Event<Self>>
-                + IsType<<Self as frame_system::Config>::RuntimeEvent>;
             type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
         }
 
@@ -141,7 +144,6 @@ impl Get<MemberCount> for GetCollectiveCount {
 impl Config<Instance1> for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = ConstU64<3>;
     type MaxProposals = MaxProposals;
     type MaxMembers = MaxMembers;
@@ -182,7 +184,6 @@ impl Get<MemberCount> for GetCollectiveMajorityCount {
 impl Config<Instance2> for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = ConstU64<3>;
     type MaxProposals = MaxProposals;
     type MaxMembers = MaxMembers;
@@ -194,7 +195,6 @@ impl Config<Instance2> for Test {
     type GetVotingMembers = GetCollectiveMajorityCount;
 }
 impl mock_democracy::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
 
@@ -227,7 +227,6 @@ impl Get<MemberCount> for GetDefaultCollectiveCount {
 impl Config for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = ConstU64<3>;
     type MaxProposals = MaxProposals;
     type MaxMembers = MaxMembers;
