@@ -715,6 +715,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
+                    | RuntimeCall::Swap(pallet_swap::Call::add_liquidity { .. })
+                    | RuntimeCall::Swap(pallet_swap::Call::remove_liquidity { .. })
+                    | RuntimeCall::Swap(pallet_swap::Call::modify_position { .. })
             ),
             ProxyType::Transfer => matches!(
                 c,
