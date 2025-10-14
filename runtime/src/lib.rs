@@ -616,8 +616,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::Sudo(..)
             ),
             ProxyType::Triumvirate => false, // deprecated
-            ProxyType::Senate => false, // deprecated
-            ProxyType::Governance => false, // deprecated
+            ProxyType::Senate => false,      // deprecated
+            ProxyType::Governance => false,  // deprecated
             ProxyType::Staking => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
@@ -1522,7 +1522,6 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    
     // Remove storage from removed governance pallets
     frame_support::migrations::RemovePallet<TriumviratePalletStr, RocksDbWeight>,
     frame_support::migrations::RemovePallet<TriumvirateMembersPalletStr, RocksDbWeight>,
