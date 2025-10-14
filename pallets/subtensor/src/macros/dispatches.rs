@@ -1060,7 +1060,7 @@ mod dispatches {
         /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(49_u64))
+        .saturating_add(T::DbWeight::get().reads(53_u64))
         .saturating_add(T::DbWeight::get().writes(37)), DispatchClass::Normal, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
