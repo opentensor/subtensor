@@ -99,7 +99,7 @@ pub struct Tick128 {
 
 impl Tick128 {
     pub fn liquidity_net_as_u128(&self) -> u128 {
-        self.liquidity_net.abs() as u128
+        self.liquidity_net.unsigned_abs()
     }
 }
 

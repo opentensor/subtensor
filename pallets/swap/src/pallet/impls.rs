@@ -768,7 +768,7 @@ impl<T: Config> Pallet<T> {
         if (tick_low <= current_tick_index) && (current_tick_index < tick_high) {
             CurrentLiquidity128::<T>::mutate(netuid, |current_liquidity| {
                 let is_neg = liquidity.is_negative();
-                let liquidity = liquidity.abs() as u128;
+                let liquidity = liquidity.unsigned_abs();
                 if is_neg {
                     *current_liquidity = current_liquidity.saturating_sub(liquidity);
                 } else {
