@@ -2,7 +2,7 @@ use super::*;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
     storage_alias,
-    traits::{DefensiveResult, Get},
+    traits::Get,
     weights::Weight,
 };
 use sp_std::vec::Vec;
@@ -82,16 +82,9 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Accrue weight for database writes
     weight.saturating_accrue(T::DbWeight::get().writes(8));
 
-    // Remove all existing senate members
-    for hotkey_i in T::SenateMembers::members().iter() {
-        // Remove votes associated with the member
-        T::TriumvirateInterface::remove_votes(hotkey_i).defensive_ok();
-        // Remove the member from the senate
-        T::SenateMembers::remove_member(hotkey_i).defensive_ok();
-
-        // Accrue weight for database operations
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-    }
+    // Remove all existing triumvirate votes and senate members
+    remove_prefix::<T>("Triumvirate", "Votes", &mut weight);
+    remove_prefix::<T>("SenateMembers", "Members", &mut weight);
 
     log::info!("Migrated create root network");
     weight
