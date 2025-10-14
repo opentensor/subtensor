@@ -715,9 +715,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
-                    | RuntimeCall::Swap(pallet_swap::Call::add_liquidity { .. })
-                    | RuntimeCall::Swap(pallet_swap::Call::remove_liquidity { .. })
-                    | RuntimeCall::Swap(pallet_swap::Call::modify_position { .. })
+                    | RuntimeCall::Swap(pallet_subtensor_swap::Call::add_liquidity { .. })
+                    | RuntimeCall::Swap(pallet_subtensor_swap::Call::remove_liquidity { .. })
+                    | RuntimeCall::Swap(pallet_subtensor_swap::Call::modify_position { .. })
             ),
             ProxyType::Transfer => matches!(
                 c,
@@ -750,8 +750,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                         | RuntimeCall::SubtensorModule(
                             pallet_subtensor::Call::update_symbol { .. }
                         )
-                        | RuntimeCall::Swap(pallet_swap::Call::toggle_user_liquidity { .. })
-                        | RuntimeCall::Swap(pallet_swap::Call::set_fee_rate { .. })
+                        | RuntimeCall::Swap(
+                            pallet_subtensor_swap::Call::toggle_user_liquidity { .. }
+                        )
+                        | RuntimeCall::Swap(pallet_subtensor_swap::Call::set_fee_rate { .. })
                 ) && !matches!(
                     c,
                     RuntimeCall::AdminUtils(
@@ -796,9 +798,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_full_limit { .. }
                     )
-                    | RuntimeCall::Swap(pallet_swap::Call::add_liquidity { .. })
-                    | RuntimeCall::Swap(pallet_swap::Call::remove_liquidity { .. })
-                    | RuntimeCall::Swap(pallet_swap::Call::modify_position { .. })
+                    | RuntimeCall::Swap(pallet_subtensor_swap::Call::add_liquidity { .. })
+                    | RuntimeCall::Swap(pallet_subtensor_swap::Call::remove_liquidity { .. })
+                    | RuntimeCall::Swap(pallet_subtensor_swap::Call::modify_position { .. })
             ),
             ProxyType::Registration => matches!(
                 c,
@@ -889,6 +891,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                         pallet_admin_utils::Call::sudo_set_toggle_transfer { .. }
                     )
             ),
+            ProxyType::Liquidity => matches!(
+                c,
+                RuntimeCall::Swap(pallet_subtensor_swap::Call::add_liquidity { .. })
+                    | RuntimeCall::Swap(pallet_subtensor_swap::Call::remove_liquidity { .. })
+                    | RuntimeCall::Swap(pallet_subtensor_swap::Call::modify_position { .. })
+            ),
         }
     }
     fn is_superset(&self, o: &Self) -> bool {
@@ -902,6 +910,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             }
             (ProxyType::Governance, ProxyType::Triumvirate | ProxyType::Senate) => true,
             (ProxyType::Transfer, ProxyType::SmallTransfer) => true,
+            (ProxyType::Staking, ProxyType::Liquidity) => true,
             _ => false,
         }
     }

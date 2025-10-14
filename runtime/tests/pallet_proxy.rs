@@ -8,6 +8,7 @@ use node_subtensor_runtime::{
 };
 use pallet_subtensor_collective as pallet_collective;
 use pallet_subtensor_proxy as pallet_proxy;
+use pallet_subtensor_swap::tick::TickIndex;
 use subtensor_runtime_common::{AccountId, NetUid, ProxyType};
 
 const ACCOUNT: [u8; 32] = [1_u8; 32];
@@ -174,6 +175,22 @@ fn call_register() -> RuntimeCall {
     })
 }
 
+fn call_add_liquidity() -> RuntimeCall {
+    let netuid = NetUid::from(1);
+    let liquidity = 100;
+    let hotkey = U256::from(hotkey);
+    let tick_low = TickIndex::new(0).unwrap();
+    let tick_high = TickIndex::new(100).unwrap();
+
+    RuntimeCall::Swap(pallet_subtensor_swap::Call::add_liquidity {
+        netuid,
+        hotkey,
+        tick_low,
+        tick_high,
+        liquidity,
+    })
+}
+
 fn verify_call_with_proxy_type(proxy_type: &ProxyType, call: &RuntimeCall) {
     assert_ok!(Proxy::proxy(
         RuntimeOrigin::signed(AccountId::from(DELEGATE)),
@@ -211,6 +228,7 @@ fn test_proxy_pallet() {
         ProxyType::Governance,
         ProxyType::Staking,
         ProxyType::Registration,
+        ProxyType::Liquidity,
     ];
 
     let calls = [
@@ -223,6 +241,7 @@ fn test_proxy_pallet() {
         call_senate,
         call_add_stake,
         call_register,
+        call_add_liquidity,
     ];
 
     for call in calls.iter() {
