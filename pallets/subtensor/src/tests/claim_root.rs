@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };

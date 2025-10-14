@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
                 let owed_tao = match Self::swap_alpha_for_tao(
                     netuid,
                     owed_u64.into(),
-                    T::SwapInterface::min_price().into(),
+                    T::SwapInterface::min_price::<TaoCurrency>(),
                     false,
                 ) {
                     Ok(owed_tao) => owed_tao,
@@ -173,7 +173,7 @@ impl<T: Config> Pallet<T> {
                     hotkey,
                     coldkey,
                     NetUid::ROOT,
-                    owed_tao.amount_paid_out.into(),
+                    owed_tao.amount_paid_out.to_u64().into(),
                 );
 
                 Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
