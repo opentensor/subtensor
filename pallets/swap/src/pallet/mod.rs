@@ -147,6 +147,15 @@ mod pallet {
         ValueQuery,
     >;
 
+    /// TAO reservoir for scraps of protocol claimed fees.
+    #[pallet::storage]
+    pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+
+    /// Alpha reservoir for scraps of protocol claimed fees.
+    #[pallet::storage]
+    pub type ScrapReservoirAlpha<T> =
+        StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
