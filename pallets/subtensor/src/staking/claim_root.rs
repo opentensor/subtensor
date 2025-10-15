@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
             log::warn!("Not enough root stake. NetUID = {netuid}");
 
             let owner = Owner::<T>::get(hotkey);
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &owner, netuid, amount);
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &owner, netuid, amount);
             return;
         }
 
