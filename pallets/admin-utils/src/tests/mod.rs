@@ -67,71 +67,71 @@ fn test_sudo_set_serving_rate_limit() {
     });
 }
 
-#[test]
-fn test_sudo_set_min_difficulty() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        let to_be_set: u64 = 10;
-        add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_min_difficulty(netuid);
-        assert_eq!(
-            AdminUtils::sudo_set_min_difficulty(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(
-            AdminUtils::sudo_set_min_difficulty(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
-                to_be_set
-            ),
-            Err(Error::<Test>::SubnetDoesNotExist.into())
-        );
-        assert_eq!(SubtensorModule::get_min_difficulty(netuid), init_value);
-        assert_ok!(AdminUtils::sudo_set_min_difficulty(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_min_difficulty(netuid), to_be_set);
-    });
-}
+// #[test]
+// fn test_sudo_set_min_difficulty() {
+//     new_test_ext().execute_with(|| {
+//         let netuid = NetUid::from(1);
+//         let to_be_set: u64 = 10;
+//         add_network(netuid, 10);
+//         let init_value: u64 = SubtensorModule::get_min_difficulty(netuid);
+//         assert_eq!(
+//             AdminUtils::sudo_set_min_difficulty(
+//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+//                 netuid,
+//                 to_be_set
+//             ),
+//             Err(DispatchError::BadOrigin)
+//         );
+//         assert_eq!(
+//             AdminUtils::sudo_set_min_difficulty(
+//                 <<Test as Config>::RuntimeOrigin>::root(),
+//                 netuid.next(),
+//                 to_be_set
+//             ),
+//             Err(Error::<Test>::SubnetDoesNotExist.into())
+//         );
+//         assert_eq!(SubtensorModule::get_min_difficulty(netuid), init_value);
+//         assert_ok!(AdminUtils::sudo_set_min_difficulty(
+//             <<Test as Config>::RuntimeOrigin>::root(),
+//             netuid,
+//             to_be_set
+//         ));
+//         assert_eq!(SubtensorModule::get_min_difficulty(netuid), to_be_set);
+//     });
+// }
 
-#[test]
-fn test_sudo_set_max_difficulty() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        let to_be_set: u64 = 10;
-        add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_max_difficulty(netuid);
-        assert_eq!(
-            AdminUtils::sudo_set_max_difficulty(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(
-            AdminUtils::sudo_set_max_difficulty(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
-                to_be_set
-            ),
-            Err(Error::<Test>::SubnetDoesNotExist.into())
-        );
-        assert_eq!(SubtensorModule::get_max_difficulty(netuid), init_value);
-        assert_ok!(AdminUtils::sudo_set_max_difficulty(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_max_difficulty(netuid), to_be_set);
-    });
-}
+// #[test]
+// fn test_sudo_set_max_difficulty() {
+//     new_test_ext().execute_with(|| {
+//         let netuid = NetUid::from(1);
+//         let to_be_set: u64 = 10;
+//         add_network(netuid, 10);
+//         let init_value: u64 = SubtensorModule::get_max_difficulty(netuid);
+//         assert_eq!(
+//             AdminUtils::sudo_set_max_difficulty(
+//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+//                 netuid,
+//                 to_be_set
+//             ),
+//             Err(DispatchError::BadOrigin)
+//         );
+//         assert_eq!(
+//             AdminUtils::sudo_set_max_difficulty(
+//                 <<Test as Config>::RuntimeOrigin>::root(),
+//                 netuid.next(),
+//                 to_be_set
+//             ),
+//             Err(Error::<Test>::SubnetDoesNotExist.into())
+//         );
+//         assert_eq!(SubtensorModule::get_max_difficulty(netuid), init_value);
+//         assert_ok!(AdminUtils::sudo_set_max_difficulty(
+//             <<Test as Config>::RuntimeOrigin>::root(),
+//             netuid,
+//             to_be_set
+//         ));
+//         assert_eq!(SubtensorModule::get_max_difficulty(netuid), to_be_set);
+//     });
+// }
 
 #[test]
 fn test_sudo_set_weights_version_key() {
@@ -518,9 +518,13 @@ fn test_sudo_set_max_allowed_uids() {
         MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
         TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
 
-        // Register some neurons
+        // Register some neurons (fund each signer before registration)
         for i in 0..=8 {
-            register_ok_neuron(netuid, U256::from(i * 1000), U256::from(i * 1000 + i), 0);
+            let hk = U256::from(i * 1000);
+            let ck = U256::from(i * 1000 + i);
+            let price = SubtensorModule::get_burn(netuid);
+            SubtensorModule::add_balance_to_coldkey_account(&hk, price.saturating_mul(10));
+            register_ok_neuron(netuid, hk, ck, 0);
         }
 
         // Bad origin that is not root or subnet owner
@@ -755,50 +759,50 @@ fn test_sudo_set_target_registrations_per_interval() {
     });
 }
 
-#[test]
-fn test_sudo_set_difficulty() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        let to_be_set: u64 = 10;
-        add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_difficulty_as_u64(netuid);
-        assert_eq!(
-            AdminUtils::sudo_set_difficulty(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(
-            AdminUtils::sudo_set_difficulty(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
-                to_be_set
-            ),
-            Err(Error::<Test>::SubnetDoesNotExist.into())
-        );
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), init_value);
-        assert_ok!(AdminUtils::sudo_set_difficulty(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set);
+// #[test]
+// fn test_sudo_set_difficulty() {
+//     new_test_ext().execute_with(|| {
+//         let netuid = NetUid::from(1);
+//         let to_be_set: u64 = 10;
+//         add_network(netuid, 10);
+//         let init_value: u64 = SubtensorModule::get_difficulty_as_u64(netuid);
+//         assert_eq!(
+//             AdminUtils::sudo_set_difficulty(
+//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+//                 netuid,
+//                 to_be_set
+//             ),
+//             Err(DispatchError::BadOrigin)
+//         );
+//         assert_eq!(
+//             AdminUtils::sudo_set_difficulty(
+//                 <<Test as Config>::RuntimeOrigin>::root(),
+//                 netuid.next(),
+//                 to_be_set
+//             ),
+//             Err(Error::<Test>::SubnetDoesNotExist.into())
+//         );
+//         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), init_value);
+//         assert_ok!(AdminUtils::sudo_set_difficulty(
+//             <<Test as Config>::RuntimeOrigin>::root(),
+//             netuid,
+//             to_be_set
+//         ));
+//         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set);
 
-        // Test that SN owner can't set difficulty
-        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, U256::from(1));
-        assert_eq!(
-            AdminUtils::sudo_set_difficulty(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                netuid,
-                init_value
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set); // no change
-    });
-}
+//         // Test that SN owner can't set difficulty
+//         pallet_subtensor::SubnetOwner::<Test>::insert(netuid, U256::from(1));
+//         assert_eq!(
+//             AdminUtils::sudo_set_difficulty(
+//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+//                 netuid,
+//                 init_value
+//             ),
+//             Err(DispatchError::BadOrigin)
+//         );
+//         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set); // no change
+//     });
+// }
 
 #[test]
 fn test_sudo_set_max_allowed_validators() {
@@ -1684,6 +1688,10 @@ fn test_sets_a_lower_value_clears_small_nominations() {
         let netuid = NetUid::from(2);
         add_network(netuid, 10);
 
+        // Fund the signer of `register()` (hotkey acts as "coldkey" signer in the helper)
+        let price = SubtensorModule::get_burn(netuid);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, price.saturating_mul(10));
+
         // Register a neuron
         register_ok_neuron(netuid, hotkey, owner_coldkey, 0);
 
@@ -1696,6 +1704,9 @@ fn test_sets_a_lower_value_clears_small_nominations() {
             SubtensorModule::get_nominator_min_required_stake(),
             initial_nominator_min_required_stake * default_min_stake.to_u64() / 1_000_000
         );
+
+        // Fund the staker for the upcoming stake
+        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 1_000_000_000_000);
 
         // Stake to the hotkey as staker_coldkey
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -2040,15 +2051,14 @@ fn test_freeze_window_blocks_root_and_owner() {
             <<Test as Config>::RuntimeOrigin>::root(),
             3
         ));
-        // Advance to a block where remaining < 3
         run_to_block((tempo - 2).into());
 
         // Root should be blocked during freeze window
         assert_noop!(
-            AdminUtils::sudo_set_min_burn(
+            AdminUtils::sudo_set_max_allowed_validators(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 netuid,
-                123.into()
+                1
             ),
             SubtensorError::<Test>::AdminActionProhibitedDuringWeightsWindow
         );
@@ -2068,64 +2078,64 @@ fn test_freeze_window_blocks_root_and_owner() {
     });
 }
 
-#[test]
-fn test_sudo_set_min_burn() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        let to_be_set = TaoCurrency::from(1_000_000);
-        add_network(netuid, 10);
-        let init_value = SubtensorModule::get_min_burn(netuid);
+// #[test]
+// fn test_sudo_set_min_burn() {
+//     new_test_ext().execute_with(|| {
+//         let netuid = NetUid::from(1);
+//         let to_be_set = TaoCurrency::from(1_000_000);
+//         add_network(netuid, 10);
+//         let init_value = SubtensorModule::get_min_burn(netuid);
 
-        // Simple case
-        assert_ok!(AdminUtils::sudo_set_min_burn(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            TaoCurrency::from(to_be_set)
-        ));
-        assert_ne!(SubtensorModule::get_min_burn(netuid), init_value);
-        assert_eq!(SubtensorModule::get_min_burn(netuid), to_be_set);
+//         // Simple case
+//         assert_ok!(AdminUtils::sudo_set_min_burn(
+//             <<Test as Config>::RuntimeOrigin>::root(),
+//             netuid,
+//             TaoCurrency::from(to_be_set)
+//         ));
+//         assert_ne!(SubtensorModule::get_min_burn(netuid), init_value);
+//         assert_eq!(SubtensorModule::get_min_burn(netuid), to_be_set);
 
-        // Unknown subnet
-        assert_err!(
-            AdminUtils::sudo_set_min_burn(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                NetUid::from(42),
-                TaoCurrency::from(to_be_set)
-            ),
-            Error::<Test>::SubnetDoesNotExist
-        );
+//         // Unknown subnet
+//         assert_err!(
+//             AdminUtils::sudo_set_min_burn(
+//                 <<Test as Config>::RuntimeOrigin>::root(),
+//                 NetUid::from(42),
+//                 TaoCurrency::from(to_be_set)
+//             ),
+//             Error::<Test>::SubnetDoesNotExist
+//         );
 
-        // Non subnet owner
-        assert_err!(
-            AdminUtils::sudo_set_min_burn(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                netuid,
-                TaoCurrency::from(to_be_set)
-            ),
-            DispatchError::BadOrigin
-        );
+//         // Non subnet owner
+//         assert_err!(
+//             AdminUtils::sudo_set_min_burn(
+//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+//                 netuid,
+//                 TaoCurrency::from(to_be_set)
+//             ),
+//             DispatchError::BadOrigin
+//         );
 
-        // Above upper bound
-        assert_err!(
-            AdminUtils::sudo_set_min_burn(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid,
-                <Test as pallet_subtensor::Config>::MinBurnUpperBound::get() + 1.into()
-            ),
-            Error::<Test>::ValueNotInBounds
-        );
+//         // Above upper bound
+//         assert_err!(
+//             AdminUtils::sudo_set_min_burn(
+//                 <<Test as Config>::RuntimeOrigin>::root(),
+//                 netuid,
+//                 <Test as pallet_subtensor::Config>::MinBurnUpperBound::get() + 1.into()
+//             ),
+//             Error::<Test>::ValueNotInBounds
+//         );
 
-        // Above max burn
-        assert_err!(
-            AdminUtils::sudo_set_min_burn(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid,
-                SubtensorModule::get_max_burn(netuid) + 1.into()
-            ),
-            Error::<Test>::ValueNotInBounds
-        );
-    });
-}
+//         // Above max burn
+//         assert_err!(
+//             AdminUtils::sudo_set_min_burn(
+//                 <<Test as Config>::RuntimeOrigin>::root(),
+//                 netuid,
+//                 SubtensorModule::get_max_burn(netuid) + 1.into()
+//             ),
+//             Error::<Test>::ValueNotInBounds
+//         );
+//     });
+// }
 
 #[test]
 fn test_owner_hyperparam_update_rate_limit_enforced() {
@@ -2300,64 +2310,64 @@ fn test_owner_hyperparam_rate_limit_independent_per_param() {
     });
 }
 
-#[test]
-fn test_sudo_set_max_burn() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        let to_be_set = TaoCurrency::from(100_000_001);
-        add_network(netuid, 10);
-        let init_value = SubtensorModule::get_max_burn(netuid);
+// #[test]
+// fn test_sudo_set_max_burn() {
+//     new_test_ext().execute_with(|| {
+//         let netuid = NetUid::from(1);
+//         let to_be_set = TaoCurrency::from(100_000_001);
+//         add_network(netuid, 10);
+//         let init_value = SubtensorModule::get_max_burn(netuid);
 
-        // Simple case
-        assert_ok!(AdminUtils::sudo_set_max_burn(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            TaoCurrency::from(to_be_set)
-        ));
-        assert_ne!(SubtensorModule::get_max_burn(netuid), init_value);
-        assert_eq!(SubtensorModule::get_max_burn(netuid), to_be_set);
+//         // Simple case
+//         assert_ok!(AdminUtils::sudo_set_max_burn(
+//             <<Test as Config>::RuntimeOrigin>::root(),
+//             netuid,
+//             TaoCurrency::from(to_be_set)
+//         ));
+//         assert_ne!(SubtensorModule::get_max_burn(netuid), init_value);
+//         assert_eq!(SubtensorModule::get_max_burn(netuid), to_be_set);
 
-        // Unknown subnet
-        assert_err!(
-            AdminUtils::sudo_set_max_burn(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                NetUid::from(42),
-                TaoCurrency::from(to_be_set)
-            ),
-            Error::<Test>::SubnetDoesNotExist
-        );
+//         // Unknown subnet
+//         assert_err!(
+//             AdminUtils::sudo_set_max_burn(
+//                 <<Test as Config>::RuntimeOrigin>::root(),
+//                 NetUid::from(42),
+//                 TaoCurrency::from(to_be_set)
+//             ),
+//             Error::<Test>::SubnetDoesNotExist
+//         );
 
-        // Non subnet owner
-        assert_err!(
-            AdminUtils::sudo_set_max_burn(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                netuid,
-                TaoCurrency::from(to_be_set)
-            ),
-            DispatchError::BadOrigin
-        );
+//         // Non subnet owner
+//         assert_err!(
+//             AdminUtils::sudo_set_max_burn(
+//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+//                 netuid,
+//                 TaoCurrency::from(to_be_set)
+//             ),
+//             DispatchError::BadOrigin
+//         );
 
-        // Below lower bound
-        assert_err!(
-            AdminUtils::sudo_set_max_burn(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid,
-                <Test as pallet_subtensor::Config>::MaxBurnLowerBound::get() - 1.into()
-            ),
-            Error::<Test>::ValueNotInBounds
-        );
+//         // Below lower bound
+//         assert_err!(
+//             AdminUtils::sudo_set_max_burn(
+//                 <<Test as Config>::RuntimeOrigin>::root(),
+//                 netuid,
+//                 <Test as pallet_subtensor::Config>::MaxBurnLowerBound::get() - 1.into()
+//             ),
+//             Error::<Test>::ValueNotInBounds
+//         );
 
-        // Below min burn
-        assert_err!(
-            AdminUtils::sudo_set_max_burn(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid,
-                SubtensorModule::get_min_burn(netuid) - 1.into()
-            ),
-            Error::<Test>::ValueNotInBounds
-        );
-    });
-}
+//         // Below min burn
+//         assert_err!(
+//             AdminUtils::sudo_set_max_burn(
+//                 <<Test as Config>::RuntimeOrigin>::root(),
+//                 netuid,
+//                 SubtensorModule::get_min_burn(netuid) - 1.into()
+//             ),
+//             Error::<Test>::ValueNotInBounds
+//         );
+//     });
+// }
 
 #[test]
 fn test_sudo_set_mechanism_count() {
@@ -2478,11 +2488,15 @@ fn test_trim_to_max_allowed_uids() {
         let mechanism_count = MechId::from(4);
         MechanismCountCurrent::<Test>::insert(netuid, mechanism_count);
 
-        // Add some neurons
+        // Add some neurons (fund each signer before registration)
         let max_n = 16;
         for i in 1..=max_n {
             let n = i * 1000;
-            register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
+            let hk = U256::from(n);
+            let ck = U256::from(n + i);
+            let price = SubtensorModule::get_burn(netuid);
+            SubtensorModule::add_balance_to_coldkey_account(&hk, price.saturating_mul(10));
+            register_ok_neuron(netuid, hk, ck, 0);
         }
 
         // Run some block to ensure stake weights are set and that we are past the immunity period
@@ -2559,15 +2573,12 @@ fn test_trim_to_max_allowed_uids() {
         );
 
         // Populate Weights and Bonds storage items to test trimming
-        // Create weights and bonds that span across the range that will be trimmed
         for uid in 0..max_n {
             let mut weights = Vec::new();
             let mut bonds = Vec::new();
 
-            // Add connections to all other uids, including those that will be trimmed
             for target_uid in 0..max_n {
                 if target_uid != uid {
-                    // Use some non-zero values to make the test more meaningful
                     let weight_value = (uid + target_uid) % 1000;
                     let bond_value = (uid * target_uid) % 1000;
                     weights.push((target_uid, weight_value));
@@ -2753,11 +2764,15 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
         MinAllowedUids::<Test>::set(netuid, 2);
 
-        // Add 5 neurons
+        // Add 5 neurons (fund each signer before registration)
         let max_n = 5;
         for i in 1..=max_n {
             let n = i * 1000;
-            register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
+            let hk = U256::from(n);
+            let ck = U256::from(n + i);
+            let price = SubtensorModule::get_burn(netuid);
+            SubtensorModule::add_balance_to_coldkey_account(&hk, price.saturating_mul(10));
+            register_ok_neuron(netuid, hk, ck, 0);
         }
 
         // Run some blocks to ensure stake weights are set
@@ -2772,8 +2787,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         Keys::<Test>::insert(netuid, 1, owner_hotkey2);
         Uids::<Test>::insert(netuid, owner_hotkey2, 1);
 
-        // Set temporally immune uids (2 UIDs) to make total immune count 4 out of 5 (80%)
-        // Set their registration block to current block to make them temporally immune
+        // Set temporally immune uids (2 UIDs)
         let current_block = frame_system::Pallet::<Test>::block_number();
         for uid in 2..4 {
             let hotkey = U256::from(uid * 1000 + 1000);
@@ -2782,7 +2796,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
             BlockAtRegistration::<Test>::insert(netuid, uid, current_block);
         }
 
-        // Try to trim to 4 UIDs - this should fail because 4/4 = 100% immune (>= 80%)
+        // Try to trim to 4 UIDs - should fail (immune >= 80%)
         assert_err!(
             AdminUtils::sudo_trim_to_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::root(),
@@ -2792,7 +2806,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
             pallet_subtensor::Error::<Test>::TrimmingWouldExceedMaxImmunePercentage
         );
 
-        // Try to trim to 3 UIDs - this should also fail because 4/3 > 80% immune (>= 80%)
+        // Try to trim to 3 UIDs - should fail (immune >= 80%)
         assert_err!(
             AdminUtils::sudo_trim_to_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::root(),
@@ -2803,7 +2817,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         );
 
         // Now test a scenario where trimming should succeed
-        // Remove one immune UID to make it 3 immune out of 4 total
+        // Remove one immune UID to make it lower
         let uid_to_remove = 3;
         let hotkey_to_remove = U256::from(uid_to_remove * 1000 + 1000);
         #[allow(unknown_lints)]
@@ -2811,7 +2825,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         Uids::<Test>::remove(netuid, hotkey_to_remove);
         BlockAtRegistration::<Test>::remove(netuid, uid_to_remove);
 
-        // Remove another immune UID to make it 2 immune out of 3 total
+        // Remove another immune UID
         let uid_to_remove2 = 2;
         let hotkey_to_remove2 = U256::from(uid_to_remove2 * 1000 + 1000);
         #[allow(unknown_lints)]
@@ -2820,7 +2834,7 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         BlockAtRegistration::<Test>::remove(netuid, uid_to_remove2);
 
         // Now we have 2 immune out of 2 total UIDs
-        // Try to trim to 1 UID - this should fail because 2/1 is impossible, but the check prevents it
+        // Try to trim to 1 UID - invalid
         assert_err!(
             AdminUtils::sudo_trim_to_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::root(),
@@ -2841,9 +2855,13 @@ fn test_sudo_set_min_allowed_uids() {
         MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
         TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
 
-        // Register some neurons
+        // Register some neurons (fund each signer before registration)
         for i in 0..=16 {
-            register_ok_neuron(netuid, U256::from(i * 1000), U256::from(i * 1000 + i), 0);
+            let hk = U256::from(i * 1000);
+            let ck = U256::from(i * 1000 + i);
+            let price = SubtensorModule::get_burn(netuid);
+            SubtensorModule::add_balance_to_coldkey_account(&hk, price.saturating_mul(10));
+            register_ok_neuron(netuid, hk, ck, 0);
         }
 
         // Normal case

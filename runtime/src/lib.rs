@@ -827,12 +827,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                         pallet_admin_utils::Call::sudo_set_serving_rate_limit { .. }
                     )
                     | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_min_difficulty { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_max_difficulty { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_weights_version_key { .. }
                     )
                     | RuntimeCall::AdminUtils(
@@ -858,7 +852,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_network_pow_registration_allowed { .. }
                     )
-                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_max_burn { .. })
                     | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_bonds_moving_average { .. }
                     )

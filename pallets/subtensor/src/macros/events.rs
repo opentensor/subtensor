@@ -456,5 +456,17 @@ mod events {
             /// The account ID of the hotkey.
             hotkey: T::AccountId,
         },
+
+        /// Burn half-life was (re)set for a subnet.
+        /// (netuid, half_life_blocks)
+        BurnHalfLifeSet(NetUid, u64),
+
+        /// Burn increase multiplier was (re)set for a subnet.
+        /// (netuid, multiplier as FixedU128)
+        BurnIncreaseMultSet(NetUid, FixedU128),
+
+        /// Burn price lazily initialized for a subnet.
+        /// (netuid, initial_price_base_units)
+        BurnPriceInitialized(NetUid, u128),
     }
 }

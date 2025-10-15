@@ -2038,7 +2038,6 @@ fn test_coldkey_swap_delegate_identity_updated() {
         let burn_cost = TaoCurrency::from(10);
         let tempo = 1;
 
-        SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
 
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
@@ -2091,7 +2090,6 @@ fn test_coldkey_swap_no_identity_no_changes() {
         let burn_cost = TaoCurrency::from(10);
         let tempo = 1;
 
-        SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
 
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
@@ -2129,7 +2127,6 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         let burn_cost = TaoCurrency::from(10);
         let tempo = 1;
 
-        SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
         mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());

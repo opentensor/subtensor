@@ -694,7 +694,7 @@ impl<T: Config> Pallet<T> {
             alpha_in_emission: SubnetAlphaInEmission::<T>::get(netuid).into(), // amount injected outstanding per block
             tao_in_emission: SubnetTaoInEmission::<T>::get(netuid).into(), // amount of tao injected per block
             pending_alpha_emission: PendingEmission::<T>::get(netuid).into(), // pending alpha to be distributed
-            pending_root_emission: PendingRootDivs::<T>::get(netuid).into(), // panding tao for root divs to be distributed
+            pending_root_emission: PendingRootDivs::<T>::get(netuid).into(), // pending tao for root divs to be distributed
             subnet_volume: subnet_volume.into(),
             moving_price: SubnetMovingPrice::<T>::get(netuid),
 
@@ -716,16 +716,19 @@ impl<T: Config> Pallet<T> {
             registration_allowed: Self::get_network_registration_allowed(netuid), // allows registrations.
             pow_registration_allowed: Self::get_network_pow_registration_allowed(netuid), // allows pow registrations.
             difficulty: Self::get_difficulty_as_u64(netuid).into(), // current difficulty.
-            burn: Self::get_burn(netuid).into(),
+            burn: TaoCurrency::from(Self::get_burn(netuid)).into(),
+
             immunity_period: Self::get_immunity_period(netuid).into(), // subnet miner immunity period
             min_difficulty: Self::get_min_difficulty(netuid).into(),   // min pow difficulty
             max_difficulty: Self::get_max_difficulty(netuid).into(),   // max pow difficulty
-            min_burn: Self::get_min_burn(netuid).into(),               // min tao burn
-            max_burn: Self::get_max_burn(netuid).into(),               // max tao burn
-            adjustment_alpha: Self::get_adjustment_alpha(netuid).into(), // adjustment speed for registration params.
-            adjustment_interval: Self::get_adjustment_interval(netuid).into(), // pow and burn adjustment interval
-            target_regs_per_interval: Self::get_target_registrations_per_interval(netuid).into(), // target registrations per interval
-            max_regs_per_block: Self::get_max_registrations_per_block(netuid).into(), // max registrations per block.
+
+            min_burn: TaoCurrency::ZERO.into(),
+            max_burn: TaoCurrency::MAX.into(),
+
+            adjustment_alpha: Self::get_adjustment_alpha(netuid).into(), // legacy field still exposed
+            adjustment_interval: Self::get_adjustment_interval(netuid).into(), // legacy field still exposed
+            target_regs_per_interval: Self::get_target_registrations_per_interval(netuid).into(), // legacy
+            max_regs_per_block: Self::get_max_registrations_per_block(netuid).into(), // legacy
             serving_rate_limit: Self::get_serving_rate_limit(netuid).into(), // axon serving rate limit
 
             // CR
@@ -1093,7 +1096,7 @@ impl<T: Config> Pallet<T> {
 
             Some(SelectiveMetagraphIndex::Burn) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                burn: Some(Self::get_burn(netuid).into()),
+                burn: Some(TaoCurrency::from(Self::get_burn(netuid)).into()),
                 ..Default::default()
             },
 
@@ -1114,12 +1117,12 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::MinBurn) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                min_burn: Some(Self::get_min_burn(netuid).into()),
+                min_burn: Some(TaoCurrency::ZERO.into()),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::MaxBurn) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                max_burn: Some(Self::get_max_burn(netuid).into()),
+                max_burn: Some(TaoCurrency::MAX.into()),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::AdjustmentAlpha) => SelectiveMetagraph {

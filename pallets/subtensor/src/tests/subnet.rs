@@ -66,7 +66,6 @@ fn test_do_start_call_fail_not_owner() {
         let wrong_owner_account_id = U256::from(2);
         let burn_cost = TaoCurrency::from(1000);
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
         mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
@@ -96,7 +95,6 @@ fn test_do_start_call_fail_with_cannot_start_call_now() {
         let coldkey_account_id = U256::from(0);
         let burn_cost = TaoCurrency::from(1000);
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
         mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
@@ -125,7 +123,6 @@ fn test_do_start_call_fail_for_set_again() {
         let hotkey_account_id = U256::from(1);
         let burn_cost = TaoCurrency::from(1000);
 
-        SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
@@ -691,8 +688,6 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
         let hotkey_account_2_id: U256 = U256::from(3);
 
         let burn_cost = TaoCurrency::from(1000);
-        // Set the burn cost
-        SubtensorModule::set_burn(netuid, burn_cost);
         // Add the networks with subtoken disabled
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);

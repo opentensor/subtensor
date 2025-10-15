@@ -179,15 +179,8 @@ where
         netuid: u16,
         min_difficulty: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_min_difficulty {
-            netuid: netuid.into(),
-            min_difficulty,
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        // DEPRECATED
+        Ok(())
     }
 
     #[precompile::public("getMaxDifficulty(uint16)")]
@@ -205,15 +198,8 @@ where
         netuid: u16,
         max_difficulty: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_max_difficulty {
-            netuid: netuid.into(),
-            max_difficulty,
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        // DEPRECATED
+        Ok(())
     }
 
     #[precompile::public("getWeightsVersionKey(uint16)")]
@@ -560,15 +546,8 @@ where
         netuid: u16,
         difficulty: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_difficulty {
-            netuid: netuid.into(),
-            difficulty,
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        // DEPRECATED
+        Ok(())
     }
 
     #[precompile::public("getBondsMovingAverage(uint16)")]
