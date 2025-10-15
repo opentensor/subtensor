@@ -1029,8 +1029,8 @@ mod dispatches {
         /// Register the hotkey to root network
         #[pallet::call_index(62)]
         #[pallet::weight((Weight::from_parts(135_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(24_u64))
-		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(22_u64))
+		.saturating_add(T::DbWeight::get().writes(19_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
         }
@@ -1051,7 +1051,7 @@ mod dispatches {
         /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(53_u64))
+        .saturating_add(T::DbWeight::get().reads(52_u64))
         .saturating_add(T::DbWeight::get().writes(37)), DispatchClass::Normal, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
