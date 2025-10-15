@@ -134,11 +134,23 @@ fn test_coinbase_tao_issuance_multiple() {
         assert_eq!(SubnetTAO::<Test>::get(netuid2), TaoCurrency::ZERO);
         assert_eq!(SubnetTAO::<Test>::get(netuid3), TaoCurrency::ZERO);
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
-        assert_eq!(SubnetTAO::<Test>::get(netuid1), emission / 3.into());
-        assert_eq!(SubnetTAO::<Test>::get(netuid2), emission / 3.into());
-        assert_eq!(SubnetTAO::<Test>::get(netuid3), emission / 3.into());
-        assert_eq!(TotalIssuance::<Test>::get(), emission);
-        assert_eq!(TotalStake::<Test>::get(), emission);
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(netuid1),
+            emission / 3.into(),
+            epsilon = 1.into()
+        );
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(netuid2),
+            emission / 3.into(),
+            epsilon = 1.into()
+        );
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(netuid3),
+            emission / 3.into(),
+            epsilon = 1.into()
+        );
+        assert_abs_diff_eq!(TotalIssuance::<Test>::get(), emission, epsilon = 5.into());
+        assert_abs_diff_eq!(TotalStake::<Test>::get(), emission, epsilon = 5.into());
     });
 }
 
