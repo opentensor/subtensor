@@ -14,7 +14,7 @@ docker run --rm --user root --platform=linux/amd64 \
     -e PACKAGE=node-subtensor-runtime \
     -e BUILD_OPTS="--features=metadata-hash" \
     -e PROFILE=production \
-    -v $CARGO_HOME:/cargo-home \
+    -v $HOME/.cargo:/cargo-home \
     -v $(pwd):/build \
     -it srtool bash -c "git config --global --add safe.directory /build && \
              /srtool/build --app > /build/runtime/node-subtensor/srtool-output.log; \
