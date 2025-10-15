@@ -39,14 +39,11 @@ impl<T: Config> Pallet<T> {
         log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut acc_total_moving_prices = U96F32::saturating_from_num(0.0);
-        // Only get price EMA for subnets that we emit to.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Get and update the moving price of each subnet adding the total together.
-            acc_total_moving_prices =
-                acc_total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
-        }
-        let total_moving_prices = acc_total_moving_prices;
+        let total_moving_prices = subnets_to_emit_to
+            .iter()
+            .fold(U96F32::saturating_from_num(0.0), |acc, netuid| {
+                acc.saturating_add(Self::get_moving_alpha_price(*netuid))
+            });
         log::debug!("total_moving_prices: {total_moving_prices:?}");
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
