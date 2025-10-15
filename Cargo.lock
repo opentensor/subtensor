@@ -17955,6 +17955,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "subtensor-chain-extensions"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "num_enum",
+ "pallet-contracts 40.1.0",
+ "pallet-subtensor",
+ "pallet-subtensor-swap",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "subtensor-runtime-common",
+]
+
+[[package]]
 name = "subtensor-custom-rpc"
 version = "0.0.2"
 dependencies = [

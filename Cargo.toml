@@ -32,6 +32,7 @@ members = [
 	"primitives/*",
 	"runtime",
 	"support/*",
+	"chain-extensions",
 ]
 resolver = "2"
 
@@ -69,6 +70,7 @@ subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
 subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
 subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
+subtensor-chain-extensions = { default-features = false, path = "chain-extensions" }
 
 ed25519-dalek = { version = "2.1.0", default-features = false }
 async-trait = "0.1"
@@ -116,6 +118,7 @@ expander = "2"
 ahash = { version = "0.8", default-features = false }
 regex = { version = "1.11.1", default-features = false }
 ethereum = { version = "0.18.2", default-features = false }
+num_enum = { version = "0.7.4", default-features = false }
 
 frame = { package = "polkadot-sdk-frame", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
