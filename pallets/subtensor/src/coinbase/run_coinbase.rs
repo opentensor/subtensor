@@ -51,8 +51,7 @@ impl<T: Config> Pallet<T> {
             Self::emission_to_subnet(*netuid_i, block_emission, total_moving_prices);
         }
 
-        // --- 8. Drain pending emission through the subnet based on tempo.
-        // Run the epoch for *all* subnets, even if we don't emit anything.
+        // Run crv3 and epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
             // Reveal matured weights.
             if let Err(e) = Self::reveal_crv3_commits(netuid) {
@@ -117,6 +116,7 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha_in_currency);
         });
+        log::debug!("Add {alpha_in_currency} into SubnetAlphaInEmission in subnet {netuid:?}");
 
         // Injection Alpha out.
         let alpha_out_currency = AlphaCurrency::from(tou64!(alpha_out_value));
@@ -124,6 +124,7 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha_out_currency);
         });
+        log::debug!("Add {alpha_out_currency} into SubnetAlphaOutEmission in subnet {netuid:?}");
 
         // Inject TAO in.
         let tao_in_currency: TaoCurrency = tou64!(tao_in_value).into();
@@ -131,12 +132,19 @@ impl<T: Config> Pallet<T> {
         SubnetTAO::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(tao_in_currency.into());
         });
+        log::debug!("Add {tao_in_currency} into SubnetTaoInEmission in subnet {netuid:?}");
+
+        // Update total stake.
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(tao_in_currency.into());
         });
+        log::debug!("Add {tao_in_currency} into TotalStake in subnet {netuid:?}");
+
+        // Update total issuance.
         TotalIssuance::<T>::mutate(|total| {
             *total = total.saturating_add(tao_in_currency.into());
         });
+        log::debug!("Add {tao_in_currency} into TotalIssuance in subnet {netuid:?}");
 
         // Adjust protocol liquidity based on new reserves
         T::SwapInterface::adjust_protocol_liquidity(netuid, tao_in_currency, alpha_in_currency);
@@ -146,12 +154,11 @@ impl<T: Config> Pallet<T> {
             Self::split_alpha_out(netuid, alpha_out_value, is_subsidized);
         }
 
-        // --- 7. Update moving prices after using them in the emission calculation.
-        // Update moving prices after using them above.
+        // Update moving prices after using them in the emission calculation.
         Self::update_moving_price(netuid);
     }
 
-    /// Splits the alpha output for a subnet into owner cuts and root dividends.
+    /// Splits the alpha output for a subnet into owner cuts, validators, and miners.
     ///
     /// # Arguments
     /// * `netuid` - The subnet ID to split alpha for
@@ -161,7 +168,7 @@ impl<T: Config> Pallet<T> {
     /// This function:
     /// 1. Takes a cut of alpha for the subnet owner based on owner_cut percentage
     /// 2. Calculates root dividends based on TAO weight and alpha issuance
-    /// 3. Splits remaining alpha between root validators and subnet
+    /// 3. Splits remaining alpha between root validators and miners
     pub fn split_alpha_out(netuid: NetUid, alpha_out_value: U96F32, is_subsidized: bool) {
         let mut alpha_out_value = alpha_out_value;
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
@@ -221,18 +228,25 @@ impl<T: Config> Pallet<T> {
                 PendingRootDivs::<T>::mutate(netuid, |total| {
                     *total = total.saturating_add(root_tao);
                 });
+                log::debug!(
+                    "Swapped {root_tao} TAO and added into PendingRootDivs in subnet {netuid:?}"
+                );
             }
         }
 
         // Accumulate alpha emission in pending.
+        let root_alpha_u64 = tou64!(root_alpha);
         PendingAlphaSwapped::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(tou64!(root_alpha).into());
+            *total = total.saturating_add(root_alpha_u64.into());
         });
+        log::debug!("Add {root_alpha_u64} into PendingAlphaSwapped in subnet {netuid:?}");
 
         // Accumulate alpha emission in pending.
+        let pending_alpha_u64 = tou64!(pending_alpha);
         PendingEmission::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(tou64!(pending_alpha).into());
+            *total = total.saturating_add(pending_alpha_u64.into());
         });
+        log::debug!("Add {pending_alpha_u64} into PendingEmission in subnet {netuid:?}");
     }
 
     /// Calculates the injection of TAO and Alpha into the subnet.
