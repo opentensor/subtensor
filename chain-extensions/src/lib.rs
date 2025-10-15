@@ -1,6 +1,6 @@
 mod types;
 
-use crate::types::{FunctionId, Outcome};
+use crate::types::{FunctionId, Output};
 use codec::Encode;
 use frame_support::{DebugNoBound, traits::Get};
 use frame_system::RawOrigin;
@@ -70,9 +70,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -97,9 +97,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -121,9 +121,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -145,9 +145,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -180,9 +180,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -210,9 +210,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -238,9 +238,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -267,9 +267,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -296,9 +296,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -340,9 +340,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -367,9 +367,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }
@@ -393,9 +393,9 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Outcome::Success as u32)),
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
                     Err(e) => {
-                        let error_code = Outcome::from(e) as u32;
+                        let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
                 }

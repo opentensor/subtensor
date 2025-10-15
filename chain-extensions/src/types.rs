@@ -22,7 +22,7 @@ pub enum FunctionId {
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub enum Outcome {
+pub enum Output {
     /// Success
     Success = 0,
     /// Unknown error
@@ -57,28 +57,28 @@ pub enum Outcome {
     SameNetuid = 15,
 }
 
-impl From<DispatchError> for Outcome {
+impl From<DispatchError> for Output {
     fn from(input: DispatchError) -> Self {
         let error_text = match input {
             DispatchError::Module(ModuleError { message, .. }) => message,
             _ => Some("No module error Info"),
         };
         match error_text {
-            Some("NotEnoughBalanceToStake") => Outcome::NotEnoughBalanceToStake,
-            Some("NonAssociatedColdKey") => Outcome::NonAssociatedColdKey,
-            Some("BalanceWithdrawalError") => Outcome::BalanceWithdrawalError,
-            Some("HotKeyNotRegisteredInSubNet") => Outcome::NotRegistered,
-            Some("HotKeyAccountNotExists") => Outcome::NotRegistered,
-            Some("NotEnoughStakeToWithdraw") => Outcome::NotEnoughStakeToWithdraw,
-            Some("TxRateLimitExceeded") => Outcome::TxRateLimitExceeded,
-            Some("SlippageTooHigh") => Outcome::SlippageTooHigh,
-            Some("SubnetNotExists") => Outcome::SubnetNotExists,
-            Some("SameAutoStakeHotkeyAlreadySet") => Outcome::SameAutoStakeHotkeyAlreadySet,
-            Some("InsufficientBalance") => Outcome::InsufficientBalance,
-            Some("AmountTooLow") => Outcome::AmountTooLow,
-            Some("InsufficientLiquidity") => Outcome::InsufficientLiquidity,
-            Some("SameNetuid") => Outcome::SameNetuid,
-            _ => Outcome::RuntimeError,
+            Some("NotEnoughBalanceToStake") => Output::NotEnoughBalanceToStake,
+            Some("NonAssociatedColdKey") => Output::NonAssociatedColdKey,
+            Some("BalanceWithdrawalError") => Output::BalanceWithdrawalError,
+            Some("HotKeyNotRegisteredInSubNet") => Output::NotRegistered,
+            Some("HotKeyAccountNotExists") => Output::NotRegistered,
+            Some("NotEnoughStakeToWithdraw") => Output::NotEnoughStakeToWithdraw,
+            Some("TxRateLimitExceeded") => Output::TxRateLimitExceeded,
+            Some("SlippageTooHigh") => Output::SlippageTooHigh,
+            Some("SubnetNotExists") => Output::SubnetNotExists,
+            Some("SameAutoStakeHotkeyAlreadySet") => Output::SameAutoStakeHotkeyAlreadySet,
+            Some("InsufficientBalance") => Output::InsufficientBalance,
+            Some("AmountTooLow") => Output::AmountTooLow,
+            Some("InsufficientLiquidity") => Output::InsufficientLiquidity,
+            Some("SameNetuid") => Output::SameNetuid,
+            _ => Output::RuntimeError,
         }
     }
 }
