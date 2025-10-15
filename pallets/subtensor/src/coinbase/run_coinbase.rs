@@ -66,30 +66,20 @@ impl<T: Config> Pallet<T> {
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);
 
-                // Get and drain the subnet pending emission.
-                let pending_alpha = PendingEmission::<T>::get(netuid);
-                PendingEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
-
-                // Get and drain the subnet pending root divs.
-                let pending_tao = PendingRootDivs::<T>::get(netuid);
-                PendingRootDivs::<T>::insert(netuid, TaoCurrency::ZERO);
-
-                // Get this amount as alpha that was swapped for pending root divs.
-                let pending_swapped = PendingAlphaSwapped::<T>::get(netuid);
-                PendingAlphaSwapped::<T>::insert(netuid, AlphaCurrency::ZERO);
-
-                // Get owner cut and drain.
-                let owner_cut = PendingOwnerCut::<T>::get(netuid);
-                PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
-
                 // Drain pending root divs, alpha emission, and owner cut.
                 Self::drain_pending_emission(
                     netuid,
-                    pending_alpha,
-                    pending_tao,
-                    pending_swapped,
-                    owner_cut,
+                    PendingEmission::<T>::get(netuid),
+                    PendingRootDivs::<T>::get(netuid),
+                    PendingAlphaSwapped::<T>::get(netuid),
+                    PendingOwnerCut::<T>::get(netuid),
                 );
+
+                // Drain pending values.
+                PendingEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
+                PendingRootDivs::<T>::insert(netuid, TaoCurrency::ZERO);
+                PendingAlphaSwapped::<T>::insert(netuid, AlphaCurrency::ZERO);
+                PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
@@ -151,6 +141,7 @@ impl<T: Config> Pallet<T> {
         // Adjust protocol liquidity based on new reserves
         T::SwapInterface::adjust_protocol_liquidity(netuid, tao_in_currency, alpha_in_currency);
 
+        // If registration is not allowed, alpha out is zero. no need to distribute it.
         if allow_registration {
             Self::split_alpha_out(netuid, alpha_out_value, is_subsidized);
         }
@@ -160,29 +151,33 @@ impl<T: Config> Pallet<T> {
         Self::update_moving_price(netuid);
     }
 
+    /// Splits the alpha output for a subnet into owner cuts and root dividends.
+    ///
+    /// # Arguments
+    /// * `netuid` - The subnet ID to split alpha for
+    /// * `alpha_out_value` - The total alpha output value to split
+    /// * `is_subsidized` - Whether the subnet is subsidized
+    ///
+    /// This function:
+    /// 1. Takes a cut of alpha for the subnet owner based on owner_cut percentage
+    /// 2. Calculates root dividends based on TAO weight and alpha issuance
+    /// 3. Splits remaining alpha between root validators and subnet
     pub fn split_alpha_out(netuid: NetUid, alpha_out_value: U96F32, is_subsidized: bool) {
         let mut alpha_out_value = alpha_out_value;
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
-        let mut owner_cuts: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-
-        // Get alpha out.
-        let alpha_out_for_cut: U96F32 = alpha_out_value;
-        log::debug!("alpha_out_for_cut as {alpha_out_for_cut:?} in subnet {netuid:?}");
 
         // Calculate the owner cut.
-        let owner_cut: U96F32 = alpha_out_for_cut.saturating_mul(cut_percent);
+        let owner_cut: U96F32 = alpha_out_value.saturating_mul(cut_percent);
         log::debug!("owner_cut as {owner_cut:?} in subnet {netuid:?}");
-
-        // Save owner cut.
-        *owner_cuts.entry(netuid).or_insert(asfloat!(0)) = owner_cut;
-
-        // Save new alpha_out.
-        alpha_out_value = alpha_out_for_cut.saturating_sub(owner_cut);
 
         // Accumulate the owner cut in pending.
         PendingOwnerCut::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(tou64!(owner_cut).into());
         });
+
+        // Update alpha_out after owner cut.
+        alpha_out_value = alpha_out_value.saturating_sub(owner_cut);
+        log::debug!("alpha_out_value as {alpha_out_value:?} after owner cut in subnet {netuid:?}");
 
         // Get total TAO on root.
         let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
@@ -191,13 +186,6 @@ impl<T: Config> Pallet<T> {
         // Get tao_weight
         let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
         log::debug!("tao_weight as {tao_weight:?} in subnet {netuid:?}");
-
-        // --- 6. Seperate out root dividends in alpha and sell them into tao.
-        // Then accumulate those dividends for later.
-
-        // Get remaining alpha out.
-        let alpha_out_remaining: U96F32 = alpha_out_value;
-        log::debug!("alpha_out_remaining as {alpha_out_remaining:?} in subnet {netuid:?}");
 
         // Get total ALPHA on subnet.
         let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(netuid));
@@ -211,12 +199,12 @@ impl<T: Config> Pallet<T> {
 
         // Get root proportion of alpha_out dividends.
         let root_alpha: U96F32 = root_proportion
-            .saturating_mul(alpha_out_remaining) // Total alpha emission per block remaining.
+            .saturating_mul(alpha_out_value) // Total alpha emission per block remaining.
             .saturating_mul(asfloat!(0.5)); // 50% to validators.
         log::debug!("root_alpha as {root_alpha:?} in subnet {netuid:?}");
 
         // Get pending alpha as original alpha_out - root_alpha.
-        let pending_alpha: U96F32 = alpha_out_remaining.saturating_sub(root_alpha);
+        let pending_alpha: U96F32 = alpha_out_value.saturating_sub(root_alpha);
         log::debug!("pending_alpha as {pending_alpha:?} in subnet {netuid:?}");
 
         // Sell root emission through the pool (do not pay fees)
