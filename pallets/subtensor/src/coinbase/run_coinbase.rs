@@ -39,213 +39,16 @@ impl<T: Config> Pallet<T> {
         log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut acc_total_moving_prices = U96F32::saturating_from_num(0.0);
-        // Only get price EMA for subnets that we emit to.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Get and update the moving price of each subnet adding the total together.
-            acc_total_moving_prices =
-                acc_total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
-        }
-        let total_moving_prices = acc_total_moving_prices;
+        let total_moving_prices = subnets_to_emit_to
+            .iter()
+            .fold(U96F32::saturating_from_num(0.0), |acc, netuid| {
+                acc.saturating_add(Self::get_moving_alpha_price(*netuid))
+            });
         log::debug!("total_moving_prices: {total_moving_prices:?}");
 
-        // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
-        // Computation is described in detail in the dtao whitepaper.
-        let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
-            // Get subnet price.
-            let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
-            log::debug!("price_i: {price_i:?}");
-            // Get subnet TAO.
-            let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
-            log::debug!("moving_price_i: {moving_price_i:?}");
-            // Emission is price over total.
-            let default_tao_in_i: U96F32 = block_emission
-                .saturating_mul(moving_price_i)
-                .checked_div(total_moving_prices)
-                .unwrap_or(asfloat!(0.0));
-            log::debug!("default_tao_in_i: {default_tao_in_i:?}");
-            // Get alpha_emission total
-            let alpha_emission_i: U96F32 = asfloat!(
-                Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i).into())
-                    .unwrap_or(0)
-            );
-            log::debug!("alpha_emission_i: {alpha_emission_i:?}");
-
-            // Get initial alpha_in
-            let mut alpha_in_i: U96F32;
-            let mut tao_in_i: U96F32;
-            let tao_in_ratio: U96F32 = default_tao_in_i.safe_div_or(
-                U96F32::saturating_from_num(block_emission),
-                U96F32::saturating_from_num(0.0),
-            );
-            if price_i < tao_in_ratio {
-                tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
-                alpha_in_i = block_emission;
-                let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
-                // Difference becomes buy.
-                let buy_swap_result = Self::swap_tao_for_alpha(
-                    *netuid_i,
-                    tou64!(difference_tao).into(),
-                    T::SwapInterface::max_price(),
-                    true,
-                );
-                if let Ok(buy_swap_result_ok) = buy_swap_result {
-                    let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_sub(bought_alpha);
-                    });
-                }
-                is_subsidized.insert(*netuid_i, true);
-            } else {
-                tao_in_i = default_tao_in_i;
-                alpha_in_i = tao_in_i.safe_div_or(price_i, alpha_emission_i);
-                is_subsidized.insert(*netuid_i, false);
-            }
-            log::debug!("alpha_in_i: {alpha_in_i:?}");
-
-            // Get alpha_out.
-            let mut alpha_out_i = alpha_emission_i;
-            // Only emit TAO if the subnetwork allows registration.
-            if !Self::get_network_registration_allowed(*netuid_i)
-                && !Self::get_network_pow_registration_allowed(*netuid_i)
-            {
-                tao_in_i = asfloat!(0.0);
-                alpha_in_i = asfloat!(0.0);
-                alpha_out_i = asfloat!(0.0);
-            }
-            // Insert values into maps
-            tao_in.insert(*netuid_i, tao_in_i);
-            alpha_in.insert(*netuid_i, alpha_in_i);
-            alpha_out.insert(*netuid_i, alpha_out_i);
-        }
-        log::debug!("tao_in: {tao_in:?}");
-        log::debug!("alpha_in: {alpha_in:?}");
-        log::debug!("alpha_out: {alpha_out:?}");
-
-        // --- 4. Injection.
-        // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
-        // This operation changes the pool liquidity each block.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Inject Alpha in.
-            let alpha_in_i =
-                AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
-            SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
-            SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_in_i);
-            });
-            // Injection Alpha out.
-            let alpha_out_i =
-                AlphaCurrency::from(tou64!(*alpha_out.get(netuid_i).unwrap_or(&asfloat!(0))));
-            SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_out_i);
-            SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_out_i);
-            });
-            // Inject TAO in.
-            let tao_in_i: TaoCurrency =
-                tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_i));
-            SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tao_in_i.into());
-            });
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
-            });
-            TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
-            });
-            // Adjust protocol liquidity based on new reserves
-            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
-        }
-
-        // --- 5. Compute owner cuts and remove them from alpha_out remaining.
-        // Remove owner cuts here so that we can properly seperate root dividends in the next step.
-        // Owner cuts are accumulated and then fed to the drain at the end of this func.
-        let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
-        let mut owner_cuts: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Get alpha out.
-            let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
-            log::debug!("alpha_out_i: {alpha_out_i:?}");
-            // Calculate the owner cut.
-            let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
-            log::debug!("owner_cut_i: {owner_cut_i:?}");
-            // Save owner cut.
-            *owner_cuts.entry(*netuid_i).or_insert(asfloat!(0)) = owner_cut_i;
-            // Save new alpha_out.
-            alpha_out.insert(*netuid_i, alpha_out_i.saturating_sub(owner_cut_i));
-            // Accumulate the owner cut in pending.
-            PendingOwnerCut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(owner_cut_i).into());
-            });
-        }
-
-        // Get total TAO on root.
-        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
-        log::debug!("root_tao: {root_tao:?}");
-        // Get tao_weight
-        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-        log::debug!("tao_weight: {tao_weight:?}");
-
-        // --- 6. Seperate out root dividends in alpha and sell them into tao.
-        // Then accumulate those dividends for later.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Get remaining alpha out.
-            let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0.0));
-            log::debug!("alpha_out_i: {alpha_out_i:?}");
-            // Get total ALPHA on subnet.
-            let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
-            log::debug!("alpha_issuance: {alpha_issuance:?}");
-            // Get root proportional dividends.
-            let root_proportion: U96F32 = tao_weight
-                .checked_div(tao_weight.saturating_add(alpha_issuance))
-                .unwrap_or(asfloat!(0.0));
-            log::debug!("root_proportion: {root_proportion:?}");
-            // Get root proportion of alpha_out dividends.
-            let root_alpha: U96F32 = root_proportion
-                .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
-                .saturating_mul(asfloat!(0.5)); // 50% to validators.
-            // Remove root alpha from alpha_out.
-            log::debug!("root_alpha: {root_alpha:?}");
-            // Get pending alpha as original alpha_out - root_alpha.
-            let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
-            log::debug!("pending_alpha: {pending_alpha:?}");
-            // Sell root emission through the pool (do not pay fees)
-            let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
-            if !subsidized {
-                let swap_result = Self::swap_alpha_for_tao(
-                    *netuid_i,
-                    tou64!(root_alpha).into(),
-                    T::SwapInterface::min_price(),
-                    true,
-                );
-                if let Ok(ok_result) = swap_result {
-                    let root_tao = ok_result.amount_paid_out;
-                    // Accumulate root divs for subnet.
-                    PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(root_tao);
-                    });
-                }
-            }
-            // Accumulate alpha emission in pending.
-            PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(root_alpha).into());
-            });
-            // Accumulate alpha emission in pending.
-            PendingEmission::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(pending_alpha).into());
-            });
-        }
-
-        // --- 7. Update moving prices after using them in the emission calculation.
-        // Only update price EMA for subnets that we emit to.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Update moving prices after using them above.
-            Self::update_moving_price(*netuid_i);
+            Self::emission_to_subnet(*netuid_i, block_emission, total_moving_prices);
         }
 
         // --- 8. Drain pending emission through the subnet based on tempo.
@@ -292,6 +95,208 @@ impl<T: Config> Pallet<T> {
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
             }
         }
+    }
+
+    pub fn emission_to_subnet(netuid: NetUid, block_emission: U96F32, total_moving_prices: U96F32) {
+        // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
+        // Computation is described in detail in the dtao whitepaper.
+        // let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        // let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        // let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        // let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
+
+        // Get subnet price.
+        let price = T::SwapInterface::current_alpha_price((netuid).into());
+        log::debug!("price as :{price:?} in subnet {netuid:?}");
+
+        // Get subnet TAO.
+        let moving_price: U96F32 = Self::get_moving_alpha_price(netuid);
+        log::debug!("moving_price as {moving_price:?} in subnet {netuid:?}");
+
+        let moving_price_ratio: U96F32 =
+            moving_price.safe_div_or(total_moving_prices, asfloat!(0.0));
+        log::debug!("moving_price_ratio as {moving_price_ratio:?} in subnet {netuid:?}");
+
+        // Emission is moving price ratio over total.
+        let default_tao_in: U96F32 = block_emission.saturating_mul(moving_price_ratio);
+        log::debug!("default_tao_in as {default_tao_in:?} in subnet {netuid:?}");
+
+        // Get alpha_emission total
+        let alpha_emission: U96F32 = asfloat!(
+            Self::get_block_emission_for_issuance(Self::get_alpha_issuance(netuid).into())
+                .unwrap_or(0)
+        );
+        log::debug!("alpha_emission as {alpha_emission:?} in subnet {netuid:?}");
+
+        // Get initial alpha_in
+        let mut alpha_in_value: U96F32;
+        let mut tao_in_value: U96F32;
+        let is_subsidized: bool;
+
+        // If the price is equal to or greater than the moving_price_ratio, tao in from the moving price ratio.
+        // alpha in from the tao in div price.
+        // Else tao in from price multiple block emission.
+        if price < moving_price_ratio {
+            tao_in_value = price.saturating_mul(U96F32::saturating_from_num(block_emission));
+            alpha_in_value = block_emission;
+            // get the difference from the price multiple block emission and the default tao in.
+            let difference_tao: U96F32 = default_tao_in.saturating_sub(tao_in_value);
+
+            // Difference becomes buy.
+            let buy_swap_result = Self::swap_tao_for_alpha(
+                netuid,
+                tou64!(difference_tao).into(),
+                T::SwapInterface::max_price(),
+                true,
+            );
+
+            // bought alpha go to alpha out.
+            if let Ok(buy_swap_result_ok) = buy_swap_result {
+                let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
+                SubnetAlphaOut::<T>::mutate(netuid, |total| {
+                    *total = total.saturating_sub(bought_alpha);
+                });
+            }
+            is_subsidized = true;
+        } else {
+            tao_in_value = default_tao_in;
+            alpha_in_value = tao_in_value.safe_div_or(price, alpha_emission);
+            is_subsidized = false;
+        };
+        log::debug!("alpha_in_value as {alpha_in_value:?} in subnet {netuid:?}");
+
+        // Get alpha_out.
+        let mut alpha_out_value = alpha_emission;
+
+        // Only emit TAO if the subnetwork allows registration.
+        if !Self::get_network_registration_allowed(netuid)
+            && !Self::get_network_pow_registration_allowed(netuid)
+        {
+            tao_in_value = asfloat!(0.0);
+            alpha_in_value = asfloat!(0.0);
+            alpha_out_value = asfloat!(0.0);
+        }
+
+        // Inject Alpha in.
+        let alpha_in_currency = AlphaCurrency::from(tou64!(alpha_in_value));
+        SubnetAlphaInEmission::<T>::insert(netuid, alpha_in_currency);
+        SubnetAlphaIn::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(alpha_in_currency);
+        });
+
+        // Injection Alpha out.
+        let alpha_out_currency = AlphaCurrency::from(tou64!(alpha_out_value));
+        SubnetAlphaOutEmission::<T>::insert(netuid, alpha_out_currency);
+        SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(alpha_out_currency);
+        });
+
+        // Inject TAO in.
+        let tao_in_currency: TaoCurrency = tou64!(tao_in_value).into();
+        SubnetTaoInEmission::<T>::insert(netuid, TaoCurrency::from(tao_in_currency));
+        SubnetTAO::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(tao_in_currency.into());
+        });
+        TotalStake::<T>::mutate(|total| {
+            *total = total.saturating_add(tao_in_currency.into());
+        });
+        TotalIssuance::<T>::mutate(|total| {
+            *total = total.saturating_add(tao_in_currency.into());
+        });
+
+        // Adjust protocol liquidity based on new reserves
+        T::SwapInterface::adjust_protocol_liquidity(netuid, tao_in_currency, alpha_in_currency);
+
+        // --- 5. Compute owner cuts and remove them from alpha_out remaining.
+        // Remove owner cuts here so that we can properly seperate root dividends in the next step.
+        // Owner cuts are accumulated and then fed to the drain at the end of this func.
+        let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
+        let mut owner_cuts: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+
+        // Get alpha out.
+        let alpha_out_for_cut: U96F32 = alpha_out_value;
+        log::debug!("alpha_out_for_cut as {alpha_out_for_cut:?} in subnet {netuid:?}");
+
+        // Calculate the owner cut.
+        let owner_cut: U96F32 = alpha_out_for_cut.saturating_mul(cut_percent);
+        log::debug!("owner_cut as {owner_cut:?} in subnet {netuid:?}");
+
+        // Save owner cut.
+        *owner_cuts.entry(netuid).or_insert(asfloat!(0)) = owner_cut;
+
+        // Save new alpha_out.
+        alpha_out_value = alpha_out_for_cut.saturating_sub(owner_cut);
+
+        // Accumulate the owner cut in pending.
+        PendingOwnerCut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(tou64!(owner_cut).into());
+        });
+
+        // Get total TAO on root.
+        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
+        log::debug!("root_tao as {root_tao:?} in subnet {netuid:?}");
+
+        // Get tao_weight
+        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+        log::debug!("tao_weight as {tao_weight:?} in subnet {netuid:?}");
+
+        // --- 6. Seperate out root dividends in alpha and sell them into tao.
+        // Then accumulate those dividends for later.
+
+        // Get remaining alpha out.
+        let alpha_out_remaining: U96F32 = alpha_out_value;
+        log::debug!("alpha_out_remaining as {alpha_out_remaining:?} in subnet {netuid:?}");
+
+        // Get total ALPHA on subnet.
+        let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(netuid));
+        log::debug!("alpha_issuance as {alpha_issuance:?} in subnet {netuid:?}");
+
+        // Get root proportional dividends.
+        let root_proportion: U96F32 = tao_weight
+            .checked_div(tao_weight.saturating_add(alpha_issuance))
+            .unwrap_or(asfloat!(0.0));
+        log::debug!("root_proportion as {root_proportion:?} in subnet {netuid:?}");
+
+        // Get root proportion of alpha_out dividends.
+        let root_alpha: U96F32 = root_proportion
+            .saturating_mul(alpha_out_remaining) // Total alpha emission per block remaining.
+            .saturating_mul(asfloat!(0.5)); // 50% to validators.
+        log::debug!("root_alpha as {root_alpha:?} in subnet {netuid:?}");
+
+        // Get pending alpha as original alpha_out - root_alpha.
+        let pending_alpha: U96F32 = alpha_out_remaining.saturating_sub(root_alpha);
+        log::debug!("pending_alpha as {pending_alpha:?} in subnet {netuid:?}");
+
+        // Sell root emission through the pool (do not pay fees)
+        if !is_subsidized {
+            let swap_result = Self::swap_alpha_for_tao(
+                netuid,
+                tou64!(root_alpha).into(),
+                T::SwapInterface::min_price(),
+                true,
+            );
+            if let Ok(ok_result) = swap_result {
+                let root_tao = ok_result.amount_paid_out;
+                // Accumulate root divs for subnet.
+                PendingRootDivs::<T>::mutate(netuid, |total| {
+                    *total = total.saturating_add(root_tao);
+                });
+            }
+        }
+
+        // Accumulate alpha emission in pending.
+        PendingAlphaSwapped::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(tou64!(root_alpha).into());
+        });
+
+        // Accumulate alpha emission in pending.
+        PendingEmission::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(tou64!(pending_alpha).into());
+        });
+
+        // --- 7. Update moving prices after using them in the emission calculation.
+        // Update moving prices after using them above.
+        Self::update_moving_price(netuid);
     }
 
     pub fn calculate_dividends_and_incentives(
