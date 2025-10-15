@@ -98,84 +98,28 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn emission_to_subnet(netuid: NetUid, block_emission: U96F32, total_moving_prices: U96F32) {
-        // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
-        // Computation is described in detail in the dtao whitepaper.
-        // let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        // let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        // let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        // let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
-
-        // Get subnet price.
-        let price = T::SwapInterface::current_alpha_price((netuid).into());
-        log::debug!("price as :{price:?} in subnet {netuid:?}");
-
-        // Get subnet TAO.
-        let moving_price: U96F32 = Self::get_moving_alpha_price(netuid);
-        log::debug!("moving_price as {moving_price:?} in subnet {netuid:?}");
-
-        let moving_price_ratio: U96F32 =
-            moving_price.safe_div_or(total_moving_prices, asfloat!(0.0));
-        log::debug!("moving_price_ratio as {moving_price_ratio:?} in subnet {netuid:?}");
-
-        // Emission is moving price ratio over total.
-        let default_tao_in: U96F32 = block_emission.saturating_mul(moving_price_ratio);
-        log::debug!("default_tao_in as {default_tao_in:?} in subnet {netuid:?}");
-
+        let allow_registration = Self::get_network_registration_allowed(netuid)
+            || Self::get_network_pow_registration_allowed(netuid);
         // Get alpha_emission total
         let alpha_emission: U96F32 = asfloat!(
             Self::get_block_emission_for_issuance(Self::get_alpha_issuance(netuid).into())
                 .unwrap_or(0)
         );
-        log::debug!("alpha_emission as {alpha_emission:?} in subnet {netuid:?}");
 
-        // Get initial alpha_in
-        let mut alpha_in_value: U96F32;
-        let mut tao_in_value: U96F32;
-        let is_subsidized: bool;
-
-        // If the price is equal to or greater than the moving_price_ratio, tao in from the moving price ratio.
-        // alpha in from the tao in div price.
-        // Else tao in from price multiple block emission.
-        if price < moving_price_ratio {
-            tao_in_value = price.saturating_mul(U96F32::saturating_from_num(block_emission));
-            alpha_in_value = block_emission;
-            // get the difference from the price multiple block emission and the default tao in.
-            let difference_tao: U96F32 = default_tao_in.saturating_sub(tao_in_value);
-
-            // Difference becomes buy.
-            let buy_swap_result = Self::swap_tao_for_alpha(
-                netuid,
-                tou64!(difference_tao).into(),
-                T::SwapInterface::max_price(),
-                true,
-            );
-
-            // bought alpha go to alpha out.
-            if let Ok(buy_swap_result_ok) = buy_swap_result {
-                let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                SubnetAlphaOut::<T>::mutate(netuid, |total| {
-                    *total = total.saturating_sub(bought_alpha);
-                });
-            }
-            is_subsidized = true;
-        } else {
-            tao_in_value = default_tao_in;
-            alpha_in_value = tao_in_value.safe_div_or(price, alpha_emission);
-            is_subsidized = false;
-        };
-        log::debug!("alpha_in_value as {alpha_in_value:?} in subnet {netuid:?}");
+        let (tao_in_value, alpha_in_value, is_subsidized) = Self::calculate_subnet_injection(
+            netuid,
+            block_emission,
+            alpha_emission,
+            total_moving_prices,
+            allow_registration,
+        );
 
         // Get alpha_out.
-        let mut alpha_out_value = alpha_emission;
-
-        // Only emit TAO if the subnetwork allows registration.
-        if !Self::get_network_registration_allowed(netuid)
-            && !Self::get_network_pow_registration_allowed(netuid)
-        {
-            tao_in_value = asfloat!(0.0);
-            alpha_in_value = asfloat!(0.0);
-            alpha_out_value = asfloat!(0.0);
-        }
+        let alpha_out_value = if allow_registration {
+            alpha_emission
+        } else {
+            asfloat!(0.0)
+        };
 
         // Inject Alpha in.
         let alpha_in_currency = AlphaCurrency::from(tou64!(alpha_in_value));
@@ -207,9 +151,17 @@ impl<T: Config> Pallet<T> {
         // Adjust protocol liquidity based on new reserves
         T::SwapInterface::adjust_protocol_liquidity(netuid, tao_in_currency, alpha_in_currency);
 
-        // --- 5. Compute owner cuts and remove them from alpha_out remaining.
-        // Remove owner cuts here so that we can properly seperate root dividends in the next step.
-        // Owner cuts are accumulated and then fed to the drain at the end of this func.
+        if allow_registration {
+            Self::split_alpha_out(netuid, alpha_out_value, is_subsidized);
+        }
+
+        // --- 7. Update moving prices after using them in the emission calculation.
+        // Update moving prices after using them above.
+        Self::update_moving_price(netuid);
+    }
+
+    pub fn split_alpha_out(netuid: NetUid, alpha_out_value: U96F32, is_subsidized: bool) {
+        let mut alpha_out_value = alpha_out_value;
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
         let mut owner_cuts: BTreeMap<NetUid, U96F32> = BTreeMap::new();
 
@@ -293,10 +245,72 @@ impl<T: Config> Pallet<T> {
         PendingEmission::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(tou64!(pending_alpha).into());
         });
+    }
 
-        // --- 7. Update moving prices after using them in the emission calculation.
-        // Update moving prices after using them above.
-        Self::update_moving_price(netuid);
+    /// Calculates the injection of TAO and Alpha into the subnet.
+    pub fn calculate_subnet_injection(
+        netuid: NetUid,
+        block_emission: U96F32,
+        alpha_emission: U96F32,
+        total_moving_prices: U96F32,
+        allow_registration: bool,
+    ) -> (U96F32, U96F32, bool) {
+        // Get subnet price.
+        let price = T::SwapInterface::current_alpha_price((netuid).into());
+        log::debug!("price as :{price:?} in subnet {netuid:?}");
+
+        // Get subnet TAO.
+        let moving_price: U96F32 = Self::get_moving_alpha_price(netuid);
+        log::debug!("moving_price as {moving_price:?} in subnet {netuid:?}");
+
+        let moving_price_ratio: U96F32 =
+            moving_price.safe_div_or(total_moving_prices, asfloat!(0.0));
+        log::debug!("moving_price_ratio as {moving_price_ratio:?} in subnet {netuid:?}");
+
+        // Emission is moving price ratio over total.
+        let default_tao_in: U96F32 = block_emission.saturating_mul(moving_price_ratio);
+        log::debug!("default_tao_in as {default_tao_in:?} in subnet {netuid:?}");
+
+        // Get initial alpha_in
+        let alpha_in_value: U96F32;
+        let tao_in_value: U96F32;
+        let is_subsidized: bool = price < moving_price_ratio;
+        log::debug!("is_subsidized as {is_subsidized:?} in subnet {netuid:?}");
+
+        // TODO confirm if we should swap tao for alpha for registration not allowed subnet.
+        if is_subsidized {
+            tao_in_value = price.saturating_mul(U96F32::saturating_from_num(block_emission));
+            alpha_in_value = block_emission;
+            // get the difference from the price multiple block emission and the default tao in.
+            let difference_tao: U96F32 = default_tao_in.saturating_sub(tao_in_value);
+
+            // Difference becomes buy.
+            let buy_swap_result = Self::swap_tao_for_alpha(
+                netuid,
+                tou64!(difference_tao).into(),
+                T::SwapInterface::max_price(),
+                true,
+            );
+
+            // bought alpha go to alpha out.
+            if let Ok(buy_swap_result_ok) = buy_swap_result {
+                let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
+                SubnetAlphaOut::<T>::mutate(netuid, |total| {
+                    *total = total.saturating_sub(bought_alpha);
+                });
+            }
+        } else {
+            tao_in_value = default_tao_in;
+            alpha_in_value = tao_in_value.safe_div_or(price, alpha_emission);
+        };
+        log::debug!("alpha_in_value as {alpha_in_value:?} in subnet {netuid:?}");
+
+        // Only emit TAO if the subnetwork allows registration.
+        if allow_registration {
+            (tao_in_value, alpha_in_value, is_subsidized)
+        } else {
+            (asfloat!(0.0), asfloat!(0.0), is_subsidized)
+        }
     }
 
     pub fn calculate_dividends_and_incentives(
