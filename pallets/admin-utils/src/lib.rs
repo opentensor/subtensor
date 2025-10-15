@@ -247,61 +247,61 @@ pub mod pallet {
         /// The extrinsic sets the minimum difficulty for a subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum difficulty.
-        #[pallet::call_index(4)]
-        #[pallet::weight(Weight::from_parts(26_390_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_min_difficulty(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            min_difficulty: u64,
-        ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+        // #[pallet::call_index(4)]
+        // #[pallet::weight(Weight::from_parts(26_390_000, 0)
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        // pub fn sudo_set_min_difficulty(
+        //     origin: OriginFor<T>,
+        //     netuid: NetUid,
+        //     min_difficulty: u64,
+        // ) -> DispatchResult {
+        //     pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
 
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-            pallet_subtensor::Pallet::<T>::set_min_difficulty(netuid, min_difficulty);
-            log::debug!(
-                "MinDifficultySet( netuid: {netuid:?} min_difficulty: {min_difficulty:?} ) "
-            );
-            Ok(())
-        }
+        //     ensure!(
+        //         pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+        //         Error::<T>::SubnetDoesNotExist
+        //     );
+        //     pallet_subtensor::Pallet::<T>::set_min_difficulty(netuid, min_difficulty);
+        //     log::debug!(
+        //         "MinDifficultySet( netuid: {netuid:?} min_difficulty: {min_difficulty:?} ) "
+        //     );
+        //     Ok(())
+        // }
 
         /// The extrinsic sets the maximum difficulty for a subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the maximum difficulty.
-        #[pallet::call_index(5)]
-        #[pallet::weight(Weight::from_parts(26_990_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_max_difficulty(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            max_difficulty: u64,
-        ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::MaxDifficulty.into()],
-            )?;
+        // #[pallet::call_index(5)]
+        // #[pallet::weight(Weight::from_parts(26_990_000, 0)
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        // pub fn sudo_set_max_difficulty(
+        //     origin: OriginFor<T>,
+        //     netuid: NetUid,
+        //     max_difficulty: u64,
+        // ) -> DispatchResult {
+        //     let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+        //         origin,
+        //         netuid,
+        //         &[Hyperparameter::MaxDifficulty.into()],
+        //     )?;
 
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-            pallet_subtensor::Pallet::<T>::set_max_difficulty(netuid, max_difficulty);
-            log::debug!(
-                "MaxDifficultySet( netuid: {netuid:?} max_difficulty: {max_difficulty:?} ) "
-            );
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::MaxDifficulty.into()],
-            );
-            Ok(())
-        }
+        //     ensure!(
+        //         pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+        //         Error::<T>::SubnetDoesNotExist
+        //     );
+        //     pallet_subtensor::Pallet::<T>::set_max_difficulty(netuid, max_difficulty);
+        //     log::debug!(
+        //         "MaxDifficultySet( netuid: {netuid:?} max_difficulty: {max_difficulty:?} ) "
+        //     );
+        //     pallet_subtensor::Pallet::<T>::record_owner_rl(
+        //         maybe_owner,
+        //         netuid,
+        //         &[Hyperparameter::MaxDifficulty.into()],
+        //     );
+        //     Ok(())
+        // }
 
         /// The extrinsic sets the weights version key for a subnet.
         /// It is only callable by the root account or subnet owner.
@@ -758,107 +758,107 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the minimum burn for a subnet.
-        /// It is only callable by root and subnet owner.
-        /// The extrinsic will call the Subtensor pallet to set the minimum burn.
-        #[pallet::call_index(22)]
-        #[pallet::weight(Weight::from_parts(29_970_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_min_burn(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            min_burn: TaoCurrency,
-        ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::MinBurn.into()],
-            )?;
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-            ensure!(
-                min_burn < T::MinBurnUpperBound::get(),
-                Error::<T>::ValueNotInBounds
-            );
-            // Min burn must be less than max burn
-            ensure!(
-                min_burn < pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
-                Error::<T>::ValueNotInBounds
-            );
-            pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
-            log::debug!("MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) ");
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::MinBurn.into()],
-            );
-            Ok(())
-        }
+        // /// The extrinsic sets the minimum burn for a subnet.
+        // /// It is only callable by root and subnet owner.
+        // /// The extrinsic will call the Subtensor pallet to set the minimum burn.
+        // #[pallet::call_index(22)]
+        // #[pallet::weight(Weight::from_parts(29_970_000, 0)
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        // pub fn sudo_set_min_burn(
+        //     origin: OriginFor<T>,
+        //     netuid: NetUid,
+        //     min_burn: TaoCurrency,
+        // ) -> DispatchResult {
+        //     let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+        //         origin,
+        //         netuid,
+        //         &[Hyperparameter::MinBurn.into()],
+        //     )?;
+        //     ensure!(
+        //         pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+        //         Error::<T>::SubnetDoesNotExist
+        //     );
+        //     ensure!(
+        //         min_burn < T::MinBurnUpperBound::get(),
+        //         Error::<T>::ValueNotInBounds
+        //     );
+        //     // Min burn must be less than max burn
+        //     ensure!(
+        //         min_burn < pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
+        //         Error::<T>::ValueNotInBounds
+        //     );
+        //     pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
+        //     log::debug!("MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) ");
+        //     pallet_subtensor::Pallet::<T>::record_owner_rl(
+        //         maybe_owner,
+        //         netuid,
+        //         &[Hyperparameter::MinBurn.into()],
+        //     );
+        //     Ok(())
+        // }
 
-        /// The extrinsic sets the maximum burn for a subnet.
-        /// It is only callable by root and subnet owner.
-        /// The extrinsic will call the Subtensor pallet to set the maximum burn.
-        #[pallet::call_index(23)]
-        #[pallet::weight(Weight::from_parts(30_510_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_max_burn(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            max_burn: TaoCurrency,
-        ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::MaxBurn.into()],
-            )?;
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-            ensure!(
-                max_burn > T::MaxBurnLowerBound::get(),
-                Error::<T>::ValueNotInBounds
-            );
-            // Max burn must be greater than min burn
-            ensure!(
-                max_burn > pallet_subtensor::Pallet::<T>::get_min_burn(netuid),
-                Error::<T>::ValueNotInBounds
-            );
-            pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
-            log::debug!("MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) ");
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::MaxBurn.into()],
-            );
-            Ok(())
-        }
+        // /// The extrinsic sets the maximum burn for a subnet.
+        // /// It is only callable by root and subnet owner.
+        // /// The extrinsic will call the Subtensor pallet to set the maximum burn.
+        // #[pallet::call_index(23)]
+        // #[pallet::weight(Weight::from_parts(30_510_000, 0)
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        // pub fn sudo_set_max_burn(
+        //     origin: OriginFor<T>,
+        //     netuid: NetUid,
+        //     max_burn: TaoCurrency,
+        // ) -> DispatchResult {
+        //     let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+        //         origin,
+        //         netuid,
+        //         &[Hyperparameter::MaxBurn.into()],
+        //     )?;
+        //     ensure!(
+        //         pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+        //         Error::<T>::SubnetDoesNotExist
+        //     );
+        //     ensure!(
+        //         max_burn > T::MaxBurnLowerBound::get(),
+        //         Error::<T>::ValueNotInBounds
+        //     );
+        //     // Max burn must be greater than min burn
+        //     ensure!(
+        //         max_burn > pallet_subtensor::Pallet::<T>::get_min_burn(netuid),
+        //         Error::<T>::ValueNotInBounds
+        //     );
+        //     pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
+        //     log::debug!("MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) ");
+        //     pallet_subtensor::Pallet::<T>::record_owner_rl(
+        //         maybe_owner,
+        //         netuid,
+        //         &[Hyperparameter::MaxBurn.into()],
+        //     );
+        //     Ok(())
+        // }
 
-        /// The extrinsic sets the difficulty for a subnet.
-        /// It is only callable by the root account or subnet owner.
-        /// The extrinsic will call the Subtensor pallet to set the difficulty.
-        #[pallet::call_index(24)]
-        #[pallet::weight(Weight::from_parts(38_500_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_difficulty(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            difficulty: u64,
-        ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-            pallet_subtensor::Pallet::<T>::set_difficulty(netuid, difficulty);
-            log::debug!("DifficultySet( netuid: {netuid:?} difficulty: {difficulty:?} ) ");
-            Ok(())
-        }
+        // /// The extrinsic sets the difficulty for a subnet.
+        // /// It is only callable by the root account or subnet owner.
+        // /// The extrinsic will call the Subtensor pallet to set the difficulty.
+        // #[pallet::call_index(24)]
+        // #[pallet::weight(Weight::from_parts(38_500_000, 0)
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
+        // .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        // pub fn sudo_set_difficulty(
+        //     origin: OriginFor<T>,
+        //     netuid: NetUid,
+        //     difficulty: u64,
+        // ) -> DispatchResult {
+        //     pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+        //     ensure!(
+        //         pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+        //         Error::<T>::SubnetDoesNotExist
+        //     );
+        //     pallet_subtensor::Pallet::<T>::set_difficulty(netuid, difficulty);
+        //     log::debug!("DifficultySet( netuid: {netuid:?} difficulty: {difficulty:?} ) ");
+        //     Ok(())
+        // }
 
         /// The extrinsic sets the maximum allowed validators for a subnet.
         /// It is only callable by the root account.

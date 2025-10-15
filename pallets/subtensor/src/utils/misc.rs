@@ -6,7 +6,7 @@ use crate::system::{
 use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
-use sp_runtime::Saturating;
+use sp_runtime::{FixedU128, Saturating};
 use substrate_fixed::types::{I32F32, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
 
@@ -663,27 +663,46 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_burn(netuid: NetUid) -> TaoCurrency {
-        Burn::<T>::get(netuid)
+    /// Returns the current burn price for `netuid` in base units (e.g., RAO).
+    /// Implements the new BurnHalfLife / BurnIncreaseMult mechanism.
+    pub fn get_burn(netuid: NetUid) -> u64 {
+        let now = Self::get_current_block_as_u64();
+        // Ensure defaults & initial state exist (e.g., 1 TAO for new subnets).
+        Self::initialize_burn_price_if_needed(netuid, now);
+        // Bring price state forward to `now`, applying queued bumps & decay.
+        Self::update_burn_price_to_block(netuid, now);
+
+        // Read current price (stored as u128) and downcast safely.
+        let p: u128 = BurnPrice::<T>::get(netuid);
+        p.min(u64::MAX as u128) as u64
     }
-    pub fn set_burn(netuid: NetUid, burn: TaoCurrency) {
-        Burn::<T>::insert(netuid, burn);
+    pub fn get_burn_half_life(netuid: NetUid) -> u64 {
+        let v = BurnHalfLife::<T>::get(netuid);
+        if v == 0 { 360 } else { v }
     }
 
-    pub fn get_min_burn(netuid: NetUid) -> TaoCurrency {
-        MinBurn::<T>::get(netuid)
-    }
-    pub fn set_min_burn(netuid: NetUid, min_burn: TaoCurrency) {
-        MinBurn::<T>::insert(netuid, min_burn);
-        Self::deposit_event(Event::MinBurnSet(netuid, min_burn));
+    pub fn set_burn_half_life(netuid: NetUid, half_life: u64) {
+        // protect against zero (treat as 1)
+        let hl = core::cmp::max(half_life, 1);
+        BurnHalfLife::<T>::insert(netuid, hl);
+        Self::deposit_event(Event::BurnHalfLifeSet(netuid, hl));
     }
 
-    pub fn get_max_burn(netuid: NetUid) -> TaoCurrency {
-        MaxBurn::<T>::get(netuid)
+    pub fn get_burn_increase_mult(netuid: NetUid) -> FixedU128 {
+        let m = BurnIncreaseMult::<T>::get(netuid);
+        if m.is_zero() {
+            FixedU128::from_u32(2)
+        } else {
+            m
+        }
     }
-    pub fn set_max_burn(netuid: NetUid, max_burn: TaoCurrency) {
-        MaxBurn::<T>::insert(netuid, max_burn);
-        Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
+
+    pub fn set_burn_increase_mult(netuid: NetUid, mult: FixedU128) {
+        // Require >= 1.0
+        let one = FixedU128::one();
+        let m = if mult < one { one } else { mult };
+        BurnIncreaseMult::<T>::insert(netuid, m);
+        Self::deposit_event(Event::BurnIncreaseMultSet(netuid, m));
     }
 
     pub fn get_difficulty_as_u64(netuid: NetUid) -> u64 {

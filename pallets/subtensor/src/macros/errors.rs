@@ -264,5 +264,7 @@ mod errors {
         TrimmingWouldExceedMaxImmunePercentage,
         /// Violating the rules of Childkey-Parentkey consistency
         ChildParentInconsistency,
+        /// The caller is attempting to register a neuron with insufficient funds.
+        NotEnoughBalanceToRegister,
     }
 }

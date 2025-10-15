@@ -71,31 +71,31 @@ mod benchmarks {
 		_(RawOrigin::Root, 1u16.into()/*netuid*/, 100u64/*serving_rate_limit*/)/*sudo_set_serving_rate_limit*/;
     }
 
-    #[benchmark]
-    fn sudo_set_max_difficulty() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16.into(), /*netuid*/
-            1u16,        /*tempo*/
-        );
+    // #[benchmark]
+    // fn sudo_set_max_difficulty() {
+    //     // disable admin freeze window
+    //     pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+    //     pallet_subtensor::Pallet::<T>::init_new_network(
+    //         1u16.into(), /*netuid*/
+    //         1u16,        /*tempo*/
+    //     );
 
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 10000u64/*max_difficulty*/)/*sudo_set_max_difficulty*/;
-    }
+    //     #[extrinsic_call]
+    // 	_(RawOrigin::Root, 1u16.into()/*netuid*/, 10000u64/*max_difficulty*/)/*sudo_set_max_difficulty*/;
+    // }
 
-    #[benchmark]
-    fn sudo_set_min_difficulty() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16.into(), /*netuid*/
-            1u16,        /*tempo*/
-        );
+    // #[benchmark]
+    // fn sudo_set_min_difficulty() {
+    //     // disable admin freeze window
+    //     pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+    //     pallet_subtensor::Pallet::<T>::init_new_network(
+    //         1u16.into(), /*netuid*/
+    //         1u16,        /*tempo*/
+    //     );
 
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 1000u64/*min_difficulty*/)/*sudo_set_min_difficulty*/;
-    }
+    //     #[extrinsic_call]
+    // 	_(RawOrigin::Root, 1u16.into()/*netuid*/, 1000u64/*min_difficulty*/)/*sudo_set_min_difficulty*/;
+    // }
 
     #[benchmark]
     fn sudo_set_weights_set_rate_limit() {
@@ -162,18 +162,18 @@ mod benchmarks {
 		_(RawOrigin::Root, 1u16.into()/*netuid*/, 10u16/*max_allowed_validators*/)/*sudo_set_max_allowed_validators*/;
     }
 
-    #[benchmark]
-    fn sudo_set_difficulty() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16.into(), /*netuid*/
-            1u16,        /*tempo*/
-        );
+    // #[benchmark]
+    // fn sudo_set_difficulty() {
+    //     // disable admin freeze window
+    //     pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+    //     pallet_subtensor::Pallet::<T>::init_new_network(
+    //         1u16.into(), /*netuid*/
+    //         1u16,        /*tempo*/
+    //     );
 
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 1200000u64/*difficulty*/)/*sudo_set_difficulty*/;
-    }
+    //     #[extrinsic_call]
+    // 	_(RawOrigin::Root, 1u16.into()/*netuid*/, 1200000u64/*difficulty*/)/*sudo_set_difficulty*/;
+    // }
 
     #[benchmark]
     fn sudo_set_adjustment_interval() {
@@ -318,31 +318,31 @@ mod benchmarks {
 		_(RawOrigin::Root, 1u16.into()/*netuid*/, 100u16/*max_registrations*/)/*sudo_set_max_registrations_per_block*/;
     }
 
-    #[benchmark]
-    fn sudo_set_max_burn() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16.into(), /*netuid*/
-            1u16,        /*tempo*/
-        );
+    // #[benchmark]
+    // fn sudo_set_max_burn() {
+    //     // disable admin freeze window
+    //     pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+    //     pallet_subtensor::Pallet::<T>::init_new_network(
+    //         1u16.into(), /*netuid*/
+    //         1u16,        /*tempo*/
+    //     );
 
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 2_000_000_000.into()/*max_burn*/)/*sudo_set_max_burn*/;
-    }
+    //     #[extrinsic_call]
+    // 	_(RawOrigin::Root, 1u16.into()/*netuid*/, 2_000_000_000.into()/*max_burn*/)/*sudo_set_max_burn*/;
+    // }
 
-    #[benchmark]
-    fn sudo_set_min_burn() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16.into(), /*netuid*/
-            1u16,        /*tempo*/
-        );
+    // #[benchmark]
+    // fn sudo_set_min_burn() {
+    //     // disable admin freeze window
+    //     pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+    //     pallet_subtensor::Pallet::<T>::init_new_network(
+    //         1u16.into(), /*netuid*/
+    //         1u16,        /*tempo*/
+    //     );
 
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 10.into()/*min_burn*/)/*sudo_set_min_burn*/;
-    }
+    //     #[extrinsic_call]
+    // 	_(RawOrigin::Root, 1u16.into()/*netuid*/, 10.into()/*min_burn*/)/*sudo_set_min_burn*/;
+    // }
 
     #[benchmark]
     fn sudo_set_network_registration_allowed() {

@@ -72,7 +72,6 @@ fn test_senate_join_works() {
         let stake = DefaultMinStake::<Test>::get() * 100.into();
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -148,7 +147,6 @@ fn test_senate_vote_works() {
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -264,7 +262,6 @@ fn test_senate_vote_not_member() {
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -328,7 +325,6 @@ fn test_senate_leave_works() {
         let stake = DefaultMinStake::<Test>::get() * 10.into();
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -406,7 +402,6 @@ fn test_senate_leave_vote_removal() {
         let stake = DefaultMinStake::<Test>::get() * 10.into();
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, stake.into());
@@ -491,7 +486,6 @@ fn test_senate_leave_vote_removal() {
         // Add two networks.
         let other_netuid = NetUid::from(5);
         add_network(other_netuid, 1, 0);
-        SubtensorModule::set_burn(other_netuid, TaoCurrency::ZERO);
         SubtensorModule::set_max_registrations_per_block(other_netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(other_netuid, 1000);
         SubtensorModule::set_max_registrations_per_block(NetUid::ROOT, 1000);
@@ -558,7 +552,6 @@ fn test_senate_not_leave_when_stake_removed() {
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -645,7 +638,6 @@ fn test_senate_join_current_delegate() {
         let coldkey_account_id = U256::from(667);
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give some coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -737,7 +729,6 @@ fn test_adjust_senate_events() {
         let replacement_hotkey_account_id = U256::from(7); // Will be added to the senate to replace hotkey_account_id
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give some coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, balance_to_add);

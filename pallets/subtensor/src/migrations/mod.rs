@@ -37,7 +37,6 @@ pub mod migrate_remove_zero_total_hotkey_alpha;
 pub mod migrate_reset_bonds_moving_average;
 pub mod migrate_reset_max_burn;
 pub mod migrate_set_first_emission_block_number;
-pub mod migrate_set_min_burn;
 pub mod migrate_set_min_difficulty;
 pub mod migrate_set_nominator_min_stake;
 pub mod migrate_set_registration_enable;

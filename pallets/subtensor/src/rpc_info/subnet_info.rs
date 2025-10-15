@@ -141,12 +141,10 @@ impl<T: Config> Pallet<T> {
         let max_allowed_uids = Self::get_max_allowed_uids(netuid);
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
-        let burn = Compact::from(Self::get_burn(netuid));
+        let burn: Compact<TaoCurrency> = Compact::from(TaoCurrency::from(Self::get_burn(netuid)));
+
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
-        // DEPRECATED for ( _netuid_, con_req) in < NetworkConnect<T> as IterableStorageDoubleMap<u16, u16, u16> >::iter_prefix(netuid) {
-        //     network_connect.push([_netuid_, con_req]);
-        // }
 
         Some(SubnetInfo {
             rho: rho.into(),
@@ -209,14 +207,12 @@ impl<T: Config> Pallet<T> {
         let max_allowed_uids = Self::get_max_allowed_uids(netuid);
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
-        let burn = Compact::from(Self::get_burn(netuid));
+
+        let burn: Compact<TaoCurrency> = Compact::from(TaoCurrency::from(Self::get_burn(netuid)));
         let identity: Option<SubnetIdentityV3> = SubnetIdentitiesV3::<T>::get(netuid);
 
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
-        // DEPRECATED for ( _netuid_, con_req) in < NetworkConnect<T> as IterableStorageDoubleMap<u16, u16, u16> >::iter_prefix(netuid) {
-        //     network_connect.push([_netuid_, con_req]);
-        // }
 
         Some(SubnetInfov2 {
             rho: rho.into(),
@@ -282,8 +278,11 @@ impl<T: Config> Pallet<T> {
         let activity_cutoff = Self::get_activity_cutoff(netuid);
         let registration_allowed = Self::get_network_registration_allowed(netuid);
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
-        let min_burn = Self::get_min_burn(netuid);
-        let max_burn = Self::get_max_burn(netuid);
+
+        // Old getters removed under the new burn mechanism: use sentinel values.
+        let min_burn: TaoCurrency = TaoCurrency::ZERO;
+        let max_burn: TaoCurrency = TaoCurrency::MAX;
+
         let bonds_moving_avg = Self::get_bonds_moving_average(netuid);
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
@@ -325,7 +324,6 @@ impl<T: Config> Pallet<T> {
             liquid_alpha_enabled,
         })
     }
-
     pub fn get_subnet_hyperparams_v2(netuid: NetUid) -> Option<SubnetHyperparamsV2> {
         if !Self::if_subnet_exist(netuid) {
             return None;
@@ -345,8 +343,11 @@ impl<T: Config> Pallet<T> {
         let activity_cutoff = Self::get_activity_cutoff(netuid);
         let registration_allowed = Self::get_network_registration_allowed(netuid);
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
-        let min_burn = Self::get_min_burn(netuid);
-        let max_burn = Self::get_max_burn(netuid);
+
+        // Old getters removed under the new burn mechanism: use sentinel values.
+        let min_burn: TaoCurrency = TaoCurrency::ZERO;
+        let max_burn: TaoCurrency = TaoCurrency::MAX;
+
         let bonds_moving_avg = Self::get_bonds_moving_average(netuid);
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
@@ -358,9 +359,10 @@ impl<T: Config> Pallet<T> {
         let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
         let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
         let alpha_sigmoid_steepness = Self::get_alpha_sigmoid_steepness(netuid);
-        let yuma_version: u16 = match Self::get_yuma3_enabled(netuid) {
-            true => 3u16,
-            false => 2u16,
+        let yuma_version: u16 = if Self::get_yuma3_enabled(netuid) {
+            3u16
+        } else {
+            2u16
         };
         let subnet_token_enabled = Self::get_subtoken_enabled(netuid);
         let transfers_enabled = Self::get_transfer_toggle(netuid);

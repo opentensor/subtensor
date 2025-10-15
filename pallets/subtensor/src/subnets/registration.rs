@@ -1,7 +1,7 @@
 use super::*;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
-use sp_runtime::Saturating;
+use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
 use subtensor_runtime_common::{Currency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 use system::pallet_prelude::BlockNumberFor;
@@ -64,7 +64,7 @@ impl<T: Config> Pallet<T> {
     /// * 'HotKeyAlreadyRegisteredInSubNet':
     ///     - The hotkey is already registered on this network.
     ///
-    pub fn do_burned_registration(
+    pub fn do_registration(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
         hotkey: T::AccountId,
@@ -86,49 +86,35 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubNetRegistrationDisabled
         );
 
-        // --- 4. Ensure we are not exceeding the max allowed registrations per block.
-        ensure!(
-            Self::get_registrations_this_block(netuid)
-                < Self::get_max_registrations_per_block(netuid),
-            Error::<T>::TooManyRegistrationsThisBlock
-        );
-
-        // --- 4. Ensure we are not exceeding the max allowed registrations per interval.
-        ensure!(
-            Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
-            Error::<T>::TooManyRegistrationsThisInterval
-        );
-
         // --- 4. Ensure that the key is not already registered.
         ensure!(
             !Uids::<T>::contains_key(netuid, &hotkey),
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
-        // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
+        // --- 5. Ensure the callers coldkey has enough balance to pay the current (block-by-block) burn price.
         let registration_cost = Self::get_burn(netuid);
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost.into()),
-            Error::<T>::NotEnoughBalanceToStake
+            Error::<T>::NotEnoughBalanceToRegister
         );
 
         // If the network account does not exist we will create it here.
         Self::create_account_if_non_existent(&coldkey, &hotkey);
 
-        // --- 8. Ensure that the pairing is correct.
+        // --- 6. Ensure that the pairing is correct.
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 9. Possibly there are no neuron slots at all.
+        // --- 7. Possibly there are no neuron slots at all.
         ensure!(
             Self::get_max_allowed_uids(netuid) != 0,
             Error::<T>::NoNeuronIdAvailable
         );
 
-        // --- 10. Ensure the remove operation from the coldkey is a success.
+        // --- 8. Remove funds from coldkey (actual amount burned is returned).
         let actual_burn_amount =
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost.into())?;
 
@@ -147,180 +133,123 @@ impl<T: Config> Pallet<T> {
         // Actually perform the registration.
         let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey);
 
-        // --- 14. Record the registration and increment block and interval counters.
+        // --- 9. Record the registration and increment counters.
         BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
-        Self::increase_rao_recycled(netuid, Self::get_burn(netuid).into());
 
-        // --- 15. Deposit successful event.
-        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
+        // Account for recycled RAO using the actual amount burned.
+        Self::increase_rao_recycled(netuid, actual_burn_amount);
+
+        // --- 10. Schedule a burn-price bump effective **next block**.
+        Self::schedule_burn_price_bump(netuid);
+
+        // --- 11. Deposit successful event.
+        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?} )");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
-        // --- 16. Ok and done.
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic do_registration.
-    ///
-    /// # Args:
-    /// *'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     - The signature of the calling hotkey.
-    ///
-    /// *'netuid' (u16):
-    ///     - The u16 network identifier.
-    ///
-    /// *'block_number' ( u64 ):
-    ///     - Block hash used to prove work done.
-    ///
-    /// *'nonce' ( u64 ):
-    ///     - Positive integer nonce used in POW.
-    ///
-    /// *'work' ( Vec<u8> ):
-    ///     - Vector encoded bytes representing work done.
-    ///
-    /// *'hotkey' ( T::AccountId ):
-    ///     - Hotkey to be registered to the network.
-    ///
-    /// *'coldkey' ( T::AccountId ):
-    ///     - Associated coldkey account.
-    ///
-    /// # Event:
-    /// *NeuronRegistered;
-    ///     - On successfully registereing a uid to a neuron slot on a subnetwork.
-    ///
-    /// # Raises:
-    /// *'MechanismDoesNotExist':
-    ///     - Attempting to registed to a non existent network.
-    ///
-    /// *'TooManyRegistrationsThisBlock':
-    ///     - This registration exceeds the total allowed on this network this block.
-    ///
-    /// *'HotKeyAlreadyRegisteredInSubNet':
-    ///     - The hotkey is already registered on this network.
-    ///
-    /// *'InvalidWorkBlock':
-    ///     - The work has been performed on a stale, future, or non existent block.
-    ///
-    /// *'InvalidDifficulty':
-    ///     - The work does not match the difficutly.
-    ///
-    /// *'InvalidSeal':
-    ///     - The seal is incorrect.
-    ///
-    pub fn do_registration(
-        origin: T::RuntimeOrigin,
-        netuid: NetUid,
-        block_number: u64,
-        nonce: u64,
-        work: Vec<u8>,
-        hotkey: T::AccountId,
-        coldkey: T::AccountId,
-    ) -> DispatchResult {
-        // --- 1. Check that the caller has signed the transaction.
-        let signing_origin = ensure_signed(origin)?;
-        log::debug!(
-            "do_registration( origin:{signing_origin:?} netuid:{netuid:?} hotkey:{hotkey:?}, coldkey:{coldkey:?} )"
-        );
+    pub fn initialize_burn_price_if_needed(netuid: NetUid, now: u64) {
+        const ONE_TAO_BASE_UNITS: u128 = 1_000_000_000u128;
 
-        ensure!(
-            signing_origin == hotkey,
-            Error::<T>::TransactorAccountShouldBeHotKey
-        );
+        // Default params if unset.
+        if BurnHalfLife::<T>::get(netuid) == 0 {
+            BurnHalfLife::<T>::insert(netuid, 360u64);
+            Self::deposit_event(Event::BurnHalfLifeSet(netuid, 360));
+        }
+        if BurnIncreaseMult::<T>::get(netuid).is_zero() {
+            // Use from_u32 for a literal 2.0 in fixed-point.
+            let two = FixedU128::from_u32(2);
+            BurnIncreaseMult::<T>::insert(netuid, two);
+            Self::deposit_event(Event::BurnIncreaseMultSet(netuid, two));
+        }
 
-        // --- 2. Ensure the passed network is valid.
-        ensure!(
-            !netuid.is_root(),
-            Error::<T>::RegistrationNotPermittedOnRootSubnet
-        );
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+        // Initial price for new subnets (1 TAO).
+        if BurnPrice::<T>::get(netuid) == 0 {
+            BurnPrice::<T>::insert(netuid, ONE_TAO_BASE_UNITS);
+            BurnLastUpdate::<T>::insert(netuid, now);
+            BurnPendingBumps::<T>::insert(netuid, 0);
+            BurnPendingFrom::<T>::insert(netuid, 0);
+            Self::deposit_event(Event::BurnPriceInitialized(netuid, ONE_TAO_BASE_UNITS));
+        }
+    }
 
-        // --- 3. Ensure the passed network allows registrations.
-        ensure!(
-            Self::get_network_pow_registration_allowed(netuid),
-            Error::<T>::SubNetRegistrationDisabled
-        );
+    /// Schedules the price bump so it takes effect **the next block**.
+    /// Multiple registrations within the same block accumulate multiplicatively and
+    /// will all apply at once on the next block.
+    pub fn schedule_burn_price_bump(netuid: NetUid) {
+        let now = Self::get_current_block_as_u64();
+        BurnPendingBumps::<T>::mutate(netuid, |n| *n = n.saturating_add(1));
+        BurnPendingFrom::<T>::mutate(netuid, |at| {
+            // If nothing pending or a past effective block is recorded, set to next block.
+            if *at <= now {
+                *at = now.saturating_add(1);
+            }
+            // else keep the earlier effective-from block so bumps coalesce.
+        });
+    }
 
-        // --- 4. Ensure we are not exceeding the max allowed registrations per block.
-        ensure!(
-            Self::get_registrations_this_block(netuid)
-                < Self::get_max_registrations_per_block(netuid),
-            Error::<T>::TooManyRegistrationsThisBlock
-        );
+    /// Internal: exponentiation by squaring for FixedU128.
+    pub fn fixed_pow_u32(base: FixedU128, exp: u32) -> FixedU128 {
+        if exp == 0 {
+            return FixedU128::one();
+        }
+        let mut result = FixedU128::one();
+        let mut b = base;
+        let mut e = exp;
+        while e > 0 {
+            if (e & 1) == 1 {
+                result = result.saturating_mul(b);
+            }
+            e >>= 1;
+            if e > 0 {
+                b = b.saturating_mul(b);
+            }
+        }
+        result
+    }
 
-        // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
-        ensure!(
-            Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
-            Error::<T>::TooManyRegistrationsThisInterval
-        );
+    /// Brings the burn price forward to now
+    pub fn update_burn_price_to_block(netuid: NetUid, now: u64) {
+        let mut price: u128 = BurnPrice::<T>::get(netuid);
+        let mut last_anchor: u64 = BurnLastUpdate::<T>::get(netuid);
+        let half_life: u64 = core::cmp::max(BurnHalfLife::<T>::get(netuid), 1); // avoid div by 0
 
-        // --- 6. Ensure that the key is not already registered.
-        ensure!(
-            !Uids::<T>::contains_key(netuid, &hotkey),
-            Error::<T>::HotKeyAlreadyRegisteredInSubNet
-        );
+        // 1) Apply queued bumps if we have reached their effective block.
+        let pending_from = BurnPendingFrom::<T>::get(netuid);
+        let pending_ct = BurnPendingBumps::<T>::get(netuid);
+        if pending_ct > 0 && now >= pending_from && pending_from > 0 {
+            let mult = BurnIncreaseMult::<T>::get(netuid);
+            let bump = Self::fixed_pow_u32(mult, pending_ct);
+            price = bump.saturating_mul_int(price);
+            BurnPendingBumps::<T>::insert(netuid, 0);
+            BurnPendingFrom::<T>::insert(netuid, 0);
+        }
 
-        // --- 7. Ensure the passed block number is valid, not in the future or too old.
-        // Work must have been done within 3 blocks (stops long range attacks).
-        let current_block_number: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            block_number <= current_block_number,
-            Error::<T>::InvalidWorkBlock
-        );
-        ensure!(
-            current_block_number.saturating_sub(block_number) < 3,
-            Error::<T>::InvalidWorkBlock
-        );
+        // 2) Apply stepwise halving according to BurnHalfLife.
+        let delta_blocks = now.saturating_sub(last_anchor);
+        if delta_blocks >= half_life {
+            let halvings = delta_blocks / half_life;
+            // Divide by 2^halvings, keeping price >= 1. Cap loop for safety.
+            let mut h = core::cmp::min(halvings as u32, 128);
+            while h > 0 && price > 1 {
+                price = price.saturating_div(2);
+                h -= 1;
+            }
+            // Move the anchor to the last halving boundary.
+            last_anchor = last_anchor.saturating_add(halvings.saturating_mul(half_life));
+        }
 
-        // --- 8. Ensure the supplied work passes the difficulty.
-        let difficulty: U256 = Self::get_difficulty(netuid);
-        let work_hash: H256 = Self::vec_to_hash(work.clone());
-        ensure!(
-            Self::hash_meets_difficulty(&work_hash, difficulty),
-            Error::<T>::InvalidDifficulty
-        ); // Check that the work meets difficulty.
+        // Floor at 1 unit to avoid zero price.
+        if price == 0 {
+            price = 1;
+        }
 
-        // --- 7. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
-        let seal: H256 = Self::create_seal_hash(block_number, nonce, &hotkey);
-        ensure!(seal == work_hash, Error::<T>::InvalidSeal);
-        UsedWork::<T>::insert(work.clone(), current_block_number);
-
-        // DEPRECATED --- 8. Ensure that the key passes the registration requirement
-        // ensure!(
-        //     Self::passes_network_connection_requirement(netuid, &hotkey),
-        //     Error::<T>::DidNotPassConnectedNetworkRequirement
-        // );
-
-        // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
-
-        // --- 10. Ensure that the pairing is correct.
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // Possibly there is no neuron slots at all.
-        ensure!(
-            Self::get_max_allowed_uids(netuid) != 0,
-            Error::<T>::NoNeuronIdAvailable
-        );
-
-        // Actually perform the registration.
-        let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey);
-
-        // --- 12. Record the registration and increment block and interval counters.
-        POWRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
-        RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
-        RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
-
-        // --- 13. Deposit successful event.
-        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
-        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
-
-        // --- 14. Ok and done.
-        Ok(())
+        // 3) Persist.
+        BurnPrice::<T>::insert(netuid, price);
+        BurnLastUpdate::<T>::insert(netuid, last_anchor);
     }
 
     pub fn do_faucet(

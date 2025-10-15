@@ -81,7 +81,10 @@ pub mod pallet {
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
     use sp_core::{ConstU32, H160, H256};
-    use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
+    use sp_runtime::{
+        FixedU128,
+        traits::{Dispatchable, TrailingZeroInput},
+    };
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
@@ -1923,6 +1926,52 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Normalized vector of emission split proportion between subnet mechanisms
     pub type MechanismEmissionSplit<T: Config> =
         StorageMap<_, Twox64Concat, NetUid, Vec<u16>, OptionQuery>;
+
+    #[pallet::storage]
+    /// Blocks per halving of the registration burn price for a given subnet.
+    /// - Key: `NetUid`
+    /// - Value: `u64` (blocks)
+    /// - Default (via ValueQuery): `0` (interpreted as "unset"; runtime helper applies 360)
+    pub type BurnHalfLife<T: Config> = StorageMap<_, Blake2_128Concat, NetUid, u64, ValueQuery>;
+
+    #[pallet::storage]
+    /// Multiplier applied to the burn price **the block after** a registration.
+    /// - Key: `NetUid`
+    /// - Value: `FixedU128`
+    /// - Default (via ValueQuery): `0` (interpreted as "unset"; runtime helper applies 2.0)
+    pub type BurnIncreaseMult<T: Config> =
+        StorageMap<_, Blake2_128Concat, NetUid, FixedU128, ValueQuery>;
+
+    #[pallet::storage]
+    /// Current burn price in base units (e.g., RAO) **at the last anchoring point**.
+    /// Actual "now" price is derived by applying queued bumps (if effective) and
+    /// stepwise half-life decay from `BurnLastUpdate`.
+    /// - Key: `NetUid`
+    /// - Value: `u128` (base units)
+    /// - Default (via ValueQuery): `0` (interpreted as "unset"; runtime helper applies 1 TAO)
+    pub type BurnPrice<T: Config> = StorageMap<_, Blake2_128Concat, NetUid, u128, ValueQuery>;
+
+    #[pallet::storage]
+    /// Block number of the last anchor used for stepwise half-life decay.
+    /// - Key: `NetUid`
+    /// - Value: `u64` (block number)
+    /// - Default (via ValueQuery): `0` (interpreted as "unset"; set to current block on init)
+    pub type BurnLastUpdate<T: Config> = StorageMap<_, Blake2_128Concat, NetUid, u64, ValueQuery>;
+
+    #[pallet::storage]
+    /// Number of price-bump applications queued by registrations in the current block.
+    /// They take effect **at `BurnPendingFrom`** (typically next block).
+    /// - Key: `NetUid`
+    /// - Value: `u32`
+    /// - Default: `0`
+    pub type BurnPendingBumps<T: Config> = StorageMap<_, Blake2_128Concat, NetUid, u32, ValueQuery>;
+
+    #[pallet::storage]
+    /// First block at which the queued bumps in `BurnPendingBumps` become effective.
+    /// - Key: `NetUid`
+    /// - Value: `u64` (block number)
+    /// - Default: `0` (means "no pending bumps")
+    pub type BurnPendingFrom<T: Config> = StorageMap<_, Blake2_128Concat, NetUid, u64, ValueQuery>;
 
     /// ==================
     /// ==== Genesis =====
