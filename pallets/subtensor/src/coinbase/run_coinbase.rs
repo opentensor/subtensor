@@ -247,20 +247,18 @@ impl<T: Config> Pallet<T> {
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);
 
-                // Get and drain the subnet pending emission.
-                let pending_alpha = PendingEmission::<T>::get(netuid);
-                PendingEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
-
-                // Get and drain the subnet pending root divs.
-                let pending_root_alpha = PendingRootAlphaDivs::<T>::get(netuid);
-                PendingRootAlphaDivs::<T>::insert(netuid, AlphaCurrency::ZERO);
-
-                // Get owner cut and drain.
-                let owner_cut = PendingOwnerCut::<T>::get(netuid);
-                PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
-
                 // Drain pending root divs, alpha emission, and owner cut.
-                Self::drain_pending_emission(netuid, pending_alpha, pending_root_alpha, owner_cut);
+                Self::drain_pending_emission(
+                    netuid,
+                    PendingEmission::<T>::get(netuid),
+                    PendingRootAlphaDivs::<T>::get(netuid),
+                    PendingOwnerCut::<T>::get(netuid),
+                );
+
+                // Reset pending emission, root divs, and owner cut.
+                PendingEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
+                PendingRootAlphaDivs::<T>::insert(netuid, AlphaCurrency::ZERO);
+                PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
