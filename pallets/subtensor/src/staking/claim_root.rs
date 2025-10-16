@@ -336,16 +336,17 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    pub fn transfer_root_claimed_for_new_coldkey(
+    pub fn transfer_root_claimed_for_new_keys(
         netuid: NetUid,
-        hotkey: &T::AccountId,
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) {
-        let old_root_claimed = RootClaimed::<T>::get((hotkey, old_coldkey, netuid));
-        RootClaimed::<T>::remove((hotkey, old_coldkey, netuid));
+        let old_root_claimed = RootClaimed::<T>::get((old_hotkey, old_coldkey, netuid));
+        RootClaimed::<T>::remove((old_hotkey, old_coldkey, netuid));
 
-        RootClaimed::<T>::mutate((hotkey, new_coldkey, netuid), |new_root_claimed| {
+        RootClaimed::<T>::mutate((new_hotkey, new_coldkey, netuid), |new_root_claimed| {
             *new_root_claimed = old_root_claimed.saturating_add(*new_root_claimed);
         });
     }

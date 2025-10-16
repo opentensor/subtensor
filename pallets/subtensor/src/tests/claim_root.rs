@@ -1088,11 +1088,14 @@ fn test_claim_root_with_swap_coldkey() {
         // Check root claimed value saved
         let new_coldkey = U256::from(10030);
 
-        let claimed = RootClaimed::<Test>::get((&hotkey, &coldkey, netuid));
-        assert_eq!(u128::from(new_stake), claimed);
-
-        let claimed = RootClaimed::<Test>::get((&hotkey, &new_coldkey, netuid));
-        assert_eq!(0u128, claimed);
+        assert_eq!(
+            u128::from(new_stake),
+            RootClaimed::<Test>::get((&hotkey, &coldkey, netuid))
+        );
+        assert_eq!(
+            0u128,
+            RootClaimed::<Test>::get((&hotkey, &new_coldkey, netuid))
+        );
 
         // Swap coldkey
         let mut weight = Weight::zero();
@@ -1105,10 +1108,109 @@ fn test_claim_root_with_swap_coldkey() {
 
         // Check swapped keys claimed values
 
-        let claimed = RootClaimed::<Test>::get((&hotkey, &coldkey, netuid));
-        assert_eq!(0u128, claimed);
+        assert_eq!(0u128, RootClaimed::<Test>::get((&hotkey, &coldkey, netuid)));
+        assert_eq!(
+            u128::from(new_stake),
+            RootClaimed::<Test>::get((&hotkey, &new_coldkey, netuid))
+        );
+    });
+}
+#[test]
+fn test_claim_root_with_swap_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
 
-        let claimed = RootClaimed::<Test>::get((&hotkey, &new_coldkey, netuid));
-        assert_eq!(u128::from(new_stake), claimed);
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let root_stake = 2_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let old_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+        );
+        assert_eq!(old_validator_stake, initial_total_hotkey_alpha.into());
+
+        // Distribute pending root alpha
+
+        let pending_root_alpha = 1_000_000u64;
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        // Claim root alpha
+
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            RootClaimTypeEnum::Keep
+        ),);
+        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
+
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+
+        let new_stake: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
+                .into();
+
+        // Check root claimed value saved
+        let new_hotkey = U256::from(10030);
+
+        assert_eq!(
+            u128::from(new_stake),
+            RootClaimed::<Test>::get((&hotkey, &coldkey, netuid))
+        );
+        assert_eq!(
+            0u128,
+            RootClaimed::<Test>::get((&new_hotkey, &coldkey, netuid))
+        );
+
+        let _old_claimable = *RootClaimable::<Test>::get(hotkey)
+            .get(&netuid)
+            .expect("claimable must exist at this point");
+
+        assert!(!RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid));
+
+        // Swap hotkey
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_one_subnet(
+            &hotkey,
+            &new_hotkey,
+            &mut weight,
+            netuid
+        ));
+
+        // Check swapped keys claimed values
+
+        assert_eq!(0u128, RootClaimed::<Test>::get((&hotkey, &coldkey, netuid)));
+        assert_eq!(
+            u128::from(new_stake),
+            RootClaimed::<Test>::get((&new_hotkey, &coldkey, netuid))
+        );
+
+        assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+
+        let _new_claimable = *RootClaimable::<Test>::get(new_hotkey)
+            .get(&netuid)
+            .expect("claimable must exist at this point");
     });
 }
