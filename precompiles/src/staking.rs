@@ -217,6 +217,27 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
+    #[precompile::public("burnAlpha(bytes32,uint256,uint256)")]
+    #[precompile::payable]
+    fn burn_alpha(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        amount: U256,
+        netuid: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let hotkey = R::AccountId::from(hotkey.0);
+        let netuid = try_u16_from_u256(netuid)?;
+        let amount: u64 = amount.unique_saturated_into();
+        let call = pallet_subtensor::Call::<R>::burn_alpha {
+            hotkey,
+            amount: amount.into(),
+            netuid: netuid.into(),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
     #[precompile::public("getTotalColdkeyStake(bytes32)")]
     #[precompile::view]
     fn get_total_coldkey_stake(
