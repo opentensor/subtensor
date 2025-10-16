@@ -1397,6 +1397,15 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> activity_cutoff
     pub type ActivityCutoff<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultActivityCutoff<T>>;
+    #[pallet::type_value]
+    /// Default maximum weights limit.
+    pub fn DefaultMaxWeightsLimit<T: Config>() -> u16 {
+        u16::MAX
+    }
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> max_weight_limit
+    pub type MaxWeightsLimit<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMaxWeightsLimit<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> weights_version_key
     pub type WeightsVersionKey<T> =
