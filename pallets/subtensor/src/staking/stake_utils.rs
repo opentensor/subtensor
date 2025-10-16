@@ -609,7 +609,6 @@ impl<T: Config> Pallet<T> {
         // which one to increase.
         SubnetTAO::<T>::mutate(netuid, |total| {
             let delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs();
-            log::error!("swap_tao_for_alpha TAO delta = {}", delta);
             *total = total.saturating_add(delta.into());
         });
 
