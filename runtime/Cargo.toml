@@ -100,6 +100,7 @@ runtime-common.workspace = true
 
 # Wasm smart contracts support
 pallet-contracts.workspace = true
+subtensor-chain-extensions.workspace = true
 
 # NPoS
 frame-election-provider-support = { workspace = true }
@@ -274,6 +275,7 @@ std = [
 	"pallet-subtensor-swap-runtime-api/std",
 	"subtensor-swap-interface/std",
 	"pallet-contracts/std",
+	"subtensor-chain-extensions/std",
 	"ethereum/std",
 ]
 runtime-benchmarks = [
