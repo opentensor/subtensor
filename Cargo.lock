@@ -17962,9 +17962,18 @@ dependencies = [
  "frame-system",
  "log",
  "num_enum",
+ "pallet-balances",
  "pallet-contracts 40.1.0",
+ "pallet-crowdloan",
+ "pallet-drand",
+ "pallet-membership",
+ "pallet-preimage",
+ "pallet-scheduler",
  "pallet-subtensor",
+ "pallet-subtensor-collective",
  "pallet-subtensor-swap",
+ "pallet-subtensor-utility",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -17972,6 +17981,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "subtensor-runtime-common",
+ "subtensor-swap-interface",
 ]
 
 [[package]]

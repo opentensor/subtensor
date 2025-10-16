@@ -24,6 +24,16 @@ subtensor-runtime-common.workspace = true
 pallet-contracts.workspace = true
 pallet-subtensor.workspace = true
 pallet-subtensor-swap.workspace = true
+pallet-balances.workspace = true
+pallet-membership.workspace = true
+pallet-scheduler.workspace = true
+pallet-preimage.workspace = true
+pallet-timestamp.workspace = true
+pallet-crowdloan.workspace = true
+pallet-subtensor-collective.workspace = true
+pallet-subtensor-utility.workspace = true
+pallet-drand.workspace = true
+subtensor-swap-interface.workspace = true
 num_enum.workspace = true
 
 [lints]
@@ -45,4 +55,14 @@ std = [
 	"pallet-contracts/std",
 	"pallet-subtensor/std",
 	"pallet-subtensor-swap/std",
+	"pallet-balances/std",
+	"pallet-membership/std",
+	"pallet-scheduler/std",
+	"pallet-preimage/std",
+	"pallet-timestamp/std",
+	"pallet-crowdloan/std",
+	"pallet-subtensor-collective/std",
+	"pallet-subtensor-utility/std",
+	"pallet-drand/std",
+	"subtensor-swap-interface/std",
 ]
