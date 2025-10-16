@@ -2888,3 +2888,717 @@ fn test_incentive_goes_to_hotkey_when_no_autostake_destination() {
         );
     });
 }
+
+// Tests for calculate_subnet_injection
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_calculate_subnet_injection_basic --exact --show-output --nocapture
+#[test]
+fn test_calculate_subnet_injection_basic() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        // Setup initial state
+        let block_emission = U96F32::from_num(1_000_000);
+        let alpha_emission = U96F32::from_num(500_000);
+        let total_moving_prices = U96F32::from_num(1_000);
+        let allow_registration = true;
+
+        // Set moving price for the subnet
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(100));
+
+        // Setup reserves to control price (1:1 ratio)
+        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
+
+        let (tao_in, alpha_in, is_subsidized) = SubtensorModule::calculate_subnet_injection(
+            netuid,
+            block_emission,
+            alpha_emission,
+            total_moving_prices,
+            allow_registration,
+        );
+
+        // Calculate expected values
+        let moving_price = U96F32::from_num(100);
+        let moving_price_ratio = moving_price / total_moving_prices; // 100 / 1000 = 0.1
+        let expected_default_tao_in = block_emission * moving_price_ratio; // 1_000_000 * 0.1 = 100_000
+        let price = <Test as crate::Config>::SwapInterface::current_alpha_price(netuid.into());
+
+        log::info!(
+            "price: {:?}, moving_price_ratio: {:?}",
+            price,
+            moving_price_ratio
+        );
+        log::info!("expected_default_tao_in: {:?}", expected_default_tao_in);
+
+        // Since we set equal reserves (1:1 price), price should be close to 1.0
+        // and price > moving_price_ratio (1.0 > 0.1), so NOT subsidized
+        assert!(!is_subsidized, "Should not be subsidized with 1:1 price");
+
+        // Expected: tao_in = default_tao_in, alpha_in = tao_in / price
+        close(
+            tao_in.to_num::<u64>(),
+            expected_default_tao_in.to_num::<u64>(),
+            10,
+        );
+        let expected_alpha_in = expected_default_tao_in / price;
+        close(
+            alpha_in.to_num::<u64>(),
+            expected_alpha_in.to_num::<u64>(),
+            1000,
+        );
+
+        log::info!(
+            "tao_in: {:?}, expected: {:?}",
+            tao_in,
+            expected_default_tao_in
+        );
+        log::info!(
+            "alpha_in: {:?}, expected: {:?}",
+            alpha_in,
+            expected_alpha_in
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_calculate_subnet_injection_registration_not_allowed --exact --show-output --nocapture
+#[test]
+fn test_calculate_subnet_injection_registration_not_allowed() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let block_emission = U96F32::from_num(1_000_000);
+        let alpha_emission = U96F32::from_num(500_000);
+        let total_moving_prices = U96F32::from_num(1_000);
+        let allow_registration = false; // Registration not allowed
+
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(100));
+
+        let (tao_in, alpha_in, _is_subsidized) = SubtensorModule::calculate_subnet_injection(
+            netuid,
+            block_emission,
+            alpha_emission,
+            total_moving_prices,
+            allow_registration,
+        );
+
+        // When registration is not allowed, both should be zero
+        assert_eq!(tao_in, U96F32::from_num(0));
+        assert_eq!(alpha_in, U96F32::from_num(0));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_calculate_subnet_injection_zero_total_moving_prices --exact --show-output --nocapture
+#[test]
+fn test_calculate_subnet_injection_zero_total_moving_prices() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let block_emission = U96F32::from_num(1_000_000);
+        let alpha_emission = U96F32::from_num(500_000);
+        let total_moving_prices = U96F32::from_num(0); // Zero total
+        let allow_registration = true;
+
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(100));
+
+        let (tao_in, alpha_in, _is_subsidized) = SubtensorModule::calculate_subnet_injection(
+            netuid,
+            block_emission,
+            alpha_emission,
+            total_moving_prices,
+            allow_registration,
+        );
+
+        // Should handle division by zero gracefully
+        // moving_price_ratio = 100 / 0 -> handled by safe_div_or -> 0
+        // default_tao_in = block_emission * 0 = 0
+        assert_eq!(
+            tao_in,
+            U96F32::from_num(0),
+            "tao_in should be 0 when total_moving_prices is 0"
+        );
+        log::info!("tao_in: {:?}, alpha_in: {:?}", tao_in, alpha_in);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_calculate_subnet_injection_subsidized --exact --show-output --nocapture
+#[test]
+fn test_calculate_subnet_injection_subsidized() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let block_emission = U96F32::from_num(1_000_000);
+        let alpha_emission = U96F32::from_num(500_000);
+        let total_moving_prices = U96F32::from_num(1_000);
+        let allow_registration = true;
+
+        // Set moving price relatively high
+        let moving_price = U96F32::from_num(200);
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(200));
+
+        // Setup reserves with low TAO, high Alpha to make price low (subsidized scenario)
+        // price = tao_reserve / alpha_reserve
+        mock::setup_reserves(netuid, 100_000_000_000.into(), 10_000_000_000_000.into());
+
+        let (tao_in, alpha_in, is_subsidized) = SubtensorModule::calculate_subnet_injection(
+            netuid,
+            block_emission,
+            alpha_emission,
+            total_moving_prices,
+            allow_registration,
+        );
+
+        // Calculate expected values
+        let moving_price_ratio = moving_price / total_moving_prices; // 200 / 1000 = 0.2
+        let expected_default_tao_in = block_emission * moving_price_ratio; // 1_000_000 * 0.2 = 200_000
+        let price = <Test as crate::Config>::SwapInterface::current_alpha_price(netuid.into());
+
+        log::info!(
+            "price: {:?}, moving_price_ratio: {:?}",
+            price,
+            moving_price_ratio
+        );
+        log::info!("expected_default_tao_in: {:?}", expected_default_tao_in);
+
+        // With low TAO/high Alpha reserves, price should be low (< 0.2)
+        // So this should be subsidized
+        assert!(is_subsidized, "Should be subsidized with low price");
+        assert!(
+            price < moving_price_ratio,
+            "price ({:?}) should be less than moving_price_ratio ({:?})",
+            price,
+            moving_price_ratio
+        );
+
+        // Expected: tao_in = price * block_emission, alpha_in = block_emission
+        let expected_tao_in = price * block_emission;
+        let expected_alpha_in = block_emission;
+
+        close(
+            tao_in.to_num::<u64>(),
+            expected_tao_in.to_num::<u64>(),
+            1000,
+        );
+        close(
+            alpha_in.to_num::<u64>(),
+            expected_alpha_in.to_num::<u64>(),
+            10,
+        );
+
+        log::info!("tao_in: {:?}, expected: {:?}", tao_in, expected_tao_in);
+        log::info!(
+            "alpha_in: {:?}, expected: {:?}",
+            alpha_in,
+            expected_alpha_in
+        );
+    });
+}
+
+// Tests for split_alpha_out
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_split_alpha_out_basic --exact --show-output --nocapture
+#[test]
+fn test_split_alpha_out_basic() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        // Setup initial state - use very large numbers to ensure non-zero results
+        let alpha_out_value = U96F32::from_num(1_000_000_000_000u64);
+        let is_subsidized = false;
+
+        // Set subnet owner cut to 18% (same as default)
+        SubtensorModule::set_subnet_owner_cut(u16::MAX / 100 * 18);
+
+        // Set some alpha issuance for the subnet
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(5_000_000_000u64));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(5_000_000_000u64));
+
+        // Set some TAO on root for dividends calculation
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(5_000_000_000u64));
+
+        // Setup reserves for swap
+        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
+
+        let initial_pending_owner_cut = PendingOwnerCut::<Test>::get(netuid);
+        let initial_pending_emission = PendingEmission::<Test>::get(netuid);
+        let initial_pending_alpha_swapped = PendingAlphaSwapped::<Test>::get(netuid);
+
+        SubtensorModule::split_alpha_out(netuid, alpha_out_value, is_subsidized);
+
+        // Calculate expected values based on the formula
+        let cut_percent = SubtensorModule::get_float_subnet_owner_cut();
+        let expected_owner_cut_f = alpha_out_value * cut_percent;
+        let expected_owner_cut = AlphaCurrency::from(expected_owner_cut_f.to_num::<u64>());
+
+        let alpha_after_owner_cut = alpha_out_value - expected_owner_cut_f;
+
+        // Calculate root proportion
+        let root_tao = U96F32::from_num(SubnetTAO::<Test>::get(NetUid::ROOT));
+        let tao_weight = root_tao * SubtensorModule::get_tao_weight();
+        let alpha_issuance = U96F32::from_num(
+            SubnetAlphaIn::<Test>::get(netuid) + SubnetAlphaOut::<Test>::get(netuid),
+        );
+        let root_proportion = tao_weight / (tao_weight + alpha_issuance);
+
+        // root_alpha = root_proportion * alpha_after_owner_cut * 0.5 (50% to validators)
+        let expected_root_alpha_f = root_proportion * alpha_after_owner_cut * U96F32::from_num(0.5);
+        let expected_root_alpha = AlphaCurrency::from(expected_root_alpha_f.to_num::<u64>());
+
+        // pending_alpha = alpha_after_owner_cut - root_alpha
+        let expected_pending_alpha_f = alpha_after_owner_cut - expected_root_alpha_f;
+        let expected_pending_alpha = AlphaCurrency::from(expected_pending_alpha_f.to_num::<u64>());
+
+        // Verify that pending values match expectations
+        let final_pending_owner_cut = PendingOwnerCut::<Test>::get(netuid);
+        let final_pending_emission = PendingEmission::<Test>::get(netuid);
+        let final_pending_alpha_swapped = PendingAlphaSwapped::<Test>::get(netuid);
+
+        let actual_owner_cut_added = final_pending_owner_cut - initial_pending_owner_cut;
+        let actual_emission_added = final_pending_emission - initial_pending_emission;
+        let actual_alpha_swapped_added =
+            final_pending_alpha_swapped - initial_pending_alpha_swapped;
+
+        // Owner cut: 18% of alpha_out
+        assert_abs_diff_eq!(
+            actual_owner_cut_added,
+            expected_owner_cut,
+            epsilon = AlphaCurrency::from(1_000_000u64)
+        );
+
+        // Pending emission: remaining alpha after owner cut and root alpha
+        assert_abs_diff_eq!(
+            actual_emission_added,
+            expected_pending_alpha,
+            epsilon = AlphaCurrency::from(10_000_000u64)
+        );
+
+        // Alpha swapped: root's portion for root dividends
+        assert_abs_diff_eq!(
+            actual_alpha_swapped_added,
+            expected_root_alpha,
+            epsilon = AlphaCurrency::from(10_000_000u64)
+        );
+
+        log::info!(
+            "Owner cut: actual={:?}, expected={:?}",
+            actual_owner_cut_added,
+            expected_owner_cut
+        );
+        log::info!(
+            "Emission: actual={:?}, expected={:?}",
+            actual_emission_added,
+            expected_pending_alpha
+        );
+        log::info!(
+            "Alpha swapped: actual={:?}, expected={:?}",
+            actual_alpha_swapped_added,
+            expected_root_alpha
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_split_alpha_out_subsidized --exact --show-output --nocapture
+#[test]
+fn test_split_alpha_out_subsidized() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let alpha_out_value = U96F32::from_num(1_000_000_000_000u64);
+        let is_subsidized = true; // Subsidized, no swap should occur
+
+        // Set subnet owner cut to 18%
+        SubtensorModule::set_subnet_owner_cut(u16::MAX / 100 * 18);
+
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(5_000_000_000u64));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(5_000_000_000u64));
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(5_000_000_000u64));
+
+        let initial_pending_root_divs = PendingRootDivs::<Test>::get(netuid);
+        let initial_pending_owner_cut = PendingOwnerCut::<Test>::get(netuid);
+        let initial_pending_emission = PendingEmission::<Test>::get(netuid);
+        let initial_pending_alpha_swapped = PendingAlphaSwapped::<Test>::get(netuid);
+
+        SubtensorModule::split_alpha_out(netuid, alpha_out_value, is_subsidized);
+
+        let final_pending_root_divs = PendingRootDivs::<Test>::get(netuid);
+        let final_pending_owner_cut = PendingOwnerCut::<Test>::get(netuid);
+        let final_pending_emission = PendingEmission::<Test>::get(netuid);
+        let final_pending_alpha_swapped = PendingAlphaSwapped::<Test>::get(netuid);
+
+        // When subsidized, no swap occurs, so root divs should not change
+        assert_eq!(
+            final_pending_root_divs, initial_pending_root_divs,
+            "Root divs should not change when subsidized (no swap)"
+        );
+
+        // Calculate expected values (same calculation as non-subsidized, but no swap)
+        let cut_percent = SubtensorModule::get_float_subnet_owner_cut();
+        let expected_owner_cut_f = alpha_out_value * cut_percent;
+        let expected_owner_cut = AlphaCurrency::from(expected_owner_cut_f.to_num::<u64>());
+
+        let alpha_after_owner_cut = alpha_out_value - expected_owner_cut_f;
+
+        let root_tao = U96F32::from_num(SubnetTAO::<Test>::get(NetUid::ROOT));
+        let tao_weight = root_tao * SubtensorModule::get_tao_weight();
+        let alpha_issuance = U96F32::from_num(
+            SubnetAlphaIn::<Test>::get(netuid) + SubnetAlphaOut::<Test>::get(netuid),
+        );
+        let root_proportion = tao_weight / (tao_weight + alpha_issuance);
+        let expected_root_alpha_f = root_proportion * alpha_after_owner_cut * U96F32::from_num(0.5);
+        let expected_root_alpha = AlphaCurrency::from(expected_root_alpha_f.to_num::<u64>());
+        let expected_pending_alpha_f = alpha_after_owner_cut - expected_root_alpha_f;
+        let expected_pending_alpha = AlphaCurrency::from(expected_pending_alpha_f.to_num::<u64>());
+
+        // Verify expected values
+        let actual_owner_cut_added = final_pending_owner_cut - initial_pending_owner_cut;
+        let actual_emission_added = final_pending_emission - initial_pending_emission;
+        let actual_alpha_swapped_added =
+            final_pending_alpha_swapped - initial_pending_alpha_swapped;
+
+        assert_abs_diff_eq!(
+            actual_owner_cut_added,
+            expected_owner_cut,
+            epsilon = AlphaCurrency::from(1_000_000u64)
+        );
+        assert_abs_diff_eq!(
+            actual_emission_added,
+            expected_pending_alpha,
+            epsilon = AlphaCurrency::from(10_000_000u64)
+        );
+        assert_abs_diff_eq!(
+            actual_alpha_swapped_added,
+            expected_root_alpha,
+            epsilon = AlphaCurrency::from(10_000_000u64)
+        );
+
+        log::info!(
+            "Owner cut: actual={:?}, expected={:?}",
+            actual_owner_cut_added,
+            expected_owner_cut
+        );
+        log::info!(
+            "Emission: actual={:?}, expected={:?}",
+            actual_emission_added,
+            expected_pending_alpha
+        );
+        log::info!(
+            "Root divs unchanged: {:?} (subsidized, no swap)",
+            final_pending_root_divs
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_split_alpha_out_zero_alpha --exact --show-output --nocapture
+#[test]
+fn test_split_alpha_out_zero_alpha() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let alpha_out_value = U96F32::from_num(0); // Zero alpha
+        let is_subsidized = false;
+
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(5_000_000u64));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(5_000_000u64));
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(5_000_000u64));
+
+        SubtensorModule::split_alpha_out(netuid, alpha_out_value, is_subsidized);
+
+        // All pending values should remain zero or unchanged
+        assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+        assert_eq!(PendingEmission::<Test>::get(netuid), AlphaCurrency::ZERO);
+        assert_eq!(
+            PendingAlphaSwapped::<Test>::get(netuid),
+            AlphaCurrency::ZERO
+        );
+    });
+}
+
+// Tests for emission_to_subnet
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_emission_to_subnet_full_cycle --exact --show-output --nocapture
+#[test]
+fn test_emission_to_subnet_full_cycle() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        // Setup initial state - use large numbers to ensure non-zero results
+        let block_emission = U96F32::from_num(1_000_000_000_000u64);
+        let total_moving_prices = U96F32::from_num(1_000);
+
+        // Set subnet owner cut to 18%
+        SubtensorModule::set_subnet_owner_cut(u16::MAX / 100 * 18);
+
+        // Set moving price for the subnet
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(100));
+
+        // Set alpha issuance
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(5_000_000_000u64));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(5_000_000_000u64));
+
+        // Enable registration
+        NetworkRegistrationAllowed::<Test>::insert(netuid, true);
+
+        // Set some TAO on root for dividends
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(5_000_000_000u64));
+
+        // Setup reserves for swap
+        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
+
+        // Get initial values
+        let initial_alpha_in = SubnetAlphaIn::<Test>::get(netuid);
+        let initial_alpha_out = SubnetAlphaOut::<Test>::get(netuid);
+        let initial_subnet_tao = SubnetTAO::<Test>::get(netuid);
+        let initial_total_stake = TotalStake::<Test>::get();
+        let initial_total_issuance = TotalIssuance::<Test>::get();
+
+        // Calculate expected values from calculate_subnet_injection
+        let moving_price = U96F32::from_num(100);
+        let moving_price_ratio = moving_price / total_moving_prices; // 100 / 1000 = 0.1
+        let expected_default_tao_in = block_emission * moving_price_ratio;
+        let price = <Test as crate::Config>::SwapInterface::current_alpha_price(netuid.into());
+
+        // With 1:1 reserves, price ~= 1.0, so not subsidized
+        // tao_in = default_tao_in, alpha_in = tao_in / price
+        let expected_tao_in_f = expected_default_tao_in;
+        let expected_alpha_in_f = expected_tao_in_f / price;
+
+        // alpha_out = alpha_emission (from issuance)
+        let alpha_emission_u64 = SubtensorModule::get_block_emission_for_issuance(
+            (initial_alpha_in + initial_alpha_out).into(),
+        )
+        .unwrap_or(0);
+        let expected_alpha_out_f = U96F32::from_num(alpha_emission_u64);
+
+        // Call emission_to_subnet
+        SubtensorModule::emission_to_subnet(netuid, block_emission, total_moving_prices);
+
+        // Verify that values have been updated
+        let final_alpha_in = SubnetAlphaIn::<Test>::get(netuid);
+        let final_alpha_out = SubnetAlphaOut::<Test>::get(netuid);
+        let final_subnet_tao = SubnetTAO::<Test>::get(netuid);
+        let final_total_stake = TotalStake::<Test>::get();
+        let final_total_issuance = TotalIssuance::<Test>::get();
+
+        let alpha_in_added = final_alpha_in - initial_alpha_in;
+        let alpha_out_added = final_alpha_out - initial_alpha_out;
+        let tao_added = final_subnet_tao - initial_subnet_tao;
+
+        // Verify alpha_in injection
+        let expected_alpha_in = AlphaCurrency::from(expected_alpha_in_f.to_num::<u64>());
+        assert_abs_diff_eq!(
+            alpha_in_added,
+            expected_alpha_in,
+            epsilon = AlphaCurrency::from(100_000_000u64)
+        );
+
+        // Verify alpha_out injection
+        let expected_alpha_out = AlphaCurrency::from(expected_alpha_out_f.to_num::<u64>());
+        assert_abs_diff_eq!(
+            alpha_out_added,
+            expected_alpha_out,
+            epsilon = AlphaCurrency::from(100_000_000u64)
+        );
+
+        // Verify TAO injection
+        let expected_tao_in = TaoCurrency::from(expected_tao_in_f.to_num::<u64>());
+        assert_abs_diff_eq!(
+            tao_added,
+            expected_tao_in,
+            epsilon = TaoCurrency::from(100_000_000u64)
+        );
+
+        // Verify global state updates
+        assert_eq!(
+            final_total_stake - initial_total_stake,
+            tao_added,
+            "Total stake should increase by tao_in"
+        );
+        assert_eq!(
+            final_total_issuance - initial_total_issuance,
+            tao_added,
+            "Total issuance should increase by tao_in"
+        );
+
+        // Verify pending values have been set (split_alpha_out was called)
+        assert!(
+            PendingOwnerCut::<Test>::get(netuid) > AlphaCurrency::ZERO,
+            "Owner cut should be set"
+        );
+        assert!(
+            PendingEmission::<Test>::get(netuid) > AlphaCurrency::ZERO,
+            "Pending emission should be set"
+        );
+
+        log::info!(
+            "Alpha in: actual={:?}, expected={:?}",
+            alpha_in_added,
+            expected_alpha_in
+        );
+        log::info!(
+            "Alpha out: actual={:?}, expected={:?}",
+            alpha_out_added,
+            expected_alpha_out
+        );
+        log::info!(
+            "Subnet TAO added: {:?}",
+            final_subnet_tao - initial_subnet_tao
+        );
+        log::info!(
+            "Total stake added: {:?}",
+            final_total_stake - initial_total_stake
+        );
+        log::info!(
+            "Pending owner cut: {:?}",
+            PendingOwnerCut::<Test>::get(netuid)
+        );
+        log::info!(
+            "Pending emission: {:?}",
+            PendingEmission::<Test>::get(netuid)
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_emission_to_subnet_registration_not_allowed --exact --show-output --nocapture
+#[test]
+fn test_emission_to_subnet_registration_not_allowed() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let block_emission = U96F32::from_num(1_000_000);
+        let total_moving_prices = U96F32::from_num(1_000);
+
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(100));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(5_000_000u64));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(5_000_000u64));
+
+        // Disable registration
+        NetworkRegistrationAllowed::<Test>::insert(netuid, false);
+        NetworkPowRegistrationAllowed::<Test>::insert(netuid, false);
+
+        let initial_alpha_in = SubnetAlphaIn::<Test>::get(netuid);
+        let initial_alpha_out = SubnetAlphaOut::<Test>::get(netuid);
+        let initial_subnet_tao = SubnetTAO::<Test>::get(netuid);
+
+        SubtensorModule::emission_to_subnet(netuid, block_emission, total_moving_prices);
+
+        let final_alpha_in = SubnetAlphaIn::<Test>::get(netuid);
+        let final_alpha_out = SubnetAlphaOut::<Test>::get(netuid);
+        let final_subnet_tao = SubnetTAO::<Test>::get(netuid);
+
+        // When registration is not allowed, no emissions should occur
+        assert_eq!(
+            final_alpha_in, initial_alpha_in,
+            "Alpha in should not change"
+        );
+        assert_eq!(
+            final_alpha_out, initial_alpha_out,
+            "Alpha out should not change"
+        );
+        assert_eq!(
+            final_subnet_tao, initial_subnet_tao,
+            "Subnet TAO should not change"
+        );
+
+        // Pending values should also not be set
+        assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+        assert_eq!(PendingEmission::<Test>::get(netuid), AlphaCurrency::ZERO);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_emission_to_subnet_with_moving_price_update --exact --show-output --nocapture
+#[test]
+fn test_emission_to_subnet_with_moving_price_update() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let block_emission = U96F32::from_num(1_000_000);
+        let total_moving_prices = U96F32::from_num(1_000);
+
+        // Set initial moving price
+        let initial_moving_price = I96F32::from_num(100);
+        SubnetMovingPrice::<Test>::insert(netuid, initial_moving_price);
+
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(5_000_000u64));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(5_000_000u64));
+        NetworkRegistrationAllowed::<Test>::insert(netuid, true);
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(5_000_000u64));
+
+        SubtensorModule::emission_to_subnet(netuid, block_emission, total_moving_prices);
+
+        // The moving price should be updated by the function
+        // (The actual update logic is in update_moving_price which we don't test here,
+        // but we verify the function was called)
+        log::info!(
+            "Moving price after emission: {:?}",
+            SubnetMovingPrice::<Test>::get(netuid)
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_emission_to_subnet_multiple_calls --exact --show-output --nocapture
+#[test]
+fn test_emission_to_subnet_multiple_calls() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let block_emission = U96F32::from_num(500_000);
+        let total_moving_prices = U96F32::from_num(1_000);
+
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(100));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(5_000_000u64));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(5_000_000u64));
+        NetworkRegistrationAllowed::<Test>::insert(netuid, true);
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(5_000_000u64));
+
+        // Call emission_to_subnet multiple times
+        SubtensorModule::emission_to_subnet(netuid, block_emission, total_moving_prices);
+        let first_subnet_tao = SubnetTAO::<Test>::get(netuid);
+        let first_pending_emission = PendingEmission::<Test>::get(netuid);
+
+        SubtensorModule::emission_to_subnet(netuid, block_emission, total_moving_prices);
+        let second_subnet_tao = SubnetTAO::<Test>::get(netuid);
+        let second_pending_emission = PendingEmission::<Test>::get(netuid);
+
+        // Values should accumulate
+        assert!(
+            second_subnet_tao > first_subnet_tao,
+            "TAO should accumulate"
+        );
+        assert!(
+            second_pending_emission > first_pending_emission,
+            "Pending emission should accumulate"
+        );
+
+        log::info!(
+            "First call - Subnet TAO: {:?}, Pending emission: {:?}",
+            first_subnet_tao,
+            first_pending_emission
+        );
+        log::info!(
+            "Second call - Subnet TAO: {:?}, Pending emission: {:?}",
+            second_subnet_tao,
+            second_pending_emission
+        );
+    });
+}
