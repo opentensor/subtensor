@@ -207,6 +207,81 @@ fn test_coinbase_tao_issuance_different_prices() {
             epsilon = 1.into(),
         );
 
+        // EMA Prices are high => full emission
+        let tao_issued = TaoCurrency::from(emission);
+        assert_abs_diff_eq!(
+            TotalIssuance::<Test>::get(),
+            tao_issued,
+            epsilon = 10.into()
+        );
+        assert_abs_diff_eq!(
+            TotalStake::<Test>::get(),
+            emission.into(),
+            epsilon = 10.into()
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_subsidies --exact --show-output --nocapture
+#[test]
+fn test_coinbase_subsidies() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let emission = 100_000_000;
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        // Setup prices 0.1 and 0.2
+        let initial_tao: u64 = 100_000_u64;
+        let initial_alpha1: u64 = initial_tao * 10;
+        let initial_alpha2: u64 = initial_tao * 5;
+        mock::setup_reserves(netuid1, initial_tao.into(), initial_alpha1.into());
+        mock::setup_reserves(netuid2, initial_tao.into(), initial_alpha2.into());
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(
+            netuid1,
+            TaoCurrency::ZERO,
+            1_000_000_000_000.into(),
+            false,
+        )
+        .unwrap();
+        SubtensorModule::swap_tao_for_alpha(
+            netuid2,
+            TaoCurrency::ZERO,
+            1_000_000_000_000.into(),
+            false,
+        )
+        .unwrap();
+
+        // Make subnets dynamic.
+        SubnetMechanism::<Test>::insert(netuid1, 1);
+        SubnetMechanism::<Test>::insert(netuid2, 1);
+
+        // Set subnet EMA prices (sum < 1)
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.2));
+
+        // Assert initial TAO reserves.
+        assert_eq!(SubnetTAO::<Test>::get(netuid1), initial_tao.into());
+        assert_eq!(SubnetTAO::<Test>::get(netuid2), initial_tao.into());
+
+        // Run the coinbase with the emission amount.
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+
+        // Assert tao emission is split evenly.
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(netuid1),
+            TaoCurrency::from(initial_tao + emission / 3),
+            epsilon = 1.into(),
+        );
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(netuid2),
+            TaoCurrency::from(initial_tao + 2 * emission / 3),
+            epsilon = 1.into(),
+        );
+
         // Prices are low => we limit tao issued (buy alpha with it)
         let tao_issued = TaoCurrency::from(((0.1 + 0.2) * emission as f64) as u64);
         assert_abs_diff_eq!(

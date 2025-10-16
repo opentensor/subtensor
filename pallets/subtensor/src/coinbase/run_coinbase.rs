@@ -39,22 +39,23 @@ impl<T: Config> Pallet<T> {
         log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut acc_total_moving_prices = U96F32::saturating_from_num(0.0);
         // Only get price EMA for subnets that we emit to.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Get and update the moving price of each subnet adding the total together.
-            acc_total_moving_prices =
-                acc_total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
-        }
-        let total_moving_prices = acc_total_moving_prices;
+        let total_moving_prices = subnets_to_emit_to
+            .iter()
+            .map(|netuid| Self::get_moving_alpha_price(*netuid))
+            .fold(U96F32::saturating_from_num(0.0), |acc, ema| {
+                acc.saturating_add(ema)
+            });
         log::debug!("total_moving_prices: {total_moving_prices:?}");
+
+        let subsidy_mode = total_moving_prices < U96F32::saturating_from_num(1.0);
+        log::debug!("subsidy_mode: {subsidy_mode:?}");
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
         let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get subnet price.
@@ -79,11 +80,7 @@ impl<T: Config> Pallet<T> {
             // Get initial alpha_in
             let mut alpha_in_i: U96F32;
             let mut tao_in_i: U96F32;
-            let tao_in_ratio: U96F32 = default_tao_in_i.safe_div_or(
-                U96F32::saturating_from_num(block_emission),
-                U96F32::saturating_from_num(0.0),
-            );
-            if price_i < tao_in_ratio {
+            if subsidy_mode {
                 tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
                 alpha_in_i = block_emission;
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
@@ -100,11 +97,9 @@ impl<T: Config> Pallet<T> {
                         *total = total.saturating_sub(bought_alpha);
                     });
                 }
-                is_subsidized.insert(*netuid_i, true);
             } else {
                 tao_in_i = default_tao_in_i;
                 alpha_in_i = tao_in_i.safe_div_or(price_i, alpha_emission_i);
-                is_subsidized.insert(*netuid_i, false);
             }
             log::debug!("alpha_in_i: {alpha_in_i:?}");
 
@@ -215,8 +210,7 @@ impl<T: Config> Pallet<T> {
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
             log::debug!("pending_alpha: {pending_alpha:?}");
             // Sell root emission through the pool (do not pay fees)
-            let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
-            if !subsidized {
+            if !subsidy_mode {
                 let swap_result = Self::swap_alpha_for_tao(
                     *netuid_i,
                     tou64!(root_alpha).into(),
