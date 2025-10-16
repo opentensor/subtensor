@@ -335,4 +335,35 @@ impl<T: Config> Pallet<T> {
             root_claim_type: new_type,
         });
     }
+
+    pub fn transfer_root_claimed_for_new_coldkey(
+        netuid: NetUid,
+        hotkey: &T::AccountId,
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) {
+        let old_root_claimed = RootClaimed::<T>::get((hotkey, old_coldkey, netuid));
+        RootClaimed::<T>::remove((hotkey, old_coldkey, netuid));
+
+        RootClaimed::<T>::mutate((hotkey, new_coldkey, netuid), |new_root_claimed| {
+            *new_root_claimed = old_root_claimed.saturating_add(*new_root_claimed);
+        });
+    }
+    pub fn transfer_root_claimable_for_new_hotkey(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+    ) {
+        let src_root_claimable = RootClaimable::<T>::get(old_hotkey);
+        let mut dst_root_claimable = RootClaimable::<T>::get(new_hotkey);
+        RootClaimable::<T>::remove(old_hotkey);
+
+        for (netuid, claimable_rate) in src_root_claimable.into_iter() {
+            dst_root_claimable
+                .entry(netuid)
+                .and_modify(|total| *total = total.saturating_add(claimable_rate))
+                .or_insert(claimable_rate);
+        }
+
+        RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
+    }
 }
