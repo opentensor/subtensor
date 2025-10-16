@@ -549,7 +549,8 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ScalingLawPowerSet(netuid, scaling_law_power));
     }
 
-    pub fn get_max_weight_limit(_netuid: NetUid) -> u16 {
+    #[inline(always)]
+    pub const fn get_max_weight_limit(_netuid: NetUid) -> u16 {
         u16::MAX
     }
 
