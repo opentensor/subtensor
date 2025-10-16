@@ -5576,3 +5576,62 @@ fn test_remove_root_updates_counters() {
         );
     });
 }
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_liquidity_boundaries --exact --show-output
+#[test]
+fn test_add_stake_liquidity_boundaries() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1001);
+        let owner_coldkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let amount = TaoCurrency::from(10_000_000_000_000_000);
+
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Setup reserves that will make amount push the liquidity limits
+        let tao_reserve_before = TaoCurrency::from(20_000_000_000_000);
+        let alpha_reserve_before = AlphaCurrency::from(1_700_000_000_000_000);
+        mock::setup_reserves(
+            netuid,
+            tao_reserve_before,
+            alpha_reserve_before,
+        );
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount.into());
+
+        // Calculate implied reserves before
+        // TODO
+
+
+        // Call add_stake extrinsic
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            owner_hotkey,
+            netuid,
+            amount
+        ));
+
+        // Call remove_stake extrinsic for a small alpha amount
+        let unstake_amount = AlphaCurrency::from(100_000_000);
+        remove_stake_rate_limit_for_tests(&owner_hotkey, &coldkey, netuid);
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(coldkey),
+            owner_hotkey,
+            netuid,
+            unstake_amount
+        ));
+
+        // Calculate implied reserves after
+        // TODO
+
+
+
+        // Verify reserves
+        let tao_reserve_after = SubnetTAO::<Test>::get(netuid);
+        let alpha_reserve_after = SubnetAlphaIn::<Test>::get(netuid);
+        // println!("{:?}", tao_reserve_after - tao_reserve_before);
+        // println!("{:?}", alpha_reserve_after);
+    });
+}
