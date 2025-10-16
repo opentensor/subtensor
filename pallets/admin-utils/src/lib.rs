@@ -581,23 +581,13 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_kappa(origin: OriginFor<T>, netuid: NetUid, kappa: u16) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::Kappa.into()],
-            )?;
-
+            ensure_root(origin)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_kappa(netuid, kappa);
             log::debug!("KappaSet( netuid: {netuid:?} kappa: {kappa:?} ) ");
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::Kappa.into()],
-            );
             Ok(())
         }
 
