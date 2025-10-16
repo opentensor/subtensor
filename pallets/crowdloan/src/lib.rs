@@ -645,7 +645,7 @@ pub mod pallet {
             // Ensure the crowdloan is not finalized
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
-            // Only the creator can dissolve the crowdloan
+            // Only the creator can refund the crowdloan
             ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
 
             let mut refunded_contributors: Vec<T::AccountId> = vec![];
