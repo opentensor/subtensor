@@ -1,11 +1,16 @@
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 mod types;
 
 use crate::types::{FunctionId, Output};
-use codec::Encode;
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{DebugNoBound, traits::Get};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
-    ChainExtension, Environment, Ext, InitState, RetVal, SysConfig,
+    BufInBufOutState, ChainExtension, Environment, Ext, InitState, RetVal, SysConfig,
 };
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
 use sp_std::marker::PhantomData;
@@ -14,17 +19,42 @@ use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 #[derive(DebugNoBound)]
 pub struct SubtensorChainExtension<T>(PhantomData<T>);
 
+impl<T> Default for SubtensorChainExtension<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
 impl<T> ChainExtension<T> for SubtensorChainExtension<T>
 where
     T: pallet_subtensor::Config + pallet_contracts::Config,
+    T::AccountId: Clone,
     <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
 {
     fn call<E>(&mut self, env: Environment<E, InitState>) -> Result<RetVal, DispatchError>
     where
         E: Ext<T = T>,
     {
-        let mut env = env.buf_in_buf_out();
-        let func_id = env.func_id().try_into().map_err(|_| {
+        let mut adapter = ContractsEnvAdapter::<T, E>::new(env);
+        Self::dispatch(&mut adapter)
+    }
+
+    fn enabled() -> bool {
+        true
+    }
+}
+
+impl<T> SubtensorChainExtension<T>
+where
+    T: pallet_subtensor::Config + pallet_contracts::Config,
+    T::AccountId: Clone,
+{
+    fn dispatch<Env>(env: &mut Env) -> Result<RetVal, DispatchError>
+    where
+        Env: SubtensorExtensionEnv<T::AccountId>,
+        <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
+    {
+        let func_id: FunctionId = env.func_id().try_into().map_err(|_| {
             DispatchError::Other(
                 "Invalid function id - does not correspond to any registered function",
             )
@@ -32,10 +62,9 @@ where
 
         match func_id {
             FunctionId::GetStakeInfoForHotkeyColdkeyNetuidV1 => {
-                let input: (T::AccountId, T::AccountId, NetUid) = env
+                let (hotkey, coldkey, netuid): (T::AccountId, T::AccountId, NetUid) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (hotkey, coldkey, netuid) = input;
 
                 let stake_info =
                     pallet_subtensor::Pallet::<T>::get_stake_info_for_hotkey_coldkey_netuid(
@@ -44,12 +73,11 @@ where
 
                 let encoded_result = stake_info.encode();
 
-                env.write(&encoded_result, false, None)
+                env.write_output(&encoded_result)
                     .map_err(|_| DispatchError::Other("Failed to write output"))?;
 
                 Ok(RetVal::Converging(0))
             }
-            // Weights are copied from the pallet calls. Use `WeightInfo` when available.
             FunctionId::AddStakeV1 => {
                 let weight = Weight::from_parts(340_800_000, 0)
                     .saturating_add(T::DbWeight::get().reads(24_u64))
@@ -57,13 +85,12 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (T::AccountId, NetUid, TaoCurrency) = env
+                let (hotkey, netuid, amount_staked): (T::AccountId, NetUid, TaoCurrency) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (hotkey, netuid, amount_staked) = input;
 
                 let call_result = pallet_subtensor::Pallet::<T>::add_stake(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                     netuid,
                     amount_staked,
@@ -84,13 +111,12 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (T::AccountId, NetUid, AlphaCurrency) = env
+                let (hotkey, netuid, amount_unstaked): (T::AccountId, NetUid, AlphaCurrency) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (hotkey, netuid, amount_unstaked) = input;
 
                 let call_result = pallet_subtensor::Pallet::<T>::remove_stake(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                     netuid,
                     amount_unstaked,
@@ -116,7 +142,7 @@ where
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
                 let call_result = pallet_subtensor::Pallet::<T>::unstake_all(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                 );
 
@@ -140,7 +166,7 @@ where
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
                 let call_result = pallet_subtensor::Pallet::<T>::unstake_all_alpha(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                 );
 
@@ -159,19 +185,18 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (T::AccountId, T::AccountId, NetUid, NetUid, AlphaCurrency) = env
-                    .read_as()
-                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
                 let (
                     origin_hotkey,
                     destination_hotkey,
                     origin_netuid,
                     destination_netuid,
                     alpha_amount,
-                ) = input;
+                ): (T::AccountId, T::AccountId, NetUid, NetUid, AlphaCurrency) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
                 let call_result = pallet_subtensor::Pallet::<T>::move_stake(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     origin_hotkey,
                     destination_hotkey,
                     origin_netuid,
@@ -194,14 +219,18 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (T::AccountId, T::AccountId, NetUid, NetUid, AlphaCurrency) = env
+                let (destination_coldkey, hotkey, origin_netuid, destination_netuid, alpha_amount): (
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    NetUid,
+                    AlphaCurrency,
+                ) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (destination_coldkey, hotkey, origin_netuid, destination_netuid, alpha_amount) =
-                    input;
 
                 let call_result = pallet_subtensor::Pallet::<T>::transfer_stake(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     destination_coldkey,
                     hotkey,
                     origin_netuid,
@@ -224,13 +253,17 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (T::AccountId, NetUid, NetUid, AlphaCurrency) = env
+                let (hotkey, origin_netuid, destination_netuid, alpha_amount): (
+                    T::AccountId,
+                    NetUid,
+                    NetUid,
+                    AlphaCurrency,
+                ) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (hotkey, origin_netuid, destination_netuid, alpha_amount) = input;
 
                 let call_result = pallet_subtensor::Pallet::<T>::swap_stake(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                     origin_netuid,
                     destination_netuid,
@@ -252,13 +285,18 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (T::AccountId, NetUid, TaoCurrency, TaoCurrency, bool) =
-                    env.read_as()
-                        .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (hotkey, netuid, amount_staked, limit_price, allow_partial) = input;
+                let (hotkey, netuid, amount_staked, limit_price, allow_partial): (
+                    T::AccountId,
+                    NetUid,
+                    TaoCurrency,
+                    TaoCurrency,
+                    bool,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
                 let call_result = pallet_subtensor::Pallet::<T>::add_stake_limit(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                     netuid,
                     amount_staked,
@@ -281,13 +319,18 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (T::AccountId, NetUid, AlphaCurrency, TaoCurrency, bool) = env
+                let (hotkey, netuid, amount_unstaked, limit_price, allow_partial): (
+                    T::AccountId,
+                    NetUid,
+                    AlphaCurrency,
+                    TaoCurrency,
+                    bool,
+                ) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (hotkey, netuid, amount_unstaked, limit_price, allow_partial) = input;
 
                 let call_result = pallet_subtensor::Pallet::<T>::remove_stake_limit(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                     netuid,
                     amount_unstaked,
@@ -310,7 +353,14 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (
+                let (
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                    limit_price,
+                    allow_partial,
+                ): (
                     T::AccountId,
                     NetUid,
                     NetUid,
@@ -320,17 +370,9 @@ where
                 ) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (
-                    hotkey,
-                    origin_netuid,
-                    destination_netuid,
-                    alpha_amount,
-                    limit_price,
-                    allow_partial,
-                ) = input;
 
                 let call_result = pallet_subtensor::Pallet::<T>::swap_stake_limit(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                     origin_netuid,
                     destination_netuid,
@@ -354,13 +396,12 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (T::AccountId, NetUid, Option<TaoCurrency>) = env
-                    .read_as()
-                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (hotkey, netuid, limit_price) = input;
+                let (hotkey, netuid, limit_price): (T::AccountId, NetUid, Option<TaoCurrency>) =
+                    env.read_as()
+                        .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
                 let call_result = pallet_subtensor::Pallet::<T>::remove_stake_full_limit(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                     netuid,
                     limit_price,
@@ -381,13 +422,12 @@ where
 
                 env.charge_weight(weight)?;
 
-                let input: (NetUid, T::AccountId) = env
+                let (netuid, hotkey): (NetUid, T::AccountId) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-                let (netuid, hotkey) = input;
 
                 let call_result = pallet_subtensor::Pallet::<T>::set_coldkey_auto_stake_hotkey(
-                    RawOrigin::Signed(env.ext().address().clone()).into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     netuid,
                     hotkey,
                 );
@@ -402,8 +442,62 @@ where
             }
         }
     }
+}
 
-    fn enabled() -> bool {
-        true
+trait SubtensorExtensionEnv<AccountId> {
+    fn func_id(&self) -> u16;
+    fn charge_weight(&mut self, weight: Weight) -> Result<(), DispatchError>;
+    fn read_as<T: Decode + MaxEncodedLen>(&mut self) -> Result<T, DispatchError>;
+    fn write_output(&mut self, data: &[u8]) -> Result<(), DispatchError>;
+    fn caller(&mut self) -> AccountId;
+}
+
+struct ContractsEnvAdapter<'a, 'b, T, E>
+where
+    T: pallet_subtensor::Config + pallet_contracts::Config,
+    E: Ext<T = T>,
+{
+    env: Environment<'a, 'b, E, BufInBufOutState>,
+    _marker: PhantomData<T>,
+}
+
+impl<'a, 'b, T, E> ContractsEnvAdapter<'a, 'b, T, E>
+where
+    T: pallet_subtensor::Config + pallet_contracts::Config,
+    T::AccountId: Clone,
+    E: Ext<T = T>,
+{
+    fn new(env: Environment<'a, 'b, E, InitState>) -> Self {
+        Self {
+            env: env.buf_in_buf_out(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, 'b, T, E> SubtensorExtensionEnv<T::AccountId> for ContractsEnvAdapter<'a, 'b, T, E>
+where
+    T: pallet_subtensor::Config + pallet_contracts::Config,
+    T::AccountId: Clone,
+    E: Ext<T = T>,
+{
+    fn func_id(&self) -> u16 {
+        self.env.func_id()
+    }
+
+    fn charge_weight(&mut self, weight: Weight) -> Result<(), DispatchError> {
+        self.env.charge_weight(weight).map(|_| ())
+    }
+
+    fn read_as<U: Decode + MaxEncodedLen>(&mut self) -> Result<U, DispatchError> {
+        self.env.read_as()
+    }
+
+    fn write_output(&mut self, data: &[u8]) -> Result<(), DispatchError> {
+        self.env.write(data, false, None)
+    }
+
+    fn caller(&mut self) -> T::AccountId {
+        self.env.ext().address().clone()
     }
 }
