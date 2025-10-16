@@ -136,8 +136,6 @@ mod events {
         RAORecycledForRegistrationSet(NetUid, TaoCurrency),
         /// min stake is set for validators to set weights.
         StakeThresholdSet(u64),
-        /// setting the minimum required stake amount for senate registration.
-        SenateRequiredStakePercentSet(u64),
         /// setting the adjustment alpha on a subnet.
         AdjustmentAlphaSet(NetUid, u64),
         /// the faucet it called on the test net.
@@ -171,13 +169,6 @@ mod events {
         MaxDelegateTakeSet(u16),
         /// minimum delegate take is set by sudo/admin transaction
         MinDelegateTakeSet(u16),
-        /// a member of the senate is adjusted
-        SenateAdjusted {
-            /// the account ID of the old senate member, if any
-            old_member: Option<T::AccountId>,
-            /// the account ID of the new senate member
-            new_member: T::AccountId,
-        },
         /// A coldkey has been swapped
         ColdkeySwapped {
             /// the account ID of old coldkey

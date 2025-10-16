@@ -91,11 +91,6 @@ pub mod pallet {
         AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
     };
 
-    #[cfg(not(feature = "std"))]
-    use alloc::boxed::Box;
-    #[cfg(feature = "std")]
-    use sp_std::prelude::Box;
-
     /// Origin for the pallet
     pub type PalletsOriginOf<T> =
         <<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
@@ -795,11 +790,6 @@ pub mod pallet {
         4
     }
     #[pallet::type_value]
-    /// Senate requirements
-    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
-        T::InitialSenateRequiredStakePercentage::get()
-    }
-    #[pallet::type_value]
     /// -- ITEM (switches liquid alpha on)
     pub fn DefaultLiquidAlpha<T: Config>() -> bool {
         false
@@ -938,10 +928,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type DissolveNetworkScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultDissolveNetworkScheduleDuration<T>>;
-
-    #[pallet::storage]
-    pub type SenateRequiredStakePercentage<T> =
-        StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     #[pallet::storage]
     /// --- DMap ( netuid, coldkey ) --> blocknumber | last hotkey swap on network.
@@ -2070,81 +2056,6 @@ use sp_std::vec;
 #[allow(unused)]
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
-
-/// Trait for managing a membership pallet instance in the runtime
-pub trait MemberManagement<AccountId> {
-    /// Add member
-    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Remove a member
-    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Swap member
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Get all members
-    fn members() -> Vec<AccountId>;
-
-    /// Check if an account is apart of the set
-    fn is_member(account: &AccountId) -> bool;
-
-    /// Get our maximum member count
-    fn max_members() -> u32;
-}
-
-impl<T> MemberManagement<T> for () {
-    /// Add member
-    fn add_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Remove a member
-    fn remove_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Swap member
-    fn swap_member(_: &T, _: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Get all members
-    fn members() -> Vec<T> {
-        vec![]
-    }
-
-    // Check if an account is apart of the set
-    fn is_member(_: &T) -> bool {
-        false
-    }
-
-    fn max_members() -> u32 {
-        0
-    }
-}
-
-/// Trait for interacting with collective pallets
-pub trait CollectiveInterface<AccountId, Hash, ProposalIndex> {
-    /// Remove vote
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, DispatchError>;
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: Hash,
-        index: ProposalIndex,
-        approve: bool,
-    ) -> Result<bool, DispatchError>;
-}
-
-impl<T, H, P> CollectiveInterface<T, H, P> for () {
-    fn remove_votes(_: &T) -> Result<bool, DispatchError> {
-        Ok(true)
-    }
-
-    fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
-        Ok(true)
-    }
-}
 
 #[derive(Clone)]
 pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
