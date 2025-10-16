@@ -205,10 +205,14 @@ impl<T: Config> Pallet<T> {
                 .checked_div(tao_weight.saturating_add(alpha_issuance))
                 .unwrap_or(asfloat!(0.0));
             log::debug!("root_proportion: {root_proportion:?}");
+
+            let validator_cut = U96F32::saturating_from_num(Self::get_validator_cut(*netuid_i))
+                .saturating_div(U96F32::saturating_from_num(u64::MAX));
+            log::debug!("validator_cut: {validator_cut:?}");
+
             // Get root proportion of alpha_out dividends.
-            let root_alpha: U96F32 = root_proportion
-                .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
-                .saturating_mul(asfloat!(0.5)); // 50% to validators.
+            let root_alpha: U96F32 = root_proportion.saturating_mul(alpha_out_i); // Total alpha emission per block remaining.
+            // .saturating_mul(validator_cut); // 50% to validators.
             // Remove root alpha from alpha_out.
             log::debug!("root_alpha: {root_alpha:?}");
             // Get pending alpha as original alpha_out - root_alpha.
