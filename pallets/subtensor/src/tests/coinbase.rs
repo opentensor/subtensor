@@ -2876,3 +2876,72 @@ fn test_incentive_goes_to_hotkey_when_no_autostake_destination() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_liquidity_reserves --exact --show-output
+#[test]
+fn test_coinbase_liquidity_reserves() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1001);
+        let owner_coldkey = U256::from(1002);
+        let coldkey = U256::from(1);
+
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Setup reserves that will make amount push the liquidity limits
+        // let tao_reserve_before = TaoCurrency::from(2_000_000_000_000_000);
+        // let alpha_reserve_before = AlphaCurrency::from(1_700_000_000_000_000);
+        let tao_reserve_before = TaoCurrency::from(1_000_000_000_000_000);
+        let alpha_reserve_before = AlphaCurrency::from(1_000_000_000_000_000);
+        mock::setup_reserves(netuid, tao_reserve_before, alpha_reserve_before);
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            TaoCurrency::ZERO,
+            1_000_000_000_000.into(),
+            false,
+        )
+        .unwrap();
+
+        // Calculate implied reserves before
+        let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
+        let position_before = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let price_sqrt_before = pallet_subtensor_swap::AlphaSqrtPrice::<Test>::get(netuid);
+        let (tao_implied_before, _alpha_implied_before) =
+            position_before.to_token_amounts(price_sqrt_before).unwrap();
+
+        ////////////////////////////////////////////
+        // Do emissions
+
+        // Set subnet ema price
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1.0));
+
+        // Run the coinbase with the emission amount.
+        SubtensorModule::run_coinbase(U96F32::from_num(1_000_000_000));
+
+        // Calculate implied reserves after
+        let position_after = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let price_sqrt_after = pallet_subtensor_swap::AlphaSqrtPrice::<Test>::get(netuid);
+        let (tao_implied_after, _alpha_implied_after) =
+            position_after.to_token_amounts(price_sqrt_after).unwrap();
+
+        // Verify implied and realized reserve diffs match
+        let tao_reserve_after = SubnetTAO::<Test>::get(netuid);
+        assert_abs_diff_eq!(
+            tao_reserve_after - tao_reserve_before,
+            (tao_implied_after - tao_implied_before).into(),
+            epsilon = 1.into()
+        );
+    });
+}

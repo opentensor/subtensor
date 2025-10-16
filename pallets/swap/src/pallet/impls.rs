@@ -4,7 +4,6 @@ use frame_support::pallet_prelude::Weight;
 use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
-use sp_arithmetic::helpers_128bit;
 use sp_runtime::{DispatchResult, Vec, traits::AccountIdConversion};
 use sp_std::collections::btree_map::BTreeMap;
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
@@ -69,6 +68,18 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Converts tao amount to liquidity assuming there's proportionally
+    /// matching alpha amount beside tao.
+    pub fn token_amounts_to_protocol_liquidity(
+        tao: TaoCurrency,
+        sqrt_price_curr: SqrtPrice,
+    ) -> u64 {
+        let sqrt_price_low = TickIndex::min_sqrt_price();
+        U64F64::saturating_from_num(tao)
+            .safe_div(sqrt_price_curr.saturating_sub(sqrt_price_low))
+            .saturating_to_num::<u64>()
+    }
+
     // initializes V3 swap for a subnet if needed
     pub(super) fn maybe_initialize_v3(netuid: NetUid) -> Result<(), Error<T>> {
         if SwapV3Initialized::<T>::get(netuid) {
@@ -97,9 +108,7 @@ impl<T: Config> Pallet<T> {
         // Set initial (protocol owned) liquidity and positions
         // Protocol liquidity makes one position from TickIndex::MIN to TickIndex::MAX
         // We are using the sp_arithmetic sqrt here, which works for u128
-        let liquidity = helpers_128bit::sqrt(
-            (tao_reserve.to_u64() as u128).saturating_mul(alpha_reserve.to_u64() as u128),
-        ) as u64;
+        let liquidity = Self::token_amounts_to_protocol_liquidity(tao_reserve, current_sqrt_price);
         let protocol_account_id = Self::protocol_account_id();
 
         let (position, _, _) = Self::add_liquidity_not_insert(
@@ -170,7 +179,7 @@ impl<T: Config> Pallet<T> {
             let current_sqrt_price = AlphaSqrtPrice::<T>::get(netuid);
             let tao_reservoir = ScrapReservoirTao::<T>::get(netuid);
             let alpha_reservoir = ScrapReservoirAlpha::<T>::get(netuid);
-            let (corrected_tao_delta, corrected_alpha_delta, tao_scrap, alpha_scrap) =
+            let (corrected_tao_delta, _corrected_alpha_delta, tao_scrap, alpha_scrap) =
                 Self::get_proportional_alpha_tao_and_remainders(
                     current_sqrt_price,
                     tao_delta
@@ -187,13 +196,10 @@ impl<T: Config> Pallet<T> {
 
             // Adjust liquidity
             let maybe_token_amounts = position.to_token_amounts(current_sqrt_price);
-            if let Ok((tao, alpha)) = maybe_token_amounts {
+            if let Ok((tao, _alpha)) = maybe_token_amounts {
                 // Get updated reserves, calculate liquidity
                 let new_tao_reserve = tao.saturating_add(corrected_tao_delta.to_u64());
-                let new_alpha_reserve = alpha.saturating_add(corrected_alpha_delta.to_u64());
-                let new_liquidity = helpers_128bit::sqrt(
-                    (new_tao_reserve as u128).saturating_mul(new_alpha_reserve as u128),
-                ) as u64;
+                let new_liquidity = Self::token_amounts_to_protocol_liquidity(new_tao_reserve.into(), current_sqrt_price);
                 let liquidity_delta = new_liquidity.saturating_sub(position.liquidity);
 
                 // Update current liquidity
