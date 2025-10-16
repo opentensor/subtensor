@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
             TotalIssuance::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_issued_i.into());
             });
-            // Adjust protocol liquidity based added reserves
+            // Adjust protocol liquidity based on added reserves
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
         }
 
