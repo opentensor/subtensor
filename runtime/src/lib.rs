@@ -647,10 +647,8 @@ impl pallet_staking::Config for Runtime {
     type UnixTime = Timestamp;
     type CurrencyToVote = SaturatingCurrencyToVote;
     type RewardRemainder = ();
-    // type RewardRemainder = Treasury;
     type RuntimeEvent = RuntimeEvent;
     type Slash = ();
-    // type Slash = Treasury;
     type Reward = ();
     type SessionsPerEra = SessionsPerEra;
     type BondingDuration = BondingDuration;
