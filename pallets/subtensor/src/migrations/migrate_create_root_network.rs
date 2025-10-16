@@ -64,9 +64,6 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Set the minimum allowed weights to zero (no weight restrictions)
     MinAllowedWeights::<T>::insert(NetUid::ROOT, 0);
 
-    // Set the maximum weight limit to u16::MAX (no weight restrictions)
-    MaxWeightsLimit::<T>::insert(NetUid::ROOT, u16::MAX);
-
     // Set default root tempo
     Tempo::<T>::insert(NetUid::ROOT, 100);
 
@@ -80,7 +77,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // WeightsSetRateLimit::<T>::insert(NetUid::ROOT, 7200);
 
     // Accrue weight for database writes
-    weight.saturating_accrue(T::DbWeight::get().writes(8));
+    weight.saturating_accrue(T::DbWeight::get().writes(7));
 
     // Remove all existing triumvirate votes and senate members
     remove_prefix::<T>("Triumvirate", "Votes", &mut weight);

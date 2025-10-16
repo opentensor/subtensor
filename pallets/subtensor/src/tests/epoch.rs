@@ -1024,7 +1024,6 @@ fn test_bonds() {
 		SubtensorModule::set_target_registrations_per_interval(netuid, n);
 		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
         SubtensorModule::set_min_allowed_weights( netuid, 1 );
-        SubtensorModule::set_max_weight_limit( netuid, u16::MAX );
 		SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
 
 
@@ -1370,7 +1369,6 @@ fn test_active_stake() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
@@ -1587,7 +1585,6 @@ fn test_outdated_weights() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
@@ -1777,7 +1774,6 @@ fn test_zero_weights() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // === Register [validator, server]
         for key in 0..n as u64 {
@@ -1980,7 +1976,6 @@ fn test_deregistered_miner_bonds() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
@@ -2700,7 +2695,6 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
     SubtensorModule::set_target_registrations_per_interval(netuid, n);
     SubtensorModule::set_weights_set_rate_limit(netuid, 0);
     SubtensorModule::set_min_allowed_weights(netuid, 1);
-    SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
     SubtensorModule::set_bonds_penalty(netuid, 0);
     SubtensorModule::set_alpha_sigmoid_steepness(netuid, 1000);
     SubtensorModule::set_bonds_moving_average(netuid, 975_000);
