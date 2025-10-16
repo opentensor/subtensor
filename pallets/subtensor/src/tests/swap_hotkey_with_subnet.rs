@@ -122,33 +122,6 @@ fn test_swap_total_hotkey_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_senate_members --exact --nocapture
-#[test]
-fn test_swap_senate_members() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-
-        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
-
-        assert_ok!(SenateMembers::add_member(RuntimeOrigin::root(), old_hotkey));
-
-        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
-        assert_ok!(SubtensorModule::do_swap_hotkey(
-            RuntimeOrigin::signed(coldkey),
-            &old_hotkey,
-            &new_hotkey,
-            Some(netuid)
-        ));
-
-        let members = SenateMembers::members();
-        assert!(members.contains(&old_hotkey));
-        assert!(!members.contains(&new_hotkey));
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_delegates --exact --nocapture
 #[test]
 fn test_swap_delegates() {

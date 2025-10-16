@@ -20,8 +20,6 @@ use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateT
 use pallet_contracts::HoldReason as ContractsHoldReason;
 use pallet_subtensor::utils::rate_limiting::TransactionType;
 use pallet_subtensor::*;
-use pallet_subtensor_collective as pallet_collective;
-use pallet_subtensor_collective::MemberCount;
 use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
@@ -41,10 +39,6 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>} = 2,
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 3,
-        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
-        Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 5,
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
@@ -279,7 +273,6 @@ parameter_types! {
     pub const InitialMinDifficulty: u64 = 1;
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
-    pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
     pub const InitialNetworkImmunityPeriod: u64 = 1_296_000;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
@@ -305,171 +298,11 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 10;
 }
 
-// Configure collective pallet for council
-parameter_types! {
-    pub const CouncilMotionDuration: BlockNumber = 100;
-    pub const CouncilMaxProposals: u32 = 10;
-    pub const CouncilMaxMembers: u32 = 3;
-}
-
-// Configure collective pallet for Senate
-parameter_types! {
-    pub const SenateMaxMembers: u32 = 12;
-}
-
-use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
-pub struct CanProposeToTriumvirate;
-impl CanPropose<AccountId> for CanProposeToTriumvirate {
-    fn can_propose(account: &AccountId) -> bool {
-        Triumvirate::is_member(account)
-    }
-}
-
-pub struct CanVoteToTriumvirate;
-impl CanVote<AccountId> for CanVoteToTriumvirate {
-    fn can_vote(_: &AccountId) -> bool {
-        //Senate::is_member(account)
-        false // Disable voting from pallet_collective::vote
-    }
-}
-
-use pallet_subtensor::{CollectiveInterface, MemberManagement, StakeThreshold};
-pub struct ManageSenateMembers;
-impl MemberManagement<AccountId> for ManageSenateMembers {
-    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        let who = *account;
-        SenateMembers::add_member(RawOrigin::Root.into(), who)
-    }
-
-    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        let who = *account;
-        SenateMembers::remove_member(RawOrigin::Root.into(), who)
-    }
-
-    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
-        let remove = *rm;
-        let add = *add;
-
-        Triumvirate::remove_votes(rm)?;
-        SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
-    }
-
-    fn is_member(account: &AccountId) -> bool {
-        SenateMembers::members().contains(account)
-    }
-
-    fn members() -> Vec<AccountId> {
-        SenateMembers::members().into()
-    }
-
-    fn max_members() -> u32 {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct GetSenateMemberCount;
-impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
-    fn get_count() -> MemberCount {
-        Senate::members().len() as u32
-    }
-}
-impl Get<MemberCount> for GetSenateMemberCount {
-    fn get() -> MemberCount {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, H256, u32> for TriumvirateVotes {
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::remove_votes(hotkey)
-    }
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: H256,
-        index: u32,
-        approve: bool,
-    ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(*hotkey, proposal, index, approve)
-    }
-}
-
-// We call pallet_collective TriumvirateCollective
-#[allow(dead_code)]
-type TriumvirateCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<TriumvirateCollective> for Test {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = GetSenateMemberCount;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = CanProposeToTriumvirate;
-    type CanVote = CanVoteToTriumvirate;
-    type GetVotingMembers = GetSenateMemberCount;
-}
-
-// We call council members Triumvirate
-#[allow(dead_code)]
-type TriumvirateMembership = pallet_membership::Instance1;
-impl pallet_membership::Config<TriumvirateMembership> for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Triumvirate;
-    type MembershipChanged = Triumvirate;
-    type MaxMembers = CouncilMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
-}
-
-// This is a dummy collective instance for managing senate members
-// Probably not the best solution, but fastest implementation
-#[allow(dead_code)]
-type SenateCollective = pallet_collective::Instance2;
-impl pallet_collective::Config<SenateCollective> for Test {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = SenateMaxMembers;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = ();
-    type CanVote = ();
-    type GetVotingMembers = ();
-}
-
-// We call our top K delegates membership Senate
-#[allow(dead_code)]
-type SenateMembership = pallet_membership::Instance2;
-impl pallet_membership::Config<SenateMembership> for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Senate;
-    type MembershipChanged = Senate;
-    type MaxMembers = SenateMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
-}
-
 impl pallet_subtensor::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
-    type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
-    type SenateMembers = ManageSenateMembers;
-    type TriumvirateInterface = TriumvirateVotes;
     type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
@@ -512,7 +345,6 @@ impl pallet_subtensor::Config for Test {
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
-    type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;

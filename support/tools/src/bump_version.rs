@@ -7,10 +7,9 @@ use std::{
 };
 use toml_edit::{DocumentMut, Item, Value};
 
-const TOML_PATHS: [&str; 9] = [
+const TOML_PATHS: [&str; 8] = [
     "support/macros",
     "pallets/commitments",
-    "pallets/collective",
     "pallets/registry",
     "pallets/subtensor",
     "pallets/subtensor/runtime-api",

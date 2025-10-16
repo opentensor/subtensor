@@ -658,18 +658,6 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn adjust_senate() {
-        let coldkey: T::AccountId = whitelisted_caller();
-        let hotkey: T::AccountId = account("Alice", 0, 1);
-
-        Subtensor::<T>::init_new_network(NetUid::ROOT, 1);
-        Uids::<T>::insert(NetUid::ROOT, &hotkey, 0u16);
-
-        #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
-    }
-
-    #[benchmark]
     fn add_stake_limit() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;
