@@ -54,6 +54,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
         let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut tao_issued: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         // Only calculate for subnets that we are emitting to.
@@ -115,6 +116,7 @@ impl<T: Config> Pallet<T> {
             }
             // Insert values into maps
             tao_in.insert(*netuid_i, tao_in_i);
+            tao_issued.insert(*netuid_i, default_tao_in_i);
             alpha_in.insert(*netuid_i, alpha_in_i);
             alpha_out.insert(*netuid_i, alpha_out_i);
         }
@@ -150,10 +152,13 @@ impl<T: Config> Pallet<T> {
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_in_i.into());
             });
+            // TAO issued
+            let tao_issued_i: TaoCurrency =
+                tou64!(*tao_issued.get(netuid_i).unwrap_or(&asfloat!(0))).into();
             TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(tao_issued_i.into());
             });
-            // Adjust protocol liquidity based on new reserves
+            // Adjust protocol liquidity based added reserves
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
         }
 

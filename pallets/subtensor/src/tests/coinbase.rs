@@ -270,7 +270,7 @@ fn test_coinbase_subsidies() {
         // Run the coinbase with the emission amount.
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
 
-        // Assert tao emission is split evenly.
+        // Assert tao emission is split evenly and SubnetTAO additions sum to full emission
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid1),
             TaoCurrency::from(initial_tao + emission / 3),
@@ -282,8 +282,8 @@ fn test_coinbase_subsidies() {
             epsilon = 1.into(),
         );
 
-        // Prices are low => we limit tao issued (buy alpha with it)
-        let tao_issued = TaoCurrency::from(((0.1 + 0.2) * emission as f64) as u64);
+        // Prices are low => we buy alpha with TAO issued, but full emission is issued
+        let tao_issued = TaoCurrency::from(emission);
         assert_abs_diff_eq!(
             TotalIssuance::<Test>::get(),
             tao_issued,
