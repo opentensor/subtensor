@@ -21,7 +21,19 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 
 | Function ID | Name | Description | Parameters | Returns |
 |------------|------|-------------|------------|---------|
-| 1001 | `get_stake_info_for_hotkey_coldkey_netuid` | Query stake information | `(AccountId32, AccountId32, NetUid)` | Stake information |
+| 0 | `get_stake_info_for_hotkey_coldkey_netuid` | Query stake information | `(AccountId, AccountId, NetUid)` | `Option<StakeInfo>` |
+| 1 | `add_stake` | Delegate stake from coldkey to hotkey | `(AccountId, NetUid, TaoCurrency)` | Error code |
+| 2 | `remove_stake` | Withdraw stake from hotkey back to coldkey | `(AccountId, NetUid, AlphaCurrency)` | Error code |
+| 3 | `unstake_all` | Unstake all TAO from a hotkey | `(AccountId)` | Error code |
+| 4 | `unstake_all_alpha` | Unstake all Alpha from a hotkey | `(AccountId)` | Error code |
+| 5 | `move_stake` | Move stake between hotkeys | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
+| 6 | `transfer_stake` | Transfer stake between coldkeys | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
+| 7 | `swap_stake` | Swap stake allocations between subnets | `(AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
+| 8 | `add_stake_limit` | Delegate stake with a price limit | `(AccountId, NetUid, TaoCurrency, TaoCurrency, bool)` | Error code |
+| 9 | `remove_stake_limit` | Withdraw stake with a price limit | `(AccountId, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
+| 10 | `swap_stake_limit` | Swap stake between subnets with price limit | `(AccountId, NetUid, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
+| 11 | `remove_stake_full_limit` | Fully withdraw stake with optional price limit | `(AccountId, NetUid, Option<TaoCurrency>)` | Error code |
+| 12 | `set_coldkey_auto_stake_hotkey` | Configure automatic stake destination | `(NetUid, AccountId)` | Error code |
 
 Example usage in your ink! contract:
 ```rust
@@ -29,7 +41,7 @@ Example usage in your ink! contract:
 pub trait SubtensorExtension {
     type ErrorCode = SubtensorError;
 
-    #[ink(function = 1001)]
+    #[ink(function = 0)]
     fn get_stake_info(
         hotkey: AccountId,
         coldkey: AccountId,
@@ -37,6 +49,29 @@ pub trait SubtensorExtension {
     ) -> Result<Option<StakeInfo>, SubtensorError>;
 }
 ```
+
+#### Error Codes
+
+Chain extension functions that modify state return error codes as `u32` values. The following codes are defined:
+
+| Code | Name | Description |
+|------|------|-------------|
+| 0 | `Success` | Operation completed successfully |
+| 1 | `RuntimeError` | Unknown runtime error occurred |
+| 2 | `NotEnoughBalanceToStake` | Insufficient balance to complete stake operation |
+| 3 | `NonAssociatedColdKey` | Coldkey is not associated with the hotkey |
+| 4 | `BalanceWithdrawalError` | Error occurred during balance withdrawal |
+| 5 | `NotRegistered` | Hotkey is not registered in the subnet |
+| 6 | `NotEnoughStakeToWithdraw` | Insufficient stake available for withdrawal |
+| 7 | `TxRateLimitExceeded` | Transaction rate limit has been exceeded |
+| 8 | `SlippageTooHigh` | Price slippage exceeds acceptable threshold |
+| 9 | `SubnetNotExists` | Specified subnet does not exist |
+| 10 | `HotKeyNotRegisteredInSubNet` | Hotkey is not registered in the specified subnet |
+| 11 | `SameAutoStakeHotkeyAlreadySet` | Auto-stake hotkey is already configured |
+| 12 | `InsufficientBalance` | Account has insufficient balance |
+| 13 | `AmountTooLow` | Transaction amount is below minimum threshold |
+| 14 | `InsufficientLiquidity` | Insufficient liquidity for swap operation |
+| 15 | `SameNetuid` | Source and destination subnets are the same |
 
 ### Call Filter
 
