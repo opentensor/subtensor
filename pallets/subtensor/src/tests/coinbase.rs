@@ -505,8 +505,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(initial));
         SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial_alpha)); // Make price extremely low.
         // Set subnet prices.
-        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
-        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.2));
         // Run coinbase
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // tao_in = 333_333
@@ -543,8 +543,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         // Enable emission
         FirstEmissionBlockNumber::<Test>::insert(netuid1, 0);
         FirstEmissionBlockNumber::<Test>::insert(netuid2, 0);
-        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
-        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.2));
 
         // Force the swap to initialize
         SubtensorModule::swap_tao_for_alpha(
