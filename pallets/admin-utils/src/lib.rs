@@ -1989,7 +1989,7 @@ pub mod pallet {
         /// Only callable by root.
         #[pallet::call_index(74)]
         #[pallet::weight((
-			Weight::from_parts(5_771_000, 0)
+			Weight::from_parts(9_418_000, 0)
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)),
 			DispatchClass::Operational
