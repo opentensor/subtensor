@@ -113,6 +113,41 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub(crate) fn get_proportional_alpha_tao_and_remainders(
+        sqrt_alpha_price: U64F64,
+        amount_tao: TaoCurrency,
+        amount_alpha: AlphaCurrency,
+    ) -> (TaoCurrency, AlphaCurrency, TaoCurrency, AlphaCurrency) {
+        let price = sqrt_alpha_price.saturating_mul(sqrt_alpha_price);
+        let tao_equivalent: u64 = U64F64::saturating_from_num(u64::from(amount_alpha))
+            .saturating_mul(price)
+            .saturating_to_num();
+        let amount_tao_u64 = u64::from(amount_tao);
+
+        if tao_equivalent <= amount_tao_u64 {
+            // Too much or just enough TAO
+            (
+                tao_equivalent.into(),
+                amount_alpha,
+                amount_tao.saturating_sub(TaoCurrency::from(tao_equivalent)),
+                0.into(),
+            )
+        } else {
+            // Too much Alpha
+            let alpha_equivalent: u64 = U64F64::saturating_from_num(u64::from(amount_tao))
+                .safe_div(price)
+                .saturating_to_num();
+            (
+                amount_tao,
+                alpha_equivalent.into(),
+                0.into(),
+                u64::from(amount_alpha)
+                    .saturating_sub(alpha_equivalent)
+                    .into(),
+            )
+        }
+    }
+
     /// Adjusts protocol liquidity with new values of TAO and Alpha reserve
     pub(super) fn adjust_protocol_liquidity(
         netuid: NetUid,
@@ -129,17 +164,31 @@ impl<T: Config> Pallet<T> {
             // Claim protocol fees and add them to liquidity
             let (tao_fees, alpha_fees) = position.collect_fees();
 
-            // Adjust liquidity
+            // Add fee reservoirs and get proportional amounts
             let current_sqrt_price = AlphaSqrtPrice::<T>::get(netuid);
+            let tao_reservoir = ScrapReservoirTao::<T>::get(netuid);
+            let alpha_reservoir = ScrapReservoirAlpha::<T>::get(netuid);
+            let (corrected_tao_delta, corrected_alpha_delta, tao_scrap, alpha_scrap) =
+                Self::get_proportional_alpha_tao_and_remainders(
+                    current_sqrt_price,
+                    tao_delta
+                        .saturating_add(TaoCurrency::from(tao_fees))
+                        .saturating_add(tao_reservoir),
+                    alpha_delta
+                        .saturating_add(AlphaCurrency::from(alpha_fees))
+                        .saturating_add(alpha_reservoir),
+                );
+
+            // Update scrap reservoirs
+            ScrapReservoirTao::<T>::insert(netuid, tao_scrap);
+            ScrapReservoirAlpha::<T>::insert(netuid, alpha_scrap);
+
+            // Adjust liquidity
             let maybe_token_amounts = position.to_token_amounts(current_sqrt_price);
             if let Ok((tao, alpha)) = maybe_token_amounts {
                 // Get updated reserves, calculate liquidity
-                let new_tao_reserve = tao
-                    .saturating_add(tao_delta.to_u64())
-                    .saturating_add(tao_fees);
-                let new_alpha_reserve = alpha
-                    .saturating_add(alpha_delta.to_u64())
-                    .saturating_add(alpha_fees);
+                let new_tao_reserve = tao.saturating_add(corrected_tao_delta.to_u64());
+                let new_alpha_reserve = alpha.saturating_add(corrected_alpha_delta.to_u64());
                 let new_liquidity = helpers_128bit::sqrt(
                     (new_tao_reserve as u128).saturating_mul(new_alpha_reserve as u128),
                 ) as u64;
