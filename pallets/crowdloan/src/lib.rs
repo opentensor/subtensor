@@ -88,6 +88,7 @@ pub type CrowdloanInfoOf<T> = CrowdloanInfo<
 >;
 
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
 
@@ -285,6 +286,8 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Create a crowdloan that will raise funds up to a maximum cap and if successful,
         /// will transfer funds to the target address if provided and dispatch the call
         /// (using creator origin).
@@ -635,12 +638,15 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResultWithPostInfo {
-            ensure_signed(origin)?;
+            let who = ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
 
             // Ensure the crowdloan is not finalized
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
+
+            // Only the creator can refund the crowdloan
+            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
 
             let mut refunded_contributors: Vec<T::AccountId> = vec![];
             let mut refund_count = 0;

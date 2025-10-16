@@ -97,8 +97,6 @@ mod errors {
         TooManyRegistrationsThisInterval,
         /// The hotkey is required to be the origin.
         TransactorAccountShouldBeHotKey,
-        /// A hotkey is attempting to do something only senate members can do.
-        NotSenateMember,
         /// Faucet is disabled.
         FaucetDisabled,
         /// Not a subnet owner.
@@ -130,8 +128,6 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
-        /// Not able to join the senate.
-        CouldNotJoinSenate,
         /// Attempting to set alpha high/low while disabled
         LiquidAlphaDisabled,
         /// Alpha high is too low: alpha_high > 0.8
@@ -262,5 +258,7 @@ mod errors {
         UidMapCouldNotBeCleared,
         /// Trimming would exceed the max immune neurons percentage
         TrimmingWouldExceedMaxImmunePercentage,
+        /// Violating the rules of Childkey-Parentkey consistency
+        ChildParentInconsistency,
     }
 }

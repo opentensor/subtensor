@@ -49,6 +49,7 @@ mod tests {
 
     fn lint(input: proc_macro2::TokenStream) -> Result {
         let mut visitor = AsPrimitiveVisitor::default();
+        #[allow(clippy::expect_used)]
         let expr: ExprMethodCall = syn::parse2(input).expect("should be a valid method call");
         visitor.visit_expr_method_call(&expr);
         if !visitor.errors.is_empty() {

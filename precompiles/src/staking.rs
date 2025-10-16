@@ -103,6 +103,7 @@ where
     }
 
     #[precompile::public("removeStake(bytes32,uint256,uint256)")]
+    #[precompile::payable]
     fn remove_stake(
         handle: &mut impl PrecompileHandle,
         address: H256,
@@ -141,6 +142,7 @@ where
     }
 
     #[precompile::public("removeStakeFull(bytes32,uint256)")]
+    #[precompile::payable]
     fn remove_stake_full(
         handle: &mut impl PrecompileHandle,
         hotkey: H256,
@@ -150,6 +152,7 @@ where
     }
 
     #[precompile::public("removeStakeFullLimit(bytes32,uint256,uint256)")]
+    #[precompile::payable]
     fn remove_stake_full_limit(
         handle: &mut impl PrecompileHandle,
         hotkey: H256,
@@ -161,6 +164,7 @@ where
     }
 
     #[precompile::public("moveStake(bytes32,bytes32,uint256,uint256,uint256)")]
+    #[precompile::payable]
     fn move_stake(
         handle: &mut impl PrecompileHandle,
         origin_hotkey: H256,
@@ -187,6 +191,7 @@ where
     }
 
     #[precompile::public("transferStake(bytes32,bytes32,uint256,uint256,uint256)")]
+    #[precompile::payable]
     fn transfer_stake(
         handle: &mut impl PrecompileHandle,
         destination_coldkey: H256,
@@ -301,6 +306,7 @@ where
     }
 
     #[precompile::public("addProxy(bytes32)")]
+    #[precompile::payable]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
@@ -315,6 +321,7 @@ where
     }
 
     #[precompile::public("removeProxy(bytes32)")]
+    #[precompile::payable]
     fn remove_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
@@ -329,6 +336,7 @@ where
     }
 
     #[precompile::public("addStakeLimit(bytes32,uint256,uint256,bool,uint256)")]
+    #[precompile::payable]
     fn add_stake_limit(
         handle: &mut impl PrecompileHandle,
         address: H256,
@@ -354,6 +362,7 @@ where
     }
 
     #[precompile::public("removeStakeLimit(bytes32,uint256,uint256,bool,uint256)")]
+    #[precompile::payable]
     fn remove_stake_limit(
         handle: &mut impl PrecompileHandle,
         address: H256,
@@ -444,6 +453,7 @@ where
     }
 
     #[precompile::public("removeStake(bytes32,uint256,uint256)")]
+    #[precompile::payable]
     fn remove_stake(
         handle: &mut impl PrecompileHandle,
         address: H256,
@@ -532,6 +542,7 @@ where
     }
 
     #[precompile::public("addProxy(bytes32)")]
+    #[precompile::payable]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
@@ -546,6 +557,7 @@ where
     }
 
     #[precompile::public("removeProxy(bytes32)")]
+    #[precompile::payable]
     fn remove_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);

@@ -63,6 +63,7 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 #[import_section(hooks::hooks)]
 #[import_section(config::config)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
@@ -89,11 +90,6 @@ pub mod pallet {
     use subtensor_runtime_common::{
         AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
     };
-
-    #[cfg(not(feature = "std"))]
-    use alloc::boxed::Box;
-    #[cfg(feature = "std")]
-    use sp_std::prelude::Box;
 
     /// Origin for the pallet
     pub type PalletsOriginOf<T> =
@@ -415,6 +411,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default account, derived from zero trailing bytes.
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
+        #[allow(clippy::expect_used)]
         T::AccountId::decode(&mut TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
@@ -588,6 +585,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for subnet owner.
     pub fn DefaultSubnetOwner<T: Config>() -> T::AccountId {
+        #[allow(clippy::expect_used)]
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
@@ -749,6 +747,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for key with type T::AccountId derived from trailing zeroes.
     pub fn DefaultKey<T: Config>() -> T::AccountId {
+        #[allow(clippy::expect_used)]
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
@@ -789,11 +788,6 @@ pub mod pallet {
     /// Default value for weight commit/reveal version.
     pub fn DefaultCommitRevealWeightsVersion<T: Config>() -> u16 {
         4
-    }
-    #[pallet::type_value]
-    /// Senate requirements
-    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
-        T::InitialSenateRequiredStakePercentage::get()
     }
     #[pallet::type_value]
     /// -- ITEM (switches liquid alpha on)
@@ -873,6 +867,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for coldkey swap scheduled
     pub fn DefaultColdkeySwapScheduled<T: Config>() -> (BlockNumberFor<T>, T::AccountId) {
+        #[allow(clippy::expect_used)]
         let default_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed");
         (BlockNumberFor::<T>::from(0_u32), default_account)
@@ -933,10 +928,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type DissolveNetworkScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultDissolveNetworkScheduleDuration<T>>;
-
-    #[pallet::storage]
-    pub type SenateRequiredStakePercentage<T> =
-        StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     #[pallet::storage]
     /// --- DMap ( netuid, coldkey ) --> blocknumber | last hotkey swap on network.
@@ -2066,85 +2057,11 @@ use sp_std::vec;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
-/// Trait for managing a membership pallet instance in the runtime
-pub trait MemberManagement<AccountId> {
-    /// Add member
-    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Remove a member
-    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Swap member
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Get all members
-    fn members() -> Vec<AccountId>;
-
-    /// Check if an account is apart of the set
-    fn is_member(account: &AccountId) -> bool;
-
-    /// Get our maximum member count
-    fn max_members() -> u32;
-}
-
-impl<T> MemberManagement<T> for () {
-    /// Add member
-    fn add_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Remove a member
-    fn remove_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Swap member
-    fn swap_member(_: &T, _: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Get all members
-    fn members() -> Vec<T> {
-        vec![]
-    }
-
-    // Check if an account is apart of the set
-    fn is_member(_: &T) -> bool {
-        false
-    }
-
-    fn max_members() -> u32 {
-        0
-    }
-}
-
-/// Trait for interacting with collective pallets
-pub trait CollectiveInterface<AccountId, Hash, ProposalIndex> {
-    /// Remove vote
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, DispatchError>;
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: Hash,
-        index: ProposalIndex,
-        approve: bool,
-    ) -> Result<bool, DispatchError>;
-}
-
-impl<T, H, P> CollectiveInterface<T, H, P> for () {
-    fn remove_votes(_: &T) -> Result<bool, DispatchError> {
-        Ok(true)
-    }
-
-    fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
-        Ok(true)
-    }
-}
-
 #[derive(Clone)]
 pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
 
 impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
+    #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> TaoCurrency {
         SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
     }
@@ -2162,6 +2079,7 @@ impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
 pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
 
 impl<T: Config> CurrencyReserve<AlphaCurrency> for AlphaCurrencyReserve<T> {
+    #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> AlphaCurrency {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
     }
@@ -2183,6 +2101,7 @@ pub type GetTaoForAlpha<T> =
 impl<T: Config + pallet_balances::Config<Balance = u64>>
     subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
 {
+    #![deny(clippy::expect_used)]
     fn exists(netuid: NetUid) -> bool {
         Self::if_subnet_exist(netuid)
     }
@@ -2215,6 +2134,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 impl<T: Config + pallet_balances::Config<Balance = u64>>
     subtensor_runtime_common::BalanceOps<T::AccountId> for Pallet<T>
 {
+    #![deny(clippy::expect_used)]
     fn tao_balance(account_id: &T::AccountId) -> TaoCurrency {
         pallet_balances::Pallet::<T>::free_balance(account_id).into()
     }
