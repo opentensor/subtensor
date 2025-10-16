@@ -101,3 +101,23 @@ pub(crate) fn migrate_storage<T: Config>(
 
     weight
 }
+
+pub(crate) fn remove_prefix<T: Config>(module: &str, old_map: &str, weight: &mut Weight) {
+    let mut prefix = Vec::new();
+    prefix.extend_from_slice(&twox_128(module.as_bytes()));
+    prefix.extend_from_slice(&twox_128(old_map.as_bytes()));
+
+    let removal_results = clear_prefix(&prefix, Some(u32::MAX));
+
+    let removed_entries_count = match removal_results {
+        KillStorageResult::AllRemoved(removed) => removed as u64,
+        KillStorageResult::SomeRemaining(removed) => {
+            log::info!("Failed To Remove Some Items During migration");
+            removed as u64
+        }
+    };
+
+    log::info!("Removed {removed_entries_count:?} entries from {old_map:?} map.");
+
+    *weight = (*weight).saturating_add(T::DbWeight::get().writes(removed_entries_count));
+}

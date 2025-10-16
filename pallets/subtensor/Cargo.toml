@@ -44,9 +44,7 @@ runtime-common.workspace = true
 subtensor-runtime-common = { workspace = true, features = ["approx"] }
 
 pallet-drand.workspace = true
-pallet-subtensor-collective.workspace = true
 pallet-commitments.workspace = true
-pallet-membership.workspace = true
 hex-literal.workspace = true
 num-traits = { workspace = true, features = ["libm"] }
 tle.workspace = true
@@ -77,13 +75,11 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-membership/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-subtensor-collective/try-runtime",
 	"pallet-commitments/try-runtime",
 	"pallet-crowdloan/try-runtime",
 	"pallet-drand/try-runtime",
@@ -99,7 +95,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
-	"pallet-membership/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
 	"pallet-transaction-payment/std",
@@ -111,7 +106,6 @@ std = [
 	"sp-tracing/std",
 	"sp-version/std",
 	"subtensor-runtime-common/std",
-	"pallet-subtensor-collective/std",
 	"pallet-commitments/std",
 	"pallet-crowdloan/std",
 	"pallet-drand/std",
@@ -139,13 +133,11 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-subtensor-collective/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",

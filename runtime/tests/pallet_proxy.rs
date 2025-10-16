@@ -1,12 +1,10 @@
 #![allow(clippy::unwrap_used)]
 
-use codec::Encode;
-use frame_support::{BoundedVec, assert_ok, traits::InstanceFilter};
+use frame_support::{assert_ok, traits::InstanceFilter};
 use node_subtensor_runtime::{
     BalancesCall, BuildStorage, Proxy, Runtime, RuntimeCall, RuntimeEvent, RuntimeGenesisConfig,
     RuntimeOrigin, SubtensorModule, System, SystemCall,
 };
-use pallet_subtensor_collective as pallet_collective;
 use pallet_subtensor_proxy as pallet_proxy;
 use subtensor_runtime_common::{AccountId, NetUid, ProxyType};
 
@@ -27,15 +25,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                 (AccountId::from(OTHER_ACCOUNT), amount),
             ],
             dev_accounts: None,
-        },
-
-        triumvirate: pallet_collective::GenesisConfig {
-            members: vec![AccountId::from(ACCOUNT)],
-            phantom: Default::default(),
-        },
-        senate_members: pallet_membership::GenesisConfig {
-            members: BoundedVec::try_from(vec![AccountId::from(ACCOUNT)]).unwrap(),
-            phantom: Default::default(),
         },
         ..Default::default()
     }
@@ -106,35 +95,9 @@ fn call_update_symbol() -> RuntimeCall {
 }
 
 // critical call for Subtensor
-fn call_propose() -> RuntimeCall {
-    let proposal = call_remark();
-    let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-
-    RuntimeCall::Triumvirate(pallet_collective::Call::propose {
-        proposal: Box::new(call_remark()),
-        length_bound: proposal_len,
-        duration: 100_000_000_u32,
-    })
-}
-
-// critical call for Subtensor
 fn call_root_register() -> RuntimeCall {
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register {
         hotkey: AccountId::from(ACCOUNT),
-    })
-}
-
-// triumvirate call
-fn call_triumvirate() -> RuntimeCall {
-    RuntimeCall::TriumvirateMembers(pallet_membership::Call::change_key {
-        new: AccountId::from(ACCOUNT).into(),
-    })
-}
-
-// senate call
-fn call_senate() -> RuntimeCall {
-    RuntimeCall::SenateMembers(pallet_membership::Call::change_key {
-        new: AccountId::from(ACCOUNT).into(),
     })
 }
 
@@ -205,10 +168,7 @@ fn test_proxy_pallet() {
         ProxyType::Owner,
         ProxyType::NonCritical,
         ProxyType::NonTransfer,
-        ProxyType::Senate,
         ProxyType::NonFungibile,
-        ProxyType::Triumvirate,
-        ProxyType::Governance,
         ProxyType::Staking,
         ProxyType::Registration,
     ];
@@ -217,10 +177,7 @@ fn test_proxy_pallet() {
         call_transfer,
         call_remark,
         call_owner_util,
-        call_propose,
         call_root_register,
-        call_triumvirate,
-        call_senate,
         call_add_stake,
         call_register,
     ];
