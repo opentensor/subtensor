@@ -5620,11 +5620,9 @@ fn test_add_stake_liquidity_boundaries() {
         ))
         .unwrap();
         let price_sqrt_before = pallet_subtensor_swap::AlphaSqrtPrice::<Test>::get(netuid);
-        let (tao_implied_before, alpha_implied_before) = position.to_token_amounts(price_sqrt_before).unwrap();
-
-        println!("tao_implied_before = {}", tao_implied_before);
-        println!("alpha_implied_before = {}", alpha_implied_before);
+        let (tao_implied_before, _alpha_implied_before) = position.to_token_amounts(price_sqrt_before).unwrap();
         
+        ////////////////////////////////////////////
         // Call add_stake extrinsic
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
@@ -5633,6 +5631,7 @@ fn test_add_stake_liquidity_boundaries() {
             amount
         ));
 
+        ////////////////////////////////////////////
         // Call remove_stake extrinsic for a small alpha amount
         let unstake_amount = AlphaCurrency::from(100_000_000);
         remove_stake_rate_limit_for_tests(&owner_hotkey, &coldkey, netuid);
@@ -5643,18 +5642,24 @@ fn test_add_stake_liquidity_boundaries() {
             unstake_amount
         ));
 
+        ////////////////////////////////////////////
+        // Do emissions
+
+        // Set subnet ema price (sum > 1)
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1.0));
+
+        // Run the coinbase with the emission amount.
+        SubtensorModule::run_coinbase(U96F32::from_num(1_000_000_000));
+
         // Calculate implied reserves after
         let price_sqrt_after = pallet_subtensor_swap::AlphaSqrtPrice::<Test>::get(netuid);
-        let (tao_implied_after, alpha_implied_after) = position.to_token_amounts(price_sqrt_after).unwrap();
+        let (tao_implied_after, _alpha_implied_after) = position.to_token_amounts(price_sqrt_after).unwrap();
 
-        println!("tao_implied_after = {}", tao_implied_after);
-        println!("alpha_implied_after = {}", alpha_implied_after);
-
-        // Verify reserves
+        // Verify implied and realized reserve diffs match
         let tao_reserve_after = SubnetTAO::<Test>::get(netuid);
-        let alpha_reserve_after = SubnetAlphaIn::<Test>::get(netuid);
-        println!("actual diff = {:?}", tao_reserve_after - tao_reserve_before);
-        println!("implied diff = {:?}", tao_implied_after - tao_implied_before);
-        println!("{:?}", alpha_reserve_after);
+        assert_eq!(
+            tao_reserve_after - tao_reserve_before,
+            (tao_implied_after - tao_implied_before).into(),
+        );
     });
 }
