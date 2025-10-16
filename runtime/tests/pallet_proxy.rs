@@ -206,7 +206,7 @@ fn test_proxy_pallet() {
         ProxyType::NonCritical,
         ProxyType::NonTransfer,
         ProxyType::Senate,
-        ProxyType::NonFungibile,
+        ProxyType::NonFungible,
         ProxyType::Triumvirate,
         ProxyType::Governance,
         ProxyType::Staking,

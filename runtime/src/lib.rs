@@ -688,7 +688,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
             ),
-            ProxyType::NonFungibile => !matches!(
+            ProxyType::NonFungible => !matches!(
                 c,
                 RuntimeCall::Balances(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
