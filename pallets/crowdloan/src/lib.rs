@@ -638,12 +638,15 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResultWithPostInfo {
-            ensure_signed(origin)?;
+            let who = ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
 
             // Ensure the crowdloan is not finalized
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
+
+            // Only the creator can dissolve the crowdloan
+            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
 
             let mut refunded_contributors: Vec<T::AccountId> = vec![];
             let mut refund_count = 0;
