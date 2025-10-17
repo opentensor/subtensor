@@ -15,7 +15,10 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_std::{marker::PhantomData, result::Result};
 
-use crate::{Config, LastSeen, Limits, Pallet, types::TransactionIdentifier};
+use crate::{
+    Config, LastSeen, Limits, Pallet,
+    types::{Scope, TransactionIdentifier},
+};
 
 /// Identifier returned in the transaction metadata for the rate limiting extension.
 const IDENTIFIER: &str = "RateLimitTransactionExtension";
@@ -67,8 +70,9 @@ where
             return Ok((ValidTransaction::default(), None, origin));
         }
 
-        let within_limit = Pallet::<T>::is_within_limit(&identifier)
-            .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+        let within_limit =
+            Pallet::<T>::is_within_limit(&identifier, Scope::<T::ScopeContext>::Global)
+                .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
 
         if !within_limit {
             return Err(TransactionValidityError::Invalid(
@@ -100,7 +104,7 @@ where
         if result.is_ok() {
             if let Some(identifier) = pre {
                 let block_number = frame_system::Pallet::<T>::block_number();
-                LastSeen::<T>::insert(&identifier, block_number);
+                LastSeen::<T>::insert(&identifier, Option::<T::ScopeContext>::None, block_number);
             }
         }
         Ok(())

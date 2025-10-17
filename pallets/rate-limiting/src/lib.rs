@@ -12,14 +12,13 @@ mod types;
 #[frame_support::pallet]
 pub mod pallet {
     use codec::Codec;
-    use core::fmt::Debug;
     use frame_support::{
         pallet_prelude::*, sp_runtime::traits::Saturating, traits::GetCallMetadata,
     };
     use frame_system::{ensure_root, pallet_prelude::*};
     use sp_std::vec::Vec;
 
-    use crate::types::TransactionIdentifier;
+    use crate::types::{Scope, TransactionIdentifier};
 
     /// Configuration trait for the rate limiting pallet.
     #[pallet::config]
@@ -31,7 +30,7 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
         /// Context type used for contextual (per-group) rate limits.
-        type ScopeContext: Parameter + Clone + PartialEq + Eq + Debug;
+        type ScopeContext: Parameter + Clone + PartialEq + Eq;
     }
 
     /// Storage mapping from transaction identifier to its configured rate limit.
@@ -41,9 +40,18 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, TransactionIdentifier, BlockNumberFor<T>, OptionQuery>;
 
     /// Tracks when a transaction was last observed.
+    ///
+    /// The second key is `None` for `Scope::Global` and `Some(context)` for `Scope::Contextual`.
     #[pallet::storage]
-    pub type LastSeen<T> =
-        StorageMap<_, Blake2_128Concat, TransactionIdentifier, BlockNumberFor<T>, OptionQuery>;
+    pub type LastSeen<T> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        TransactionIdentifier,
+        Blake2_128Concat,
+        Option<<T as Config>::ScopeContext>,
+        BlockNumberFor<T>,
+        OptionQuery,
+    >;
 
     /// Events emitted by the rate limiting pallet.
     #[pallet::event]
@@ -85,14 +93,22 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     impl<T: Config> Pallet<T> {
-        /// Returns `true` when the given transaction identifier passes its configured rate limit.
-        pub fn is_within_limit(identifier: &TransactionIdentifier) -> Result<bool, DispatchError> {
+        /// Returns `true` when the given transaction identifier passes its configured rate limit within the provided scope.
+        pub fn is_within_limit(
+            identifier: &TransactionIdentifier,
+            scope: Scope<<T as Config>::ScopeContext>,
+        ) -> Result<bool, DispatchError> {
             let Some(block_span) = Limits::<T>::get(identifier) else {
                 return Ok(true);
             };
 
             let current = frame_system::Pallet::<T>::block_number();
-            if let Some(last) = LastSeen::<T>::get(identifier) {
+            let context_key = match scope {
+                Scope::Global => None,
+                Scope::Contextual(ctx) => Some(ctx),
+            };
+
+            if let Some(last) = LastSeen::<T>::get(identifier, context_key.clone()) {
                 let delta = current.saturating_sub(last);
                 if delta < block_span {
                     return Ok(false);
