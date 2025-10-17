@@ -3,7 +3,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod types;
+pub mod types;
 
 use crate::types::{FunctionId, Output};
 use codec::{Decode, Encode, MaxEncodedLen};
