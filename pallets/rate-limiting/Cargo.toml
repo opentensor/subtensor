@@ -15,6 +15,7 @@ frame-support.workspace = true
 frame-system.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 sp-std.workspace = true
+subtensor-runtime-common.workspace = true
 
 [features]
 default = ["std"]
@@ -24,6 +25,7 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"sp-std/std",
+	"subtensor-runtime-common/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

@@ -10214,6 +10214,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-std",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
