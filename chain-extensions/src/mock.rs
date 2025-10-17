@@ -6,7 +6,7 @@
 
 use core::num::NonZeroU64;
 
-use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
+use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
@@ -16,7 +16,7 @@ use frame_support::{
     traits::{Hooks, PrivilegeCmp},
 };
 use frame_system as system;
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
+use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_contracts::HoldReason as ContractsHoldReason;
 use pallet_subtensor::utils::rate_limiting::TransactionType;
 use pallet_subtensor::*;
