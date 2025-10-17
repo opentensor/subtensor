@@ -76,7 +76,7 @@ where
                 env.write_output(&encoded_result)
                     .map_err(|_| DispatchError::Other("Failed to write output"))?;
 
-                Ok(RetVal::Converging(0))
+                Ok(RetVal::Converging(Output::Success as u32))
             }
             FunctionId::AddStakeV1 => {
                 let weight = Weight::from_parts(340_800_000, 0)
