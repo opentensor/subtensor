@@ -2295,16 +2295,22 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
+    #[codec(index = 0)]
     SetSNOwnerHotkey(NetUid),
     // Generic rate limit for subnet-owner hyperparameter updates (per netuid)
+    #[codec(index = 1)]
     OwnerHyperparamUpdate(NetUid, Hyperparameter),
     // Subnet registration rate limit
+    #[codec(index = 2)]
     NetworkLastRegistered,
     // Last tx block limit per account ID
+    #[codec(index = 3)]
     LastTxBlock(AccountId),
     // Last tx block child key limit per account ID
+    #[codec(index = 4)]
     LastTxBlockChildKeyTake(AccountId),
     // Last tx block delegate key limit per account ID
+    #[codec(index = 5)]
     LastTxBlockDelegateTake(AccountId),
 }
 
