@@ -12,7 +12,7 @@ export const IStakingABI = [
         ],
         name: "addProxy",
         outputs: [],
-        stateMutability: "nonpayable",
+        stateMutability: "payable",
         type: "function",
     },
     {
@@ -43,7 +43,7 @@ export const IStakingABI = [
         ],
         name: "removeProxy",
         outputs: [],
-        stateMutability: "nonpayable",
+        stateMutability: "payable",
         type: "function",
     },
     {
@@ -95,7 +95,7 @@ export const IStakingABI = [
         ],
         name: "removeStake",
         outputs: [],
-        stateMutability: "nonpayable",
+        stateMutability: "payable",
         type: "function",
     },
 ];
@@ -111,7 +111,7 @@ export const IStakingV2ABI = [
         ],
         "name": "addProxy",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
         "type": "function"
     },
     {
@@ -275,7 +275,7 @@ export const IStakingV2ABI = [
         ],
         "name": "removeProxy",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
         "type": "function"
     },
     {
@@ -298,7 +298,7 @@ export const IStakingV2ABI = [
         ],
         "name": "removeStake",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
         "type": "function"
     },
     {
@@ -331,7 +331,7 @@ export const IStakingV2ABI = [
         ],
         "name": "addStakeLimit",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
         "type": "function"
     },
     {
@@ -364,7 +364,7 @@ export const IStakingV2ABI = [
         ],
         "name": "removeStakeLimit",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
         "type": "function"
     },
     {
@@ -382,7 +382,7 @@ export const IStakingV2ABI = [
         ],
         "name": "removeStakeFull",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
         "type": "function"
     },
     {
@@ -405,7 +405,7 @@ export const IStakingV2ABI = [
         ],
         "name": "removeStakeFullLimit",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
         "type": "function"
     },
     {
@@ -428,7 +428,7 @@ export const IStakingV2ABI = [
         ],
         "name": "burnAlpha",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
         "type": "function"
     }
 ];
