@@ -370,7 +370,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         NetworkRegistrationAllowed::<Test>::insert(net, true);
         NetworkPowRegistrationAllowed::<Test>::insert(net, true);
         PendingEmission::<Test>::insert(net, AlphaCurrency::from(1));
-        PendingRootDivs::<Test>::insert(net, TaoCurrency::from(1));
         PendingRootAlphaDivs::<Test>::insert(net, AlphaCurrency::from(1));
         PendingOwnerCut::<Test>::insert(net, AlphaCurrency::from(1));
         BlocksSinceLastStep::<Test>::insert(net, 1u64);
@@ -527,7 +526,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!NetworkRegistrationAllowed::<Test>::contains_key(net));
         assert!(!NetworkPowRegistrationAllowed::<Test>::contains_key(net));
         assert!(!PendingEmission::<Test>::contains_key(net));
-        assert!(!PendingRootDivs::<Test>::contains_key(net));
         assert!(!PendingRootAlphaDivs::<Test>::contains_key(net));
         assert!(!PendingOwnerCut::<Test>::contains_key(net));
         assert!(!BlocksSinceLastStep::<Test>::contains_key(net));

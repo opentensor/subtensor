@@ -2196,4 +2196,13 @@ fn test_migrate_remove_tao_dividends() {
         migration,
         200_000,
     );
+
+    let storage_name = "PendingRootDivs";
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        storage_name,
+        migration,
+        200_000,
+    );
 }

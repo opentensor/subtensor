@@ -46,6 +46,7 @@ pub fn migrate_remove_tao_dividends<T: Config>() -> Weight {
     // Remove obsolete map entries
     let weight1 = remove_prefix::<T>("TaoDividendsPerSubnet");
     let weight2 = remove_prefix::<T>("PendingAlphaSwapped");
+    let weight3 = remove_prefix::<T>("PendingRootDivs");
 
     // Mark Migration as Completed
     HasMigrationRun::<T>::insert(&migration_name, true);
@@ -56,5 +57,8 @@ pub fn migrate_remove_tao_dividends<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
-    weight.saturating_add(weight1).saturating_add(weight2)
+    weight
+        .saturating_add(weight1)
+        .saturating_add(weight2)
+        .saturating_add(weight3)
 }

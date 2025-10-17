@@ -1401,11 +1401,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultPendingEmission<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> pending_root_emission
-    pub type PendingRootDivs<T> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
-
     /// --- MAP ( netuid ) --> pending_root_emission
     #[pallet::storage]
     pub type PendingRootAlphaDivs<T> =
