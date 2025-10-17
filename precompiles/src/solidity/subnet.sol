@@ -75,11 +75,6 @@ interface ISubnet {
 
     function getMaxWeightLimit(uint16 netuid) external view returns (uint16);
 
-    function setMaxWeightLimit(
-        uint16 netuid,
-        uint16 maxWeightLimit
-    ) external payable;
-
     function getImmunityPeriod(uint16) external view returns (uint16);
 
     function setImmunityPeriod(

@@ -284,7 +284,6 @@ impl<T: Config> Pallet<T> {
         MaxAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
         ActivityCutoff::<T>::remove(netuid);
-        MaxWeightsLimit::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);

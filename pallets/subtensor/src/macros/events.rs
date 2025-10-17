@@ -50,7 +50,8 @@ mod events {
         BulkBalancesSet(u16, u16),
         /// max allowed uids has been set for a subnetwork.
         MaxAllowedUidsSet(NetUid, u16),
-        /// the max weight limit has been set for a subnetwork.
+        #[deprecated(note = "Max weight limit is now a constant and this event is unused")]
+        /// DEPRECATED: max weight limit updates are no longer supported.
         MaxWeightLimitSet(NetUid, u16),
         /// the difficulty has been set for a subnet.
         DifficultySet(NetUid, u64),
