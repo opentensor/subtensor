@@ -367,9 +367,8 @@ pub mod pallet {
     /// Ideally this is calculated using the number of staking coldkey
     /// and the block time.
     pub fn DefaultNumRootClaim<T: Config>() -> u64 {
-        // TODO: replace with size of staking coldkeys / 7200
-        // i.e. once per day
-        15
+        // once per week (+ spare keys for skipped tries)
+        5
     }
 
     #[pallet::type_value]
