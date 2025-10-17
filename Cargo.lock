@@ -10206,6 +10206,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-rate-limiting"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-recovery"
 version = "41.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80#81fa2c54e94f824eba7dabe9dffd063481cb2d80"
