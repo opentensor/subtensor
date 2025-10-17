@@ -3,10 +3,10 @@
 //! Basic rate limiting pallet.
 
 pub use pallet::*;
-pub use transaction_extension::RateLimitTransactionExtension;
-pub use types::{Scope, TransactionIdentifier};
+pub use tx_extension::RateLimitTransactionExtension;
+pub use types::{RateLimitContextResolver, TransactionIdentifier};
 
-mod transaction_extension;
+mod tx_extension;
 mod types;
 
 #[frame_support::pallet]
@@ -18,7 +18,7 @@ pub mod pallet {
     use frame_system::{ensure_root, pallet_prelude::*};
     use sp_std::vec::Vec;
 
-    use crate::types::{Scope, TransactionIdentifier};
+    use crate::types::{RateLimitContextResolver, TransactionIdentifier};
 
     /// Configuration trait for the rate limiting pallet.
     #[pallet::config]
@@ -30,7 +30,10 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
         /// Context type used for contextual (per-group) rate limits.
-        type ScopeContext: Parameter + Clone + PartialEq + Eq;
+        type LimitContext: Parameter + Clone + PartialEq + Eq;
+
+        /// Resolves the context for a given runtime call.
+        type ContextResolver: RateLimitContextResolver<<Self as Config>::RuntimeCall, Self::LimitContext>;
     }
 
     /// Storage mapping from transaction identifier to its configured rate limit.
@@ -41,14 +44,14 @@ pub mod pallet {
 
     /// Tracks when a transaction was last observed.
     ///
-    /// The second key is `None` for `Scope::Global` and `Some(context)` for `Scope::Contextual`.
+    /// The second key is `None` for global limits and `Some(context)` for contextual limits.
     #[pallet::storage]
     pub type LastSeen<T> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         TransactionIdentifier,
         Blake2_128Concat,
-        Option<<T as Config>::ScopeContext>,
+        Option<<T as Config>::LimitContext>,
         BlockNumberFor<T>,
         OptionQuery,
     >;
@@ -93,22 +96,19 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     impl<T: Config> Pallet<T> {
-        /// Returns `true` when the given transaction identifier passes its configured rate limit within the provided scope.
+        /// Returns `true` when the given transaction identifier passes its configured rate limit
+        /// within the provided context.
         pub fn is_within_limit(
             identifier: &TransactionIdentifier,
-            scope: Scope<<T as Config>::ScopeContext>,
+            context: Option<<T as Config>::LimitContext>,
         ) -> Result<bool, DispatchError> {
             let Some(block_span) = Limits::<T>::get(identifier) else {
                 return Ok(true);
             };
 
             let current = frame_system::Pallet::<T>::block_number();
-            let context_key = match scope {
-                Scope::Global => None,
-                Scope::Contextual(ctx) => Some(ctx),
-            };
 
-            if let Some(last) = LastSeen::<T>::get(identifier, context_key.clone()) {
+            if let Some(last) = LastSeen::<T>::get(identifier, &context) {
                 let delta = current.saturating_sub(last);
                 if delta < block_span {
                     return Ok(false);

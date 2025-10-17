@@ -2,15 +2,11 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::DispatchError, traits::GetCallMetadata};
 use scale_info::TypeInfo;
 
-/// Defines the scope within which a rate limit applies.
-#[derive(
-    Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Debug,
-)]
-pub enum Scope<Context> {
-    /// Rate limit applies chain-wide.
-    Global,
-    /// Rate limit applies to a specific context (e.g., subnet).
-    Contextual(Context),
+/// Resolves the optional context within which a rate limit applies.
+pub trait RateLimitContextResolver<Call, Context> {
+    /// Returns `Some(context)` when the limit should be applied per-context, or `None` for global
+    /// limits.
+    fn context(call: &Call) -> Option<Context>;
 }
 
 /// Identifies a runtime call by pallet and extrinsic indices.

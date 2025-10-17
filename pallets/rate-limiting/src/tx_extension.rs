@@ -17,7 +17,7 @@ use sp_std::{marker::PhantomData, result::Result};
 
 use crate::{
     Config, LastSeen, Limits, Pallet,
-    types::{Scope, TransactionIdentifier},
+    types::{RateLimitContextResolver, TransactionIdentifier},
 };
 
 /// Identifier returned in the transaction metadata for the rate limiting extension.
@@ -44,8 +44,8 @@ where
     const IDENTIFIER: &'static str = IDENTIFIER;
 
     type Implicit = ();
-    type Val = Option<TransactionIdentifier>;
-    type Pre = Option<TransactionIdentifier>;
+    type Val = Option<(TransactionIdentifier, Option<T::LimitContext>)>;
+    type Pre = Option<(TransactionIdentifier, Option<T::LimitContext>)>;
 
     fn weight(&self, _call: &<T as Config>::RuntimeCall) -> Weight {
         Weight::zero()
@@ -70,9 +70,10 @@ where
             return Ok((ValidTransaction::default(), None, origin));
         }
 
-        let within_limit =
-            Pallet::<T>::is_within_limit(&identifier, Scope::<T::ScopeContext>::Global)
-                .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+        let context = <T as Config>::ContextResolver::context(call);
+
+        let within_limit = Pallet::<T>::is_within_limit(&identifier, context.clone())
+            .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
 
         if !within_limit {
             return Err(TransactionValidityError::Invalid(
@@ -80,7 +81,11 @@ where
             ));
         }
 
-        Ok((ValidTransaction::default(), Some(identifier), origin))
+        Ok((
+            ValidTransaction::default(),
+            Some((identifier, context)),
+            origin,
+        ))
     }
 
     fn prepare(
@@ -102,9 +107,9 @@ where
         result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         if result.is_ok() {
-            if let Some(identifier) = pre {
+            if let Some((identifier, context)) = pre {
                 let block_number = frame_system::Pallet::<T>::block_number();
-                LastSeen::<T>::insert(&identifier, Option::<T::ScopeContext>::None, block_number);
+                LastSeen::<T>::insert(&identifier, context, block_number);
             }
         }
         Ok(())
