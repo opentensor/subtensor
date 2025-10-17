@@ -366,22 +366,24 @@ impl<T: Config> Pallet<T> {
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
     pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
-        // 1. --- The network exists?
+        // --- The network exists?
         ensure!(
             Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,
             Error::<T>::SubnetNotExists
         );
 
-        // 2. --- Perform the cleanup before removing the network.
+        Self::finalize_all_subnet_root_dividends(netuid);
+
+        // --- Perform the cleanup before removing the network.
         T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
 
-        // 3. --- Remove the network
+        // --- Remove the network
         Self::remove_network(netuid);
 
-        // 4. --- Emit the NetworkRemoved event
+        // --- Emit the NetworkRemoved event
         log::info!("NetworkRemoved( netuid:{netuid:?} )");
         Self::deposit_event(Event::NetworkRemoved(netuid));
 

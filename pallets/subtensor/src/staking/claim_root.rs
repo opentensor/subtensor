@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -129,11 +129,14 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: NetUid,
         root_claim_type: RootClaimTypeEnum,
+        ignore_minimum_condition: bool,
     ) {
         // Substract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
-        if owed < I96F32::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
+        if !ignore_minimum_condition
+            && owed < I96F32::saturating_from_num(DefaultMinRootClaimAmount::<T>::get())
+        {
             log::debug!(
                 "root claim on subnet {netuid} is skipped: {owed:?} for h={hotkey:?},c={coldkey:?} "
             );
@@ -218,7 +221,7 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads(1));
 
         root_claimable.iter().for_each(|(netuid, _)| {
-            Self::root_claim_on_subnet(hotkey, coldkey, *netuid, root_claim_type.clone());
+            Self::root_claim_on_subnet(hotkey, coldkey, *netuid, root_claim_type.clone(), false);
             weight.saturating_accrue(Self::root_claim_on_subnet_weight(root_claim_type.clone()));
         });
 
@@ -366,5 +369,39 @@ impl<T: Config> Pallet<T> {
         }
 
         RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
+    }
+
+    /// Claim all root dividends for subnet and remove all associated data.
+    pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
+        let mut hotkeys_to_clear = BTreeSet::new();
+        for (hotkey, root_claimable) in RootClaimable::<T>::iter() {
+            if root_claimable.contains_key(&netuid) {
+                let alpha_values: Vec<((T::AccountId, NetUid), U64F64)> =
+                    Alpha::<T>::iter_prefix((&hotkey,)).collect();
+
+                for ((coldkey, alpha_netuid), _) in alpha_values.into_iter() {
+                    if alpha_netuid == NetUid::ROOT {
+                        Self::root_claim_on_subnet(
+                            &hotkey,
+                            &coldkey,
+                            netuid,
+                            RootClaimTypeEnum::Swap,
+                            true,
+                        );
+
+                        RootClaimed::<T>::remove((hotkey.clone(), coldkey, netuid));
+                        if !hotkeys_to_clear.contains(&hotkey) {
+                            hotkeys_to_clear.insert(hotkey.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        for hotkey in hotkeys_to_clear.into_iter() {
+            RootClaimable::<T>::mutate(&hotkey, |claimable| {
+                claimable.remove(&netuid);
+            });
+        }
     }
 }
