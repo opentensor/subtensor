@@ -18,6 +18,7 @@ pub enum FunctionId {
     SwapStakeLimitV1 = 10,
     RemoveStakeFullLimitV1 = 11,
     SetColdkeyAutoStakeHotkeyV1 = 12,
+    AddProxyV1 = 13,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
@@ -55,6 +56,12 @@ pub enum Output {
     InsufficientLiquidity = 14,
     /// Same netuid
     SameNetuid = 15,
+    /// Too many proxies registered
+    ProxyTooMany = 16,
+    /// Proxy already exists
+    ProxyDuplicate = 17,
+    /// Cannot add self as proxy
+    ProxyNoSelfProxy = 18,
 }
 
 impl From<DispatchError> for Output {
@@ -78,6 +85,9 @@ impl From<DispatchError> for Output {
             Some("AmountTooLow") => Output::AmountTooLow,
             Some("InsufficientLiquidity") => Output::InsufficientLiquidity,
             Some("SameNetuid") => Output::SameNetuid,
+            Some("TooMany") => Output::ProxyTooMany,
+            Some("Duplicate") => Output::ProxyDuplicate,
+            Some("NoSelfProxy") => Output::ProxyNoSelfProxy,
             _ => Output::RuntimeError,
         }
     }
