@@ -17970,6 +17970,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-scheduler",
  "pallet-subtensor",
+ "pallet-subtensor-proxy",
  "pallet-subtensor-swap",
  "pallet-subtensor-utility",
  "pallet-timestamp",
