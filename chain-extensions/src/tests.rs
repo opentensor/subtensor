@@ -659,6 +659,40 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
     });
 }
 
+#[test]
+fn add_proxy_success_creates_proxy_relationship() {
+    mock::new_test_ext(1).execute_with(|| {
+        let delegator = U256::from(6001);
+        let delegate = U256::from(6002);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &delegator,
+            1_000_000_000,
+        );
+
+        assert_eq!(
+            pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator)
+                .0
+                .len(),
+            0
+        );
+
+        let mut env = MockEnv::new(FunctionId::AddProxyV1, delegator, delegate.encode());
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+
+        let proxies = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
+        assert_eq!(proxies.len(), 1);
+        assert_eq!(proxies[0].delegate, delegate);
+        assert_eq!(
+            proxies[0].proxy_type,
+            subtensor_runtime_common::ProxyType::Staking
+        );
+        assert_eq!(proxies[0].delay, 0u64);
+    });
+}
+
 impl MockEnv {
     fn new(func_id: FunctionId, caller: AccountId, input: Vec<u8>) -> Self {
         Self {
