@@ -477,6 +477,35 @@ where
                     }
                 }
             }
+            FunctionId::RemoveProxyV1 => {
+                let weight = <T as pallet_proxy::Config>::WeightInfo::remove_proxy(
+                    <T as pallet_proxy::Config>::MaxProxies::get(),
+                );
+
+                env.charge_weight(weight)?;
+
+                let delegate: T::AccountId = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let delegate_lookup =
+                    <<T as frame_system::Config>::Lookup as StaticLookup>::Source::from(delegate);
+
+                let call_result = pallet_proxy::Pallet::<T>::remove_proxy(
+                    RawOrigin::Signed(env.caller()).into(),
+                    delegate_lookup,
+                    ProxyType::Staking,
+                    0u32.into(),
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
         }
     }
 }
