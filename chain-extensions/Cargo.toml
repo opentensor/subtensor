@@ -30,6 +30,7 @@ pallet-preimage.workspace = true
 pallet-timestamp.workspace = true
 pallet-crowdloan.workspace = true
 pallet-subtensor-utility.workspace = true
+pallet-subtensor-proxy.workspace = true
 pallet-drand.workspace = true
 subtensor-swap-interface.workspace = true
 num_enum.workspace = true
@@ -59,6 +60,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-crowdloan/std",
 	"pallet-subtensor-utility/std",
+	"pallet-subtensor-proxy/std",
 	"pallet-drand/std",
 	"subtensor-swap-interface/std",
 ]
