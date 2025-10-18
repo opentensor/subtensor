@@ -35,6 +35,7 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 11 | `remove_stake_full_limit` | Fully withdraw stake with optional price limit | `(AccountId, NetUid, Option<TaoCurrency>)` | Error code |
 | 12 | `set_coldkey_auto_stake_hotkey` | Configure automatic stake destination | `(NetUid, AccountId)` | Error code |
 | 13 | `add_proxy` | Add a staking proxy for the caller | `(AccountId)` | Error code |
+| 14 | `remove_proxy` | Remove a staking proxy for the caller | `(AccountId)` | Error code |
 
 Example usage in your ink! contract:
 ```rust
@@ -76,6 +77,7 @@ Chain extension functions that modify state return error codes as `u32` values. 
 | 16 | `ProxyTooMany` | Too many proxies registered |
 | 17 | `ProxyDuplicate` | Proxy already exists |
 | 18 | `ProxyNoSelfProxy` | Cannot add self as proxy |
+| 19 | `ProxyNotFound` | Proxy relationship not found |
 
 ### Call Filter
 
