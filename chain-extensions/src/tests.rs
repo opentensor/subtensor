@@ -693,6 +693,33 @@ fn add_proxy_success_creates_proxy_relationship() {
     });
 }
 
+#[test]
+fn remove_proxy_success_removes_proxy_relationship() {
+    mock::new_test_ext(1).execute_with(|| {
+        let delegator = U256::from(7001);
+        let delegate = U256::from(7002);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &delegator,
+            1_000_000_000,
+        );
+
+        let mut add_env = MockEnv::new(FunctionId::AddProxyV1, delegator, delegate.encode());
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut add_env).unwrap();
+        assert_success(ret);
+
+        let proxies_before = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
+        assert_eq!(proxies_before.len(), 1);
+
+        let mut remove_env = MockEnv::new(FunctionId::RemoveProxyV1, delegator, delegate.encode());
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut remove_env).unwrap();
+        assert_success(ret);
+
+        let proxies_after = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
+        assert_eq!(proxies_after.len(), 0);
+    });
+}
+
 impl MockEnv {
     fn new(func_id: FunctionId, caller: AccountId, input: Vec<u8>) -> Self {
         Self {
