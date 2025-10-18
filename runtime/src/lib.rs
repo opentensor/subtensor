@@ -1491,10 +1491,7 @@ pub struct ContractCallFilter;
 impl Contains<RuntimeCall> for ContractCallFilter {
     fn contains(call: &RuntimeCall) -> bool {
         match call {
-            RuntimeCall::Proxy(inner) => matches!(
-                inner,
-                pallet_proxy::Call::proxy { .. } | pallet_proxy::Call::add_proxy { .. }
-            ),
+            RuntimeCall::Proxy(inner) => matches!(inner, pallet_proxy::Call::proxy { .. }),
             _ => false,
         }
     }
