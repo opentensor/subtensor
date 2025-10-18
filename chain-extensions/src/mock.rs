@@ -16,6 +16,7 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_contracts::HoldReason as ContractsHoldReason;
 use pallet_subtensor::*;
+use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
@@ -42,6 +43,7 @@ frame_support::construct_runtime!(
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
         Timestamp: pallet_timestamp::{Pallet, Call, Storage} = 14,
         Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 15,
+        Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 16,
     }
 );
 
@@ -132,6 +134,57 @@ impl pallet_contracts::Config for Test {
     type Xcm = ();
 }
 
+impl frame_support::traits::InstanceFilter<RuntimeCall> for subtensor_runtime_common::ProxyType {
+    fn filter(&self, c: &RuntimeCall) -> bool {
+        match self {
+            subtensor_runtime_common::ProxyType::Any => true,
+            subtensor_runtime_common::ProxyType::Staking => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_full_limit { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::unstake_all_alpha { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
+            ),
+            _ => false,
+        }
+    }
+
+    fn is_superset(&self, o: &Self) -> bool {
+        match (self, o) {
+            (subtensor_runtime_common::ProxyType::Any, _) => true,
+            _ => self == o,
+        }
+    }
+}
+
+impl pallet_proxy::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type ProxyType = subtensor_runtime_common::ProxyType;
+    type ProxyDepositBase = ProxyDepositBase;
+    type ProxyDepositFactor = ProxyDepositFactor;
+    type MaxProxies = MaxProxies;
+    type WeightInfo = ();
+    type MaxPending = MaxPending;
+    type CallHasher = BlakeTwo256;
+    type AnnouncementDepositBase = AnnouncementDepositBase;
+    type AnnouncementDepositFactor = AnnouncementDepositFactor;
+    type BlockNumberProvider = System;
+}
+
 pub struct NoNestingCallFilter;
 
 impl Contains<RuntimeCall> for NoNestingCallFilter {
@@ -198,6 +251,15 @@ parameter_types! {
     pub const ContractsMaxTransientStorageSize: u32 = 1024 * 1024;
     pub const ContractsMaxDebugBufferLen: u32 = 2 * 1024 * 1024;
     pub const ContractsUnstableInterface: bool = true;
+}
+
+parameter_types! {
+    pub const ProxyDepositBase: Balance = 1;
+    pub const ProxyDepositFactor: Balance = 1;
+    pub const MaxProxies: u32 = 32;
+    pub const MaxPending: u32 = 32;
+    pub const AnnouncementDepositBase: Balance = 1;
+    pub const AnnouncementDepositFactor: Balance = 1;
 }
 
 parameter_types! {
