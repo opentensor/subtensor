@@ -19,6 +19,7 @@ pub enum FunctionId {
     RemoveStakeFullLimitV1 = 11,
     SetColdkeyAutoStakeHotkeyV1 = 12,
     AddProxyV1 = 13,
+    RemoveProxyV1 = 14,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
@@ -62,6 +63,8 @@ pub enum Output {
     ProxyDuplicate = 17,
     /// Cannot add self as proxy
     ProxyNoSelfProxy = 18,
+    /// Proxy relationship not found
+    ProxyNotFound = 19,
 }
 
 impl From<DispatchError> for Output {
@@ -88,6 +91,7 @@ impl From<DispatchError> for Output {
             Some("TooMany") => Output::ProxyTooMany,
             Some("Duplicate") => Output::ProxyDuplicate,
             Some("NoSelfProxy") => Output::ProxyNoSelfProxy,
+            Some("NotFound") => Output::ProxyNotFound,
             _ => Output::RuntimeError,
         }
     }
