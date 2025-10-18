@@ -14,9 +14,11 @@ use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
     BufInBufOutState, ChainExtension, Environment, Ext, InitState, RetVal, SysConfig,
 };
+use pallet_subtensor_proxy as pallet_proxy;
+use pallet_subtensor_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, ProxyType, TaoCurrency};
 
 #[derive(DebugNoBound)]
 pub struct SubtensorChainExtension<T>(PhantomData<T>);
@@ -29,7 +31,9 @@ impl<T> Default for SubtensorChainExtension<T> {
 
 impl<T> ChainExtension<T> for SubtensorChainExtension<T>
 where
-    T: pallet_subtensor::Config + pallet_contracts::Config,
+    T: pallet_subtensor::Config
+        + pallet_contracts::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>,
     T::AccountId: Clone,
     <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
 {
@@ -48,7 +52,9 @@ where
 
 impl<T> SubtensorChainExtension<T>
 where
-    T: pallet_subtensor::Config + pallet_contracts::Config,
+    T: pallet_subtensor::Config
+        + pallet_contracts::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>,
     T::AccountId: Clone,
 {
     fn dispatch<Env>(env: &mut Env) -> Result<RetVal, DispatchError>
@@ -432,6 +438,35 @@ where
                     RawOrigin::Signed(env.caller()).into(),
                     netuid,
                     hotkey,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::AddProxyV1 => {
+                let weight = <T as pallet_proxy::Config>::WeightInfo::add_proxy(
+                    <T as pallet_proxy::Config>::MaxProxies::get(),
+                );
+
+                env.charge_weight(weight)?;
+
+                let delegate: T::AccountId = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let delegate_lookup =
+                    <<T as frame_system::Config>::Lookup as StaticLookup>::Source::from(delegate);
+
+                let call_result = pallet_proxy::Pallet::<T>::add_proxy(
+                    RawOrigin::Signed(env.caller()).into(),
+                    delegate_lookup,
+                    ProxyType::Staking,
+                    0u32.into(),
                 );
 
                 match call_result {
