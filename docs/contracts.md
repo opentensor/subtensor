@@ -34,6 +34,7 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 10 | `swap_stake_limit` | Swap stake between subnets with price limit | `(AccountId, NetUid, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
 | 11 | `remove_stake_full_limit` | Fully withdraw stake with optional price limit | `(AccountId, NetUid, Option<TaoCurrency>)` | Error code |
 | 12 | `set_coldkey_auto_stake_hotkey` | Configure automatic stake destination | `(NetUid, AccountId)` | Error code |
+| 13 | `add_proxy` | Add a staking proxy for the caller | `(AccountId)` | Error code |
 
 Example usage in your ink! contract:
 ```rust
@@ -72,6 +73,9 @@ Chain extension functions that modify state return error codes as `u32` values. 
 | 13 | `AmountTooLow` | Transaction amount is below minimum threshold |
 | 14 | `InsufficientLiquidity` | Insufficient liquidity for swap operation |
 | 15 | `SameNetuid` | Source and destination subnets are the same |
+| 16 | `ProxyTooMany` | Too many proxies registered |
+| 17 | `ProxyDuplicate` | Proxy already exists |
+| 18 | `ProxyNoSelfProxy` | Cannot add self as proxy |
 
 ### Call Filter
 
@@ -79,7 +83,6 @@ For security, contracts can only dispatch a limited set of runtime calls:
 
 **Whitelisted Calls:**
 - `Proxy::proxy` - Execute proxy calls
-- `Proxy::add_proxy` - Add a proxy relationship
 
 All other runtime calls are restricted and cannot be dispatched from contracts.
 
