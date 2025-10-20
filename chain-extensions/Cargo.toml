@@ -63,4 +63,5 @@ std = [
 	"pallet-subtensor-proxy/std",
 	"pallet-drand/std",
 	"subtensor-swap-interface/std",
+	"num_enum/std",
 ]
