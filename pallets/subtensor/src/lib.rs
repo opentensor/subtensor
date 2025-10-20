@@ -899,7 +899,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    /// Global minimum activity cutoff, not used anymore.
+    /// Global minimum activity cutoff value
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
 
