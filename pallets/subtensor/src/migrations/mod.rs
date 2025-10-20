@@ -21,6 +21,7 @@ pub mod migrate_fix_root_subnet_tao;
 pub mod migrate_fix_root_tao_and_alpha_in;
 pub mod migrate_identities_v2;
 pub mod migrate_init_total_issuance;
+pub mod migrate_kappa_map_to_default;
 pub mod migrate_network_immunity_period;
 pub mod migrate_network_lock_cost_2500;
 pub mod migrate_network_lock_reduction_interval;

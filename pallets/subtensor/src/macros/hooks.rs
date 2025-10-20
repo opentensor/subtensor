@@ -153,7 +153,9 @@ mod hooks {
                 // Cleanup child/parent keys
                 .saturating_add(migrations::migrate_fix_childkeys::migrate_fix_childkeys::<T>())
                 // Migrate AutoStakeDestinationColdkeys
-                .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>());
+                .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>())
+                // Migrate Kappa to default (0.5)
+                .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>());
             weight
         }
 
