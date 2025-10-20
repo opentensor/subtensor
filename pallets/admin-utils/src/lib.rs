@@ -40,9 +40,6 @@ pub mod pallet {
         + pallet_subtensor::pallet::Config
         + pallet_evm_chain_id::pallet::Config
     {
-        ///// Because this pallet emits events, it depends on the runtime's definition of an event.
-        //type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// Unit of assets
         type Balance: Balance;
     }
