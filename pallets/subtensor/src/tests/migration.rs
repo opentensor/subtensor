@@ -2179,33 +2179,37 @@ fn test_migrate_kappa_map_to_default() {
         // 0. Constants / helpers
         // ------------------------------
         const MIG_NAME: &[u8] = b"kappa_map_to_default";
-
         let default: u16 = DefaultKappa::<Test>::get();
-        let not_default: u16 = default.wrapping_add(1);
+
+        let not_default: u16 = if default == u16::MAX {
+            default.saturating_sub(1)
+        } else {
+            default.saturating_add(1)
+        };
 
         // ------------------------------
-        // 1. Pre-state: seed non-default & default entries
+        // 1. Pre-state: seed using the correct key type (NetUid)
         // ------------------------------
         let n0: NetUid = 0u16.into();
         let n1: NetUid = 1u16.into();
         let n2: NetUid = 42u16.into();
 
-        Kappa::<Test>::insert(&n0, not_default);
-        Kappa::<Test>::insert(&n1, default);
-        Kappa::<Test>::insert(&n2, not_default);
+        Kappa::<Test>::insert(n0, not_default);
+        Kappa::<Test>::insert(n1, default);
+        Kappa::<Test>::insert(n2, not_default);
 
         assert_eq!(
-            Kappa::<Test>::get(&n0),
+            Kappa::<Test>::get(n0),
             not_default,
             "precondition failed: Kappa[n0] should be non-default before migration"
         );
         assert_eq!(
-            Kappa::<Test>::get(&n1),
+            Kappa::<Test>::get(n1),
             default,
             "precondition failed: Kappa[n1] should be default before migration"
         );
         assert_eq!(
-            Kappa::<Test>::get(&n2),
+            Kappa::<Test>::get(n2),
             not_default,
             "precondition failed: Kappa[n2] should be non-default before migration"
         );
@@ -2231,17 +2235,17 @@ fn test_migrate_kappa_map_to_default() {
         );
 
         assert_eq!(
-            Kappa::<Test>::get(&n0),
+            Kappa::<Test>::get(n0),
             default,
             "Kappa[n0] should be reset to the configured default"
         );
         assert_eq!(
-            Kappa::<Test>::get(&n1),
+            Kappa::<Test>::get(n1),
             default,
             "Kappa[n1] should remain at the configured default"
         );
         assert_eq!(
-            Kappa::<Test>::get(&n2),
+            Kappa::<Test>::get(n2),
             default,
             "Kappa[n2] should be reset to the configured default"
         );
