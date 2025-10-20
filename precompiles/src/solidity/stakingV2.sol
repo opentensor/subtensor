@@ -48,7 +48,7 @@ interface IStaking {
         bytes32 hotkey,
         uint256 amount,
         uint256 netuid
-    ) external;
+    ) external payable;
 
     /**
      * @dev Moves a subtensor stake `amount` associated with the `hotkey` to a different hotkey
@@ -76,7 +76,7 @@ interface IStaking {
         uint256 origin_netuid,
         uint256 destination_netuid,
         uint256 amount
-    ) external;
+    ) external payable;
 
     /**
      * @dev Transfer a subtensor stake `amount` associated with the transaction signer to a different coldkey
@@ -104,7 +104,7 @@ interface IStaking {
         uint256 origin_netuid,
         uint256 destination_netuid,
         uint256 amount
-    ) external;
+    ) external payable;
 
     /**
      * @dev Returns the amount of RAO staked by the coldkey.
@@ -156,14 +156,14 @@ interface IStaking {
      *
      * @param delegate The public key (32 bytes) of the delegate.
      */
-    function addProxy(bytes32 delegate) external;
+    function addProxy(bytes32 delegate) external payable;
 
     /**
      * @dev Removes staking proxy account.
      *
      * @param delegate The public key (32 bytes) of the delegate.
      */
-    function removeProxy(bytes32 delegate) external;
+    function removeProxy(bytes32 delegate) external payable;
 
     /**
      * @dev Returns the validators that have staked alpha under a hotkey.
@@ -258,7 +258,7 @@ interface IStaking {
         uint256 limit_price,
         bool allow_partial,
         uint256 netuid
-    ) external;
+    ) external payable;
 
     /**
      * @dev Removes all stake from a hotkey on a subnet with a price limit.
@@ -270,7 +270,7 @@ interface IStaking {
      * @param hotkey The hotkey public key (32 bytes).
      * @param netuid The subnet to remove stake from (uint256).
      */
-    function removeStakeFull(bytes32 hotkey, uint256 netuid) external;
+    function removeStakeFull(bytes32 hotkey, uint256 netuid) external payable;
 
     /**
      * @dev Removes all stake from a hotkey on a subnet with a price limit.
@@ -287,5 +287,27 @@ interface IStaking {
         bytes32 hotkey,
         uint256 netuid,
         uint256 limitPrice
-    ) external;
+    ) external payable;
+
+    /**
+     * @dev Burns alpha tokens from the specified hotkey's stake on a subnet.
+     *
+     * This function allows external accounts and contracts to permanently burn (destroy) alpha tokens
+     * from their stake on a specified hotkey and subnet. The burned tokens are removed from circulation
+     * and cannot be recovered.
+     *
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param amount The amount of alpha to burn (uint256).
+     * @param netuid The subnet to burn from (uint256).
+     *
+     * Requirements:
+     * - `hotkey` must be a valid hotkey registered on the network.
+     * - The caller must have sufficient alpha staked to the specified hotkey on the subnet.
+     * - `amount` must be greater than zero and not exceed the staked amount.
+     */
+    function burnAlpha(
+        bytes32 hotkey,
+        uint256 amount,
+        uint256 netuid
+    ) external payable;
 }
