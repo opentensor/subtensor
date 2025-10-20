@@ -960,37 +960,29 @@ pub mod pallet {
     #[pallet::storage]
     /// --- ITEM --> Global weight
     pub type TaoWeight<T> = StorageValue<_, u64, ValueQuery, DefaultTaoWeight<T>>;
-
     #[pallet::storage]
     /// --- ITEM --> CK burn
     pub type CKBurn<T> = StorageValue<_, u64, ValueQuery, DefaultCKBurn<T>>;
-
     #[pallet::storage]
     /// --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
-
     #[pallet::storage]
     /// --- ITEM ( min_delegate_take )
     pub type MinDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinDelegateTake<T>>;
-
     #[pallet::storage]
     /// --- ITEM ( default_childkey_take )
     pub type MaxChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMaxChildKeyTake<T>>;
-
     #[pallet::storage]
     /// --- ITEM ( min_childkey_take )
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
-
     #[pallet::storage]
-    /// MAP ( hot ) --> cold, Returns the controlling coldkey for a hotkey. Default is empty account.
+    /// MAP ( hot ) --> cold, Returns the controlling coldkey for a hotkey
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
-
     #[pallet::storage]
-    /// MAP ( hot ) --> take, Returns the hotkey delegation take. And signals that this key is open for delegation. Default is 0.
+    /// MAP ( hot ) --> take, Returns the hotkey delegation take. And signals that this key is open for delegation
     pub type Delegates<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDelegateTake<T>>;
-
     #[pallet::storage]
     /// DMAP ( hot, netuid ) --> take, Returns the hotkey childkey take for a specific subnet
     pub type ChildkeyTake<T: Config> = StorageDoubleMap<
@@ -1002,7 +994,6 @@ pub mod pallet {
         u16,    // Value: take
         ValueQuery,
     >;
-
     #[pallet::storage]
     /// DMAP ( netuid, parent ) --> (Vec<(proportion,child)>, cool_down_block)
     pub type PendingChildKeys<T: Config> = StorageDoubleMap<
@@ -1015,9 +1006,8 @@ pub mod pallet {
         ValueQuery,
         DefaultPendingChildkeys<T>,
     >;
-
     #[pallet::storage]
-    /// DMAP ( child, netuid ) --> Vec<(proportion,parent)> Default is empty Vec.
+    /// DMAP ( parent, netuid ) --> Vec<(proportion,child)>
     pub type ChildKeys<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -1028,7 +1018,6 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
-
     #[pallet::storage]
     /// DMAP ( child, netuid ) --> Vec<(proportion,parent)>
     pub type ParentKeys<T: Config> = StorageDoubleMap<
@@ -1041,7 +1030,6 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
-
     #[pallet::storage]
     /// --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo.
     pub type AlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
@@ -1054,7 +1042,6 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroAlpha<T>,
     >;
-
     #[pallet::storage]
     /// --- DMAP ( netuid, hotkey ) --> u64 | Last total root dividend paid to this hotkey on this subnet.
     pub type TaoDividendsPerSubnet<T: Config> = StorageDoubleMap<
@@ -1071,10 +1058,9 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    /// --- ITEM ( global_block_emission )
     #[pallet::storage]
+    /// --- ITEM ( global_block_emission )    
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
-
     #[pallet::storage]
     /// --- DMap ( hot, netuid ) --> emission | last hotkey emission on network.
     pub type LastHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
@@ -1087,7 +1073,6 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroAlpha<T>,
     >;
-
     /// ==========================
     /// ==== Staking Counters ====
     /// ==========================
