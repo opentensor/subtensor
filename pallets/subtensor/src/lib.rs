@@ -1071,7 +1071,6 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-
     /// --- ITEM ( global_block_emission )
     #[pallet::storage]
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
@@ -1101,10 +1100,8 @@ pub mod pallet {
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
-
     #[pallet::storage]
     /// --- ITEM ( maximum_number_of_networks )
-
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
 
     #[pallet::storage]
