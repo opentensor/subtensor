@@ -1655,11 +1655,7 @@ pub mod pallet {
             netuid: NetUid,
             hotkey: <T as frame_system::Config>::AccountId,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin.clone(), netuid)?;
-            pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, &hotkey);
-
-            log::debug!("SubnetOwnerHotkeySet( netuid: {netuid:?}, hotkey: {hotkey:?} )");
-            Ok(())
+            pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
         }
 
         ///
