@@ -74,12 +74,14 @@ where
             continue;
         }
 
-        let encoded_key = &old_storage_key[prefix.len()..];
+        let Some(encoded_key) = old_storage_key.get(prefix.len()..) else {
+            continue;
+        };
         if encoded_key.is_empty() {
             continue;
         }
 
-        let Some(decoded_legacy) = decode_legacy::<T>(&encoded_key) else {
+        let Some(decoded_legacy) = decode_legacy::<T>(encoded_key) else {
             // Unknown entry – skip to avoid clobbering valid data.
             continue;
         };
