@@ -100,13 +100,12 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         MaxAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
         ActivityCutoff::<T>::remove(netuid);
-        MaxWeightsLimit::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
-        weight.saturating_accrue(T::DbWeight::get().writes(12));
+        weight.saturating_accrue(T::DbWeight::get().writes(10));
 
         // Update storage version
         StorageVersion::new(new_storage_version).put::<Pallet<T>>();

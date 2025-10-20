@@ -293,19 +293,6 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_max_weight_limit() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16.into(), /*netuid*/
-            1u16,        /*tempo*/
-        );
-
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 100u16/*max_weight_limit*/)/*sudo_set_max_weight_limit*/;
-    }
-
-    #[benchmark]
     fn sudo_set_max_registrations_per_block() {
         // disable admin freeze window
         pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);

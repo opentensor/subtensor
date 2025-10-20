@@ -71,7 +71,7 @@ mod errors {
         /// The supplied PoW hash seal does not match the supplied work.
         InvalidSeal,
         /// The dispatch is attempting to set weights on chain with weight value exceeding the
-        /// MaxWeightLimit (max_weight_limit subnet hyperparameter).
+        /// configured max weight limit (currently `u16::MAX`).
         MaxWeightExceeded,
         /// The hotkey is attempting to become a delegate when the hotkey is already a delegate.
         HotKeyAlreadyDelegate,

@@ -30,24 +30,10 @@ impl<T: Config> Pallet<T> {
             .filter(|netuid| *netuid != NetUid::ROOT)
             .collect();
         log::debug!("All subnet netuids: {subnets:?}");
-        // Filter out subnets with no first emission block number.
-        let subnets_to_emit_to: Vec<NetUid> = subnets
-            .clone()
-            .into_iter()
-            .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
-            .collect();
-        log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
 
-        // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut acc_total_moving_prices = U96F32::saturating_from_num(0.0);
-        // Only get price EMA for subnets that we emit to.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Get and update the moving price of each subnet adding the total together.
-            acc_total_moving_prices =
-                acc_total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
-        }
-        let total_moving_prices = acc_total_moving_prices;
-        log::debug!("total_moving_prices: {total_moving_prices:?}");
+        // 2. Get subnets to emit to and emissions
+        let subnet_emissions = Self::get_subnet_block_emissions(&subnets, block_emission);
+        let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
@@ -60,14 +46,11 @@ impl<T: Config> Pallet<T> {
             // Get subnet price.
             let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
             log::debug!("price_i: {price_i:?}");
-            // Get subnet TAO.
-            let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
-            log::debug!("moving_price_i: {moving_price_i:?}");
             // Emission is price over total.
-            let default_tao_in_i: U96F32 = block_emission
-                .saturating_mul(moving_price_i)
-                .checked_div(total_moving_prices)
-                .unwrap_or(asfloat!(0.0));
+            let default_tao_in_i: U96F32 = subnet_emissions
+                .get(netuid_i)
+                .copied()
+                .unwrap_or(asfloat!(0));
             log::debug!("default_tao_in_i: {default_tao_in_i:?}");
             // Get alpha_emission total
             let alpha_emission_i: U96F32 = asfloat!(
