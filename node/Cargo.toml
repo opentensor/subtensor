@@ -26,6 +26,7 @@ clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
 serde = { workspace = true, features = ["derive"] }
 hex.workspace = true
+rand.workspace = true
 
 # Storage import
 memmap2.workspace = true
