@@ -1203,14 +1203,14 @@ impl<T: Config> Pallet<T> {
         weights
     }
 
-    /// Returns False if the weights exceed the max_weight_limit for this network.
+    /// Returns False if the weights exceed the configured max weight limit for this network.
     pub fn max_weight_limited(netuid: NetUid, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         // Allow self weights to exceed max weight limit.
         if Self::is_self_weight(uid, uids, weights) {
             return true;
         }
 
-        // If the max weight limit it u16 max, return true.
+        // If the max weight limit it u16 max, return true (current constant).
         let max_weight_limit: u16 = Self::get_max_weight_limit(netuid);
         if max_weight_limit == u16::MAX {
             return true;

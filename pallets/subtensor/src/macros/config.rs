@@ -72,9 +72,6 @@ mod config {
         /// Initial Emission Ratio.
         #[pallet::constant]
         type InitialEmissionValue: Get<u16>;
-        /// Initial max weight limit.
-        #[pallet::constant]
-        type InitialMaxWeightsLimit: Get<u16>;
         /// Tempo for each network.
         #[pallet::constant]
         type InitialTempo: Get<u16>;
