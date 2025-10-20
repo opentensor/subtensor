@@ -35,6 +35,16 @@ impl<T: Config> Pallet<T> {
         let subnet_emissions = Self::get_subnet_block_emissions(&subnets, block_emission);
         let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
 
+        // Get sum of tao reserves ( in a later version we will switch to prices. )
+        // Only get price EMA for subnets that we emit to.
+        let total_moving_prices = subnets_to_emit_to
+            .iter()
+            .map(|netuid| Self::get_moving_alpha_price(*netuid))
+            .fold(U96F32::saturating_from_num(0.0), |acc, ema| {
+                acc.saturating_add(ema)
+            });
+        log::debug!("total_moving_prices: {total_moving_prices:?}");
+
         let subsidy_mode = total_moving_prices < U96F32::saturating_from_num(1.0);
         log::debug!("subsidy_mode: {subsidy_mode:?}");
 
