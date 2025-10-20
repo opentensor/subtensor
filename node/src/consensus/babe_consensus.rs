@@ -44,6 +44,7 @@ impl ConsensusMechanism for BabeConsensus {
         sp_timestamp::InherentDataProvider,
     );
 
+    #[allow(clippy::expect_used)]
     fn start_authoring<C, SC, I, PF, SO, L, CIDP, BS, Error>(
         self,
         task_manager: &mut TaskManager,

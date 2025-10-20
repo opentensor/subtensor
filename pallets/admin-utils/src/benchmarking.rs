@@ -9,13 +9,13 @@ use crate::Pallet as AdminUtils;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use pallet_subtensor::SubnetworkN;
-use subtensor_runtime_common::NetUid;
 
 use super::*;
 
 #[benchmarks]
 mod benchmarks {
     use super::*;
+    use subtensor_runtime_common::NetUid;
 
     #[benchmark]
     fn sudo_set_default_take() {
@@ -225,7 +225,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 4097u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 2048u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
     }
 
     #[benchmark]
@@ -252,19 +252,6 @@ mod benchmarks {
 
         #[extrinsic_call]
 		_(RawOrigin::Root, 1u16.into()/*netuid*/, 100u16/*immunity_period*/)/*sudo_set_immunity_period*/;
-    }
-
-    #[benchmark]
-    fn sudo_set_max_weight_limit() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16.into(), /*netuid*/
-            1u16,        /*tempo*/
-        );
-
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 100u16/*max_weight_limit*/)/*sudo_set_max_weight_limit*/;
     }
 
     #[benchmark]
@@ -380,6 +367,187 @@ mod benchmarks {
 
         #[extrinsic_call]
 		_(RawOrigin::Root, 5u16/*version*/)/*sudo_set_commit_reveal_version()*/;
+    }
+
+    #[benchmark]
+    fn sudo_set_tx_rate_limit() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u64);
+    }
+
+    #[benchmark]
+    fn sudo_set_total_issuance() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u64.into());
+    }
+
+    #[benchmark]
+    fn sudo_set_rao_recycled() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, 100u64.into());
+    }
+
+    #[benchmark]
+    fn sudo_set_stake_threshold() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u64);
+    }
+
+    #[benchmark]
+    fn sudo_set_nominator_min_required_stake() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u64);
+    }
+
+    #[benchmark]
+    fn sudo_set_tx_delegate_take_rate_limit() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u64);
+    }
+
+    #[benchmark]
+    fn sudo_set_min_delegate_take() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u16);
+    }
+
+    #[benchmark]
+    fn sudo_set_liquid_alpha_enabled() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, true);
+    }
+
+    #[benchmark]
+    fn sudo_set_alpha_values() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+        pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, true);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, 2000u16, 3000u16);
+    }
+
+    #[benchmark]
+    fn sudo_set_coldkey_swap_schedule_duration() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u32.into());
+    }
+
+    #[benchmark]
+    fn sudo_set_dissolve_network_schedule_duration() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u32.into());
+    }
+
+    #[benchmark]
+    fn sudo_set_toggle_transfer() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, true);
+    }
+
+    #[benchmark]
+    fn sudo_toggle_evm_precompile() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, PrecompileEnum::Staking, true);
+    }
+
+    #[benchmark]
+    fn sudo_set_subnet_moving_alpha() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u64.into());
+    }
+
+    #[benchmark]
+    fn sudo_set_ema_price_halving_period() {
+        let netuid = NetUid::from(1);
+
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, 100u64);
+    }
+
+    #[benchmark]
+    fn sudo_set_alpha_sigmoid_steepness() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, 100i16);
+    }
+
+    #[benchmark]
+    fn sudo_set_yuma3_enabled() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, true);
+    }
+
+    #[benchmark]
+    fn sudo_set_bonds_reset_enabled() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, true);
+    }
+
+    #[benchmark]
+    fn sudo_set_sn_owner_hotkey() {
+        let netuid = NetUid::from(1);
+        let hotkey: T::AccountId = account("Alice", 0, 1);
+
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, hotkey);
+    }
+
+    #[benchmark]
+    fn sudo_set_subtoken_enabled() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, true);
     }
 
     #[benchmark]

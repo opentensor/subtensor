@@ -63,10 +63,6 @@ pallet-sudo.workspace = true
 
 pallet-admin-utils.workspace = true
 
-# Used for sudo decentralization
-pallet-subtensor-collective.workspace = true
-pallet-membership.workspace = true
-
 # Multisig
 pallet-multisig.workspace = true
 
@@ -151,6 +147,8 @@ ark-serialize = { workspace = true, features = ["derive"] }
 # Crowdloan
 pallet-crowdloan.workspace = true
 
+ethereum.workspace = true
+
 [dev-dependencies]
 frame-metadata.workspace = true
 sp-io.workspace = true
@@ -172,8 +170,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-safe-mode/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
-	"pallet-subtensor-collective/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
 	"pallet-subtensor-proxy/runtime-benchmarks",
 	"pallet-registry/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
@@ -251,8 +247,6 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"pallet-subtensor-collective/std",
-	"pallet-membership/std",
 	"pallet-registry/std",
 	"pallet-admin-utils/std",
 	"subtensor-custom-rpc-runtime-api/std",
@@ -331,8 +325,6 @@ try-runtime = [
 	"pallet-subtensor-utility/try-runtime",
 	"pallet-safe-mode/try-runtime",
 	"pallet-subtensor/try-runtime",
-	"pallet-subtensor-collective/try-runtime",
-	"pallet-membership/try-runtime",
 	"pallet-subtensor-proxy/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-scheduler/try-runtime",

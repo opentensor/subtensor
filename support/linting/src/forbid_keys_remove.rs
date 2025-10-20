@@ -57,6 +57,7 @@ fn is_keys_remove_call(func: &Expr, args: &Punctuated<Expr, Comma>) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
     use super::*;
     use quote::quote;
 

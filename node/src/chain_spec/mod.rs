@@ -1,5 +1,5 @@
 // Allowed since it's actually better to panic during chain setup when there is an error
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 pub mod devnet;
 pub mod finney;
@@ -12,7 +12,7 @@ use sc_service::ChainType;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::Ss58Codec;
-use sp_core::{H256, Pair, Public, bounded_vec, ed25519, sr25519};
+use sp_core::{H256, Pair, Public, ed25519, sr25519};
 use sp_runtime::AccountId32;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::collections::HashSet;

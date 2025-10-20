@@ -111,19 +111,8 @@ fn localnet_genesis(
         }
     }
 
-    let trimvirate_members: Vec<AccountId> = bounded_vec![
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
-        get_account_id_from_seed::<sr25519::Public>("Bob"),
-        get_account_id_from_seed::<sr25519::Public>("Charlie"),
-    ];
-
-    let senate_members: Vec<AccountId> = bounded_vec![
-        get_account_id_from_seed::<sr25519::Public>("Dave"),
-        get_account_id_from_seed::<sr25519::Public>("Eve"),
-        get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-    ];
-
     const STAKE: u64 = 1000 * UNITS;
+
     serde_json::json!({
         "balances": { "balances": balances.into_iter().collect::<Vec<_>>() },
         "session": {
@@ -157,12 +146,6 @@ fn localnet_genesis(
         },
         "sudo": {
             "key": Some(get_account_id_from_seed::<sr25519::Public>("Alice"))
-        },
-        "triumvirateMembers": {
-            "members": trimvirate_members
-        },
-        "senateMembers": {
-            "members": senate_members,
         },
         "evmChainId": {
             "chainId": 42,

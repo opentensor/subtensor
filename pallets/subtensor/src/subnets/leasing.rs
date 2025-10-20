@@ -87,8 +87,8 @@ impl<T: Config> Pallet<T> {
 
         // Initialize the lease id, coldkey and hotkey and keep track of them
         let lease_id = Self::get_next_lease_id()?;
-        let lease_coldkey = Self::lease_coldkey(lease_id);
-        let lease_hotkey = Self::lease_hotkey(lease_id);
+        let lease_coldkey = Self::lease_coldkey(lease_id)?;
+        let lease_hotkey = Self::lease_hotkey(lease_id)?;
         frame_system::Pallet::<T>::inc_providers(&lease_coldkey);
         frame_system::Pallet::<T>::inc_providers(&lease_hotkey);
 
@@ -310,7 +310,7 @@ impl<T: Config> Pallet<T> {
             &lease.coldkey,
             lease.netuid,
             total_contributors_cut_alpha,
-            T::SwapInterface::min_price().into(),
+            T::SwapInterface::min_price(),
             false,
         ) {
             Ok(tao_unstaked) => tao_unstaked,
@@ -341,16 +341,16 @@ impl<T: Config> Pallet<T> {
         AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaCurrency::ZERO);
     }
 
-    fn lease_coldkey(lease_id: LeaseId) -> T::AccountId {
+    fn lease_coldkey(lease_id: LeaseId) -> Result<T::AccountId, DispatchError> {
         let entropy = ("leasing/coldkey", lease_id).using_encoded(blake2_256);
-        Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
-            .expect("infinite length input; no invalid inputs for type; qed")
+        T::AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+            .map_err(|_| Error::<T>::InvalidValue.into())
     }
 
-    fn lease_hotkey(lease_id: LeaseId) -> T::AccountId {
+    fn lease_hotkey(lease_id: LeaseId) -> Result<T::AccountId, DispatchError> {
         let entropy = ("leasing/hotkey", lease_id).using_encoded(blake2_256);
-        Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
-            .expect("infinite length input; no invalid inputs for type; qed")
+        T::AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+            .map_err(|_| Error::<T>::InvalidValue.into())
     }
 
     fn get_next_lease_id() -> Result<LeaseId, Error<T>> {

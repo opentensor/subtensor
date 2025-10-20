@@ -31,7 +31,7 @@ impl<T: Config> Pallet<T> {
                 .saturating_div(U96F32::from_num(100));
         let node_validator_block_emission =
             total_block_emission.saturating_mul(node_validator_emission_percent);
-        let subnet_block_emission =
+        let total_subnet_block_emission =
             total_block_emission.saturating_sub(node_validator_block_emission);
 
         // Increment pending validator emissions to be paid out at the end of the era.
@@ -46,24 +46,11 @@ impl<T: Config> Pallet<T> {
             .filter(|netuid| *netuid != NetUid::ROOT)
             .collect();
         log::debug!("All subnet netuids: {subnets:?}");
-        // Filter out subnets with no first emission block number.
-        let subnets_to_emit_to: Vec<NetUid> = subnets
-            .clone()
-            .into_iter()
-            .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
-            .collect();
-        log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
 
-        // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut acc_total_moving_prices = U96F32::saturating_from_num(0.0);
-        // Only get price EMA for subnets that we emit to.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Get and update the moving price of each subnet adding the total together.
-            acc_total_moving_prices =
-                acc_total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
-        }
-        let total_moving_prices = acc_total_moving_prices;
-        log::debug!("total_moving_prices: {total_moving_prices:?}");
+        // 2. Get subnets to emit to and emissions
+        let subnet_emissions =
+            Self::get_subnet_block_emissions(&subnets, total_subnet_block_emission);
+        let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
@@ -76,14 +63,11 @@ impl<T: Config> Pallet<T> {
             // Get subnet price.
             let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
             log::debug!("price_i: {price_i:?}");
-            // Get subnet TAO.
-            let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
-            log::debug!("moving_price_i: {moving_price_i:?}");
             // Emission is price over total.
-            let default_tao_in_i: U96F32 = subnet_block_emission
-                .saturating_mul(moving_price_i)
-                .checked_div(total_moving_prices)
-                .unwrap_or(asfloat!(0.0));
+            let default_tao_in_i: U96F32 = subnet_emissions
+                .get(netuid_i)
+                .copied()
+                .unwrap_or(asfloat!(0));
             log::debug!("default_tao_in_i: {default_tao_in_i:?}");
             // Get alpha_emission total
             let alpha_emission_i: U96F32 = asfloat!(
@@ -96,19 +80,19 @@ impl<T: Config> Pallet<T> {
             let mut alpha_in_i: U96F32;
             let mut tao_in_i: U96F32;
             let tao_in_ratio: U96F32 = default_tao_in_i.safe_div_or(
-                U96F32::saturating_from_num(subnet_block_emission),
+                U96F32::saturating_from_num(total_subnet_block_emission),
                 U96F32::saturating_from_num(0.0),
             );
             if price_i < tao_in_ratio {
-                tao_in_i =
-                    price_i.saturating_mul(U96F32::saturating_from_num(subnet_block_emission));
-                alpha_in_i = subnet_block_emission;
+                tao_in_i = price_i
+                    .saturating_mul(U96F32::saturating_from_num(total_subnet_block_emission));
+                alpha_in_i = total_subnet_block_emission;
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
                 // Difference becomes buy.
                 let buy_swap_result = Self::swap_tao_for_alpha(
                     *netuid_i,
                     tou64!(difference_tao).into(),
-                    T::SwapInterface::max_price().into(),
+                    T::SwapInterface::max_price(),
                     true,
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
@@ -237,14 +221,14 @@ impl<T: Config> Pallet<T> {
                 let swap_result = Self::swap_alpha_for_tao(
                     *netuid_i,
                     tou64!(root_alpha).into(),
-                    T::SwapInterface::min_price().into(),
+                    T::SwapInterface::min_price(),
                     true,
                 );
                 if let Ok(ok_result) = swap_result {
-                    let root_tao: u64 = ok_result.amount_paid_out;
+                    let root_tao = ok_result.amount_paid_out;
                     // Accumulate root divs for subnet.
                     PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(root_tao.into());
+                        *total = total.saturating_add(root_tao);
                     });
                 }
             }
@@ -273,7 +257,9 @@ impl<T: Config> Pallet<T> {
                 log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");
             };
             // Pass on subnets that have not reached their tempo.
-            if Self::should_run_epoch(netuid, current_block) {
+            if Self::should_run_epoch(netuid, current_block)
+                && Self::is_epoch_input_state_consistent(netuid)
+            {
                 // Restart counters.
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);

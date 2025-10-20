@@ -497,7 +497,7 @@ where
                 writes.saturating_inc();
             }
             if let Err(e) = <pallet_staking::Pallet<T>>::bond(
-                RawOrigin::Signed(account.clone()).into(),
+                frame_system::RawOrigin::Signed(account.clone()).into(),
                 bond,
                 pallet_staking::RewardDestination::Staked,
             ) {
@@ -507,7 +507,7 @@ where
             };
             writes.saturating_inc();
             if let Err(e) = <pallet_staking::Pallet<T>>::validate(
-                RawOrigin::Signed(account.clone()).into(),
+                frame_system::RawOrigin::Signed(account.clone()).into(),
                 ValidatorPrefs {
                     commission: Perbill::from_percent(1),
                     blocked: false,

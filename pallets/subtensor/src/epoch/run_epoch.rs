@@ -1,6 +1,6 @@
 use super::*;
 use crate::epoch::math::*;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use frame_support::IterableStorageDoubleMap;
 use safe_math::*;
 use sp_std::collections::btree_map::IntoIter;
@@ -1169,12 +1169,17 @@ impl<T: Config> Pallet<T> {
             Bonds::<T>::iter_prefix(netuid_index).filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec {
-                bonds
-                    .get_mut(uid_i as usize)
-                    .expect("uid_i is filtered to be less than n; qed")
-                    .push((uid_j, u16_to_fixed(bonds_ij)));
+                if let Some(row) = bonds.get_mut(uid_i as usize) {
+                    row.push((uid_j, u16_to_fixed(bonds_ij)));
+                } else {
+                    // If the index is unexpectedly out of bounds, skip and log math error
+                    log::error!(
+                        "math error: bonds row index out of bounds (uid_i={uid_i}, n={n}, netuid_index={netuid_index})",
+                    );
+                }
             }
         }
+
         bonds
     }
 
@@ -1187,14 +1192,22 @@ impl<T: Config> Pallet<T> {
             Bonds::<T>::iter_prefix(netuid_index).filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec.into_iter().filter(|(uid_j, _)| *uid_j < n as u16) {
-                *bonds
-                    .get_mut(uid_i as usize)
-                    .expect("uid_i has been filtered to be less than n; qed")
-                    .get_mut(uid_j as usize)
-                    .expect("uid_j has been filtered to be less than n; qed") =
-                    u16_to_fixed(bonds_ij);
+                if let Some(row) = bonds.get_mut(uid_i as usize) {
+                    if let Some(cell) = row.get_mut(uid_j as usize) {
+                        *cell = u16_to_fixed(bonds_ij);
+                    } else {
+                        log::error!(
+                            "math error: uid_j index out of bounds (uid_i={uid_i}, uid_j={uid_j}, n={n}, netuid_index={netuid_index})"
+                        );
+                    }
+                } else {
+                    log::error!(
+                        "math error: uid_i row index out of bounds (uid_i={uid_i}, n={n}, netuid_index={netuid_index})"
+                    );
+                }
             }
         }
+
         bonds
     }
 
@@ -1553,13 +1566,8 @@ impl<T: Config> Pallet<T> {
         alpha_low: u16,
         alpha_high: u16,
     ) -> Result<(), DispatchError> {
-        // --- 1. Ensure the function caller is a signed user.
-        ensure_signed(origin.clone())?;
-
-        // --- 2. Ensure the function caller is the subnet owner or root.
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-        // --- 3. Ensure liquid alpha is enabled
         ensure!(
             Self::get_liquid_alpha_enabled(netuid),
             Error::<T>::LiquidAlphaDisabled
@@ -1569,10 +1577,8 @@ impl<T: Config> Pallet<T> {
         let min_alpha_low: u16 = (max_u16.safe_div(40)) as u16; // 1638
         let min_alpha_high: u16 = min_alpha_low;
 
-        // --- 4. Ensure alpha high is greater than the minimum
         ensure!(alpha_high >= min_alpha_high, Error::<T>::AlphaHighTooLow);
 
-        // -- 5. Ensure alpha low is within range
         ensure!(
             alpha_low >= min_alpha_low && alpha_low <= alpha_high,
             Error::<T>::AlphaLowOutOfRange
@@ -1618,5 +1624,21 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+
+    /// This function ensures major assumptions made by epoch function:
+    ///   1. Keys map has no duplicate hotkeys
+    ///
+    pub fn is_epoch_input_state_consistent(netuid: NetUid) -> bool {
+        // Check if Keys map has duplicate hotkeys or uids
+        let mut hotkey_set: BTreeSet<T::AccountId> = BTreeSet::new();
+        // `iter_prefix` over a double map yields (uid, value) for the given first key.
+        for (_uid, hotkey) in Keys::<T>::iter_prefix(netuid) {
+            if !hotkey_set.insert(hotkey) {
+                log::error!("Duplicate hotkeys detected for netuid {netuid}");
+                return false;
+            }
+        }
+        true
     }
 }

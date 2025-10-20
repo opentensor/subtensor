@@ -549,12 +549,9 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ScalingLawPowerSet(netuid, scaling_law_power));
     }
 
-    pub fn get_max_weight_limit(netuid: NetUid) -> u16 {
-        MaxWeightsLimit::<T>::get(netuid)
-    }
-    pub fn set_max_weight_limit(netuid: NetUid, max_weight_limit: u16) {
-        MaxWeightsLimit::<T>::insert(netuid, max_weight_limit);
-        Self::deposit_event(Event::MaxWeightLimitSet(netuid, max_weight_limit));
+    #[inline(always)]
+    pub const fn get_max_weight_limit(_netuid: NetUid) -> u16 {
+        u16::MAX
     }
 
     pub fn get_immunity_period(netuid: NetUid) -> u16 {
@@ -786,25 +783,6 @@ impl<T: Config> Pallet<T> {
         let curr_rao_recycled = Self::get_rao_recycled(netuid);
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
-    }
-
-    pub fn set_senate_required_stake_perc(required_percent: u64) {
-        SenateRequiredStakePercentage::<T>::put(required_percent);
-    }
-
-    pub fn is_senate_member(hotkey: &T::AccountId) -> bool {
-        T::SenateMembers::is_member(hotkey)
-    }
-
-    pub fn do_set_senate_required_stake_perc(
-        origin: T::RuntimeOrigin,
-        required_percent: u64,
-    ) -> DispatchResult {
-        ensure_root(origin)?;
-
-        Self::set_senate_required_stake_perc(required_percent);
-        Self::deposit_event(Event::SenateRequiredStakePercentSet(required_percent));
-        Ok(())
     }
 
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {

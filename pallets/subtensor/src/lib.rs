@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{DispatchError, transaction_validity::TransactionValidityError};
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, NetUid, TaoCurrency};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -63,6 +63,7 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 #[import_section(hooks::hooks)]
 #[import_section(config::config)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
@@ -89,11 +90,6 @@ pub mod pallet {
     use subtensor_runtime_common::{
         AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
     };
-
-    #[cfg(not(feature = "std"))]
-    use alloc::boxed::Box;
-    #[cfg(feature = "std")]
-    use sp_std::prelude::Box;
 
     /// Origin for the pallet
     pub type PalletsOriginOf<T> =
@@ -420,6 +416,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default account, derived from zero trailing bytes.
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
+        #[allow(clippy::expect_used)]
         T::AccountId::decode(&mut TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
@@ -593,6 +590,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for subnet owner.
     pub fn DefaultSubnetOwner<T: Config>() -> T::AccountId {
+        #[allow(clippy::expect_used)]
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
@@ -655,11 +653,6 @@ pub mod pallet {
     /// Default activity cutoff.
     pub fn DefaultActivityCutoff<T: Config>() -> u16 {
         T::InitialActivityCutoff::get()
-    }
-    #[pallet::type_value]
-    /// Default maximum weights limit.
-    pub fn DefaultMaxWeightsLimit<T: Config>() -> u16 {
-        T::InitialMaxWeightsLimit::get()
     }
     #[pallet::type_value]
     /// Default weights version key.
@@ -754,6 +747,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for key with type T::AccountId derived from trailing zeroes.
     pub fn DefaultKey<T: Config>() -> T::AccountId {
+        #[allow(clippy::expect_used)]
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
@@ -794,11 +788,6 @@ pub mod pallet {
     /// Default value for weight commit/reveal version.
     pub fn DefaultCommitRevealWeightsVersion<T: Config>() -> u16 {
         4
-    }
-    #[pallet::type_value]
-    /// Senate requirements
-    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
-        T::InitialSenateRequiredStakePercentage::get()
     }
     #[pallet::type_value]
     /// -- ITEM (switches liquid alpha on)
@@ -878,6 +867,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for coldkey swap scheduled
     pub fn DefaultColdkeySwapScheduled<T: Config>() -> (BlockNumberFor<T>, T::AccountId) {
+        #[allow(clippy::expect_used)]
         let default_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed");
         (BlockNumberFor::<T>::from(0_u32), default_account)
@@ -938,10 +928,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type DissolveNetworkScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultDissolveNetworkScheduleDuration<T>>;
-
-    #[pallet::storage]
-    pub type SenateRequiredStakePercentage<T> =
-        StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     #[pallet::storage]
     /// --- DMap ( netuid, coldkey ) --> blocknumber | last hotkey swap on network.
@@ -1158,6 +1144,16 @@ pub mod pallet {
         NetUid,
         T::AccountId,
         OptionQuery,
+    >;
+    #[pallet::storage] // --- DMAP ( hot, netuid )--> Vec<cold> | Returns a list of coldkeys that are autostaking to a hotkey.
+    pub type AutoStakeDestinationColdkeys<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        NetUid,
+        Vec<T::AccountId>,
+        ValueQuery,
     >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> (block_expected, new_coldkey) | Maps coldkey to the block to swap at and new coldkey.
@@ -1413,6 +1409,11 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> activity_cutoff
     pub type ActivityCutoff<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultActivityCutoff<T>>;
+    #[pallet::type_value]
+    /// Default maximum weights limit.
+    pub fn DefaultMaxWeightsLimit<T: Config>() -> u16 {
+        u16::MAX
+    }
     #[pallet::storage]
     /// --- MAP ( netuid ) --> max_weight_limit
     pub type MaxWeightsLimit<T> =
@@ -2068,92 +2069,51 @@ use sp_std::vec;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
-/// Trait for managing a membership pallet instance in the runtime
-pub trait MemberManagement<AccountId> {
-    /// Add member
-    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo;
+#[derive(Clone)]
+pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
 
-    /// Remove a member
-    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Swap member
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Get all members
-    fn members() -> Vec<AccountId>;
-
-    /// Check if an account is apart of the set
-    fn is_member(account: &AccountId) -> bool;
-
-    /// Get our maximum member count
-    fn max_members() -> u32;
-}
-
-impl<T> MemberManagement<T> for () {
-    /// Add member
-    fn add_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
+impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
+    #![deny(clippy::expect_used)]
+    fn reserve(netuid: NetUid) -> TaoCurrency {
+        SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
     }
 
-    // Remove a member
-    fn remove_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
+    fn increase_provided(netuid: NetUid, tao: TaoCurrency) {
+        Pallet::<T>::increase_provided_tao_reserve(netuid, tao);
     }
 
-    // Swap member
-    fn swap_member(_: &T, _: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Get all members
-    fn members() -> Vec<T> {
-        vec![]
-    }
-
-    // Check if an account is apart of the set
-    fn is_member(_: &T) -> bool {
-        false
-    }
-
-    fn max_members() -> u32 {
-        0
+    fn decrease_provided(netuid: NetUid, tao: TaoCurrency) {
+        Pallet::<T>::decrease_provided_tao_reserve(netuid, tao);
     }
 }
 
-/// Trait for interacting with collective pallets
-pub trait CollectiveInterface<AccountId, Hash, ProposalIndex> {
-    /// Remove vote
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, DispatchError>;
+#[derive(Clone)]
+pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
 
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: Hash,
-        index: ProposalIndex,
-        approve: bool,
-    ) -> Result<bool, DispatchError>;
-}
-
-impl<T, H, P> CollectiveInterface<T, H, P> for () {
-    fn remove_votes(_: &T) -> Result<bool, DispatchError> {
-        Ok(true)
+impl<T: Config> CurrencyReserve<AlphaCurrency> for AlphaCurrencyReserve<T> {
+    #![deny(clippy::expect_used)]
+    fn reserve(netuid: NetUid) -> AlphaCurrency {
+        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
     }
 
-    fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
-        Ok(true)
+    fn increase_provided(netuid: NetUid, alpha: AlphaCurrency) {
+        Pallet::<T>::increase_provided_alpha_reserve(netuid, alpha);
+    }
+
+    fn decrease_provided(netuid: NetUid, alpha: AlphaCurrency) {
+        Pallet::<T>::decrease_provided_alpha_reserve(netuid, alpha);
     }
 }
+
+pub type GetAlphaForTao<T> =
+    subtensor_swap_interface::GetAlphaForTao<TaoCurrencyReserve<T>, AlphaCurrencyReserve<T>>;
+pub type GetTaoForAlpha<T> =
+    subtensor_swap_interface::GetTaoForAlpha<AlphaCurrencyReserve<T>, TaoCurrencyReserve<T>>;
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
     subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
 {
-    fn tao_reserve(netuid: NetUid) -> TaoCurrency {
-        SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
-    }
-
-    fn alpha_reserve(netuid: NetUid) -> AlphaCurrency {
-        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
-    }
-
+    #![deny(clippy::expect_used)]
     fn exists(netuid: NetUid) -> bool {
         Self::if_subnet_exist(netuid)
     }
@@ -2186,6 +2146,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 impl<T: Config + pallet_balances::Config<Balance = u64>>
     subtensor_runtime_common::BalanceOps<T::AccountId> for Pallet<T>
 {
+    #![deny(clippy::expect_used)]
     fn tao_balance(account_id: &T::AccountId) -> TaoCurrency {
         pallet_balances::Pallet::<T>::free_balance(account_id).into()
     }
@@ -2249,22 +2210,6 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey, coldkey, netuid, alpha,
         ))
-    }
-
-    fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        Self::increase_provided_tao_reserve(netuid, tao);
-    }
-
-    fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        Self::decrease_provided_tao_reserve(netuid, tao);
-    }
-
-    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        Self::increase_provided_alpha_reserve(netuid, alpha);
-    }
-
-    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        Self::decrease_provided_alpha_reserve(netuid, alpha);
     }
 }
 

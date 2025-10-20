@@ -3007,7 +3007,7 @@ fn test_parent_child_chain_emission() {
             SubtensorModule::swap_tao_for_alpha(
                 netuid,
                 total_tao.to_num::<u64>().into(),
-                <Test as Config>::SwapInterface::max_price().into(),
+                <Test as Config>::SwapInterface::max_price(),
                 false,
             )
             .unwrap()
@@ -4168,5 +4168,38 @@ fn test_do_set_childkey_take_rate_limit_exceeded() {
         assert_ok!(SubtensorModule::do_set_childkey_take(
             coldkey, hotkey, netuid, lower_take
         ));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_child_keys_empty_vector_clears_storage --exact --show-output
+#[test]
+fn test_set_child_keys_empty_vector_clears_storage() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hotkey = U256::from(1001);
+        let sn_owner_coldkey = U256::from(1002);
+        let parent = U256::from(1);
+        let child = U256::from(2);
+        let netuid = add_dynamic_network(&sn_owner_hotkey, &sn_owner_coldkey);
+
+        // Initialize ChildKeys for `parent` with a non-empty vector
+        ChildKeys::<Test>::insert(parent, netuid, vec![(u64::MAX, child)]);
+        ParentKeys::<Test>::insert(child, netuid, vec![(u64::MAX, parent)]);
+
+        // Sanity: entry exists right now because we explicitly inserted it
+        assert!(ChildKeys::<Test>::contains_key(parent, netuid));
+        assert!(ParentKeys::<Test>::contains_key(child, netuid));
+
+        // Set children to empty
+        let empty_children: Vec<(u64, U256)> = Vec::new();
+        mock_set_children_no_epochs(netuid, &parent, &empty_children);
+
+        // When the child vector is empty, we should NOT keep an empty vec in storage.
+        // The key must be fully removed (no entry), not just zero-length value.
+        assert!(!ChildKeys::<Test>::contains_key(parent, netuid));
+        assert!(!ParentKeys::<Test>::contains_key(child, netuid));
+
+        // `get` returns empty due to ValueQuery default, but presence is false.
+        assert!(ChildKeys::<Test>::get(parent, netuid).is_empty());
+        assert!(ParentKeys::<Test>::get(child, netuid).is_empty());
     });
 }
