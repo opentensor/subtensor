@@ -1,6 +1,4 @@
-//! An implementation of `CurrencyToVote` tailored for chain's that have a balance type of u64.
-//!
-//! The factor is the `(total_issuance / u64::MAX).max(1)`, represented as u64.
+//! Simple implementation of `CurrencyToVote` that maps 1:1 with u64.
 
 use sp_staking::currency_to_vote::CurrencyToVote;
 

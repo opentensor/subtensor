@@ -150,12 +150,6 @@ where
     }
 }
 
-// impl frame_system::offchain::CreateBare<pallet_drand::Call<Runtime>> for Runtime {
-//     fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-//         UncheckedExtrinsic::new_bare(call)
-//     }
-// }
-
 impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>> for Runtime {
     fn create_signed_transaction<
         S: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
@@ -447,7 +441,7 @@ impl pallet_session::Config for Runtime {
     type ValidatorIdOf = ConvertInto;
     type ShouldEndSession = Babe;
     type NextSessionRotation = Babe;
-    type SessionManager = Staking;
+    type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
     type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
     type WeightInfo = ();
