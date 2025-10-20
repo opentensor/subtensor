@@ -175,11 +175,13 @@ where
                 .into_iter()
                 .map(|aura| (BabeAuthorityId::from(aura.into_inner()), 1))
                 .collect::<Vec<_>>();
+
+        #[allow(clippy::expect_used)]
         let bounded_authorities =
             WeakBoundedVec::<_, <T as pallet_babe::Config>::MaxAuthorities>::try_from(
                 authorities.to_vec(),
             )
-            .expect("Initial number of authorities should be lower than T::MaxAuthorities");
+            .expect("Initial number of authorities is lower than T::MaxAuthorities; qed");
 
         log::info!("Set {} into bounded authorites", bounded_authorities.len());
         pallet_babe::Authorities::<T>::put(&bounded_authorities);
@@ -206,6 +208,7 @@ where
     }
 
     #[cfg(feature = "try-runtime")]
+    #[allow(clippy::expect_used)]
     fn pallet_session_post_upgrade(pre_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
         use sp_std::collections::btree_set::BTreeSet;
 
@@ -288,6 +291,7 @@ where
 
         log::info!("Initializing pallet_session with authorities: {babe_authorities:?}");
 
+        #[allow(clippy::expect_used)]
         let keys: Vec<(AccountId32, SessionKeys)> = babe_authorities
             .into_iter()
             .map(|babe_id| {

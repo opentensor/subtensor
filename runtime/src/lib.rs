@@ -215,7 +215,12 @@ parameter_types! {
     pub OffchainSolutionWeightLimit: Weight = BlockWeights::get()
         .get(DispatchClass::Normal)
         .max_extrinsic
-        .expect("Normal extrinsics have weight limit configured by default; qed")
+        // Normal extrinsics have weight limit configured by default, so this will never unwrap to
+        // Default::default(). Using .expect would be better here, but we can't because of the clippy
+        // lint banning .expect, which we can't ignore because we're inside the parameter_types!
+        // macro.
+        .unwrap_or_default()
+        // .expect("Normal extrinsics have weight limit configured by default; qed")
         .saturating_sub(BlockExecutionWeight::get());
 
     /// A limit for off-chain phragmen unsigned solution length.
