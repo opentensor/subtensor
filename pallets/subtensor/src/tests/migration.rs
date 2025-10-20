@@ -2171,3 +2171,80 @@ fn test_migrate_network_lock_cost_2500_sets_price_and_decay() {
         );
     });
 }
+
+#[test]
+fn test_migrate_kappa_map_to_default() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"kappa_map_to_default";
+
+        let default: u16 = DefaultKappa::<Test>::get();
+        let not_default: u16 = default.wrapping_add(1);
+
+        // Choose a few netuids to exercise both "changed" and "unchanged" paths
+        let n0: u16 = 0;
+        let n1: u16 = 1;
+        let n2: u16 = 42;
+
+        // ------------------------------
+        // 1. Pre-state: seed non-default & default entries
+        // ------------------------------
+        Kappa::<Test>::insert(n0, not_default); // will need update
+        Kappa::<Test>::insert(n1, default); // already default
+        Kappa::<Test>::insert(n2, not_default); // will need update
+
+        assert_eq!(
+            Kappa::<Test>::get(n0),
+            not_default,
+            "precondition failed: Kappa[n0] should be non-default before migration"
+        );
+        assert_eq!(
+            Kappa::<Test>::get(n1),
+            default,
+            "precondition failed: Kappa[n1] should be default before migration"
+        );
+        assert_eq!(
+            Kappa::<Test>::get(n2),
+            not_default,
+            "precondition failed: Kappa[n2] should be non-default before migration"
+        );
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 2. Run migration
+        // ------------------------------
+        let w =
+            crate::migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 3. Verify results
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        assert_eq!(
+            Kappa::<Test>::get(n0),
+            default,
+            "Kappa[n0] should be reset to the configured default"
+        );
+        assert_eq!(
+            Kappa::<Test>::get(n1),
+            default,
+            "Kappa[n1] should remain at the configured default"
+        );
+        assert_eq!(
+            Kappa::<Test>::get(n2),
+            default,
+            "Kappa[n2] should be reset to the configured default"
+        );
+    });
+}
