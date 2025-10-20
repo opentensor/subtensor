@@ -684,9 +684,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                         pallet_admin_utils::Call::sudo_set_adjustment_alpha { .. }
                     )
                     | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_max_weight_limit { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_immunity_period { .. }
                     )
                     | RuntimeCall::AdminUtils(
@@ -980,7 +977,6 @@ parameter_types! {
     pub const SubtensorInitialIssuance: u64 = 0;
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
-    pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
@@ -1058,7 +1054,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialIssuance = SubtensorInitialIssuance;
     type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
     type InitialEmissionValue = SubtensorInitialEmissionValue;
-    type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
     type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
     type InitialScalingLawPower = SubtensorInitialScalingLawPower;
     type InitialTempo = SubtensorInitialTempo;

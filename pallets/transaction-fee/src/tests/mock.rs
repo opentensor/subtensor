@@ -142,7 +142,6 @@ impl pallet_transaction_payment::Config for Test {
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
-    pub const InitialMaxWeightsLimit: u16 = u16::MAX;
     pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
@@ -227,7 +226,6 @@ impl pallet_subtensor::Config for Test {
     type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
-    type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
     type InitialTempo = InitialTempo;
     type InitialDifficulty = InitialDifficulty;
     type InitialAdjustmentInterval = InitialAdjustmentInterval;
