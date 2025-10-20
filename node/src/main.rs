@@ -12,6 +12,7 @@ mod consensus;
 mod ethereum;
 mod rpc;
 mod service;
+mod shuffle_seed;
 
 fn main() -> sc_cli::Result<()> {
     command::run()

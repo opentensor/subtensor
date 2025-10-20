@@ -413,6 +413,14 @@ where
     let enable_grandpa = !config.disable_grandpa && sealing.is_none();
     let prometheus_registry = config.prometheus_registry().cloned();
 
+    // Initialize the validator shuffle seed once.
+    if role.is_authority() {
+        let _seed = crate::shuffle_seed::init_if_needed();
+        log::info!(
+            "Initialized validator transaction-shuffle seed",
+        );
+    }
+
     // Channel for the rpc handler to communicate with the authorship task.
     let (command_sink, commands_stream) = mpsc::channel(1000);
 
@@ -562,8 +570,14 @@ where
         );
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
-        let create_inherent_data_providers =
-            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
+        let create_inherent_data_providers = move |parent_hash: <Block as BlockT>::Hash, ()| {
+            // Derive salt from (process-secret seed + parent hash) and apply it.
+            let salt = crate::shuffle_seed::block_shuffle_seed(parent_hash);
+            sc_transaction_pool::set_tx_ordering_salt(salt);
+
+            // Proceed to create inherent data providers as usual.
+            async move { CM::create_inherent_data_providers(slot_duration) }
+        };
 
         consensus_mechanism.start_authoring(
             &mut task_manager,
