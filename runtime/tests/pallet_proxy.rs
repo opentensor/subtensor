@@ -168,7 +168,7 @@ fn test_proxy_pallet() {
         ProxyType::Owner,
         ProxyType::NonCritical,
         ProxyType::NonTransfer,
-        ProxyType::NonFungibile,
+        ProxyType::NonFungible,
         ProxyType::Staking,
         ProxyType::Registration,
     ];

@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 329,
+    spec_version: 330,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -542,7 +542,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
             ),
-            ProxyType::NonFungibile => !matches!(
+            ProxyType::NonFungible => !matches!(
                 c,
                 RuntimeCall::Balances(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
@@ -682,9 +682,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     )
                     | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_adjustment_alpha { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_max_weight_limit { .. }
                     )
                     | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_immunity_period { .. }
@@ -980,7 +977,6 @@ parameter_types! {
     pub const SubtensorInitialIssuance: u64 = 0;
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
-    pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
@@ -1058,7 +1054,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialIssuance = SubtensorInitialIssuance;
     type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
     type InitialEmissionValue = SubtensorInitialEmissionValue;
-    type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
     type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
     type InitialScalingLawPower = SubtensorInitialScalingLawPower;
     type InitialTempo = SubtensorInitialTempo;

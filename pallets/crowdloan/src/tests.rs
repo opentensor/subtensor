@@ -1618,20 +1618,47 @@ fn test_refund_succeeds() {
 }
 
 #[test]
-fn test_refund_fails_if_bad_origin() {
-    TestState::default().build_and_execute(|| {
-        let crowdloan_id: CrowdloanId = 0;
+fn test_refund_fails_if_bad_or_invalid_origin() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let crowdloan_id: CrowdloanId = 0;
+            let creator: AccountOf<Test> = U256::from(1);
+            let initial_deposit: BalanceOf<Test> = 50;
+            let min_contribution: BalanceOf<Test> = 10;
+            let cap: BalanceOf<Test> = 300;
+            let end: BlockNumberFor<Test> = 50;
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                initial_deposit,
+                min_contribution,
+                cap,
+                end,
+                Some(noop_call()),
+                None,
+            ));
 
-        assert_err!(
-            Crowdloan::refund(RuntimeOrigin::none(), crowdloan_id),
-            DispatchError::BadOrigin
-        );
+            assert_err!(
+                Crowdloan::refund(RuntimeOrigin::none(), crowdloan_id),
+                DispatchError::BadOrigin
+            );
 
-        assert_err!(
-            Crowdloan::refund(RuntimeOrigin::root(), crowdloan_id),
-            DispatchError::BadOrigin
-        );
-    });
+            assert_err!(
+                Crowdloan::refund(RuntimeOrigin::root(), crowdloan_id),
+                DispatchError::BadOrigin
+            );
+
+            // run some blocks
+            run_to_block(60);
+
+            // try to refund
+            let unknown_contributor: AccountOf<Test> = U256::from(2);
+            assert_err!(
+                Crowdloan::refund(RuntimeOrigin::signed(unknown_contributor), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::InvalidOrigin,
+            );
+        });
 }
 
 #[test]
