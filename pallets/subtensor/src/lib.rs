@@ -898,10 +898,10 @@ pub mod pallet {
         128
     }
 
+    #[pallet::storage]
     /// Global minimum activity cutoff, not used anymore.
-    // #[pallet::storage]
-    // pub type MinActivityCutoff<T: Config> =
-    //     StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
+    pub type MinActivityCutoff<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
 
     #[pallet::storage]
     /// Global window (in blocks) at the end of each tempo where admin ops are disallowed
@@ -957,34 +957,42 @@ pub mod pallet {
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
-    #[pallet::storage]
     /// --- ITEM --> Global weight
+    #[pallet::storage]
     pub type TaoWeight<T> = StorageValue<_, u64, ValueQuery, DefaultTaoWeight<T>>;
-    #[pallet::storage]
+
     /// --- ITEM --> CK burn
+    #[pallet::storage]
     pub type CKBurn<T> = StorageValue<_, u64, ValueQuery, DefaultCKBurn<T>>;
-    #[pallet::storage]
+
     /// --- ITEM ( default_delegate_take )
+    #[pallet::storage]
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
-    #[pallet::storage]
+
     /// --- ITEM ( min_delegate_take )
+    #[pallet::storage]
     pub type MinDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinDelegateTake<T>>;
-    #[pallet::storage]
+
     /// --- ITEM ( default_childkey_take )
+    #[pallet::storage]
     pub type MaxChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMaxChildKeyTake<T>>;
-    #[pallet::storage]
+
     /// --- ITEM ( min_childkey_take )
-    pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
     #[pallet::storage]
-    /// MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
+    pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
+
+    /// MAP ( hot ) --> cold, Returns the controlling coldkey for a hotkey.
+    #[pallet::storage]
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
+
+    /// MAP ( hot ) --> take, Returns the hotkey delegation take. And signals that this key is open for delegation.
     #[pallet::storage]
-    /// MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDelegateTake<T>>;
+
+    /// DMAP ( hot, netuid ) --> take, Returns the hotkey childkey take for a specific subnet
     #[pallet::storage]
-    /// DMAP ( hot, netuid ) --> take | Returns the hotkey childkey take for a specific subnet
     pub type ChildkeyTake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -994,8 +1002,9 @@ pub mod pallet {
         u16,    // Value: take
         ValueQuery,
     >;
-    #[pallet::storage]
+
     /// DMAP ( netuid, parent ) --> (Vec<(proportion,child)>, cool_down_block)
+    #[pallet::storage]
     pub type PendingChildKeys<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -1006,8 +1015,9 @@ pub mod pallet {
         ValueQuery,
         DefaultPendingChildkeys<T>,
     >;
-    #[pallet::storage]
+
     /// DMAP ( parent, netuid ) --> Vec<(proportion,child)>
+    #[pallet::storage]
     pub type ChildKeys<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -1018,8 +1028,9 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
-    #[pallet::storage]
+
     /// DMAP ( child, netuid ) --> Vec<(proportion,parent)>
+    #[pallet::storage]
     pub type ParentKeys<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -1030,8 +1041,9 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
-    #[pallet::storage]
+
     /// --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo.
+    #[pallet::storage]
     pub type AlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -1042,8 +1054,9 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroAlpha<T>,
     >;
-    #[pallet::storage]
+
     /// --- DMAP ( netuid, hotkey ) --> u64 | Last total root dividend paid to this hotkey on this subnet.
+    #[pallet::storage]
     pub type TaoDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -1058,11 +1071,13 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    #[pallet::storage]
+
     /// --- ITEM ( global_block_emission )
-    pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage]
+    pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
+
     /// --- DMap ( hot, netuid ) --> emission | last hotkey emission on network.
+    #[pallet::storage]
     pub type LastHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -1089,66 +1104,83 @@ pub mod pallet {
 
     #[pallet::storage]
     /// --- ITEM ( maximum_number_of_networks )
+
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
+
     #[pallet::storage]
     /// --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, TaoCurrency, ValueQuery, DefaultTotalIssuance<T>>;
+
     #[pallet::storage]
     /// --- ITEM ( total_stake )
-    pub type TotalStake<T> = StorageValue<_, TaoCurrency, ValueQuery>;
+    pub type TotalStake<T> = StorageValue<_, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+
     #[pallet::storage]
-    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.
+    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.         
     pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
+
     #[pallet::storage]
     /// --- MAP ( netuid ) --> moving_price | The subnet moving price.
     pub type SubnetMovingPrice<T: Config> =
         StorageMap<_, Identity, NetUid, I96F32, ValueQuery, DefaultMovingPrice<T>>;
+
     #[pallet::storage]
     /// --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
         StorageMap<_, Identity, NetUid, u128, ValueQuery, DefaultZeroU128<T>>;
+
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
+    /// --- MAP ( netuid ) --> tao_in_subnet, Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
+    /// --- MAP ( netuid ) --> tao_in_user_subnet, Returns the amount of TAO in the subnet reserve provided by users as liquidity.
     pub type SubnetTaoProvided<T: Config> =
         StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
+    /// --- MAP ( netuid ) --> alpha_in_emission, Returns the amount of alph in  emission into the pool per block.
     pub type SubnetAlphaInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
+    /// --- MAP ( netuid ) --> alpha_out_emission, Returns the amount of alpha out emission into the network per block.
     pub type SubnetAlphaOutEmission<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
+    /// --- MAP ( netuid ) --> tao_in_emission, Returns the amount of tao emitted into this subent on the last block.
     pub type SubnetTaoInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
+    /// --- MAP ( netuid ) --> alpha_supply_in_pool, Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
+    /// --- MAP ( netuid ) --> alpha_supply_user_in_pool, Returns the amount of alpha in the pool provided by users as liquidity.
     pub type SubnetAlphaInProvided<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
+    /// --- MAP ( netuid ) --> alpha_supply_in_subnet, Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
     #[pallet::storage]
     /// --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     pub type StakingHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+
     #[pallet::storage]
-    /// --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
+    /// --- MAP ( cold ) --> Vec<hot>, Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+
     #[pallet::storage]
-    /// --- DMAP ( cold, netuid )--> hot | Returns the hotkey a coldkey will autostake to with mining rewards.
+    /// --- DMAP ( cold, netuid )--> hot, Returns the hotkey a coldkey will autostake to with mining rewards.
     pub type AutoStakeDestination<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -1158,8 +1190,9 @@ pub mod pallet {
         T::AccountId,
         OptionQuery,
     >;
+
     #[pallet::storage]
-    /// --- DMAP ( hot, netuid )--> Vec<cold> | Returns a list of coldkeys that are autostaking to a hotkey.
+    /// --- DMAP ( hot, netuid )--> Vec<cold>, Returns a list of coldkeys that are autostaking to a hotkey
     pub type AutoStakeDestinationColdkeys<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -1171,7 +1204,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    /// --- DMAP ( cold ) --> (block_expected, new_coldkey) | Maps coldkey to the block to swap at and new coldkey.
+    /// --- DMAP ( cold ) --> (block_expected, new_coldkey), Maps coldkey to the block to swap at and new coldkey.
     pub type ColdkeySwapScheduled<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
@@ -1182,7 +1215,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    /// --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
+    /// --- DMAP ( hot, netuid ) --> alpha, Returns the total amount of alpha a hotkey owns.
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -1194,7 +1227,7 @@ pub mod pallet {
         DefaultZeroAlpha<T>,
     >;
     #[pallet::storage]
-    /// --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owned in the last epoch.
+    /// --- DMAP ( hot, netuid ) --> alpha, Returns the total amount of alpha a hotkey owned in the last epoch.
     pub type TotalHotkeyAlphaLastEpoch<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -1206,7 +1239,7 @@ pub mod pallet {
         DefaultZeroAlpha<T>,
     >;
     #[pallet::storage]
-    /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet.
+    /// DMAP ( hot, netuid ) --> total_alpha_shares, Returns the number of alpha shares for a hotkey on a subnet.
     pub type TotalHotkeyShares<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -1218,7 +1251,7 @@ pub mod pallet {
         DefaultSharePoolZero<T>,
     >;
     #[pallet::storage]
-    /// --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet.
+    /// --- NMAP ( hot, cold, netuid ) --> alpha, Returns the alpha shares for a hotkey, coldkey, netuid triplet.
     pub type Alpha<T: Config> = StorageNMap<
         _,
         (
@@ -1230,7 +1263,7 @@ pub mod pallet {
         ValueQuery,
     >;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
+    /// --- MAP ( netuid ) --> token_symbol, Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
 
@@ -1750,7 +1783,7 @@ pub mod pallet {
     /// ==== Axon / Promo Endpoints =====
     /// =================================
     #[pallet::storage]
-    /// --- NMAP ( hot, netuid, name ) --> last_block | Returns the last block of a transaction for a given key, netuid, and name.
+    /// --- NMAP ( hot, netuid, name ) --> last_block, Returns the last block of a transaction for a given key, netuid, and name.
     pub type TransactionKeyLastBlock<T: Config> = StorageNMap<
         _,
         (
