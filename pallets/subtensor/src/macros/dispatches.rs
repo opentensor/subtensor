@@ -12,9 +12,9 @@ mod dispatches {
     use sp_core::ecdsa::Signature;
     use sp_runtime::{Percent, traits::Saturating};
 
-    use crate::MAX_NUM_ROOT_CLAIMS;
-
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
+    use crate::MAX_NUM_ROOT_CLAIMS;
+    use crate::MAX_ROOT_CLAIM_THRESHOLD;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -2481,6 +2481,38 @@ mod dispatches {
             );
 
             NumRootClaim::<T>::set(new_value);
+
+            Ok(())
+        }
+
+        /// --- Sets the root claim type for the coldkey.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// # Event:
+        /// * RootClaimTypeSet;
+        /// 	- On the successfully setting the root claim type for the coldkey.
+        ///
+        #[pallet::call_index(124)]
+        #[pallet::weight((
+            Weight::from_parts(4_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_root_claim_threshold(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            new_value: u64,
+        ) -> DispatchResult {
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            ensure!(
+                new_value <= I96F32::from(MAX_ROOT_CLAIM_THRESHOLD),
+                Error::<T>::InvalidRootClaimThreshold
+            );
+
+            RootClaimableThreshold::<T>::set(netuid, new_value.into());
 
             Ok(())
         }

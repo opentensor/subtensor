@@ -4,14 +4,17 @@ use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };
 use crate::{
-    Error, MAX_NUM_ROOT_CLAIMS, NetworksAdded, NumRootClaim, NumStakingColdkeys,
-    PendingRootAlphaDivs, RootClaimable, StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn,
-    SubnetMechanism, SubnetTAO, SubtokenEnabled, Tempo, pallet,
+    DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
+    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
+    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetTAO,
+    SubtokenEnabled, Tempo, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
+use frame_support::dispatch::RawOrigin;
 use frame_support::pallet_prelude::Weight;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::traits::Get;
+use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use substrate_fixed::types::{I96F32, U96F32};
@@ -1297,6 +1300,61 @@ fn test_claim_root_on_network_deregistration() {
         assert!(!RootClaimed::<Test>::contains_key((
             &hotkey, &coldkey, netuid
         )));
-        assert!(!RootClaimable::<Test>::get(&hotkey).contains_key(&netuid));
+        assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+    });
+}
+
+#[test]
+fn test_claim_root_threshold() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        assert_eq!(
+            RootClaimableThreshold::<Test>::get(netuid),
+            DefaultMinRootClaimAmount::<Test>::get()
+        );
+
+        let threshold = 1000u64;
+        assert_ok!(SubtensorModule::sudo_set_root_claim_threshold(
+            RawOrigin::Root.into(),
+            netuid,
+            threshold
+        ));
+        assert_eq!(
+            RootClaimableThreshold::<Test>::get(netuid),
+            I96F32::from(threshold)
+        );
+
+        let threshold = 2000u64;
+        assert_ok!(SubtensorModule::sudo_set_root_claim_threshold(
+            RawOrigin::Signed(owner_coldkey).into(),
+            netuid,
+            threshold
+        ));
+        assert_eq!(
+            RootClaimableThreshold::<Test>::get(netuid),
+            I96F32::from(threshold)
+        );
+
+        // Errors
+        assert_err!(
+            SubtensorModule::sudo_set_root_claim_threshold(
+                RawOrigin::Signed(hotkey).into(),
+                netuid,
+                threshold
+            ),
+            DispatchError::BadOrigin,
+        );
+
+        assert_err!(
+            SubtensorModule::sudo_set_root_claim_threshold(
+                RawOrigin::Signed(owner_coldkey).into(),
+                netuid,
+                MAX_ROOT_CLAIM_THRESHOLD + 1
+            ),
+            Error::<Test>::InvalidRootClaimThreshold,
+        );
     });
 }

@@ -266,5 +266,7 @@ mod errors {
         ChildParentInconsistency,
         /// Invalid number of root claims
         InvalidNumRootClaim,
+        /// Invalid value of root claim threshold
+        InvalidRootClaimThreshold,
     }
 }

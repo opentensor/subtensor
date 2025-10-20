@@ -58,6 +58,8 @@ pub const ALPHA_MAP_BATCH_SIZE: usize = 30;
 
 pub const MAX_NUM_ROOT_CLAIMS: u64 = 50;
 
+pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
+
 #[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
@@ -350,8 +352,8 @@ pub mod pallet {
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
     /// Any amount less than this will not be claimed.
-    pub fn DefaultMinRootClaimAmount<T: Config>() -> u64 {
-        500_000
+    pub fn DefaultMinRootClaimAmount<T: Config>() -> I96F32 {
+        500_000u64.into()
     }
 
     #[pallet::type_value]
@@ -1900,6 +1902,10 @@ pub mod pallet {
         bool,
         ValueQuery,
     >;
+
+    #[pallet::storage] // --- MAP(netuid ) --> Root claim threshold
+    pub type RootClaimableThreshold<T: Config> =
+        StorageMap<_, Blake2_128Concat, NetUid, I96F32, ValueQuery, DefaultMinRootClaimAmount<T>>;
 
     #[pallet::storage] // --- MAP ( hot ) --> MAP(netuid ) --> claimable_dividends | Root claimable dividends.
     pub type RootClaimable<T: Config> = StorageMap<
