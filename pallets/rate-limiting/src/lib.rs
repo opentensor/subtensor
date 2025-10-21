@@ -18,7 +18,7 @@ pub mod pallet {
         traits::{BuildGenesisConfig, GetCallMetadata},
     };
     use frame_system::{ensure_root, pallet_prelude::*};
-    use sp_std::vec::Vec;
+    use sp_std::{convert::TryFrom, vec::Vec};
 
     use crate::types::{RateLimit, RateLimitContextResolver, TransactionIdentifier};
 
@@ -144,7 +144,7 @@ pub mod pallet {
         /// within the provided context.
         pub fn is_within_limit(
             identifier: &TransactionIdentifier,
-            context: Option<<T as Config>::LimitContext>,
+            context: &Option<<T as Config>::LimitContext>,
         ) -> Result<bool, DispatchError> {
             let Some(block_span) = Self::resolved_limit(identifier) else {
                 return Ok(true);
@@ -152,7 +152,7 @@ pub mod pallet {
 
             let current = frame_system::Pallet::<T>::block_number();
 
-            if let Some(last) = LastSeen::<T>::get(identifier, &context) {
+            if let Some(last) = LastSeen::<T>::get(identifier, context) {
                 let delta = current.saturating_sub(last);
                 if delta < block_span {
                     return Ok(false);
@@ -168,6 +168,37 @@ pub mod pallet {
                 RateLimit::Default => DefaultLimit::<T>::get(),
                 RateLimit::Exact(block_span) => block_span,
             })
+        }
+
+        /// Returns the configured limit for the specified pallet/extrinsic names, if any.
+        pub fn limit_for_call_names(
+            pallet_name: &str,
+            extrinsic_name: &str,
+        ) -> Option<RateLimit<BlockNumberFor<T>>> {
+            let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
+            Limits::<T>::get(&identifier)
+        }
+
+        /// Returns the resolved block span for the specified pallet/extrinsic names, if any.
+        pub fn resolved_limit_for_call_names(
+            pallet_name: &str,
+            extrinsic_name: &str,
+        ) -> Option<BlockNumberFor<T>> {
+            let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
+            Self::resolved_limit(&identifier)
+        }
+
+        fn identifier_for_call_names(
+            pallet_name: &str,
+            extrinsic_name: &str,
+        ) -> Option<TransactionIdentifier> {
+            let modules = <T as Config>::RuntimeCall::get_module_names();
+            let pallet_pos = modules.iter().position(|name| *name == pallet_name)?;
+            let call_names = <T as Config>::RuntimeCall::get_call_names(pallet_name);
+            let extrinsic_pos = call_names.iter().position(|name| *name == extrinsic_name)?;
+            let pallet_index = u8::try_from(pallet_pos).ok()?;
+            let extrinsic_index = u8::try_from(extrinsic_pos).ok()?;
+            Some(TransactionIdentifier::new(pallet_index, extrinsic_index))
         }
     }
 

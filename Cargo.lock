@@ -10219,6 +10219,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-rate-limiting-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-rate-limiting-runtime-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+ "subtensor-runtime-common",
+]
+
+[[package]]
+name = "pallet-rate-limiting-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "pallet-rate-limiting",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-std",
+ "subtensor-runtime-common",
+]
+
+[[package]]
 name = "pallet-recovery"
 version = "41.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80#81fa2c54e94f824eba7dabe9dffd063481cb2d80"

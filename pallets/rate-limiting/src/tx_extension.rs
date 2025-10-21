@@ -81,7 +81,7 @@ where
 
         let context = <T as Config>::ContextResolver::context(call);
 
-        let within_limit = Pallet::<T>::is_within_limit(&identifier, context.clone())
+        let within_limit = Pallet::<T>::is_within_limit(&identifier, &context)
             .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
 
         if !within_limit {

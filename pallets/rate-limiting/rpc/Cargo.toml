@@ -1,0 +1,22 @@
+[package]
+name = "pallet-rate-limiting-rpc"
+version = "0.1.0"
+description = "RPC interface for the rate limiting pallet"
+edition.workspace = true
+
+[dependencies]
+jsonrpsee = { workspace = true, features = ["client-core", "server", "macros"] }
+sp-api.workspace = true
+sp-blockchain.workspace = true
+sp-runtime.workspace = true
+pallet-rate-limiting-runtime-api.workspace = true
+subtensor-runtime-common = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"sp-api/std",
+	"sp-runtime/std",
+	"pallet-rate-limiting-runtime-api/std",
+	"subtensor-runtime-common/std",
+]
