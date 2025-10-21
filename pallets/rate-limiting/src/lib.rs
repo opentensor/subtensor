@@ -4,7 +4,7 @@
 
 pub use pallet::*;
 pub use tx_extension::RateLimitTransactionExtension;
-pub use types::{RateLimitContextResolver, TransactionIdentifier};
+pub use types::{RateLimit, RateLimitContextResolver, TransactionIdentifier};
 
 mod tx_extension;
 mod types;
@@ -18,7 +18,7 @@ pub mod pallet {
     use frame_system::{ensure_root, pallet_prelude::*};
     use sp_std::vec::Vec;
 
-    use crate::types::{RateLimitContextResolver, TransactionIdentifier};
+    use crate::types::{RateLimit, RateLimitContextResolver, TransactionIdentifier};
 
     /// Configuration trait for the rate limiting pallet.
     #[pallet::config]
@@ -39,8 +39,13 @@ pub mod pallet {
     /// Storage mapping from transaction identifier to its configured rate limit.
     #[pallet::storage]
     #[pallet::getter(fn limits)]
-    pub type Limits<T> =
-        StorageMap<_, Blake2_128Concat, TransactionIdentifier, BlockNumberFor<T>, OptionQuery>;
+    pub type Limits<T> = StorageMap<
+        _,
+        Blake2_128Concat,
+        TransactionIdentifier,
+        RateLimit<BlockNumberFor<T>>,
+        OptionQuery,
+    >;
 
     /// Tracks when a transaction was last observed.
     ///
@@ -56,6 +61,11 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// Default block span applied when an extrinsic uses the default rate limit.
+    #[pallet::storage]
+    #[pallet::getter(fn default_limit)]
+    pub type DefaultLimit<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
     /// Events emitted by the rate limiting pallet.
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -64,8 +74,8 @@ pub mod pallet {
         RateLimitSet {
             /// Identifier of the affected transaction.
             transaction: TransactionIdentifier,
-            /// The new limit expressed in blocks.
-            block_span: BlockNumberFor<T>,
+            /// The new limit configuration applied to the transaction.
+            limit: RateLimit<BlockNumberFor<T>>,
             /// Pallet name associated with the transaction.
             pallet: Vec<u8>,
             /// Extrinsic name associated with the transaction.
@@ -79,6 +89,11 @@ pub mod pallet {
             pallet: Vec<u8>,
             /// Extrinsic name associated with the transaction.
             extrinsic: Vec<u8>,
+        },
+        /// The default rate limit was set or updated.
+        DefaultRateLimitSet {
+            /// The new default limit expressed in blocks.
+            block_span: BlockNumberFor<T>,
         },
     }
 
@@ -102,7 +117,7 @@ pub mod pallet {
             identifier: &TransactionIdentifier,
             context: Option<<T as Config>::LimitContext>,
         ) -> Result<bool, DispatchError> {
-            let Some(block_span) = Limits::<T>::get(identifier) else {
+            let Some(block_span) = Self::resolved_limit(identifier) else {
                 return Ok(true);
             };
 
@@ -117,6 +132,14 @@ pub mod pallet {
 
             Ok(true)
         }
+
+        fn resolved_limit(identifier: &TransactionIdentifier) -> Option<BlockNumberFor<T>> {
+            let limit = Limits::<T>::get(identifier)?;
+            Some(match limit {
+                RateLimit::Default => DefaultLimit::<T>::get(),
+                RateLimit::Exact(block_span) => block_span,
+            })
+        }
     }
 
     #[pallet::call]
@@ -130,12 +153,12 @@ pub mod pallet {
         pub fn set_rate_limit(
             origin: OriginFor<T>,
             call: Box<<T as Config>::RuntimeCall>,
-            block_span: BlockNumberFor<T>,
+            limit: RateLimit<BlockNumberFor<T>>,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
             let identifier = TransactionIdentifier::from_call::<T>(call.as_ref())?;
-            Limits::<T>::insert(&identifier, block_span);
+            Limits::<T>::insert(&identifier, limit);
 
             let (pallet_name, extrinsic_name) = identifier.names::<T>()?;
             let pallet = Vec::from(pallet_name.as_bytes());
@@ -143,7 +166,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::RateLimitSet {
                 transaction: identifier,
-                block_span,
+                limit,
                 pallet,
                 extrinsic,
             });
@@ -179,6 +202,22 @@ pub mod pallet {
                 pallet,
                 extrinsic,
             });
+
+            Ok(())
+        }
+
+        /// Sets the default rate limit in blocks applied to calls configured to use it.
+        #[pallet::call_index(2)]
+        #[pallet::weight(T::DbWeight::get().writes(1))]
+        pub fn set_default_rate_limit(
+            origin: OriginFor<T>,
+            block_span: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            DefaultLimit::<T>::put(block_span);
+
+            Self::deposit_event(Event::DefaultRateLimitSet { block_span });
 
             Ok(())
         }

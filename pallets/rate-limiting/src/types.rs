@@ -75,3 +75,23 @@ impl TransactionIdentifier {
         })
     }
 }
+
+/// Configuration value for a rate limit.
+#[derive(
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug,
+)]
+pub enum RateLimit<BlockNumber> {
+    /// Use the pallet-level default rate limit.
+    Default,
+    /// Apply an exact rate limit measured in blocks.
+    Exact(BlockNumber),
+}

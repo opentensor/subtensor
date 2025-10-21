@@ -5,7 +5,7 @@ use frame_support::{
     sp_runtime::{
         traits::{
             DispatchInfoOf, DispatchOriginOf, Dispatchable, Implication, TransactionExtension,
-            ValidateResult,
+            ValidateResult, Zero,
         },
         transaction_validity::{
             InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
@@ -17,7 +17,7 @@ use sp_std::{marker::PhantomData, result::Result};
 
 use crate::{
     Config, LastSeen, Limits, Pallet,
-    types::{RateLimitContextResolver, TransactionIdentifier},
+    types::{RateLimit, RateLimitContextResolver, TransactionIdentifier},
 };
 
 /// Identifier returned in the transaction metadata for the rate limiting extension.
@@ -66,7 +66,16 @@ where
             Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
         };
 
-        if Limits::<T>::get(&identifier).is_none() {
+        let Some(limit) = Limits::<T>::get(&identifier) else {
+            return Ok((ValidTransaction::default(), None, origin));
+        };
+
+        let block_span = match limit {
+            RateLimit::Default => Pallet::<T>::default_limit(),
+            RateLimit::Exact(block_span) => block_span,
+        };
+
+        if block_span.is_zero() {
             return Ok((ValidTransaction::default(), None, origin));
         }
 
