@@ -480,6 +480,7 @@ pub mod pallet {
     pub fn DefaultBurn<T: Config>() -> TaoCurrency {
         T::InitialBurn::get().into()
     }
+
     /// Default burn token.
     #[pallet::type_value]
     pub fn DefaultMinBurn<T: Config>() -> TaoCurrency {
@@ -1761,18 +1762,19 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
-    #[pallet::type_value]
     /// Default value for burn keys limit
+    #[pallet::type_value]
     pub fn DefaultImmuneOwnerUidsLimit<T: Config>() -> u16 {
         1
     }
-    #[pallet::type_value]
+
     /// Maximum value for burn keys limit
     pub fn MaxImmuneOwnerUidsLimit<T: Config>() -> u16 {
         10
     }
-    #[pallet::type_value]
+
     /// Minimum value for burn keys limit
+    #[pallet::type_value]
     pub fn MinImmuneOwnerUidsLimit<T: Config>() -> u16 {
         1
     }
@@ -2193,8 +2195,8 @@ pub mod pallet {
     #[pallet::storage]
     pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
-    #[pallet::type_value]
     /// Default value for pending childkey cooldown (settable by root, default 0)
+    #[pallet::type_value]
     pub fn DefaultPendingChildKeyCooldown<T: Config>() -> u64 {
         0
     }
