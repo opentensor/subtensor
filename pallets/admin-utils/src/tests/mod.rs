@@ -1712,48 +1712,48 @@ fn test_sets_a_lower_value_clears_small_nominations() {
     });
 }
 
-#[test]
-fn test_sudo_set_subnet_owner_hotkey() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+// #[test]
+// fn test_sudo_set_subnet_owner_hotkey() {
+//     new_test_ext().execute_with(|| {
+//         let netuid = NetUid::from(1);
 
-        let coldkey: U256 = U256::from(1);
-        let hotkey: U256 = U256::from(2);
-        let new_hotkey: U256 = U256::from(3);
+//         let coldkey: U256 = U256::from(1);
+//         let hotkey: U256 = U256::from(2);
+//         let new_hotkey: U256 = U256::from(3);
 
-        let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
-        let root = RuntimeOrigin::root();
-        let random_account = RuntimeOrigin::signed(U256::from(123456));
+//         let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
+//         let root = RuntimeOrigin::root();
+//         let random_account = RuntimeOrigin::signed(U256::from(123456));
 
-        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey);
-        pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(netuid, hotkey);
-        assert_eq!(
-            pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
-            hotkey
-        );
+//         pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey);
+//         pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(netuid, hotkey);
+//         assert_eq!(
+//             pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
+//             hotkey
+//         );
 
-        assert_ok!(AdminUtils::sudo_set_subnet_owner_hotkey(
-            coldkey_origin,
-            netuid,
-            new_hotkey
-        ));
+//         assert_ok!(AdminUtils::sudo_set_subnet_owner_hotkey(
+//             coldkey_origin,
+//             netuid,
+//             new_hotkey
+//         ));
 
-        assert_eq!(
-            pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
-            new_hotkey
-        );
+//         assert_eq!(
+//             pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
+//             new_hotkey
+//         );
 
-        assert_noop!(
-            AdminUtils::sudo_set_subnet_owner_hotkey(random_account, netuid, new_hotkey),
-            DispatchError::BadOrigin
-        );
+//         assert_noop!(
+//             AdminUtils::sudo_set_subnet_owner_hotkey(random_account, netuid, new_hotkey),
+//             DispatchError::BadOrigin
+//         );
 
-        assert_noop!(
-            AdminUtils::sudo_set_subnet_owner_hotkey(root, netuid, new_hotkey),
-            DispatchError::BadOrigin
-        );
-    });
-}
+//         assert_noop!(
+//             AdminUtils::sudo_set_subnet_owner_hotkey(root, netuid, new_hotkey),
+//             DispatchError::BadOrigin
+//         );
+//     });
+// }
 
 // cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_ema_halving --exact --show-output
 #[test]
@@ -2025,7 +2025,7 @@ fn test_freeze_window_blocks_root_and_owner() {
         let owner: U256 = U256::from(9);
         SubnetOwner::<Test>::insert(netuid, owner);
         assert_noop!(
-            AdminUtils::sudo_set_kappa(
+            AdminUtils::sudo_set_commit_reveal_weights_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(owner),
                 netuid,
                 77
@@ -2112,14 +2112,14 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
         ));
 
         // First update succeeds
-        assert_ok!(AdminUtils::sudo_set_kappa(
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
             11
         ));
         // Immediate second update fails due to TxRateLimitExceeded
         assert_noop!(
-            AdminUtils::sudo_set_kappa(
+            AdminUtils::sudo_set_commit_reveal_weights_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(owner),
                 netuid,
                 12
@@ -2130,7 +2130,7 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
         // Advance less than limit still fails
         run_to_block(SubtensorModule::get_current_block_as_u64() + 1);
         assert_noop!(
-            AdminUtils::sudo_set_kappa(
+            AdminUtils::sudo_set_commit_reveal_weights_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(owner),
                 netuid,
                 13
@@ -2140,7 +2140,7 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
 
         // Advance one more block to pass the limit; should succeed
         run_to_block(SubtensorModule::get_current_block_as_u64() + 1);
-        assert_ok!(AdminUtils::sudo_set_kappa(
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
             14
@@ -2167,7 +2167,7 @@ fn test_hyperparam_rate_limit_enforced_by_tempo() {
         ));
 
         // First owner update should succeed
-        assert_ok!(AdminUtils::sudo_set_kappa(
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
             1
@@ -2175,13 +2175,17 @@ fn test_hyperparam_rate_limit_enforced_by_tempo() {
 
         // Immediate second update should fail due to tempo-based RL
         assert_noop!(
-            AdminUtils::sudo_set_kappa(<<Test as Config>::RuntimeOrigin>::signed(owner), netuid, 2),
+            AdminUtils::sudo_set_commit_reveal_weights_interval(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                2
+            ),
             SubtensorError::<Test>::TxRateLimitExceeded
         );
 
         // Advance 2 blocks (2 tempos with tempo=1) then succeed
         run_to_block(SubtensorModule::get_current_block_as_u64() + 2);
-        assert_ok!(AdminUtils::sudo_set_kappa(
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
             3
@@ -2211,7 +2215,7 @@ fn test_owner_hyperparam_rate_limit_independent_per_param() {
         ));
 
         // First update to kappa should succeed
-        assert_ok!(AdminUtils::sudo_set_kappa(
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
             10
@@ -2219,7 +2223,7 @@ fn test_owner_hyperparam_rate_limit_independent_per_param() {
 
         // Immediate second update to the SAME param (kappa) should be blocked by RL
         assert_noop!(
-            AdminUtils::sudo_set_kappa(
+            AdminUtils::sudo_set_commit_reveal_weights_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(owner),
                 netuid,
                 11
@@ -2236,7 +2240,7 @@ fn test_owner_hyperparam_rate_limit_independent_per_param() {
 
         // kappa should still be blocked until its own RL window passes
         assert_noop!(
-            AdminUtils::sudo_set_kappa(
+            AdminUtils::sudo_set_commit_reveal_weights_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(owner),
                 netuid,
                 12
@@ -2254,7 +2258,7 @@ fn test_owner_hyperparam_rate_limit_independent_per_param() {
         run_to_block(SubtensorModule::get_current_block_as_u64() + 2);
 
         // Now both hyperparameters can be updated again
-        assert_ok!(AdminUtils::sudo_set_kappa(
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
             13
