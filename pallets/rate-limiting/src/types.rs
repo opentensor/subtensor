@@ -10,6 +10,7 @@ pub trait RateLimitContextResolver<Call, Context> {
 }
 
 /// Identifies a runtime call by pallet and extrinsic indices.
+#[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
 #[derive(
     Clone,
     Copy,
@@ -77,6 +78,7 @@ impl TransactionIdentifier {
 }
 
 /// Configuration value for a rate limit.
+#[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
 #[derive(
     Clone,
     Copy,

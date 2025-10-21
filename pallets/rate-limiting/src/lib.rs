@@ -13,7 +13,9 @@ mod types;
 pub mod pallet {
     use codec::Codec;
     use frame_support::{
-        pallet_prelude::*, sp_runtime::traits::Saturating, traits::GetCallMetadata,
+        pallet_prelude::*,
+        sp_runtime::traits::{Saturating, Zero},
+        traits::{BuildGenesisConfig, GetCallMetadata},
     };
     use frame_system::{ensure_root, pallet_prelude::*};
     use sp_std::vec::Vec;
@@ -104,6 +106,33 @@ pub mod pallet {
         InvalidRuntimeCall,
         /// Attempted to remove a limit that is not present.
         MissingRateLimit,
+    }
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub default_limit: BlockNumberFor<T>,
+        pub limits: Vec<(TransactionIdentifier, RateLimit<BlockNumberFor<T>>)>,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self {
+                default_limit: Zero::zero(),
+                limits: Vec::new(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+        fn build(&self) {
+            DefaultLimit::<T>::put(self.default_limit);
+
+            for (identifier, limit) in &self.limits {
+                Limits::<T>::insert(identifier, limit.clone());
+            }
+        }
     }
 
     #[pallet::pallet]
