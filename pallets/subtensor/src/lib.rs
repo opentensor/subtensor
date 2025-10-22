@@ -98,11 +98,6 @@ pub mod pallet {
         AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
     };
 
-    #[cfg(not(feature = "std"))]
-    use alloc::boxed::Box;
-    #[cfg(feature = "std")]
-    use sp_std::prelude::Box;
-
     /// Origin for the pallet
     pub type PalletsOriginOf<T> =
         <<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
@@ -709,11 +704,6 @@ pub mod pallet {
         T::InitialActivityCutoff::get()
     }
     #[pallet::type_value]
-    /// Default maximum weights limit.
-    pub fn DefaultMaxWeightsLimit<T: Config>() -> u16 {
-        T::InitialMaxWeightsLimit::get()
-    }
-    #[pallet::type_value]
     /// Default weights version key.
     pub fn DefaultWeightsVersionKey<T: Config>() -> u64 {
         T::InitialWeightsVersionKey::get()
@@ -847,11 +837,6 @@ pub mod pallet {
     /// Default value for weight commit/reveal version.
     pub fn DefaultCommitRevealWeightsVersion<T: Config>() -> u16 {
         4
-    }
-    #[pallet::type_value]
-    /// Senate requirements
-    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
-        T::InitialSenateRequiredStakePercentage::get()
     }
     #[pallet::type_value]
     /// -- ITEM (switches liquid alpha on)
@@ -1004,10 +989,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type DissolveNetworkScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultDissolveNetworkScheduleDuration<T>>;
-
-    #[pallet::storage]
-    pub type SenateRequiredStakePercentage<T> =
-        StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     #[pallet::storage]
     /// --- DMap ( netuid, coldkey ) --> blocknumber | last hotkey swap on network.
@@ -1472,6 +1453,11 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> activity_cutoff
     pub type ActivityCutoff<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultActivityCutoff<T>>;
+    #[pallet::type_value]
+    /// Default maximum weights limit.
+    pub fn DefaultMaxWeightsLimit<T: Config>() -> u16 {
+        u16::MAX
+    }
     #[pallet::storage]
     /// --- MAP ( netuid ) --> max_weight_limit
     pub type MaxWeightsLimit<T> =
@@ -2174,81 +2160,6 @@ use sp_std::vec;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
-/// Trait for managing a membership pallet instance in the runtime
-pub trait MemberManagement<AccountId> {
-    /// Add member
-    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Remove a member
-    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Swap member
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Get all members
-    fn members() -> Vec<AccountId>;
-
-    /// Check if an account is apart of the set
-    fn is_member(account: &AccountId) -> bool;
-
-    /// Get our maximum member count
-    fn max_members() -> u32;
-}
-
-impl<T> MemberManagement<T> for () {
-    /// Add member
-    fn add_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Remove a member
-    fn remove_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Swap member
-    fn swap_member(_: &T, _: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Get all members
-    fn members() -> Vec<T> {
-        vec![]
-    }
-
-    // Check if an account is apart of the set
-    fn is_member(_: &T) -> bool {
-        false
-    }
-
-    fn max_members() -> u32 {
-        0
-    }
-}
-
-/// Trait for interacting with collective pallets
-pub trait CollectiveInterface<AccountId, Hash, ProposalIndex> {
-    /// Remove vote
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, DispatchError>;
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: Hash,
-        index: ProposalIndex,
-        approve: bool,
-    ) -> Result<bool, DispatchError>;
-}
-
-impl<T, H, P> CollectiveInterface<T, H, P> for () {
-    fn remove_votes(_: &T) -> Result<bool, DispatchError> {
-        Ok(true)
-    }
-
-    fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
-        Ok(true)
-    }
-}
-
 #[derive(Clone)]
 pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
 
@@ -2398,16 +2309,22 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
+    #[codec(index = 0)]
     SetSNOwnerHotkey(NetUid),
     // Generic rate limit for subnet-owner hyperparameter updates (per netuid)
+    #[codec(index = 1)]
     OwnerHyperparamUpdate(NetUid, Hyperparameter),
     // Subnet registration rate limit
+    #[codec(index = 2)]
     NetworkLastRegistered,
     // Last tx block limit per account ID
+    #[codec(index = 3)]
     LastTxBlock(AccountId),
     // Last tx block child key limit per account ID
+    #[codec(index = 4)]
     LastTxBlockChildKeyTake(AccountId),
     // Last tx block delegate key limit per account ID
+    #[codec(index = 5)]
     LastTxBlockDelegateTake(AccountId),
 }
 

@@ -29,9 +29,6 @@ mod genesis {
             // Set the min allowed weights to zero, no weights restrictions.
             MinAllowedWeights::<T>::insert(NetUid::ROOT, 0);
 
-            // Set the max weight limit to infitiy, no weight restrictions.
-            MaxWeightsLimit::<T>::insert(NetUid::ROOT, u16::MAX);
-
             // Add default root tempo.
             Tempo::<T>::insert(NetUid::ROOT, 100);
 
@@ -59,7 +56,6 @@ mod genesis {
             MaxAllowedUids::<T>::insert(netuid, 256u16);
             MaxAllowedValidators::<T>::insert(netuid, 64u16);
             MinAllowedWeights::<T>::insert(netuid, 0);
-            MaxWeightsLimit::<T>::insert(netuid, u16::MAX);
             Tempo::<T>::insert(netuid, 100);
             NetworkRegistrationAllowed::<T>::insert(netuid, true);
             SubnetOwner::<T>::insert(netuid, hotkey.clone());

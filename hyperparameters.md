@@ -2,6 +2,7 @@
 ```rust
 DefaultTake: u16 = 11_796; // 18% honest number.
 TxRateLimit: u64 = 1; // [1 @ 64,888]
+MaxWeightsLimit: u16 = u16::MAX; // constant limit
 ```
 
 ### netuid 1 (text_prompting)
@@ -13,7 +14,6 @@ MaxAllowedUids: u16 = 1024;
 Issuance: u64 = 0;
 MinAllowedWeights: u16 = 8;
 EmissionValue: u64 = 142_223_000;
-MaxWeightsLimit: 455; // 455/2^16 = 0.0069
 ValidatorBatchSize: u16 = 1;
 ValidatorSequenceLen: u16 = 2048; // 2048
 ValidatorEpochLen: u16 = 100;
@@ -54,7 +54,6 @@ MaxAllowedUids: u16 = 4096;
 Issuance: u64 = 0;
 MinAllowedWeights: u16 = 50;
 EmissionValue: u64 = 857_777_000;
-MaxWeightsLimit: u16 = 655; // 655/2^16 = 0.01 [655 @ 7,160]
 ValidatorBatchSize: u16 = 32; // 32
 ValidatorSequenceLen: u16 = 256; // 256
 ValidatorEpochLen: u16 = 250; // [250 @ 7,161]
