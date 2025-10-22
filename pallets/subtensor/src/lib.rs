@@ -313,7 +313,6 @@ pub mod pallet {
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
-
     /// Default value for zero.
     #[pallet::type_value]
     pub fn DefaultZeroU64<T: Config>() -> u64 {
@@ -1047,7 +1046,6 @@ pub mod pallet {
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
-
     /// --- ITEM --> Global weight
     #[pallet::storage]
     pub type TaoWeight<T> = StorageValue<_, u64, ValueQuery, DefaultTaoWeight<T>>;
@@ -1162,7 +1160,6 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-
     /// --- ITEM ( global_block_emission )    
     #[pallet::storage]
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
@@ -1191,7 +1188,6 @@ pub mod pallet {
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
-
     /// --- ITEM ( maximum_number_of_networks )
     #[pallet::storage]
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
@@ -1363,7 +1359,6 @@ pub mod pallet {
     /// ============================
     /// ==== Global Parameters =====
     /// ============================
-
     /// --- StorageItem Global Used Work.
     #[pallet::storage]
     pub type UsedWork<T: Config> = StorageMap<_, Identity, Vec<u8>, u64, ValueQuery>;
@@ -1417,7 +1412,6 @@ pub mod pallet {
     /// ============================
     /// ==== Rate Limiting =====
     /// ============================
-
     /// --- MAP ( RateLimitKey ) --> Block number in which the last rate limited operation occured
     #[pallet::storage]
     pub type LastRateLimitedBlock<T: Config> =
@@ -1426,7 +1420,6 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Locks =====
     /// ============================
-
     /// --- MAP ( netuid ) --> transfer_toggle
     #[pallet::storage]
     pub type TransferToggle<T: Config> =
@@ -1445,7 +1438,6 @@ pub mod pallet {
     /// =================
     /// ==== Tempos =====
     /// =================
-
     /// --- MAP ( netuid ) --> tempo
     #[pallet::storage]
     pub type Tempo<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultTempo<T>>;
@@ -1453,7 +1445,6 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
-
     /// --- MAP ( netuid ) --> block number of first emission
     #[pallet::storage]
     pub type FirstEmissionBlockNumber<T: Config> =
@@ -1769,6 +1760,7 @@ pub mod pallet {
     }
 
     /// Maximum value for burn keys limit
+    #[pallet::type_value]
     pub fn MaxImmuneOwnerUidsLimit<T: Config>() -> u16 {
         10
     }
@@ -1787,7 +1779,6 @@ pub mod pallet {
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
-
     /// --- DMAP ( netuid ) --> stake_weight | weight for stake used in YC.
     #[pallet::storage]
     pub type StakeWeight<T: Config> =
@@ -1973,7 +1964,6 @@ pub mod pallet {
     /// =================================
     /// ==== Axon / Promo Endpoints =====
     /// =================================
-
     /// --- NMAP ( hot, netuid, name ) --> last_block | Returns the last block of a transaction for a given key, netuid, and name.
     #[pallet::storage]
     pub type TransactionKeyLastBlock<T: Config> = StorageNMap<
@@ -2109,7 +2099,6 @@ pub mod pallet {
     /// =============================
     /// ==== EVM related storage ====
     /// =============================
-
     /// --- DMAP (netuid, uid) --> (H160, last_block_where_ownership_was_proven)
     #[pallet::storage]
     pub type AssociatedEvmAddress<T: Config> =
@@ -2118,7 +2107,6 @@ pub mod pallet {
     /// ========================
     /// ==== Subnet Leasing ====
     /// ========================
-
     /// --- MAP ( lease_id ) --> subnet lease | The subnet lease for a given lease id.
     #[pallet::storage]
     pub type SubnetLeases<T: Config> =
@@ -2156,23 +2144,26 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Mechanisms =====
     /// ============================
-    #[pallet::type_value]
     /// -- ITEM (Default number of sub-subnets)
+    #[pallet::type_value]
     pub fn DefaultMechanismCount<T: Config>() -> MechId {
         MechId::from(1)
     }
-    #[pallet::type_value]
+
     /// -- ITEM (Maximum number of sub-subnets)
+    #[pallet::type_value]
     pub fn MaxMechanismCount<T: Config>() -> MechId {
         MechId::from(2)
     }
-    #[pallet::type_value]
+
     /// -- ITEM (Rate limit for mechanism count updates)
+    #[pallet::type_value]
     pub fn MechanismCountSetRateLimit<T: Config>() -> u64 {
         prod_or_fast!(7_200, 1)
     }
-    #[pallet::type_value]
+
     /// -- ITEM (Rate limit for mechanism emission distribution updates)
+    #[pallet::type_value]
     pub fn MechanismEmissionRateLimit<T: Config>() -> u64 {
         prod_or_fast!(7_200, 1)
     }
@@ -2190,7 +2181,6 @@ pub mod pallet {
     /// ==================
     /// ==== Genesis =====
     /// ==================
-
     /// --- Storage for migration run status
     #[pallet::storage]
     pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
