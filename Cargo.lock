@@ -10693,6 +10693,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-subtensor-democracy"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-preimage",
+ "pallet-scheduler",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "subtensor-macros",
+]
+
+[[package]]
 name = "pallet-subtensor-proxy"
 version = "40.1.0"
 dependencies = [
