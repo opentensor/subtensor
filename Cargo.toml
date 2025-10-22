@@ -115,6 +115,7 @@ expander = "2"
 ahash = { version = "0.8", default-features = false }
 regex = { version = "1.11.1", default-features = false }
 ethereum = { version = "0.18.2", default-features = false }
+zeroize = {version = "1.8.2", default-features = false }
 
 frame = { package = "polkadot-sdk-frame", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }

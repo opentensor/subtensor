@@ -8245,6 +8245,7 @@ dependencies = [
  "subtensor-custom-rpc",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-runtime-common",
+ "zeroize",
 ]
 
 [[package]]
