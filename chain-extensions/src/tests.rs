@@ -684,12 +684,16 @@ fn add_proxy_success_creates_proxy_relationship() {
 
         let proxies = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
         assert_eq!(proxies.len(), 1);
-        assert_eq!(proxies[0].delegate, delegate);
-        assert_eq!(
-            proxies[0].proxy_type,
-            subtensor_runtime_common::ProxyType::Staking
-        );
-        assert_eq!(proxies[0].delay, 0u64);
+        if let Some(proxy) = proxies.first() {
+            assert_eq!(proxy.delegate, delegate);
+            assert_eq!(
+                proxy.proxy_type,
+                subtensor_runtime_common::ProxyType::Staking
+            );
+            assert_eq!(proxy.delay, 0u64);
+        } else {
+            panic!("proxies should contain one element");
+        }
     });
 }
 
