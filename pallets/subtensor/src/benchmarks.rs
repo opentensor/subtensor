@@ -1642,7 +1642,7 @@ mod pallet_benchmarks {
     #[benchmark]
     fn sudo_set_num_root_claims() {
         #[extrinsic_call]
-        _(RawOrigin::Root, 100);
+        _(RawOrigin::Root, 40);
     }
 
     #[benchmark]
