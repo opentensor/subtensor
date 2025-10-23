@@ -7,7 +7,7 @@ use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
-use substrate_fixed::types::{I32F32, U64F64, U96F32};
+use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
@@ -953,7 +953,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Sets TAO flow cutoff value (A)
-    pub fn set_tao_flow_cutoff(flow_cutoff: TaoCurrency) {
+    pub fn set_tao_flow_cutoff(flow_cutoff: I64F64) {
         TaoFlowCutoff::<T>::set(flow_cutoff);
     }
 

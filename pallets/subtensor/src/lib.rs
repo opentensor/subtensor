@@ -1218,9 +1218,14 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_ema_tao_flow | Returns the EMA of TAO inflow-outflow balance.
     pub type SubnetEmaTaoFlow<T: Config> =
         StorageMap<_, Identity, NetUid, (u64, I64F64), OptionQuery>;
+    #[pallet::type_value]
+    /// Default value for flow cutoff.
+    pub fn DefaultFlowCutoff<T: Config>() -> I64F64 {
+        I64F64::saturating_from_num(0)
+    }
     #[pallet::storage]
     /// --- ITEM --> TAO Flow Cutoff
-    pub type TaoFlowCutoff<T: Config> = StorageValue<_, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+    pub type TaoFlowCutoff<T: Config> = StorageValue<_, I64F64, ValueQuery, DefaultFlowCutoff<T>>;
     #[pallet::type_value]
     /// Default value for flow normalization exponent.
     pub fn DefaultFlowNormExponent<T: Config>() -> U64F64 {

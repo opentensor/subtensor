@@ -31,7 +31,7 @@ pub mod pallet {
         utils::rate_limiting::{Hyperparameter, TransactionType},
     };
     use sp_runtime::BoundedVec;
-    use substrate_fixed::types::{I96F32, U64F64};
+    use substrate_fixed::types::{I64F64, I96F32, U64F64};
     use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
 
     /// The main data structure of the module.
@@ -2111,7 +2111,7 @@ pub mod pallet {
 		))]
         pub fn sudo_set_tao_flow_cutoff(
             origin: OriginFor<T>,
-            flow_cutoff: TaoCurrency,
+            flow_cutoff: I64F64,
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_tao_flow_cutoff(flow_cutoff);

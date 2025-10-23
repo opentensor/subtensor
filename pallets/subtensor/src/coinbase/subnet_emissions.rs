@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
             .map(|flow| flow.min(&zero))
             .min()
             .unwrap_or(&zero);
-        let flow_cutoff = I64F64::saturating_from_num(u64::from(TaoFlowCutoff::<T>::get()));
+        let flow_cutoff = TaoFlowCutoff::<T>::get();
         flow_cutoff.max(*min_flow)
     }
 
