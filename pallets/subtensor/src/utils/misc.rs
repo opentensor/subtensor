@@ -7,7 +7,7 @@ use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
-use substrate_fixed::types::{I32F32, U96F32};
+use substrate_fixed::types::{I32F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
@@ -950,5 +950,20 @@ impl<T: Config> Pallet<T> {
     pub fn set_max_subnets(limit: u16) {
         SubnetLimit::<T>::put(limit);
         Self::deposit_event(Event::SubnetLimitSet(limit));
+    }
+
+    /// Sets TAO flow cutoff value (A)
+    pub fn set_tao_flow_cutoff(flow_cutoff: TaoCurrency) {
+        TaoFlowCutoff::<T>::set(flow_cutoff);
+    }
+
+    /// Sets TAO flow normalization exponent (p)
+    pub fn set_tao_flow_normalization_exponent(exponent: U64F64) {
+        FlowNormExponent::<T>::set(exponent);
+    }
+
+    /// Sets TAO flow smoothing factor (alpha)
+    pub fn set_tao_flow_smoothing_factor(smoothing_factor: u64) {
+        FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
     }
 }

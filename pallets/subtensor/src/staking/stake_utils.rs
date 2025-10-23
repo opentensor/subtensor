@@ -715,6 +715,9 @@ impl<T: Config> Pallet<T> {
         //     });
         // }
 
+        // Record TAO outflow
+        Self::record_tao_outflow(netuid, swap_result.amount_paid_out.into());
+
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         // Deposit and log the unstaking event.
@@ -788,6 +791,9 @@ impl<T: Config> Pallet<T> {
             staking_hotkeys.push(hotkey.clone());
             StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
         }
+
+        // Record TAO inflow
+        Self::record_tao_inflow(netuid, swap_result.amount_paid_in.into());
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
