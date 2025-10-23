@@ -230,7 +230,7 @@ parameter_types! {
 pub const UNITS: Balance = 1_000_000_000;
 
 /// Babe epoch duration.
-pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_fast!(4 * HOURS, MINUTES / 6);
+pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_fast!(HOURS, MINUTES);
 
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 // the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -566,16 +566,16 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
     type MaxWinners = MaxWinnersPerPage;
     type MaxBackersPerWinner = MaxBackersPerWinner;
     type DataProvider = Staking;
-    #[cfg(any(feature = "fast-runtime", feature = "runtime-benchmarks"))]
+    // #[cfg(any(feature = "fast-runtime", feature = "runtime-benchmarks"))]
     type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
-    #[cfg(not(any(feature = "fast-runtime", feature = "runtime-benchmarks")))]
-    type Fallback = frame_election_provider_support::NoElection<(
-        AccountId,
-        BlockNumber,
-        Staking,
-        MaxWinnersPerPage,
-        MaxBackersPerWinner,
-    )>;
+    // #[cfg(not(any(feature = "fast-runtime", feature = "runtime-benchmarks")))]
+    // type Fallback = frame_election_provider_support::NoElection<(
+    //     AccountId,
+    //     BlockNumber,
+    //     Staking,
+    //     MaxWinnersPerPage,
+    //     MaxBackersPerWinner,
+    // )>;
     type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
     type Solver = SequentialPhragmen<
         AccountId,
@@ -602,7 +602,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 }
 
 parameter_types! {
-    // Six sessions in an era (24 hours).
+    // Six sessions in an era (6 hours).
     pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 2);
 
     // 28 eras for unbonding (28 days).
