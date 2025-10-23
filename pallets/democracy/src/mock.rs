@@ -5,7 +5,7 @@
     clippy::unwrap_used
 )]
 use frame_support::{derive_impl, parameter_types};
-use frame_system::pallet_prelude::*;
+use frame_system::{EnsureRoot, pallet_prelude::*};
 use sp_core::U256;
 use sp_runtime::{BuildStorage, traits::IdentityLookup};
 
@@ -44,6 +44,8 @@ impl pallet_democracy::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type MaxAllowedProposers = MaxAllowedProposers;
+    type SetAllowedProposersOrigin = EnsureRoot<AccountOf<Test>>;
+    type SetTriumvirateOrigin = EnsureRoot<AccountOf<Test>>;
 }
 
 pub(crate) struct TestState {
@@ -65,19 +67,6 @@ impl Default for TestState {
 }
 
 impl TestState {
-    pub(crate) fn with_block_number(mut self, block_number: BlockNumberFor<Test>) -> Self {
-        self.block_number = block_number;
-        self
-    }
-
-    pub(crate) fn with_balance(
-        mut self,
-        balances: Vec<(AccountOf<Test>, BalanceOf<Test>)>,
-    ) -> Self {
-        self.balances = balances;
-        self
-    }
-
     pub(crate) fn with_allowed_proposers(
         mut self,
         allowed_proposers: Vec<AccountOf<Test>>,
@@ -115,4 +104,8 @@ impl TestState {
             test();
         });
     }
+}
+
+pub(crate) fn last_event() -> RuntimeEvent {
+    System::events().pop().expect("RuntimeEvent expected").event
 }
