@@ -566,16 +566,16 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
     type MaxWinners = MaxWinnersPerPage;
     type MaxBackersPerWinner = MaxBackersPerWinner;
     type DataProvider = Staking;
-    // #[cfg(any(feature = "fast-runtime", feature = "runtime-benchmarks"))]
+    #[cfg(any(feature = "fast-runtime", feature = "runtime-benchmarks"))]
     type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
-    // #[cfg(not(any(feature = "fast-runtime", feature = "runtime-benchmarks")))]
-    // type Fallback = frame_election_provider_support::NoElection<(
-    //     AccountId,
-    //     BlockNumber,
-    //     Staking,
-    //     MaxWinnersPerPage,
-    //     MaxBackersPerWinner,
-    // )>;
+    #[cfg(not(any(feature = "fast-runtime", feature = "runtime-benchmarks")))]
+    type Fallback = frame_election_provider_support::NoElection<(
+        AccountId,
+        BlockNumber,
+        Staking,
+        MaxWinnersPerPage,
+        MaxBackersPerWinner,
+    )>;
     type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
     type Solver = SequentialPhragmen<
         AccountId,
