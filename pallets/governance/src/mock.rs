@@ -9,7 +9,7 @@ use frame_system::{EnsureRoot, pallet_prelude::*};
 use sp_core::U256;
 use sp_runtime::{BuildStorage, traits::IdentityLookup};
 
-use crate::{BalanceOf, pallet as pallet_democracy};
+use crate::{BalanceOf, pallet as pallet_governance};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub(crate) type AccountOf<T> = <T as frame_system::Config>::AccountId;
@@ -19,7 +19,7 @@ frame_support::construct_runtime!(
     {
       System: frame_system = 1,
       Balances: pallet_balances = 2,
-      Democracy: pallet_democracy = 3,
+      Governance: pallet_governance = 3,
     }
 );
 
@@ -40,7 +40,7 @@ parameter_types! {
     pub const MaxAllowedProposers: u32 = 5;
 }
 
-impl pallet_democracy::Config for Test {
+impl pallet_governance::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type MaxAllowedProposers = MaxAllowedProposers;
@@ -87,7 +87,7 @@ impl TestState {
                 balances: self.balances,
                 ..Default::default()
             },
-            democracy: pallet_democracy::GenesisConfig {
+            governance: pallet_governance::GenesisConfig {
                 allowed_proposers: self.allowed_proposers,
                 triumvirate: self.triumvirate,
             },

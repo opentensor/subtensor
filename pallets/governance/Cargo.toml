@@ -1,11 +1,11 @@
 [package]
-name = "pallet-subtensor-democracy"
+name = "pallet-governance"
 version = "1.0.0"
 authors = ["Bittensor Nucleus Team"]
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://bittensor.com"
-description = "BitTensor democracy pallet"
+description = "BitTensor governance pallet"
 readme = "README.md"
 
 [lints]

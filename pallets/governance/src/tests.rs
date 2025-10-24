@@ -113,7 +113,7 @@ fn set_allowed_proposers_works() {
             );
             assert_eq!(
                 last_event(),
-                RuntimeEvent::Democracy(Event::<Test>::AllowedProposersSet)
+                RuntimeEvent::Governance(Event::<Test>::AllowedProposersSet)
             );
         });
 }
@@ -197,7 +197,7 @@ fn set_triumvirate_works() {
             );
             assert_eq!(
                 last_event(),
-                RuntimeEvent::Democracy(Event::<Test>::TriumvirateSet)
+                RuntimeEvent::Governance(Event::<Test>::TriumvirateSet)
             );
         });
 }
