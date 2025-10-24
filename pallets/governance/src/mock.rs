@@ -4,7 +4,7 @@
     clippy::expect_used,
     clippy::unwrap_used
 )]
-use frame_support::{derive_impl, parameter_types};
+use frame_support::{derive_impl, pallet_prelude::*, parameter_types};
 use frame_system::{EnsureRoot, pallet_prelude::*};
 use sp_core::U256;
 use sp_runtime::{BuildStorage, traits::IdentityLookup};
@@ -19,7 +19,9 @@ frame_support::construct_runtime!(
     {
       System: frame_system = 1,
       Balances: pallet_balances = 2,
-      Governance: pallet_governance = 3,
+      Preimage: pallet_preimage = 3,
+      Governance: pallet_governance = 4,
+      TestPallet: pallet_test = 5,
     }
 );
 
@@ -36,17 +38,54 @@ impl pallet_balances::Config for Test {
     type AccountStore = System;
 }
 
+impl pallet_preimage::Config for Test {
+    type WeightInfo = pallet_preimage::weights::SubstrateWeight<Test>;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountOf<Test>>;
+    type Consideration = ();
+}
+
 parameter_types! {
     pub const MaxAllowedProposers: u32 = 5;
+    pub const MaxProposalWeight: Weight = Weight::from_parts(1_000_000_000_000, 0);
+    pub const MaxProposals: u32 = 5;
 }
 
 impl pallet_governance::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
-    type MaxAllowedProposers = MaxAllowedProposers;
+    type Preimages = Preimage;
     type SetAllowedProposersOrigin = EnsureRoot<AccountOf<Test>>;
     type SetTriumvirateOrigin = EnsureRoot<AccountOf<Test>>;
+    type MaxAllowedProposers = MaxAllowedProposers;
+    type MaxProposalWeight = MaxProposalWeight;
+    type MaxProposals = MaxProposals;
 }
+
+#[frame_support::pallet]
+pub(crate) mod pallet_test {
+    use super::MaxProposalWeight;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + Sized {}
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
+        #[pallet::weight(MaxProposalWeight::get() * 2)]
+        pub fn expensive_call(_origin: OriginFor<T>) -> DispatchResult {
+            Ok(())
+        }
+    }
+}
+
+impl pallet_test::Config for Test {}
 
 pub(crate) struct TestState {
     block_number: BlockNumberFor<Test>,

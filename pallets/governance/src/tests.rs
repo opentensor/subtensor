@@ -255,3 +255,228 @@ fn set_triumvirate_with_allowed_proposers_intersection_fails() {
             );
         });
 }
+
+#[test]
+fn propose_works_with_inline_preimage() {
+    TestState::default().build_and_execute(|| {
+        let key_value = (b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec());
+        let proposal = Box::new(RuntimeCall::System(
+            frame_system::Call::<Test>::set_storage {
+                items: vec![key_value],
+            },
+        ));
+        let length_bound = proposal.encoded_size() as u32;
+
+        assert_ok!(Pallet::<Test>::propose(
+            RuntimeOrigin::signed(U256::from(1)),
+            proposal.clone(),
+            length_bound
+        ));
+
+        let proposal_hash = <Test as frame_system::Config>::Hashing::hash_of(&proposal);
+        let bounded_proposal = <Test as pallet::Config>::Preimages::bound(*proposal).unwrap();
+        assert_eq!(Proposals::<Test>::get(), vec![proposal_hash]);
+        assert_eq!(ProposalCount::<Test>::get(), 1);
+        assert_eq!(
+            ProposalOf::<Test>::get(proposal_hash),
+            Some(bounded_proposal)
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::Proposed {
+                account: U256::from(1),
+                proposal_index: 0,
+                proposal_hash,
+            })
+        );
+    });
+}
+
+#[test]
+fn propose_works_with_lookup_preimage() {
+    TestState::default().build_and_execute(|| {
+        let key_value = (b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec());
+        let proposal = Box::new(RuntimeCall::System(
+            frame_system::Call::<Test>::set_storage {
+                // We deliberately create a large proposal to avoid inlining.
+                items: repeat(key_value).take(50).collect::<Vec<_>>(),
+            },
+        ));
+        let length_bound = proposal.encoded_size() as u32;
+        println!("length_bound: {}", length_bound);
+
+        assert_ok!(Pallet::<Test>::propose(
+            RuntimeOrigin::signed(U256::from(1)),
+            proposal.clone(),
+            length_bound
+        ));
+
+        let proposal_hash = <Test as frame_system::Config>::Hashing::hash_of(&proposal);
+        assert_eq!(Proposals::<Test>::get(), vec![proposal_hash]);
+        assert_eq!(ProposalCount::<Test>::get(), 1);
+        let stored_proposals = ProposalOf::<Test>::iter().collect::<Vec<_>>();
+        assert_eq!(stored_proposals.len(), 1);
+        let (stored_hash, bounded_proposal) = &stored_proposals[0];
+        assert_eq!(stored_hash, &proposal_hash);
+        assert!(<Test as pallet::Config>::Preimages::have(&bounded_proposal));
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::Proposed {
+                account: U256::from(1),
+                proposal_index: 0,
+                proposal_hash,
+            })
+        );
+    });
+}
+
+#[test]
+fn propose_with_bad_origin_fails() {
+    TestState::default().build_and_execute(|| {
+        let proposal = Box::new(RuntimeCall::System(
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
+            },
+        ));
+        let length_bound = proposal.encoded_size() as u32;
+
+        assert_noop!(
+            Pallet::<Test>::propose(RuntimeOrigin::root(), proposal.clone(), length_bound),
+            DispatchError::BadOrigin
+        );
+
+        assert_noop!(
+            Pallet::<Test>::propose(RuntimeOrigin::none(), proposal.clone(), length_bound),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn propose_with_non_allowed_proposer_fails() {
+    TestState::default().build_and_execute(|| {
+        let proposal = Box::new(RuntimeCall::System(
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
+            },
+        ));
+        let length_bound = proposal.encoded_size() as u32;
+
+        assert_noop!(
+            Pallet::<Test>::propose(
+                RuntimeOrigin::signed(U256::from(42)),
+                proposal.clone(),
+                length_bound
+            ),
+            Error::<Test>::NotAllowedProposer
+        );
+    });
+}
+
+#[test]
+fn propose_with_incorrect_length_bound_fails() {
+    TestState::default().build_and_execute(|| {
+        let proposal = Box::new(RuntimeCall::System(
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
+            },
+        ));
+        // We deliberately set the length bound to be one less than the proposal length.
+        let length_bound = proposal.encoded_size() as u32 - 1;
+
+        assert_noop!(
+            Pallet::<Test>::propose(
+                RuntimeOrigin::signed(U256::from(1)),
+                proposal.clone(),
+                length_bound
+            ),
+            Error::<Test>::WrongProposalLength
+        );
+    });
+}
+
+#[test]
+fn propose_with_incorrect_weight_bound_fails() {
+    TestState::default().build_and_execute(|| {
+        let proposal = Box::new(RuntimeCall::TestPallet(
+            pallet_test::Call::<Test>::expensive_call {},
+        ));
+        let length_bound = proposal.encoded_size() as u32;
+
+        assert_noop!(
+            Pallet::<Test>::propose(
+                RuntimeOrigin::signed(U256::from(1)),
+                proposal.clone(),
+                length_bound
+            ),
+            Error::<Test>::WrongProposalWeight
+        );
+    });
+}
+
+#[test]
+fn propose_with_duplicate_proposal_fails() {
+    TestState::default().build_and_execute(|| {
+        let proposal = Box::new(RuntimeCall::System(
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
+            },
+        ));
+        let length_bound = proposal.encoded_size() as u32;
+
+        assert_ok!(Pallet::<Test>::propose(
+            RuntimeOrigin::signed(U256::from(1)),
+            proposal.clone(),
+            length_bound
+        ));
+
+        assert_noop!(
+            Pallet::<Test>::propose(
+                RuntimeOrigin::signed(U256::from(1)),
+                proposal.clone(),
+                length_bound
+            ),
+            Error::<Test>::DuplicateProposal
+        );
+    });
+}
+
+#[test]
+fn propose_with_too_many_proposals_fails() {
+    TestState::default().build_and_execute(|| {
+        // Create the maximum number of proposals.
+        let proposals = (1..=MaxProposals::get())
+            .map(|i| {
+                let proposal = Box::new(RuntimeCall::System(
+                    frame_system::Call::<Test>::set_storage {
+                        items: vec![(
+                            format!("Foobar{}", i).as_bytes().to_vec(),
+                            42u32.to_be_bytes().to_vec(),
+                        )],
+                    },
+                ));
+                let length_bound = proposal.encoded_size() as u32;
+                (proposal, length_bound)
+            })
+            .collect::<Vec<_>>();
+
+        for (proposal, length_bound) in proposals {
+            assert_ok!(Pallet::<Test>::propose(
+                RuntimeOrigin::signed(U256::from(1)),
+                proposal,
+                length_bound
+            ));
+        }
+
+        let proposal = Box::new(RuntimeCall::System(
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
+            },
+        ));
+        let length_bound = proposal.encoded_size() as u32;
+        assert_noop!(
+            Pallet::<Test>::propose(RuntimeOrigin::signed(U256::from(1)), proposal, length_bound),
+            Error::<Test>::TooManyProposals
+        );
+    });
+}

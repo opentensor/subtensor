@@ -6,9 +6,10 @@ use frame_support::{
     dispatch::GetDispatchInfo,
     pallet_prelude::*,
     sp_runtime::traits::Dispatchable,
-    traits::{ChangeMembers, IsSubType, fungible},
+    traits::{Bounded, ChangeMembers, IsSubType, QueryPreimage, StorePreimage, fungible},
 };
 use frame_system::pallet_prelude::*;
+use sp_runtime::{Saturating, traits::Hash};
 use sp_std::collections::btree_set::BTreeSet;
 
 mod mock;
@@ -19,6 +20,9 @@ pub type CurrencyOf<T> = <T as Config>::Currency;
 
 pub type BalanceOf<T> =
     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type BoundedCallOf<T> =
+    Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
@@ -45,6 +49,9 @@ pub mod pallet {
         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
             + fungible::Mutate<Self::AccountId>;
 
+        /// The preimage provider which will be used to store the call to dispatch.
+        type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
         /// Origin allowed to set allowed proposers.
         type SetAllowedProposersOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -54,6 +61,14 @@ pub mod pallet {
         /// How many accounts allowed to submit proposals.
         #[pallet::constant]
         type MaxAllowedProposers: Get<u32>;
+
+        /// Maximum weight for a proposal.
+        #[pallet::constant]
+        type MaxProposalWeight: Get<Weight>;
+
+        /// Maximum number of proposals allowed to be active in parallel.
+        #[pallet::constant]
+        type MaxProposals: Get<u32>;
     }
 
     const TRIUMVIRATE_SIZE: u32 = 3;
@@ -63,10 +78,23 @@ pub mod pallet {
     pub type AllowedProposers<T: Config> =
         StorageValue<_, BoundedVec<T::AccountId, T::MaxAllowedProposers>, ValueQuery>;
 
-    // Active members of the triumvirate.
+    /// Active members of the triumvirate.
     #[pallet::storage]
     pub type Triumvirate<T: Config> =
         StorageValue<_, BoundedVec<T::AccountId, ConstU32<TRIUMVIRATE_SIZE>>, ValueQuery>;
+
+    #[pallet::storage]
+    pub type ProposalCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// The hashes of the active proposals.
+    #[pallet::storage]
+    pub type Proposals<T: Config> =
+        StorageValue<_, BoundedVec<T::Hash, T::MaxProposals>, ValueQuery>;
+
+    /// Actual proposal for a given hash.
+    #[pallet::storage]
+    pub type ProposalOf<T: Config> =
+        StorageMap<_, Identity, T::Hash, BoundedCallOf<T>, OptionQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -104,21 +132,36 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T> {
+    pub enum Event<T: Config> {
         TriumvirateSet,
         AllowedProposersSet,
+        Proposed {
+            account: T::AccountId,
+            proposal_index: u32,
+            proposal_hash: T::Hash,
+        },
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        /// Duplicate accounts.
+        /// Duplicate accounts not allowed.
         DuplicateAccounts,
-        /// New allowed proposers count cannot exceed MaxAllowedProposers.
+        /// There can only be a maximum of `MaxAllowedProposers` allowed proposers.
         TooManyAllowedProposers,
         /// Triumvirate length cannot exceed 3.
         InvalidTriumvirateLength,
         /// Allowed proposers and triumvirate must be disjoint.
         AllowedProposersAndTriumvirateMustBeDisjoint,
+        /// Origin is not an allowed proposer.
+        NotAllowedProposer,
+        /// The given weight bound for the proposal was too low.
+        WrongProposalLength,
+        /// The given weight bound for the proposal was too low.
+        WrongProposalWeight,
+        /// Duplicate proposals not allowed.
+        DuplicateProposal,
+        /// There can only be a maximum of `MaxProposals` active proposals in parallel.
+        TooManyProposals,
     }
 
     #[pallet::call]
@@ -131,12 +174,10 @@ pub mod pallet {
         ) -> DispatchResult {
             T::SetAllowedProposersOrigin::ensure_origin(origin)?;
 
-            // Check for duplicates.
             let new_allowed_proposers_set =
                 Pallet::<T>::check_for_duplicates(&new_allowed_proposers)
                     .ok_or(Error::<T>::DuplicateAccounts)?;
 
-            // Check for disjointness with the triumvirate.
             let triumvirate = Triumvirate::<T>::get();
             let triumvirate_set: BTreeSet<_> = triumvirate.iter().collect();
             ensure!(
@@ -144,7 +185,6 @@ pub mod pallet {
                 Error::<T>::AllowedProposersAndTriumvirateMustBeDisjoint
             );
 
-            // Sort members and get the outgoing ones.
             let mut allowed_proposers = AllowedProposers::<T>::get().to_vec();
             allowed_proposers.sort();
             new_allowed_proposers.sort();
@@ -170,7 +210,6 @@ pub mod pallet {
         ) -> DispatchResult {
             T::SetTriumvirateOrigin::ensure_origin(origin)?;
 
-            // Check for duplicates and length.
             let new_triumvirate_set = Pallet::<T>::check_for_duplicates(&new_triumvirate)
                 .ok_or(Error::<T>::DuplicateAccounts)?;
             ensure!(
@@ -178,7 +217,6 @@ pub mod pallet {
                 Error::<T>::InvalidTriumvirateLength
             );
 
-            // Check for disjointness with the allowed proposers.
             let allowed_proposers = AllowedProposers::<T>::get();
             let allowed_proposers_set: BTreeSet<_> = allowed_proposers.iter().collect();
             ensure!(
@@ -186,7 +224,6 @@ pub mod pallet {
                 Error::<T>::AllowedProposersAndTriumvirateMustBeDisjoint
             );
 
-            // Sort members and get the outgoing ones.
             let mut triumvirate = Triumvirate::<T>::get().to_vec();
             triumvirate.sort();
             new_triumvirate.sort();
@@ -201,6 +238,53 @@ pub mod pallet {
             Triumvirate::<T>::put(new_triumvirate);
 
             Self::deposit_event(Event::<T>::TriumvirateSet);
+            Ok(())
+        }
+
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::zero())]
+        pub fn propose(
+            origin: OriginFor<T>,
+            proposal: Box<<T as Config>::RuntimeCall>,
+            #[pallet::compact] length_bound: u32,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let allowed_proposers = AllowedProposers::<T>::get();
+            ensure!(
+                allowed_proposers.contains(&who),
+                Error::<T>::NotAllowedProposer
+            );
+
+            let proposal_len = proposal.encoded_size();
+            ensure!(
+                proposal_len <= length_bound as usize,
+                Error::<T>::WrongProposalLength
+            );
+            let proposal_weight = proposal.get_dispatch_info().call_weight;
+            ensure!(
+                proposal_weight.all_lte(T::MaxProposalWeight::get()),
+                Error::<T>::WrongProposalWeight
+            );
+
+            let proposal_hash = T::Hashing::hash_of(&proposal);
+            ensure!(
+                !ProposalOf::<T>::contains_key(proposal_hash),
+                Error::<T>::DuplicateProposal
+            );
+
+            Proposals::<T>::try_append(proposal_hash).map_err(|_| Error::<T>::TooManyProposals)?;
+
+            let proposal_index = ProposalCount::<T>::get();
+            ProposalCount::<T>::mutate(|i| i.saturating_inc());
+
+            let bounded_proposal = T::Preimages::bound(*proposal)?;
+            ProposalOf::<T>::insert(proposal_hash, bounded_proposal);
+
+            Self::deposit_event(Event::<T>::Proposed {
+                account: who,
+                proposal_index,
+                proposal_hash,
+            });
             Ok(())
         }
     }
