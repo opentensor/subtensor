@@ -2367,15 +2367,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// --- Sets the root claim type for the coldkey.
-        /// # Args:
-        /// * 'origin': (<T as frame_system::Config>Origin):
-        /// 	- The signature of the caller's coldkey.
-        ///
-        /// # Event:
-        /// * RootClaimTypeSet;
-        /// 	- On the successfully setting the root claim type for the coldkey.
-        ///
+        /// --- Sets root claim number (sudo extrinsic).
         #[pallet::call_index(123)]
         #[pallet::weight((
             Weight::from_parts(4_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
@@ -2395,15 +2387,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// --- Sets the root claim type for the coldkey.
-        /// # Args:
-        /// * 'origin': (<T as frame_system::Config>Origin):
-        /// 	- The signature of the caller's coldkey.
-        ///
-        /// # Event:
-        /// * RootClaimTypeSet;
-        /// 	- On the successfully setting the root claim type for the coldkey.
-        ///
+        /// --- Sets root claim threshold for subnet (sudo or owner origin).
         #[pallet::call_index(124)]
         #[pallet::weight((
             Weight::from_parts(5_711_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),

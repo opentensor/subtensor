@@ -947,7 +947,6 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha,
-            //   pending_tao,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );

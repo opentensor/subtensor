@@ -101,7 +101,7 @@ impl<T: Config> Pallet<T> {
         let root_claimed: I96F32 =
             I96F32::saturating_from_num(RootClaimed::<T>::get((hotkey, coldkey, netuid)));
 
-        // Substract the already claimed alpha.
+        // Subtract the already claimed alpha.
         let owed: I96F32 = claimable.saturating_sub(root_claimed);
 
         owed
@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) {
-        // Substract the root claimed.
+        // Subtract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
         if !ignore_minimum_condition

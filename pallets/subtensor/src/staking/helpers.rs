@@ -326,9 +326,9 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    /// The function clears Alpha map in batches. Each run will check ALPHA_MAP_CLEAN_BATCH_SIZE
+    /// The function clears Alpha map in batches. Each run will check ALPHA_MAP_BATCH_SIZE
     /// alphas. It keeps the alpha value stored when it's >= than MIN_ALPHA.
-    /// The function uses AlphaMapCleanLastKey as a storage for key iterator between runs.
+    /// The function uses AlphaMapLastKey as a storage for key iterator between runs.
     pub fn populate_root_coldkey_staking_maps() {
         // Get starting key for the batch. Get the first key if we restart the process.
         let mut new_starting_raw_key = AlphaMapLastKey::<T>::get();

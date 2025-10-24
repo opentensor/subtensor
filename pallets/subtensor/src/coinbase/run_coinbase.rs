@@ -174,7 +174,7 @@ impl<T: Config> Pallet<T> {
         let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
         log::debug!("tao_weight: {tao_weight:?}");
 
-        // --- 6. Seperate out root dividends in alpha and sell them into tao.
+        // --- 6. Seperate out root dividends in alpha and keep them.
         // Then accumulate those dividends for later.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get remaining alpha out.
@@ -237,7 +237,7 @@ impl<T: Config> Pallet<T> {
                 let pending_alpha = PendingEmission::<T>::get(netuid);
                 PendingEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
 
-                // Get and drain the subnet pending root divs.
+                // Get and drain the subnet pending root alpha divs.
                 let pending_root_alpha = PendingRootAlphaDivs::<T>::get(netuid);
                 PendingRootAlphaDivs::<T>::insert(netuid, AlphaCurrency::ZERO);
 
@@ -245,7 +245,7 @@ impl<T: Config> Pallet<T> {
                 let owner_cut = PendingOwnerCut::<T>::get(netuid);
                 PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
-                // Drain pending root divs, alpha emission, and owner cut.
+                // Drain pending root alpha divs, alpha emission, and owner cut.
                 Self::drain_pending_emission(netuid, pending_alpha, pending_root_alpha, owner_cut);
             } else {
                 // Increment
@@ -306,7 +306,7 @@ impl<T: Config> Pallet<T> {
         // Setup.
         let zero: U96F32 = asfloat!(0.0);
 
-        // Accumulate root divs and alpha_divs. For each hotkey we compute their
+        // Accumulate root alpha divs and alpha_divs. For each hotkey we compute their
         // local and root dividend proportion based on their alpha_stake/root_stake
         let mut total_root_divs: U96F32 = asfloat!(0);
         let mut total_alpha_divs: U96F32 = asfloat!(0);
@@ -532,7 +532,7 @@ impl<T: Config> Pallet<T> {
             // Get take prop
             let alpha_take: U96F32 =
                 Self::get_hotkey_take_float(&hotkey).saturating_mul(root_alpha);
-            // Remove take prop from root_tao
+            // Remove take prop from root_alpha
             root_alpha = root_alpha.saturating_sub(alpha_take);
             // Give the validator their take.
             log::debug!("hotkey: {hotkey:?} alpha_take: {alpha_take:?}");
@@ -549,7 +549,7 @@ impl<T: Config> Pallet<T> {
                 tou64!(root_alpha).into(),
             );
 
-            // Record root dividends for this validator on this subnet.
+            // Record root alpha dividends for this validator on this subnet.
             AlphaDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
                 *divs = divs.saturating_add(tou64!(root_alpha).into());
             });
