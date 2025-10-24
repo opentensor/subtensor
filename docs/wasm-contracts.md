@@ -1,8 +1,11 @@
-# Smart Contracts on Subtensor
+# WebAssembly Smart Contracts
 
 ## Overview
 
-Subtensor now supports smart contract functionality through the integration of `pallet-contracts`, enabling developers to deploy and execute WebAssembly (WASM) smart contracts on the network. Contracts are written in [ink!](https://use.ink/), a Rust-based embedded domain-specific language (eDSL) for writing smart contracts on Substrate-based chains.
+Subtensor now supports WebAssembly (WASM) smart contract functionality through the integration of `pallet-contracts`, enabling developers to deploy and execute WASM smart contracts on the network. Contracts are written in [ink!](https://use.ink/), a Rust-based embedded domain-specific language (eDSL) for writing smart contracts on Substrate-based chains. For compatibility, WASM contracts can also be compiled from Solidity using [Solang](https://github.com/hyperledger-solang/solang).
+
+> [!NOTE]
+> If you're looking for information on EVM contracts, please see the documentation: https://docs.learnbittensor.org/evm-tutorials
 
 ## Getting Started
 
@@ -81,7 +84,7 @@ Chain extension functions that modify state return error codes as `u32` values. 
 
 ### Call Filter
 
-For security, contracts can only dispatch a limited set of runtime calls:
+For security, contracts can only directly dispatch a limited set of runtime calls:
 
 **Whitelisted Calls:**
 - `Proxy::proxy` - Execute proxy calls
