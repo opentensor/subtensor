@@ -4,10 +4,15 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod genesis {
-
+    use sp_keyring::Sr25519Keyring;
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
+            // Alice's public key
+            let alice_bytes = Sr25519Keyring::Alice.public();
+            let alice_key =
+                T::AccountId::decode(&mut &alice_bytes[..]).expect("Alice account should decode");
+            let subnet_root_owner = prod_or_fast!(DefaultSubnetOwner::<T>::get(), alice_key);
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
@@ -16,6 +21,9 @@ mod genesis {
 
             // Increment the number of total networks.
             TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
+
+            // Set the root network owner.
+            SubnetOwner::<T>::insert(NetUid::ROOT, subnet_root_owner);
 
             // Set the number of validators to 1.
             SubnetworkN::<T>::insert(NetUid::ROOT, 0);
