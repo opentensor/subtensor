@@ -33,7 +33,7 @@
 //!
 //! To enable the extension, add it to your runtime's transaction extension tuple. For example:
 //!
-//! ```rust
+//! ```ignore
 //! pub type TransactionExtensions = (
 //!     // ... other extensions ...
 //!     pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
@@ -47,7 +47,7 @@
 //! runtime wires into [`Config::ContextResolver`]). The resolver receives the call and returns
 //! `Some(context)` if the rate should be scoped (e.g. by `netuid`), or `None` for a global limit.
 //!
-//! ```rust
+//! ```ignore
 //! pub struct WeightsContextResolver;
 //!
 //! impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, NetUid>
@@ -70,10 +70,14 @@
 //! }
 //! ```
 
+#[cfg(feature = "runtime-benchmarks")]
+pub use benchmarking::BenchmarkHelper;
 pub use pallet::*;
 pub use tx_extension::RateLimitTransactionExtension;
 pub use types::{RateLimit, RateLimitContextResolver, TransactionIdentifier};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod tx_extension;
 mod types;
 
@@ -94,6 +98,8 @@ pub mod pallet {
     use frame_system::{ensure_root, pallet_prelude::*};
     use sp_std::{convert::TryFrom, vec::Vec};
 
+    #[cfg(feature = "runtime-benchmarks")]
+    use crate::benchmarking::BenchmarkHelper as BenchmarkHelperTrait;
     use crate::types::{RateLimit, RateLimitContextResolver, TransactionIdentifier};
 
     /// Configuration trait for the rate limiting pallet.
@@ -110,6 +116,10 @@ pub mod pallet {
 
         /// Resolves the context for a given runtime call.
         type ContextResolver: RateLimitContextResolver<<Self as Config>::RuntimeCall, Self::LimitContext>;
+
+        /// Helper used to construct runtime calls for benchmarking.
+        #[cfg(feature = "runtime-benchmarks")]
+        type BenchmarkHelper: BenchmarkHelperTrait<<Self as Config>::RuntimeCall>;
     }
 
     /// Storage mapping from transaction identifier to its configured rate limit.

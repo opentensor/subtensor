@@ -10,6 +10,7 @@ use frame_support::{
 };
 use sp_core::H256;
 use sp_io::TestExternalities;
+use sp_std::vec::Vec;
 
 use crate as pallet_rate_limiting;
 use crate::TransactionIdentifier;
@@ -67,6 +68,18 @@ impl pallet_rate_limiting::Config for Test {
     type RuntimeCall = RuntimeCall;
     type LimitContext = LimitContext;
     type ContextResolver = TestContextResolver;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = BenchHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::BenchmarkHelper<RuntimeCall> for BenchHelper {
+    fn sample_call() -> RuntimeCall {
+        RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() })
+    }
 }
 
 pub type RateLimitingCall = crate::Call<Test>;

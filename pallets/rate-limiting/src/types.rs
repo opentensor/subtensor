@@ -97,3 +97,44 @@ pub enum RateLimit<BlockNumber> {
     /// Apply an exact rate limit measured in blocks.
     Exact(BlockNumber),
 }
+
+#[cfg(test)]
+mod tests {
+    use sp_runtime::DispatchError;
+
+    use super::*;
+    use crate::{mock::*, pallet::Error};
+
+    #[test]
+    fn transaction_identifier_from_call_matches_expected_indices() {
+        let call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+
+        let identifier = TransactionIdentifier::from_call::<Test>(&call).expect("identifier");
+
+        // System is the first pallet in the mock runtime, RateLimiting is second.
+        assert_eq!(identifier.pallet_index, 1);
+        // set_default_rate_limit has call_index 2.
+        assert_eq!(identifier.extrinsic_index, 2);
+    }
+
+    #[test]
+    fn transaction_identifier_names_matches_call_metadata() {
+        let call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = TransactionIdentifier::from_call::<Test>(&call).expect("identifier");
+
+        let (pallet, extrinsic) = identifier.names::<Test>().expect("call metadata");
+        assert_eq!(pallet, "RateLimiting");
+        assert_eq!(extrinsic, "set_default_rate_limit");
+    }
+
+    #[test]
+    fn transaction_identifier_names_error_for_unknown_indices() {
+        let identifier = TransactionIdentifier::new(99, 0);
+
+        let err = identifier.names::<Test>().expect_err("should fail");
+        let expected: DispatchError = Error::<Test>::InvalidRuntimeCall.into();
+        assert_eq!(err, expected);
+    }
+}

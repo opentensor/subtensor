@@ -1,9 +1,6 @@
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
-use sp_runtime::DispatchError;
 
-use crate::{
-    DefaultLimit, LastSeen, Limits, RateLimit, mock::*, pallet::Error, types::TransactionIdentifier,
-};
+use crate::{DefaultLimit, LastSeen, Limits, RateLimit, mock::*, pallet::Error};
 
 #[test]
 fn limit_for_call_names_returns_none_if_not_set() {
@@ -98,39 +95,6 @@ fn is_within_limit_true_after_required_span() {
             .expect("call succeeds");
         assert!(within);
     });
-}
-
-#[test]
-fn transaction_identifier_from_call_matches_expected_indices() {
-    let call =
-        RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
-
-    let identifier = TransactionIdentifier::from_call::<Test>(&call).expect("identifier");
-
-    // System is the first pallet in the mock runtime, RateLimiting is second.
-    assert_eq!(identifier.pallet_index, 1);
-    // set_default_rate_limit has call_index 2.
-    assert_eq!(identifier.extrinsic_index, 2);
-}
-
-#[test]
-fn transaction_identifier_names_matches_call_metadata() {
-    let call =
-        RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
-    let identifier = TransactionIdentifier::from_call::<Test>(&call).expect("identifier");
-
-    let (pallet, extrinsic) = identifier.names::<Test>().expect("call metadata");
-    assert_eq!(pallet, "RateLimiting");
-    assert_eq!(extrinsic, "set_default_rate_limit");
-}
-
-#[test]
-fn transaction_identifier_names_error_for_unknown_indices() {
-    let identifier = TransactionIdentifier::new(99, 0);
-
-    let err = identifier.names::<Test>().expect_err("should fail");
-    let expected: DispatchError = Error::<Test>::InvalidRuntimeCall.into();
-    assert_eq!(err, expected);
 }
 
 #[test]
