@@ -1,6 +1,74 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! Basic rate limiting pallet.
+//! Rate limiting for runtime calls with optional contextual restrictions.
+//!
+//! # Overview
+//!
+//! `pallet-rate-limiting` lets a runtime restrict how frequently particular calls can execute.
+//! Limits are stored on-chain, keyed by the call's pallet/variant pair. Each entry can specify an
+//! exact block span or defer to a configured default. The pallet exposes three roots-only
+//! extrinsics to manage this data:
+//!
+//! - [`set_rate_limit`](pallet::Pallet::set_rate_limit): assign a limit to an extrinsic, either as
+//!   `RateLimit::Exact(blocks)` or `RateLimit::Default`.
+//! - [`clear_rate_limit`](pallet::Pallet::clear_rate_limit): remove a stored limit.
+//! - [`set_default_rate_limit`](pallet::Pallet::set_default_rate_limit): set the global default
+//!   block span used by `RateLimit::Default` entries.
+//!
+//! The pallet also tracks the last block in which a rate-limited call was executed, per optional
+//! *context*. Context allows one limit definition (for example, “set weights”) to be enforced per
+//! subnet, account, or other grouping chosen by the runtime. The storage layout is:
+//!
+//! - [`Limits`](pallet::Limits): `TransactionIdentifier → RateLimit<BlockNumber>`
+//! - [`DefaultLimit`](pallet::DefaultLimit): `BlockNumber`
+//! - [`LastSeen`](pallet::LastSeen): `(TransactionIdentifier, Option<Context>) → BlockNumber`
+//!
+//! # Transaction extension
+//!
+//! Enforcement happens via [`RateLimitTransactionExtension`], which implements
+//! `sp_runtime::traits::TransactionExtension`. The extension consults `Limits`, fetches the current
+//! block, and decides whether the call is eligible. If successful, it returns metadata that causes
+//! [`LastSeen`](pallet::LastSeen) to update after dispatch. A rejected call yields
+//! `InvalidTransaction::Custom(1)`.
+//!
+//! To enable the extension, add it to your runtime's transaction extension tuple. For example:
+//!
+//! ```rust
+//! pub type TransactionExtensions = (
+//!     // ... other extensions ...
+//!     pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
+//! );
+//! ```
+//!
+//! # Context resolver
+//!
+//! The extension needs to know when two invocations should share a rate limit. This is controlled
+//! by implementing [`RateLimitContextResolver`] for the runtime call type (or for a helper that the
+//! runtime wires into [`Config::ContextResolver`]). The resolver receives the call and returns
+//! `Some(context)` if the rate should be scoped (e.g. by `netuid`), or `None` for a global limit.
+//!
+//! ```rust
+//! pub struct WeightsContextResolver;
+//!
+//! impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, NetUid>
+//!     for WeightsContextResolver
+//! {
+//!     fn context(call: &RuntimeCall) -> Option<NetUid> {
+//!         match call {
+//!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_weights { netuid, .. }) => {
+//!                 Some(*netuid)
+//!             }
+//!             _ => None,
+//!         }
+//!     }
+//! }
+//!
+//! impl pallet_rate_limiting::Config for Runtime {
+//!     type RuntimeCall = RuntimeCall;
+//!     type LimitContext = NetUid;
+//!     type ContextResolver = WeightsContextResolver;
+//! }
+//! ```
 
 pub use pallet::*;
 pub use tx_extension::RateLimitTransactionExtension;
