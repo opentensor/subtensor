@@ -103,6 +103,7 @@ where
     }
 
     #[precompile::public("removeStake(bytes32,uint256,uint256)")]
+    #[precompile::payable]
     fn remove_stake(
         handle: &mut impl PrecompileHandle,
         address: H256,
@@ -141,6 +142,7 @@ where
     }
 
     #[precompile::public("removeStakeFull(bytes32,uint256)")]
+    #[precompile::payable]
     fn remove_stake_full(
         handle: &mut impl PrecompileHandle,
         hotkey: H256,
@@ -150,6 +152,7 @@ where
     }
 
     #[precompile::public("removeStakeFullLimit(bytes32,uint256,uint256)")]
+    #[precompile::payable]
     fn remove_stake_full_limit(
         handle: &mut impl PrecompileHandle,
         hotkey: H256,
@@ -161,6 +164,7 @@ where
     }
 
     #[precompile::public("moveStake(bytes32,bytes32,uint256,uint256,uint256)")]
+    #[precompile::payable]
     fn move_stake(
         handle: &mut impl PrecompileHandle,
         origin_hotkey: H256,
@@ -187,6 +191,7 @@ where
     }
 
     #[precompile::public("transferStake(bytes32,bytes32,uint256,uint256,uint256)")]
+    #[precompile::payable]
     fn transfer_stake(
         handle: &mut impl PrecompileHandle,
         destination_coldkey: H256,
@@ -207,6 +212,27 @@ where
             origin_netuid: origin_netuid.into(),
             destination_netuid: destination_netuid.into(),
             alpha_amount: alpha_amount.into(),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("burnAlpha(bytes32,uint256,uint256)")]
+    #[precompile::payable]
+    fn burn_alpha(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        amount: U256,
+        netuid: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let hotkey = R::AccountId::from(hotkey.0);
+        let netuid = try_u16_from_u256(netuid)?;
+        let amount: u64 = amount.unique_saturated_into();
+        let call = pallet_subtensor::Call::<R>::burn_alpha {
+            hotkey,
+            amount: amount.into(),
+            netuid: netuid.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -301,6 +327,7 @@ where
     }
 
     #[precompile::public("addProxy(bytes32)")]
+    #[precompile::payable]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
@@ -315,6 +342,7 @@ where
     }
 
     #[precompile::public("removeProxy(bytes32)")]
+    #[precompile::payable]
     fn remove_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
@@ -329,6 +357,7 @@ where
     }
 
     #[precompile::public("addStakeLimit(bytes32,uint256,uint256,bool,uint256)")]
+    #[precompile::payable]
     fn add_stake_limit(
         handle: &mut impl PrecompileHandle,
         address: H256,
@@ -354,6 +383,7 @@ where
     }
 
     #[precompile::public("removeStakeLimit(bytes32,uint256,uint256,bool,uint256)")]
+    #[precompile::payable]
     fn remove_stake_limit(
         handle: &mut impl PrecompileHandle,
         address: H256,
@@ -444,6 +474,7 @@ where
     }
 
     #[precompile::public("removeStake(bytes32,uint256,uint256)")]
+    #[precompile::payable]
     fn remove_stake(
         handle: &mut impl PrecompileHandle,
         address: H256,
@@ -532,6 +563,7 @@ where
     }
 
     #[precompile::public("addProxy(bytes32)")]
+    #[precompile::payable]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
@@ -546,6 +578,7 @@ where
     }
 
     #[precompile::public("removeProxy(bytes32)")]
+    #[precompile::payable]
     fn remove_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);

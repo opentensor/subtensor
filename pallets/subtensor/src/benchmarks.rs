@@ -658,18 +658,6 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn adjust_senate() {
-        let coldkey: T::AccountId = whitelisted_caller();
-        let hotkey: T::AccountId = account("Alice", 0, 1);
-
-        Subtensor::<T>::init_new_network(NetUid::ROOT, 1);
-        Uids::<T>::insert(NetUid::ROOT, &hotkey, 0u16);
-
-        #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
-    }
-
-    #[benchmark]
     fn add_stake_limit() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;
@@ -1560,9 +1548,21 @@ mod pallet_benchmarks {
     #[benchmark]
     fn set_coldkey_auto_stake_hotkey() {
         let coldkey: T::AccountId = whitelisted_caller();
-        let hot: T::AccountId = account("A", 0, 1);
+        let netuid = NetUid::from(1);
+        let hotkey: T::AccountId = account("A", 0, 1);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::init_new_network(netuid, 1);
+        let amount = 900_000_000_000;
+
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), hot.clone());
+        _(RawOrigin::Signed(coldkey.clone()), netuid, hotkey.clone());
     }
 }

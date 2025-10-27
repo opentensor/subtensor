@@ -6,9 +6,9 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod config {
 
-    use crate::CommitmentsInterface;
+    use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use pallet_commitments::GetCommitments;
-    use subtensor_swap_interface::SwapHandler;
+    use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -22,26 +22,14 @@ mod config {
             + IsType<<Self as frame_system::Config>::RuntimeCall>
             + From<frame_system::Call<Self>>;
 
-        /// Because this pallet emits events, it depends on the runtime's definition of an event.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// A sudo-able call.
         type SudoRuntimeCall: Parameter
             + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
             + GetDispatchInfo;
 
-        /// Origin checking for council majority
-        type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
         ///  Currency type that will be used to place deposits on neurons
         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
             + fungible::Mutate<Self::AccountId>;
-
-        /// Senate members with members management functions.
-        type SenateMembers: crate::MemberManagement<Self::AccountId>;
-
-        /// Interface to allow other pallets to control who can register identities
-        type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
         /// The scheduler type used for scheduling delayed calls.
         type Scheduler: ScheduleAnon<
@@ -54,8 +42,10 @@ mod config {
         /// the preimage to store the call data.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-        /// Swap interface.
-        type SwapInterface: SwapHandler<Self::AccountId>;
+        /// Implementor of `SwapHandler` interface from `subtensor_swap_interface`
+        type SwapInterface: SwapHandler
+            + SwapEngine<GetAlphaForTao<Self>>
+            + SwapEngine<GetTaoForAlpha<Self>>;
 
         /// Interface to allow interacting with the proxy pallet.
         type ProxyInterface: crate::ProxyInterface<Self::AccountId>;
@@ -82,9 +72,6 @@ mod config {
         /// Initial Emission Ratio.
         #[pallet::constant]
         type InitialEmissionValue: Get<u16>;
-        /// Initial max weight limit.
-        #[pallet::constant]
-        type InitialMaxWeightsLimit: Get<u16>;
         /// Tempo for each network.
         #[pallet::constant]
         type InitialTempo: Get<u16>;
@@ -196,9 +183,6 @@ mod config {
         /// Initial childkey take transaction rate limit.
         #[pallet::constant]
         type InitialTxChildKeyTakeRateLimit: Get<u64>;
-        /// Initial percentage of total stake required to join senate.
-        #[pallet::constant]
-        type InitialSenateRequiredStakePercentage: Get<u64>;
         /// Initial adjustment alpha on burn and pow.
         #[pallet::constant]
         type InitialAdjustmentAlpha: Get<u64>;

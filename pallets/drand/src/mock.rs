@@ -71,7 +71,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: RuntimeCall) -> Self::Extrinsic {
         Extrinsic::new_inherent(call)
     }
 }
@@ -98,7 +98,6 @@ parameter_types! {
 
 impl pallet_drand_bridge::Config for Test {
     type AuthorityId = crypto::TestAuthId;
-    type RuntimeEvent = RuntimeEvent;
     type Verifier = QuicknetVerifier;
     type UnsignedPriority = UnsignedPriority;
     type HttpFetchTimeout = ConstU64<1_000>;

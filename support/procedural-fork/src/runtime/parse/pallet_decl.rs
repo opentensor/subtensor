@@ -29,8 +29,7 @@ pub struct PalletDeclaration {
     /// The runtime parameter of the pallet, e.g. `Runtime` in
     /// `pub type System = frame_system::Pallet<Runtime>`.
     pub runtime_param: Option<Ident>,
-    /// The instance of the pallet, e.g. `Instance1` in `pub type Council =
-    /// pallet_collective<Instance1>`.
+    /// The instance of the pallet, e.g. `Instance1` in `pub type Council = pallet_collective<Instance1>`.
     pub instance: Option<Ident>,
 }
 

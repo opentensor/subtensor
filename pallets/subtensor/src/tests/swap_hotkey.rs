@@ -9,7 +9,7 @@ use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
 use super::mock;
 use super::mock::*;
@@ -117,34 +117,6 @@ fn test_swap_total_hotkey_stake() {
             TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
             expected_alpha
         );
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_senate_members --exact --nocapture
-#[test]
-fn test_swap_senate_members() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-
-        assert_ok!(SenateMembers::add_member(RuntimeOrigin::root(), old_hotkey));
-        let members = SenateMembers::members();
-        assert!(members.contains(&old_hotkey));
-        assert!(!members.contains(&new_hotkey));
-
-        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
-
-        // Assert that the old_hotkey is no longer a member and new_hotkey is now a member
-        let members = SenateMembers::members();
-        assert!(!members.contains(&old_hotkey));
-        assert!(members.contains(&new_hotkey));
     });
 }
 
@@ -1273,14 +1245,10 @@ fn test_swap_complex_parent_child_structure() {
         assert!(ChildKeys::<Test>::get(old_hotkey, netuid).is_empty());
 
         // Verify parent's ChildKeys update
-        assert_eq!(
-            ChildKeys::<Test>::get(parent1, netuid),
-            vec![(100u64, new_hotkey), (500u64, U256::from(8))]
-        );
-        assert_eq!(
-            ChildKeys::<Test>::get(parent2, netuid),
-            vec![(200u64, new_hotkey), (600u64, U256::from(9))]
-        );
+        assert!(ChildKeys::<Test>::get(parent1, netuid).contains(&(500u64, U256::from(8))),);
+        assert!(ChildKeys::<Test>::get(parent1, netuid).contains(&(100u64, new_hotkey)),);
+        assert!(ChildKeys::<Test>::get(parent2, netuid).contains(&(600u64, U256::from(9))),);
+        assert!(ChildKeys::<Test>::get(parent2, netuid).contains(&(200u64, new_hotkey)),);
     });
 }
 
@@ -1292,7 +1260,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
         let coldkey = U256::from(2);
         let child = U256::from(3);
         let child_other = U256::from(4);
-        let parent_new = U256::from(4);
+        let parent_new = U256::from(5);
         add_network(netuid, 1, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
 
@@ -1462,6 +1430,88 @@ fn test_swap_hotkey_swap_rate_limits() {
         assert_eq!(
             SubtensorModule::get_last_tx_block_childkey_take(&new_hotkey),
             child_key_take_block
+        );
+    });
+}
+
+#[test]
+fn test_swap_parent_hotkey_self_loops_in_pending() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let parent_old = U256::from(1);
+        let coldkey = U256::from(2);
+        let child = U256::from(3);
+        let child_other = U256::from(4);
+
+        // Same as child_other, so it will self-loop when pending is set. Should fail.
+        let parent_new = U256::from(4);
+        add_network(netuid, 1, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
+
+        // Set child and verify state maps
+        mock_set_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child)]);
+        // Wait rate limit
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+        // Schedule some pending child keys.
+        mock_schedule_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child_other)]);
+
+        assert_eq!(
+            ParentKeys::<Test>::get(child, netuid),
+            vec![(u64::MAX, parent_old)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent_old, netuid),
+            vec![(u64::MAX, child)]
+        );
+        let existing_pending_child_keys = PendingChildKeys::<Test>::get(netuid, parent_old);
+        assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_other)]);
+
+        // Swap
+        let mut weight = Weight::zero();
+        assert_err!(
+            SubtensorModule::perform_hotkey_swap_on_all_subnets(
+                &parent_old,
+                &parent_new,
+                &coldkey,
+                &mut weight
+            ),
+            Error::<Test>::InvalidChild
+        );
+    })
+}
+
+#[test]
+fn test_swap_auto_stake_destination_coldkeys() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = NetUid::from(2u16); // Can't be root
+        let coldkeys = vec![U256::from(4), U256::from(5), coldkey];
+        let mut weight = Weight::zero();
+
+        // Initialize ChildKeys for old_hotkey
+        add_network(netuid, 1, 0);
+        AutoStakeDestinationColdkeys::<Test>::insert(old_hotkey, netuid, coldkeys.clone());
+        AutoStakeDestination::<Test>::insert(coldkey, netuid, old_hotkey);
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
+
+        // Verify the swap
+        assert_eq!(
+            AutoStakeDestinationColdkeys::<Test>::get(new_hotkey, netuid),
+            coldkeys
+        );
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(old_hotkey, netuid).is_empty());
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(coldkey, netuid),
+            Some(new_hotkey)
         );
     });
 }

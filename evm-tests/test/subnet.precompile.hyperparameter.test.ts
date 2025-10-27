@@ -208,25 +208,17 @@ describe("Test the Subnet precompile contract", () => {
         assert.equal(valueFromContract, onchainValue);
     })
 
-    it("Can set maxWeightLimit parameter", async () => {
+    it("Returns constant maxWeightLimit", async () => {
 
         const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
         const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
         const netuid = totalNetwork - 1;
 
-        const newValue = 106;
-        const tx = await contract.setMaxWeightLimit(netuid, newValue);
-        await tx.wait();
-
-        let onchainValue = await api.query.SubtensorModule.MaxWeightsLimit.getValue(netuid)
-
-
-        let valueFromContract = Number(
+        const valueFromContract = Number(
             await contract.getMaxWeightLimit(netuid)
         );
 
-        assert.equal(valueFromContract, newValue)
-        assert.equal(valueFromContract, onchainValue);
+        assert.equal(valueFromContract, 0xFFFF)
     })
 
     it("Can set immunityPeriod parameter", async () => {
@@ -271,26 +263,27 @@ describe("Test the Subnet precompile contract", () => {
         assert.equal(valueFromContract, onchainValue);
     })
 
-    it("Can set kappa parameter", async () => {
+    // disable the set kappa parameter test, because it is only callable by sudo now
+    // it("Can set kappa parameter", async () => {
 
-        const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
-        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
-        const netuid = totalNetwork - 1;
+    //     const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
+    //     const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+    //     const netuid = totalNetwork - 1;
 
-        const newValue = 109;
-        const tx = await contract.setKappa(netuid, newValue);
-        await tx.wait();
+    //     const newValue = 109;
+    //     const tx = await contract.setKappa(netuid, newValue);
+    //     await tx.wait();
 
-        let onchainValue = await api.query.SubtensorModule.Kappa.getValue(netuid)
+    //     let onchainValue = await api.query.SubtensorModule.Kappa.getValue(netuid)
 
 
-        let valueFromContract = Number(
-            await contract.getKappa(netuid)
-        );
+    //     let valueFromContract = Number(
+    //         await contract.getKappa(netuid)
+    //     );
 
-        assert.equal(valueFromContract, newValue)
-        assert.equal(valueFromContract, onchainValue);
-    })
+    //     assert.equal(valueFromContract, newValue)
+    //     assert.equal(valueFromContract, onchainValue);
+    // })
 
     it("Can set rho parameter", async () => {
 

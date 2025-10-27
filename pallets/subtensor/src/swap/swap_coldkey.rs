@@ -155,6 +155,21 @@ impl<T: Config> Pallet<T> {
                 SubnetOwner::<T>::insert(netuid, new_coldkey.clone());
             }
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+            if let Some(old_auto_stake_hotkey) = AutoStakeDestination::<T>::get(old_coldkey, netuid)
+            {
+                AutoStakeDestination::<T>::remove(old_coldkey, netuid);
+                AutoStakeDestination::<T>::insert(
+                    new_coldkey,
+                    netuid,
+                    old_auto_stake_hotkey.clone(),
+                );
+                AutoStakeDestinationColdkeys::<T>::mutate(old_auto_stake_hotkey, netuid, |v| {
+                    // Remove old/new coldkeys (avoid duplicates), then add the new one.
+                    v.retain(|c| *c != *old_coldkey && *c != *new_coldkey);
+                    v.push(new_coldkey.clone());
+                });
+            }
         }
 
         // 3. Swap Stake.
@@ -176,11 +191,6 @@ impl<T: Config> Pallet<T> {
             }
             // Add the weight for the read and write.
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-        }
-
-        if let Some(old_auto_stake_hotkey) = AutoStakeDestination::<T>::get(old_coldkey) {
-            AutoStakeDestination::<T>::remove(old_coldkey);
-            AutoStakeDestination::<T>::insert(new_coldkey, old_auto_stake_hotkey);
         }
 
         // 4. Swap TotalColdkeyAlpha (DEPRECATED)

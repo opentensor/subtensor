@@ -60,6 +60,7 @@ pub type BIQ<'a> = Box<
         + 'a,
 >;
 
+#[allow(clippy::expect_used)]
 pub fn new_partial(
     config: &Configuration,
     eth_config: &EthConfiguration,
@@ -250,6 +251,7 @@ pub fn build_manual_seal_import_queue(
 }
 
 /// Builds a new service for a full client.
+#[allow(clippy::expect_used)]
 pub async fn new_full<NB, CM>(
     mut config: Configuration,
     eth_config: EthConfiguration,
