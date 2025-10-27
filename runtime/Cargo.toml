@@ -309,6 +309,7 @@ std = [
 	"substrate-fixed/std",
 	"subtensor-swap-interface/std",
 	"runtime-common/std",
+	"ethereum/std"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
