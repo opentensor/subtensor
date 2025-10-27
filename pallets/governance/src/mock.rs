@@ -4,10 +4,10 @@
     clippy::expect_used,
     clippy::unwrap_used
 )]
-use frame_support::{derive_impl, pallet_prelude::*, parameter_types};
-use frame_system::{EnsureRoot, pallet_prelude::*};
+use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::EqualPrivilegeOnly};
+use frame_system::{EnsureRoot, limits, pallet_prelude::*};
 use sp_core::U256;
-use sp_runtime::{BuildStorage, traits::IdentityLookup};
+use sp_runtime::{BuildStorage, Perbill, traits::IdentityLookup};
 
 use crate::{BalanceOf, pallet as pallet_governance};
 
@@ -20,8 +20,9 @@ frame_support::construct_runtime!(
       System: frame_system = 1,
       Balances: pallet_balances = 2,
       Preimage: pallet_preimage = 3,
-      Governance: pallet_governance = 4,
-      TestPallet: pallet_test = 5,
+      Scheduler: pallet_scheduler = 4,
+      Governance: pallet_governance = 5,
+      TestPallet: pallet_test = 6,
     }
 );
 
@@ -47,20 +48,48 @@ impl pallet_preimage::Config for Test {
 }
 
 parameter_types! {
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
+        Weight::from_parts(2_000_000_000_000, u64::MAX),
+        Perbill::from_percent(75),
+    );
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Config for Test {
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeEvent = RuntimeEvent;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountOf<Test>>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
+    type Preimages = Preimage;
+    type BlockNumberProvider = System;
+}
+
+parameter_types! {
     pub const MaxAllowedProposers: u32 = 5;
     pub const MaxProposalWeight: Weight = Weight::from_parts(1_000_000_000_000, 0);
     pub const MaxProposals: u32 = 5;
+    pub const MaxScheduled: u32 = 10;
+    pub const MotionDuration: BlockNumberFor<Test> = 20;
 }
 
 impl pallet_governance::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Preimages = Preimage;
+    type Scheduler = Scheduler;
     type SetAllowedProposersOrigin = EnsureRoot<AccountOf<Test>>;
     type SetTriumvirateOrigin = EnsureRoot<AccountOf<Test>>;
     type MaxAllowedProposers = MaxAllowedProposers;
     type MaxProposalWeight = MaxProposalWeight;
     type MaxProposals = MaxProposals;
+    type MaxScheduled = MaxScheduled;
+    type MotionDuration = MotionDuration;
 }
 
 #[frame_support::pallet]

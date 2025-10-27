@@ -267,6 +267,7 @@ fn propose_works_with_inline_preimage() {
         ));
         let length_bound = proposal.encoded_size() as u32;
 
+        let proposal_index = ProposalCount::<Test>::get();
         assert_ok!(Pallet::<Test>::propose(
             RuntimeOrigin::signed(U256::from(1)),
             proposal.clone(),
@@ -281,12 +282,23 @@ fn propose_works_with_inline_preimage() {
             ProposalOf::<Test>::get(proposal_hash),
             Some(bounded_proposal)
         );
+        let now = frame_system::Pallet::<Test>::block_number();
+        assert_eq!(
+            Voting::<Test>::get(proposal_hash),
+            Some(Votes {
+                index: proposal_index,
+                ayes: BoundedVec::new(),
+                nays: BoundedVec::new(),
+                end: now + MotionDuration::get(),
+            })
+        );
         assert_eq!(
             last_event(),
             RuntimeEvent::Governance(Event::<Test>::Proposed {
                 account: U256::from(1),
                 proposal_index: 0,
                 proposal_hash,
+                end: now + MotionDuration::get(),
             })
         );
     });
@@ -303,8 +315,8 @@ fn propose_works_with_lookup_preimage() {
             },
         ));
         let length_bound = proposal.encoded_size() as u32;
-        println!("length_bound: {}", length_bound);
 
+        let proposal_index = ProposalCount::<Test>::get();
         assert_ok!(Pallet::<Test>::propose(
             RuntimeOrigin::signed(U256::from(1)),
             proposal.clone(),
@@ -319,12 +331,23 @@ fn propose_works_with_lookup_preimage() {
         let (stored_hash, bounded_proposal) = &stored_proposals[0];
         assert_eq!(stored_hash, &proposal_hash);
         assert!(<Test as pallet::Config>::Preimages::have(&bounded_proposal));
+        let now = frame_system::Pallet::<Test>::block_number();
+        assert_eq!(
+            Voting::<Test>::get(proposal_hash),
+            Some(Votes {
+                index: proposal_index,
+                ayes: BoundedVec::new(),
+                nays: BoundedVec::new(),
+                end: now + MotionDuration::get(),
+            })
+        );
         assert_eq!(
             last_event(),
             RuntimeEvent::Governance(Event::<Test>::Proposed {
                 account: U256::from(1),
                 proposal_index: 0,
                 proposal_hash,
+                end: now + MotionDuration::get(),
             })
         );
     });
@@ -479,4 +502,350 @@ fn propose_with_too_many_proposals_fails() {
             Error::<Test>::TooManyProposals
         );
     });
+}
+
+#[test]
+fn vote_aye_as_first_voter_works() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        let approve = true;
+        assert_ok!(Pallet::<Test>::vote(
+            RuntimeOrigin::signed(U256::from(1001)),
+            proposal_hash,
+            proposal_index,
+            approve
+        ));
+
+        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        assert_eq!(votes.ayes.to_vec(), vec![U256::from(1001)]);
+        assert_eq!(votes.nays.to_vec(), vec![]);
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::Voted {
+                account: U256::from(1001),
+                proposal_hash,
+                voted: true,
+                yes: 1,
+                no: 0,
+            })
+        );
+    });
+}
+
+#[test]
+fn vote_nay_as_first_voter_works() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        let approve = false;
+        assert_ok!(Pallet::<Test>::vote(
+            RuntimeOrigin::signed(U256::from(1001)),
+            proposal_hash,
+            proposal_index,
+            approve
+        ));
+
+        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        assert_eq!(votes.nays.to_vec(), vec![U256::from(1001)]);
+        assert_eq!(votes.ayes.to_vec(), vec![]);
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::Voted {
+                account: U256::from(1001),
+                proposal_hash,
+                voted: false,
+                yes: 0,
+                no: 1,
+            })
+        );
+    });
+}
+
+#[test]
+fn vote_can_be_updated() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        // Vote aye initially
+        assert_ok!(Pallet::<Test>::vote(
+            RuntimeOrigin::signed(U256::from(1001)),
+            proposal_hash,
+            proposal_index,
+            true
+        ));
+        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        assert_eq!(votes.ayes.to_vec(), vec![U256::from(1001)]);
+        assert_eq!(votes.nays.to_vec(), vec![]);
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::Voted {
+                account: U256::from(1001),
+                proposal_hash,
+                voted: true,
+                yes: 1,
+                no: 0,
+            })
+        );
+
+        // Then vote nay, replacing the aye vote
+        assert_ok!(Pallet::<Test>::vote(
+            RuntimeOrigin::signed(U256::from(1001)),
+            proposal_hash,
+            proposal_index,
+            false
+        ));
+        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        assert_eq!(votes.nays.to_vec(), vec![U256::from(1001)]);
+        assert_eq!(votes.ayes.to_vec(), vec![]);
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::Voted {
+                account: U256::from(1001),
+                proposal_hash,
+                voted: false,
+                yes: 0,
+                no: 1,
+            })
+        );
+
+        // Then vote aye again, replacing the nay vote
+        assert_ok!(Pallet::<Test>::vote(
+            RuntimeOrigin::signed(U256::from(1001)),
+            proposal_hash,
+            proposal_index,
+            true
+        ));
+        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        assert_eq!(votes.ayes.to_vec(), vec![U256::from(1001)]);
+        assert_eq!(votes.nays.to_vec(), vec![]);
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::Voted {
+                account: U256::from(1001),
+                proposal_hash,
+                voted: true,
+                yes: 1,
+                no: 0,
+            })
+        );
+    });
+}
+
+#[test]
+fn two_aye_votes_schedule_proposal() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        vote_aye(U256::from(1001), proposal_hash, proposal_index);
+        vote_nay(U256::from(1002), proposal_hash, proposal_index);
+        vote_aye(U256::from(1003), proposal_hash, proposal_index);
+        
+        assert_eq!(Proposals::<Test>::get(), vec![]);
+        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        assert_eq!(
+            votes.ayes.to_vec(),
+            vec![U256::from(1001), U256::from(1003)]
+        );
+        assert_eq!(votes.nays.to_vec(), vec![U256::from(1002)]);
+        assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
+        let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
+        let now = frame_system::Pallet::<Test>::block_number();
+        assert_eq!(
+            pallet_scheduler::Lookup::<Test>::get(task_name).unwrap().0,
+            now + MotionDuration::get()
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::Scheduled { proposal_hash })
+        );
+    });
+}
+
+#[test]
+fn two_nay_votes_cancel_proposal() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        vote_nay(U256::from(1001), proposal_hash, proposal_index);
+        vote_aye(U256::from(1002), proposal_hash, proposal_index);
+        vote_nay(U256::from(1003), proposal_hash, proposal_index);
+
+        assert_eq!(Proposals::<Test>::get(), vec![]);
+        assert!(!Voting::<Test>::contains_key(proposal_hash));
+        assert_eq!(Scheduled::<Test>::get(), vec![]);
+        assert_eq!(ProposalOf::<Test>::get(proposal_hash), None);
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::Cancelled { proposal_hash })
+        );
+    });
+}
+
+#[test]
+fn vote_as_bad_origin_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        assert_noop!(
+            Pallet::<Test>::vote(RuntimeOrigin::root(), proposal_hash, proposal_index, true),
+            DispatchError::BadOrigin
+        );
+        assert_noop!(
+            Pallet::<Test>::vote(RuntimeOrigin::none(), proposal_hash, proposal_index, true),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn vote_as_non_triumvirate_member_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        assert_noop!(
+            Pallet::<Test>::vote(
+                RuntimeOrigin::signed(U256::from(42)),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
+            Error::<Test>::NotTriumvirateMember
+        );
+    });
+}
+
+#[test]
+fn vote_on_missing_proposal_fails() {
+    TestState::default().build_and_execute(|| {
+        let invalid_proposal_hash =
+            <Test as frame_system::Config>::Hashing::hash(b"Invalid proposal");
+        assert_noop!(
+            Pallet::<Test>::vote(
+                RuntimeOrigin::signed(U256::from(1001)),
+                invalid_proposal_hash,
+                0,
+                true
+            ),
+            Error::<Test>::ProposalMissing
+        );
+    });
+}
+
+#[test]
+fn vote_on_scheduled_proposal_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+        
+        vote_aye(U256::from(1001), proposal_hash, proposal_index);
+        vote_aye(U256::from(1002), proposal_hash, proposal_index);
+        
+        assert_eq!(Proposals::<Test>::get(), vec![]);
+        assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
+
+        assert_noop!(
+            Pallet::<Test>::vote(
+                RuntimeOrigin::signed(U256::from(1003)),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
+            Error::<Test>::ProposalMissing
+        );
+    })
+}
+
+#[test]
+fn vote_on_proposal_with_wrong_index_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        assert_noop!(
+            Pallet::<Test>::vote(
+                RuntimeOrigin::signed(U256::from(1001)),
+                proposal_hash,
+                proposal_index + 1,
+                true
+            ),
+            Error::<Test>::WrongProposalIndex
+        );
+    });
+}
+
+#[test]
+fn duplicate_vote_on_proposal_already_voted_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        let aye_voter = RuntimeOrigin::signed(U256::from(1001));
+        let approve = true;
+        assert_ok!(Pallet::<Test>::vote(
+            aye_voter.clone(),
+            proposal_hash,
+            proposal_index,
+            approve
+        ));
+        assert_noop!(
+            Pallet::<Test>::vote(aye_voter, proposal_hash, proposal_index, approve),
+            Error::<Test>::DuplicateVote
+        );
+
+        let nay_voter = RuntimeOrigin::signed(U256::from(1002));
+        let approve = false;
+        assert_ok!(Pallet::<Test>::vote(
+            nay_voter.clone(),
+            proposal_hash,
+            proposal_index,
+            approve
+        ));
+        assert_noop!(
+            Pallet::<Test>::vote(nay_voter, proposal_hash, proposal_index, approve),
+            Error::<Test>::DuplicateVote
+        );
+    });
+}
+
+fn create_proposal() -> (<mock::Test as frame_system::Config>::Hash, u32) {
+    let proposal = Box::new(RuntimeCall::System(
+        frame_system::Call::<Test>::set_storage {
+            items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
+        },
+    ));
+    let length_bound = proposal.encoded_size() as u32;
+    let proposal_hash = <Test as frame_system::Config>::Hashing::hash_of(&proposal);
+    let proposal_index = ProposalCount::<Test>::get();
+
+    assert_ok!(Pallet::<Test>::propose(
+        RuntimeOrigin::signed(U256::from(1)),
+        proposal.clone(),
+        length_bound
+    ));
+
+    (proposal_hash, proposal_index)
+}
+
+fn vote_aye(
+    voter: U256,
+    proposal_hash: <mock::Test as frame_system::Config>::Hash,
+    proposal_index: u32,
+) {
+    assert_ok!(Pallet::<Test>::vote(
+        RuntimeOrigin::signed(voter),
+        proposal_hash,
+        proposal_index,
+        true
+    ));
+}
+
+fn vote_nay(
+    voter: U256,
+    proposal_hash: <mock::Test as frame_system::Config>::Hash,
+    proposal_index: u32,
+) {
+    assert_ok!(Pallet::<Test>::vote(
+        RuntimeOrigin::signed(voter),
+        proposal_hash,
+        proposal_index,
+        false
+    ));
 }
