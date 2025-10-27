@@ -1,4 +1,4 @@
-import { devnet, MultiAddress } from '@polkadot-api/descriptors';
+import { devnet, MultiAddress, contracts } from '@polkadot-api/descriptors';
 import { TypedApi, Transaction, PolkadotSigner, Binary } from 'polkadot-api';
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd"
 import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy, KeyPair } from "@polkadot-labs/hdkd-helpers"
@@ -7,8 +7,10 @@ import { randomBytes } from 'crypto';
 import { Keyring } from '@polkadot/keyring';
 import { SS58_PREFIX, TX_TIMEOUT } from "./config";
 import { getClient } from "./setup"
+import { getInkClient, InkClient } from "@polkadot-api/ink-contracts"
 
 let api: TypedApi<typeof devnet> | undefined = undefined
+let inkClient: InkClient<contracts> | undefined = undefined
 
 // define url string as type to extend in the future
 // export type ClientUrlType = 'ws://localhost:9944' | 'wss://test.finney.opentensor.ai:443' | 'wss://dev.chain.opentensor.ai:443' | 'wss://archive.chain.opentensor.ai';
@@ -20,6 +22,13 @@ export async function getDevnetApi() {
         api = client.getTypedApi(devnet)
     }
     return api
+}
+
+export async function gettInkClient() {
+    if (inkClient === undefined) {
+        inkClient = getInkClient(contracts.bittensor)
+    }
+    return inkClient
 }
 
 export function getKeypairFromPath(path: string) {

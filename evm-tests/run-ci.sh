@@ -28,6 +28,13 @@ fi
 
 cd evm-tests
 
+cd bittensor
+
+cargo install contract 
+cargo contract build --release 
+
+cd ..
+
 # required for papi in get-metadata.sh, but we cannot run yarn before papi as it adds the descriptors to the package.json which won't resolve
 npm i -g polkadot-api
 
