@@ -124,3 +124,184 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use codec::Encode;
+    use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+    use sp_runtime::{
+        traits::{TransactionExtension, TxBaseImplication},
+        transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidityError},
+    };
+
+    use crate::{LastSeen, Limits, RateLimit, types::TransactionIdentifier};
+
+    use super::*;
+    use crate::mock::*;
+
+    fn remark_call() -> RuntimeCall {
+        RuntimeCall::System(frame_system::Call::<Test>::remark { remark: Vec::new() })
+    }
+
+    fn new_tx_extension() -> RateLimitTransactionExtension<Test> {
+        RateLimitTransactionExtension(Default::default())
+    }
+
+    fn validate_with_tx_extension(
+        extension: &RateLimitTransactionExtension<Test>,
+        call: &RuntimeCall,
+    ) -> Result<
+        (
+            sp_runtime::transaction_validity::ValidTransaction,
+            Option<(TransactionIdentifier, Option<LimitContext>)>,
+            RuntimeOrigin,
+        ),
+        TransactionValidityError,
+    > {
+        let info = call.get_dispatch_info();
+        let len = call.encode().len();
+        extension.validate(
+            RuntimeOrigin::signed(42),
+            call,
+            &info,
+            len,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        )
+    }
+
+    #[test]
+    fn tx_extension_allows_calls_without_limit() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = remark_call();
+
+            let (_valid, val, _origin) =
+                validate_with_tx_extension(&extension, &call).expect("valid");
+            assert!(val.is_none());
+
+            let info = call.get_dispatch_info();
+            let len = call.encode().len();
+            let origin_for_prepare = RuntimeOrigin::signed(42);
+            let pre = extension
+                .clone()
+                .prepare(val.clone(), &origin_for_prepare, &call, &info, len)
+                .expect("prepare succeeds");
+
+            let mut post = PostDispatchInfo::default();
+            RateLimitTransactionExtension::<Test>::post_dispatch(
+                pre,
+                &info,
+                &mut post,
+                len,
+                &Ok(()),
+            )
+            .expect("post_dispatch succeeds");
+
+            let identifier = identifier_for(&call);
+            assert_eq!(
+                LastSeen::<Test>::get(identifier, None::<LimitContext>),
+                None
+            );
+        });
+    }
+
+    #[test]
+    fn tx_extension_records_last_seen_for_successful_call() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = remark_call();
+            let identifier = identifier_for(&call);
+            Limits::<Test>::insert(identifier, RateLimit::Exact(5));
+
+            System::set_block_number(10);
+
+            let (_valid, val, _) = validate_with_tx_extension(&extension, &call).expect("valid");
+            assert!(val.is_some());
+
+            let info = call.get_dispatch_info();
+            let len = call.encode().len();
+            let origin_for_prepare = RuntimeOrigin::signed(42);
+            let pre = extension
+                .clone()
+                .prepare(val.clone(), &origin_for_prepare, &call, &info, len)
+                .expect("prepare succeeds");
+
+            let mut post = PostDispatchInfo::default();
+            RateLimitTransactionExtension::<Test>::post_dispatch(
+                pre,
+                &info,
+                &mut post,
+                len,
+                &Ok(()),
+            )
+            .expect("post_dispatch succeeds");
+
+            assert_eq!(
+                LastSeen::<Test>::get(identifier, None::<LimitContext>),
+                Some(10)
+            );
+        });
+    }
+
+    #[test]
+    fn tx_extension_rejects_when_call_occurs_too_soon() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = remark_call();
+            let identifier = identifier_for(&call);
+            Limits::<Test>::insert(identifier, RateLimit::Exact(5));
+            LastSeen::<Test>::insert(identifier, None::<LimitContext>, 20);
+
+            System::set_block_number(22);
+
+            let err =
+                validate_with_tx_extension(&extension, &call).expect_err("should be rate limited");
+            match err {
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(code)) => {
+                    assert_eq!(code, 1);
+                }
+                other => panic!("unexpected error: {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn tx_extension_skips_last_seen_when_span_zero() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = remark_call();
+            let identifier = identifier_for(&call);
+            Limits::<Test>::insert(identifier, RateLimit::Exact(0));
+
+            System::set_block_number(30);
+
+            let (_valid, val, _) = validate_with_tx_extension(&extension, &call).expect("valid");
+            assert!(val.is_none());
+
+            let info = call.get_dispatch_info();
+            let len = call.encode().len();
+            let origin_for_prepare = RuntimeOrigin::signed(42);
+            let pre = extension
+                .clone()
+                .prepare(val.clone(), &origin_for_prepare, &call, &info, len)
+                .expect("prepare succeeds");
+
+            let mut post = PostDispatchInfo::default();
+            RateLimitTransactionExtension::<Test>::post_dispatch(
+                pre,
+                &info,
+                &mut post,
+                len,
+                &Ok(()),
+            )
+            .expect("post_dispatch succeeds");
+
+            assert_eq!(
+                LastSeen::<Test>::get(identifier, None::<LimitContext>),
+                None
+            );
+        });
+    }
+}

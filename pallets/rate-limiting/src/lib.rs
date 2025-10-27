@@ -9,6 +9,12 @@ pub use types::{RateLimit, RateLimitContextResolver, TransactionIdentifier};
 mod tx_extension;
 mod types;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet]
 pub mod pallet {
     use codec::Codec;

@@ -1,0 +1,281 @@
+use frame_support::{assert_noop, assert_ok, error::BadOrigin};
+use sp_runtime::DispatchError;
+
+use crate::{
+    DefaultLimit, LastSeen, Limits, RateLimit, mock::*, pallet::Error, types::TransactionIdentifier,
+};
+
+#[test]
+fn limit_for_call_names_returns_none_if_not_set() {
+    new_test_ext().execute_with(|| {
+        assert!(
+            RateLimiting::limit_for_call_names("RateLimiting", "set_default_rate_limit").is_none()
+        );
+    });
+}
+
+#[test]
+fn limit_for_call_names_returns_stored_limit() {
+    new_test_ext().execute_with(|| {
+        let call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&call);
+        Limits::<Test>::insert(identifier, RateLimit::Exact(7));
+
+        let fetched = RateLimiting::limit_for_call_names("RateLimiting", "set_default_rate_limit")
+            .expect("limit should exist");
+        assert_eq!(fetched, RateLimit::Exact(7));
+    });
+}
+
+#[test]
+fn resolved_limit_for_call_names_resolves_default_value() {
+    new_test_ext().execute_with(|| {
+        DefaultLimit::<Test>::put(3);
+        let call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&call);
+        Limits::<Test>::insert(identifier, RateLimit::Default);
+
+        let resolved =
+            RateLimiting::resolved_limit_for_call_names("RateLimiting", "set_default_rate_limit")
+                .expect("resolved limit");
+        assert_eq!(resolved, 3);
+    });
+}
+
+#[test]
+fn resolved_limit_for_call_names_returns_none_when_unset() {
+    new_test_ext().execute_with(|| {
+        assert!(
+            RateLimiting::resolved_limit_for_call_names("RateLimiting", "set_default_rate_limit")
+                .is_none()
+        );
+    });
+}
+
+#[test]
+fn is_within_limit_is_true_when_no_limit() {
+    new_test_ext().execute_with(|| {
+        let call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&call);
+
+        let result = RateLimiting::is_within_limit(&identifier, &None);
+        assert_eq!(result.expect("no error expected"), true);
+    });
+}
+
+#[test]
+fn is_within_limit_false_when_rate_limited() {
+    new_test_ext().execute_with(|| {
+        let call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&call);
+        Limits::<Test>::insert(identifier, RateLimit::Exact(5));
+        LastSeen::<Test>::insert(identifier, Some(1 as LimitContext), 9);
+
+        System::set_block_number(13);
+
+        let within = RateLimiting::is_within_limit(&identifier, &Some(1 as LimitContext))
+            .expect("call succeeds");
+        assert!(!within);
+    });
+}
+
+#[test]
+fn is_within_limit_true_after_required_span() {
+    new_test_ext().execute_with(|| {
+        let call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&call);
+        Limits::<Test>::insert(identifier, RateLimit::Exact(5));
+        LastSeen::<Test>::insert(identifier, Some(2 as LimitContext), 10);
+
+        System::set_block_number(20);
+
+        let within = RateLimiting::is_within_limit(&identifier, &Some(2 as LimitContext))
+            .expect("call succeeds");
+        assert!(within);
+    });
+}
+
+#[test]
+fn transaction_identifier_from_call_matches_expected_indices() {
+    let call =
+        RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+
+    let identifier = TransactionIdentifier::from_call::<Test>(&call).expect("identifier");
+
+    // System is the first pallet in the mock runtime, RateLimiting is second.
+    assert_eq!(identifier.pallet_index, 1);
+    // set_default_rate_limit has call_index 2.
+    assert_eq!(identifier.extrinsic_index, 2);
+}
+
+#[test]
+fn transaction_identifier_names_matches_call_metadata() {
+    let call =
+        RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+    let identifier = TransactionIdentifier::from_call::<Test>(&call).expect("identifier");
+
+    let (pallet, extrinsic) = identifier.names::<Test>().expect("call metadata");
+    assert_eq!(pallet, "RateLimiting");
+    assert_eq!(extrinsic, "set_default_rate_limit");
+}
+
+#[test]
+fn transaction_identifier_names_error_for_unknown_indices() {
+    let identifier = TransactionIdentifier::new(99, 0);
+
+    let err = identifier.names::<Test>().expect_err("should fail");
+    let expected: DispatchError = Error::<Test>::InvalidRuntimeCall.into();
+    assert_eq!(err, expected);
+}
+
+#[test]
+fn set_rate_limit_updates_storage_and_emits_event() {
+    new_test_ext().execute_with(|| {
+        System::reset_events();
+
+        let target_call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let limit = RateLimit::Exact(9);
+
+        assert_ok!(RateLimiting::set_rate_limit(
+            RuntimeOrigin::root(),
+            Box::new(target_call.clone()),
+            limit
+        ));
+
+        let identifier = identifier_for(&target_call);
+        assert_eq!(Limits::<Test>::get(identifier), Some(limit));
+
+        match pop_last_event() {
+            RuntimeEvent::RateLimiting(crate::pallet::Event::RateLimitSet {
+                transaction,
+                limit: emitted_limit,
+                pallet,
+                extrinsic,
+            }) => {
+                assert_eq!(transaction, identifier);
+                assert_eq!(emitted_limit, limit);
+                assert_eq!(pallet, b"RateLimiting".to_vec());
+                assert_eq!(extrinsic, b"set_default_rate_limit".to_vec());
+            }
+            other => panic!("unexpected event: {:?}", other),
+        }
+    });
+}
+
+#[test]
+fn set_rate_limit_requires_root() {
+    new_test_ext().execute_with(|| {
+        let target_call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+
+        assert_noop!(
+            RateLimiting::set_rate_limit(
+                RuntimeOrigin::signed(1),
+                Box::new(target_call),
+                RateLimit::Exact(1)
+            ),
+            BadOrigin
+        );
+    });
+}
+
+#[test]
+fn set_rate_limit_accepts_default_variant() {
+    new_test_ext().execute_with(|| {
+        let target_call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+
+        assert_ok!(RateLimiting::set_rate_limit(
+            RuntimeOrigin::root(),
+            Box::new(target_call.clone()),
+            RateLimit::Default
+        ));
+
+        let identifier = identifier_for(&target_call);
+        assert_eq!(Limits::<Test>::get(identifier), Some(RateLimit::Default));
+    });
+}
+
+#[test]
+fn clear_rate_limit_removes_entry_and_emits_event() {
+    new_test_ext().execute_with(|| {
+        System::reset_events();
+
+        let target_call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&target_call);
+        Limits::<Test>::insert(identifier, RateLimit::Exact(4));
+
+        assert_ok!(RateLimiting::clear_rate_limit(
+            RuntimeOrigin::root(),
+            Box::new(target_call.clone())
+        ));
+
+        assert_eq!(Limits::<Test>::get(identifier), None);
+
+        match pop_last_event() {
+            RuntimeEvent::RateLimiting(crate::pallet::Event::RateLimitCleared {
+                transaction,
+                pallet,
+                extrinsic,
+            }) => {
+                assert_eq!(transaction, identifier);
+                assert_eq!(pallet, b"RateLimiting".to_vec());
+                assert_eq!(extrinsic, b"set_default_rate_limit".to_vec());
+            }
+            other => panic!("unexpected event: {:?}", other),
+        }
+    });
+}
+
+#[test]
+fn clear_rate_limit_fails_when_missing() {
+    new_test_ext().execute_with(|| {
+        let target_call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+
+        assert_noop!(
+            RateLimiting::clear_rate_limit(RuntimeOrigin::root(), Box::new(target_call)),
+            Error::<Test>::MissingRateLimit
+        );
+    });
+}
+
+#[test]
+fn set_default_rate_limit_updates_storage_and_emits_event() {
+    new_test_ext().execute_with(|| {
+        System::reset_events();
+
+        assert_ok!(RateLimiting::set_default_rate_limit(
+            RuntimeOrigin::root(),
+            42
+        ));
+
+        assert_eq!(DefaultLimit::<Test>::get(), 42);
+
+        match pop_last_event() {
+            RuntimeEvent::RateLimiting(crate::pallet::Event::DefaultRateLimitSet {
+                block_span,
+            }) => {
+                assert_eq!(block_span, 42);
+            }
+            other => panic!("unexpected event: {:?}", other),
+        }
+    });
+}
+
+#[test]
+fn set_default_rate_limit_requires_root() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            RateLimiting::set_default_rate_limit(RuntimeOrigin::signed(1), 5),
+            BadOrigin
+        );
+    });
+}
