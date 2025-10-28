@@ -792,6 +792,11 @@ fn test_claim_root_block_hash_indices() {
         let k = 15u64;
         let n = 15000u64;
 
+        // 0
+        let indices =
+            SubtensorModule::block_hash_to_indices(H256(sp_core::keccak_256(b"zero")), 0, n);
+        assert!(indices.is_empty());
+
         // 1
         let hash = sp_core::keccak_256(b"some");
         let mut indices = SubtensorModule::block_hash_to_indices(H256(hash), k, n);
@@ -1006,11 +1011,6 @@ fn test_sudo_set_num_root_claims() {
         assert_noop!(
             SubtensorModule::sudo_set_num_root_claims(RuntimeOrigin::signed(coldkey), 50u64),
             DispatchError::BadOrigin
-        );
-
-        assert_noop!(
-            SubtensorModule::sudo_set_num_root_claims(RuntimeOrigin::root(), 0u64),
-            Error::<Test>::InvalidNumRootClaim
         );
 
         assert_noop!(

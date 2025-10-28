@@ -2367,7 +2367,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// --- Sets root claim number (sudo extrinsic).
+        /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
         #[pallet::call_index(123)]
         #[pallet::weight((
             Weight::from_parts(4_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
@@ -2378,7 +2378,7 @@ mod dispatches {
             ensure_root(origin)?;
 
             ensure!(
-                new_value > 0 && new_value <= MAX_NUM_ROOT_CLAIMS,
+                new_value <= MAX_NUM_ROOT_CLAIMS,
                 Error::<T>::InvalidNumRootClaim
             );
 
