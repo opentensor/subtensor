@@ -239,29 +239,22 @@ mod bittensor {
             Self::new()
         }
 
-        /// A message that can be called on instantiated contracts.
-        /// This one flips the value of the stored `bool` from `true`
-        /// to `false` and vice versa.
         #[ink(message)]
-        pub fn a(&self) -> bool {
-            true
+        pub fn get_stake_info_for_hotkey_coldkey_netuid(
+            &mut self,
+            hotkey: [u8; 32],
+            coldkey: [u8; 32],
+            netuid: u16,
+        ) -> Result<Option<StakeInfo<ink::primitives::AccountId>>, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .get_stake_info_for_hotkey_coldkey_netuid(
+                    hotkey.into(),
+                    coldkey.into(),
+                    netuid.into(),
+                )
+                .map_err(|_e| ReadWriteErrorCode::ReadFailed)
         }
-
-        // pub fn get_stake_info_for_hotkey_coldkey_netuid(
-        //     &mut self,
-        //     hotkey: [u8; 32],
-        //     coldkey: [u8; 32],
-        //     netuid: u16,
-        // ) -> Result<Option<StakeInfo<ink::primitives::AccountId>>, ReadWriteErrorCode> {
-        //     self.env()
-        //         .extension()
-        //         .get_stake_info_for_hotkey_coldkey_netuid(
-        //             hotkey.into(),
-        //             coldkey.into(),
-        //             netuid.into(),
-        //         )
-        //         .map_err(|_e| ReadWriteErrorCode::ReadFailed)
-        // }
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
