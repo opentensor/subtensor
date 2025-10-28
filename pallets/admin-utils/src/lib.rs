@@ -2102,6 +2102,33 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        /// Sets the validator cut for a subnet.
+        /// Only callable by subnet owner or root.
+        #[pallet::call_index(81)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_validator_cut(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            cut: u64,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin.clone(),
+                netuid,
+                &[TransactionType::SetValidatorCut],
+            )?;
+
+            pallet_subtensor::Pallet::<T>::set_validator_cut(netuid, cut)?;
+            log::debug!("ValidatorCutSet( netuid: {netuid:?}, cut: {cut:?} ) ");
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::SetValidatorCut],
+            );
+            Ok(())
+        }
     }
 }
 

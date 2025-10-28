@@ -2866,3 +2866,129 @@ fn test_sudo_set_min_allowed_uids() {
         );
     });
 }
+
+#[test]
+fn test_get_validator_cut() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let expected_cut: u64 = u64::MAX / 2; // 50% cut
+
+        // Set up a network
+        add_network(netuid, 10);
+
+        // Set a validator cut value
+        assert_ok!(SubtensorModule::set_validator_cut(netuid, expected_cut));
+
+        // Test that we can retrieve the value
+        let retrieved_cut = SubtensorModule::get_validator_cut(netuid);
+        assert_eq!(retrieved_cut, expected_cut);
+    });
+}
+
+#[test]
+fn test_set_validator_cut() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(2);
+        let initial_cut: u64 = pallet_subtensor::DefaultValidatorCut::<Test>::get();
+        let new_cut: u64 = u64::MAX / 3; // 33% cut
+
+        // Set up a network
+        add_network(netuid, 10);
+
+        // Verify initial value
+        assert_eq!(SubtensorModule::get_validator_cut(netuid), initial_cut);
+
+        // Set new validator cut
+        assert_ok!(SubtensorModule::set_validator_cut(netuid, new_cut));
+
+        // Verify the value was set correctly
+        assert_eq!(SubtensorModule::get_validator_cut(netuid), new_cut);
+    });
+}
+
+#[test]
+fn test_sudo_set_validator_cut() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(3);
+        let to_be_set: u64 = u64::MAX / 3;
+
+        // Set up a network
+        add_network(netuid, 10);
+
+        let sn_owner = U256::from(1324);
+        // Set the Subnet Owner
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        let init_value = SubtensorModule::get_validator_cut(netuid);
+
+        // Test that non-authorized origin fails (using a regular signed origin)
+        assert_eq!(
+            AdminUtils::sudo_set_validator_cut(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        // Value should remain unchangeds
+        assert_eq!(SubtensorModule::get_validator_cut(netuid), init_value);
+
+        assert_ok!(AdminUtils::sudo_set_validator_cut(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set
+        ));
+
+        // Verify the value was set correctly
+        assert_eq!(SubtensorModule::get_validator_cut(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_validator_cut_root() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(4);
+        let to_be_set: u64 = u64::MAX / 3;
+
+        // Set up a network
+        add_network(netuid, 10);
+
+        // Test that root can set the validator cut successfully
+        assert_ok!(AdminUtils::sudo_set_validator_cut(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+
+        // Verify the value was set correctly
+        assert_eq!(SubtensorModule::get_validator_cut(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_validator_cut_bounds() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(5);
+        let min_cut: u64 = 0; // 0% cut
+        let max_cut: u64 = u64::MAX; // 100% cut
+
+        // Set up a network
+        add_network(netuid, 10);
+
+        // Test minimum value
+        assert_err!(
+            SubtensorModule::set_validator_cut(netuid, min_cut),
+            DispatchError::from(pallet_subtensor::Error::<Test>::InvalidValidatorCut)
+        );
+
+        // Test maximum value
+        assert_err!(
+            SubtensorModule::set_validator_cut(netuid, max_cut),
+            DispatchError::from(pallet_subtensor::Error::<Test>::InvalidValidatorCut)
+        );
+        assert_eq!(
+            SubtensorModule::get_validator_cut(netuid),
+            DefaultValidatorCut::<Test>::get()
+        );
+    });
+}

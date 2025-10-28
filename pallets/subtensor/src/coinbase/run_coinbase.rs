@@ -659,11 +659,34 @@ impl<T: Config> Pallet<T> {
             });
         log::debug!("incentive_sum: {incentive_sum:?}");
 
+        let validator_cut = Self::get_validator_cut(netuid);
+        log::debug!("validator_cut: {validator_cut:?}");
+
+        let rate = U96F32::from(validator_cut).saturating_div(u64::MAX.into());
+        log::debug!("validator rate: {rate:?}");
+        let miner_rate = U96F32::from(1_u64)
+            .saturating_sub(rate)
+            .saturating_mul(U96F32::from(2_u64));
+
+        // Update incentive according to the validator cut
+        let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> = hotkey_emission
+            .iter()
+            .map(|(hotkey, incentive, reward)| {
+                let result: AlphaCurrency = U96F32::from(incentive.to_u64())
+                    .saturating_mul(miner_rate)
+                    .saturating_to_num::<u64>()
+                    .into();
+                (hotkey.clone(), result, *reward)
+            })
+            .collect();
+
         let pending_validator_alpha = if !incentive_sum.is_zero() {
-            pending_alpha
-                .saturating_add(pending_swapped)
-                .saturating_div(2.into())
-                .saturating_sub(pending_swapped)
+            let pending_alpha_f = U96F32::from(pending_alpha.to_u64());
+            let result = pending_alpha_f
+                .saturating_add(U96F32::from(pending_swapped.to_u64()))
+                .saturating_mul(rate)
+                .saturating_sub(U96F32::from(pending_swapped.to_u64()));
+            result.saturating_to_num::<u64>().into()
         } else {
             // If the incentive is 0, then Validators get 100% of the alpha.
             pending_alpha

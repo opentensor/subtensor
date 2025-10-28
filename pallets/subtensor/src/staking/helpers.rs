@@ -326,6 +326,31 @@ impl<T: Config> Pallet<T> {
         });
     }
 
+    /// Gets the validator cut for a given subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The network UID.
+    ///
+    /// # Returns
+    /// The validator cut value for the subnet.
+    pub fn get_validator_cut(netuid: NetUid) -> u64 {
+        ValidatorCut::<T>::get(netuid)
+    }
+
+    /// Sets the validator cut for a given subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The network UID.
+    /// * `cut` - The validator cut value to set.
+    pub fn set_validator_cut(netuid: NetUid, cut: u64) -> DispatchResult {
+        ensure!(
+            cut >= MinValidatorCut::<T>::get() && cut <= MaxValidatorCut::<T>::get(),
+            Error::<T>::InvalidValidatorCut
+        );
+        ValidatorCut::<T>::insert(netuid, cut);
+        Ok(())
+    }
+
     pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaCurrency) {
         // Do nothing; TODO: record burned alpha in a tracker
     }

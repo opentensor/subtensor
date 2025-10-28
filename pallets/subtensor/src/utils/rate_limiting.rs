@@ -16,6 +16,7 @@ pub enum TransactionType {
     MechanismCountUpdate,
     MechanismEmission,
     MaxUidsTrimming,
+    SetValidatorCut,
 }
 
 impl TransactionType {
@@ -141,6 +142,7 @@ impl From<TransactionType> for u16 {
             TransactionType::MechanismCountUpdate => 7,
             TransactionType::MechanismEmission => 8,
             TransactionType::MaxUidsTrimming => 9,
+            TransactionType::SetValidatorCut => 10,
         }
     }
 }
@@ -158,6 +160,7 @@ impl From<u16> for TransactionType {
             7 => TransactionType::MechanismCountUpdate,
             8 => TransactionType::MechanismEmission,
             9 => TransactionType::MaxUidsTrimming,
+            10 => TransactionType::SetValidatorCut,
             _ => TransactionType::Unknown,
         }
     }

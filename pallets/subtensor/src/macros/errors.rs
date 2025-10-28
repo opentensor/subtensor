@@ -258,6 +258,8 @@ mod errors {
         UidMapCouldNotBeCleared,
         /// Trimming would exceed the max immune neurons percentage
         TrimmingWouldExceedMaxImmunePercentage,
+        /// Invalid validator cut
+        InvalidValidatorCut,
         /// Violating the rules of Childkey-Parentkey consistency
         ChildParentInconsistency,
     }
