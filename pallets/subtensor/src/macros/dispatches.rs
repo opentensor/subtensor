@@ -80,7 +80,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4112_u64))
+        .saturating_add(T::DbWeight::get().reads(4111_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
@@ -1227,7 +1227,7 @@ mod dispatches {
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(39_u64))
-		.saturating_add(T::DbWeight::get().writes(57_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(56_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1514,7 +1514,7 @@ mod dispatches {
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
             .saturating_add(T::DbWeight::get().reads(38_u64))
-            .saturating_add(T::DbWeight::get().writes(56_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().writes(55_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2304,7 +2304,7 @@ mod dispatches {
         #[pallet::call_index(120)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_dissolve_network(netuid)

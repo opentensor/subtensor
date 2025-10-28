@@ -1082,7 +1082,7 @@ pub mod pallet {
 			Weight::from_parts(14_000_000, 0)
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
-			Pays::No
+			Pays::Yes
 		))]
         pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
             ensure_root(origin)?;
@@ -1639,7 +1639,12 @@ pub mod pallet {
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(64)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((
+            Weight::from_parts(3_918_000, 0) // TODO: add benchmarks
+			    .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
         pub fn sudo_set_subnet_owner_hotkey(
             origin: OriginFor<T>,
             netuid: NetUid,
