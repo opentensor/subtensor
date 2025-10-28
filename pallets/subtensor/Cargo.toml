@@ -20,6 +20,9 @@ subtensor-macros.workspace = true
 codec = { workspace = true, features = ["derive"] }
 sp-core.workspace = true
 pallet-balances.workspace = true
+pallet-babe.workspace = true
+pallet-aura.workspace = true
+pallet-timestamp.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
@@ -29,6 +32,9 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
+sp-consensus-babe.workspace = true
+sp-consensus-aura.workspace = true
+sp-consensus-slots.workspace = true
 libsecp256k1.workspace = true
 log.workspace = true
 substrate-fixed.workspace = true
@@ -85,7 +91,10 @@ try-runtime = [
 	"pallet-crowdloan/try-runtime",
 	"pallet-drand/try-runtime",
 	"pallet-subtensor-proxy/try-runtime",
-	"pallet-subtensor-utility/try-runtime"
+	"pallet-subtensor-utility/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-babe/try-runtime",
+	"pallet-timestamp/try-runtime"
 ]
 default = ["std"]
 std = [
@@ -128,7 +137,13 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"serde_json/std",
-	"sha2/std"
+	"sha2/std",
+	"pallet-aura/std",
+	"pallet-babe/std",
+	"pallet-timestamp/std",
+	"sp-consensus-aura/std",
+	"sp-consensus-babe/std",
+	"sp-consensus-slots/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -145,7 +160,9 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-subtensor-proxy/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
-	"pallet-subtensor-utility/runtime-benchmarks"
+	"pallet-subtensor-utility/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks"
 ]
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]

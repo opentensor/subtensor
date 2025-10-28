@@ -1,6 +1,8 @@
 // Allowed since it's actually better to panic during chain setup when there is an error
 #![allow(clippy::unwrap_used)]
 
+use subtensor_runtime_common::keys::known_ss58;
+
 use super::*;
 
 pub fn finney_testnet_config() -> Result<ChainSpec, String> {
@@ -59,35 +61,15 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
     .with_genesis_config_patch(testnet_genesis(
-        // Initial PoA authorities (Validators)
-        // aura | grandpa
+        // Initial validators
         vec![
-            // Keys for debug
-            //authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob"),
-            authority_keys_from_ss58(
-                "5D5ABUyMsdmJdH7xrsz9vREq5eGXr5pXhHxix2dENQR62dEo",
-                "5H3qMjQjoeZxZ98jzDmoCwbz2sugd5fDN1wrr8Phf49zemKL",
-            ), // key 1
-            authority_keys_from_ss58(
-                "5GbRc5sNDdhcPAU9suV2g9P5zyK1hjAQ9JHeeadY1mb8kXoM",
-                "5GbkysfaCjK3cprKPhi3CUwaB5xWpBwcfrkzs6FmqHxej8HZ",
-            ), // key 1
-            authority_keys_from_ss58(
-                "5CoVWwBwXz2ndEChGcS46VfSTb3RMUZzZzAYdBKo263zDhEz",
-                "5HTLp4BvPp99iXtd8YTBZA1sMfzo8pd4mZzBJf7HYdCn2boU",
-            ), // key 1
-            authority_keys_from_ss58(
-                "5EekcbqupwbgWqF8hWGY4Pczsxp9sbarjDehqk7bdyLhDCwC",
-                "5GAemcU4Pzyfe8DwLwDFx3aWzyg3FuqYUCCw2h4sdDZhyFvE",
-            ), // key 1
-            authority_keys_from_ss58(
-                "5GgdEQyS5DZzUwKuyucEPEZLxFKGmasUFm1mqM3sx1MRC5RV",
-                "5EibpMomXmgekxcfs25SzFBpGWUsG9Lc8ALNjXN3TYH5Tube",
-            ), // key 1
-            authority_keys_from_ss58(
-                "5Ek5JLCGk2PuoT1fS23GXiWYUT98HVUBERFQBu5g57sNf44x",
-                "5Gyrc6b2mx1Af6zWJYHdx3gwgtXgZvD9YkcG9uTUPYry4V2a",
-            ), // key 1
+            // Testnet keys
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_1),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_2),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_3),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_4),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_5),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_6),
         ],
         // Sudo account
         Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap(),
@@ -105,7 +87,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
 // Configure initial storage state for FRAME modules.
 #[allow(clippy::too_many_arguments)]
 fn testnet_genesis(
-    initial_authorities: Vec<(AuraId, GrandpaId)>,
+    initial_authorities: Vec<AuthorityKeys>,
     root_key: AccountId,
     _endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
@@ -119,12 +101,12 @@ fn testnet_genesis(
             "balances": vec![(root_key.clone(), 1_000_000_000_000u128)],
         },
         "aura": {
-            "authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
+            "authorities": initial_authorities.iter().map(|x| (x.account().clone())).collect::<Vec<_>>(),
         },
         "grandpa": {
             "authorities": initial_authorities
                 .iter()
-                .map(|x| (x.1.clone(), 1))
+                .map(|x| (x.grandpa().clone(), 1))
                 .collect::<Vec<_>>(),
         },
         "sudo": {

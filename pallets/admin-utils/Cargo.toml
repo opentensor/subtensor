@@ -64,7 +64,6 @@ std = [
 	"pallet-crowdloan/std",
 	"pallet-preimage/std",
 	"scale-info/std",
-	"sp-consensus-aura/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -75,6 +74,7 @@ std = [
 	"substrate-fixed/std",
 	"subtensor-swap-interface/std",
 	"subtensor-runtime-common/std",
+	"sp-consensus-aura/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

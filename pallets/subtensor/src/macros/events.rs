@@ -396,6 +396,10 @@ mod events {
         /// - **version**: The required version.
         CommitRevealVersionSet(u16),
 
+        /// Node validator emission percent has been updated.
+        ///
+        /// - Inner: The new percent set aside for node validators.
+        NodeValidatorEmissionsPercentSet(Percent),
         /// Timelocked weights have been successfully committed.
         ///
         /// - **who**: The account ID of the user committing the weights.

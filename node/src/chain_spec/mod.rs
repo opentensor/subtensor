@@ -9,15 +9,16 @@ pub mod testnet;
 use node_subtensor_runtime::{Block, WASM_BINARY};
 use sc_chain_spec_derive::ChainSpecExtension;
 use sc_service::ChainType;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::Ss58Codec;
-use sp_core::{H256, Pair, Public, sr25519};
+use sp_core::{H256, Pair, Public, ed25519, sr25519};
 use sp_runtime::AccountId32;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::collections::HashSet;
 use std::env;
 use std::str::FromStr;
+use subtensor_runtime_common::keys::KnownSs58;
 use subtensor_runtime_common::{AccountId, Signature};
 
 // The URL for the telemetry server.
@@ -53,24 +54,56 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-/// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
-    (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AuthorityKeys {
+    account: AccountId,
+    babe: BabeId,
+    grandpa: GrandpaId,
 }
 
-pub fn authority_keys_from_ss58(s_aura: &str, s_grandpa: &str) -> (AuraId, GrandpaId) {
-    (
-        get_aura_from_ss58_addr(s_aura),
-        get_grandpa_from_ss58_addr(s_grandpa),
-    )
+impl AuthorityKeys {
+    pub fn new(account: AccountId, babe: BabeId, grandpa: GrandpaId) -> Self {
+        Self {
+            account,
+            babe,
+            grandpa,
+        }
+    }
+
+    pub fn account(&self) -> &AccountId {
+        &self.account
+    }
+
+    pub fn babe(&self) -> &BabeId {
+        &self.babe
+    }
+
+    pub fn grandpa(&self) -> &GrandpaId {
+        &self.grandpa
+    }
+
+    pub fn from_seed(seed: &str) -> AuthorityKeys {
+        AuthorityKeys::new(
+            get_account_id_from_seed::<sr25519::Public>(seed),
+            get_from_seed::<BabeId>(seed),
+            get_from_seed::<GrandpaId>(seed),
+        )
+    }
+
+    pub fn from_known_ss58(known: KnownSs58) -> AuthorityKeys {
+        let sr25519_pub = ss58_to_public::<sr25519::Public>(known.sr25519);
+        let ed25519_pub = ss58_to_public::<ed25519::Public>(known.ed25519);
+        // Account and Babe are SR25519, Grandpa is ED25519
+        AuthorityKeys::new(
+            AccountId32::from(sr25519_pub),
+            BabeId::from(sr25519_pub),
+            GrandpaId::from(ed25519_pub),
+        )
+    }
 }
 
-pub fn get_aura_from_ss58_addr(s: &str) -> AuraId {
-    Ss58Codec::from_ss58check(s).unwrap()
-}
-
-pub fn get_grandpa_from_ss58_addr(s: &str) -> GrandpaId {
-    Ss58Codec::from_ss58check(s).unwrap()
+fn ss58_to_public<TPublic: Public>(addr: &str) -> <TPublic::Pair as Pair>::Public {
+    Ss58Codec::from_ss58check(addr).expect("Invalid SS58 address")
 }
 
 // Includes for nakamoto genesis

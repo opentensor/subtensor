@@ -40,6 +40,7 @@ sp-consensus-slots.workspace = true
 sp-core.workspace = true
 sc-executor.workspace = true
 sc-service.workspace = true
+sp-staking.workspace = true
 sc-telemetry.workspace = true
 sc-keystore.workspace = true
 sc-transaction-pool.workspace = true
@@ -69,6 +70,7 @@ frame-metadata-hash-extension.workspace = true
 frame-system.workspace = true
 pallet-transaction-payment.workspace = true
 pallet-commitments.workspace = true
+pallet-staking.workspace = true
 pallet-drand.workspace = true
 sp-crypto-ec-utils = { workspace = true, default-features = true, features = [
 	"bls12-381",
@@ -154,6 +156,8 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks"
 ]
 pow-faucet = []
 
@@ -167,6 +171,7 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-drand/try-runtime",
 	"polkadot-sdk/try-runtime",
+	"pallet-staking/try-runtime"
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]

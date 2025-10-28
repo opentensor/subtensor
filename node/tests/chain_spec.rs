@@ -1,8 +1,5 @@
-use sp_core::sr25519;
-// use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-// use sp_consensus_grandpa::AuthorityId as GrandpaId;
-
 use node_subtensor::chain_spec::*;
+use sp_core::sr25519;
 
 #[test]
 fn test_get_from_seed() {
@@ -37,18 +34,18 @@ fn test_get_account_id_from_seed_panics() {
 #[test]
 fn test_authority_keys_from_seed() {
     let seed = "WoOt";
-    let (aura_id, grandpa_id) = authority_keys_from_seed(seed);
+    let keys = AuthorityKeys::from_seed(seed);
 
-    let expected_aura_id = "5Gj3QEiZaFJPFK1yN4Lkj6FLM4V7GEBCewVBVniuvZ75S2Fd";
+    let expected_babe_id = "5Gj3QEiZaFJPFK1yN4Lkj6FLM4V7GEBCewVBVniuvZ75S2Fd";
     let expected_grandpa_id = "5H7623Nvxq655p9xrLQPip1mwssFRMfL5fvT5LUSa4nWwLSm";
 
-    assert_eq!(aura_id.to_string(), expected_aura_id);
-    assert_eq!(grandpa_id.to_string(), expected_grandpa_id);
+    assert_eq!(keys.babe().to_string(), expected_babe_id);
+    assert_eq!(keys.grandpa().to_string(), expected_grandpa_id);
 }
 
 #[test]
 #[should_panic(expected = "static values are valid; qed: InvalidFormat")]
 fn test_authority_keys_from_seed_panics() {
     let bad_seed = "";
-    authority_keys_from_seed(bad_seed);
+    AuthorityKeys::from_seed(bad_seed);
 }

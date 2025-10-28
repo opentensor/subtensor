@@ -19,10 +19,26 @@ macro_rules! tou64 {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn run_coinbase(block_emission: U96F32) {
+    pub fn run_coinbase(total_block_emission: U96F32) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {current_block:?}");
+
+        // Calculate `subnet_block_emission` and `node_validator_block_emission` from
+        // `total_block_emission`.
+        let node_validator_emission_percent =
+            U96F32::from_num(NodeValidatorEmissionsPercent::<T>::get().deconstruct())
+                .saturating_div(U96F32::from_num(100));
+        let node_validator_block_emission =
+            total_block_emission.saturating_mul(node_validator_emission_percent);
+        let total_subnet_block_emission =
+            total_block_emission.saturating_sub(node_validator_block_emission);
+
+        // Increment pending validator emissions to be paid out at the end of the era.
+        let next_pending_node_validator_emissions = node_validator_block_emission
+            .to_num::<u64>()
+            .saturating_add(PendingNodeValidatorEmissions::<T>::get().into());
+        PendingNodeValidatorEmissions::<T>::set(next_pending_node_validator_emissions.into());
 
         // --- 1. Get all netuids (filter out root)
         let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()
@@ -32,7 +48,8 @@ impl<T: Config> Pallet<T> {
         log::debug!("All subnet netuids: {subnets:?}");
 
         // 2. Get subnets to emit to and emissions
-        let subnet_emissions = Self::get_subnet_block_emissions(&subnets, block_emission);
+        let subnet_emissions =
+            Self::get_subnet_block_emissions(&subnets, total_subnet_block_emission);
         let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
@@ -63,12 +80,13 @@ impl<T: Config> Pallet<T> {
             let mut alpha_in_i: U96F32;
             let mut tao_in_i: U96F32;
             let tao_in_ratio: U96F32 = default_tao_in_i.safe_div_or(
-                U96F32::saturating_from_num(block_emission),
+                U96F32::saturating_from_num(total_subnet_block_emission),
                 U96F32::saturating_from_num(0.0),
             );
             if price_i < tao_in_ratio {
-                tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
-                alpha_in_i = block_emission;
+                tao_in_i = price_i
+                    .saturating_mul(U96F32::saturating_from_num(total_subnet_block_emission));
+                alpha_in_i = total_subnet_block_emission;
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
                 // Difference becomes buy.
                 let buy_swap_result = Self::swap_tao_for_alpha(

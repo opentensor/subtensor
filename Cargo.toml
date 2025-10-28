@@ -302,15 +302,15 @@ pow-faucet = []
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
 
 # Patches automatically generated with `diener`:
-# `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit 81fa2c54e94f824eba7dabe9dffd063481cb2d80 --crates-to-patch ../polkadot-sdk --ignore-unused`
+# `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit ff7026b2e31fc2b0aaeede8cc259417bce56b2a8 --crates-to-patch ../polkadot-sdk`
+#
+# Note you need at least `diener` version 0.6.0, which is not avaliable yet on crates.io, but can be installed from Github:
+# `cargo install --git https://github.com/paritytech/diener --rev 4202bdd8cd94f4d978579dc4833d074b544e547a --locked`
 #
 # Using latest commit from `polkadot-stable2506-2-otf-patches`.
 #
 # View code changes here:
-# <https://github.com/paritytech/polkadot-sdk/compare/polkadot-stable2506-2...opentensor:polkadot-sdk:polkadot-stable2506-2-otf-patches>
-#
-# NOTE: The Diener will patch unnecesarry crates while this is waiting to be merged: <https://github.com/paritytech/diener/pull/46>.
-# You may install diener from `liamaharon:ignore-unused-flag` if you like in the meantime.
+# <https://github.com/paritytech/polkadot-sdk/compare/polkadot-stable2503-6...opentensor:polkadot-sdk:polkadot-stable2503-6-2-otf-patches>
 [patch."https://github.com/paritytech/polkadot-sdk"]
 frame-support = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "81fa2c54e94f824eba7dabe9dffd063481cb2d80" }
 binary-merkle-tree = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "81fa2c54e94f824eba7dabe9dffd063481cb2d80" }

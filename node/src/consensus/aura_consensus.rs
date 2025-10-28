@@ -275,7 +275,7 @@ where
     let epoch_config = node_subtensor_runtime::BABE_GENESIS_EPOCH_CONFIG;
     let config = sp_consensus_babe::BabeConfiguration {
         slot_duration,
-        epoch_length: node_subtensor_runtime::EPOCH_DURATION_IN_SLOTS,
+        epoch_length: node_subtensor_runtime::EPOCH_DURATION_IN_SLOTS as u64,
         c: epoch_config.c,
         authorities,
         randomness: Default::default(),

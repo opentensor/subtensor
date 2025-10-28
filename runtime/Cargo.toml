@@ -23,18 +23,16 @@ log.workspace = true
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
-pallet-aura = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-subtensor = { workspace = true }
-pallet-subtensor-swap = { workspace = true }
-pallet-subtensor-swap-runtime-api = { workspace = true }
-substrate-fixed = { workspace = true }
-subtensor-swap-interface = { workspace = true }
-subtensor-transaction-fee = { workspace = true }
-frame-support = { workspace = true }
-pallet-grandpa = { workspace = true }
-pallet-insecure-randomness-collective-flip = { workspace = true }
-frame-system = { workspace = true }
+pallet-balances.workspace = true
+pallet-subtensor.workspace = true
+pallet-subtensor-swap.workspace = true
+pallet-subtensor-swap-runtime-api.workspace = true
+substrate-fixed.workspace = true
+subtensor-swap-interface.workspace = true
+frame-support.workspace = true
+pallet-grandpa.workspace = true
+pallet-insecure-randomness-collective-flip.workspace = true
+frame-system.workspace = true
 frame-try-runtime = { workspace = true, optional = true }
 pallet-timestamp.workspace = true
 pallet-transaction-payment.workspace = true
@@ -58,6 +56,7 @@ sp-version.workspace = true
 sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
+subtensor-transaction-fee.workspace = true
 
 # Temporary sudo
 pallet-sudo.workspace = true
@@ -91,8 +90,12 @@ pallet-registry.workspace = true
 # Metadata commitment pallet
 pallet-commitments.workspace = true
 
-# for prod_or_fast! macro
-runtime-common.workspace = true
+# Legacy consensus
+pallet-aura = { workspace = true }
+
+# for prod_or_fast!
+runtime-common = { workspace = true }
+
 # NPoS
 frame-election-provider-support = { workspace = true }
 pallet-authority-discovery = { workspace = true }
@@ -155,6 +158,49 @@ sp-tracing.workspace = true
 substrate-wasm-builder = { workspace = true, optional = true }
 
 [features]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-grandpa/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-subtensor-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-safe-mode/runtime-benchmarks",
+	"pallet-subtensor/runtime-benchmarks",
+	"pallet-subtensor-proxy/runtime-benchmarks",
+	"pallet-registry/runtime-benchmarks",
+	"pallet-commitments/runtime-benchmarks",
+	"pallet-admin-utils/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-offences/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+
+	# EVM + Frontier
+	"pallet-ethereum/runtime-benchmarks",
+	"pallet-evm/runtime-benchmarks",
+	"pallet-hotfix-sufficients/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-subtensor-swap/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks",
+
+	# Smart Tx fees pallet
+	"subtensor-transaction-fee/runtime-benchmarks",
+]
 default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
 fast-runtime = [
@@ -254,59 +300,16 @@ std = [
 	"rand_chacha/std",
 	"sha2/std",
 	"w3f-bls/std",
-	"runtime-common/std",
-	"pallet-aura/std",
 	"sp-consensus-aura/std",
 	"sp-consensus-grandpa/std",
 	"sp-consensus-slots/std",
-	"substrate-fixed/std",
 	"pallet-subtensor-swap/std",
 	"pallet-subtensor-swap-runtime-api/std",
+	"pallet-aura/std",
+	"substrate-fixed/std",
 	"subtensor-swap-interface/std",
-	"ethereum/std",
-]
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system-benchmarking/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-grandpa/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"pallet-subtensor-utility/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"pallet-safe-mode/runtime-benchmarks",
-	"pallet-subtensor/runtime-benchmarks",
-	"pallet-subtensor-proxy/runtime-benchmarks",
-	"pallet-registry/runtime-benchmarks",
-	"pallet-commitments/runtime-benchmarks",
-	"pallet-admin-utils/runtime-benchmarks",
-	"pallet-multisig/runtime-benchmarks",
-	"pallet-preimage/runtime-benchmarks",
-	"pallet-scheduler/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks",
-	"pallet-crowdloan/runtime-benchmarks",
-	"runtime-common/runtime-benchmarks",
-	"pallet-babe/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
-	"frame-election-provider-support/runtime-benchmarks",
-	"pallet-bags-list/runtime-benchmarks",
-	"pallet-fast-unstake/runtime-benchmarks",
-	"pallet-nomination-pools/runtime-benchmarks",
-	"pallet-offences/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
-
-	# EVM + Frontier
-	"pallet-ethereum/runtime-benchmarks",
-	"pallet-evm/runtime-benchmarks",
-	"pallet-hotfix-sufficients/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-subtensor-swap/runtime-benchmarks",
-
-	# Smart Tx fees pallet
-	"subtensor-transaction-fee/runtime-benchmarks",
+	"runtime-common/std",
+	"ethereum/std"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -353,5 +356,6 @@ try-runtime = [
 	"pallet-drand/try-runtime",
 	"runtime-common/try-runtime",
 	"pallet-aura/try-runtime",
+	"runtime-common/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

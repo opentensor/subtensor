@@ -68,4 +68,5 @@ std = [
 	"substrate-fixed/std",
 	"subtensor-runtime-common/std",
 	"subtensor-swap-interface/std",
+	"pallet-subtensor-proxy/std",
 ]

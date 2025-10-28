@@ -359,6 +359,11 @@ pub mod pallet {
     pub fn DefaultDelegateTake<T: Config>() -> u16 {
         T::InitialDefaultDelegateTake::get()
     }
+    #[pallet::type_value]
+    /// Default NodeValidatorEmissionsPercent
+    pub fn DefaultNodeValidatorEmissionsPercent<T: Config>() -> Percent {
+        Percent::zero()
+    }
 
     #[pallet::type_value]
     /// Default childkey take.
@@ -963,6 +968,10 @@ pub mod pallet {
     /// --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
     #[pallet::storage]
+    /// --- ITEM Percentage of block emissions to be set aside for node validators.
+    pub type NodeValidatorEmissionsPercent<T> =
+        StorageValue<_, Percent, ValueQuery, DefaultNodeValidatorEmissionsPercent<T>>;
+    #[pallet::storage]
     /// --- ITEM ( min_delegate_take )
     pub type MinDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinDelegateTake<T>>;
     #[pallet::storage]
@@ -1248,6 +1257,9 @@ pub mod pallet {
     /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
     pub type WeightsVersionKeyRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
+    #[pallet::storage]
+    /// ITEM ( pending_node_validator_emission )
+    pub type PendingNodeValidatorEmissions<T> = StorageValue<_, TaoCurrency, ValueQuery>;
 
     /// ============================
     /// ==== Rate Limiting =====

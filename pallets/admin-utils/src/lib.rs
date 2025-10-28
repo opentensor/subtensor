@@ -4,12 +4,7 @@
 
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-// - we could replace it with Vec<(AuthorityId, u64)>, but we would need
-//   `sp_consensus_grandpa` for `AuthorityId` anyway
-// - we could use a type parameter for `AuthorityId`, but there is
-//   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
-use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::{DispatchResult, RuntimeAppPublic, Vec, traits::Member};
+use sp_runtime::Vec;
 
 mod benchmarking;
 
@@ -30,7 +25,6 @@ pub mod pallet {
         DefaultMaxAllowedUids,
         utils::rate_limiting::{Hyperparameter, TransactionType},
     };
-    use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
     use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
 
@@ -46,22 +40,6 @@ pub mod pallet {
         + pallet_subtensor::pallet::Config
         + pallet_evm_chain_id::pallet::Config
     {
-        /// Implementation of the AuraInterface
-        type Aura: crate::AuraInterface<<Self as Config>::AuthorityId, Self::MaxAuthorities>;
-
-        /// Implementation of [`GrandpaInterface`]
-        type Grandpa: crate::GrandpaInterface<Self>;
-
-        /// The identifier type for an authority.
-        type AuthorityId: Member
-            + Parameter
-            + RuntimeAppPublic
-            + MaybeSerializeDeserialize
-            + MaxEncodedLen;
-
-        /// The maximum number of authorities that the pallet can hold.
-        type MaxAuthorities: Get<u32>;
-
         /// Unit of assets
         type Balance: Balance;
     }
@@ -165,30 +143,11 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #![deny(clippy::expect_used)]
 
-        /// The extrinsic sets the new authorities for Aura consensus.
-        /// It is only callable by the root account.
-        /// The extrinsic will call the Aura pallet to change the authorities.
-        #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(4_629_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn swap_authorities(
-            origin: OriginFor<T>,
-            new_authorities: BoundedVec<<T as Config>::AuthorityId, T::MaxAuthorities>,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-
-            T::Aura::change_authorities(new_authorities.clone());
-
-            log::debug!("Aura authorities changed: {new_authorities:?}");
-
-            // Return a successful DispatchResultWithPostInfo
-            Ok(())
-        }
-
         /// The extrinsic sets the default take for the network.
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the default take.
+        ///
+        /// Start at call_index(1) because index 0 was used for a now removed call.
         #[pallet::call_index(1)]
         #[pallet::weight(Weight::from_parts(5_420_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
@@ -1466,36 +1425,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// A public interface for `pallet_grandpa::Pallet::schedule_grandpa_change`.
-        ///
-        /// Schedule a change in the authorities.
-        ///
-        /// The change will be applied at the end of execution of the block `in_blocks` after the
-        /// current block. This value may be 0, in which case the change is applied at the end of
-        /// the current block.
-        ///
-        /// If the `forced` parameter is defined, this indicates that the current set has been
-        /// synchronously determined to be offline and that after `in_blocks` the given change
-        /// should be applied. The given block number indicates the median last finalized block
-        /// number and it should be used as the canon block when starting the new grandpa voter.
-        ///
-        /// No change should be signaled while any change is pending. Returns an error if a change
-        /// is already pending.
-        #[pallet::call_index(59)]
-        #[pallet::weight(Weight::from_parts(7_779_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn schedule_grandpa_change(
-            origin: OriginFor<T>,
-            // grandpa ID is always the same type, so we don't need to parametrize it via `Config`
-            next_authorities: AuthorityList,
-            in_blocks: BlockNumberFor<T>,
-            forced: Option<BlockNumberFor<T>>,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
-        }
-
         /// Enable or disable atomic alpha transfers for a given subnet.
         ///
         /// # Parameters
@@ -2102,44 +2031,22 @@ pub mod pallet {
             );
             Ok(())
         }
-    }
-}
 
-impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
-    type Public = <T as Config>::AuthorityId;
-}
-
-// Interfaces to interact with other pallets
-use sp_runtime::BoundedVec;
-
-pub trait AuraInterface<AuthorityId, MaxAuthorities> {
-    fn change_authorities(new: BoundedVec<AuthorityId, MaxAuthorities>);
-}
-
-impl<A, M> AuraInterface<A, M> for () {
-    fn change_authorities(_: BoundedVec<A, M>) {}
-}
-
-pub trait GrandpaInterface<Runtime>
-where
-    Runtime: frame_system::Config,
-{
-    fn schedule_change(
-        next_authorities: AuthorityList,
-        in_blocks: BlockNumberFor<Runtime>,
-        forced: Option<BlockNumberFor<Runtime>>,
-    ) -> DispatchResult;
-}
-
-impl<R> GrandpaInterface<R> for ()
-where
-    R: frame_system::Config,
-{
-    fn schedule_change(
-        _next_authorities: AuthorityList,
-        _in_blocks: BlockNumberFor<R>,
-        _forced: Option<BlockNumberFor<R>>,
-    ) -> DispatchResult {
-        Ok(())
+        /// Sets the node validator emissions percent.
+        #[pallet::call_index(81)]
+        #[pallet::weight((
+            Weight::from_parts(6_171_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_node_validator_emissions_percent(
+            origin: OriginFor<T>,
+            percent: sp_runtime::Percent,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_node_validator_emissions_percent(percent)
+        }
     }
 }

@@ -2,7 +2,6 @@ use frame_support::sp_runtime::DispatchError;
 use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
-    traits::Hooks,
 };
 use frame_system::Config;
 use pallet_subtensor::{
@@ -11,8 +10,9 @@ use pallet_subtensor::{
 };
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
-use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{Get, Pair, U256, ed25519};
+use sp_core::{Get, U256};
+use sp_runtime::Percent;
+use sp_runtime::traits::Zero;
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{Currency, MechId, NetUid, TaoCurrency};
 
@@ -1519,28 +1519,6 @@ fn test_sudo_non_root_cannot_set_evm_chain_id() {
 }
 
 #[test]
-fn test_schedule_grandpa_change() {
-    new_test_ext().execute_with(|| {
-        assert_eq!(Grandpa::grandpa_authorities(), vec![]);
-
-        let bob: GrandpaId = ed25519::Pair::from_legacy_string("//Bob", None)
-            .public()
-            .into();
-
-        assert_ok!(AdminUtils::schedule_grandpa_change(
-            RuntimeOrigin::root(),
-            vec![(bob.clone(), 1)],
-            41,
-            None
-        ));
-
-        Grandpa::on_finalize(42);
-
-        assert_eq!(Grandpa::grandpa_authorities(), vec![(bob, 1)]);
-    });
-}
-
-#[test]
 fn test_sudo_toggle_evm_precompile() {
     new_test_ext().execute_with(|| {
         let precompile_id = crate::PrecompileEnum::BalanceTransfer;
@@ -1962,6 +1940,39 @@ fn test_sudo_set_commit_reveal_version() {
 }
 
 #[test]
+fn test_sudo_set_node_validator_emissions_percent() {
+    new_test_ext().execute_with(|| {
+        // Default value is zero.
+        assert_eq!(
+            pallet_subtensor::NodeValidatorEmissionsPercent::<Test>::get(),
+            Zero::zero()
+        );
+
+        // Cannot set value higher than 99.
+        assert_err!(
+            AdminUtils::sudo_set_node_validator_emissions_percent(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                Percent::from_parts(100u8)
+            ),
+            pallet_subtensor::Error::<Test>::NodeValidatorEmissionsPercentTooHigh
+        );
+
+        // Can set valid value.
+        let to_be_set = Percent::from_parts(5u8);
+        let init_value: Percent = pallet_subtensor::NodeValidatorEmissionsPercent::<Test>::get();
+        assert!(init_value != to_be_set);
+        assert_ok!(AdminUtils::sudo_set_node_validator_emissions_percent(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(
+            pallet_subtensor::NodeValidatorEmissionsPercent::<Test>::get(),
+            to_be_set
+        );
+    });
+}
+
+#[test]
 fn test_sudo_set_admin_freeze_window_and_rate() {
     new_test_ext().execute_with(|| {
         // Non-root fails
@@ -2077,7 +2088,8 @@ fn test_sudo_set_min_burn() {
             AdminUtils::sudo_set_min_burn(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 netuid,
-                <Test as pallet_subtensor::Config>::MinBurnUpperBound::get() + 1.into()
+                <Test as pallet_subtensor::Config>::MinBurnUpperBound::get()
+                    .saturating_add(TaoCurrency::from(1))
             ),
             Error::<Test>::ValueNotInBounds
         );
@@ -2087,7 +2099,7 @@ fn test_sudo_set_min_burn() {
             AdminUtils::sudo_set_min_burn(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 netuid,
-                SubtensorModule::get_max_burn(netuid) + 1.into()
+                SubtensorModule::get_max_burn(netuid).saturating_add(TaoCurrency::from(1))
             ),
             Error::<Test>::ValueNotInBounds
         );

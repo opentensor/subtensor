@@ -8,6 +8,7 @@ use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use pallet_subtensor_swap::position::PositionId;
 use sp_core::U256;
+use sp_runtime::Percent;
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex};
 use subtensor_swap_interface::{SwapEngine, SwapHandler};
@@ -363,6 +364,86 @@ fn test_coinbase_alpha_issuance_base() {
         assert_eq!(
             SubnetAlphaIn::<Test>::get(netuid2),
             (initial + emission / 2).into()
+        );
+    });
+}
+
+// Test default node validator issuance behavior.
+// This test verifies that by default, no emissions are allocated to node validators.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_node_validator_issuance_base --exact --show-output --nocapture
+#[test]
+fn test_coinbase_default_node_validator_issuance() {
+    new_test_ext(1).execute_with(|| {
+        // Setup.
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let emission: u64 = 1_000_000;
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+        let initial: u64 = 1_000_000;
+        SubnetTAO::<Test>::insert(netuid1, TaoCurrency::from(initial));
+        SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial));
+        SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(initial));
+        SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial));
+
+        // Check by default 100% of emissions go to alpha.
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        // tao_in = 500_000
+        // alpha_in = 500_000/price = 500_000
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid1),
+            (initial + emission / 2).into()
+        );
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid2),
+            (initial + emission / 2).into()
+        );
+        // Check by default 0% of emissions go to node validators.
+        assert_eq!(PendingNodeValidatorEmissions::<Test>::get(), 0u64.into());
+    });
+}
+
+// Test non-zero node validator issuance behavior.
+// This test verifies that when node validator emissions are non-zero, they are distributed
+// correctly.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_some_node_validator_issuance --exact --show-output --nocapture
+#[test]
+fn test_coinbase_some_node_validator_issuance() {
+    new_test_ext(1).execute_with(|| {
+        // Setup.
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let emission: u64 = 1_000_000;
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+        let subnet_initial: u64 = 1_000_000;
+        let node_vali_initial: u64 = 0;
+        SubnetTAO::<Test>::insert(netuid1, TaoCurrency::from(subnet_initial));
+        SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(subnet_initial));
+        SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(subnet_initial));
+        SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(subnet_initial));
+        PendingNodeValidatorEmissions::<Test>::set(node_vali_initial.into());
+
+        // Set node vali cut to 10%.
+        NodeValidatorEmissionsPercent::<Test>::set(Percent::from_percent(10u8));
+        let expected_node_vali_cut = emission / 10;
+        let expected_subnet_cut = expected_node_vali_cut * 9;
+
+        // Run coinbase.
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+
+        // Check alpha_in and pending node validator emissions.
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid1),
+            (subnet_initial + expected_subnet_cut / 2).into()
+        );
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid2),
+            (subnet_initial + expected_subnet_cut / 2).into()
+        );
+        assert_eq!(
+            PendingNodeValidatorEmissions::<Test>::get(),
+            (node_vali_initial + expected_node_vali_cut - 1).into() // 1 rao rounding error
         );
     });
 }

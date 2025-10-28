@@ -3,13 +3,10 @@
 #![allow(clippy::arithmetic_side_effects)]
 
 extern crate alloc;
-use alloc::vec::Vec;
 
 #[allow(unused)]
 use crate::Pallet as AdminUtils;
-use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
-use frame_support::BoundedVec;
 use frame_system::RawOrigin;
 use pallet_subtensor::SubnetworkN;
 
@@ -19,41 +16,6 @@ use super::*;
 mod benchmarks {
     use super::*;
     use subtensor_runtime_common::NetUid;
-
-    #[benchmark]
-    fn swap_authorities(a: Linear<0, 32>) {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-
-        let mut value: BoundedVec<
-            <T as pallet::Config>::AuthorityId,
-            <T as pallet::Config>::MaxAuthorities,
-        > = BoundedVec::new();
-
-        for idx in 1..=a {
-            let authority: <T as pallet::Config>::AuthorityId = account("Authority", idx, 0u32);
-            let result = value.try_push(authority.clone());
-            if result.is_err() {
-                // Handle the error, perhaps by breaking the loop or logging an error message
-            }
-        }
-
-        #[extrinsic_call]
-        _(RawOrigin::Root, value);
-    }
-
-    #[benchmark]
-    fn schedule_grandpa_change(a: Linear<0, 32>) {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        let next_authorities = (1..=a)
-            .map(|idx| account("Authority", idx, 0u32))
-            .collect::<Vec<(sp_consensus_grandpa::AuthorityId, u64)>>();
-        let in_blocks = BlockNumberFor::<T>::from(42u32);
-
-        #[extrinsic_call]
-        _(RawOrigin::Root, next_authorities, in_blocks, None);
-    }
 
     #[benchmark]
     fn sudo_set_default_take() {

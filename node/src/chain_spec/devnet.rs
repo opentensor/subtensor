@@ -1,7 +1,14 @@
 // Allowed since it's actually better to panic during chain setup when there is an error
 #![allow(clippy::unwrap_used)]
 
+use std::collections::HashMap;
+
 use super::*;
+use node_subtensor_runtime::{BABE_GENESIS_EPOCH_CONFIG, UNITS};
+use pallet_staking::Forcing;
+use sp_runtime::Perbill;
+use sp_staking::StakerStatus;
+use subtensor_runtime_common::keys::known_ss58;
 
 pub fn devnet_config() -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
@@ -24,39 +31,18 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
     .with_genesis_config_patch(devnet_genesis(
-        // Initial PoA authorities (Validators)
-        // aura | grandpa
         vec![
-            // Keys for debug
-            authority_keys_from_ss58(
-                "5D5ABUyMsdmJdH7xrsz9vREq5eGXr5pXhHxix2dENQR62dEo",
-                "5H3qMjQjoeZxZ98jzDmoCwbz2sugd5fDN1wrr8Phf49zemKL",
-            ),
-            authority_keys_from_ss58(
-                "5GbRc5sNDdhcPAU9suV2g9P5zyK1hjAQ9JHeeadY1mb8kXoM",
-                "5GbkysfaCjK3cprKPhi3CUwaB5xWpBwcfrkzs6FmqHxej8HZ",
-            ),
-            authority_keys_from_ss58(
-                "5CoVWwBwXz2ndEChGcS46VfSTb3RMUZzZzAYdBKo263zDhEz",
-                "5HTLp4BvPp99iXtd8YTBZA1sMfzo8pd4mZzBJf7HYdCn2boU",
-            ),
-            authority_keys_from_ss58(
-                "5EekcbqupwbgWqF8hWGY4Pczsxp9sbarjDehqk7bdyLhDCwC",
-                "5GAemcU4Pzyfe8DwLwDFx3aWzyg3FuqYUCCw2h4sdDZhyFvE",
-            ),
-            authority_keys_from_ss58(
-                "5GgdEQyS5DZzUwKuyucEPEZLxFKGmasUFm1mqM3sx1MRC5RV",
-                "5EibpMomXmgekxcfs25SzFBpGWUsG9Lc8ALNjXN3TYH5Tube",
-            ),
+            // Devnet keys
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_1),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_2),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_3),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_4),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_5),
         ],
-        // Sudo account
+        // Devnet sudo
         Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap(),
         // Pre-funded accounts
         vec![],
-        true,
-        vec![],
-        vec![],
-        0,
     ))
     .with_properties(properties)
     .build())
@@ -65,26 +51,47 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
 // Configure initial storage state for FRAME modules.
 #[allow(clippy::too_many_arguments)]
 fn devnet_genesis(
-    initial_authorities: Vec<(AuraId, GrandpaId)>,
+    initial_authorities: Vec<AuthorityKeys>,
     root_key: AccountId,
-    _endowed_accounts: Vec<AccountId>,
-    _enable_println: bool,
-    _stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
-    _balances: Vec<(AccountId, u64)>,
-    _balances_issuance: u64,
+    balances: Vec<(AccountId, u64)>,
 ) -> serde_json::Value {
+    const STAKE: u64 = 1000 * UNITS;
+
+    let mut balances: HashMap<AccountId, u64> = balances.into_iter().collect();
+    for a in initial_authorities.iter() {
+        let bal = balances.get(a.account()).unwrap_or(&0);
+        balances.insert(a.account().clone(), bal.saturating_add(1500 * UNITS));
+    }
     serde_json::json!({
-        "balances": {
-            "balances": vec![(root_key.clone(), 1_000_000_000_000u128)],
-        },
-        "aura": {
-            "authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
-        },
-        "grandpa": {
-            "authorities": initial_authorities
+        "balances": { "balances": balances.into_iter().collect::<Vec<_>>() },
+        "session": {
+            "keys": initial_authorities
                 .iter()
-                .map(|x| (x.1.clone(), 1))
+                .map(|x| {
+                    (
+                        x.account().clone(),
+                        x.account().clone(),
+                        node_subtensor_runtime::opaque::SessionKeys {
+                            babe: x.babe().clone(),
+                            grandpa: x.grandpa().clone(),
+                        },
+                    )
+                })
                 .collect::<Vec<_>>(),
+        },
+        "staking": {
+            "minimumValidatorCount": 1,
+            "validatorCount": initial_authorities.len() as u32,
+            "stakers": initial_authorities
+                .iter()
+                .map(|x| (x.account().clone(), x.account().clone(), STAKE, StakerStatus::<AccountId>::Validator))
+                .collect::<Vec<_>>(),
+            "invulnerables": initial_authorities.iter().map(|x| x.account().clone()).collect::<Vec<_>>(),
+            "forceEra": Forcing::NotForcing,
+            "slashRewardFraction": Perbill::from_percent(10),
+        },
+        "babe": {
+            "epochConfig": BABE_GENESIS_EPOCH_CONFIG,
         },
         "sudo": {
             "key": Some(root_key),

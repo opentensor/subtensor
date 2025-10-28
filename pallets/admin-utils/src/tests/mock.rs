@@ -8,8 +8,6 @@ use frame_support::{
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureRoot, limits};
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
@@ -356,22 +354,7 @@ impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
     fn purge_netuid(_netuid: NetUid) {}
 }
 
-pub struct GrandpaInterfaceImpl;
-impl crate::GrandpaInterface<Test> for GrandpaInterfaceImpl {
-    fn schedule_change(
-        next_authorities: GrandpaAuthorityList,
-        in_blocks: BlockNumber,
-        forced: Option<BlockNumber>,
-    ) -> sp_runtime::DispatchResult {
-        Grandpa::schedule_change(next_authorities, in_blocks, forced)
-    }
-}
-
 impl crate::Config for Test {
-    type AuthorityId = AuraId;
-    type MaxAuthorities = ConstU32<32>;
-    type Aura = ();
-    type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
 }
 
