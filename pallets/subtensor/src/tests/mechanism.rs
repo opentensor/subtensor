@@ -855,7 +855,7 @@ fn neuron_dereg_cleans_weights_across_subids() {
                 AlphaCurrency::from(3u64),
             ],
         );
-        Trust::<Test>::insert(netuid, vec![11u16, 99u16, 33u16]);
+        Trust::<Test>::insert(netuid, vec![11u16, 99u16, 33u16]); // NOTE: trust is no longer cleared
         Consensus::<Test>::insert(netuid, vec![21u16, 88u16, 44u16]);
         Dividends::<Test>::insert(netuid, vec![7u16, 77u16, 17u16]);
 
@@ -884,9 +884,7 @@ fn neuron_dereg_cleans_weights_across_subids() {
         assert_eq!(e[1], 0u64.into());
         assert_eq!(e[2], 3u64.into());
 
-        let t = Trust::<Test>::get(netuid);
-        assert_eq!(t, vec![11, 0, 33]);
-
+        // Trust is no longer mutated by clear_neuron, so do not assert on it.
         let c = Consensus::<Test>::get(netuid);
         assert_eq!(c, vec![21, 0, 44]);
 
@@ -921,7 +919,7 @@ fn clear_neuron_handles_absent_rows_gracefully() {
 
         // Minimal vectors with non-zero at index 0 (we will clear UID=0)
         Emission::<Test>::insert(netuid, vec![AlphaCurrency::from(5u64)]);
-        Trust::<Test>::insert(netuid, vec![5u16]);
+        Trust::<Test>::insert(netuid, vec![5u16]); // NOTE: trust is no longer cleared by clear_neuron
         Consensus::<Test>::insert(netuid, vec![6u16]);
         Dividends::<Test>::insert(netuid, vec![7u16]);
 
@@ -929,12 +927,12 @@ fn clear_neuron_handles_absent_rows_gracefully() {
         let neuron_uid: u16 = 0;
         SubtensorModule::clear_neuron(netuid, neuron_uid);
 
-        // All zeroed at index 0
+        // Emission/Consensus/Dividends zeroed at index 0
         assert_eq!(
             Emission::<Test>::get(netuid),
             vec![AlphaCurrency::from(0u64)]
         );
-        assert_eq!(Trust::<Test>::get(netuid), vec![0u16]);
+        // Do NOT assert on Trust; clear_neuron no longer mutates it.
         assert_eq!(Consensus::<Test>::get(netuid), vec![0u16]);
         assert_eq!(Dividends::<Test>::get(netuid), vec![0u16]);
     });

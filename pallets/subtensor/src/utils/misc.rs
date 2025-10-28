@@ -364,6 +364,16 @@ impl<T: Config> Pallet<T> {
     pub fn get_neuron_block_at_registration(netuid: NetUid, neuron_uid: u16) -> u64 {
         BlockAtRegistration::<T>::get(netuid, neuron_uid)
     }
+    /// Returns the minimum number of non-immortal & non-immune UIDs that must remain in a subnet.
+    pub fn get_min_non_immune_uids(netuid: NetUid) -> u16 {
+        MinNonImmuneUids::<T>::get(netuid)
+    }
+
+    /// Sets the minimum number of non-immortal & non-immune UIDs that must remain in a subnet.
+    pub fn set_min_non_immune_uids(netuid: NetUid, min: u16) {
+        MinNonImmuneUids::<T>::insert(netuid, min);
+        Self::deposit_event(Event::MinNonImmuneUidsSet(netuid, min));
+    }
 
     // ========================
     // ===== Take checks ======

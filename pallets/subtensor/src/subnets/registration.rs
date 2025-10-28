@@ -1,4 +1,5 @@
 use super::*;
+use core::cmp::Ordering;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
@@ -9,32 +10,29 @@ use system::pallet_prelude::BlockNumberFor;
 const LOG_TARGET: &str = "runtime::subtensor::registration";
 
 impl<T: Config> Pallet<T> {
-    pub fn register_neuron(netuid: NetUid, hotkey: &T::AccountId) -> u16 {
-        // Init param
-        let neuron_uid: u16;
+    pub fn register_neuron(netuid: NetUid, hotkey: &T::AccountId) -> Result<u16, DispatchError> {
         let block_number: u64 = Self::get_current_block_as_u64();
         let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
 
         if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
             // No replacement required, the uid appends the subnetwork.
-            // We increment the subnetwork count here but not below.
-            neuron_uid = current_subnetwork_n;
+            let neuron_uid = current_subnetwork_n;
 
             // Expand subnetwork with new account.
             Self::append_neuron(netuid, hotkey, block_number);
             log::debug!("add new neuron account");
+
+            Ok(neuron_uid)
         } else {
-            // Replacement required.
-            // We take the neuron with the lowest pruning score here.
-            neuron_uid = Self::get_neuron_to_prune(netuid);
-
-            // Replace the neuron account with the new info.
-            Self::replace_neuron(netuid, neuron_uid, hotkey, block_number);
-            log::debug!("prune neuron");
+            match Self::get_neuron_to_prune(netuid) {
+                Some(uid_to_replace) => {
+                    Self::replace_neuron(netuid, uid_to_replace, hotkey, block_number);
+                    log::debug!("prune neuron");
+                    Ok(uid_to_replace)
+                }
+                None => Err(Error::<T>::NoNeuronIdAvailable.into()),
+            }
         }
-
-        // Return the UID of the neuron.
-        neuron_uid
     }
 
     /// ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
@@ -93,14 +91,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TooManyRegistrationsThisBlock
         );
 
-        // --- 4. Ensure we are not exceeding the max allowed registrations per interval.
+        // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
         ensure!(
             Self::get_registrations_this_interval(netuid)
                 < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
-        // --- 4. Ensure that the key is not already registered.
+        // --- 6. Ensure that the key is not already registered.
         ensure!(
             !Uids::<T>::contains_key(netuid, &hotkey),
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
@@ -128,7 +126,17 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NoNeuronIdAvailable
         );
 
-        // --- 10. Ensure the remove operation from the coldkey is a success.
+        // --- 10. If replacement is needed, ensure a safe prune candidate exists.
+        let current_n = Self::get_subnetwork_n(netuid);
+        let max_n = Self::get_max_allowed_uids(netuid);
+        if current_n >= max_n {
+            ensure!(
+                Self::get_neuron_to_prune(netuid).is_some(),
+                Error::<T>::NoNeuronIdAvailable
+            );
+        }
+
+        // --- 11. Ensure the remove operation from the coldkey is a success.
         let actual_burn_amount =
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost.into())?;
 
@@ -145,19 +153,19 @@ impl<T: Config> Pallet<T> {
         });
 
         // Actually perform the registration.
-        let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey);
+        let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey)?;
 
-        // --- 14. Record the registration and increment block and interval counters.
+        // --- 12. Record the registration and increment block and interval counters.
         BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
         Self::increase_rao_recycled(netuid, Self::get_burn(netuid).into());
 
-        // --- 15. Deposit successful event.
+        // --- 13. Deposit successful event.
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
-        // --- 16. Ok and done.
+        // --- 14. Ok and done.
         Ok(())
     }
 
@@ -281,45 +289,49 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidDifficulty
         ); // Check that the work meets difficulty.
 
-        // --- 7. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
+        // --- 9. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
         let seal: H256 = Self::create_seal_hash(block_number, nonce, &hotkey);
         ensure!(seal == work_hash, Error::<T>::InvalidSeal);
         UsedWork::<T>::insert(work.clone(), current_block_number);
 
-        // DEPRECATED --- 8. Ensure that the key passes the registration requirement
-        // ensure!(
-        //     Self::passes_network_connection_requirement(netuid, &hotkey),
-        //     Error::<T>::DidNotPassConnectedNetworkRequirement
-        // );
-
-        // --- 9. If the network account does not exist we will create it here.
+        // --- 10. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent(&coldkey, &hotkey);
 
-        // --- 10. Ensure that the pairing is correct.
+        // --- 11. Ensure that the pairing is correct.
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // Possibly there is no neuron slots at all.
+        // --- 12. Possibly there is no neuron slots at all.
         ensure!(
             Self::get_max_allowed_uids(netuid) != 0,
             Error::<T>::NoNeuronIdAvailable
         );
 
-        // Actually perform the registration.
-        let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey);
+        // --- 13. If replacement is needed, ensure a safe prune candidate exists.
+        let current_n = Self::get_subnetwork_n(netuid);
+        let max_n = Self::get_max_allowed_uids(netuid);
+        if current_n >= max_n {
+            ensure!(
+                Self::get_neuron_to_prune(netuid).is_some(),
+                Error::<T>::NoNeuronIdAvailable
+            );
+        }
 
-        // --- 12. Record the registration and increment block and interval counters.
+        // Actually perform the registration.
+        let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey)?;
+
+        // --- 14. Record the registration and increment block and interval counters.
         POWRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
 
-        // --- 13. Deposit successful event.
+        // --- 15. Deposit successful event.
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
-        // --- 14. Ok and done.
+        // --- 16. Ok and done.
         Ok(())
     }
 
@@ -439,79 +451,102 @@ impl<T: Config> Pallet<T> {
         immune_tuples
     }
 
-    /// Determine which peer to prune from the network by finding the element with the lowest pruning score out of
-    /// immunity period. If there is a tie for lowest pruning score, the neuron registered earliest is pruned.
-    /// If all neurons are in immunity period, the neuron with the lowest pruning score is pruned. If there is a tie for
-    /// the lowest pruning score, the immune neuron registered earliest is pruned.
-    /// Ties for earliest registration are broken by the neuron with the lowest uid.
-    pub fn get_neuron_to_prune(netuid: NetUid) -> u16 {
-        let mut min_score: u16 = u16::MAX;
-        let mut min_score_in_immunity: u16 = u16::MAX;
-        let mut earliest_registration: u64 = u64::MAX;
-        let mut earliest_registration_in_immunity: u64 = u64::MAX;
-        let mut uid_to_prune: u16 = 0;
-        let mut uid_to_prune_in_immunity: u16 = 0;
-
-        // This boolean is used instead of checking if min_score == u16::MAX, to avoid the case
-        // where all non-immune neurons have pruning score u16::MAX
-        // This may be unlikely in practice.
-        let mut found_non_immune = false;
-
+    /// Determine which neuron to prune.
+    ///
+    /// Sort candidates by: (is_immune, emission, registration_block, uid) **ascending**,
+    ///   which effectively means:
+    ///     1) prefer pruning non-immune first (is_immune = false comes first),
+    ///     2) among them, prune the lowest emission first,
+    ///     3) tie-break by the earliest registration block,
+    ///     4) then by the lowest uid.
+    /// - Never prune "immortal" owner hotkeys (immune-owner set).
+    ///   UIDs must remain **non-immortal & non-immune** after pruning.
+    ///   If no candidate satisfies this, return `None`.
+    pub fn get_neuron_to_prune(netuid: NetUid) -> Option<u16> {
         let neurons_n = Self::get_subnetwork_n(netuid);
         if neurons_n == 0 {
-            return 0; // If there are no neurons in this network.
+            return None;
         }
 
-        // Get the list of immortal (top-k by registration time of owner owned) keys
+        // Owner-owned "immortal" hotkeys (never prune).
         let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
         let immortal_hotkeys = Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey);
-        for neuron_uid in 0..neurons_n {
-            // Do not deregister the owner's owned hotkeys
-            if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-                if immortal_hotkeys.contains(&hotkey) {
+
+        // Snapshot emissions once to avoid repeated loads.
+        let emissions: Vec<AlphaCurrency> = Emission::<T>::get(netuid);
+
+        // Build candidate set: skip immortal hotkeys entirely.
+        // Each item is (is_immune, emission, reg_block, uid).
+        let mut candidates: Vec<(bool, AlphaCurrency, u64, u16)> = Vec::new();
+        for uid in 0..neurons_n {
+            if let Ok(hk) = Self::get_hotkey_for_net_and_uid(netuid, uid) {
+                if immortal_hotkeys.contains(&hk) {
+                    continue; // never prune owner-immortal hotkeys
+                }
+                let is_immune = Self::get_neuron_is_immune(netuid, uid);
+                let emission = emissions
+                    .get(uid as usize)
+                    .cloned()
+                    .unwrap_or_else(|| AlphaCurrency::ZERO);
+                let reg_block = Self::get_neuron_block_at_registration(netuid, uid);
+                candidates.push((is_immune, emission, reg_block, uid));
+            }
+        }
+
+        if candidates.is_empty() {
+            return None;
+        }
+
+        // Safety floor for non-immortal & non-immune UIDs.
+        let min_free: u16 = Self::get_min_non_immune_uids(netuid);
+
+        // Count current "free" (non-immortal AND non-immune) UIDs in candidates.
+        // (Immortals were already filtered out above.)
+        let free_count: u16 = candidates
+            .iter()
+            .filter(|(is_immune, _e, _b, _u)| !*is_immune)
+            .count() as u16;
+
+        // Sort by (is_immune, emission, registration_block, uid), ascending.
+        candidates.sort_by(|a, b| {
+            // a = (is_immune_a, emission_a, block_a, uid_a)
+            // b = (is_immune_b, emission_b, block_b, uid_b)
+            // tuple-lexicographic order is fine if AlphaCurrency implements Ord
+            let ord_immune = a.0.cmp(&b.0); // false (non-immune) first
+            if ord_immune != Ordering::Equal {
+                return ord_immune;
+            }
+            let ord_emission = a.1.cmp(&b.1); // lowest emission first
+            if ord_emission != Ordering::Equal {
+                return ord_emission;
+            }
+            let ord_block = a.2.cmp(&b.2); // earliest registration first
+            if ord_block != Ordering::Equal {
+                return ord_block;
+            }
+            a.3.cmp(&b.3) // lowest uid first
+        });
+
+        // Pick the best candidate that **does not** violate the min-free safety floor.
+        for (is_immune, _e, _b, uid) in candidates.iter().copied() {
+            if !is_immune {
+                // This is a non-immune candidate. We can remove it only if,
+                // after pruning, free_count - 1 >= min_free.
+                if free_count > min_free {
+                    return Some(uid);
+                } else {
+                    // Protected by the safety floor; try the next candidate.
                     continue;
                 }
-            }
-
-            let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid);
-            let block_at_registration: u64 =
-                Self::get_neuron_block_at_registration(netuid, neuron_uid);
-            let is_immune = Self::get_neuron_is_immune(netuid, neuron_uid);
-
-            if is_immune {
-                // if the immune neuron has a lower pruning score than the minimum for immune neurons,
-                // or, if the pruning scores are equal and the immune neuron was registered earlier than the current minimum for immune neurons,
-                // then update the minimum pruning score and the uid to prune for immune neurons
-                if pruning_score < min_score_in_immunity
-                    || (pruning_score == min_score_in_immunity
-                        && block_at_registration < earliest_registration_in_immunity)
-                {
-                    min_score_in_immunity = pruning_score;
-                    earliest_registration_in_immunity = block_at_registration;
-                    uid_to_prune_in_immunity = neuron_uid;
-                }
             } else {
-                found_non_immune = true;
-                // if the non-immune neuron has a lower pruning score than the minimum for non-immune neurons,
-                // or, if the pruning scores are equal and the non-immune neuron was registered earlier than the current minimum for non-immune neurons,
-                // then update the minimum pruning score and the uid to prune for non-immune neurons
-                if pruning_score < min_score
-                    || (pruning_score == min_score && block_at_registration < earliest_registration)
-                {
-                    min_score = pruning_score;
-                    earliest_registration = block_at_registration;
-                    uid_to_prune = neuron_uid;
-                }
+                // Immune candidate is allowed (owner-immortal were filtered out earlier),
+                // and removing it does not affect the "free" count.
+                return Some(uid);
             }
         }
 
-        if found_non_immune {
-            Self::set_pruning_score_for_uid(netuid, uid_to_prune, u16::MAX);
-            uid_to_prune
-        } else {
-            Self::set_pruning_score_for_uid(netuid, uid_to_prune_in_immunity, u16::MAX);
-            uid_to_prune_in_immunity
-        }
+        // No candidate can be pruned without violating the safety floor.
+        None
     }
 
     /// Determine whether the given hash satisfies the given difficulty.

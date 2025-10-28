@@ -448,5 +448,8 @@ mod events {
             /// The account ID of the hotkey.
             hotkey: T::AccountId,
         },
+
+        /// The minimum allowed non-Immune UIDs has been set.
+        MinNonImmuneUidsSet(NetUid, u16),
     }
 }
