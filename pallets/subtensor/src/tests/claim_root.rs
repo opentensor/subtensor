@@ -17,6 +17,7 @@ use frame_support::traits::Get;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
+use std::collections::BTreeSet;
 use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
@@ -117,7 +118,10 @@ fn test_claim_root_with_drain_emissions() {
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         let new_stake: u64 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
@@ -157,7 +161,10 @@ fn test_claim_root_with_drain_emissions() {
             epsilon = 0.001f64,
         );
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         let new_stake2: u64 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
@@ -241,12 +248,14 @@ fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
             AlphaCurrency::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            alice_coldkey
-        ),));
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            bob_coldkey
-        ),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(alice_coldkey),
+            BTreeSet::from([netuid])
+        ));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(bob_coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         // Check stakes
         let validator_take_percent = 0.18f64;
@@ -340,12 +349,14 @@ fn test_claim_root_adding_stake_disproportionally_for_two_stakers() {
             AlphaCurrency::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            alice_coldkey
-        ),));
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            bob_coldkey
-        ),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(alice_coldkey),
+            BTreeSet::from([netuid])
+        ));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(bob_coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         // Check stakes
         let validator_take_percent = 0.18f64;
@@ -429,12 +440,14 @@ fn test_claim_root_with_changed_stake() {
             AlphaCurrency::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            alice_coldkey
-        ),));
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            bob_coldkey
-        ),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(alice_coldkey),
+            BTreeSet::from([netuid])
+        ));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(bob_coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         // Check stakes
         let validator_take_percent = 0.18f64;
@@ -479,12 +492,14 @@ fn test_claim_root_with_changed_stake() {
             AlphaCurrency::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            alice_coldkey
-        ),));
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            bob_coldkey
-        ),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(alice_coldkey),
+            BTreeSet::from([netuid])
+        ));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(bob_coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         // Check new stakes
 
@@ -530,12 +545,14 @@ fn test_claim_root_with_changed_stake() {
             AlphaCurrency::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            alice_coldkey
-        ),));
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
-            bob_coldkey
-        ),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(alice_coldkey),
+            BTreeSet::from([netuid])
+        ));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(bob_coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         // Check new stakes
 
@@ -630,7 +647,10 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Swap);
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         // Check new stake
 
@@ -661,7 +681,10 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             AlphaCurrency::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         // Check new stake (2)
 
@@ -694,7 +717,10 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             AlphaCurrency::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         // Check new stake (3)
 
@@ -776,7 +802,10 @@ fn test_claim_root_with_run_coinbase() {
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         let new_stake: u64 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
@@ -1082,7 +1111,10 @@ fn test_claim_root_with_swap_coldkey() {
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         let new_stake: u64 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
@@ -1169,7 +1201,10 @@ fn test_claim_root_with_swap_hotkey() {
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
 
-        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey),));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         let new_stake: u64 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
@@ -1356,5 +1391,121 @@ fn test_claim_root_threshold() {
             ),
             Error::<Test>::InvalidRootClaimThreshold,
         );
+    });
+}
+
+#[test]
+fn test_claim_root_subnet_limits() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1003);
+
+        assert_err!(
+            SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey), BTreeSet::new()),
+            Error::<Test>::InvalidSubnetNumber
+        );
+
+        assert_err!(
+            SubtensorModule::claim_root(
+                RuntimeOrigin::signed(coldkey),
+                BTreeSet::from_iter((0u16..=10u16).into_iter().map(NetUid::from))
+            ),
+            Error::<Test>::InvalidSubnetNumber
+        );
+    });
+}
+
+#[test]
+fn test_claim_root_with_unrelated_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let root_stake = 2_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let old_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+        );
+        assert_eq!(old_validator_stake, initial_total_hotkey_alpha.into());
+
+        // Distribute pending root alpha
+
+        let pending_root_alpha = 1_000_000u64;
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        // Claim root alpha
+
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            RootClaimTypeEnum::Keep
+        ),);
+
+        // Claim root alpha on unrelated subnets
+
+        let unrelated_subnet_uid = NetUid::from(100u16);
+
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([unrelated_subnet_uid])
+        ));
+
+        let new_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            unrelated_subnet_uid,
+        )
+        .into();
+
+        assert_eq!(new_stake, 0u64,);
+
+        // Check root claim for correct subnet
+
+        // before
+        let new_stake: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
+                .into();
+
+        assert_eq!(new_stake, 0u64,);
+
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
+
+        // after
+        let new_stake: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
+                .into();
+
+        assert!(new_stake > 0u64);
+
+        // Check root claimed value saved
+
+        let claimed = RootClaimed::<Test>::get((&hotkey, &coldkey, netuid));
+        assert_eq!(u128::from(new_stake), claimed);
     });
 }

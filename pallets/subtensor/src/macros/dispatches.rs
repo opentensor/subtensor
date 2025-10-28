@@ -15,6 +15,8 @@ mod dispatches {
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     use crate::MAX_NUM_ROOT_CLAIMS;
     use crate::MAX_ROOT_CLAIM_THRESHOLD;
+    use crate::MAX_SUBNET_CLAIMS;
+
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -2331,12 +2333,21 @@ mod dispatches {
             DispatchClass::Normal,
             Pays::Yes
         ))]
-        pub fn claim_root(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn claim_root(
+            origin: OriginFor<T>,
+            subnets: BTreeSet<NetUid>,
+        ) -> DispatchResultWithPostInfo {
             let coldkey: T::AccountId = ensure_signed(origin)?;
+
+            ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
+            ensure!(
+                subnets.len() <= MAX_SUBNET_CLAIMS,
+                Error::<T>::InvalidSubnetNumber
+            );
 
             Self::maybe_add_coldkey_index(&coldkey);
 
-            let weight = Self::do_root_claim(coldkey);
+            let weight = Self::do_root_claim(coldkey, Some(subnets));
             Ok((Some(weight), Pays::Yes).into())
         }
 

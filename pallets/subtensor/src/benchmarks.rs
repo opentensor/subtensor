@@ -14,6 +14,7 @@ use sp_runtime::{
     BoundedVec, Percent,
     traits::{BlakeTwo256, Hash},
 };
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
@@ -1630,7 +1631,7 @@ mod pallet_benchmarks {
         ),);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()));
+        _(RawOrigin::Signed(coldkey.clone()), BTreeSet::from([netuid]));
 
         // Verification
         let new_stake =

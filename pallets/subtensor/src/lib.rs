@@ -58,6 +58,8 @@ pub const ALPHA_MAP_BATCH_SIZE: usize = 30;
 
 pub const MAX_NUM_ROOT_CLAIMS: u64 = 50;
 
+pub const MAX_SUBNET_CLAIMS: usize = 5;
+
 pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 
 #[allow(deprecated)]
@@ -89,6 +91,7 @@ pub mod pallet {
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::btree_map::BTreeMap;
+    use sp_std::collections::btree_set::BTreeSet;
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;

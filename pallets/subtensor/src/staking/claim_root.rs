@@ -210,7 +210,11 @@ impl<T: Config> Pallet<T> {
             .saturating_add(T::DbWeight::get().reads(7_u64))
             .saturating_add(T::DbWeight::get().writes(5_u64))
     }
-    pub fn root_claim_all(hotkey: &T::AccountId, coldkey: &T::AccountId) -> Weight {
+    pub fn root_claim_all(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        subnets: Option<BTreeSet<NetUid>>,
+    ) -> Weight {
         let mut weight = Weight::default();
 
         let root_claim_type = RootClaimType::<T>::get(coldkey);
@@ -220,10 +224,19 @@ impl<T: Config> Pallet<T> {
         let root_claimable = RootClaimable::<T>::get(hotkey);
         weight.saturating_accrue(T::DbWeight::get().reads(1));
 
-        root_claimable.iter().for_each(|(netuid, _)| {
+        for (netuid, _) in root_claimable.iter() {
+            let skip = subnets
+                .as_ref()
+                .map(|subnets| !subnets.contains(netuid))
+                .unwrap_or(false);
+
+            if skip {
+                continue;
+            }
+
             Self::root_claim_on_subnet(hotkey, coldkey, *netuid, root_claim_type.clone(), false);
             weight.saturating_accrue(Self::root_claim_on_subnet_weight(root_claim_type.clone()));
-        });
+        }
 
         weight
     }
@@ -278,7 +291,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn do_root_claim(coldkey: T::AccountId) -> Weight {
+    pub fn do_root_claim(coldkey: T::AccountId, subnets: Option<BTreeSet<NetUid>>) -> Weight {
         let mut weight = Weight::default();
 
         let hotkeys = StakingHotkeys::<T>::get(&coldkey);
@@ -286,7 +299,7 @@ impl<T: Config> Pallet<T> {
 
         hotkeys.iter().for_each(|hotkey| {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
-            weight.saturating_accrue(Self::root_claim_all(hotkey, &coldkey));
+            weight.saturating_accrue(Self::root_claim_all(hotkey, &coldkey, subnets.clone()));
         });
 
         Self::deposit_event(Event::RootClaimed { coldkey });
@@ -321,7 +334,7 @@ impl<T: Config> Pallet<T> {
         for i in coldkeys_to_claim.iter() {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
             if let Ok(coldkey) = StakingColdkeysByIndex::<T>::try_get(i) {
-                weight.saturating_accrue(Self::do_root_claim(coldkey.clone()));
+                weight.saturating_accrue(Self::do_root_claim(coldkey.clone(), None));
             }
 
             continue;

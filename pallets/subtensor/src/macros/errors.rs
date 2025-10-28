@@ -264,5 +264,7 @@ mod errors {
         InvalidNumRootClaim,
         /// Invalid value of root claim threshold
         InvalidRootClaimThreshold,
+        /// Exceeded subnet limit number or zero.
+        InvalidSubnetNumber,
     }
 }
