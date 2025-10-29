@@ -2362,3 +2362,118 @@ fn test_migrate_kappa_map_to_default() {
         );
     });
 }
+
+#[test]
+fn test_migrate_clear_rank_trust_pruning_maps_removes_entries() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0) Constants
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"clear_rank_trust_pruning_maps";
+        let empty: Vec<u16> = EmptyU16Vec::<Test>::get();
+
+        // ------------------------------
+        // 1) Pre-state: seed using the correct key type (NetUid)
+        // ------------------------------
+        let n0: NetUid = 0u16.into();
+        let n1: NetUid = 1u16.into();
+        let n2: NetUid = 42u16.into();
+
+        // Rank: n0 non-empty, n1 explicitly empty, n2 absent
+        Rank::<Test>::insert(n0, vec![10, 20, 30]);
+        Rank::<Test>::insert(n1, Vec::<u16>::new());
+
+        // Trust: n0 non-empty, n2 non-empty
+        Trust::<Test>::insert(n0, vec![7]);
+        Trust::<Test>::insert(n2, vec![1, 2, 3]);
+
+        // PruningScores: n0 non-empty, n1 empty, n2 non-empty
+        PruningScores::<Test>::insert(n0, vec![5, 5, 5]);
+        PruningScores::<Test>::insert(n1, Vec::<u16>::new());
+        PruningScores::<Test>::insert(n2, vec![9]);
+
+        // Sanity: preconditions (keys should exist where inserted)
+        assert!(Rank::<Test>::contains_key(n0));
+        assert!(Rank::<Test>::contains_key(n1));
+        assert!(!Rank::<Test>::contains_key(n2));
+
+        assert!(Trust::<Test>::contains_key(n0));
+        assert!(!Trust::<Test>::contains_key(n1));
+        assert!(Trust::<Test>::contains_key(n2));
+
+        assert!(PruningScores::<Test>::contains_key(n0));
+        assert!(PruningScores::<Test>::contains_key(n1));
+        assert!(PruningScores::<Test>::contains_key(n2));
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 2) Run migration
+        // ------------------------------
+        let w = crate::migrations::migrate_clear_rank_trust_pruning_maps::migrate_clear_rank_trust_pruning_maps::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 3) Verify: all entries removed (no keys present)
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        // Rank: all removed
+        assert!(
+            !Rank::<Test>::contains_key(n0),
+            "Rank[n0] should be removed"
+        );
+        assert!(
+            !Rank::<Test>::contains_key(n1),
+            "Rank[n1] should be removed"
+        );
+        assert!(
+            !Rank::<Test>::contains_key(n2),
+            "Rank[n2] should remain absent"
+        );
+        // ValueQuery still returns empty default
+        assert_eq!(Rank::<Test>::get(n0), empty);
+        assert_eq!(Rank::<Test>::get(n1), empty);
+        assert_eq!(Rank::<Test>::get(n2), empty);
+
+        // Trust: all removed
+        assert!(
+            !Trust::<Test>::contains_key(n0),
+            "Trust[n0] should be removed"
+        );
+        assert!(
+            !Trust::<Test>::contains_key(n1),
+            "Trust[n1] should remain absent"
+        );
+        assert!(
+            !Trust::<Test>::contains_key(n2),
+            "Trust[n2] should be removed"
+        );
+        assert_eq!(Trust::<Test>::get(n0), empty);
+        assert_eq!(Trust::<Test>::get(n1), empty);
+        assert_eq!(Trust::<Test>::get(n2), empty);
+
+        // PruningScores: all removed
+        assert!(
+            !PruningScores::<Test>::contains_key(n0),
+            "PruningScores[n0] should be removed"
+        );
+        assert!(
+            !PruningScores::<Test>::contains_key(n1),
+            "PruningScores[n1] should be removed"
+        );
+        assert!(
+            !PruningScores::<Test>::contains_key(n2),
+            "PruningScores[n2] should be removed"
+        );
+        assert_eq!(PruningScores::<Test>::get(n0), empty);
+        assert_eq!(PruningScores::<Test>::get(n1), empty);
+        assert_eq!(PruningScores::<Test>::get(n2), empty);
+    });
+}

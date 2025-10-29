@@ -157,7 +157,9 @@ mod hooks {
                 // Migrate AutoStakeDestinationColdkeys
                 .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>())
                 // Migrate Kappa to default (0.5)
-                .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>());
+                .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>())
+                // Remove Trust, Rank, and Pruning Score
+                .saturating_add(migrations::migrate_clear_rank_trust_pruning_maps::migrate_clear_rank_trust_pruning_maps::<T>());
             weight
         }
 
