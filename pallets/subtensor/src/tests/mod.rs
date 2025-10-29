@@ -1,6 +1,7 @@
 mod auto_stake_hotkey;
 mod batch_tx;
 mod children;
+mod claim_root;
 mod coinbase;
 mod consensus;
 mod delegate_info;

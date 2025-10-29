@@ -1084,7 +1084,7 @@ pub mod pallet {
 			Weight::from_parts(14_000_000, 0)
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
-			Pays::No
+			Pays::Yes
 		))]
         pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
             ensure_root(origin)?;
@@ -1581,7 +1581,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(62)]
         #[pallet::weight((
-            Weight::from_parts(6_392_000, 3507)
+            Weight::from_parts(10_020_000, 3507)
 			    .saturating_add(T::DbWeight::get().reads(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
@@ -1641,7 +1641,12 @@ pub mod pallet {
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(64)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((
+            Weight::from_parts(3_918_000, 0) // TODO: add benchmarks
+			    .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
         pub fn sudo_set_subnet_owner_hotkey(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1663,7 +1668,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(65)]
         #[pallet::weight((
-            Weight::from_parts(3_918_000, 0)
+            Weight::from_parts(6_201_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
@@ -1953,7 +1958,7 @@ pub mod pallet {
         /// Only callable by root.
         #[pallet::call_index(74)]
         #[pallet::weight((
-			Weight::from_parts(9_418_000, 0)
+			Weight::from_parts(5_510_000, 0)
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)),
 			DispatchClass::Operational
