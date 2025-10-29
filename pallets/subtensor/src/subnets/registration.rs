@@ -487,7 +487,7 @@ impl<T: Config> Pallet<T> {
                 let emission = emissions
                     .get(uid as usize)
                     .cloned()
-                    .unwrap_or_else(|| AlphaCurrency::ZERO);
+                    .unwrap_or(AlphaCurrency::ZERO);
                 let reg_block = Self::get_neuron_block_at_registration(netuid, uid);
                 candidates.push((is_immune, emission, reg_block, uid));
             }

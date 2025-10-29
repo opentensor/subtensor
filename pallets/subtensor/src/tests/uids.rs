@@ -450,6 +450,7 @@ fn test_replace_neuron_subnet_owner_not_replaced_if_in_sn_owner_hotkey_map() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_get_neuron_to_prune_owner_not_pruned() {
     new_test_ext(1).execute_with(|| {
@@ -503,6 +504,7 @@ fn test_get_neuron_to_prune_owner_not_pruned() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_get_neuron_to_prune_owner_pruned_if_not_in_sn_owner_hotkey_map() {
     new_test_ext(1).execute_with(|| {

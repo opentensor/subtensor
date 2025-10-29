@@ -607,6 +607,7 @@ fn test_burn_adjustment() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_burn_registration_pruning_scenarios() {
     new_test_ext(1).execute_with(|| {
@@ -1293,6 +1294,7 @@ fn test_registration_failed_no_signature() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_registration_get_uid_to_prune_all_in_immunity_period() {
     new_test_ext(1).execute_with(|| {
@@ -1327,6 +1329,7 @@ fn test_registration_get_uid_to_prune_all_in_immunity_period() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_registration_get_uid_to_prune_none_in_immunity_period() {
     new_test_ext(1).execute_with(|| {
