@@ -36,13 +36,16 @@ mod benchmarks {
     fn set_rate_limit() {
         let call = sample_call::<T>();
         let limit = RateLimit::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
-        let identifier = TransactionIdentifier::from_call::<T>(call.as_ref()).expect("identifier");
-        let context = <T as Config>::ContextResolver::context(call.as_ref());
+        let identifier =
+            TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("identifier");
 
         #[extrinsic_call]
         _(RawOrigin::Root, call, limit.clone(), None);
 
-        assert_eq!(Limits::<T>::get(&identifier, context), Some(limit));
+        assert_eq!(
+            Limits::<T, ()>::get(&identifier, None::<<T as Config>::LimitContext>),
+            Some(limit)
+        );
     }
 
     #[benchmark]
@@ -51,14 +54,14 @@ mod benchmarks {
         let limit = RateLimit::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
 
         // Pre-populate limit for benchmark call
-        let identifier = TransactionIdentifier::from_call::<T>(call.as_ref()).expect("identifier");
-        let context = <T as Config>::ContextResolver::context(call.as_ref());
-        Limits::<T>::insert(identifier, context.clone(), limit);
+        let identifier =
+            TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("identifier");
+        Limits::<T, ()>::insert(identifier, None::<<T as Config>::LimitContext>, limit);
 
         #[extrinsic_call]
         _(RawOrigin::Root, call, None);
 
-        assert!(Limits::<T>::get(identifier, context).is_none());
+        assert!(Limits::<T, ()>::get(identifier, None::<<T as Config>::LimitContext>).is_none());
     }
 
     #[benchmark]
@@ -68,7 +71,7 @@ mod benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Root, block_span);
 
-        assert_eq!(DefaultLimit::<T>::get(), block_span);
+        assert_eq!(DefaultLimit::<T, ()>::get(), block_span);
     }
 
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

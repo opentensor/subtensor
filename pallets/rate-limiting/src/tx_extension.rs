@@ -27,48 +27,90 @@ const IDENTIFIER: &str = "RateLimitTransactionExtension";
 const RATE_LIMIT_DENIED: u8 = 1;
 
 /// Transaction extension that enforces pallet rate limiting rules.
-#[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-pub struct RateLimitTransactionExtension<T: Config + Send + Sync + TypeInfo>(PhantomData<T>);
+#[derive(Default, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct RateLimitTransactionExtension<T, I = ()>(PhantomData<(T, I)>)
+where
+    T: Config<I> + Send + Sync + TypeInfo,
+    I: 'static + TypeInfo;
 
-impl<T: Config + Send + Sync + TypeInfo> core::fmt::Debug for RateLimitTransactionExtension<T> {
+impl<T, I> Clone for RateLimitTransactionExtension<T, I>
+where
+    T: Config<I> + Send + Sync + TypeInfo,
+    I: 'static + TypeInfo,
+{
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T, I> PartialEq for RateLimitTransactionExtension<T, I>
+where
+    T: Config<I> + Send + Sync + TypeInfo,
+    I: 'static + TypeInfo,
+{
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl<T, I> Eq for RateLimitTransactionExtension<T, I>
+where
+    T: Config<I> + Send + Sync + TypeInfo,
+    I: 'static + TypeInfo,
+{
+}
+
+impl<T, I> core::fmt::Debug for RateLimitTransactionExtension<T, I>
+where
+    T: Config<I> + Send + Sync + TypeInfo,
+    I: 'static + TypeInfo,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(IDENTIFIER)
     }
 }
 
-impl<T> TransactionExtension<<T as Config>::RuntimeCall> for RateLimitTransactionExtension<T>
+impl<T, I> TransactionExtension<<T as Config<I>>::RuntimeCall>
+    for RateLimitTransactionExtension<T, I>
 where
-    T: Config + Send + Sync + TypeInfo,
-    <T as Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    T: Config<I> + Send + Sync + TypeInfo,
+    I: 'static + TypeInfo + Send + Sync,
+    <T as Config<I>>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
     const IDENTIFIER: &'static str = IDENTIFIER;
 
     type Implicit = ();
-    type Val = Option<(TransactionIdentifier, Option<T::LimitContext>)>;
-    type Pre = Option<(TransactionIdentifier, Option<T::LimitContext>)>;
+    type Val = Option<(
+        TransactionIdentifier,
+        Option<<T as Config<I>>::LimitContext>,
+    )>;
+    type Pre = Option<(
+        TransactionIdentifier,
+        Option<<T as Config<I>>::LimitContext>,
+    )>;
 
-    fn weight(&self, _call: &<T as Config>::RuntimeCall) -> Weight {
+    fn weight(&self, _call: &<T as Config<I>>::RuntimeCall) -> Weight {
         Weight::zero()
     }
 
     fn validate(
         &self,
-        origin: DispatchOriginOf<<T as Config>::RuntimeCall>,
-        call: &<T as Config>::RuntimeCall,
-        _info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
+        origin: DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
+        call: &<T as Config<I>>::RuntimeCall,
+        _info: &DispatchInfoOf<<T as Config<I>>::RuntimeCall>,
         _len: usize,
         _self_implicit: Self::Implicit,
         _inherited_implication: &impl Implication,
         _source: TransactionSource,
-    ) -> ValidateResult<Self::Val, <T as Config>::RuntimeCall> {
-        let identifier = match TransactionIdentifier::from_call::<T>(call) {
+    ) -> ValidateResult<Self::Val, <T as Config<I>>::RuntimeCall> {
+        let identifier = match TransactionIdentifier::from_call::<T, I>(call) {
             Ok(identifier) => identifier,
             Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
         };
 
-        let context = <T as Config>::ContextResolver::context(call);
+        let context = <T as Config<I>>::ContextResolver::context(call);
 
-        let Some(block_span) = Pallet::<T>::resolved_limit(&identifier, &context) else {
+        let Some(block_span) = Pallet::<T, I>::resolved_limit(&identifier, &context) else {
             return Ok((ValidTransaction::default(), None, origin));
         };
 
@@ -76,7 +118,7 @@ where
             return Ok((ValidTransaction::default(), None, origin));
         }
 
-        let within_limit = Pallet::<T>::is_within_limit(&identifier, &context)
+        let within_limit = Pallet::<T, I>::is_within_limit(&identifier, &context)
             .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
 
         if !within_limit {
@@ -95,9 +137,9 @@ where
     fn prepare(
         self,
         val: Self::Val,
-        _origin: &DispatchOriginOf<<T as Config>::RuntimeCall>,
-        _call: &<T as Config>::RuntimeCall,
-        _info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
+        _origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
+        _call: &<T as Config<I>>::RuntimeCall,
+        _info: &DispatchInfoOf<<T as Config<I>>::RuntimeCall>,
         _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         Ok(val)
@@ -105,7 +147,7 @@ where
 
     fn post_dispatch(
         pre: Self::Pre,
-        _info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
+        _info: &DispatchInfoOf<<T as Config<I>>::RuntimeCall>,
         _post_info: &mut PostDispatchInfo,
         _len: usize,
         result: &DispatchResult,
@@ -113,7 +155,7 @@ where
         if result.is_ok() {
             if let Some((identifier, context)) = pre {
                 let block_number = frame_system::Pallet::<T>::block_number();
-                LastSeen::<T>::insert(&identifier, context, block_number);
+                LastSeen::<T, I>::insert(&identifier, context, block_number);
             }
         }
         Ok(())
@@ -196,7 +238,7 @@ mod tests {
 
             let identifier = identifier_for(&call);
             assert_eq!(
-                LastSeen::<Test>::get(identifier, None::<LimitContext>),
+                LastSeen::<Test, ()>::get(identifier, None::<LimitContext>),
                 None
             );
         });
@@ -208,7 +250,7 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test>::insert(identifier, None::<LimitContext>, RateLimit::Exact(5));
+            Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(5));
 
             System::set_block_number(10);
 
@@ -234,7 +276,7 @@ mod tests {
             .expect("post_dispatch succeeds");
 
             assert_eq!(
-                LastSeen::<Test>::get(identifier, None::<LimitContext>),
+                LastSeen::<Test, ()>::get(identifier, None::<LimitContext>),
                 Some(10)
             );
         });
@@ -246,8 +288,8 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test>::insert(identifier, None::<LimitContext>, RateLimit::Exact(5));
-            LastSeen::<Test>::insert(identifier, None::<LimitContext>, 20);
+            Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(5));
+            LastSeen::<Test, ()>::insert(identifier, None::<LimitContext>, 20);
 
             System::set_block_number(22);
 
@@ -268,7 +310,7 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test>::insert(identifier, None::<LimitContext>, RateLimit::Exact(0));
+            Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(0));
 
             System::set_block_number(30);
 
@@ -294,7 +336,7 @@ mod tests {
             .expect("post_dispatch succeeds");
 
             assert_eq!(
-                LastSeen::<Test>::get(identifier, None::<LimitContext>),
+                LastSeen::<Test, ()>::get(identifier, None::<LimitContext>),
                 None
             );
         });

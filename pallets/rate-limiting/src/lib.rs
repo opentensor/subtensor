@@ -25,6 +25,9 @@
 //! - [`DefaultLimit`](pallet::DefaultLimit): `BlockNumber`
 //! - [`LastSeen`](pallet::LastSeen): `(TransactionIdentifier, Option<Context>) → BlockNumber`
 //!
+//! Each storage map is namespaced by pallet instance; runtimes can deploy multiple independent
+//! instances to manage distinct rate-limiting scopes.
+//!
 //! # Transaction extension
 //!
 //! Enforcement happens via [`RateLimitTransactionExtension`], which implements
@@ -100,7 +103,7 @@ pub mod pallet {
         traits::{BuildGenesisConfig, GetCallMetadata},
     };
     use frame_system::{ensure_root, pallet_prelude::*};
-    use sp_std::{convert::TryFrom, vec::Vec};
+    use sp_std::{convert::TryFrom, marker::PhantomData, vec::Vec};
 
     #[cfg(feature = "runtime-benchmarks")]
     use crate::benchmarking::BenchmarkHelper as BenchmarkHelperTrait;
@@ -108,7 +111,7 @@ pub mod pallet {
 
     /// Configuration trait for the rate limiting pallet.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config<I: 'static = ()>: frame_system::Config {
         /// The overarching runtime call type.
         type RuntimeCall: Parameter
             + Codec
@@ -119,22 +122,22 @@ pub mod pallet {
         type LimitContext: Parameter + Clone + PartialEq + Eq + MaybeSerializeDeserialize;
 
         /// Resolves the context for a given runtime call.
-        type ContextResolver: RateLimitContextResolver<<Self as Config>::RuntimeCall, Self::LimitContext>;
+        type ContextResolver: RateLimitContextResolver<<Self as Config<I>>::RuntimeCall, Self::LimitContext>;
 
         /// Helper used to construct runtime calls for benchmarking.
         #[cfg(feature = "runtime-benchmarks")]
-        type BenchmarkHelper: BenchmarkHelperTrait<<Self as Config>::RuntimeCall>;
+        type BenchmarkHelper: BenchmarkHelperTrait<<Self as Config<I>>::RuntimeCall>;
     }
 
     /// Storage mapping from transaction identifier and optional context to its configured rate limit.
     #[pallet::storage]
     #[pallet::getter(fn limits)]
-    pub type Limits<T> = StorageDoubleMap<
+    pub type Limits<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         TransactionIdentifier,
         Blake2_128Concat,
-        Option<<T as Config>::LimitContext>,
+        Option<<T as Config<I>>::LimitContext>,
         RateLimit<BlockNumberFor<T>>,
         OptionQuery,
     >;
@@ -143,12 +146,12 @@ pub mod pallet {
     ///
     /// The second key is `None` for global limits and `Some(context)` for contextual limits.
     #[pallet::storage]
-    pub type LastSeen<T> = StorageDoubleMap<
+    pub type LastSeen<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         TransactionIdentifier,
         Blake2_128Concat,
-        Option<<T as Config>::LimitContext>,
+        Option<<T as Config<I>>::LimitContext>,
         BlockNumberFor<T>,
         OptionQuery,
     >;
@@ -156,18 +159,19 @@ pub mod pallet {
     /// Default block span applied when an extrinsic uses the default rate limit.
     #[pallet::storage]
     #[pallet::getter(fn default_limit)]
-    pub type DefaultLimit<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+    pub type DefaultLimit<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// Events emitted by the rate limiting pallet.
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T: Config> {
+    pub enum Event<T: Config<I>, I: 'static = ()> {
         /// A rate limit was set or updated.
         RateLimitSet {
             /// Identifier of the affected transaction.
             transaction: TransactionIdentifier,
             /// Context to which the limit applies, if any.
-            context: Option<<T as Config>::LimitContext>,
+            context: Option<<T as Config<I>>::LimitContext>,
             /// The new limit configuration applied to the transaction.
             limit: RateLimit<BlockNumberFor<T>>,
             /// Pallet name associated with the transaction.
@@ -180,7 +184,7 @@ pub mod pallet {
             /// Identifier of the affected transaction.
             transaction: TransactionIdentifier,
             /// Context from which the limit was cleared, if any.
-            context: Option<<T as Config>::LimitContext>,
+            context: Option<<T as Config<I>>::LimitContext>,
             /// Pallet name associated with the transaction.
             pallet: Vec<u8>,
             /// Extrinsic name associated with the transaction.
@@ -195,7 +199,7 @@ pub mod pallet {
 
     /// Errors that can occur while configuring rate limits.
     #[pallet::error]
-    pub enum Error<T> {
+    pub enum Error<T, I = ()> {
         /// Failed to extract the pallet and extrinsic indices from the call.
         InvalidRuntimeCall,
         /// Attempted to remove a limit that is not present.
@@ -203,17 +207,17 @@ pub mod pallet {
     }
 
     #[pallet::genesis_config]
-    pub struct GenesisConfig<T: Config> {
+    pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
         pub default_limit: BlockNumberFor<T>,
         pub limits: Vec<(
             TransactionIdentifier,
-            Option<<T as Config>::LimitContext>,
+            Option<<T as Config<I>>::LimitContext>,
             RateLimit<BlockNumberFor<T>>,
         )>,
     }
 
     #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
+    impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
         fn default() -> Self {
             Self {
                 default_limit: Zero::zero(),
@@ -223,26 +227,26 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+    impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
         fn build(&self) {
-            DefaultLimit::<T>::put(self.default_limit);
+            DefaultLimit::<T, I>::put(self.default_limit);
 
             for (identifier, context, limit) in &self.limits {
-                Limits::<T>::insert(identifier, context.clone(), limit.clone());
+                Limits::<T, I>::insert(identifier, context.clone(), limit.clone());
             }
         }
     }
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
-    pub struct Pallet<T>(_);
+    pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
-    impl<T: Config> Pallet<T> {
+    impl<T: Config<I>, I: 'static> Pallet<T, I> {
         /// Returns `true` when the given transaction identifier passes its configured rate limit
         /// within the provided context.
         pub fn is_within_limit(
             identifier: &TransactionIdentifier,
-            context: &Option<<T as Config>::LimitContext>,
+            context: &Option<<T as Config<I>>::LimitContext>,
         ) -> Result<bool, DispatchError> {
             let Some(block_span) = Self::resolved_limit(identifier, context) else {
                 return Ok(true);
@@ -250,7 +254,7 @@ pub mod pallet {
 
             let current = frame_system::Pallet::<T>::block_number();
 
-            if let Some(last) = LastSeen::<T>::get(identifier, context) {
+            if let Some(last) = LastSeen::<T, I>::get(identifier, context) {
                 let delta = current.saturating_sub(last);
                 if delta < block_span {
                     return Ok(false);
@@ -262,13 +266,14 @@ pub mod pallet {
 
         pub(crate) fn resolved_limit(
             identifier: &TransactionIdentifier,
-            context: &Option<<T as Config>::LimitContext>,
+            context: &Option<<T as Config<I>>::LimitContext>,
         ) -> Option<BlockNumberFor<T>> {
-            let lookup = Limits::<T>::get(identifier, context.clone())
-                .or_else(|| Limits::<T>::get(identifier, None::<<T as Config>::LimitContext>));
+            let lookup = Limits::<T, I>::get(identifier, context).or_else(|| {
+                Limits::<T, I>::get(identifier, None::<<T as Config<I>>::LimitContext>)
+            });
             let limit = lookup?;
             Some(match limit {
-                RateLimit::Default => DefaultLimit::<T>::get(),
+                RateLimit::Default => DefaultLimit::<T, I>::get(),
                 RateLimit::Exact(block_span) => block_span,
             })
         }
@@ -277,18 +282,19 @@ pub mod pallet {
         pub fn limit_for_call_names(
             pallet_name: &str,
             extrinsic_name: &str,
-            context: Option<<T as Config>::LimitContext>,
+            context: Option<<T as Config<I>>::LimitContext>,
         ) -> Option<RateLimit<BlockNumberFor<T>>> {
             let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
-            Limits::<T>::get(&identifier, context.clone())
-                .or_else(|| Limits::<T>::get(&identifier, None::<<T as Config>::LimitContext>))
+            Limits::<T, I>::get(&identifier, context.clone()).or_else(|| {
+                Limits::<T, I>::get(&identifier, None::<<T as Config<I>>::LimitContext>)
+            })
         }
 
         /// Returns the resolved block span for the specified pallet/extrinsic names, if any.
         pub fn resolved_limit_for_call_names(
             pallet_name: &str,
             extrinsic_name: &str,
-            context: Option<<T as Config>::LimitContext>,
+            context: Option<<T as Config<I>>::LimitContext>,
         ) -> Option<BlockNumberFor<T>> {
             let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
             Self::resolved_limit(&identifier, &context)
@@ -298,9 +304,9 @@ pub mod pallet {
             pallet_name: &str,
             extrinsic_name: &str,
         ) -> Option<TransactionIdentifier> {
-            let modules = <T as Config>::RuntimeCall::get_module_names();
+            let modules = <T as Config<I>>::RuntimeCall::get_module_names();
             let pallet_pos = modules.iter().position(|name| *name == pallet_name)?;
-            let call_names = <T as Config>::RuntimeCall::get_call_names(pallet_name);
+            let call_names = <T as Config<I>>::RuntimeCall::get_call_names(pallet_name);
             let extrinsic_pos = call_names.iter().position(|name| *name == extrinsic_name)?;
             let pallet_index = u8::try_from(pallet_pos).ok()?;
             let extrinsic_index = u8::try_from(extrinsic_pos).ok()?;
@@ -309,7 +315,7 @@ pub mod pallet {
     }
 
     #[pallet::call]
-    impl<T: Config> Pallet<T> {
+    impl<T: Config<I>, I: 'static> Pallet<T, I> {
         /// Sets the rate limit configuration for the given call and optional context.
         ///
         /// The supplied `call` is only used to derive the pallet and extrinsic indices; **any
@@ -320,16 +326,16 @@ pub mod pallet {
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn set_rate_limit(
             origin: OriginFor<T>,
-            call: Box<<T as Config>::RuntimeCall>,
+            call: Box<<T as Config<I>>::RuntimeCall>,
             limit: RateLimit<BlockNumberFor<T>>,
-            context: Option<<T as Config>::LimitContext>,
+            context: Option<<T as Config<I>>::LimitContext>,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            let identifier = TransactionIdentifier::from_call::<T>(call.as_ref())?;
-            Limits::<T>::insert(&identifier, context.clone(), limit.clone());
+            let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
+            Limits::<T, I>::insert(&identifier, context.clone(), limit.clone());
 
-            let (pallet_name, extrinsic_name) = identifier.names::<T>()?;
+            let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
             let pallet = Vec::from(pallet_name.as_bytes());
             let extrinsic = Vec::from(extrinsic_name.as_bytes());
 
@@ -353,20 +359,20 @@ pub mod pallet {
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn clear_rate_limit(
             origin: OriginFor<T>,
-            call: Box<<T as Config>::RuntimeCall>,
-            context: Option<<T as Config>::LimitContext>,
+            call: Box<<T as Config<I>>::RuntimeCall>,
+            context: Option<<T as Config<I>>::LimitContext>,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            let identifier = TransactionIdentifier::from_call::<T>(call.as_ref())?;
+            let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
 
-            let (pallet_name, extrinsic_name) = identifier.names::<T>()?;
+            let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
             let pallet = Vec::from(pallet_name.as_bytes());
             let extrinsic = Vec::from(extrinsic_name.as_bytes());
 
             ensure!(
-                Limits::<T>::take(&identifier, context.clone()).is_some(),
-                Error::<T>::MissingRateLimit
+                Limits::<T, I>::take(&identifier, context.clone()).is_some(),
+                Error::<T, I>::MissingRateLimit
             );
 
             Self::deposit_event(Event::RateLimitCleared {
@@ -388,7 +394,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            DefaultLimit::<T>::put(block_span);
+            DefaultLimit::<T, I>::put(block_span);
 
             Self::deposit_event(Event::DefaultRateLimitSet { block_span });
 

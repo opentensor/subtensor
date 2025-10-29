@@ -40,38 +40,40 @@ impl TransactionIdentifier {
     }
 
     /// Returns the pallet and extrinsic names associated with this identifier.
-    pub fn names<T>(&self) -> Result<(&'static str, &'static str), DispatchError>
+    pub fn names<T, I>(&self) -> Result<(&'static str, &'static str), DispatchError>
     where
-        T: crate::pallet::Config,
-        <T as crate::pallet::Config>::RuntimeCall: GetCallMetadata,
+        T: crate::pallet::Config<I>,
+        I: 'static,
+        <T as crate::pallet::Config<I>>::RuntimeCall: GetCallMetadata,
     {
-        let modules = <T as crate::pallet::Config>::RuntimeCall::get_module_names();
+        let modules = <T as crate::pallet::Config<I>>::RuntimeCall::get_module_names();
         let pallet_name = modules
             .get(self.pallet_index as usize)
             .copied()
-            .ok_or(crate::pallet::Error::<T>::InvalidRuntimeCall)?;
-        let call_names = <T as crate::pallet::Config>::RuntimeCall::get_call_names(pallet_name);
+            .ok_or(crate::pallet::Error::<T, I>::InvalidRuntimeCall)?;
+        let call_names = <T as crate::pallet::Config<I>>::RuntimeCall::get_call_names(pallet_name);
         let extrinsic_name = call_names
             .get(self.extrinsic_index as usize)
             .copied()
-            .ok_or(crate::pallet::Error::<T>::InvalidRuntimeCall)?;
+            .ok_or(crate::pallet::Error::<T, I>::InvalidRuntimeCall)?;
         Ok((pallet_name, extrinsic_name))
     }
 
     /// Builds an identifier from a runtime call by extracting pallet/extrinsic indices.
-    pub fn from_call<T>(
-        call: &<T as crate::pallet::Config>::RuntimeCall,
+    pub fn from_call<T, I>(
+        call: &<T as crate::pallet::Config<I>>::RuntimeCall,
     ) -> Result<Self, DispatchError>
     where
-        T: crate::pallet::Config,
+        T: crate::pallet::Config<I>,
+        I: 'static,
     {
         call.using_encoded(|encoded| {
             let pallet_index = *encoded
                 .get(0)
-                .ok_or(crate::pallet::Error::<T>::InvalidRuntimeCall)?;
+                .ok_or(crate::pallet::Error::<T, I>::InvalidRuntimeCall)?;
             let extrinsic_index = *encoded
                 .get(1)
-                .ok_or(crate::pallet::Error::<T>::InvalidRuntimeCall)?;
+                .ok_or(crate::pallet::Error::<T, I>::InvalidRuntimeCall)?;
             Ok(TransactionIdentifier::new(pallet_index, extrinsic_index))
         })
     }
@@ -110,7 +112,7 @@ mod tests {
         let call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
 
-        let identifier = TransactionIdentifier::from_call::<Test>(&call).expect("identifier");
+        let identifier = TransactionIdentifier::from_call::<Test, ()>(&call).expect("identifier");
 
         // System is the first pallet in the mock runtime, RateLimiting is second.
         assert_eq!(identifier.pallet_index, 1);
@@ -122,9 +124,9 @@ mod tests {
     fn transaction_identifier_names_matches_call_metadata() {
         let call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
-        let identifier = TransactionIdentifier::from_call::<Test>(&call).expect("identifier");
+        let identifier = TransactionIdentifier::from_call::<Test, ()>(&call).expect("identifier");
 
-        let (pallet, extrinsic) = identifier.names::<Test>().expect("call metadata");
+        let (pallet, extrinsic) = identifier.names::<Test, ()>().expect("call metadata");
         assert_eq!(pallet, "RateLimiting");
         assert_eq!(extrinsic, "set_default_rate_limit");
     }
@@ -133,8 +135,8 @@ mod tests {
     fn transaction_identifier_names_error_for_unknown_indices() {
         let identifier = TransactionIdentifier::new(99, 0);
 
-        let err = identifier.names::<Test>().expect_err("should fail");
-        let expected: DispatchError = Error::<Test>::InvalidRuntimeCall.into();
+        let err = identifier.names::<Test, ()>().expect_err("should fail");
+        let expected: DispatchError = Error::<Test, ()>::InvalidRuntimeCall.into();
         assert_eq!(err, expected);
     }
 }
