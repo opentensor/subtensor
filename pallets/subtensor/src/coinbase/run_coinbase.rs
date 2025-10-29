@@ -87,19 +87,6 @@ impl<T: Config> Pallet<T> {
 
                 if total_moving_prices < U96F32::saturating_from_num(1.0) {
                     let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
-                    // Difference becomes buy.
-                    let buy_swap_result = Self::swap_tao_for_alpha(
-                        *netuid_i,
-                        tou64!(difference_tao).into(),
-                        T::SwapInterface::max_price(),
-                        true,
-                    );
-                    if let Ok(buy_swap_result_ok) = buy_swap_result {
-                        let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                        SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                            *total = total.saturating_sub(bought_alpha);
-                        });
-                    }
                     is_subsidized.insert(*netuid_i, true);
                     subsidy_amount.insert(*netuid_i, difference_tao);
                 }
@@ -132,7 +119,33 @@ impl<T: Config> Pallet<T> {
         log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
 
-        // --- 4. Injection.
+        // --- 5. Subsidization
+        // When sum of moving prices is < 1.0, we subsidize by buying ALPHA with TAO.
+        if total_moving_prices < U96F32::saturating_from_num(1.0) {
+            for netuid_i in subnets_to_emit_to.iter() {
+                let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
+                if !subsidized {
+                    continue;
+                }
+                let subsidy_amount_i: U96F32 =
+                    *subsidy_amount.get(netuid_i).unwrap_or(&asfloat!(0.0));
+
+                let buy_swap_result = Self::swap_tao_for_alpha(
+                    *netuid_i,
+                    tou64!(subsidy_amount_i).into(),
+                    T::SwapInterface::max_price(),
+                    true,
+                );
+                if let Ok(buy_swap_result_ok) = buy_swap_result {
+                    let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
+                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
+                        *total = total.saturating_sub(bought_alpha);
+                    });
+                }
+            }
+        }
+
+        // --- 5. Injection.
         // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
         // This operation changes the pool liquidity each block.
         for netuid_i in subnets_to_emit_to.iter() {
@@ -174,7 +187,7 @@ impl<T: Config> Pallet<T> {
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
         }
 
-        // --- 5. Compute owner cuts and remove them from alpha_out remaining.
+        // --- 6. Compute owner cuts and remove them from alpha_out remaining.
         // Remove owner cuts here so that we can properly seperate root dividends in the next step.
         // Owner cuts are accumulated and then fed to the drain at the end of this func.
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
@@ -203,7 +216,7 @@ impl<T: Config> Pallet<T> {
         let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
         log::debug!("tao_weight: {tao_weight:?}");
 
-        // --- 6. Seperate out root dividends in alpha and sell them into tao.
+        // --- 7. Seperate out root dividends in alpha and sell them into tao.
         // Then accumulate those dividends for later.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get remaining alpha out.
@@ -252,14 +265,14 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        // --- 7. Update moving prices after using them in the emission calculation.
+        // --- 8. Update moving prices after using them in the emission calculation.
         // Only update price EMA for subnets that we emit to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Update moving prices after using them above.
             Self::update_moving_price(*netuid_i);
         }
 
-        // --- 8. Drain pending emission through the subnet based on tempo.
+        // --- 9. Drain pending emission through the subnet based on tempo.
         // Run the epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
             // Reveal matured weights.
