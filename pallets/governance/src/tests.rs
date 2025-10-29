@@ -465,6 +465,31 @@ fn propose_with_duplicate_proposal_fails() {
 }
 
 #[test]
+fn propose_with_already_scheduled_proposal_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        vote_aye(U256::from(1001), proposal_hash, proposal_index);
+        vote_aye(U256::from(1002), proposal_hash, proposal_index);
+
+        let proposal = Box::new(RuntimeCall::System(
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
+            },
+        ));
+        let length_bound = proposal.encoded_size() as u32;
+        assert_noop!(
+            Pallet::<Test>::propose(
+                RuntimeOrigin::signed(U256::from(1)),
+                proposal.clone(),
+                length_bound
+            ),
+            Error::<Test>::DuplicateProposal
+        );
+    });
+}
+
+#[test]
 fn propose_with_too_many_proposals_fails() {
     TestState::default().build_and_execute(|| {
         // Create the maximum number of proposals.
@@ -568,12 +593,7 @@ fn vote_can_be_updated() {
         let (proposal_hash, proposal_index) = create_proposal();
 
         // Vote aye initially
-        assert_ok!(Pallet::<Test>::vote(
-            RuntimeOrigin::signed(U256::from(1001)),
-            proposal_hash,
-            proposal_index,
-            true
-        ));
+        vote_aye(U256::from(1001), proposal_hash, proposal_index);
         let votes = Voting::<Test>::get(proposal_hash).unwrap();
         assert_eq!(votes.ayes.to_vec(), vec![U256::from(1001)]);
         assert_eq!(votes.nays.to_vec(), vec![]);
@@ -589,12 +609,7 @@ fn vote_can_be_updated() {
         );
 
         // Then vote nay, replacing the aye vote
-        assert_ok!(Pallet::<Test>::vote(
-            RuntimeOrigin::signed(U256::from(1001)),
-            proposal_hash,
-            proposal_index,
-            false
-        ));
+        vote_nay(U256::from(1001), proposal_hash, proposal_index);
         let votes = Voting::<Test>::get(proposal_hash).unwrap();
         assert_eq!(votes.nays.to_vec(), vec![U256::from(1001)]);
         assert_eq!(votes.ayes.to_vec(), vec![]);
@@ -610,12 +625,7 @@ fn vote_can_be_updated() {
         );
 
         // Then vote aye again, replacing the nay vote
-        assert_ok!(Pallet::<Test>::vote(
-            RuntimeOrigin::signed(U256::from(1001)),
-            proposal_hash,
-            proposal_index,
-            true
-        ));
+        vote_aye(U256::from(1001), proposal_hash, proposal_index);
         let votes = Voting::<Test>::get(proposal_hash).unwrap();
         assert_eq!(votes.ayes.to_vec(), vec![U256::from(1001)]);
         assert_eq!(votes.nays.to_vec(), vec![]);
@@ -640,7 +650,7 @@ fn two_aye_votes_schedule_proposal() {
         vote_aye(U256::from(1001), proposal_hash, proposal_index);
         vote_nay(U256::from(1002), proposal_hash, proposal_index);
         vote_aye(U256::from(1003), proposal_hash, proposal_index);
-        
+
         assert_eq!(Proposals::<Test>::get(), vec![]);
         let votes = Voting::<Test>::get(proposal_hash).unwrap();
         assert_eq!(
@@ -655,8 +665,19 @@ fn two_aye_votes_schedule_proposal() {
             pallet_scheduler::Lookup::<Test>::get(task_name).unwrap().0,
             now + MotionDuration::get()
         );
+        let events = last_n_events(3);
         assert_eq!(
-            last_event(),
+            events[0],
+            RuntimeEvent::Governance(Event::<Test>::Voted {
+                account: U256::from(1003),
+                proposal_hash,
+                voted: true,
+                yes: 2,
+                no: 1,
+            })
+        );
+        assert_eq!(
+            events[2],
             RuntimeEvent::Governance(Event::<Test>::Scheduled { proposal_hash })
         );
     });
@@ -675,8 +696,19 @@ fn two_nay_votes_cancel_proposal() {
         assert!(!Voting::<Test>::contains_key(proposal_hash));
         assert_eq!(Scheduled::<Test>::get(), vec![]);
         assert_eq!(ProposalOf::<Test>::get(proposal_hash), None);
+        let events = last_n_events(2);
         assert_eq!(
-            last_event(),
+            events[0],
+            RuntimeEvent::Governance(Event::<Test>::Voted {
+                account: U256::from(1003),
+                proposal_hash,
+                voted: false,
+                yes: 1,
+                no: 2,
+            })
+        );
+        assert_eq!(
+            events[1],
             RuntimeEvent::Governance(Event::<Test>::Cancelled { proposal_hash })
         );
     });
@@ -736,10 +768,10 @@ fn vote_on_missing_proposal_fails() {
 fn vote_on_scheduled_proposal_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal();
-        
+
         vote_aye(U256::from(1001), proposal_hash, proposal_index);
         vote_aye(U256::from(1002), proposal_hash, proposal_index);
-        
+
         assert_eq!(Proposals::<Test>::get(), vec![]);
         assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
 
@@ -805,12 +837,38 @@ fn duplicate_vote_on_proposal_already_voted_fails() {
     });
 }
 
-fn create_proposal() -> (<mock::Test as frame_system::Config>::Hash, u32) {
-    let proposal = Box::new(RuntimeCall::System(
-        frame_system::Call::<Test>::set_storage {
-            items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
-        },
-    ));
+#[test]
+fn aye_vote_on_proposal_with_too_many_scheduled_fails() {
+    TestState::default().build_and_execute(|| {
+        // We fill the scheduled proposals up to the maximum.
+        for i in 0..MaxScheduled::get() {
+            let (proposal_hash, proposal_index) =
+                create_custom_proposal(frame_system::Call::<Test>::set_storage {
+                    items: vec![(b"Foobar".to_vec(), i.to_be_bytes().to_vec())],
+                });
+            vote_aye(U256::from(1001), proposal_hash, proposal_index);
+            vote_aye(U256::from(1002), proposal_hash, proposal_index);
+        }
+
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        vote_aye(U256::from(1001), proposal_hash, proposal_index);
+        assert_noop!(
+            Pallet::<Test>::vote(
+                RuntimeOrigin::signed(U256::from(1002)),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
+            Error::<Test>::TooManyScheduled
+        );
+    });
+}
+
+fn create_custom_proposal(
+    call: impl Into<LocalCallOf<Test>>,
+) -> (<mock::Test as frame_system::Config>::Hash, u32) {
+    let proposal = Box::new(call.into());
     let length_bound = proposal.encoded_size() as u32;
     let proposal_hash = <Test as frame_system::Config>::Hashing::hash_of(&proposal);
     let proposal_index = ProposalCount::<Test>::get();
@@ -822,6 +880,12 @@ fn create_proposal() -> (<mock::Test as frame_system::Config>::Hash, u32) {
     ));
 
     (proposal_hash, proposal_index)
+}
+
+fn create_proposal() -> (<mock::Test as frame_system::Config>::Hash, u32) {
+    create_custom_proposal(frame_system::Call::<Test>::set_storage {
+        items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
+    })
 }
 
 fn vote_aye(

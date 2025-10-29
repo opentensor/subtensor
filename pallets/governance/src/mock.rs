@@ -177,3 +177,13 @@ impl TestState {
 pub(crate) fn last_event() -> RuntimeEvent {
     System::events().pop().expect("RuntimeEvent expected").event
 }
+
+pub(crate) fn last_n_events(n: usize) -> Vec<RuntimeEvent> {
+    System::events()
+        .into_iter()
+        .rev()
+        .take(n)
+        .rev()
+        .map(|e| e.event)
+        .collect()
+}

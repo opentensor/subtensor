@@ -242,6 +242,8 @@ pub mod pallet {
         CallUnavailable,
         /// Proposal hash is not 32 bytes.
         InvalidProposalHashLength,
+        /// Proposal is already scheduled.
+        AlreadyScheduled,
     }
 
     #[pallet::call]
@@ -394,26 +396,29 @@ pub mod pallet {
             ensure!(triumvirate.contains(&who), Error::<T>::NotTriumvirateMember);
 
             let proposals = Proposals::<T>::get();
-            ensure!(proposals.contains(&proposal_hash), Error::<T>::ProposalMissing);
-            
+            ensure!(
+                proposals.contains(&proposal_hash),
+                Error::<T>::ProposalMissing
+            );
+
             Self::do_vote(&who, proposal_hash, proposal_index, approve)?;
 
             let voting = Voting::<T>::get(proposal_hash).ok_or(Error::<T>::ProposalMissing)?;
             let yes_votes = voting.ayes.len() as u32;
             let no_votes = voting.nays.len() as u32;
 
+            Self::deposit_event(Event::<T>::Voted {
+                account: who,
+                proposal_hash,
+                voted: approve,
+                yes: yes_votes,
+                no: no_votes,
+            });
+
             if yes_votes >= 2 {
                 Self::do_schedule(proposal_hash)?;
             } else if no_votes >= 2 {
                 Self::do_cancel(proposal_hash)?;
-            } else {
-                Self::deposit_event(Event::<T>::Voted {
-                    account: who,
-                    proposal_hash,
-                    voted: approve,
-                    yes: yes_votes,
-                    no: no_votes,
-                });
             }
 
             Ok(())
