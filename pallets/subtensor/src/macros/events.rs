@@ -451,5 +451,23 @@ mod events {
 
         /// The minimum allowed non-Immune UIDs has been set.
         MinNonImmuneUidsSet(NetUid, u16),
+        /// Root emissions have been claimed for a coldkey on all subnets and hotkeys.
+        /// Parameters:
+        /// (coldkey)
+        RootClaimed {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+        },
+
+        /// Root claim type for a coldkey has been set.
+        /// Parameters:
+        /// (coldkey, u8)
+        RootClaimTypeSet {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+
+            /// Claim type
+            root_claim_type: RootClaimTypeEnum,
+        },
     }
 }

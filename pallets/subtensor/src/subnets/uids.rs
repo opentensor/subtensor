@@ -196,7 +196,6 @@ impl<T: Config> Pallet<T> {
                         IsNetworkMember::<T>::remove(&hotkey, netuid);
                         LastHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid);
                         AlphaDividendsPerSubnet::<T>::remove(netuid, &hotkey);
-                        TaoDividendsPerSubnet::<T>::remove(netuid, &hotkey);
                         Axons::<T>::remove(netuid, &hotkey);
                         NeuronCertificates::<T>::remove(netuid, &hotkey);
                         Prometheus::<T>::remove(netuid, &hotkey);

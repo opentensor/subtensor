@@ -43,7 +43,8 @@ impl<T: Config> Pallet<T> {
                         continue;
                     }
                     let emission = AlphaDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
-                    let tao_emission = TaoDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
+                    // Tao dividends were removed
+                    let tao_emission = TaoCurrency::ZERO;
                     let is_registered: bool =
                         Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
@@ -101,7 +102,8 @@ impl<T: Config> Pallet<T> {
             netuid,
         );
         let emission = AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
-        let tao_emission = TaoDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
+        // Tao dividends were removed
+        let tao_emission = TaoCurrency::ZERO;
         let is_registered: bool = Self::is_hotkey_registered_on_network(netuid, &hotkey_account);
 
         Some(StakeInfo {
