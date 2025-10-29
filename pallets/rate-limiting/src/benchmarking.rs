@@ -36,11 +36,13 @@ mod benchmarks {
     fn set_rate_limit() {
         let call = sample_call::<T>();
         let limit = RateLimit::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
+        let identifier = TransactionIdentifier::from_call::<T>(call.as_ref()).expect("identifier");
+        let context = <T as Config>::ContextResolver::context(call.as_ref());
 
         #[extrinsic_call]
-        _(RawOrigin::Root, call, limit.clone());
+        _(RawOrigin::Root, call, limit.clone(), None);
 
-        assert!(Limits::<T>::iter().any(|(_, stored)| stored == limit));
+        assert_eq!(Limits::<T>::get(&identifier, context), Some(limit));
     }
 
     #[benchmark]
@@ -50,12 +52,13 @@ mod benchmarks {
 
         // Pre-populate limit for benchmark call
         let identifier = TransactionIdentifier::from_call::<T>(call.as_ref()).expect("identifier");
-        Limits::<T>::insert(identifier, limit);
+        let context = <T as Config>::ContextResolver::context(call.as_ref());
+        Limits::<T>::insert(identifier, context.clone(), limit);
 
         #[extrinsic_call]
-        _(RawOrigin::Root, call);
+        _(RawOrigin::Root, call, None);
 
-        assert!(Limits::<T>::get(identifier).is_none());
+        assert!(Limits::<T>::get(identifier, context).is_none());
     }
 
     #[benchmark]

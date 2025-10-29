@@ -16,8 +16,8 @@ use scale_info::TypeInfo;
 use sp_std::{marker::PhantomData, result::Result};
 
 use crate::{
-    Config, LastSeen, Limits, Pallet,
-    types::{RateLimit, RateLimitContextResolver, TransactionIdentifier},
+    Config, LastSeen, Pallet,
+    types::{RateLimitContextResolver, TransactionIdentifier},
 };
 
 /// Identifier returned in the transaction metadata for the rate limiting extension.
@@ -66,20 +66,15 @@ where
             Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
         };
 
-        let Some(limit) = Limits::<T>::get(&identifier) else {
-            return Ok((ValidTransaction::default(), None, origin));
-        };
+        let context = <T as Config>::ContextResolver::context(call);
 
-        let block_span = match limit {
-            RateLimit::Default => Pallet::<T>::default_limit(),
-            RateLimit::Exact(block_span) => block_span,
+        let Some(block_span) = Pallet::<T>::resolved_limit(&identifier, &context) else {
+            return Ok((ValidTransaction::default(), None, origin));
         };
 
         if block_span.is_zero() {
             return Ok((ValidTransaction::default(), None, origin));
         }
-
-        let context = <T as Config>::ContextResolver::context(call);
 
         let within_limit = Pallet::<T>::is_within_limit(&identifier, &context)
             .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
@@ -213,7 +208,7 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test>::insert(identifier, RateLimit::Exact(5));
+            Limits::<Test>::insert(identifier, None::<LimitContext>, RateLimit::Exact(5));
 
             System::set_block_number(10);
 
@@ -251,7 +246,7 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test>::insert(identifier, RateLimit::Exact(5));
+            Limits::<Test>::insert(identifier, None::<LimitContext>, RateLimit::Exact(5));
             LastSeen::<Test>::insert(identifier, None::<LimitContext>, 20);
 
             System::set_block_number(22);
@@ -273,7 +268,7 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test>::insert(identifier, RateLimit::Exact(0));
+            Limits::<Test>::insert(identifier, None::<LimitContext>, RateLimit::Exact(0));
 
             System::set_block_number(30);
 
