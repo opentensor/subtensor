@@ -131,11 +131,6 @@ pub mod pallet {
     pub type Proposals<T: Config> =
         StorageValue<_, BoundedVec<T::Hash, T::MaxProposals>, ValueQuery>;
 
-    /// The hashes of the proposals that have been scheduled for execution.
-    #[pallet::storage]
-    pub type Scheduled<T: Config> =
-        StorageValue<_, BoundedVec<T::Hash, T::MaxScheduled>, ValueQuery>;
-
     /// Actual proposal for a given hash.
     #[pallet::storage]
     pub type ProposalOf<T: Config> =
@@ -145,6 +140,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type Voting<T: Config> =
         StorageMap<_, Identity, T::Hash, Votes<T::AccountId, BlockNumberFor<T>>, OptionQuery>;
+
+    /// The hashes of the proposals that have been scheduled for execution.
+    #[pallet::storage]
+    pub type Scheduled<T: Config> =
+        StorageValue<_, BoundedVec<T::Hash, T::MaxScheduled>, ValueQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
