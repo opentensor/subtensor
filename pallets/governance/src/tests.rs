@@ -276,7 +276,10 @@ fn propose_works_with_inline_preimage() {
 
         let proposal_hash = <Test as frame_system::Config>::Hashing::hash_of(&proposal);
         let bounded_proposal = <Test as pallet::Config>::Preimages::bound(*proposal).unwrap();
-        assert_eq!(Proposals::<Test>::get(), vec![proposal_hash]);
+        assert_eq!(
+            Proposals::<Test>::get(),
+            vec![(U256::from(1), proposal_hash)]
+        );
         assert_eq!(ProposalCount::<Test>::get(), 1);
         assert_eq!(
             ProposalOf::<Test>::get(proposal_hash),
@@ -324,7 +327,10 @@ fn propose_works_with_lookup_preimage() {
         ));
 
         let proposal_hash = <Test as frame_system::Config>::Hashing::hash_of(&proposal);
-        assert_eq!(Proposals::<Test>::get(), vec![proposal_hash]);
+        assert_eq!(
+            Proposals::<Test>::get(),
+            vec![(U256::from(1), proposal_hash)]
+        );
         assert_eq!(ProposalCount::<Test>::get(), 1);
         let stored_proposals = ProposalOf::<Test>::iter().collect::<Vec<_>>();
         assert_eq!(stored_proposals.len(), 1);
@@ -484,7 +490,7 @@ fn propose_with_already_scheduled_proposal_fails() {
                 proposal.clone(),
                 length_bound
             ),
-            Error::<Test>::DuplicateProposal
+            Error::<Test>::AlreadyScheduled
         );
     });
 }
@@ -652,12 +658,7 @@ fn two_aye_votes_schedule_proposal() {
         vote_aye(U256::from(1003), proposal_hash, proposal_index);
 
         assert_eq!(Proposals::<Test>::get(), vec![]);
-        let votes = Voting::<Test>::get(proposal_hash).unwrap();
-        assert_eq!(
-            votes.ayes.to_vec(),
-            vec![U256::from(1001), U256::from(1003)]
-        );
-        assert_eq!(votes.nays.to_vec(), vec![U256::from(1002)]);
+        assert!(!Voting::<Test>::contains_key(proposal_hash));
         assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
         let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
         let now = frame_system::Pallet::<Test>::block_number();

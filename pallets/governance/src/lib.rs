@@ -126,10 +126,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type ProposalCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-    /// The hashes of the active proposals being voted on.
+    /// Tuples of account proposer and hash of the active proposals being voted on.
     #[pallet::storage]
     pub type Proposals<T: Config> =
-        StorageValue<_, BoundedVec<T::Hash, T::MaxProposals>, ValueQuery>;
+        StorageValue<_, BoundedVec<(T::AccountId, T::Hash), T::MaxProposals>, ValueQuery>;
 
     /// Actual proposal for a given hash.
     #[pallet::storage]
@@ -353,8 +353,14 @@ pub mod pallet {
                 !ProposalOf::<T>::contains_key(proposal_hash),
                 Error::<T>::DuplicateProposal
             );
+            let scheduled = Scheduled::<T>::get();
+            ensure!(
+                !scheduled.contains(&proposal_hash),
+                Error::<T>::AlreadyScheduled
+            );
 
-            Proposals::<T>::try_append(proposal_hash).map_err(|_| Error::<T>::TooManyProposals)?;
+            Proposals::<T>::try_append((who.clone(), proposal_hash))
+                .map_err(|_| Error::<T>::TooManyProposals)?;
 
             let proposal_index = ProposalCount::<T>::get();
             ProposalCount::<T>::mutate(|i| i.saturating_inc());
@@ -397,7 +403,7 @@ pub mod pallet {
 
             let proposals = Proposals::<T>::get();
             ensure!(
-                proposals.contains(&proposal_hash),
+                proposals.iter().any(|(_, h)| h == &proposal_hash),
                 Error::<T>::ProposalMissing
             );
 
@@ -504,9 +510,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn do_schedule(proposal_hash: T::Hash) -> DispatchResult {
-        Proposals::<T>::mutate(|proposals| {
-            proposals.retain(|h| h != &proposal_hash);
-        });
         Scheduled::<T>::try_append(proposal_hash).map_err(|_| Error::<T>::TooManyScheduled)?;
 
         let bounded = ProposalOf::<T>::get(proposal_hash).ok_or(Error::<T>::ProposalMissing)?;
@@ -526,18 +529,23 @@ impl<T: Config> Pallet<T> {
             bounded,
         )?;
 
+        Self::clear_proposal(proposal_hash);
+
         Self::deposit_event(Event::<T>::Scheduled { proposal_hash });
         Ok(())
     }
 
     fn do_cancel(proposal_hash: T::Hash) -> DispatchResult {
+        Self::clear_proposal(proposal_hash);
+        Self::deposit_event(Event::<T>::Cancelled { proposal_hash });
+        Ok(())
+    }
+
+    fn clear_proposal(proposal_hash: T::Hash) {
         Proposals::<T>::mutate(|proposals| {
-            proposals.retain(|h| h != &proposal_hash);
+            proposals.retain(|(_, h)| h != &proposal_hash);
         });
         ProposalOf::<T>::remove(&proposal_hash);
         Voting::<T>::remove(&proposal_hash);
-
-        Self::deposit_event(Event::<T>::Cancelled { proposal_hash });
-        Ok(())
     }
 }
