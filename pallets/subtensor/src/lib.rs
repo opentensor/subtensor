@@ -88,6 +88,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
+    use safe_math::FixedExt;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::btree_map::BTreeMap;
@@ -95,7 +96,7 @@ pub mod pallet {
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
-    use substrate_fixed::types::{I96F32, U64F64};
+    use substrate_fixed::types::{I64F64, I96F32, U64F64};
     use subtensor_macros::freeze_struct;
     use subtensor_runtime_common::{
         AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
@@ -374,6 +375,11 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for zero.
     pub fn DefaultZeroU64<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    /// Default value for zero.
+    pub fn DefaultZeroI64<T: Config>() -> i64 {
         0
     }
     /// Default value for Alpha currency.
@@ -1268,6 +1274,51 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_tao_flow | Returns the TAO inflow-outflow balance.
+    pub type SubnetTaoFlow<T: Config> =
+        StorageMap<_, Identity, NetUid, i64, ValueQuery, DefaultZeroI64<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_ema_tao_flow | Returns the EMA of TAO inflow-outflow balance.
+    pub type SubnetEmaTaoFlow<T: Config> =
+        StorageMap<_, Identity, NetUid, (u64, I64F64), OptionQuery>;
+    #[pallet::type_value]
+    /// Default value for flow cutoff.
+    pub fn DefaultFlowCutoff<T: Config>() -> I64F64 {
+        I64F64::saturating_from_num(0)
+    }
+    #[pallet::storage]
+    /// --- ITEM --> TAO Flow Cutoff
+    pub type TaoFlowCutoff<T: Config> = StorageValue<_, I64F64, ValueQuery, DefaultFlowCutoff<T>>;
+    #[pallet::type_value]
+    /// Default value for flow normalization exponent.
+    pub fn DefaultFlowNormExponent<T: Config>() -> U64F64 {
+        U64F64::saturating_from_num(15).safe_div(U64F64::saturating_from_num(10))
+    }
+    #[pallet::storage]
+    /// --- ITEM --> Flow Normalization Exponent (p)
+    pub type FlowNormExponent<T: Config> =
+        StorageValue<_, U64F64, ValueQuery, DefaultFlowNormExponent<T>>;
+    #[pallet::type_value]
+    /// Default value for flow EMA smoothing.
+    pub fn DefaultFlowEmaSmoothingFactor<T: Config>() -> u64 {
+        // Example values:
+        //   half-life            factor value        u64 normalized
+        //   216000 (1 month) --> 0.000003209009576 ( 59_195_778_378_555)
+        //    50400 (1 week)  --> 0.000013752825678 (253_694_855_576_670)
+        59_195_778_378_555
+    }
+    #[pallet::type_value]
+    /// Flow EMA smoothing half-life.
+    pub fn FlowHalfLife<T: Config>() -> u64 {
+        216_000
+    }
+    #[pallet::storage]
+    /// --- ITEM --> Flow EMA smoothing factor (flow alpha), u64 normalized
+    pub type FlowEmaSmoothingFactor<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultFlowEmaSmoothingFactor<T>>;
+    #[pallet::storage]
+    /// --- ITEM --> Block when TAO flow calculation starts(ed)
+    pub type FlowFirstBlock<T: Config> = StorageValue<_, u64, OptionQuery>;
 
     /// ============================
     /// ==== Global Parameters =====

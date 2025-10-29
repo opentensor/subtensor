@@ -31,7 +31,7 @@ pub mod pallet {
         utils::rate_limiting::{Hyperparameter, TransactionType},
     };
     use sp_runtime::BoundedVec;
-    use substrate_fixed::types::I96F32;
+    use substrate_fixed::types::{I64F64, I96F32, U64F64};
     use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
 
     /// The main data structure of the module.
@@ -115,6 +115,8 @@ pub mod pallet {
         MaxAllowedUidsLessThanMinAllowedUids,
         /// The maximum allowed UIDs must be less than the default maximum allowed UIDs.
         MaxAllowedUidsGreaterThanDefaultMaxAllowedUids,
+        /// Bad parameter value
+        InvalidValue,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -2100,6 +2102,71 @@ pub mod pallet {
             log::debug!(
                 "MinAllowedUidsSet( netuid: {netuid:?} min_allowed_uids: {min_allowed_uids:?} ) "
             );
+            Ok(())
+        }
+
+        /// Sets TAO flow cutoff value (A)
+        #[pallet::call_index(81)]
+        #[pallet::weight((
+			Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
+			Pays::Yes
+		))]
+        pub fn sudo_set_tao_flow_cutoff(
+            origin: OriginFor<T>,
+            flow_cutoff: I64F64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_tao_flow_cutoff(flow_cutoff);
+            log::debug!("set_tao_flow_cutoff( {flow_cutoff:?} ) ");
+            Ok(())
+        }
+
+        /// Sets TAO flow normalization exponent (p)
+        #[pallet::call_index(82)]
+        #[pallet::weight((
+			Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
+			Pays::Yes
+		))]
+        pub fn sudo_set_tao_flow_normalization_exponent(
+            origin: OriginFor<T>,
+            exponent: U64F64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let one = U64F64::saturating_from_num(1);
+            let two = U64F64::saturating_from_num(2);
+            ensure!(
+                (one <= exponent) && (exponent <= two),
+                Error::<T>::InvalidValue
+            );
+
+            pallet_subtensor::Pallet::<T>::set_tao_flow_normalization_exponent(exponent);
+            log::debug!("set_tao_flow_normalization_exponent( {exponent:?} ) ");
+            Ok(())
+        }
+
+        /// Sets TAO flow smoothing factor (alpha)
+        #[pallet::call_index(83)]
+        #[pallet::weight((
+			Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
+			Pays::Yes
+		))]
+        pub fn sudo_set_tao_flow_smoothing_factor(
+            origin: OriginFor<T>,
+            smoothing_factor: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_tao_flow_smoothing_factor(smoothing_factor);
+            log::debug!("set_tao_flow_smoothing_factor( {smoothing_factor:?} ) ");
             Ok(())
         }
     }
