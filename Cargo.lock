@@ -8278,6 +8278,7 @@ dependencies = [
  "pallet-balances",
  "pallet-base-fee",
  "pallet-commitments",
+ "pallet-contracts 40.1.0",
  "pallet-crowdloan",
  "pallet-drand",
  "pallet-election-provider-multi-phase",
@@ -8344,6 +8345,7 @@ dependencies = [
  "sp-version",
  "substrate-fixed",
  "substrate-wasm-builder",
+ "subtensor-chain-extensions",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-macros",
  "subtensor-precompiles",
@@ -9287,6 +9289,37 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts"
+version = "40.1.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "environmental",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-balances",
+ "pallet-contracts-proc-macro 23.0.3 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "pallet-contracts-uapi 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "parity-scale-codec",
+ "paste",
+ "rand 0.8.5",
+ "rand_pcg",
+ "scale-info",
+ "serde",
+ "smallvec",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "wasm-instrument",
+ "wasmi 0.32.3",
+]
+
+[[package]]
+name = "pallet-contracts"
 version = "41.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80#81fa2c54e94f824eba7dabe9dffd063481cb2d80"
 dependencies = [
@@ -9297,8 +9330,8 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "pallet-balances",
- "pallet-contracts-proc-macro",
- "pallet-contracts-uapi",
+ "pallet-contracts-proc-macro 23.0.3 (git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80)",
+ "pallet-contracts-uapi 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80)",
  "parity-scale-codec",
  "paste",
  "rand 0.8.5",
@@ -9325,8 +9358,8 @@ dependencies = [
  "frame-system",
  "pallet-assets",
  "pallet-balances",
- "pallet-contracts",
- "pallet-contracts-uapi",
+ "pallet-contracts 41.0.0",
+ "pallet-contracts-uapi 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80)",
  "pallet-message-queue",
  "pallet-timestamp",
  "pallet-xcm",
@@ -9350,11 +9383,32 @@ dependencies = [
 [[package]]
 name = "pallet-contracts-proc-macro"
 version = "23.0.3"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
+name = "pallet-contracts-proc-macro"
+version = "23.0.3"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80#81fa2c54e94f824eba7dabe9dffd063481cb2d80"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.106",
+]
+
+[[package]]
+name = "pallet-contracts-uapi"
+version = "14.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "bitflags 1.3.2",
+ "parity-scale-codec",
+ "paste",
+ "scale-info",
 ]
 
 [[package]]
@@ -12455,7 +12509,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-collective",
  "pallet-collective-content",
- "pallet-contracts",
+ "pallet-contracts 41.0.0",
  "pallet-contracts-mock-network",
  "pallet-conviction-voting",
  "pallet-core-fellowship",
@@ -17900,6 +17954,35 @@ dependencies = [
  "subtensor-linting",
  "syn 2.0.106",
  "walkdir",
+]
+
+[[package]]
+name = "subtensor-chain-extensions"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "num_enum",
+ "pallet-balances",
+ "pallet-contracts 40.1.0",
+ "pallet-crowdloan",
+ "pallet-drand",
+ "pallet-preimage",
+ "pallet-scheduler",
+ "pallet-subtensor",
+ "pallet-subtensor-proxy",
+ "pallet-subtensor-swap",
+ "pallet-subtensor-utility",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "subtensor-runtime-common",
+ "subtensor-swap-interface",
 ]
 
 [[package]]
