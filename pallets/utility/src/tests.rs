@@ -34,11 +34,9 @@ use frame_support::{
     traits::{ConstU64, Contains},
     weights::Weight,
 };
-use pallet_subtensor_collective as pallet_collective;
-use pallet_subtensor_collective::{EnsureProportionAtLeast, Instance1};
 use sp_runtime::{
     BuildStorage, DispatchError, TokenError,
-    traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash},
+    traits::{BadOrigin, Dispatchable},
 };
 
 type BlockNumber = u64;
@@ -93,40 +91,6 @@ pub mod example {
     }
 }
 
-mod mock_democracy {
-    pub use pallet::*;
-    #[frame_support::pallet(dev_mode)]
-    pub mod pallet {
-        use frame_support::pallet_prelude::*;
-        use frame_system::pallet_prelude::*;
-
-        #[pallet::pallet]
-        pub struct Pallet<T>(_);
-
-        #[pallet::config]
-        pub trait Config: frame_system::Config + Sized {
-            type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-        }
-
-        #[pallet::call]
-        impl<T: Config> Pallet<T> {
-            #[pallet::call_index(3)]
-            #[pallet::weight(0)]
-            pub fn external_propose_majority(origin: OriginFor<T>) -> DispatchResult {
-                T::ExternalMajorityOrigin::ensure_origin(origin)?;
-                Self::deposit_event(Event::<T>::ExternalProposed);
-                Ok(())
-            }
-        }
-
-        #[pallet::event]
-        #[pallet::generate_deposit(pub(super) fn deposit_event)]
-        pub enum Event<T: Config> {
-            ExternalProposed,
-        }
-    }
-}
-
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
@@ -136,10 +100,8 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp = 2,
         Balances: pallet_balances = 3,
         RootTesting: pallet_root_testing = 4,
-        Council: pallet_collective::<Instance1> = 5,
         Utility: utility = 6,
         Example: example = 7,
-        Democracy: mock_democracy = 8,
     }
 );
 
@@ -182,42 +144,6 @@ parameter_types! {
     pub MaxProposalWeight: Weight = BlockWeights::get().max_block.saturating_div(2);
 }
 
-pub struct MemberProposals;
-impl pallet_collective::CanPropose<u64> for MemberProposals {
-    fn can_propose(who: &u64) -> bool {
-        [1, 2, 3].contains(who)
-    }
-}
-
-pub struct MemberVotes;
-impl pallet_collective::CanVote<u64> for MemberVotes {
-    fn can_vote(who: &u64) -> bool {
-        [1, 2, 3].contains(who)
-    }
-}
-
-pub struct StoredVotingMembers;
-impl pallet_collective::GetVotingMembers<u32> for StoredVotingMembers {
-    fn get_count() -> u32 {
-        3
-    }
-}
-
-type CouncilCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<CouncilCollective> for Test {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type MotionDuration = MotionDuration;
-    type MaxProposals = MaxProposals;
-    type MaxMembers = MaxMembers;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = ();
-    type SetMembersOrigin = frame_system::EnsureRoot<Self::AccountId>;
-    type CanPropose = MemberProposals;
-    type CanVote = MemberVotes;
-    type GetVotingMembers = StoredVotingMembers;
-}
-
 impl example::Config for Test {}
 
 pub struct TestBaseCallFilter;
@@ -231,15 +157,11 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
             RuntimeCall::System(frame_system::Call::remark { .. }) => true,
             // For tests
             RuntimeCall::Example(_) => true,
-            // For council origin tests.
-            RuntimeCall::Democracy(_) => true,
             _ => false,
         }
     }
 }
-impl mock_democracy::Config for Test {
-    type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
-}
+
 impl Config for Test {
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
@@ -261,13 +183,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     pallet_balances::GenesisConfig::<Test> {
         balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
         ..Default::default()
-    }
-    .assimilate_storage(&mut t)
-    .unwrap();
-
-    pallet_collective::GenesisConfig::<Test, Instance1> {
-        members: vec![1, 2, 3],
-        phantom: Default::default(),
     }
     .assimilate_storage(&mut t)
     .unwrap();
@@ -894,97 +809,6 @@ fn batch_all_doesnt_work_with_inherents() {
                 error: frame_system::Error::<Test>::CallFiltered.into(),
             }
         );
-    })
-}
-
-#[test]
-fn batch_works_with_council_origin() {
-    new_test_ext().execute_with(|| {
-        let proposal = RuntimeCall::Utility(UtilityCall::batch {
-            calls: vec![RuntimeCall::Democracy(
-                mock_democracy::Call::external_propose_majority {},
-            )],
-        });
-        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-        let proposal_weight = proposal.get_dispatch_info().call_weight;
-        let hash = BlakeTwo256::hash_of(&proposal);
-
-        assert_ok!(Council::propose(
-            RuntimeOrigin::signed(1),
-            Box::new(proposal.clone()),
-            proposal_len,
-            3,
-        ));
-
-        assert_ok!(Council::vote(RuntimeOrigin::signed(1), hash, 0, true));
-        assert_ok!(Council::vote(RuntimeOrigin::signed(2), hash, 0, true));
-        assert_ok!(Council::vote(RuntimeOrigin::signed(3), hash, 0, true));
-
-        System::set_block_number(4);
-
-        assert_ok!(Council::close(
-            RuntimeOrigin::root(),
-            hash,
-            0,
-            proposal_weight,
-            proposal_len
-        ));
-
-        System::assert_last_event(RuntimeEvent::Council(pallet_collective::Event::Executed {
-            proposal_hash: hash,
-            result: Ok(()),
-        }));
-    })
-}
-
-#[test]
-fn force_batch_works_with_council_origin() {
-    new_test_ext().execute_with(|| {
-        let proposal = RuntimeCall::Utility(UtilityCall::force_batch {
-            calls: vec![RuntimeCall::Democracy(
-                mock_democracy::Call::external_propose_majority {},
-            )],
-        });
-        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-        let proposal_weight = proposal.get_dispatch_info().call_weight;
-        let hash = BlakeTwo256::hash_of(&proposal);
-
-        assert_ok!(Council::propose(
-            RuntimeOrigin::signed(1),
-            Box::new(proposal.clone()),
-            proposal_len,
-            3,
-        ));
-
-        assert_ok!(Council::vote(RuntimeOrigin::signed(1), hash, 0, true));
-        assert_ok!(Council::vote(RuntimeOrigin::signed(2), hash, 0, true));
-        assert_ok!(Council::vote(RuntimeOrigin::signed(3), hash, 0, true));
-
-        System::set_block_number(4);
-        assert_ok!(Council::close(
-            RuntimeOrigin::root(),
-            hash,
-            0,
-            proposal_weight,
-            proposal_len
-        ));
-
-        System::assert_last_event(RuntimeEvent::Council(pallet_collective::Event::Executed {
-            proposal_hash: hash,
-            result: Ok(()),
-        }));
-    })
-}
-
-#[test]
-fn batch_all_works_with_council_origin() {
-    new_test_ext().execute_with(|| {
-        assert_ok!(Utility::batch_all(
-            RuntimeOrigin::from(pallet_collective::RawOrigin::Members(3, 3)),
-            vec![RuntimeCall::Democracy(
-                mock_democracy::Call::external_propose_majority {}
-            )]
-        ));
     })
 }
 

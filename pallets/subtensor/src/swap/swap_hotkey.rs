@@ -131,16 +131,15 @@ impl<T: Config> Pallet<T> {
     /// 4. Moves all stake-related data for the interval.
     /// 5. Updates the last transaction block for the new hotkey.
     /// 6. Transfers the delegate take information.
-    /// 7. Swaps Senate membership if applicable.
-    /// 8. Updates delegate information.
-    /// 9. For each subnet:
+    /// 7. Updates delegate information.
+    /// 8. For each subnet:
     ///    - Updates network membership status.
     ///    - Transfers UID and key information.
     ///    - Moves Prometheus data.
     ///    - Updates axon information.
     ///    - Transfers weight commits.
     ///    - Updates loaded emission data.
-    /// 10. Transfers all stake information, including updating staking hotkeys for each coldkey.
+    /// 9. Transfers all stake information, including updating staking hotkeys for each coldkey.
     ///
     /// Throughout the process, the function accumulates the computational weight of operations performed.
     ///
@@ -207,14 +206,7 @@ impl<T: Config> Pallet<T> {
         Self::remove_last_tx_block_childkey(old_hotkey);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-        // 9. Swap Senate members.
-        // Senate( hotkey ) --> ?
-        if T::SenateMembers::is_member(old_hotkey) {
-            T::SenateMembers::swap_member(old_hotkey, new_hotkey).map_err(|e| e.error)?;
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-        }
-
-        // 10. Swap delegates.
+        // 9. Swap delegates.
         // Delegates( hotkey ) -> take value -- the hotkey delegate take value.
         if Delegates::<T>::contains_key(old_hotkey) {
             let old_delegate_take = Delegates::<T>::get(old_hotkey);
@@ -223,7 +215,7 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 11. Alpha already update in perform_hotkey_swap_on_one_subnet
+        // 10. Alpha already update in perform_hotkey_swap_on_one_subnet
         // Update the StakingHotkeys for the case where hotkey staked by multiple coldkeys.
         for ((coldkey, _netuid), _alpha) in old_alpha_values {
             // Swap StakingHotkeys.
@@ -241,19 +233,6 @@ impl<T: Config> Pallet<T> {
         }
 
         // Return successful after swapping all the relevant terms.
-        Ok(())
-    }
-
-    pub fn swap_senate_member(
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-        weight: &mut Weight,
-    ) -> DispatchResult {
-        weight.saturating_accrue(T::DbWeight::get().reads(1));
-        if T::SenateMembers::is_member(old_hotkey) {
-            T::SenateMembers::swap_member(old_hotkey, new_hotkey).map_err(|e| e.error)?;
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-        }
         Ok(())
     }
 

@@ -53,7 +53,6 @@ useless_conversion = "allow"     # until polkadot is patched
 [workspace.dependencies]
 node-subtensor-runtime = { path = "runtime", default-features = false }
 pallet-admin-utils = { path = "pallets/admin-utils", default-features = false }
-pallet-subtensor-collective = { path = "pallets/collective", default-features = false }
 pallet-commitments = { path = "pallets/commitments", default-features = false }
 pallet-registry = { path = "pallets/registry", default-features = false }
 pallet-crowdloan = { path = "pallets/crowdloan", default-features = false }
@@ -141,7 +140,6 @@ pallet-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "p
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-insecure-randomness-collective-flip = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-pallet-membership = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-multisig = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-preimage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-safe-mode = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }

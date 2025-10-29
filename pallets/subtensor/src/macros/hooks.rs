@@ -138,6 +138,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<T>())
                 // Migrate last block rate limiting storage items
                 .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>())
+                // Re-encode rate limit keys after introducing OwnerHyperparamUpdate variant
+                .saturating_add(migrations::migrate_rate_limit_keys::migrate_rate_limit_keys::<T>())
                 // Migrate remove network modality
                 .saturating_add(migrations::migrate_remove_network_modality::migrate_remove_network_modality::<T>())
                 // Migrate Immunity Period
@@ -153,7 +155,9 @@ mod hooks {
                 // Cleanup child/parent keys
                 .saturating_add(migrations::migrate_fix_childkeys::migrate_fix_childkeys::<T>())
                 // Migrate AutoStakeDestinationColdkeys
-                .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>());
+                .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>())
+                // Migrate Kappa to default (0.5)
+                .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>());
             weight
         }
 
