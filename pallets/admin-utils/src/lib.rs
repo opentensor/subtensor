@@ -1590,7 +1590,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(62)]
         #[pallet::weight((
-            Weight::from_parts(6_392_000, 3507)
+            Weight::from_parts(10_020_000, 3507)
 			    .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
@@ -1679,7 +1679,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(65)]
         #[pallet::weight((
-            Weight::from_parts(3_918_000, 0)
+            Weight::from_parts(6_201_000, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
@@ -1973,7 +1973,7 @@ pub mod pallet {
         /// Only callable by root.
         #[pallet::call_index(74)]
         #[pallet::weight((
-			Weight::from_parts(9_418_000, 0)
+			Weight::from_parts(5_510_000, 0)
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)),
 			DispatchClass::Operational

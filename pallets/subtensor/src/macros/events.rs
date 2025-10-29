@@ -448,5 +448,24 @@ mod events {
             /// The account ID of the hotkey.
             hotkey: T::AccountId,
         },
+
+        /// Root emissions have been claimed for a coldkey on all subnets and hotkeys.
+        /// Parameters:
+        /// (coldkey)
+        RootClaimed {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+        },
+
+        /// Root claim type for a coldkey has been set.
+        /// Parameters:
+        /// (coldkey, u8)
+        RootClaimTypeSet {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+
+            /// Claim type
+            root_claim_type: RootClaimTypeEnum,
+        },
     }
 }
