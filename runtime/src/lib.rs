@@ -723,6 +723,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                         pallet_admin_utils::Call::sudo_set_toggle_transfer { .. }
                     )
             ),
+            ProxyType::RootClaim => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root { .. })
+            ),
         }
     }
     fn is_superset(&self, o: &Self) -> bool {
