@@ -45,7 +45,7 @@ describe("Test the Neuron precompile with emission", () => {
 
     it("Burned register and check emission", async () => {
         let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
-        
+
         const uid = await api.query.SubtensorModule.SubnetworkN.getValue(netuid)
         const contract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet);
 

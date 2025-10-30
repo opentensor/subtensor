@@ -41,44 +41,91 @@ pub trait RuntimeReadWrite {
         amount: AlphaCurrency,
     );
 
-    // #[ink(function = 2)]
-    // fn remove_stake(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
+    #[ink(function = 2)]
+    fn remove_stake(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: NetUid,
+        amount: AlphaCurrency,
+    );
 
-    // #[ink(function = 3)]
-    // fn unstake_all(hotkey: &[u8], netuid: &[u8]);
+    #[ink(function = 3)]
+    fn unstake_all(hotkey: <CustomEnvironment as ink::env::Environment>::AccountId);
 
-    // #[ink(function = 4)]
-    // fn unstake_all_alpha(hotkey: &[u8], netuid: &[u8]);
+    #[ink(function = 4)]
+    fn unstake_all_alpha(hotkey: <CustomEnvironment as ink::env::Environment>::AccountId);
 
-    // #[ink(function = 5)]
-    // fn move_stake(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
+    #[ink(function = 5)]
+    fn move_stake(
+        origin_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        destination_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        amount: AlphaCurrency,
+    );
 
-    // #[ink(function = 6)]
-    // fn transfer_stake(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
+    #[ink(function = 6)]
+    fn transfer_stake(
+        destination_coldkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        amount: AlphaCurrency,
+    );
 
-    // #[ink(function = 7)]
-    // fn swap_stake(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
+    #[ink(function = 7)]
+    fn swap_stake(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        amount: AlphaCurrency,
+    );
 
-    // #[ink(function = 8)]
-    // fn add_stake_limit(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
+    #[ink(function = 8)]
+    fn add_stake_limit(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: NetUid,
+        amount: TaoCurrency,
+        limit_price: TaoCurrency,
+        allow_partial: bool,
+    );
 
-    // #[ink(function = 9)]
-    // fn remove_stake_limit(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
+    #[ink(function = 9)]
+    fn remove_stake_limit(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: NetUid,
+        amount: TaoCurrency,
+        limit_price: TaoCurrency,
+        allow_partial: bool,
+    );
 
-    // #[ink(function = 10)]
-    // fn swap_stake_limit(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
+    #[ink(function = 10)]
+    fn swap_stake_limit(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        amount: AlphaCurrency,
+        limit_price: TaoCurrency,
+        allow_partial: bool,
+    );
 
-    // #[ink(function = 11)]
-    // fn remove_stake_full_limit(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
+    #[ink(function = 11)]
+    fn remove_stake_full_limit(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: NetUid,
+        limit_price: TaoCurrency,
+    );
 
-    // #[ink(function = 12)]
-    // fn set_coldkey_auto_stake_hotkey(coldkey: &[u8], hotkey: &[u8]);
+    #[ink(function = 12)]
+    fn set_coldkey_auto_stake_hotkey(
+        netuid: NetUid,
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+    );
 
-    // #[ink(function = 13)]
-    // fn add_proxy(hotkey: &[u8], netuid: &[u8]);
+    #[ink(function = 13)]
+    fn add_proxy(delegate: <CustomEnvironment as ink::env::Environment>::AccountId);
 
-    // #[ink(function = 14)]
-    // fn remove_proxy(hotkey: &[u8], netuid: &[u8]);
+    #[ink(function = 14)]
+    fn remove_proxy(delegate: <CustomEnvironment as ink::env::Environment>::AccountId);
 }
 
 #[ink::scale_derive(Encode, Decode, TypeInfo)]
@@ -229,15 +276,13 @@ mod bittensor {
     pub struct Bittensor {}
 
     impl Bittensor {
-        /// Constructor that initializes the `bool` value to the given `init_value`.
+        /// Constructor
         #[ink(constructor)]
         pub fn new() -> Self {
             Self {}
         }
 
-        /// Constructor that initializes the `bool` value to `false`.
-        ///
-        /// Constructors can delegate to other constructors.
+        /// Constructor
         #[ink(constructor)]
         pub fn default() -> Self {
             Self::new()
@@ -261,117 +306,197 @@ mod bittensor {
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
-        // #[ink(message)]
-        // pub fn get_stake_info_for_hotkey_coldkey_netuid(
-        //     &mut self,
-        //     hotkey: [u8; 32],
-        //     coldkey: [u8; 32],
-        //     netuid: u16,
-        // ) -> Result<Option<StakeInfo<ink::primitives::AccountId>>, ReadWriteErrorCode> {
-        //     self.env()
-        //         .extension()
-        //         .get_stake_info_for_hotkey_coldkey_netuid(
-        //             hotkey.into(),
-        //             coldkey.into(),
-        //             netuid.into(),
-        //         )
-        //         .map_err(|_e| ReadWriteErrorCode::ReadFailed)
-        // }
-    }
-
-    /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
-    /// module and test functions are marked with a `#[test]` attribute.
-    /// The below code is technically just normal Rust code.
-    #[cfg(test)]
-    mod tests {
-        /// Imports all the definitions from the outer scope so we can use them here.
-        use super::*;
-
-        /// We test if the default constructor does its job.
-        #[ink::test]
-        fn default_works() {
-            let bittensor = Bittensor::default();
-            assert_eq!(bittensor.get(), false);
+        #[ink(message)]
+        pub fn remove_stake(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .remove_stake(hotkey.into(), netuid.into(), amount.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
-        /// We test a simple use case of our contract.
-        #[ink::test]
-        fn it_works() {
-            let mut bittensor = Bittensor::new(false);
-            assert_eq!(bittensor.get(), false);
-            bittensor.flip();
-            assert_eq!(bittensor.get(), true);
-        }
-    }
-
-    /// This is how you'd write end-to-end (E2E) or integration tests for ink! contracts.
-    ///
-    /// When running these you need to make sure that you:
-    /// - Compile the tests with the `e2e-tests` feature flag enabled (`--features e2e-tests`)
-    /// - Are running a Substrate node which contains `pallet-contracts` in the background
-    #[cfg(all(test, feature = "e2e-tests"))]
-    mod e2e_tests {
-        /// Imports all the definitions from the outer scope so we can use them here.
-        use super::*;
-
-        /// A helper function used for calling contract messages.
-        use ink_e2e::ContractsBackend;
-
-        /// The End-to-End test `Result` type.
-        type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-        /// We test that we can upload and instantiate the contract using its default constructor.
-        #[ink_e2e::test]
-        async fn default_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
-            // Given
-            let mut constructor = BittensorRef::default();
-
-            // When
-            let contract = client
-                .instantiate("bittensor", &ink_e2e::alice(), &mut constructor)
-                .submit()
-                .await
-                .expect("instantiate failed");
-            let call_builder = contract.call_builder::<Bittensor>();
-
-            // Then
-            let get = call_builder.get();
-            let get_result = client.call(&ink_e2e::alice(), &get).dry_run().await?;
-            assert!(matches!(get_result.return_value(), false));
-
-            Ok(())
+        #[ink(message)]
+        pub fn unstake_all(&self, hotkey: [u8; 32]) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .unstake_all(hotkey.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
-        /// We test that we can read and write a value from the on-chain contract.
-        #[ink_e2e::test]
-        async fn it_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
-            // Given
-            let mut constructor = BittensorRef::new(false);
-            let contract = client
-                .instantiate("bittensor", &ink_e2e::bob(), &mut constructor)
-                .submit()
-                .await
-                .expect("instantiate failed");
-            let mut call_builder = contract.call_builder::<Bittensor>();
+        #[ink(message)]
+        pub fn unstake_all_alpha(&self, hotkey: [u8; 32]) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .unstake_all_alpha(hotkey.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
 
-            let get = call_builder.get();
-            let get_result = client.call(&ink_e2e::bob(), &get).dry_run().await?;
-            assert!(matches!(get_result.return_value(), false));
+        #[ink(message)]
+        pub fn move_stake(
+            &self,
+            origin_hotkey: [u8; 32],
+            destination_hotkey: [u8; 32],
+            origin_netuid: u16,
+            destination_netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .move_stake(
+                    origin_hotkey.into(),
+                    destination_hotkey.into(),
+                    origin_netuid.into(),
+                    destination_netuid.into(),
+                    amount.into(),
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
 
-            // When
-            let flip = call_builder.flip();
-            let _flip_result = client
-                .call(&ink_e2e::bob(), &flip)
-                .submit()
-                .await
-                .expect("flip failed");
+        #[ink(message)]
+        pub fn transfer_stake(
+            &self,
+            destination_coldkey: [u8; 32],
+            hotkey: [u8; 32],
+            origin_netuid: u16,
+            destination_netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .transfer_stake(
+                    destination_coldkey.into(),
+                    hotkey.into(),
+                    origin_netuid.into(),
+                    destination_netuid.into(),
+                    amount.into(),
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
 
-            // Then
-            let get = call_builder.get();
-            let get_result = client.call(&ink_e2e::bob(), &get).dry_run().await?;
-            assert!(matches!(get_result.return_value(), true));
+        #[ink(message)]
+        pub fn swap_stake(
+            &self,
+            hotkey: [u8; 32],
+            origin_netuid: u16,
+            destination_netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .swap_stake(
+                    hotkey.into(),
+                    origin_netuid.into(),
+                    destination_netuid.into(),
+                    amount.into(),
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
 
-            Ok(())
+        #[ink(message)]
+        pub fn add_stake_limit(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .add_stake_limit(
+                    hotkey.into(),
+                    netuid.into(),
+                    amount.into(),
+                    limit_price.into(),
+                    allow_partial,
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn remove_stake_limit(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env().extension().remove_stake_limit(
+                hotkey.into(),
+                netuid.into(),
+                amount.into(),
+                limit_price.into(),
+                allow_partial,
+            )
+        }
+
+        #[ink(message)]
+        pub fn swap_stake_limit(
+            &self,
+            hotkey: [u8; 32],
+            origin_netuid: u16,
+            destination_netuid: u16,
+            amount: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .swap_stake_limit(
+                    hotkey.into(),
+                    origin_netuid.into(),
+                    destination_netuid.into(),
+                    amount.into(),
+                    limit_price.into(),
+                    allow_partial,
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn remove_stake_full_limit(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            limit_price: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .remove_stake_full_limit(hotkey.into(), netuid.into(), limit_price.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn set_coldkey_auto_stake_hotkey(
+            &self,
+            netuid: u16,
+            hotkey: [u8; 32],
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .set_coldkey_auto_stake_hotkey(netuid.into(), hotkey.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn add_proxy(&self, delegate: [u8; 32]) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .add_proxy(delegate.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn remove_proxy(&self, delegate: [u8; 32]) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .remove_proxy(delegate.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
     }
 }

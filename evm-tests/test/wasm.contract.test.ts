@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { getDevnetApi, getAliceSigner, getRandomSubstrateKeypair, getSignerFromKeypair } from "../src/substrate"
+import { getDevnetApi, getAliceSigner, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { devnet, MultiAddress } from "@polkadot-api/descriptors";
 import { Binary, PolkadotSigner, TypedApi } from "polkadot-api";
 
@@ -65,6 +65,13 @@ describe("Test wasm contract", () => {
         }
         contractAddress = codeStoredEvents[0].contract
 
+        // transfer 10 Tao to contract then we can stake
+        const transfer = await api.tx.Balances.transfer_keep_alive({
+            dest: MultiAddress.Id(contractAddress),
+            value: BigInt(10000000000),
+        })
+        await waitForTransactionWithRetry(api, transfer, signer)
+
         console.log("===== contractAddress", contractAddress)
     })
 
@@ -106,9 +113,10 @@ describe("Test wasm contract", () => {
     it("Can add stake to contract", async () => {
         console.log("===== Can add stake to contract")
         let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
-        let amount = BigInt(100000000)
+        let amount = BigInt(1000000000)
 
         const balance = await api.query.System.Account.getValue(convertPublicKeyToSs58(coldkey.publicKey))
+        console.log("===== coldkey", convertPublicKeyToSs58(coldkey.publicKey))
         console.log("===== balance", balance.data.free)
 
         const signer = getSignerFromKeypair(coldkey);
