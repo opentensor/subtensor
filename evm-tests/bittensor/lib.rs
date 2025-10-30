@@ -5,23 +5,23 @@ use parity_scale_codec::{Compact, CompactAs, Error as CodecError};
 #[derive(Debug, Clone)]
 pub struct CustomEnvironment;
 
-// pub enum FunctionId {
-//     GetStakeInfoForHotkeyColdkeyNetuidV1 = 0,
-//     AddStakeV1 = 1,
-//     RemoveStakeV1 = 2,
-//     UnstakeAllV1 = 3,
-//     UnstakeAllAlphaV1 = 4,
-//     MoveStakeV1 = 5,
-//     TransferStakeV1 = 6,
-//     SwapStakeV1 = 7,
-//     AddStakeLimitV1 = 8,
-//     RemoveStakeLimitV1 = 9,
-//     SwapStakeLimitV1 = 10,
-//     RemoveStakeFullLimitV1 = 11,
-//     SetColdkeyAutoStakeHotkeyV1 = 12,
-//     AddProxyV1 = 13,
-//     RemoveProxyV1 = 14,
-// }
+pub enum FunctionId {
+    GetStakeInfoForHotkeyColdkeyNetuidV1 = 0,
+    AddStakeV1 = 1,
+    RemoveStakeV1 = 2,
+    UnstakeAllV1 = 3,
+    UnstakeAllAlphaV1 = 4,
+    MoveStakeV1 = 5,
+    TransferStakeV1 = 6,
+    SwapStakeV1 = 7,
+    AddStakeLimitV1 = 8,
+    RemoveStakeLimitV1 = 9,
+    SwapStakeLimitV1 = 10,
+    RemoveStakeFullLimitV1 = 11,
+    SetColdkeyAutoStakeHotkeyV1 = 12,
+    AddProxyV1 = 13,
+    RemoveProxyV1 = 14,
+}
 
 #[ink::chain_extension(extension = 0x1000)]
 pub trait RuntimeReadWrite {
@@ -34,8 +34,12 @@ pub trait RuntimeReadWrite {
         netuid: u16,
     ) -> Option<StakeInfo<ink::primitives::AccountId>>;
 
-    // #[ink(function = 1)]
-    // fn add_stake(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
+    #[ink(function = 1)]
+    fn add_stake(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: NetUid,
+        amount: AlphaCurrency,
+    );
 
     // #[ink(function = 2)]
     // fn remove_stake(hotkey: &[u8], netuid: &[u8], amount: &[u8]);
@@ -240,21 +244,39 @@ mod bittensor {
         }
 
         #[ink(message)]
-        pub fn get_stake_info_for_hotkey_coldkey_netuid(
-            &mut self,
+        pub fn dummy(&self) -> Result<bool, ReadWriteErrorCode> {
+            Ok(true)
+        }
+
+        #[ink(message)]
+        pub fn add_stake(
+            &self,
             hotkey: [u8; 32],
-            coldkey: [u8; 32],
             netuid: u16,
-        ) -> Result<Option<StakeInfo<ink::primitives::AccountId>>, ReadWriteErrorCode> {
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .get_stake_info_for_hotkey_coldkey_netuid(
-                    hotkey.into(),
-                    coldkey.into(),
-                    netuid.into(),
-                )
-                .map_err(|_e| ReadWriteErrorCode::ReadFailed)
+                .add_stake(hotkey.into(), netuid.into(), amount.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
+
+        // #[ink(message)]
+        // pub fn get_stake_info_for_hotkey_coldkey_netuid(
+        //     &mut self,
+        //     hotkey: [u8; 32],
+        //     coldkey: [u8; 32],
+        //     netuid: u16,
+        // ) -> Result<Option<StakeInfo<ink::primitives::AccountId>>, ReadWriteErrorCode> {
+        //     self.env()
+        //         .extension()
+        //         .get_stake_info_for_hotkey_coldkey_netuid(
+        //             hotkey.into(),
+        //             coldkey.into(),
+        //             netuid.into(),
+        //         )
+        //         .map_err(|_e| ReadWriteErrorCode::ReadFailed)
+        // }
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
