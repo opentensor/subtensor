@@ -30,7 +30,8 @@ cd evm-tests
 
 cd bittensor
 
-cargo install contract 
+rustup component add rust-src
+cargo install cargo-contract 
 cargo contract build --release 
 
 cd ..
