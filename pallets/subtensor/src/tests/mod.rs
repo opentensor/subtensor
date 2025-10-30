@@ -1,6 +1,7 @@
 mod auto_stake_hotkey;
 mod batch_tx;
 mod children;
+mod claim_root;
 mod coinbase;
 mod consensus;
 mod delegate_info;
@@ -24,6 +25,7 @@ mod serving;
 mod staking;
 mod staking2;
 mod subnet;
+mod subnet_emissions;
 mod swap_coldkey;
 mod swap_hotkey;
 mod swap_hotkey_with_subnet;
