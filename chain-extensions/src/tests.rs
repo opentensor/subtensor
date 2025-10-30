@@ -777,8 +777,8 @@ impl SubtensorExtensionEnv<AccountId> for MockEnv {
         Ok(())
     }
 
-    fn caller(&mut self) -> AccountId {
-        self.caller
+    fn caller(&mut self) -> Result<AccountId, DispatchError> {
+        Ok(self.caller)
     }
 }
 
