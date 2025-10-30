@@ -573,3 +573,95 @@ fn test_get_neuron_to_prune_owner_pruned_if_not_in_sn_owner_hotkey_map() {
         );
     });
 }
+
+#[test]
+fn test_prune_respects_min_non_immune_floor_prefers_immune() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(2);
+        add_network(netuid, 10_000, 0);
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 0);
+
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 1024);
+        SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
+
+        let immunity_period: u64 = 1000;
+        SubtensorModule::set_immunity_period(netuid, immunity_period as u16);
+
+        // Register three neurons, each in its own block so the per‑block counter resets.
+        for i in 0..3 {
+            register_ok_neuron(netuid, U256::from(10_000 + i), U256::from(20_000 + i), 0);
+            step_block(1);
+        }
+
+        // Jump block height forward past immunity for the first 3, without iterating 1000 blocks.
+        let target = frame_system::Pallet::<Test>::block_number() + immunity_period + 5;
+        frame_system::Pallet::<Test>::set_block_number(target - 1);
+        step_block(1);
+
+        // Register a 4th neuron now — it will be immune.
+        register_ok_neuron(netuid, U256::from(99_999), U256::from(88_888), 0);
+
+        SubtensorModule::set_min_non_immune_uids(netuid, 3);
+
+        // With floor in place (3 non‑immune + 1 immune), we must prune the immune candidate (uid = 3).
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(3));
+    });
+}
+
+#[test]
+fn test_prune_tie_breakers_non_immune_emission_block_uid() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(3);
+        add_network(netuid, 1, 0);
+
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 0);
+        SubtensorModule::set_immunity_period(netuid, 0);
+
+        // Register 3 neurons; registration blocks ascend (0,1,2).
+        for i in 0..3 {
+            register_ok_neuron(netuid, U256::from(30_000 + i), U256::from(40_000 + i), 0);
+            step_block(1);
+        }
+
+        // Allow pruning of non-immune.
+        SubtensorModule::set_min_non_immune_uids(netuid, 0);
+
+        // Equalize emissions across all 3.
+        Emission::<Test>::mutate(netuid, |v| {
+            for e in v.iter_mut() {
+                *e = 10u64.into();
+            }
+        });
+
+        // Since emission ties, the earliest registration (uid=0) should be pruned.
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(0));
+    });
+}
+
+#[test]
+fn test_prune_all_owner_immortal_returns_none() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(4);
+
+        let owner_ck = U256::from(7777);
+        let owner_hk_0 = U256::from(9001);
+        let owner_hk_1 = U256::from(9002);
+        let owner_hk_2 = U256::from(9003);
+
+        add_network(netuid, 1, 0);
+        SubnetOwner::<Test>::insert(netuid, owner_ck);
+
+        register_ok_neuron(netuid, owner_hk_0, owner_ck, 0);
+        register_ok_neuron(netuid, owner_hk_1, owner_ck, 0);
+        register_ok_neuron(netuid, owner_hk_2, owner_ck, 0);
+
+        Owner::<Test>::insert(owner_hk_0, owner_ck);
+        Owner::<Test>::insert(owner_hk_1, owner_ck);
+        Owner::<Test>::insert(owner_hk_2, owner_ck);
+        OwnedHotkeys::<Test>::insert(owner_ck, vec![owner_hk_0, owner_hk_1, owner_hk_2]);
+
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 10);
+
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), None);
+    });
+}

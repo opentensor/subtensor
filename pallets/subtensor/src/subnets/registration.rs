@@ -1,5 +1,4 @@
 use super::*;
-use core::cmp::Ordering;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
@@ -452,101 +451,84 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Determine which neuron to prune.
-    ///
-    /// Sort candidates by: (is_immune, emission, registration_block, uid) **ascending**,
-    ///   which effectively means:
-    ///     1) prefer pruning non-immune first (is_immune = false comes first),
-    ///     2) among them, prune the lowest emission first,
-    ///     3) tie-break by the earliest registration block,
-    ///     4) then by the lowest uid.
-    /// - Never prune "immortal" owner hotkeys (immune-owner set).
-    ///   UIDs must remain **non-immortal & non-immune** after pruning.
-    ///   If no candidate satisfies this, return `None`.
     pub fn get_neuron_to_prune(netuid: NetUid) -> Option<u16> {
-        let neurons_n = Self::get_subnetwork_n(netuid);
-        if neurons_n == 0 {
+        let n = Self::get_subnetwork_n(netuid);
+        if n == 0 {
             return None;
         }
 
-        // Owner-owned "immortal" hotkeys (never prune).
-        let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
-        let immortal_hotkeys = Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey);
-
-        // Snapshot emissions once to avoid repeated loads.
+        let owner_ck = SubnetOwner::<T>::get(netuid);
+        let immortal_hotkeys = Self::get_immune_owner_hotkeys(netuid, &owner_ck);
         let emissions: Vec<AlphaCurrency> = Emission::<T>::get(netuid);
 
-        // Build candidate set: skip immortal hotkeys entirely.
-        // Each item is (is_immune, emission, reg_block, uid).
-        let mut candidates: Vec<(bool, AlphaCurrency, u64, u16)> = Vec::new();
-        for uid in 0..neurons_n {
-            if let Ok(hk) = Self::get_hotkey_for_net_and_uid(netuid, uid) {
-                if immortal_hotkeys.contains(&hk) {
-                    continue; // never prune owner-immortal hotkeys
+        // Single pass:
+        // - count current non‑immortal & non‑immune UIDs,
+        // - track best non‑immune and best immune candidates separately.
+        let mut free_count: u16 = 0;
+
+        // (emission, reg_block, uid)
+        let mut best_non_immune: Option<(AlphaCurrency, u64, u16)> = None;
+        let mut best_immune: Option<(AlphaCurrency, u64, u16)> = None;
+
+        for uid in 0..n {
+            let hk = match Self::get_hotkey_for_net_and_uid(netuid, uid) {
+                Ok(h) => h,
+                Err(_) => continue,
+            };
+
+            // Skip owner‑immortal hotkeys entirely.
+            if immortal_hotkeys.contains(&hk) {
+                continue;
+            }
+
+            let is_immune = Self::get_neuron_is_immune(netuid, uid);
+            let emission = emissions
+                .get(uid as usize)
+                .cloned()
+                .unwrap_or(AlphaCurrency::ZERO);
+            let reg_block = Self::get_neuron_block_at_registration(netuid, uid);
+
+            // Helper to decide if (e, b, u) beats the current best.
+            let consider = |best: &mut Option<(AlphaCurrency, u64, u16)>| match best {
+                None => *best = Some((emission, reg_block, uid)),
+                Some((be, bb, bu)) => {
+                    let better = if emission != *be {
+                        emission < *be
+                    } else if reg_block != *bb {
+                        reg_block < *bb
+                    } else {
+                        uid < *bu
+                    };
+                    if better {
+                        *best = Some((emission, reg_block, uid));
+                    }
                 }
-                let is_immune = Self::get_neuron_is_immune(netuid, uid);
-                let emission = emissions
-                    .get(uid as usize)
-                    .cloned()
-                    .unwrap_or(AlphaCurrency::ZERO);
-                let reg_block = Self::get_neuron_block_at_registration(netuid, uid);
-                candidates.push((is_immune, emission, reg_block, uid));
+            };
+
+            if is_immune {
+                consider(&mut best_immune);
+            } else {
+                free_count = free_count.saturating_add(1);
+                consider(&mut best_non_immune);
             }
         }
 
-        if candidates.is_empty() {
+        // No candidates left after filtering out owner‑immortal hotkeys.
+        if best_non_immune.is_none() && best_immune.is_none() {
             return None;
         }
 
-        // Safety floor for non-immortal & non-immune UIDs.
+        // Safety floor for non‑immortal & non‑immune UIDs.
         let min_free: u16 = Self::get_min_non_immune_uids(netuid);
+        let can_prune_non_immune = free_count > min_free;
 
-        // Count current "free" (non-immortal AND non-immune) UIDs in candidates.
-        // (Immortals were already filtered out above.)
-        let free_count: u16 = candidates
-            .iter()
-            .filter(|(is_immune, _e, _b, _u)| !*is_immune)
-            .count() as u16;
-
-        // Sort by (is_immune, emission, registration_block, uid), ascending.
-        candidates.sort_by(|a, b| {
-            // a = (is_immune_a, emission_a, block_a, uid_a)
-            // b = (is_immune_b, emission_b, block_b, uid_b)
-            // tuple-lexicographic order is fine if AlphaCurrency implements Ord
-            let ord_immune = a.0.cmp(&b.0); // false (non-immune) first
-            if ord_immune != Ordering::Equal {
-                return ord_immune;
-            }
-            let ord_emission = a.1.cmp(&b.1); // lowest emission first
-            if ord_emission != Ordering::Equal {
-                return ord_emission;
-            }
-            let ord_block = a.2.cmp(&b.2); // earliest registration first
-            if ord_block != Ordering::Equal {
-                return ord_block;
-            }
-            a.3.cmp(&b.3) // lowest uid first
-        });
-
-        // Pick the best candidate that **does not** violate the min-free safety floor.
-        for (is_immune, _e, _b, uid) in candidates.iter().copied() {
-            if !is_immune {
-                // This is a non-immune candidate. We can remove it only if,
-                // after pruning, free_count - 1 >= min_free.
-                if free_count > min_free {
-                    return Some(uid);
-                } else {
-                    // Protected by the safety floor; try the next candidate.
-                    continue;
-                }
-            } else {
-                // Immune candidate is allowed (owner-immortal were filtered out earlier),
-                // and removing it does not affect the "free" count.
+        // Prefer non‑immune if allowed; otherwise fall back to immune.
+        if can_prune_non_immune {
+            if let Some((_, _, uid)) = best_non_immune {
                 return Some(uid);
             }
         }
-
-        // No candidate can be pruned without violating the safety floor.
-        None
+        best_immune.map(|(_, _, uid)| uid)
     }
 
     /// Determine whether the given hash satisfies the given difficulty.
