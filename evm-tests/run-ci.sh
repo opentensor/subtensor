@@ -37,7 +37,8 @@ cargo contract build --release
 cd ..
 
 # required for papi in get-metadata.sh, but we cannot run yarn before papi as it adds the descriptors to the package.json which won't resolve
-npm i -g polkadot-api
+npm i -g @polkadot-api
+npm i -g @polkadot-api/sdk-ink
 
 bash get-metadata.sh
 
