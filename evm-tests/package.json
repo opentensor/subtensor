@@ -6,7 +6,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@localpapi/descriptors": "file:.papi/descriptors",
     "@polkadot-api/descriptors": "file:.papi/descriptors",
     "@polkadot-api/ink-contracts": "^0.4.1",
     "@polkadot-api/sdk-ink": "^0.5.1",
