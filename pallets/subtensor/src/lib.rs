@@ -1220,19 +1220,6 @@ pub mod pallet {
         DefaultZeroAlpha<T>,
     >;
 
-    /// --- DMAP ( netuid, hotkey ) --> u64 | Last total root dividend paid to this hotkey on this subnet.
-    #[pallet::storage]
-    pub type TaoDividendsPerSubnet<T: Config> = StorageDoubleMap<
-        _,
-        Identity,
-        NetUid,
-        Blake2_128Concat,
-        T::AccountId,
-        TaoCurrency,
-        ValueQuery,
-        DefaultZeroTao<T>,
-    >;
-
     /// ==================
     /// ==== Coinbase ====
     /// ==================
