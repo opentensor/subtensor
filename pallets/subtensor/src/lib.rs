@@ -1308,10 +1308,10 @@ pub mod pallet {
     /// Default value for flow EMA smoothing.
     pub fn DefaultFlowEmaSmoothingFactor<T: Config>() -> u64 {
         // Example values:
-        //   half-life            factor value        u64 normalized
-        //   216000 (1 month) --> 0.000003209009576 ( 59_195_778_378_555)
-        //    50400 (1 week)  --> 0.000013752825678 (253_694_855_576_670)
-        59_195_778_378_555
+        //   half-life            factor value        i64 normalized
+        //   216000 (1 month) --> 0.000003209009576 ( 29_597_889_189_277)
+        //    50400 (1 week)  --> 0.000013752825678 (126_847_427_788_335)
+        29_597_889_189_277
     }
     #[pallet::type_value]
     /// Flow EMA smoothing half-life.

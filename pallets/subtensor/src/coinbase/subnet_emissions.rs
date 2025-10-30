@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
             // EMA flow already initialized
             if last_block != current_block {
                 let flow_alpha = I64F64::saturating_from_num(FlowEmaSmoothingFactor::<T>::get())
-                    .safe_div(I64F64::saturating_from_num(u16::MAX));
+                    .safe_div(I64F64::saturating_from_num(i64::MAX));
                 let one = I64F64::saturating_from_num(1);
                 let ema_flow = (one.saturating_sub(flow_alpha))
                     .saturating_mul(last_block_ema)
