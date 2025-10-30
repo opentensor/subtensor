@@ -568,7 +568,7 @@ where
             .ext()
             .caller()
             .account_id()
-            .map(|id| id.clone())
+            .cloned()
             .map_err(|_| DispatchError::Other("Failed to get caller"))
     }
 }
