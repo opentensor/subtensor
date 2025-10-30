@@ -3,7 +3,7 @@ use frame_support::{pallet_prelude::DispatchError, traits::GetCallMetadata};
 use scale_info::TypeInfo;
 use sp_std::collections::btree_map::BTreeMap;
 
-/// Resolves the optional context within which a rate limit applies.
+/// Resolves the optional identifier within which a rate limit applies.
 pub trait RateLimitContextResolver<Call, Context> {
     /// Returns `Some(context)` when the limit should be applied per-context, or `None` for global
     /// limits.
@@ -104,71 +104,71 @@ pub enum RateLimitKind<BlockNumber> {
 /// Stored rate limit configuration for a transaction identifier.
 ///
 /// The configuration is mutually exclusive: either the call is globally limited or it stores a set
-/// of per-context spans.
+/// of per-scope spans.
 #[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(
     feature = "std",
     serde(
-        bound = "Context: Ord + serde::Serialize + serde::de::DeserializeOwned, BlockNumber: serde::Serialize + serde::de::DeserializeOwned"
+        bound = "Scope: Ord + serde::Serialize + serde::de::DeserializeOwned, BlockNumber: serde::Serialize + serde::de::DeserializeOwned"
     )
 )]
 #[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
-pub enum RateLimit<Context, BlockNumber> {
+pub enum RateLimit<Scope, BlockNumber> {
     /// Global span applied to every invocation.
     Global(RateLimitKind<BlockNumber>),
-    /// Per-context spans keyed by `Context`.
-    Contextual(BTreeMap<Context, RateLimitKind<BlockNumber>>),
+    /// Per-scope spans keyed by `Scope`.
+    Scoped(BTreeMap<Scope, RateLimitKind<BlockNumber>>),
 }
 
-impl<Context, BlockNumber> RateLimit<Context, BlockNumber>
+impl<Scope, BlockNumber> RateLimit<Scope, BlockNumber>
 where
-    Context: Ord,
+    Scope: Ord,
 {
     /// Convenience helper to build a global configuration.
     pub fn global(kind: RateLimitKind<BlockNumber>) -> Self {
         Self::Global(kind)
     }
 
-    /// Convenience helper to build a contextual configuration containing a single entry.
-    pub fn contextual_single(context: Context, kind: RateLimitKind<BlockNumber>) -> Self {
+    /// Convenience helper to build a scoped configuration containing a single entry.
+    pub fn scoped_single(scope: Scope, kind: RateLimitKind<BlockNumber>) -> Self {
         let mut map = BTreeMap::new();
-        map.insert(context, kind);
-        Self::Contextual(map)
+        map.insert(scope, kind);
+        Self::Scoped(map)
     }
 
-    /// Returns the span configured for the provided context, if any.
-    pub fn kind_for(&self, context: Option<&Context>) -> Option<&RateLimitKind<BlockNumber>> {
+    /// Returns the span configured for the provided scope, if any.
+    pub fn kind_for(&self, scope: Option<&Scope>) -> Option<&RateLimitKind<BlockNumber>> {
         match self {
             RateLimit::Global(kind) => Some(kind),
-            RateLimit::Contextual(map) => context.and_then(|ctx| map.get(ctx)),
+            RateLimit::Scoped(map) => scope.and_then(|key| map.get(key)),
         }
     }
 
-    /// Inserts or updates a contextual entry, converting from a global configuration if needed.
-    pub fn upsert_context(&mut self, context: Context, kind: RateLimitKind<BlockNumber>) {
+    /// Inserts or updates a scoped entry, converting from a global configuration if needed.
+    pub fn upsert_scope(&mut self, scope: Scope, kind: RateLimitKind<BlockNumber>) {
         match self {
             RateLimit::Global(_) => {
                 let mut map = BTreeMap::new();
-                map.insert(context, kind);
-                *self = RateLimit::Contextual(map);
+                map.insert(scope, kind);
+                *self = RateLimit::Scoped(map);
             }
-            RateLimit::Contextual(map) => {
-                map.insert(context, kind);
+            RateLimit::Scoped(map) => {
+                map.insert(scope, kind);
             }
         }
     }
 
-    /// Removes a contextual entry, returning whether one existed.
-    pub fn remove_context(&mut self, context: &Context) -> bool {
+    /// Removes a scoped entry, returning whether one existed.
+    pub fn remove_scope(&mut self, scope: &Scope) -> bool {
         match self {
             RateLimit::Global(_) => false,
-            RateLimit::Contextual(map) => map.remove(context).is_some(),
+            RateLimit::Scoped(map) => map.remove(scope).is_some(),
         }
     }
 
-    /// Returns true when the contextual configuration contains no entries.
-    pub fn is_contextual_empty(&self) -> bool {
-        matches!(self, RateLimit::Contextual(map) if map.is_empty())
+    /// Returns true when the scoped configuration contains no entries.
+    pub fn is_scoped_empty(&self) -> bool {
+        matches!(self, RateLimit::Scoped(map) if map.is_empty())
     }
 }
 

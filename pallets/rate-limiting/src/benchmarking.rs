@@ -36,30 +36,43 @@ mod benchmarks {
     fn set_rate_limit() {
         let call = sample_call::<T>();
         let limit = RateLimitKind::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
+        let scope = <T as Config>::LimitScopeResolver::context(call.as_ref());
         let identifier =
             TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("identifier");
 
         #[extrinsic_call]
-        _(RawOrigin::Root, call, limit.clone(), None);
+        _(RawOrigin::Root, call, limit.clone());
 
-        assert_eq!(
-            Limits::<T, ()>::get(&identifier),
-            Some(RateLimit::global(limit))
-        );
+        let stored = Limits::<T, ()>::get(&identifier).expect("limit stored");
+        match (scope, &stored) {
+            (Some(ref sc), RateLimit::Scoped(map)) => {
+                assert_eq!(map.get(sc), Some(&limit));
+            }
+            (None, RateLimit::Global(kind)) | (Some(_), RateLimit::Global(kind)) => {
+                assert_eq!(kind, &limit);
+            }
+            (None, RateLimit::Scoped(map)) => {
+                assert!(map.values().any(|k| k == &limit));
+            }
+        }
     }
 
     #[benchmark]
     fn clear_rate_limit() {
         let call = sample_call::<T>();
         let limit = RateLimitKind::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
+        let scope = <T as Config>::LimitScopeResolver::context(call.as_ref());
 
         // Pre-populate limit for benchmark call
         let identifier =
             TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("identifier");
-        Limits::<T, ()>::insert(identifier, RateLimit::global(limit));
+        match scope.clone() {
+            Some(sc) => Limits::<T, ()>::insert(identifier, RateLimit::scoped_single(sc, limit)),
+            None => Limits::<T, ()>::insert(identifier, RateLimit::global(limit)),
+        }
 
         #[extrinsic_call]
-        _(RawOrigin::Root, call, None);
+        _(RawOrigin::Root, call);
 
         assert!(Limits::<T, ()>::get(identifier).is_none());
     }

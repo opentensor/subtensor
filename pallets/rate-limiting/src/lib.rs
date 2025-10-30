@@ -10,16 +10,18 @@
 //! restricted by [`Config::AdminOrigin`], to manage this data:
 //!
 //! - [`set_rate_limit`](pallet::Pallet::set_rate_limit): assign a limit to an extrinsic by
-//!   supplying a [`RateLimitKind`] span and optionally a contextual identifier. When a contextual
-//!   span is stored, any previously configured global span is replaced.
-//! - [`clear_rate_limit`](pallet::Pallet::clear_rate_limit): remove a stored limit for the provided
-//!   scope (either the global entry when `None` is supplied, or a specific context).
+//!   supplying a [`RateLimitKind`] span. The pallet infers the *limit scope* (for example a
+//!   `netuid`) using [`Config::LimitScopeResolver`] and stores the configuration for that scope, or
+//!   globally when no scope is resolved.
+//! - [`clear_rate_limit`](pallet::Pallet::clear_rate_limit): remove a stored limit for the scope
+//!   derived from the provided call (or the global entry when no scope resolves).
 //! - [`set_default_rate_limit`](pallet::Pallet::set_default_rate_limit): set the global default
 //!   block span used by `RateLimitKind::Default` entries.
 //!
 //! The pallet also tracks the last block in which a rate-limited call was executed, per optional
-//! *context*. Context allows one limit definition (for example, “set weights”) to be enforced per
-//! subnet, account, or other grouping chosen by the runtime.
+//! *usage key*. A usage key may refine tracking beyond the limit scope (for example combining a
+//! `netuid` with a hyperparameter name), so the two concepts are explicitly separated in the
+//! configuration.
 //!
 //! Each storage map is namespaced by pallet instance; runtimes can deploy multiple independent
 //! instances to manage distinct rate-limiting scopes.
@@ -41,21 +43,27 @@
 //! );
 //! ```
 //!
-//! # Context resolver
+//! # Context resolvers
 //!
-//! The extension needs to know when two invocations should share a rate limit. This is controlled
-//! by implementing [`RateLimitContextResolver`] for the runtime call type (or for a helper that the
-//! runtime wires into [`Config::ContextResolver`]). The resolver receives the call and returns
-//! `Some(context)` if the rate should be scoped (e.g. by `netuid`), or `None` to use the global
-//! entry. The resolver is only used when *tracking* executions; you still configure limits via the
-//! explicit `context` argument on `set_rate_limit`/`clear_rate_limit`.
+//! The pallet relies on two resolvers, both implementing [`RateLimitContextResolver`]:
+//!
+//! - [`Config::LimitScopeResolver`], which determines how limits are stored (for example by
+//!   returning a `netuid`). When this resolver returns `None`, the configuration is stored as a
+//!   global fallback.
+//! - [`Config::UsageResolver`], which decides how executions are tracked in
+//!   [`LastSeen`](pallet::LastSeen). This can refine the limit scope (for example by returning a
+//!   tuple of `(netuid, hyperparameter)`).
+//!
+//! Each resolver receives the call and may return `Some(identifier)` when scoping is required, or
+//! `None` to use the global entry. Extrinsics such as
+//! [`set_rate_limit`](pallet::Pallet::set_rate_limit) automatically consult these resolvers.
 //!
 //! ```ignore
 //! pub struct WeightsContextResolver;
 //!
-//! impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, NetUid>
-//!     for WeightsContextResolver
-//! {
+//! // Limits are scoped per netuid.
+//! pub struct ScopeResolver;
+//! impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, NetUid> for ScopeResolver {
 //!     fn context(call: &RuntimeCall) -> Option<NetUid> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_weights { netuid, .. }) => {
@@ -66,10 +74,29 @@
 //!     }
 //! }
 //!
+//! // Usage tracking distinguishes hyperparameter + netuid.
+//! pub struct UsageResolver;
+//! impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, (NetUid, HyperParam)>
+//!     for UsageResolver
+//! {
+//!     fn context(call: &RuntimeCall) -> Option<(NetUid, HyperParam)> {
+//!         match call {
+//!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_hyperparam {
+//!                 netuid,
+//!                 hyper,
+//!                 ..
+//!             }) => Some((*netuid, *hyper)),
+//!             _ => None,
+//!         }
+//!     }
+//! }
+//!
 //! impl pallet_rate_limiting::Config for Runtime {
 //!     type RuntimeCall = RuntimeCall;
-//!     type LimitContext = NetUid;
-//!     type ContextResolver = WeightsContextResolver;
+//!     type LimitScope = NetUid;
+//!     type LimitScopeResolver = ScopeResolver;
+//!     type UsageKey = (NetUid, HyperParam);
+//!     type UsageResolver = UsageResolver;
 //!     type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 //! }
 //! ```
@@ -121,11 +148,17 @@ pub mod pallet {
         /// Origin permitted to configure rate limits.
         type AdminOrigin: EnsureOrigin<OriginFor<Self>>;
 
-        /// Context type used for contextual (per-group) rate limits.
-        type LimitContext: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
+        /// Scope identifier used to namespace stored rate limits.
+        type LimitScope: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
 
-        /// Resolves the context for a given runtime call.
-        type ContextResolver: RateLimitContextResolver<<Self as Config<I>>::RuntimeCall, Self::LimitContext>;
+        /// Resolves the scope for the given runtime call when configuring limits.
+        type LimitScopeResolver: RateLimitContextResolver<<Self as Config<I>>::RuntimeCall, Self::LimitScope>;
+
+        /// Usage key tracked in [`LastSeen`] for rate-limited calls.
+        type UsageKey: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
+
+        /// Resolves the usage key for the given runtime call when enforcing limits.
+        type UsageResolver: RateLimitContextResolver<<Self as Config<I>>::RuntimeCall, Self::UsageKey>;
 
         /// Helper used to construct runtime calls for benchmarking.
         #[cfg(feature = "runtime-benchmarks")]
@@ -139,20 +172,20 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         TransactionIdentifier,
-        RateLimit<<T as Config<I>>::LimitContext, BlockNumberFor<T>>,
+        RateLimit<<T as Config<I>>::LimitScope, BlockNumberFor<T>>,
         OptionQuery,
     >;
 
     /// Tracks when a transaction was last observed.
     ///
-    /// The second key is `None` for global limits and `Some(context)` for contextual limits.
+    /// The second key is `None` for global tracking and `Some(key)` for scoped usage tracking.
     #[pallet::storage]
     pub type LastSeen<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         TransactionIdentifier,
         Blake2_128Concat,
-        Option<<T as Config<I>>::LimitContext>,
+        Option<<T as Config<I>>::UsageKey>,
         BlockNumberFor<T>,
         OptionQuery,
     >;
@@ -171,8 +204,8 @@ pub mod pallet {
         RateLimitSet {
             /// Identifier of the affected transaction.
             transaction: TransactionIdentifier,
-            /// Context to which the limit applies, if any.
-            context: Option<<T as Config<I>>::LimitContext>,
+            /// Limit scope to which the configuration applies, if any.
+            scope: Option<<T as Config<I>>::LimitScope>,
             /// The rate limit policy applied to the transaction.
             limit: RateLimitKind<BlockNumberFor<T>>,
             /// Pallet name associated with the transaction.
@@ -184,8 +217,8 @@ pub mod pallet {
         RateLimitCleared {
             /// Identifier of the affected transaction.
             transaction: TransactionIdentifier,
-            /// Context from which the limit was cleared, if any.
-            context: Option<<T as Config<I>>::LimitContext>,
+            /// Limit scope from which the configuration was cleared, if any.
+            scope: Option<<T as Config<I>>::LimitScope>,
             /// Pallet name associated with the transaction.
             pallet: Vec<u8>,
             /// Extrinsic name associated with the transaction.
@@ -205,8 +238,6 @@ pub mod pallet {
         InvalidRuntimeCall,
         /// Attempted to remove a limit that is not present.
         MissingRateLimit,
-        /// Contextual configuration was requested but no context can be resolved for the call.
-        ContextUnavailable,
     }
 
     #[pallet::genesis_config]
@@ -214,7 +245,7 @@ pub mod pallet {
         pub default_limit: BlockNumberFor<T>,
         pub limits: Vec<(
             TransactionIdentifier,
-            Option<<T as Config<I>>::LimitContext>,
+            Option<<T as Config<I>>::LimitScope>,
             RateLimitKind<BlockNumberFor<T>>,
         )>,
     }
@@ -234,16 +265,16 @@ pub mod pallet {
         fn build(&self) {
             DefaultLimit::<T, I>::put(self.default_limit);
 
-            for (identifier, context, kind) in &self.limits {
-                Limits::<T, I>::mutate(identifier, |entry| match context {
+            for (identifier, scope, kind) in &self.limits {
+                Limits::<T, I>::mutate(identifier, |entry| match scope {
                     None => {
                         *entry = Some(RateLimit::global(*kind));
                     }
-                    Some(ctx) => {
+                    Some(sc) => {
                         if let Some(config) = entry {
-                            config.upsert_context(ctx.clone(), *kind);
+                            config.upsert_scope(sc.clone(), *kind);
                         } else {
-                            *entry = Some(RateLimit::contextual_single(ctx.clone(), *kind));
+                            *entry = Some(RateLimit::scoped_single(sc.clone(), *kind));
                         }
                     }
                 });
@@ -257,18 +288,19 @@ pub mod pallet {
 
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         /// Returns `true` when the given transaction identifier passes its configured rate limit
-        /// within the provided context.
+        /// within the provided usage scope.
         pub fn is_within_limit(
             identifier: &TransactionIdentifier,
-            context: &Option<<T as Config<I>>::LimitContext>,
+            scope: &Option<<T as Config<I>>::LimitScope>,
+            usage_key: &Option<<T as Config<I>>::UsageKey>,
         ) -> Result<bool, DispatchError> {
-            let Some(block_span) = Self::resolved_limit(identifier, context) else {
+            let Some(block_span) = Self::resolved_limit(identifier, scope) else {
                 return Ok(true);
             };
 
             let current = frame_system::Pallet::<T>::block_number();
 
-            if let Some(last) = LastSeen::<T, I>::get(identifier, context) {
+            if let Some(last) = LastSeen::<T, I>::get(identifier, usage_key) {
                 let delta = current.saturating_sub(last);
                 if delta < block_span {
                     return Ok(false);
@@ -280,10 +312,10 @@ pub mod pallet {
 
         pub(crate) fn resolved_limit(
             identifier: &TransactionIdentifier,
-            context: &Option<<T as Config<I>>::LimitContext>,
+            scope: &Option<<T as Config<I>>::LimitScope>,
         ) -> Option<BlockNumberFor<T>> {
             let config = Limits::<T, I>::get(identifier)?;
-            let kind = config.kind_for(context.as_ref())?;
+            let kind = config.kind_for(scope.as_ref())?;
             Some(match *kind {
                 RateLimitKind::Default => DefaultLimit::<T, I>::get(),
                 RateLimitKind::Exact(block_span) => block_span,
@@ -294,21 +326,21 @@ pub mod pallet {
         pub fn limit_for_call_names(
             pallet_name: &str,
             extrinsic_name: &str,
-            context: Option<<T as Config<I>>::LimitContext>,
+            scope: Option<<T as Config<I>>::LimitScope>,
         ) -> Option<RateLimitKind<BlockNumberFor<T>>> {
             let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
             Limits::<T, I>::get(&identifier)
-                .and_then(|config| config.kind_for(context.as_ref()).copied())
+                .and_then(|config| config.kind_for(scope.as_ref()).copied())
         }
 
         /// Returns the resolved block span for the specified pallet/extrinsic names, if any.
         pub fn resolved_limit_for_call_names(
             pallet_name: &str,
             extrinsic_name: &str,
-            context: Option<<T as Config<I>>::LimitContext>,
+            scope: Option<<T as Config<I>>::LimitScope>,
         ) -> Option<BlockNumberFor<T>> {
             let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
-            Self::resolved_limit(&identifier, &context)
+            Self::resolved_limit(&identifier, &scope)
         }
 
         fn identifier_for_call_names(
@@ -327,35 +359,29 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
-        /// Sets the rate limit configuration for the given call and optional context.
+        /// Sets the rate limit configuration for the given call.
         ///
         /// The supplied `call` is only used to derive the pallet and extrinsic indices; **any
-        /// arguments embedded in the call are ignored**. The `context` parameter determines which
-        /// scoped entry is updated (for example a subnet identifier). Passing `None` updates the
-        /// global entry, which acts as a fallback when no context-specific limit exists.
+        /// arguments embedded in the call are ignored**. The applicable scope is discovered via
+        /// [`Config::LimitScopeResolver`]. When a scope resolves, the configuration is stored
+        /// against that scope; otherwise the global entry is updated.
         #[pallet::call_index(0)]
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn set_rate_limit(
             origin: OriginFor<T>,
             call: Box<<T as Config<I>>::RuntimeCall>,
             limit: RateLimitKind<BlockNumberFor<T>>,
-            context: Option<<T as Config<I>>::LimitContext>,
         ) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
 
-            if context.is_some()
-                && <T as Config<I>>::ContextResolver::context(call.as_ref()).is_none()
-            {
-                return Err(Error::<T, I>::ContextUnavailable.into());
-            }
-
             let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
-            let context_for_event = context.clone();
+            let scope = <T as Config<I>>::LimitScopeResolver::context(call.as_ref());
+            let scope_for_event = scope.clone();
 
-            if let Some(ref ctx) = context {
+            if let Some(ref sc) = scope {
                 Limits::<T, I>::mutate(&identifier, |slot| match slot {
-                    Some(config) => config.upsert_context(ctx.clone(), limit),
-                    None => *slot = Some(RateLimit::contextual_single(ctx.clone(), limit)),
+                    Some(config) => config.upsert_scope(sc.clone(), limit),
+                    None => *slot = Some(RateLimit::scoped_single(sc.clone(), limit)),
                 });
             } else {
                 Limits::<T, I>::insert(&identifier, RateLimit::global(limit));
@@ -367,7 +393,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::RateLimitSet {
                 transaction: identifier,
-                context: context_for_event,
+                scope: scope_for_event,
                 limit,
                 pallet,
                 extrinsic,
@@ -378,18 +404,18 @@ pub mod pallet {
         /// Clears the rate limit for the given call, if present.
         ///
         /// The supplied `call` is only used to derive the pallet and extrinsic indices; **any
-        /// arguments embedded in the call are ignored**. The `context` parameter must match the
-        /// entry that should be removed (use `None` to remove the global configuration).
+        /// arguments embedded in the call are ignored**. The configuration scope is determined via
+        /// [`Config::LimitScopeResolver`]. When no scope resolves, the global entry is cleared.
         #[pallet::call_index(1)]
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn clear_rate_limit(
             origin: OriginFor<T>,
             call: Box<<T as Config<I>>::RuntimeCall>,
-            context: Option<<T as Config<I>>::LimitContext>,
         ) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
 
             let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
+            let scope = <T as Config<I>>::LimitScopeResolver::context(call.as_ref());
 
             let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
             let pallet = Vec::from(pallet_name.as_bytes());
@@ -398,13 +424,13 @@ pub mod pallet {
             let mut removed = false;
             Limits::<T, I>::mutate_exists(&identifier, |maybe_config| {
                 if let Some(config) = maybe_config {
-                    match (&context, config) {
+                    match (&scope, config) {
                         (None, _) => {
                             removed = true;
                             *maybe_config = None;
                         }
-                        (Some(ctx), RateLimit::Contextual(map)) => {
-                            if map.remove(ctx).is_some() {
+                        (Some(sc), RateLimit::Scoped(map)) => {
+                            if map.remove(sc).is_some() {
                                 removed = true;
                                 if map.is_empty() {
                                     *maybe_config = None;
@@ -420,7 +446,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::RateLimitCleared {
                 transaction: identifier,
-                context,
+                scope,
                 pallet,
                 extrinsic,
             });

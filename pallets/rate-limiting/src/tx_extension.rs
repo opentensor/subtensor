@@ -80,14 +80,8 @@ where
     const IDENTIFIER: &'static str = IDENTIFIER;
 
     type Implicit = ();
-    type Val = Option<(
-        TransactionIdentifier,
-        Option<<T as Config<I>>::LimitContext>,
-    )>;
-    type Pre = Option<(
-        TransactionIdentifier,
-        Option<<T as Config<I>>::LimitContext>,
-    )>;
+    type Val = Option<(TransactionIdentifier, Option<<T as Config<I>>::UsageKey>)>;
+    type Pre = Option<(TransactionIdentifier, Option<<T as Config<I>>::UsageKey>)>;
 
     fn weight(&self, _call: &<T as Config<I>>::RuntimeCall) -> Weight {
         Weight::zero()
@@ -108,9 +102,10 @@ where
             Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
         };
 
-        let context = <T as Config<I>>::ContextResolver::context(call);
+        let scope = <T as Config<I>>::LimitScopeResolver::context(call);
+        let usage = <T as Config<I>>::UsageResolver::context(call);
 
-        let Some(block_span) = Pallet::<T, I>::resolved_limit(&identifier, &context) else {
+        let Some(block_span) = Pallet::<T, I>::resolved_limit(&identifier, &scope) else {
             return Ok((ValidTransaction::default(), None, origin));
         };
 
@@ -118,7 +113,7 @@ where
             return Ok((ValidTransaction::default(), None, origin));
         }
 
-        let within_limit = Pallet::<T, I>::is_within_limit(&identifier, &context)
+        let within_limit = Pallet::<T, I>::is_within_limit(&identifier, &scope, &usage)
             .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
 
         if !within_limit {
@@ -129,7 +124,7 @@ where
 
         Ok((
             ValidTransaction::default(),
-            Some((identifier, context)),
+            Some((identifier, usage)),
             origin,
         ))
     }
@@ -153,9 +148,9 @@ where
         result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         if result.is_ok() {
-            if let Some((identifier, context)) = pre {
+            if let Some((identifier, usage)) = pre {
                 let block_number = frame_system::Pallet::<T>::block_number();
-                LastSeen::<T, I>::insert(&identifier, context, block_number);
+                LastSeen::<T, I>::insert(&identifier, usage, block_number);
             }
         }
         Ok(())
@@ -193,7 +188,7 @@ mod tests {
     ) -> Result<
         (
             sp_runtime::transaction_validity::ValidTransaction,
-            Option<(TransactionIdentifier, Option<LimitContext>)>,
+            Option<(TransactionIdentifier, Option<UsageKey>)>,
             RuntimeOrigin,
         ),
         TransactionValidityError,
@@ -241,7 +236,7 @@ mod tests {
 
             let identifier = identifier_for(&call);
             assert_eq!(
-                LastSeen::<Test, ()>::get(identifier, None::<LimitContext>),
+                LastSeen::<Test, ()>::get(identifier, None::<UsageKey>),
                 None
             );
         });
@@ -279,7 +274,7 @@ mod tests {
             .expect("post_dispatch succeeds");
 
             assert_eq!(
-                LastSeen::<Test, ()>::get(identifier, None::<LimitContext>),
+                LastSeen::<Test, ()>::get(identifier, None::<UsageKey>),
                 Some(10)
             );
         });
@@ -292,7 +287,7 @@ mod tests {
             let call = remark_call();
             let identifier = identifier_for(&call);
             Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(5)));
-            LastSeen::<Test, ()>::insert(identifier, None::<LimitContext>, 20);
+            LastSeen::<Test, ()>::insert(identifier, None::<UsageKey>, 20);
 
             System::set_block_number(22);
 
@@ -339,7 +334,7 @@ mod tests {
             .expect("post_dispatch succeeds");
 
             assert_eq!(
-                LastSeen::<Test, ()>::get(identifier, None::<LimitContext>),
+                LastSeen::<Test, ()>::get(identifier, None::<UsageKey>),
                 None
             );
         });

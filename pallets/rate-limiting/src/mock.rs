@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use core::convert::TryInto;
+
 use frame_support::{
     derive_impl,
     sp_runtime::{
@@ -53,15 +55,30 @@ impl frame_system::Config for Test {
     type Block = Block;
 }
 
-pub type LimitContext = u16;
+pub type LimitScope = u16;
+pub type UsageKey = u16;
 
-pub struct TestContextResolver;
+pub struct TestScopeResolver;
+pub struct TestUsageResolver;
 
-impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, LimitContext>
-    for TestContextResolver
-{
-    fn context(call: &RuntimeCall) -> Option<LimitContext> {
+impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, LimitScope> for TestScopeResolver {
+    fn context(call: &RuntimeCall) -> Option<LimitScope> {
         match call {
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
+                (*block_span).try_into().ok()
+            }
+            RuntimeCall::RateLimiting(_) => Some(1),
+            _ => None,
+        }
+    }
+}
+
+impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, UsageKey> for TestUsageResolver {
+    fn context(call: &RuntimeCall) -> Option<UsageKey> {
+        match call {
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
+                (*block_span).try_into().ok()
+            }
             RuntimeCall::RateLimiting(_) => Some(1),
             _ => None,
         }
@@ -70,8 +87,10 @@ impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, LimitContext>
 
 impl pallet_rate_limiting::Config for Test {
     type RuntimeCall = RuntimeCall;
-    type LimitContext = LimitContext;
-    type ContextResolver = TestContextResolver;
+    type LimitScope = LimitScope;
+    type LimitScopeResolver = TestScopeResolver;
+    type UsageKey = UsageKey;
+    type UsageResolver = TestUsageResolver;
     type AdminOrigin = EnsureRoot<Self::AccountId>;
     #[cfg(feature = "runtime-benchmarks")]
     type BenchmarkHelper = BenchHelper;
