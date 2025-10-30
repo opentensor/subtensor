@@ -7,9 +7,14 @@
 use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::EqualPrivilegeOnly};
 use frame_system::{EnsureRoot, limits, pallet_prelude::*};
 use sp_core::U256;
-use sp_runtime::{BuildStorage, Perbill, traits::IdentityLookup};
+use sp_runtime::{BuildStorage, Perbill, Percent, traits::IdentityLookup};
+use sp_std::cell::RefCell;
+use std::marker::PhantomData;
 
-use crate::{BalanceOf, pallet as pallet_governance};
+use crate::{
+    BUILDING_COLLECTIVE_SIZE, BalanceOf, CollectiveMembersProvider, ECONOMIC_COLLECTIVE_SIZE,
+    pallet as pallet_governance,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub(crate) type AccountOf<T> = <T as frame_system::Config>::AccountId;
@@ -70,12 +75,54 @@ impl pallet_scheduler::Config for Test {
     type BlockNumberProvider = System;
 }
 
+pub struct FakeCollectiveMembersProvider<T: pallet_governance::Config>(PhantomData<T>);
+impl<T: pallet_governance::Config> CollectiveMembersProvider<T> for FakeCollectiveMembersProvider<T>
+where
+    T::AccountId: From<AccountOf<Test>>,
+{
+    fn get_economic_collective() -> BoundedVec<T::AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>> {
+        BoundedVec::truncate_from(ECONOMIC_COLLECTIVE.with(|c| {
+            c.borrow()
+                .iter()
+                .map(|a| T::AccountId::from(a.clone()))
+                .collect()
+        }))
+    }
+    fn get_building_collective() -> BoundedVec<T::AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>> {
+        BoundedVec::truncate_from(BUILDING_COLLECTIVE.with(|c| {
+            c.borrow()
+                .iter()
+                .map(|a| T::AccountId::from(a.clone()))
+                .collect()
+        }))
+    }
+}
+
+thread_local! {
+    pub static ECONOMIC_COLLECTIVE: RefCell<Vec<AccountOf<Test>>> = const { RefCell::new(vec![]) };
+    pub static BUILDING_COLLECTIVE: RefCell<Vec<AccountOf<Test>>> = const { RefCell::new(vec![]) };
+}
+
+pub fn set_next_economic_collective(members: Vec<U256>) {
+    assert_eq!(members.len(), ECONOMIC_COLLECTIVE_SIZE as usize);
+    ECONOMIC_COLLECTIVE.with_borrow_mut(|c| *c = members.clone());
+}
+
+pub fn set_next_building_collective(members: Vec<U256>) {
+    assert_eq!(members.len(), BUILDING_COLLECTIVE_SIZE as usize);
+    BUILDING_COLLECTIVE.with_borrow_mut(|c| *c = members.clone());
+}
+
 parameter_types! {
     pub const MaxAllowedProposers: u32 = 5;
     pub const MaxProposalWeight: Weight = Weight::from_parts(1_000_000_000_000, 0);
     pub const MaxProposals: u32 = 5;
     pub const MaxScheduled: u32 = 10;
     pub const MotionDuration: BlockNumberFor<Test> = 20;
+    pub const InitialSchedulingDelay: BlockNumberFor<Test> = 20;
+    pub const CollectiveRotationPeriod: BlockNumberFor<Test> = 100;
+    pub const CancellationThreshold: Percent = Percent::from_percent(50);
+    pub FastTrackThreshold: Percent = Percent::from_rational(2u32, 3u32); // ~66.67%
 }
 
 impl pallet_governance::Config for Test {
@@ -85,11 +132,16 @@ impl pallet_governance::Config for Test {
     type Scheduler = Scheduler;
     type SetAllowedProposersOrigin = EnsureRoot<AccountOf<Test>>;
     type SetTriumvirateOrigin = EnsureRoot<AccountOf<Test>>;
+    type CollectiveMembersProvider = FakeCollectiveMembersProvider<Test>;
     type MaxAllowedProposers = MaxAllowedProposers;
     type MaxProposalWeight = MaxProposalWeight;
     type MaxProposals = MaxProposals;
     type MaxScheduled = MaxScheduled;
     type MotionDuration = MotionDuration;
+    type InitialSchedulingDelay = InitialSchedulingDelay;
+    type CollectiveRotationPeriod = CollectiveRotationPeriod;
+    type CancellationThreshold = CancellationThreshold;
+    type FastTrackThreshold = FastTrackThreshold;
 }
 
 #[frame_support::pallet]
@@ -121,6 +173,8 @@ pub(crate) struct TestState {
     balances: Vec<(AccountOf<Test>, BalanceOf<Test>)>,
     allowed_proposers: Vec<AccountOf<Test>>,
     triumvirate: Vec<AccountOf<Test>>,
+    economic_collective: BoundedVec<AccountOf<Test>, ConstU32<ECONOMIC_COLLECTIVE_SIZE>>,
+    building_collective: BoundedVec<AccountOf<Test>, ConstU32<BUILDING_COLLECTIVE_SIZE>>,
 }
 
 impl Default for TestState {
@@ -130,6 +184,16 @@ impl Default for TestState {
             balances: vec![],
             allowed_proposers: vec![U256::from(1), U256::from(2), U256::from(3)],
             triumvirate: vec![U256::from(1001), U256::from(1002), U256::from(1003)],
+            economic_collective: BoundedVec::truncate_from(
+                (1..=ECONOMIC_COLLECTIVE_SIZE)
+                    .map(|i| U256::from(2000 + i))
+                    .collect::<Vec<_>>(),
+            ),
+            building_collective: BoundedVec::truncate_from(
+                (1..=BUILDING_COLLECTIVE_SIZE)
+                    .map(|i| U256::from(3000 + i))
+                    .collect::<Vec<_>>(),
+            ),
         }
     }
 }
@@ -163,7 +227,11 @@ impl TestState {
         .build_storage()
         .unwrap()
         .into();
-        ext.execute_with(|| System::set_block_number(self.block_number));
+        ext.execute_with(|| {
+            System::set_block_number(self.block_number);
+            set_next_economic_collective(self.economic_collective.to_vec());
+            set_next_building_collective(self.building_collective.to_vec());
+        });
         ext
     }
 
@@ -186,4 +254,8 @@ pub(crate) fn last_n_events(n: usize) -> Vec<RuntimeEvent> {
         .rev()
         .map(|e| e.event)
         .collect()
+}
+
+pub(crate) fn run_to_block(n: BlockNumberFor<Test>) {
+    System::run_to_block::<AllPalletsWithSystem>(n);
 }

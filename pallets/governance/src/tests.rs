@@ -393,6 +393,7 @@ fn propose_works_with_inline_preimage() {
         let length_bound = proposal.encoded_size() as u32;
 
         let proposal_index = ProposalCount::<Test>::get();
+        assert_eq!(proposal_index, 0);
         assert_ok!(Pallet::<Test>::propose(
             RuntimeOrigin::signed(U256::from(1)),
             proposal.clone(),
@@ -445,6 +446,7 @@ fn propose_works_with_lookup_preimage() {
         let length_bound = proposal.encoded_size() as u32;
 
         let proposal_index = ProposalCount::<Test>::get();
+        assert_eq!(proposal_index, 0);
         assert_ok!(Pallet::<Test>::propose(
             RuntimeOrigin::signed(U256::from(1)),
             proposal.clone(),
@@ -993,6 +995,88 @@ fn aye_vote_on_proposal_with_too_many_scheduled_fails() {
     });
 }
 
+#[test]
+fn collective_vote_from_non_collective_member_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_scheduled_proposal();
+
+        assert_noop!(
+            Pallet::<Test>::collective_vote(
+                RuntimeOrigin::signed(U256::from(2001)),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
+            Error::<Test>::NotCollectiveMember
+        );
+    });
+}
+
+#[test]
+fn collective_vote_on_non_scheduled_proposal_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal();
+
+        assert_noop!(
+            Pallet::<Test>::collective_vote(
+                RuntimeOrigin::signed(U256::from(2001)),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
+            Error::<Test>::NotCollectiveMember
+        );
+    });
+}
+
+#[test]
+fn collective_rotation_works() {
+    TestState::default().build_and_execute(|| {
+        let next_economic_collective = (1..=ECONOMIC_COLLECTIVE_SIZE)
+            .map(|i| U256::from(4000 + i))
+            .collect::<Vec<_>>();
+        let next_building_collective = (1..=BUILDING_COLLECTIVE_SIZE)
+            .map(|i| U256::from(5000 + i))
+            .collect::<Vec<_>>();
+        assert_eq!(EconomicCollective::<Test>::get().to_vec(), vec![]);
+        assert_eq!(BuildingCollective::<Test>::get().to_vec(), vec![]);
+
+        // Trigger the initial collective rotation given both are empty.
+        run_to_block(2);
+
+        assert_eq!(
+            EconomicCollective::<Test>::get().len(),
+            ECONOMIC_COLLECTIVE_SIZE as usize,
+        );
+        assert_ne!(
+            EconomicCollective::<Test>::get().to_vec(),
+            next_economic_collective
+        );
+        assert_eq!(
+            BuildingCollective::<Test>::get().len(),
+            BUILDING_COLLECTIVE_SIZE as usize,
+        );
+        assert_ne!(
+            BuildingCollective::<Test>::get().to_vec(),
+            next_building_collective
+        );
+
+        set_next_economic_collective(next_economic_collective.clone());
+        set_next_building_collective(next_building_collective.clone());
+
+        run_to_block(CollectiveRotationPeriod::get());
+
+        assert_eq!(
+            EconomicCollective::<Test>::get().to_vec(),
+            next_economic_collective
+        );
+        assert_eq!(
+            BuildingCollective::<Test>::get().to_vec(),
+            next_building_collective
+        );
+    });
+}
+
 fn create_custom_proposal(
     proposer: U256,
     call: impl Into<LocalCallOf<Test>>,
@@ -1018,6 +1102,14 @@ fn create_proposal() -> (<mock::Test as frame_system::Config>::Hash, u32) {
             items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
         },
     )
+}
+
+fn create_scheduled_proposal() -> (<mock::Test as frame_system::Config>::Hash, u32) {
+    let (proposal_hash, proposal_index) = create_proposal();
+    vote_aye(U256::from(1001), proposal_hash, proposal_index);
+    vote_aye(U256::from(1002), proposal_hash, proposal_index);
+
+    (proposal_hash, proposal_index)
 }
 
 fn vote_aye(

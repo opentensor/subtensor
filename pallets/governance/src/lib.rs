@@ -12,7 +12,7 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
-use sp_runtime::{Saturating, traits::Hash};
+use sp_runtime::{Percent, Saturating, traits::Hash};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 use subtensor_macros::freeze_struct;
 
@@ -20,7 +20,11 @@ mod mock;
 mod tests;
 pub use pallet::*;
 
-const TRIUMVIRATE_SIZE: u32 = 3;
+/// WARNING: Any changes to these 3 constants require a migration to update the `BoundedVec` in storage
+/// for `Triumvirate`, `EconomicCollective`, or `BuildingCollective`.
+pub const TRIUMVIRATE_SIZE: u32 = 3;
+pub const ECONOMIC_COLLECTIVE_SIZE: u32 = 10;
+pub const BUILDING_COLLECTIVE_SIZE: u32 = 10;
 
 pub type CurrencyOf<T> = <T as Config>::Currency;
 
@@ -51,6 +55,42 @@ pub struct Votes<AccountId, BlockNumber> {
     nays: BoundedVec<AccountId, ConstU32<TRIUMVIRATE_SIZE>>,
     /// The hard end time of this vote.
     end: BlockNumber,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+// #[freeze_struct("58071fdbad8767b6")]
+pub struct CollectiveVotes<AccountId> {
+    /// The proposal's unique index.
+    index: ProposalIndex,
+    /// The set of economic collective members that approved it.
+    economic_ayes: BoundedVec<AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>>,
+    /// The set of economic collective members that rejected it.
+    economic_nays: BoundedVec<AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>>,
+    /// The set of building collective members that approved it.
+    building_ayes: BoundedVec<AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>>,
+    /// The set of building collective members that rejected it.
+    building_nays: BoundedVec<AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>>,
+}
+
+#[derive(
+    PartialEq,
+    Eq,
+    Clone,
+    Encode,
+    Decode,
+    RuntimeDebug,
+    TypeInfo,
+    MaxEncodedLen,
+    DecodeWithMemTracking,
+)]
+pub enum CollectiveMember<AccountId> {
+    Economic(AccountId),
+    Building(AccountId),
+}
+
+pub trait CollectiveMembersProvider<T: Config> {
+    fn get_economic_collective() -> BoundedVec<T::AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>>;
+    fn get_building_collective() -> BoundedVec<T::AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>>;
 }
 
 #[frame_support::pallet]
@@ -94,6 +134,9 @@ pub mod pallet {
         /// Origin allowed to set triumvirate.
         type SetTriumvirateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+        /// The collective members provider.
+        type CollectiveMembersProvider: CollectiveMembersProvider<Self>;
+
         /// How many accounts allowed to submit proposals.
         #[pallet::constant]
         type MaxAllowedProposers: Get<u32>;
@@ -113,6 +156,22 @@ pub mod pallet {
         /// The duration of a motion.
         #[pallet::constant]
         type MotionDuration: Get<BlockNumberFor<Self>>;
+
+        /// Initial scheduling delay for proposal execution.
+        #[pallet::constant]
+        type InitialSchedulingDelay: Get<BlockNumberFor<Self>>;
+
+        /// Period of time between collective rotations.
+        #[pallet::constant]
+        type CollectiveRotationPeriod: Get<BlockNumberFor<Self>>;
+
+        /// Percentage threshold for a proposal to be cancelled by a collective vote.
+        #[pallet::constant]
+        type CancellationThreshold: Get<Percent>;
+
+        /// Percentage threshold for a proposal to be fast-tracked by a collective vote.
+        #[pallet::constant]
+        type FastTrackThreshold: Get<Percent>;
     }
 
     /// Accounts allowed to submit proposals.
@@ -147,6 +206,21 @@ pub mod pallet {
     #[pallet::storage]
     pub type Scheduled<T: Config> =
         StorageValue<_, BoundedVec<T::Hash, T::MaxScheduled>, ValueQuery>;
+
+    /// The economic collective members (top 20 validators by total stake).
+    #[pallet::storage]
+    pub type EconomicCollective<T: Config> =
+        StorageValue<_, BoundedVec<T::AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>>, ValueQuery>;
+
+    /// The building collective members (top 20 subnet owners by moving average price).
+    #[pallet::storage]
+    pub type BuildingCollective<T: Config> =
+        StorageValue<_, BoundedVec<T::AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>>, ValueQuery>;
+
+    /// Collective votes for a given proposal, if it is scheduled.
+    #[pallet::storage]
+    pub type CollectiveVoting<T: Config> =
+        StorageMap<_, Identity, T::Hash, CollectiveVotes<T::AccountId>, OptionQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -185,21 +259,25 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// The allowed proposers have been set.
         AllowedProposersSet {
             incoming: Vec<T::AccountId>,
             outgoing: Vec<T::AccountId>,
             removed_proposals: Vec<(T::AccountId, T::Hash)>,
         },
+        /// The triumvirate has been set.
         TriumvirateSet {
             incoming: Vec<T::AccountId>,
             outgoing: Vec<T::AccountId>,
         },
+        /// A proposal has been submitted.
         Proposed {
             account: T::AccountId,
             proposal_index: u32,
             proposal_hash: T::Hash,
             end: BlockNumberFor<T>,
         },
+        /// A triumvirate member has voted on a proposal.
         Voted {
             account: T::AccountId,
             proposal_hash: T::Hash,
@@ -207,12 +285,20 @@ pub mod pallet {
             yes: u32,
             no: u32,
         },
-        Scheduled {
+        /// A collective member has voted on a proposal.
+        CollectiveMemberVoted {
+            account: CollectiveMember<T::AccountId>,
             proposal_hash: T::Hash,
+            voted: bool,
+            economic_yes: u32,
+            economic_no: u32,
+            building_yes: u32,
+            building_no: u32,
         },
-        Cancelled {
-            proposal_hash: T::Hash,
-        },
+        /// A proposal has been scheduled for execution.
+        Scheduled { proposal_hash: T::Hash },
+        /// A proposal has been cancelled.
+        Cancelled { proposal_hash: T::Hash },
     }
 
     #[pallet::error]
@@ -253,10 +339,31 @@ pub mod pallet {
         InvalidProposalHashLength,
         /// Proposal is already scheduled.
         AlreadyScheduled,
+        /// Origin is not a collective member.
+        NotCollectiveMember,
+        /// Proposal is not scheduled.
+        ProposalNotScheduled,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+            let economic_collective = EconomicCollective::<T>::get();
+            let building_collective = BuildingCollective::<T>::get();
+            let is_first_run = economic_collective.is_empty() || building_collective.is_empty();
+            let must_rotate = n % T::CollectiveRotationPeriod::get() == Zero::zero();
+
+            if is_first_run || must_rotate {
+                Self::do_rotate_collectives();
+            }
+
+            Weight::zero()
+        }
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Set the allowed proposers.
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::zero())]
         pub fn set_allowed_proposers(
@@ -304,6 +411,7 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Set the triumvirate.
         #[pallet::call_index(1)]
         #[pallet::weight(Weight::zero())]
         pub fn set_triumvirate(
@@ -351,6 +459,7 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Propose a new proposal.
         #[pallet::call_index(2)]
         #[pallet::weight(Weight::zero())]
         pub fn propose(
@@ -358,12 +467,7 @@ pub mod pallet {
             proposal: Box<<T as Config>::RuntimeCall>,
             #[pallet::compact] length_bound: u32,
         ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-            let allowed_proposers = AllowedProposers::<T>::get();
-            ensure!(
-                allowed_proposers.contains(&who),
-                Error::<T>::NotAllowedProposer
-            );
+            let who = Self::ensure_allowed_proposer(origin)?;
 
             let proposal_len = proposal.encoded_size();
             ensure!(
@@ -417,6 +521,7 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Vote on a proposal as a triumvirate member.
         #[pallet::call_index(3)]
         #[pallet::weight(Weight::zero())]
         pub fn vote(
@@ -425,9 +530,7 @@ pub mod pallet {
             #[pallet::compact] proposal_index: ProposalIndex,
             approve: bool,
         ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-            let triumvirate = Triumvirate::<T>::get();
-            ensure!(triumvirate.contains(&who), Error::<T>::NotTriumvirateMember);
+            let who = Self::ensure_triumvirate_member(origin)?;
 
             let proposals = Proposals::<T>::get();
             ensure!(
@@ -453,6 +556,49 @@ pub mod pallet {
                 Self::do_schedule(proposal_hash)?;
             } else if no_votes >= 2 {
                 Self::do_cancel(proposal_hash)?;
+            }
+
+            Ok(())
+        }
+
+        /// Vote on a proposal as a collective member.
+        #[pallet::call_index(4)]
+        #[pallet::weight(Weight::zero())]
+        pub fn collective_vote(
+            origin: OriginFor<T>,
+            proposal_hash: T::Hash,
+            #[pallet::compact] proposal_index: ProposalIndex,
+            approve: bool,
+        ) -> DispatchResult {
+            let who = Self::ensure_collective_member(origin)?;
+
+            let scheduled = Scheduled::<T>::get();
+            ensure!(
+                scheduled.contains(&proposal_hash),
+                Error::<T>::ProposalNotScheduled
+            );
+
+            Self::do_collective_vote(&who, proposal_hash, proposal_index, approve)?;
+
+            let voting = CollectiveVoting::<T>::get(proposal_hash)
+                .ok_or(Error::<T>::ProposalNotScheduled)?;
+            let economic_yes_votes = voting.economic_ayes.len() as u32;
+            let economic_no_votes = voting.economic_nays.len() as u32;
+            let building_yes_votes = voting.building_ayes.len() as u32;
+            let building_no_votes = voting.building_nays.len() as u32;
+
+            Self::deposit_event(Event::<T>::CollectiveMemberVoted {
+                account: who,
+                proposal_hash,
+                voted: approve,
+                economic_yes: economic_yes_votes,
+                economic_no: economic_no_votes,
+                building_yes: building_yes_votes,
+                building_no: building_no_votes,
+            });
+
+            if economic_yes_votes >= 2 || building_yes_votes >= 2 {
+                Self::do_schedule(proposal_hash)?;
             }
 
             Ok(())
@@ -502,39 +648,75 @@ impl<T: Config> Pallet<T> {
             let voting = voting.as_mut().ok_or(Error::<T>::ProposalMissing)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
 
-            let has_yes_vote = voting.ayes.iter().any(|a| a == who);
-            let has_no_vote = voting.nays.iter().any(|a| a == who);
+            Self::do_vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
 
-            if approve {
-                if !has_yes_vote {
-                    voting
-                        .ayes
-                        .try_push(who.clone())
-                        // Unreachable because nobody can double vote.
-                        .map_err(|_| Error::<T>::TooManyVotes)?;
-                } else {
-                    return Err(Error::<T>::DuplicateVote.into());
-                }
-                if has_no_vote {
-                    voting.nays.retain(|a| a != who);
-                }
-            } else {
-                if !has_no_vote {
-                    voting
-                        .nays
-                        .try_push(who.clone())
-                        // Unreachable because nobody can double vote.
-                        .map_err(|_| Error::<T>::TooManyVotes)?;
-                } else {
-                    return Err(Error::<T>::DuplicateVote.into());
-                }
-                if has_yes_vote {
-                    voting.ayes.retain(|a| a != who);
-                }
+            Ok(())
+        })
+    }
+
+    fn do_collective_vote(
+        who: &CollectiveMember<T::AccountId>,
+        proposal_hash: T::Hash,
+        index: ProposalIndex,
+        approve: bool,
+    ) -> DispatchResult {
+        CollectiveVoting::<T>::try_mutate(proposal_hash, |voting| -> DispatchResult {
+            let voting = voting.as_mut().ok_or(Error::<T>::ProposalNotScheduled)?;
+            ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
+
+            match who {
+                CollectiveMember::Economic(who) => Self::do_vote_inner(
+                    who,
+                    approve,
+                    &mut voting.economic_ayes,
+                    &mut voting.economic_nays,
+                )?,
+                CollectiveMember::Building(who) => Self::do_vote_inner(
+                    who,
+                    approve,
+                    &mut voting.building_ayes,
+                    &mut voting.building_nays,
+                )?,
             }
 
             Ok(())
         })
+    }
+
+    fn do_vote_inner<N: Get<u32>>(
+        who: &T::AccountId,
+        approve: bool,
+        ayes: &mut BoundedVec<T::AccountId, N>,
+        nays: &mut BoundedVec<T::AccountId, N>,
+    ) -> DispatchResult {
+        let has_yes_vote = ayes.iter().any(|a| a == who);
+        let has_no_vote = nays.iter().any(|a| a == who);
+
+        if approve {
+            if !has_yes_vote {
+                ayes.try_push(who.clone())
+                    // Unreachable because nobody can double vote.
+                    .map_err(|_| Error::<T>::TooManyVotes)?;
+            } else {
+                return Err(Error::<T>::DuplicateVote.into());
+            }
+            if has_no_vote {
+                nays.retain(|a| a != who);
+            }
+        } else {
+            if !has_no_vote {
+                nays.try_push(who.clone())
+                    // Unreachable because nobody can double vote.
+                    .map_err(|_| Error::<T>::TooManyVotes)?;
+            } else {
+                return Err(Error::<T>::DuplicateVote.into());
+            }
+            if has_yes_vote {
+                ayes.retain(|a| a != who);
+            }
+        }
+
+        Ok(())
     }
 
     fn do_schedule(proposal_hash: T::Hash) -> DispatchResult {
@@ -550,7 +732,7 @@ impl<T: Config> Pallet<T> {
                 .try_into()
                 // Unreachable because we expect the hash to be 32 bytes.
                 .map_err(|_| Error::<T>::InvalidProposalHashLength)?,
-            DispatchTime::At(now + T::MotionDuration::get()),
+            DispatchTime::At(now + T::InitialSchedulingDelay::get()),
             None,
             Priority::default(),
             RawOrigin::Root.into(),
@@ -575,5 +757,45 @@ impl<T: Config> Pallet<T> {
         });
         ProposalOf::<T>::remove(&proposal_hash);
         Voting::<T>::remove(&proposal_hash);
+    }
+
+    fn do_rotate_collectives() {
+        let economic_collective_members = T::CollectiveMembersProvider::get_economic_collective();
+        let building_collective_members = T::CollectiveMembersProvider::get_building_collective();
+        EconomicCollective::<T>::put(economic_collective_members);
+        BuildingCollective::<T>::put(building_collective_members);
+    }
+
+    fn ensure_allowed_proposer(origin: OriginFor<T>) -> Result<T::AccountId, DispatchError> {
+        let who = ensure_signed(origin)?;
+        let allowed_proposers = AllowedProposers::<T>::get();
+        ensure!(
+            allowed_proposers.contains(&who),
+            Error::<T>::NotAllowedProposer
+        );
+        Ok(who)
+    }
+
+    fn ensure_triumvirate_member(origin: OriginFor<T>) -> Result<T::AccountId, DispatchError> {
+        let who = ensure_signed(origin)?;
+        let triumvirate = Triumvirate::<T>::get();
+        ensure!(triumvirate.contains(&who), Error::<T>::NotTriumvirateMember);
+        Ok(who)
+    }
+
+    fn ensure_collective_member(
+        origin: OriginFor<T>,
+    ) -> Result<CollectiveMember<T::AccountId>, DispatchError> {
+        let who = ensure_signed(origin)?;
+        let economic_collective = EconomicCollective::<T>::get();
+        let building_collective = BuildingCollective::<T>::get();
+
+        if economic_collective.contains(&who) {
+            Ok(CollectiveMember::Economic(who))
+        } else if building_collective.contains(&who) {
+            Ok(CollectiveMember::Building(who))
+        } else {
+            Err(Error::<T>::NotCollectiveMember.into())
+        }
     }
 }
