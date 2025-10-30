@@ -8,6 +8,7 @@ use frame_support::{
     },
     traits::{ConstU16, ConstU32, ConstU64, Everything},
 };
+use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_io::TestExternalities;
 use sp_std::vec::Vec;
@@ -59,8 +60,11 @@ pub struct TestContextResolver;
 impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, LimitContext>
     for TestContextResolver
 {
-    fn context(_call: &RuntimeCall) -> Option<LimitContext> {
-        None
+    fn context(call: &RuntimeCall) -> Option<LimitContext> {
+        match call {
+            RuntimeCall::RateLimiting(_) => Some(1),
+            _ => None,
+        }
     }
 }
 
@@ -68,6 +72,7 @@ impl pallet_rate_limiting::Config for Test {
     type RuntimeCall = RuntimeCall;
     type LimitContext = LimitContext;
     type ContextResolver = TestContextResolver;
+    type AdminOrigin = EnsureRoot<Self::AccountId>;
     #[cfg(feature = "runtime-benchmarks")]
     type BenchmarkHelper = BenchHelper;
 }

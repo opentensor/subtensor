@@ -1,6 +1,7 @@
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-use crate::{DefaultLimit, LastSeen, Limits, RateLimit, mock::*, pallet::Error};
+use crate::{DefaultLimit, LastSeen, Limits, RateLimit, RateLimitKind, mock::*, pallet::Error};
 
 #[test]
 fn limit_for_call_names_returns_none_if_not_set() {
@@ -18,12 +19,12 @@ fn limit_for_call_names_returns_stored_limit() {
         let call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
         let identifier = identifier_for(&call);
-        Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(7));
+        Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(7)));
 
         let fetched =
             RateLimiting::limit_for_call_names("RateLimiting", "set_default_rate_limit", None)
                 .expect("limit should exist");
-        assert_eq!(fetched, RateLimit::Exact(7));
+        assert_eq!(fetched, RateLimitKind::Exact(7));
     });
 }
 
@@ -33,18 +34,20 @@ fn limit_for_call_names_prefers_context_specific_limit() {
         let call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
         let identifier = identifier_for(&call);
-        Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(3));
-        Limits::<Test, ()>::insert(identifier, Some(5), RateLimit::Exact(8));
+        Limits::<Test, ()>::insert(
+            identifier,
+            RateLimit::contextual_single(5u16, RateLimitKind::Exact(8)),
+        );
 
         let fetched =
             RateLimiting::limit_for_call_names("RateLimiting", "set_default_rate_limit", Some(5))
                 .expect("limit should exist");
-        assert_eq!(fetched, RateLimit::Exact(8));
+        assert_eq!(fetched, RateLimitKind::Exact(8));
 
-        let fallback =
+        assert!(
             RateLimiting::limit_for_call_names("RateLimiting", "set_default_rate_limit", Some(1))
-                .expect("limit should exist");
-        assert_eq!(fallback, RateLimit::Exact(3));
+                .is_none()
+        );
     });
 }
 
@@ -55,7 +58,7 @@ fn resolved_limit_for_call_names_resolves_default_value() {
         let call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
         let identifier = identifier_for(&call);
-        Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Default);
+        Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Default));
 
         let resolved = RateLimiting::resolved_limit_for_call_names(
             "RateLimiting",
@@ -73,8 +76,10 @@ fn resolved_limit_for_call_names_prefers_context_specific_value() {
         let call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
         let identifier = identifier_for(&call);
-        Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(4));
-        Limits::<Test, ()>::insert(identifier, Some(6), RateLimit::Exact(9));
+        let mut map = BTreeMap::new();
+        map.insert(6u16, RateLimitKind::Exact(9));
+        map.insert(2u16, RateLimitKind::Exact(4));
+        Limits::<Test, ()>::insert(identifier, RateLimit::Contextual(map));
 
         let resolved = RateLimiting::resolved_limit_for_call_names(
             "RateLimiting",
@@ -84,13 +89,14 @@ fn resolved_limit_for_call_names_prefers_context_specific_value() {
         .expect("resolved limit");
         assert_eq!(resolved, 9);
 
-        let fallback = RateLimiting::resolved_limit_for_call_names(
-            "RateLimiting",
-            "set_default_rate_limit",
-            Some(1),
-        )
-        .expect("resolved limit");
-        assert_eq!(fallback, 4);
+        assert!(
+            RateLimiting::resolved_limit_for_call_names(
+                "RateLimiting",
+                "set_default_rate_limit",
+                Some(1),
+            )
+            .is_none()
+        );
     });
 }
 
@@ -126,7 +132,10 @@ fn is_within_limit_false_when_rate_limited() {
         let call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
         let identifier = identifier_for(&call);
-        Limits::<Test, ()>::insert(identifier, Some(1 as LimitContext), RateLimit::Exact(5));
+        Limits::<Test, ()>::insert(
+            identifier,
+            RateLimit::contextual_single(1 as LimitContext, RateLimitKind::Exact(5)),
+        );
         LastSeen::<Test, ()>::insert(identifier, Some(1 as LimitContext), 9);
 
         System::set_block_number(13);
@@ -143,7 +152,10 @@ fn is_within_limit_true_after_required_span() {
         let call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
         let identifier = identifier_for(&call);
-        Limits::<Test, ()>::insert(identifier, Some(2 as LimitContext), RateLimit::Exact(5));
+        Limits::<Test, ()>::insert(
+            identifier,
+            RateLimit::contextual_single(2 as LimitContext, RateLimitKind::Exact(5)),
+        );
         LastSeen::<Test, ()>::insert(identifier, Some(2 as LimitContext), 10);
 
         System::set_block_number(20);
@@ -161,7 +173,7 @@ fn set_rate_limit_updates_storage_and_emits_event() {
 
         let target_call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
-        let limit = RateLimit::Exact(9);
+        let limit = RateLimitKind::Exact(9);
 
         assert_ok!(RateLimiting::set_rate_limit(
             RuntimeOrigin::root(),
@@ -172,8 +184,8 @@ fn set_rate_limit_updates_storage_and_emits_event() {
 
         let identifier = identifier_for(&target_call);
         assert_eq!(
-            Limits::<Test, ()>::get(identifier, None::<LimitContext>),
-            Some(limit)
+            Limits::<Test, ()>::get(identifier),
+            Some(RateLimit::global(limit))
         );
 
         match pop_last_event() {
@@ -204,19 +216,15 @@ fn set_rate_limit_supports_context_specific_limit() {
         assert_ok!(RateLimiting::set_rate_limit(
             RuntimeOrigin::root(),
             Box::new(target_call.clone()),
-            RateLimit::Exact(11),
-            context,
+            RateLimitKind::Exact(11),
+            context.clone(),
         ));
 
         let identifier = identifier_for(&target_call);
+        let config = Limits::<Test, ()>::get(identifier).expect("config stored");
         assert_eq!(
-            Limits::<Test, ()>::get(identifier, Some(7)),
-            Some(RateLimit::Exact(11))
-        );
-        // global remains untouched
-        assert_eq!(
-            Limits::<Test, ()>::get(identifier, None::<LimitContext>),
-            None
+            config.kind_for(context.as_ref()).copied(),
+            Some(RateLimitKind::Exact(11))
         );
     });
 }
@@ -231,7 +239,7 @@ fn set_rate_limit_requires_root() {
             RateLimiting::set_rate_limit(
                 RuntimeOrigin::signed(1),
                 Box::new(target_call),
-                RateLimit::Exact(1),
+                RateLimitKind::Exact(1),
                 None,
             ),
             BadOrigin
@@ -248,14 +256,14 @@ fn set_rate_limit_accepts_default_variant() {
         assert_ok!(RateLimiting::set_rate_limit(
             RuntimeOrigin::root(),
             Box::new(target_call.clone()),
-            RateLimit::Default,
+            RateLimitKind::Default,
             None,
         ));
 
         let identifier = identifier_for(&target_call);
         assert_eq!(
-            Limits::<Test, ()>::get(identifier, None::<LimitContext>),
-            Some(RateLimit::Default)
+            Limits::<Test, ()>::get(identifier),
+            Some(RateLimit::global(RateLimitKind::Default))
         );
     });
 }
@@ -268,7 +276,7 @@ fn clear_rate_limit_removes_entry_and_emits_event() {
         let target_call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
         let identifier = identifier_for(&target_call);
-        Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(4));
+        Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(4)));
 
         assert_ok!(RateLimiting::clear_rate_limit(
             RuntimeOrigin::root(),
@@ -276,10 +284,7 @@ fn clear_rate_limit_removes_entry_and_emits_event() {
             None,
         ));
 
-        assert_eq!(
-            Limits::<Test, ()>::get(identifier, None::<LimitContext>),
-            None
-        );
+        assert!(Limits::<Test, ()>::get(identifier).is_none());
 
         match pop_last_event() {
             RuntimeEvent::RateLimiting(crate::pallet::Event::RateLimitCleared {
@@ -319,8 +324,10 @@ fn clear_rate_limit_removes_only_selected_context() {
         let target_call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
         let identifier = identifier_for(&target_call);
-        Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(5));
-        Limits::<Test, ()>::insert(identifier, Some(9), RateLimit::Exact(7));
+        let mut map = BTreeMap::new();
+        map.insert(9u16, RateLimitKind::Exact(7));
+        map.insert(10u16, RateLimitKind::Exact(5));
+        Limits::<Test, ()>::insert(identifier, RateLimit::Contextual(map));
 
         assert_ok!(RateLimiting::clear_rate_limit(
             RuntimeOrigin::root(),
@@ -328,10 +335,11 @@ fn clear_rate_limit_removes_only_selected_context() {
             Some(9),
         ));
 
-        assert_eq!(Limits::<Test, ()>::get(identifier, Some(9u16)), None);
+        let config = Limits::<Test, ()>::get(identifier).expect("config remains");
+        assert!(config.kind_for(Some(&9u16)).is_none());
         assert_eq!(
-            Limits::<Test, ()>::get(identifier, None::<LimitContext>),
-            Some(RateLimit::Exact(5))
+            config.kind_for(Some(&10u16)).copied(),
+            Some(RateLimitKind::Exact(5))
         );
 
         match pop_last_event() {
@@ -345,6 +353,24 @@ fn clear_rate_limit_removes_only_selected_context() {
             }
             other => panic!("unexpected event: {:?}", other),
         }
+    });
+}
+
+#[test]
+fn set_rate_limit_rejects_unresolvable_context() {
+    new_test_ext().execute_with(|| {
+        let target_call =
+            RuntimeCall::System(frame_system::Call::<Test>::remark { remark: Vec::new() });
+
+        assert_noop!(
+            RateLimiting::set_rate_limit(
+                RuntimeOrigin::root(),
+                Box::new(target_call),
+                RateLimitKind::Exact(5),
+                Some(42),
+            ),
+            Error::<Test, ()>::ContextUnavailable
+        );
     });
 }
 

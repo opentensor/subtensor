@@ -6,24 +6,20 @@
 //!
 //! `pallet-rate-limiting` lets a runtime restrict how frequently particular calls can execute.
 //! Limits are stored on-chain, keyed by the call's pallet/variant pair. Each entry can specify an
-//! exact block span or defer to a configured default. The pallet exposes three roots-only
-//! extrinsics to manage this data:
+//! exact block span or defer to a configured default. The pallet exposes three extrinsics,
+//! restricted by [`Config::AdminOrigin`], to manage this data:
 //!
-//! - [`set_rate_limit`](pallet::Pallet::set_rate_limit): assign a limit to an extrinsic, either as
-//!   `RateLimit::Exact(blocks)` or `RateLimit::Default`. The optional context parameter lets you
-//!   scope the configuration to a particular subnet/key/account while keeping a global fallback.
+//! - [`set_rate_limit`](pallet::Pallet::set_rate_limit): assign a limit to an extrinsic by
+//!   supplying a [`RateLimitKind`] span and optionally a contextual identifier. When a contextual
+//!   span is stored, any previously configured global span is replaced.
 //! - [`clear_rate_limit`](pallet::Pallet::clear_rate_limit): remove a stored limit for the provided
-//!   context (or for the global entry when `None` is supplied).
+//!   scope (either the global entry when `None` is supplied, or a specific context).
 //! - [`set_default_rate_limit`](pallet::Pallet::set_default_rate_limit): set the global default
-//!   block span used by `RateLimit::Default` entries.
+//!   block span used by `RateLimitKind::Default` entries.
 //!
 //! The pallet also tracks the last block in which a rate-limited call was executed, per optional
 //! *context*. Context allows one limit definition (for example, “set weights”) to be enforced per
-//! subnet, account, or other grouping chosen by the runtime. The storage layout is:
-//!
-//! - [`Limits`](pallet::Limits): `TransactionIdentifier → RateLimit<BlockNumber>`
-//! - [`DefaultLimit`](pallet::DefaultLimit): `BlockNumber`
-//! - [`LastSeen`](pallet::LastSeen): `(TransactionIdentifier, Option<Context>) → BlockNumber`
+//! subnet, account, or other grouping chosen by the runtime.
 //!
 //! Each storage map is namespaced by pallet instance; runtimes can deploy multiple independent
 //! instances to manage distinct rate-limiting scopes.
@@ -74,6 +70,7 @@
 //!     type RuntimeCall = RuntimeCall;
 //!     type LimitContext = NetUid;
 //!     type ContextResolver = WeightsContextResolver;
+//!     type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 //! }
 //! ```
 
@@ -81,7 +78,7 @@
 pub use benchmarking::BenchmarkHelper;
 pub use pallet::*;
 pub use tx_extension::RateLimitTransactionExtension;
-pub use types::{RateLimit, RateLimitContextResolver, TransactionIdentifier};
+pub use types::{RateLimit, RateLimitContextResolver, RateLimitKind, TransactionIdentifier};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -100,26 +97,32 @@ pub mod pallet {
     use frame_support::{
         pallet_prelude::*,
         sp_runtime::traits::{Saturating, Zero},
-        traits::{BuildGenesisConfig, GetCallMetadata},
+        traits::{BuildGenesisConfig, EnsureOrigin, GetCallMetadata},
     };
-    use frame_system::{ensure_root, pallet_prelude::*};
+    use frame_system::pallet_prelude::*;
     use sp_std::{convert::TryFrom, marker::PhantomData, vec::Vec};
 
     #[cfg(feature = "runtime-benchmarks")]
     use crate::benchmarking::BenchmarkHelper as BenchmarkHelperTrait;
-    use crate::types::{RateLimit, RateLimitContextResolver, TransactionIdentifier};
+    use crate::types::{RateLimit, RateLimitContextResolver, RateLimitKind, TransactionIdentifier};
 
     /// Configuration trait for the rate limiting pallet.
     #[pallet::config]
-    pub trait Config<I: 'static = ()>: frame_system::Config {
+    pub trait Config<I: 'static = ()>: frame_system::Config
+    where
+        BlockNumberFor<Self>: MaybeSerializeDeserialize,
+    {
         /// The overarching runtime call type.
         type RuntimeCall: Parameter
             + Codec
             + GetCallMetadata
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
+        /// Origin permitted to configure rate limits.
+        type AdminOrigin: EnsureOrigin<OriginFor<Self>>;
+
         /// Context type used for contextual (per-group) rate limits.
-        type LimitContext: Parameter + Clone + PartialEq + Eq + MaybeSerializeDeserialize;
+        type LimitContext: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
 
         /// Resolves the context for a given runtime call.
         type ContextResolver: RateLimitContextResolver<<Self as Config<I>>::RuntimeCall, Self::LimitContext>;
@@ -129,16 +132,14 @@ pub mod pallet {
         type BenchmarkHelper: BenchmarkHelperTrait<<Self as Config<I>>::RuntimeCall>;
     }
 
-    /// Storage mapping from transaction identifier and optional context to its configured rate limit.
+    /// Storage mapping from transaction identifier to its configured rate limit.
     #[pallet::storage]
     #[pallet::getter(fn limits)]
-    pub type Limits<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+    pub type Limits<T: Config<I>, I: 'static = ()> = StorageMap<
         _,
         Blake2_128Concat,
         TransactionIdentifier,
-        Blake2_128Concat,
-        Option<<T as Config<I>>::LimitContext>,
-        RateLimit<BlockNumberFor<T>>,
+        RateLimit<<T as Config<I>>::LimitContext, BlockNumberFor<T>>,
         OptionQuery,
     >;
 
@@ -172,8 +173,8 @@ pub mod pallet {
             transaction: TransactionIdentifier,
             /// Context to which the limit applies, if any.
             context: Option<<T as Config<I>>::LimitContext>,
-            /// The new limit configuration applied to the transaction.
-            limit: RateLimit<BlockNumberFor<T>>,
+            /// The rate limit policy applied to the transaction.
+            limit: RateLimitKind<BlockNumberFor<T>>,
             /// Pallet name associated with the transaction.
             pallet: Vec<u8>,
             /// Extrinsic name associated with the transaction.
@@ -204,6 +205,8 @@ pub mod pallet {
         InvalidRuntimeCall,
         /// Attempted to remove a limit that is not present.
         MissingRateLimit,
+        /// Contextual configuration was requested but no context can be resolved for the call.
+        ContextUnavailable,
     }
 
     #[pallet::genesis_config]
@@ -212,7 +215,7 @@ pub mod pallet {
         pub limits: Vec<(
             TransactionIdentifier,
             Option<<T as Config<I>>::LimitContext>,
-            RateLimit<BlockNumberFor<T>>,
+            RateLimitKind<BlockNumberFor<T>>,
         )>,
     }
 
@@ -231,8 +234,19 @@ pub mod pallet {
         fn build(&self) {
             DefaultLimit::<T, I>::put(self.default_limit);
 
-            for (identifier, context, limit) in &self.limits {
-                Limits::<T, I>::insert(identifier, context.clone(), limit.clone());
+            for (identifier, context, kind) in &self.limits {
+                Limits::<T, I>::mutate(identifier, |entry| match context {
+                    None => {
+                        *entry = Some(RateLimit::global(*kind));
+                    }
+                    Some(ctx) => {
+                        if let Some(config) = entry {
+                            config.upsert_context(ctx.clone(), *kind);
+                        } else {
+                            *entry = Some(RateLimit::contextual_single(ctx.clone(), *kind));
+                        }
+                    }
+                });
             }
         }
     }
@@ -268,13 +282,11 @@ pub mod pallet {
             identifier: &TransactionIdentifier,
             context: &Option<<T as Config<I>>::LimitContext>,
         ) -> Option<BlockNumberFor<T>> {
-            let lookup = Limits::<T, I>::get(identifier, context).or_else(|| {
-                Limits::<T, I>::get(identifier, None::<<T as Config<I>>::LimitContext>)
-            });
-            let limit = lookup?;
-            Some(match limit {
-                RateLimit::Default => DefaultLimit::<T, I>::get(),
-                RateLimit::Exact(block_span) => block_span,
+            let config = Limits::<T, I>::get(identifier)?;
+            let kind = config.kind_for(context.as_ref())?;
+            Some(match *kind {
+                RateLimitKind::Default => DefaultLimit::<T, I>::get(),
+                RateLimitKind::Exact(block_span) => block_span,
             })
         }
 
@@ -283,11 +295,10 @@ pub mod pallet {
             pallet_name: &str,
             extrinsic_name: &str,
             context: Option<<T as Config<I>>::LimitContext>,
-        ) -> Option<RateLimit<BlockNumberFor<T>>> {
+        ) -> Option<RateLimitKind<BlockNumberFor<T>>> {
             let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
-            Limits::<T, I>::get(&identifier, context.clone()).or_else(|| {
-                Limits::<T, I>::get(&identifier, None::<<T as Config<I>>::LimitContext>)
-            })
+            Limits::<T, I>::get(&identifier)
+                .and_then(|config| config.kind_for(context.as_ref()).copied())
         }
 
         /// Returns the resolved block span for the specified pallet/extrinsic names, if any.
@@ -327,13 +338,28 @@ pub mod pallet {
         pub fn set_rate_limit(
             origin: OriginFor<T>,
             call: Box<<T as Config<I>>::RuntimeCall>,
-            limit: RateLimit<BlockNumberFor<T>>,
+            limit: RateLimitKind<BlockNumberFor<T>>,
             context: Option<<T as Config<I>>::LimitContext>,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            if context.is_some()
+                && <T as Config<I>>::ContextResolver::context(call.as_ref()).is_none()
+            {
+                return Err(Error::<T, I>::ContextUnavailable.into());
+            }
 
             let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
-            Limits::<T, I>::insert(&identifier, context.clone(), limit.clone());
+            let context_for_event = context.clone();
+
+            if let Some(ref ctx) = context {
+                Limits::<T, I>::mutate(&identifier, |slot| match slot {
+                    Some(config) => config.upsert_context(ctx.clone(), limit),
+                    None => *slot = Some(RateLimit::contextual_single(ctx.clone(), limit)),
+                });
+            } else {
+                Limits::<T, I>::insert(&identifier, RateLimit::global(limit));
+            }
 
             let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
             let pallet = Vec::from(pallet_name.as_bytes());
@@ -341,12 +367,11 @@ pub mod pallet {
 
             Self::deposit_event(Event::RateLimitSet {
                 transaction: identifier,
-                context,
+                context: context_for_event,
                 limit,
                 pallet,
                 extrinsic,
             });
-
             Ok(())
         }
 
@@ -362,7 +387,7 @@ pub mod pallet {
             call: Box<<T as Config<I>>::RuntimeCall>,
             context: Option<<T as Config<I>>::LimitContext>,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            T::AdminOrigin::ensure_origin(origin)?;
 
             let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
 
@@ -370,10 +395,28 @@ pub mod pallet {
             let pallet = Vec::from(pallet_name.as_bytes());
             let extrinsic = Vec::from(extrinsic_name.as_bytes());
 
-            ensure!(
-                Limits::<T, I>::take(&identifier, context.clone()).is_some(),
-                Error::<T, I>::MissingRateLimit
-            );
+            let mut removed = false;
+            Limits::<T, I>::mutate_exists(&identifier, |maybe_config| {
+                if let Some(config) = maybe_config {
+                    match (&context, config) {
+                        (None, _) => {
+                            removed = true;
+                            *maybe_config = None;
+                        }
+                        (Some(ctx), RateLimit::Contextual(map)) => {
+                            if map.remove(ctx).is_some() {
+                                removed = true;
+                                if map.is_empty() {
+                                    *maybe_config = None;
+                                }
+                            }
+                        }
+                        (Some(_), RateLimit::Global(_)) => {}
+                    }
+                }
+            });
+
+            ensure!(removed, Error::<T, I>::MissingRateLimit);
 
             Self::deposit_event(Event::RateLimitCleared {
                 transaction: identifier,
@@ -392,7 +435,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             block_span: BlockNumberFor<T>,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            T::AdminOrigin::ensure_origin(origin)?;
 
             DefaultLimit::<T, I>::put(block_span);
 

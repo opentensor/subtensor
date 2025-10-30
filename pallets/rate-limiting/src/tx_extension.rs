@@ -171,7 +171,10 @@ mod tests {
         transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidityError},
     };
 
-    use crate::{LastSeen, Limits, RateLimit, types::TransactionIdentifier};
+    use crate::{
+        LastSeen, Limits,
+        types::{RateLimit, RateLimitKind, TransactionIdentifier},
+    };
 
     use super::*;
     use crate::mock::*;
@@ -250,7 +253,7 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(5));
+            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(5)));
 
             System::set_block_number(10);
 
@@ -288,7 +291,7 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(5));
+            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(5)));
             LastSeen::<Test, ()>::insert(identifier, None::<LimitContext>, 20);
 
             System::set_block_number(22);
@@ -310,7 +313,7 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test, ()>::insert(identifier, None::<LimitContext>, RateLimit::Exact(0));
+            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(0)));
 
             System::set_block_number(30);
 

@@ -1,6 +1,7 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::DispatchError, traits::GetCallMetadata};
 use scale_info::TypeInfo;
+use sp_std::collections::btree_map::BTreeMap;
 
 /// Resolves the optional context within which a rate limit applies.
 pub trait RateLimitContextResolver<Call, Context> {
@@ -79,7 +80,7 @@ impl TransactionIdentifier {
     }
 }
 
-/// Configuration value for a rate limit.
+/// Policy describing the block span enforced by a rate limit.
 #[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
 #[derive(
     Clone,
@@ -93,11 +94,82 @@ impl TransactionIdentifier {
     MaxEncodedLen,
     Debug,
 )]
-pub enum RateLimit<BlockNumber> {
+pub enum RateLimitKind<BlockNumber> {
     /// Use the pallet-level default rate limit.
     Default,
     /// Apply an exact rate limit measured in blocks.
     Exact(BlockNumber),
+}
+
+/// Stored rate limit configuration for a transaction identifier.
+///
+/// The configuration is mutually exclusive: either the call is globally limited or it stores a set
+/// of per-context spans.
+#[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "std",
+    serde(
+        bound = "Context: Ord + serde::Serialize + serde::de::DeserializeOwned, BlockNumber: serde::Serialize + serde::de::DeserializeOwned"
+    )
+)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
+pub enum RateLimit<Context, BlockNumber> {
+    /// Global span applied to every invocation.
+    Global(RateLimitKind<BlockNumber>),
+    /// Per-context spans keyed by `Context`.
+    Contextual(BTreeMap<Context, RateLimitKind<BlockNumber>>),
+}
+
+impl<Context, BlockNumber> RateLimit<Context, BlockNumber>
+where
+    Context: Ord,
+{
+    /// Convenience helper to build a global configuration.
+    pub fn global(kind: RateLimitKind<BlockNumber>) -> Self {
+        Self::Global(kind)
+    }
+
+    /// Convenience helper to build a contextual configuration containing a single entry.
+    pub fn contextual_single(context: Context, kind: RateLimitKind<BlockNumber>) -> Self {
+        let mut map = BTreeMap::new();
+        map.insert(context, kind);
+        Self::Contextual(map)
+    }
+
+    /// Returns the span configured for the provided context, if any.
+    pub fn kind_for(&self, context: Option<&Context>) -> Option<&RateLimitKind<BlockNumber>> {
+        match self {
+            RateLimit::Global(kind) => Some(kind),
+            RateLimit::Contextual(map) => context.and_then(|ctx| map.get(ctx)),
+        }
+    }
+
+    /// Inserts or updates a contextual entry, converting from a global configuration if needed.
+    pub fn upsert_context(&mut self, context: Context, kind: RateLimitKind<BlockNumber>) {
+        match self {
+            RateLimit::Global(_) => {
+                let mut map = BTreeMap::new();
+                map.insert(context, kind);
+                *self = RateLimit::Contextual(map);
+            }
+            RateLimit::Contextual(map) => {
+                map.insert(context, kind);
+            }
+        }
+    }
+
+    /// Removes a contextual entry, returning whether one existed.
+    pub fn remove_context(&mut self, context: &Context) -> bool {
+        match self {
+            RateLimit::Global(_) => false,
+            RateLimit::Contextual(map) => map.remove(context).is_some(),
+        }
+    }
+
+    /// Returns true when the contextual configuration contains no entries.
+    pub fn is_contextual_empty(&self) -> bool {
+        matches!(self, RateLimit::Contextual(map) if map.is_empty())
+    }
 }
 
 #[cfg(test)]

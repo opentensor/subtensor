@@ -35,7 +35,7 @@ mod benchmarks {
     #[benchmark]
     fn set_rate_limit() {
         let call = sample_call::<T>();
-        let limit = RateLimit::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
+        let limit = RateLimitKind::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
         let identifier =
             TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("identifier");
 
@@ -43,25 +43,25 @@ mod benchmarks {
         _(RawOrigin::Root, call, limit.clone(), None);
 
         assert_eq!(
-            Limits::<T, ()>::get(&identifier, None::<<T as Config>::LimitContext>),
-            Some(limit)
+            Limits::<T, ()>::get(&identifier),
+            Some(RateLimit::global(limit))
         );
     }
 
     #[benchmark]
     fn clear_rate_limit() {
         let call = sample_call::<T>();
-        let limit = RateLimit::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
+        let limit = RateLimitKind::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
 
         // Pre-populate limit for benchmark call
         let identifier =
             TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("identifier");
-        Limits::<T, ()>::insert(identifier, None::<<T as Config>::LimitContext>, limit);
+        Limits::<T, ()>::insert(identifier, RateLimit::global(limit));
 
         #[extrinsic_call]
         _(RawOrigin::Root, call, None);
 
-        assert!(Limits::<T, ()>::get(identifier, None::<<T as Config>::LimitContext>).is_none());
+        assert!(Limits::<T, ()>::get(identifier).is_none());
     }
 
     #[benchmark]
