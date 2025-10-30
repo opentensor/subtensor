@@ -14,7 +14,7 @@ For general smart contract development on Subtensor, please refer to the officia
 - [ink! Getting Started Guide](https://use.ink/docs/v5/getting-started/setup)
 - [ink! Examples](https://github.com/use-ink/ink-examples/tree/v5.x.x)
 
-> [!NOTE]
+> [!WARNING]
 > ink! `>= 6.0` drops support for `pallet-contracts`, please use `ink < 6.0`.
 > See: https://github.com/use-ink/ink/releases/tag/v6.0.0-alpha
 
