@@ -183,8 +183,15 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        TriumvirateSet,
-        AllowedProposersSet,
+        AllowedProposersSet {
+            incoming: Vec<T::AccountId>,
+            outgoing: Vec<T::AccountId>,
+            removed_proposals: Vec<(T::AccountId, T::Hash)>,
+        },
+        TriumvirateSet {
+            incoming: Vec<T::AccountId>,
+            outgoing: Vec<T::AccountId>,
+        },
         Proposed {
             account: T::AccountId,
             proposal_index: u32,
@@ -270,17 +277,28 @@ pub mod pallet {
             let mut allowed_proposers = AllowedProposers::<T>::get().to_vec();
             allowed_proposers.sort();
             new_allowed_proposers.sort();
-            let (_incoming, _outgoing) =
+            let (incoming, outgoing) =
                 <() as ChangeMembers<T::AccountId>>::compute_members_diff_sorted(
-                    &allowed_proposers,
                     &new_allowed_proposers.to_vec(),
+                    &allowed_proposers,
                 );
 
-            // TODO: Cleanup proposals/votes from the allowed proposers.
+            // Remove proposals from the outgoing allowed proposers.
+            let mut removed_proposals = vec![];
+            for (proposer, proposal_hash) in Proposals::<T>::get() {
+                if outgoing.contains(&proposer) {
+                    Self::clear_proposal(proposal_hash);
+                    removed_proposals.push((proposer, proposal_hash));
+                }
+            }
 
             AllowedProposers::<T>::put(new_allowed_proposers);
 
-            Self::deposit_event(Event::<T>::AllowedProposersSet);
+            Self::deposit_event(Event::<T>::AllowedProposersSet {
+                incoming,
+                outgoing,
+                removed_proposals,
+            });
             Ok(())
         }
 
@@ -309,17 +327,25 @@ pub mod pallet {
             let mut triumvirate = Triumvirate::<T>::get().to_vec();
             triumvirate.sort();
             new_triumvirate.sort();
-            let (_incoming, _outgoing) =
+            let (incoming, outgoing) =
                 <() as ChangeMembers<T::AccountId>>::compute_members_diff_sorted(
-                    &triumvirate,
                     &new_triumvirate.to_vec(),
+                    &triumvirate,
                 );
 
-            // TODO: Cleanup proposals/votes from the triumvirate.
+            // Remove votes from the outgoing triumvirate members.
+            for (_proposer, proposal_hash) in Proposals::<T>::get() {
+                Voting::<T>::mutate(proposal_hash, |voting| {
+                    if let Some(voting) = voting.as_mut() {
+                        voting.ayes.retain(|a| !outgoing.contains(a));
+                        voting.nays.retain(|a| !outgoing.contains(a));
+                    }
+                });
+            }
 
             Triumvirate::<T>::put(new_triumvirate);
 
-            Self::deposit_event(Event::<T>::TriumvirateSet);
+            Self::deposit_event(Event::<T>::TriumvirateSet { incoming, outgoing });
             Ok(())
         }
 

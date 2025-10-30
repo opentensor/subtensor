@@ -113,9 +113,71 @@ fn set_allowed_proposers_works() {
             );
             assert_eq!(
                 last_event(),
-                RuntimeEvent::Governance(Event::<Test>::AllowedProposersSet)
+                RuntimeEvent::Governance(Event::<Test>::AllowedProposersSet {
+                    incoming: vec![
+                        U256::from(1),
+                        U256::from(2),
+                        U256::from(3),
+                        U256::from(4),
+                        U256::from(5)
+                    ],
+                    outgoing: vec![],
+                    removed_proposals: vec![],
+                })
             );
         });
+}
+
+#[test]
+fn set_allowed_proposers_removes_proposals_of_outgoing_proposers() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash1, _proposal_index1) = create_custom_proposal(
+            U256::from(1),
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 1i32.to_be_bytes().to_vec())],
+            },
+        );
+        let (proposal_hash2, _proposal_index2) = create_custom_proposal(
+            U256::from(1),
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 2i32.to_be_bytes().to_vec())],
+            },
+        );
+        let (proposal_hash3, _proposal_index3) = create_custom_proposal(
+            U256::from(3),
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 3i32.to_be_bytes().to_vec())],
+            },
+        );
+        assert_eq!(
+            AllowedProposers::<Test>::get(),
+            vec![U256::from(1), U256::from(2), U256::from(3)]
+        );
+
+        let allowed_proposers =
+            BoundedVec::truncate_from(vec![U256::from(2), U256::from(3), U256::from(4)]);
+        assert_ok!(Pallet::<Test>::set_allowed_proposers(
+            RuntimeOrigin::root(),
+            allowed_proposers.clone()
+        ));
+
+        assert_eq!(AllowedProposers::<Test>::get(), allowed_proposers);
+        assert_eq!(
+            Proposals::<Test>::get(),
+            vec![(U256::from(3), proposal_hash3)]
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::AllowedProposersSet {
+                incoming: vec![U256::from(4)],
+                outgoing: vec![U256::from(1)],
+                removed_proposals: vec![
+                    (U256::from(1), proposal_hash1),
+                    (U256::from(1), proposal_hash2)
+                ],
+            })
+        );
+    });
 }
 
 #[test]
@@ -197,9 +259,72 @@ fn set_triumvirate_works() {
             );
             assert_eq!(
                 last_event(),
-                RuntimeEvent::Governance(Event::<Test>::TriumvirateSet)
+                RuntimeEvent::Governance(Event::<Test>::TriumvirateSet {
+                    incoming: vec![U256::from(1001), U256::from(1002), U256::from(1003)],
+                    outgoing: vec![],
+                })
             );
         });
+}
+
+#[test]
+fn set_triumvirate_removes_votes_of_outgoing_triumvirate_members() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash1, proposal_index1) = create_custom_proposal(
+            U256::from(1),
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 1i32.to_be_bytes().to_vec())],
+            },
+        );
+        let (proposal_hash2, proposal_index2) = create_custom_proposal(
+            U256::from(2),
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 2i32.to_be_bytes().to_vec())],
+            },
+        );
+        let (proposal_hash3, proposal_index3) = create_custom_proposal(
+            U256::from(3),
+            frame_system::Call::<Test>::set_storage {
+                items: vec![(b"Foobar".to_vec(), 3i32.to_be_bytes().to_vec())],
+            },
+        );
+        assert_eq!(
+            Triumvirate::<Test>::get(),
+            vec![U256::from(1001), U256::from(1002), U256::from(1003)]
+        );
+
+        vote_aye(U256::from(1001), proposal_hash1, proposal_index1);
+
+        vote_nay(U256::from(1002), proposal_hash2, proposal_index2);
+        vote_aye(U256::from(1003), proposal_hash2, proposal_index2);
+
+        vote_nay(U256::from(1001), proposal_hash3, proposal_index3);
+        vote_aye(U256::from(1002), proposal_hash3, proposal_index3);
+
+        let triumvirate =
+            BoundedVec::truncate_from(vec![U256::from(1001), U256::from(1003), U256::from(1004)]);
+        assert_ok!(Pallet::<Test>::set_triumvirate(
+            RuntimeOrigin::root(),
+            triumvirate.clone()
+        ));
+        assert_eq!(Triumvirate::<Test>::get(), triumvirate);
+        let voting1 = Voting::<Test>::get(proposal_hash1).unwrap();
+        assert_eq!(voting1.ayes.to_vec(), vec![U256::from(1001)]);
+        assert_eq!(voting1.nays.to_vec(), vec![]);
+        let voting2 = Voting::<Test>::get(proposal_hash2).unwrap();
+        assert_eq!(voting2.ayes.to_vec(), vec![U256::from(1003)]);
+        assert_eq!(voting2.nays.to_vec(), vec![]);
+        let voting3 = Voting::<Test>::get(proposal_hash3).unwrap();
+        assert_eq!(voting3.ayes.to_vec(), vec![]);
+        assert_eq!(voting3.nays.to_vec(), vec![U256::from(1001)]);
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::TriumvirateSet {
+                incoming: vec![U256::from(1004)],
+                outgoing: vec![U256::from(1002)],
+            })
+        );
+    });
 }
 
 #[test]
@@ -843,10 +968,12 @@ fn aye_vote_on_proposal_with_too_many_scheduled_fails() {
     TestState::default().build_and_execute(|| {
         // We fill the scheduled proposals up to the maximum.
         for i in 0..MaxScheduled::get() {
-            let (proposal_hash, proposal_index) =
-                create_custom_proposal(frame_system::Call::<Test>::set_storage {
+            let (proposal_hash, proposal_index) = create_custom_proposal(
+                U256::from(1),
+                frame_system::Call::<Test>::set_storage {
                     items: vec![(b"Foobar".to_vec(), i.to_be_bytes().to_vec())],
-                });
+                },
+            );
             vote_aye(U256::from(1001), proposal_hash, proposal_index);
             vote_aye(U256::from(1002), proposal_hash, proposal_index);
         }
@@ -867,6 +994,7 @@ fn aye_vote_on_proposal_with_too_many_scheduled_fails() {
 }
 
 fn create_custom_proposal(
+    proposer: U256,
     call: impl Into<LocalCallOf<Test>>,
 ) -> (<mock::Test as frame_system::Config>::Hash, u32) {
     let proposal = Box::new(call.into());
@@ -875,7 +1003,7 @@ fn create_custom_proposal(
     let proposal_index = ProposalCount::<Test>::get();
 
     assert_ok!(Pallet::<Test>::propose(
-        RuntimeOrigin::signed(U256::from(1)),
+        RuntimeOrigin::signed(proposer),
         proposal.clone(),
         length_bound
     ));
@@ -884,9 +1012,12 @@ fn create_custom_proposal(
 }
 
 fn create_proposal() -> (<mock::Test as frame_system::Config>::Hash, u32) {
-    create_custom_proposal(frame_system::Call::<Test>::set_storage {
-        items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
-    })
+    create_custom_proposal(
+        U256::from(1),
+        frame_system::Call::<Test>::set_storage {
+            items: vec![(b"Foobar".to_vec(), 42u32.to_be_bytes().to_vec())],
+        },
+    )
 }
 
 fn vote_aye(
