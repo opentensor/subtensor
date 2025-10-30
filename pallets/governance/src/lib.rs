@@ -14,6 +14,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_runtime::{Saturating, traits::Hash};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use subtensor_macros::freeze_struct;
 
 mod mock;
 mod tests;
@@ -40,6 +41,7 @@ pub type ScheduleAddressOf<T> =
 pub type ProposalIndex = u32;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[freeze_struct("4151e52425e670aa")]
 pub struct Votes<AccountId, BlockNumber> {
     /// The proposal's unique index.
     index: ProposalIndex,
