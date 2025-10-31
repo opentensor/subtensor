@@ -11,7 +11,7 @@ import fs from "fs"
 import { convertPublicKeyToSs58 } from "../src/address-utils";
 import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address, startCall } from "../src/subtensor";
 
-const bittensorWasmPath = "./bittensor/target/ink/bittensor.wasm"
+const bittensorWasmPath = "./bittensor.wasm"
 const bittensorBytecode = fs.readFileSync(bittensorWasmPath)
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
