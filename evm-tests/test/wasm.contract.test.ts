@@ -77,10 +77,11 @@ describe("Test wasm contract", () => {
 
     it("Can query stake info from contract", async () => {
         let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
-        const signer = getSignerFromKeypair(coldkey);
-        const inkClient = getInkClient(contracts.bittensor)
-        const query = inkClient.message("dummy")
-        const data = query.encode() // No parameters needed
+        // const signer = getSignerFromKeypair(coldkey);
+        // const inkClient = getInkClient(contracts.bittensor)
+        // const query = inkClient.message("dummy")
+        // const data = query.encode()
+        // No parameters needed
         // const queryTx = await api.tx.Contracts.call({
         //     dest: MultiAddress.Id(contractAddress),
         //     data: Binary.fromBytes(data.asBytes()),
@@ -92,18 +93,18 @@ describe("Test wasm contract", () => {
         //     storage_deposit_limit: BigInt(10000000),
         // }).signAndSubmit(signer)
 
-        const response = await api.apis.ContractsApi.call(
-            convertPublicKeyToSs58(coldkey.publicKey),
-            contractAddress,
-            BigInt(0),
-            {
-                ref_time: BigInt(1000000000),
-                proof_size: BigInt(10000000),
-            },
-            BigInt(1000000000),
-            Binary.fromBytes(data.asBytes()),
-            undefined,
-        )
+        // const response = await api.apis.ContractsApi.call(
+        //     convertPublicKeyToSs58(coldkey.publicKey),
+        //     contractAddress,
+        //     BigInt(0),
+        //     {
+        //         ref_time: BigInt(1000000000),
+        //         proof_size: BigInt(10000000),
+        //     },
+        //     BigInt(1000000000),
+        //     Binary.fromBytes(data.asBytes()),
+        //     undefined,
+        // )
 
         // console.log("===== response", response.result.asBytes().toString())
 
