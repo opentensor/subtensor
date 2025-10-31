@@ -384,3 +384,18 @@ export async function disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api: T
     assert.equal(0, await api.query.SubtensorModule.AdminFreezeWindow.getValue())
     assert.equal(BigInt(0), await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue())
 }
+
+export async function sendWasmContractExtrinsic(api: TypedApi<typeof devnet>, coldkey: KeyPair, contractAddress: string, data: Binary) {
+    const signer = getSignerFromKeypair(coldkey)
+    const tx = await api.tx.Contracts.call({
+        value: BigInt(0),
+        dest: MultiAddress.Id(contractAddress),
+        data: Binary.fromBytes(data.asBytes()),
+        gas_limit: {
+            ref_time: BigInt(10000000000),
+            proof_size: BigInt(10000000),
+        },
+        storage_deposit_limit: BigInt(1000000000)
+    })
+    await waitForTransactionWithRetry(api, tx, signer)
+}   
