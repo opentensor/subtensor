@@ -1,4 +1,3 @@
-import * as assert from "assert";
 import { getDevnetApi, getAliceSigner, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { devnet, MultiAddress } from "@polkadot-api/descriptors";
 import { Binary, PolkadotSigner, TypedApi } from "polkadot-api";
