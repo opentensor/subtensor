@@ -381,6 +381,60 @@ fn clear_rate_limit_removes_only_selected_scope() {
 }
 
 #[test]
+fn clear_all_rate_limits_removes_entire_configuration() {
+    new_test_ext().execute_with(|| {
+        System::reset_events();
+
+        let target_call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&target_call);
+
+        let mut map = BTreeMap::new();
+        map.insert(3u16, RateLimitKind::Exact(6));
+        map.insert(4u16, RateLimitKind::Exact(7));
+        Limits::<Test, ()>::insert(identifier, RateLimit::Scoped(map));
+
+        LastSeen::<Test, ()>::insert(identifier, Some(3u16), 11);
+        LastSeen::<Test, ()>::insert(identifier, None::<UsageKey>, 12);
+
+        assert_ok!(RateLimiting::clear_all_rate_limits(
+            RuntimeOrigin::root(),
+            Box::new(target_call.clone()),
+        ));
+
+        assert!(Limits::<Test, ()>::get(identifier).is_none());
+        assert!(LastSeen::<Test, ()>::get(identifier, Some(3u16)).is_none());
+        assert!(LastSeen::<Test, ()>::get(identifier, None::<UsageKey>).is_none());
+
+        match pop_last_event() {
+            RuntimeEvent::RateLimiting(crate::pallet::Event::AllRateLimitsCleared {
+                transaction,
+                pallet,
+                extrinsic,
+            }) => {
+                assert_eq!(transaction, identifier);
+                assert_eq!(pallet, b"RateLimiting".to_vec());
+                assert_eq!(extrinsic, b"set_default_rate_limit".to_vec());
+            }
+            other => panic!("unexpected event: {:?}", other),
+        }
+    });
+}
+
+#[test]
+fn clear_all_rate_limits_fails_when_missing() {
+    new_test_ext().execute_with(|| {
+        let target_call =
+            RuntimeCall::System(frame_system::Call::<Test>::remark { remark: Vec::new() });
+
+        assert_noop!(
+            RateLimiting::clear_all_rate_limits(RuntimeOrigin::root(), Box::new(target_call)),
+            Error::<Test, ()>::MissingRateLimit
+        );
+    });
+}
+
+#[test]
 fn set_default_rate_limit_updates_storage_and_emits_event() {
     new_test_ext().execute_with(|| {
         System::reset_events();

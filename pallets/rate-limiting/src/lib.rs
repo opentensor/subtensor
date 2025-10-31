@@ -224,6 +224,15 @@ pub mod pallet {
             /// Extrinsic name associated with the transaction.
             extrinsic: Vec<u8>,
         },
+        /// All scoped and global rate limits for a call were cleared.
+        AllRateLimitsCleared {
+            /// Identifier of the affected transaction.
+            transaction: TransactionIdentifier,
+            /// Pallet name associated with the transaction.
+            pallet: Vec<u8>,
+            /// Extrinsic name associated with the transaction.
+            extrinsic: Vec<u8>,
+        },
         /// The default rate limit was set or updated.
         DefaultRateLimitSet {
             /// The new default limit expressed in blocks.
@@ -456,8 +465,41 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the default rate limit in blocks applied to calls configured to use it.
+        /// Clears every stored rate limit configuration for the given call, including scoped
+        /// entries.
+        ///
+        /// The supplied `call` is inspected to derive the pallet and extrinsic indices. All stored
+        /// scopes for that call, along with any associated usage tracking entries, are removed when
+        /// this extrinsic succeeds.
         #[pallet::call_index(2)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+        pub fn clear_all_rate_limits(
+            origin: OriginFor<T>,
+            call: Box<<T as Config<I>>::RuntimeCall>,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
+            let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
+            let pallet = Vec::from(pallet_name.as_bytes());
+            let extrinsic = Vec::from(extrinsic_name.as_bytes());
+
+            let removed = Limits::<T, I>::take(&identifier).is_some();
+            ensure!(removed, Error::<T, I>::MissingRateLimit);
+
+            let _ = LastSeen::<T, I>::clear_prefix(&identifier, u32::MAX, None);
+
+            Self::deposit_event(Event::AllRateLimitsCleared {
+                transaction: identifier,
+                pallet,
+                extrinsic,
+            });
+
+            Ok(())
+        }
+
+        /// Sets the default rate limit in blocks applied to calls configured to use it.
+        #[pallet::call_index(3)]
         #[pallet::weight(T::DbWeight::get().writes(1))]
         pub fn set_default_rate_limit(
             origin: OriginFor<T>,

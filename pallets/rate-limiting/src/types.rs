@@ -189,7 +189,7 @@ mod tests {
         // System is the first pallet in the mock runtime, RateLimiting is second.
         assert_eq!(identifier.pallet_index, 1);
         // set_default_rate_limit has call_index 2.
-        assert_eq!(identifier.extrinsic_index, 2);
+        assert_eq!(identifier.extrinsic_index, 3);
     }
 
     #[test]
