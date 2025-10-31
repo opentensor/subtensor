@@ -61,7 +61,7 @@ pub type UsageKey = u16;
 pub struct TestScopeResolver;
 pub struct TestUsageResolver;
 
-impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, LimitScope> for TestScopeResolver {
+impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeCall, LimitScope> for TestScopeResolver {
     fn context(call: &RuntimeCall) -> Option<LimitScope> {
         match call {
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
@@ -71,9 +71,16 @@ impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, LimitScope> for
             _ => None,
         }
     }
+
+    fn should_bypass(call: &RuntimeCall) -> bool {
+        matches!(
+            call,
+            RuntimeCall::RateLimiting(RateLimitingCall::clear_rate_limit { .. })
+        )
+    }
 }
 
-impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, UsageKey> for TestUsageResolver {
+impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeCall, UsageKey> for TestUsageResolver {
     fn context(call: &RuntimeCall) -> Option<UsageKey> {
         match call {
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {

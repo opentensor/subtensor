@@ -17,7 +17,7 @@ use sp_std::{marker::PhantomData, result::Result};
 
 use crate::{
     Config, LastSeen, Pallet,
-    types::{RateLimitContextResolver, TransactionIdentifier},
+    types::{RateLimitScopeResolver, RateLimitUsageResolver, TransactionIdentifier},
 };
 
 /// Identifier returned in the transaction metadata for the rate limiting extension.
@@ -97,6 +97,10 @@ where
         _inherited_implication: &impl Implication,
         _source: TransactionSource,
     ) -> ValidateResult<Self::Val, <T as Config<I>>::RuntimeCall> {
+        if <T as Config<I>>::LimitScopeResolver::should_bypass(call) {
+            return Ok((ValidTransaction::default(), None, origin));
+        }
+
         let identifier = match TransactionIdentifier::from_call::<T, I>(call) {
             Ok(identifier) => identifier,
             Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
@@ -178,6 +182,12 @@ mod tests {
         RuntimeCall::System(frame_system::Call::<Test>::remark { remark: Vec::new() })
     }
 
+    fn bypass_call() -> RuntimeCall {
+        RuntimeCall::RateLimiting(RateLimitingCall::clear_rate_limit {
+            call: Box::new(remark_call()),
+        })
+    }
+
     fn new_tx_extension() -> RateLimitTransactionExtension<Test> {
         RateLimitTransactionExtension(Default::default())
     }
@@ -239,6 +249,27 @@ mod tests {
                 LastSeen::<Test, ()>::get(identifier, None::<UsageKey>),
                 None
             );
+        });
+    }
+
+    #[test]
+    fn tx_extension_honors_bypass_signal() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = bypass_call();
+
+            let (valid, val, _) =
+                validate_with_tx_extension(&extension, &call).expect("bypass should succeed");
+            assert_eq!(valid.priority, 0);
+            assert!(val.is_none());
+
+            let identifier = identifier_for(&call);
+            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(3)));
+            LastSeen::<Test, ()>::insert(identifier, None::<UsageKey>, 1);
+
+            let (_valid, post_val, _) =
+                validate_with_tx_extension(&extension, &call).expect("still bypassed");
+            assert!(post_val.is_none());
         });
     }
 

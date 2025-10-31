@@ -3,11 +3,25 @@ use frame_support::{pallet_prelude::DispatchError, traits::GetCallMetadata};
 use scale_info::TypeInfo;
 use sp_std::collections::btree_map::BTreeMap;
 
-/// Resolves the optional identifier within which a rate limit applies.
-pub trait RateLimitContextResolver<Call, Context> {
-    /// Returns `Some(context)` when the limit should be applied per-context, or `None` for global
-    /// limits.
-    fn context(call: &Call) -> Option<Context>;
+/// Resolves the optional identifier within which a rate limit applies and can optionally bypass
+/// enforcement.
+pub trait RateLimitScopeResolver<Call, Scope> {
+	/// Returns `Some(scope)` when the limit should be applied per-scope, or `None` for global
+	/// limits.
+    fn context(call: &Call) -> Option<Scope>;
+
+	/// Returns `true` when the rate limit should be bypassed for the provided call. Defaults to
+	/// `false`.
+    fn should_bypass(_call: &Call) -> bool {
+        false
+    }
+}
+
+/// Resolves the optional usage tracking key applied when enforcing limits.
+pub trait RateLimitUsageResolver<Call, Usage> {
+	/// Returns `Some(usage)` when usage should be tracked per-key, or `None` for global usage
+	/// tracking.
+    fn context(call: &Call) -> Option<Usage>;
 }
 
 /// Identifies a runtime call by pallet and extrinsic indices.

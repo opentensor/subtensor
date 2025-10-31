@@ -45,7 +45,7 @@
 //!
 //! # Context resolvers
 //!
-//! The pallet relies on two resolvers, both implementing [`RateLimitContextResolver`]:
+//! The pallet relies on two resolvers:
 //!
 //! - [`Config::LimitScopeResolver`], which determines how limits are stored (for example by
 //!   returning a `netuid`). When this resolver returns `None`, the configuration is stored as a
@@ -63,7 +63,7 @@
 //!
 //! // Limits are scoped per netuid.
 //! pub struct ScopeResolver;
-//! impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, NetUid> for ScopeResolver {
+//! impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeCall, NetUid> for ScopeResolver {
 //!     fn context(call: &RuntimeCall) -> Option<NetUid> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_weights { netuid, .. }) => {
@@ -76,9 +76,8 @@
 //!
 //! // Usage tracking distinguishes hyperparameter + netuid.
 //! pub struct UsageResolver;
-//! impl pallet_rate_limiting::RateLimitContextResolver<RuntimeCall, (NetUid, HyperParam)>
-//!     for UsageResolver
-//! {
+//! impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeCall, (NetUid, HyperParam)>
+//!     for UsageResolver {
 //!     fn context(call: &RuntimeCall) -> Option<(NetUid, HyperParam)> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_hyperparam {
@@ -105,7 +104,9 @@
 pub use benchmarking::BenchmarkHelper;
 pub use pallet::*;
 pub use tx_extension::RateLimitTransactionExtension;
-pub use types::{RateLimit, RateLimitContextResolver, RateLimitKind, TransactionIdentifier};
+pub use types::{
+    RateLimit, RateLimitKind, RateLimitScopeResolver, RateLimitUsageResolver, TransactionIdentifier,
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -131,7 +132,10 @@ pub mod pallet {
 
     #[cfg(feature = "runtime-benchmarks")]
     use crate::benchmarking::BenchmarkHelper as BenchmarkHelperTrait;
-    use crate::types::{RateLimit, RateLimitContextResolver, RateLimitKind, TransactionIdentifier};
+    use crate::types::{
+        RateLimit, RateLimitKind, RateLimitScopeResolver, RateLimitUsageResolver,
+        TransactionIdentifier,
+    };
 
     /// Configuration trait for the rate limiting pallet.
     #[pallet::config]
@@ -152,13 +156,13 @@ pub mod pallet {
         type LimitScope: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
 
         /// Resolves the scope for the given runtime call when configuring limits.
-        type LimitScopeResolver: RateLimitContextResolver<<Self as Config<I>>::RuntimeCall, Self::LimitScope>;
+        type LimitScopeResolver: RateLimitScopeResolver<<Self as Config<I>>::RuntimeCall, Self::LimitScope>;
 
         /// Usage key tracked in [`LastSeen`] for rate-limited calls.
         type UsageKey: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
 
         /// Resolves the usage key for the given runtime call when enforcing limits.
-        type UsageResolver: RateLimitContextResolver<<Self as Config<I>>::RuntimeCall, Self::UsageKey>;
+        type UsageResolver: RateLimitUsageResolver<<Self as Config<I>>::RuntimeCall, Self::UsageKey>;
 
         /// Helper used to construct runtime calls for benchmarking.
         #[cfg(feature = "runtime-benchmarks")]
@@ -465,10 +469,7 @@ pub mod pallet {
                         LastSeen::<T, I>::remove(&identifier, Some(key));
                     }
                     (_, None) => {
-                        LastSeen::<T, I>::remove(
-                            &identifier,
-                            Option::<<T as Config<I>>::UsageKey>::None,
-                        );
+                        LastSeen::<T, I>::remove(&identifier, None::<<T as Config<I>>::UsageKey>);
                     }
                 }
             }
