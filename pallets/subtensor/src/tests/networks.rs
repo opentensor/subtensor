@@ -7,6 +7,7 @@ use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
+use sp_runtime::DispatchError;
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -65,6 +66,51 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
         // Balance should be unchanged (whatever the network-lock bookkeeping left there)
         assert_eq!(after, before);
         assert!(!SubtensorModule::if_subnet_exist(net));
+        assert!(!SubnetDeregistrationPriority::<Test>::contains_key(net));
+    });
+}
+
+#[test]
+fn clear_priority_by_root_resets_flag() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(11);
+        let hot = U256::from(22);
+        let net = add_dynamic_network(&hot, &cold);
+
+        SubnetDeregistrationPriority::<Test>::insert(net, true);
+        assert!(SubnetDeregistrationPriority::<Test>::get(net));
+
+        assert_ok!(SubtensorModule::clear_deregistration_priority(
+            RuntimeOrigin::root(),
+            net
+        ));
+
+        assert!(!SubnetDeregistrationPriority::<Test>::get(net));
+        assert!(!SubnetDeregistrationPriority::<Test>::contains_key(net));
+    });
+}
+
+#[test]
+fn clear_priority_requires_owner_or_root() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(13);
+        let owner_hot = U256::from(26);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        SubnetDeregistrationPriority::<Test>::insert(net, true);
+        let intruder = U256::from(999);
+
+        assert_err!(
+            SubtensorModule::clear_deregistration_priority(RuntimeOrigin::signed(intruder), net),
+            DispatchError::BadOrigin
+        );
+
+        assert_ok!(SubtensorModule::clear_deregistration_priority(
+            RuntimeOrigin::signed(owner_cold),
+            net
+        ));
+
+        assert!(!SubnetDeregistrationPriority::<Test>::get(net));
         assert!(!SubnetDeregistrationPriority::<Test>::contains_key(net));
     });
 }

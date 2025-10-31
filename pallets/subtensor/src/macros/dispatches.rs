@@ -2152,6 +2152,33 @@ mod dispatches {
             Ok(())
         }
 
+        /// Clears the deregistration priority flag for a subnet.
+        ///
+        /// Accessible by the subnet owner or root origin. This resets the flag used to force
+        /// deregistration ordering, allowing the network to fall back to price-based pruning.
+        ///
+        /// # Errors
+        /// * [`Error::SubnetNotExists`] if the subnet does not exist.
+        #[pallet::call_index(121)]
+        #[pallet::weight((
+            Weight::from_parts(20_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn clear_deregistration_priority(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            SubnetDeregistrationPriority::<T>::remove(netuid);
+
+            Self::deposit_event(Event::SubnetDeregistrationPriorityCleared(netuid));
+            Ok(())
+        }
+
         /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed.
         ///
         /// # Args:

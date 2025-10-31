@@ -13,6 +13,8 @@ mod events {
         NetworkAdded(NetUid, u16),
         /// a network is removed.
         NetworkRemoved(NetUid),
+        /// network deregistration priority flag cleared.
+        SubnetDeregistrationPriorityCleared(NetUid),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
         StakeAdded(
             T::AccountId,
