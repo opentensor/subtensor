@@ -204,22 +204,24 @@ impl<T: Config> Pallet<T> {
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
     pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
-        // 1. --- The network exists?
+        // --- The network exists?
         ensure!(
             Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,
             Error::<T>::SubnetNotExists
         );
 
-        // 2. --- Perform the cleanup before removing the network.
+        Self::finalize_all_subnet_root_dividends(netuid);
+
+        // --- Perform the cleanup before removing the network.
         T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
 
-        // 3. --- Remove the network
+        // --- Remove the network
         Self::remove_network(netuid);
 
-        // 4. --- Emit the NetworkRemoved event
+        // --- Emit the NetworkRemoved event
         log::info!("NetworkRemoved( netuid:{netuid:?} )");
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
@@ -313,8 +315,7 @@ impl<T: Config> Pallet<T> {
         // --- 15. Mechanism step / emissions bookkeeping.
         FirstEmissionBlockNumber::<T>::remove(netuid);
         PendingEmission::<T>::remove(netuid);
-        PendingRootDivs::<T>::remove(netuid);
-        PendingAlphaSwapped::<T>::remove(netuid);
+        PendingRootAlphaDivs::<T>::remove(netuid);
         PendingOwnerCut::<T>::remove(netuid);
         BlocksSinceLastStep::<T>::remove(netuid);
         LastMechansimStepBlock::<T>::remove(netuid);
@@ -347,6 +348,7 @@ impl<T: Config> Pallet<T> {
         RAORecycledForRegistration::<T>::remove(netuid);
         MaxRegistrationsPerBlock::<T>::remove(netuid);
         WeightsVersionKey::<T>::remove(netuid);
+        PendingRootAlphaDivs::<T>::remove(netuid);
 
         // --- 17. Subtoken / feature flags.
         LiquidAlphaOn::<T>::remove(netuid);
@@ -365,7 +367,6 @@ impl<T: Config> Pallet<T> {
         let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 
