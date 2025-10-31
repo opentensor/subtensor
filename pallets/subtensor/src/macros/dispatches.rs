@@ -2314,6 +2314,17 @@ mod dispatches {
             Self::do_dissolve_network(netuid)
         }
 
+        /// Remove a subnetwork fast
+        /// The caller must be root
+        #[pallet::call_index(126)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn root_dissolve_network_fast(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::do_dissolve_network_fast(netuid)
+        }
+
         /// --- Claims the root emissions for a coldkey.
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
@@ -2418,6 +2429,21 @@ mod dispatches {
             );
 
             RootClaimableThreshold::<T>::set(netuid, new_value.into());
+
+            Ok(())
+        }
+
+        /// Debug alpha entries to DebugAlpha storage
+        #[pallet::call_index(125)]
+        #[pallet::weight(Weight::zero())]
+        pub fn set_debug_alpha(origin: OriginFor<T>) -> DispatchResult {
+            ensure_root(origin)?;
+
+            log::info!("Starting to set debug alpha");
+            for ((hotkey, coldkey, netuid), alpha) in Alpha::<T>::iter() {
+                DebugAlpha::<T>::insert((netuid, hotkey, coldkey), alpha);
+            }
+            log::info!("Finished setting debug alpha");
 
             Ok(())
         }

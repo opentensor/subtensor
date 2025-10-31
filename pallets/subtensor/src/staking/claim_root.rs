@@ -417,4 +417,35 @@ impl<T: Config> Pallet<T> {
             });
         }
     }
+
+    pub fn finalize_all_subnet_root_dividends_fast(netuid: NetUid) {
+        let mut hotkeys_to_clear = BTreeSet::new();
+        for (hotkey, root_claimable) in RootClaimable::<T>::iter() {
+            if root_claimable.contains_key(&netuid) {
+                let alpha_values: Vec<(T::AccountId, U64F64)> =
+                    DebugAlpha::<T>::iter_prefix((&NetUid::ROOT, &hotkey)).collect();
+
+                for (coldkey, _) in alpha_values.into_iter() {
+                    Self::root_claim_on_subnet(
+                        &hotkey,
+                        &coldkey,
+                        netuid,
+                        RootClaimTypeEnum::Swap,
+                        true,
+                    );
+
+                    RootClaimed::<T>::remove((hotkey.clone(), coldkey, netuid));
+                    if !hotkeys_to_clear.contains(&hotkey) {
+                        hotkeys_to_clear.insert(hotkey.clone());
+                    }
+                }
+            }
+        }
+
+        for hotkey in hotkeys_to_clear.into_iter() {
+            RootClaimable::<T>::mutate(&hotkey, |claimable| {
+                claimable.remove(&netuid);
+            });
+        }
+    }
 }

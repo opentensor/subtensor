@@ -1267,6 +1267,18 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage]
+    pub type DebugAlpha<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Identity, NetUid>,               // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+        ),
+        U64F64, // Shares
+        ValueQuery,
+    >;
+
     #[pallet::storage] // Contains last Alpha storage map key to iterate (check first)
     pub type AlphaMapLastKey<T: Config> =
         StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;

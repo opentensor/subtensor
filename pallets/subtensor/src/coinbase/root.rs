@@ -204,13 +204,16 @@ impl<T: Config> Pallet<T> {
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
     pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
+        log::info!("Starting to dissolve network: {}", netuid);
         // --- The network exists?
         ensure!(
             Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,
             Error::<T>::SubnetNotExists
         );
 
+        log::info!("Starting to finalize all subnet root dividends");
         Self::finalize_all_subnet_root_dividends(netuid);
+        log::info!("Finished finalizing all subnet root dividends");
 
         // --- Perform the cleanup before removing the network.
         T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
@@ -225,6 +228,36 @@ impl<T: Config> Pallet<T> {
         log::info!("NetworkRemoved( netuid:{netuid:?} )");
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
+        log::info!("Finished dissolving network: {}", netuid);
+        Ok(())
+    }
+
+    pub fn do_dissolve_network_fast(netuid: NetUid) -> dispatch::DispatchResult {
+        log::info!("Starting to dissolve network: {}", netuid);
+        // --- The network exists?
+        ensure!(
+            Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,
+            Error::<T>::SubnetNotExists
+        );
+
+        log::info!("Starting to finalize all subnet root dividends");
+        Self::finalize_all_subnet_root_dividends_fast(netuid);
+        log::info!("Finished finalizing all subnet root dividends");
+
+        // --- Perform the cleanup before removing the network.
+        T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
+        Self::destroy_alpha_in_out_stakes(netuid)?;
+        T::SwapInterface::clear_protocol_liquidity(netuid)?;
+        T::CommitmentsInterface::purge_netuid(netuid);
+
+        // --- Remove the network
+        Self::remove_network(netuid);
+
+        // --- Emit the NetworkRemoved event
+        log::info!("NetworkRemoved( netuid:{netuid:?} )");
+        Self::deposit_event(Event::NetworkRemoved(netuid));
+
+        log::info!("Finished dissolving network: {}", netuid);
         Ok(())
     }
 
