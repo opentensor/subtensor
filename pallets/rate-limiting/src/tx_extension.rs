@@ -109,7 +109,7 @@ where
         let scope = <T as Config<I>>::LimitScopeResolver::context(call);
         let usage = <T as Config<I>>::UsageResolver::context(call);
 
-        let Some(block_span) = Pallet::<T, I>::resolved_limit(&identifier, &scope) else {
+        let Some(block_span) = Pallet::<T, I>::effective_span(call, &identifier, &scope) else {
             return Ok((ValidTransaction::default(), None, origin));
         };
 
@@ -117,8 +117,7 @@ where
             return Ok((ValidTransaction::default(), None, origin));
         }
 
-        let within_limit = Pallet::<T, I>::is_within_limit(&identifier, &scope, &usage)
-            .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+        let within_limit = Pallet::<T, I>::within_span(&identifier, &usage, block_span);
 
         if !within_limit {
             return Err(TransactionValidityError::Invalid(
@@ -184,6 +183,12 @@ mod tests {
 
     fn bypass_call() -> RuntimeCall {
         RuntimeCall::RateLimiting(RateLimitingCall::clear_rate_limit {
+            call: Box::new(remark_call()),
+        })
+    }
+
+    fn adjustable_call() -> RuntimeCall {
+        RuntimeCall::RateLimiting(RateLimitingCall::clear_all_rate_limits {
             call: Box::new(remark_call()),
         })
     }
@@ -270,6 +275,29 @@ mod tests {
             let (_valid, post_val, _) =
                 validate_with_tx_extension(&extension, &call).expect("still bypassed");
             assert!(post_val.is_none());
+        });
+    }
+
+    #[test]
+    fn tx_extension_applies_adjusted_span() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = adjustable_call();
+            let identifier = identifier_for(&call);
+            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(4)));
+            LastSeen::<Test, ()>::insert(identifier, Some(1u16), 10);
+
+            System::set_block_number(14);
+
+            // Stored span (4) would allow the call, but adjusted span (8) should block it.
+            let err = validate_with_tx_extension(&extension, &call)
+                .expect_err("adjusted span should apply");
+            match err {
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(code)) => {
+                    assert_eq!(code, RATE_LIMIT_DENIED);
+                }
+                other => panic!("unexpected error: {:?}", other),
+            }
         });
     }
 

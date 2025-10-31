@@ -121,7 +121,7 @@ fn is_within_limit_is_true_when_no_limit() {
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
         let identifier = identifier_for(&call);
 
-        let result = RateLimiting::is_within_limit(&identifier, &None, &None);
+        let result = RateLimiting::is_within_limit(&identifier, &None, &None, &call);
         assert_eq!(result.expect("no error expected"), true);
     });
 }
@@ -144,6 +144,7 @@ fn is_within_limit_false_when_rate_limited() {
             &identifier,
             &Some(1 as LimitScope),
             &Some(1 as UsageKey),
+            &call,
         )
         .expect("call succeeds");
         assert!(!within);
@@ -168,6 +169,7 @@ fn is_within_limit_true_after_required_span() {
             &identifier,
             &Some(2 as LimitScope),
             &Some(2 as UsageKey),
+            &call,
         )
         .expect("call succeeds");
         assert!(within);

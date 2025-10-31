@@ -48,8 +48,9 @@
 //! The pallet relies on two resolvers:
 //!
 //! - [`Config::LimitScopeResolver`], which determines how limits are stored (for example by
-//!   returning a `netuid`). When this resolver returns `None`, the configuration is stored as a
-//!   global fallback.
+//!   returning a `netuid`). The resolver can also signal that a call should bypass rate limiting or
+//!   adjust the effective span at validation time. When it returns `None`, the configuration is
+//!   stored as a global fallback.
 //! - [`Config::UsageResolver`], which decides how executions are tracked in
 //!   [`LastSeen`](pallet::LastSeen). This can refine the limit scope (for example by returning a
 //!   tuple of `(netuid, hyperparameter)`).
@@ -63,7 +64,7 @@
 //!
 //! // Limits are scoped per netuid.
 //! pub struct ScopeResolver;
-//! impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeCall, NetUid> for ScopeResolver {
+//! impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeCall, NetUid, BlockNumber> for ScopeResolver {
 //!     fn context(call: &RuntimeCall) -> Option<NetUid> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_weights { netuid, .. }) => {
@@ -72,12 +73,15 @@
 //!             _ => None,
 //!         }
 //!     }
+//!
+//!     fn adjust_span(_call: &RuntimeCall, span: BlockNumber) -> BlockNumber {
+//!         span
+//!     }
 //! }
 //!
 //! // Usage tracking distinguishes hyperparameter + netuid.
 //! pub struct UsageResolver;
-//! impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeCall, (NetUid, HyperParam)>
-//!     for UsageResolver {
+//! impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeCall, (NetUid, HyperParam)> for UsageResolver {
 //!     fn context(call: &RuntimeCall) -> Option<(NetUid, HyperParam)> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_hyperparam {
@@ -156,7 +160,11 @@ pub mod pallet {
         type LimitScope: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
 
         /// Resolves the scope for the given runtime call when configuring limits.
-        type LimitScopeResolver: RateLimitScopeResolver<<Self as Config<I>>::RuntimeCall, Self::LimitScope>;
+        type LimitScopeResolver: RateLimitScopeResolver<
+                <Self as Config<I>>::RuntimeCall,
+                Self::LimitScope,
+                BlockNumberFor<Self>,
+            >;
 
         /// Usage key tracked in [`LastSeen`] for rate-limited calls.
         type UsageKey: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
@@ -306,21 +314,17 @@ pub mod pallet {
             identifier: &TransactionIdentifier,
             scope: &Option<<T as Config<I>>::LimitScope>,
             usage_key: &Option<<T as Config<I>>::UsageKey>,
+            call: &<T as Config<I>>::RuntimeCall,
         ) -> Result<bool, DispatchError> {
-            let Some(block_span) = Self::resolved_limit(identifier, scope) else {
+            if <T as Config<I>>::LimitScopeResolver::should_bypass(call) {
+                return Ok(true);
+            }
+
+            let Some(block_span) = Self::effective_span(call, identifier, scope) else {
                 return Ok(true);
             };
 
-            let current = frame_system::Pallet::<T>::block_number();
-
-            if let Some(last) = LastSeen::<T, I>::get(identifier, usage_key) {
-                let delta = current.saturating_sub(last);
-                if delta < block_span {
-                    return Ok(false);
-                }
-            }
-
-            Ok(true)
+            Ok(Self::within_span(identifier, usage_key, block_span))
         }
 
         pub(crate) fn resolved_limit(
@@ -333,6 +337,37 @@ pub mod pallet {
                 RateLimitKind::Default => DefaultLimit::<T, I>::get(),
                 RateLimitKind::Exact(block_span) => block_span,
             })
+        }
+
+        pub(crate) fn effective_span(
+            call: &<T as Config<I>>::RuntimeCall,
+            identifier: &TransactionIdentifier,
+            scope: &Option<<T as Config<I>>::LimitScope>,
+        ) -> Option<BlockNumberFor<T>> {
+            let span = Self::resolved_limit(identifier, scope)?;
+            Some(<T as Config<I>>::LimitScopeResolver::adjust_span(
+                call, span,
+            ))
+        }
+
+        pub(crate) fn within_span(
+            identifier: &TransactionIdentifier,
+            usage_key: &Option<<T as Config<I>>::UsageKey>,
+            block_span: BlockNumberFor<T>,
+        ) -> bool {
+            if block_span.is_zero() {
+                return true;
+            }
+
+            if let Some(last) = LastSeen::<T, I>::get(identifier, usage_key) {
+                let current = frame_system::Pallet::<T>::block_number();
+                let delta = current.saturating_sub(last);
+                if delta < block_span {
+                    return false;
+                }
+            }
+
+            true
         }
 
         /// Returns the configured limit for the specified pallet/extrinsic names, if any.
