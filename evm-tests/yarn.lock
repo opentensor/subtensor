@@ -592,10 +592,10 @@
     "@types/ws" "^8.18.1"
     ws "^8.18.3"
 
-"@polkadot-labs/hdkd-helpers@^0.0.23":
-  version "0.0.23"
-  resolved "https://registry.yarnpkg.com/@polkadot-labs/hdkd-helpers/-/hdkd-helpers-0.0.23.tgz#68b8ec8fb3e26e1eaeed289db2fa54eb13adefe9"
-  integrity sha512-wfayRSCqOhcg4eaTltdynQHrn53FftGZ3Ws1HmxlE4N6VJYTfsTrfHAWI7l3BZz14nUUDDZe7IlvyX14Qqaakw==
+"@polkadot-labs/hdkd-helpers@^0.0.25":
+  version "0.0.25"
+  resolved "https://registry.yarnpkg.com/@polkadot-labs/hdkd-helpers/-/hdkd-helpers-0.0.25.tgz#6f70f4836acc3f821521babd17d52ab1a92ef13a"
+  integrity sha512-GwHayBuyHKfzvGD0vG47NbjFeiK6rRQHQAn1syut9nt0mhXMg4yb3tJ//IyM317qWuDU3HbD2OIp5jKDEQz2/A==
   dependencies:
     "@noble/curves" "^2.0.0"
     "@noble/hashes" "^2.0.0"
@@ -603,7 +603,7 @@
     "@scure/sr25519" "^0.3.0"
     scale-ts "^1.6.1"
 
-"@polkadot-labs/hdkd-helpers@~0.0.23":
+"@polkadot-labs/hdkd-helpers@~0.0.26":
   version "0.0.26"
   resolved "https://registry.yarnpkg.com/@polkadot-labs/hdkd-helpers/-/hdkd-helpers-0.0.26.tgz#06d74f16f0e4c131fd1b1cc004e4411030f33610"
   integrity sha512-mp3GCSiOQeh4aPt+DYBQq6UnX/tKgYUH5F75knjW3ATSA90ifEEWWjRan0Bddt4QKYKamaDGadK9GbVREgzQFw==
@@ -614,12 +614,12 @@
     "@scure/sr25519" "^0.3.0"
     scale-ts "^1.6.1"
 
-"@polkadot-labs/hdkd@^0.0.23":
-  version "0.0.23"
-  resolved "https://registry.yarnpkg.com/@polkadot-labs/hdkd/-/hdkd-0.0.23.tgz#fecacb353c7f9d15aa9f826ba4208e8828935399"
-  integrity sha512-EyBNsdoX2SQrjp3PpBv2kvtkvL3714ydqKwXH1t3kWOuBq6VwnOm0zRMkmGawhFA+25aUEnBC/dmwI4Xb4hCYg==
+"@polkadot-labs/hdkd@^0.0.25":
+  version "0.0.25"
+  resolved "https://registry.yarnpkg.com/@polkadot-labs/hdkd/-/hdkd-0.0.25.tgz#cb7725792485ee5dcf0a7a8491dff1989adf5cd3"
+  integrity sha512-+yZJC1TE4ZKdfoILw8nGxu3H/klrYXm9GdVB0kcyQDecq320ThUmM1M4l8d1F/3QD0Nez9NwHi9t5B++OgJU5A==
   dependencies:
-    "@polkadot-labs/hdkd-helpers" "~0.0.23"
+    "@polkadot-labs/hdkd-helpers" "~0.0.26"
 
 "@polkadot/api-augment@16.4.9":
   version "16.4.9"
@@ -661,7 +661,7 @@
     rxjs "^7.8.1"
     tslib "^2.8.1"
 
-"@polkadot/api@16.4.9", "@polkadot/api@^16.4.9":
+"@polkadot/api@16.4.9", "@polkadot/api@^16.4.6":
   version "16.4.9"
   resolved "https://registry.yarnpkg.com/@polkadot/api/-/api-16.4.9.tgz#ee3ca7e23a9e009ca64b5de67236e1e4a6c7d777"
   integrity sha512-bcJebd7RFWZYNL6hBwwLOq3jly3C5VL8BADqY2yu+ZfoFYQqdg7VrYhcmnl8O5IiG1DOpYIbuekRpKuBMkjNmw==
