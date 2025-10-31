@@ -1962,9 +1962,9 @@ pub mod pallet {
     pub type RootClaimed<T: Config> = StorageNMap<
         _,
         (
+            NMapKey<Identity, NetUid>,               // subnet
             NMapKey<Blake2_128Concat, T::AccountId>, // hot
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, NetUid>,               // subnet
         ),
         u128,
         ValueQuery,
