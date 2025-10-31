@@ -55,6 +55,8 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(0));
         Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
+        SubnetDeregistrationPriority::<Test>::insert(net, true);
+        assert!(SubnetDeregistrationPriority::<Test>::contains_key(net));
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -63,6 +65,7 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
         // Balance should be unchanged (whatever the network-lock bookkeeping left there)
         assert_eq!(after, before);
         assert!(!SubtensorModule::if_subnet_exist(net));
+        assert!(!SubnetDeregistrationPriority::<Test>::contains_key(net));
     });
 }
 
@@ -1139,6 +1142,25 @@ fn prune_tie_on_price_earlier_registration_wins() {
         // identical prices → tie; earlier (n1) must be chosen
         SubnetMovingPrice::<Test>::insert(n1, I96F32::from_num(7));
         SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(7));
+
+        assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
+    });
+}
+
+#[test]
+fn prune_prefers_higher_priority_over_price() {
+    new_test_ext(0).execute_with(|| {
+        let n1 = add_dynamic_network(&U256::from(210), &U256::from(201));
+        let n2 = add_dynamic_network(&U256::from(420), &U256::from(401));
+
+        let imm = SubtensorModule::get_network_immunity_period();
+        System::set_block_number(imm + 5);
+
+        SubnetMovingPrice::<Test>::insert(n1, I96F32::from_num(100));
+        SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(1));
+
+        SubnetDeregistrationPriority::<Test>::insert(n1, true);
+        SubnetDeregistrationPriority::<Test>::insert(n2, false);
 
         assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
     });
