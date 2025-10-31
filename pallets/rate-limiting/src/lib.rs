@@ -427,6 +427,7 @@ pub mod pallet {
 
             let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
             let scope = <T as Config<I>>::LimitScopeResolver::context(call.as_ref());
+            let usage = <T as Config<I>>::UsageResolver::context(call.as_ref());
 
             let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
             let pallet = Vec::from(pallet_name.as_bytes());
@@ -454,6 +455,23 @@ pub mod pallet {
             });
 
             ensure!(removed, Error::<T, I>::MissingRateLimit);
+
+            if removed {
+                match (scope.as_ref(), usage) {
+                    (None, _) => {
+                        let _ = LastSeen::<T, I>::clear_prefix(&identifier, u32::MAX, None);
+                    }
+                    (_, Some(key)) => {
+                        LastSeen::<T, I>::remove(&identifier, Some(key));
+                    }
+                    (_, None) => {
+                        LastSeen::<T, I>::remove(
+                            &identifier,
+                            Option::<<T as Config<I>>::UsageKey>::None,
+                        );
+                    }
+                }
+            }
 
             Self::deposit_event(Event::RateLimitCleared {
                 transaction: identifier,

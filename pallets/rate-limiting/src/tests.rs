@@ -300,6 +300,8 @@ fn clear_rate_limit_removes_entry_and_emits_event() {
             RuntimeCall::System(frame_system::Call::<Test>::remark { remark: Vec::new() });
         let identifier = identifier_for(&target_call);
         Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(4)));
+        LastSeen::<Test, ()>::insert(identifier, None::<UsageKey>, 7);
+        LastSeen::<Test, ()>::insert(identifier, Some(88u16), 9);
 
         assert_ok!(RateLimiting::clear_rate_limit(
             RuntimeOrigin::root(),
@@ -307,6 +309,8 @@ fn clear_rate_limit_removes_entry_and_emits_event() {
         ));
 
         assert!(Limits::<Test, ()>::get(identifier).is_none());
+        assert!(LastSeen::<Test, ()>::get(identifier, None::<UsageKey>).is_none());
+        assert!(LastSeen::<Test, ()>::get(identifier, Some(88u16)).is_none());
 
         match pop_last_event() {
             RuntimeEvent::RateLimiting(crate::pallet::Event::RateLimitCleared {
@@ -350,6 +354,9 @@ fn clear_rate_limit_removes_only_selected_scope() {
         map.insert(9u16, RateLimitKind::Exact(7));
         map.insert(10u16, RateLimitKind::Exact(5));
         Limits::<Test, ()>::insert(identifier, RateLimit::Scoped(map));
+        LastSeen::<Test, ()>::insert(identifier, Some(9u16), 11);
+        LastSeen::<Test, ()>::insert(identifier, Some(10u16), 12);
+        LastSeen::<Test, ()>::insert(identifier, None::<UsageKey>, 13);
 
         let scoped_call =
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 9 });
@@ -364,6 +371,12 @@ fn clear_rate_limit_removes_only_selected_scope() {
         assert_eq!(
             config.kind_for(Some(&10u16)).copied(),
             Some(RateLimitKind::Exact(5))
+        );
+        assert!(LastSeen::<Test, ()>::get(identifier, Some(9u16)).is_none());
+        assert_eq!(LastSeen::<Test, ()>::get(identifier, Some(10u16)), Some(12));
+        assert_eq!(
+            LastSeen::<Test, ()>::get(identifier, None::<UsageKey>),
+            Some(13)
         );
 
         match pop_last_event() {
