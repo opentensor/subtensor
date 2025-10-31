@@ -71,47 +71,115 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
 }
 
 #[test]
-fn clear_priority_by_root_resets_flag() {
+fn manage_priority_schedule_and_force_set() {
     new_test_ext(0).execute_with(|| {
-        let cold = U256::from(11);
-        let hot = U256::from(22);
-        let net = add_dynamic_network(&hot, &cold);
+        let owner_cold = U256::from(11);
+        let owner_hot = U256::from(22);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
 
-        SubnetDeregistrationPriority::<Test>::insert(net, true);
-        assert!(SubnetDeregistrationPriority::<Test>::get(net));
+        assert_ok!(SubtensorModule::manage_deregistration_priority(
+            RuntimeOrigin::signed(owner_cold),
+            net,
+            true
+        ));
 
-        assert_ok!(SubtensorModule::clear_deregistration_priority(
+        assert_eq!(SubnetDeregistrationPriority::<Test>::get(net), false);
+        let when = SubnetDeregistrationPrioritySchedule::<Test>::get(net).unwrap();
+        assert!(when > 0);
+
+        assert_ok!(SubtensorModule::force_set_deregistration_priority(
             RuntimeOrigin::root(),
             net
         ));
 
-        assert!(!SubnetDeregistrationPriority::<Test>::get(net));
-        assert!(!SubnetDeregistrationPriority::<Test>::contains_key(net));
+        assert!(SubnetDeregistrationPriority::<Test>::get(net));
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(net));
     });
 }
 
 #[test]
-fn clear_priority_requires_owner_or_root() {
+fn manage_priority_clear_now() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(13);
         let owner_hot = U256::from(26);
         let net = add_dynamic_network(&owner_hot, &owner_cold);
 
         SubnetDeregistrationPriority::<Test>::insert(net, true);
+        SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 42);
+
+        assert_ok!(SubtensorModule::manage_deregistration_priority(
+            RuntimeOrigin::signed(owner_cold),
+            net,
+            false
+        ));
+
+        assert_eq!(SubnetDeregistrationPriority::<Test>::get(net), false);
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(net));
+    });
+}
+
+#[test]
+fn manage_priority_requires_owner_or_root() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(15);
+        let owner_hot = U256::from(30);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
         let intruder = U256::from(999);
 
         assert_err!(
-            SubtensorModule::clear_deregistration_priority(RuntimeOrigin::signed(intruder), net),
+            SubtensorModule::manage_deregistration_priority(
+                RuntimeOrigin::signed(intruder),
+                net,
+                false
+            ),
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::clear_deregistration_priority(
-            RuntimeOrigin::signed(owner_cold),
+        assert_ok!(SubtensorModule::manage_deregistration_priority(
+            RuntimeOrigin::root(),
+            net,
+            false
+        ));
+    });
+}
+
+#[test]
+fn force_set_deregistration_priority_is_noop_without_schedule() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(17);
+        let owner_hot = U256::from(34);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        assert_ok!(SubtensorModule::force_set_deregistration_priority(
+            RuntimeOrigin::root(),
             net
         ));
 
-        assert!(!SubnetDeregistrationPriority::<Test>::get(net));
-        assert!(!SubnetDeregistrationPriority::<Test>::contains_key(net));
+        assert_eq!(SubnetDeregistrationPriority::<Test>::get(net), false);
+    });
+}
+
+#[test]
+fn schedule_swap_coldkey_clears_priority() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(21);
+        let owner_hot = U256::from(42);
+        let new_cold = U256::from(84);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&owner_cold, swap_cost.to_u64() + 1_000);
+
+        SubnetDeregistrationPriority::<Test>::insert(net, true);
+        SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 5);
+
+        assert_ok!(SubtensorModule::schedule_swap_coldkey(
+            RuntimeOrigin::signed(owner_cold),
+            new_cold
+        ));
+
+        assert_eq!(SubnetDeregistrationPriority::<Test>::get(net), false);
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(net));
     });
 }
 

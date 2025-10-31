@@ -152,6 +152,8 @@ mod errors {
         TxRateLimitExceeded,
         /// Swap already scheduled.
         SwapAlreadyScheduled,
+        /// Deregistration priority already scheduled.
+        SubnetDeregistrationPriorityAlreadyScheduled,
         /// failed to swap coldkey
         FailedToSchedule,
         /// New coldkey is hotkey

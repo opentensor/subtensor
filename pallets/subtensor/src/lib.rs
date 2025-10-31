@@ -1438,6 +1438,10 @@ pub mod pallet {
     pub type SubnetDeregistrationPriority<T: Config> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> scheduled block for enabling deregistration priority
+    pub type SubnetDeregistrationPrioritySchedule<T: Config> =
+        StorageMap<_, Identity, NetUid, BlockNumberFor<T>, OptionQuery>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultPendingEmission<T>>;

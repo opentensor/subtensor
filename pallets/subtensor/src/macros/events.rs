@@ -5,6 +5,7 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod events {
     use codec::Compact;
+    use frame_system::pallet_prelude::BlockNumberFor;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -13,6 +14,10 @@ mod events {
         NetworkAdded(NetUid, u16),
         /// a network is removed.
         NetworkRemoved(NetUid),
+        /// a subnet's deregistration priority flag was scheduled to be set.
+        SubnetDeregistrationPriorityScheduled(NetUid, BlockNumberFor<T>),
+        /// a subnet's deregistration priority flag was set.
+        SubnetDeregistrationPrioritySet(NetUid),
         /// network deregistration priority flag cleared.
         SubnetDeregistrationPriorityCleared(NetUid),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
