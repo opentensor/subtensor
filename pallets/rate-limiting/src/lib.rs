@@ -361,10 +361,11 @@ pub mod pallet {
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         /// Sets the rate limit configuration for the given call.
         ///
-        /// The supplied `call` is only used to derive the pallet and extrinsic indices; **any
-        /// arguments embedded in the call are ignored**. The applicable scope is discovered via
-        /// [`Config::LimitScopeResolver`]. When a scope resolves, the configuration is stored
-        /// against that scope; otherwise the global entry is updated.
+        /// The supplied `call` is inspected to derive the pallet/extrinsic indices and passed to
+        /// [`Config::LimitScopeResolver`] to determine the applicable scope. The pallet never
+        /// persists the call arguments directly, but a resolver may read them in order to resolve
+        /// its context. When a scope resolves, the configuration is stored against that scope;
+        /// otherwise the global entry is updated.
         #[pallet::call_index(0)]
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn set_rate_limit(
@@ -403,9 +404,10 @@ pub mod pallet {
 
         /// Clears the rate limit for the given call, if present.
         ///
-        /// The supplied `call` is only used to derive the pallet and extrinsic indices; **any
-        /// arguments embedded in the call are ignored**. The configuration scope is determined via
-        /// [`Config::LimitScopeResolver`]. When no scope resolves, the global entry is cleared.
+        /// The supplied `call` is inspected to derive the pallet/extrinsic indices and passed to
+        /// [`Config::LimitScopeResolver`] when determining which scoped configuration to clear.
+        /// The pallet does not persist the call arguments, but resolvers may read them while
+        /// computing the scope. When no scope resolves, the global entry is cleared.
         #[pallet::call_index(1)]
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn clear_rate_limit(
