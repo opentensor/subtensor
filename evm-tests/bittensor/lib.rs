@@ -288,10 +288,22 @@ mod bittensor {
             Self::new()
         }
 
-        #[ink(message)]
-        pub fn dummy(&self) -> Result<bool, ReadWriteErrorCode> {
-            Ok(true)
-        }
+        // #[ink(message)]
+        // pub fn get_stake_info_for_hotkey_coldkey_netuid(
+        //     &self,
+        //     hotkey: [u8; 32],
+        //     coldkey: [u8; 32],
+        //     netuid: u16,
+        // ) -> Result<Option<StakeInfo<ink::primitives::AccountId>>, ReadWriteErrorCode> {
+        //     self.env()
+        //         .extension()
+        //         .get_stake_info_for_hotkey_coldkey_netuid(
+        //             hotkey.into(),
+        //             coldkey.into(),
+        //             netuid.into(),
+        //         )
+        //         .map_err(|_e| ReadWriteErrorCode::ReadFailed)
+        // }
 
         #[ink(message)]
         pub fn add_stake(

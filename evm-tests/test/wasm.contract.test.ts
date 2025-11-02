@@ -121,40 +121,30 @@ describe("Test wasm contract", () => {
     })
 
 
-    it("Can query stake info from contract", async () => {
-        let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
-        // const signer = getSignerFromKeypair(coldkey);
-        // const inkClient = getInkClient(contracts.bittensor)
-        // const query = inkClient.message("dummy")
-        // const data = query.encode()
-        // No parameters needed
-        // const queryTx = await api.tx.Contracts.call({
-        //     dest: MultiAddress.Id(contractAddress),
-        //     data: Binary.fromBytes(data.asBytes()),
-        //     value: BigInt(0),
-        //     gas_limit: {
-        //         ref_time: BigInt(1000000000),
-        //         proof_size: BigInt(10000000),
-        //     },
-        //     storage_deposit_limit: BigInt(10000000),
-        // }).signAndSubmit(signer)
+    // it("Can query stake info from contract", async () => {
+    //     // const signer = getSignerFromKeypair(coldkey);
+    //     const inkClient = getInkClient(contracts.bittensor)
+    //     const queryMessage = inkClient.message("get_stake_info_for_hotkey_coldkey_netuid")
+    //     const data = queryMessage.encode({
+    //         hotkey: Binary.fromBytes(hotkey.publicKey),
+    //         coldkey: Binary.fromBytes(coldkey.publicKey),
+    //         netuid: netuid,
+    //     })
 
-        // const response = await api.apis.ContractsApi.call(
-        //     convertPublicKeyToSs58(coldkey.publicKey),
-        //     contractAddress,
-        //     BigInt(0),
-        //     {
-        //         ref_time: BigInt(1000000000),
-        //         proof_size: BigInt(10000000),
-        //     },
-        //     BigInt(1000000000),
-        //     Binary.fromBytes(data.asBytes()),
-        //     undefined,
-        // )
+    //     const response = await api.tx.Contracts.call({
+    //         dest: MultiAddress.Id(contractAddress),
+    //         data: Binary.fromBytes(data.asBytes()),
+    //         value: BigInt(0),
+    //         gas_limit: {
+    //             ref_time: BigInt(1000000000),
+    //             proof_size: BigInt(10000000),
+    //         },
+    //         storage_deposit_limit: BigInt(10000000),
+    //     })
 
-        // console.log("===== response", response.result.asBytes().toString())
+    //     console.log("===== response", response)
 
-    })
+    // })
 
     it("Can add stake to contract", async () => {
         await addStakeWithoutStake()
@@ -419,176 +409,154 @@ describe("Test wasm contract", () => {
         assert.ok(stakeAfter !== undefined)
     })
 
-    // it("Can remove stake with limit", async () => {
-    //     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
+    it("Can remove stake with limit", async () => {
+        await addStakeWithoutStake()
+        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid,
+        ))?.stake
 
-    //     // First add stake
-    //     const addMessage = inkClient.message("add_stake")
-    //     const addData = addMessage.encode({
-    //         hotkey: Binary.fromBytes(hotkey.publicKey),
-    //         netuid: netuid,
-    //         amount: tao(300),
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, addData)
+        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
 
-    //     const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-    //         convertPublicKeyToSs58(hotkey.publicKey),
-    //         contractAddress,
-    //         netuid,
-    //     ))?.stake
+        const message = inkClient.message("remove_stake_limit")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            netuid: netuid,
+            amount: stakeBefore / BigInt(2),
+            limit_price: tao(1),
+            allow_partial: false,
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
-    //     assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid,
+        ))?.stake
 
-    //     const message = inkClient.message("remove_stake_limit")
-    //     const data = message.encode({
-    //         hotkey: Binary.fromBytes(hotkey.publicKey),
-    //         netuid: netuid,
-    //         amount: stakeBefore / BigInt(2),
-    //         limit_price: tao(50),
-    //         allow_partial: false,
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+        assert.ok(stakeAfter !== undefined)
+        assert.ok(stakeAfter < stakeBefore!)
+    })
 
-    //     const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-    //         convertPublicKeyToSs58(hotkey.publicKey),
-    //         contractAddress,
-    //         netuid,
-    //     ))?.stake
+    it("Can swap stake with limit", async () => {
+        await addStakeWithoutStake()
 
-    //     assert.ok(stakeAfter !== undefined)
-    //     assert.ok(stakeAfter < stakeBefore!)
-    // })
+        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid,
+        ))?.stake
 
-    // it("Can swap stake with limit", async () => {
-    //     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
+        const stakeBefore2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid + 1,
+        ))?.stake
 
-    //     // Create second network
-    //     const hotkey4 = getRandomSubstrateKeypair();
-    //     const coldkey4 = getRandomSubstrateKeypair();
-    //     await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey4.publicKey))
-    //     await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey4.publicKey))
+        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+        assert.ok(stakeBefore2 !== undefined)
 
-    //     let netuid2 = await addNewSubnetwork(api, hotkey4, coldkey4)
-    //     await startCall(api, netuid2, coldkey4)
-    //     await burnedRegister(api, netuid2, convertPublicKeyToSs58(hotkey4.publicKey), coldkey4)
+        const message = inkClient.message("swap_stake_limit")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            origin_netuid: netuid,
+            destination_netuid: netuid + 1,
+            amount: stakeBefore / BigInt(2),
+            limit_price: tao(1),
+            allow_partial: false,
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
-    //     // Add stake to origin network
-    //     const addMessage = inkClient.message("add_stake")
-    //     const addData = addMessage.encode({
-    //         hotkey: Binary.fromBytes(hotkey.publicKey),
-    //         netuid: netuid,
-    //         amount: tao(500),
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, addData)
+        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid,
+        ))?.stake
 
-    //     const stakeBefore1 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-    //         convertPublicKeyToSs58(hotkey.publicKey),
-    //         contractAddress,
-    //         netuid,
-    //     ))?.stake
+        const stakeAfter2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid + 1,
+        ))?.stake
 
-    //     assert.ok(stakeBefore1 !== undefined && stakeBefore1 > BigInt(0))
+        assert.ok(stakeAfter !== undefined)
+        assert.ok(stakeAfter2 !== undefined)
+        assert.ok(stakeAfter < stakeBefore)
+        assert.ok(stakeAfter2 > stakeBefore2)
+    })
 
-    //     const message = inkClient.message("swap_stake_limit")
-    //     const data = message.encode({
-    //         hotkey: Binary.fromBytes(hotkey.publicKey),
-    //         origin_netuid: netuid,
-    //         destination_netuid: netuid2,
-    //         amount: stakeBefore1 / BigInt(2),
-    //         limit_price: tao(75),
-    //         allow_partial: false,
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+    it("Can remove stake full limit", async () => {
+        await addStakeWithoutStake()
 
-    //     const stakeAfter1 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-    //         convertPublicKeyToSs58(hotkey.publicKey),
-    //         contractAddress,
-    //         netuid,
-    //     ))?.stake
+        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid,
+        ))?.stake
 
-    //     assert.ok(stakeAfter1 !== undefined)
-    //     assert.ok(stakeAfter1 < stakeBefore1!)
-    // })
+        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
 
-    // it("Can remove stake full limit", async () => {
-    //     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
+        const message = inkClient.message("remove_stake_full_limit")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            netuid: netuid,
+            limit_price: tao(60),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
-    //     // First add stake
-    //     const addMessage = inkClient.message("add_stake")
-    //     const addData = addMessage.encode({
-    //         hotkey: Binary.fromBytes(hotkey.publicKey),
-    //         netuid: netuid,
-    //         amount: tao(700),
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, addData)
+        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid,
+        ))?.stake
 
-    //     const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-    //         convertPublicKeyToSs58(hotkey.publicKey),
-    //         contractAddress,
-    //         netuid,
-    //     ))?.stake
+        assert.ok(stakeAfter !== undefined)
+        assert.ok(stakeAfter < stakeBefore!)
+    })
 
-    //     assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+    it("Can set coldkey auto stake hotkey", async () => {
+        const message = inkClient.message("set_coldkey_auto_stake_hotkey")
+        const data = message.encode({
+            netuid: netuid,
+            hotkey: Binary.fromBytes(hotkey2.publicKey),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
-    //     const message = inkClient.message("remove_stake_full_limit")
-    //     const data = message.encode({
-    //         hotkey: Binary.fromBytes(hotkey.publicKey),
-    //         netuid: netuid,
-    //         limit_price: tao(60),
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+        let autoStakeHotkey = await api.query.SubtensorModule.AutoStakeDestination.getValue(
+            contractAddress,
+            netuid,
+        )
 
-    //     const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-    //         convertPublicKeyToSs58(hotkey.publicKey),
-    //         contractAddress,
-    //         netuid,
-    //     ))?.stake
+        console.log("autoStakeHotkey", autoStakeHotkey)
+        assert.ok(autoStakeHotkey !== undefined)
+        assert.ok(autoStakeHotkey === convertPublicKeyToSs58(hotkey2.publicKey))
+    })
 
-    //     assert.ok(stakeAfter !== undefined)
-    //     assert.ok(stakeAfter < stakeBefore!)
-    // })
+    it("Can add and remove proxy", async () => {
+        const message = inkClient.message("add_proxy")
+        const data = message.encode({
+            delegate: Binary.fromBytes(hotkey2.publicKey),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+        let proxies = await api.query.Proxy.Proxies.getValue(
+            contractAddress,
+        )
+        assert.ok(proxies !== undefined)
+        assert.ok(proxies.length > 0 && proxies[0].length > 0)
+        assert.ok(proxies[0][0].delegate === convertPublicKeyToSs58(hotkey2.publicKey))
 
-    // it("Can set coldkey auto stake hotkey", async () => {
-    //     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
 
-    //     const message = inkClient.message("set_coldkey_auto_stake_hotkey")
-    //     const data = message.encode({
-    //         netuid: netuid,
-    //         hotkey: Binary.fromBytes(hotkey.publicKey),
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+        const removeMessage = inkClient.message("remove_proxy")
+        const removeData = removeMessage.encode({
+            delegate: Binary.fromBytes(hotkey2.publicKey),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, removeData)
 
-    //     // Verify the call succeeded (no error thrown)
-    //     assert.ok(true)
-    // })
-
-    // it("Can add proxy", async () => {
-    //     const message = inkClient.message("add_proxy")
-    //     const data = message.encode({
-    //         delegate: Binary.fromBytes(hotkey.publicKey),
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-
-    //     // Verify the call succeeded (no error thrown)
-    //     assert.ok(true)
-    // })
-
-    // it("Can remove proxy", async () => {
-    //     // First add proxy
-    //     const addMessage = inkClient.message("add_proxy")
-    //     const addData = addMessage.encode({
-    //         delegate: Binary.fromBytes(hotkey2.publicKey),
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, addData)
-
-    //     // Then remove proxy
-    //     const message = inkClient.message("remove_proxy")
-    //     const data = message.encode({
-    //         delegate: Binary.fromBytes(hotkey2.publicKey),
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-
-    //     // Verify the call succeeded (no error thrown)
-    //     assert.ok(true)
-    // })
+        let proxiesAfterRemove = await api.query.Proxy.Proxies.getValue(
+            contractAddress,
+        )
+        assert.ok(proxiesAfterRemove !== undefined)
+        assert.ok(proxiesAfterRemove[0].length === 0)
+    })
 });
