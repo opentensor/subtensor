@@ -121,17 +121,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::OwnerHyperparamRateLimitSet(epochs));
     }
 
-    pub fn clear_deregistration_priority_for_owner(owner: &T::AccountId) {
+    pub fn cancel_deregistration_priority_schedule_for_owner(owner: &T::AccountId) {
         let nets: sp_std::vec::Vec<NetUid> = SubnetOwner::<T>::iter()
             .filter_map(|(netuid, acct)| if acct == *owner { Some(netuid) } else { None })
             .collect();
 
         for netuid in nets {
-            let was_flagged = SubnetDeregistrationPriority::<T>::get(netuid);
-            let had_schedule = SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some();
-            SubnetDeregistrationPriority::<T>::remove(netuid);
-
-            if was_flagged || had_schedule {
+            if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
                 Self::deposit_event(Event::SubnetDeregistrationPriorityCleared(netuid));
             }
         }

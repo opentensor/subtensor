@@ -1411,7 +1411,7 @@ mod dispatches {
             .map_err(|_| Error::<T>::FailedToSchedule)?;
 
             ColdkeySwapScheduled::<T>::insert(&who, (when, new_coldkey.clone()));
-            Self::clear_deregistration_priority_for_owner(&who);
+            Self::cancel_deregistration_priority_schedule_for_owner(&who);
             // Emit the SwapScheduled event
             Self::deposit_event(Event::ColdkeySwapScheduled {
                 old_coldkey: who.clone(),
@@ -2156,10 +2156,11 @@ mod dispatches {
         /// Manages the deregistration priority flag for a subnet.
         ///
         /// When `schedule_set` is `true`, the flag is scheduled to be set after approximately
-        /// five days using the scheduler pallet. When `schedule_set` is `false`, the flag and any
-        /// pending schedule are cleared immediately.
+        /// five days using the scheduler pallet. When `schedule_set` is `false`, any pending
+        /// schedule is cleared. Only the root origin may clear the flag itself.
         ///
-        /// Accessible by the subnet owner or root origin.
+        /// Accessible by the subnet owner (for scheduling or canceling a pending schedule) or root
+        /// origin (full control).
         ///
         /// # Errors
         /// * [`Error::SubnetNotExists`] if the subnet does not exist.
@@ -2178,7 +2179,7 @@ mod dispatches {
             schedule_set: bool,
         ) -> DispatchResult {
             ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
-            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
             if schedule_set {
                 ensure!(
@@ -2207,12 +2208,18 @@ mod dispatches {
 
                 Self::deposit_event(Event::SubnetDeregistrationPriorityScheduled(netuid, when));
             } else {
-                let was_flagged = SubnetDeregistrationPriority::<T>::get(netuid);
-                SubnetDeregistrationPriority::<T>::remove(netuid);
-                let had_schedule = SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some();
+                if maybe_owner.is_some() {
+                    if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
+                        Self::deposit_event(Event::SubnetDeregistrationPriorityCleared(netuid));
+                    }
+                } else {
+                    let was_flagged = SubnetDeregistrationPriority::<T>::take(netuid);
+                    let had_schedule =
+                        SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some();
 
-                if was_flagged || had_schedule {
-                    Self::deposit_event(Event::SubnetDeregistrationPriorityCleared(netuid));
+                    if was_flagged || had_schedule {
+                        Self::deposit_event(Event::SubnetDeregistrationPriorityCleared(netuid));
+                    }
                 }
             }
 

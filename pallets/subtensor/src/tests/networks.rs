@@ -6,8 +6,8 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 use sp_runtime::DispatchError;
+use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -93,12 +93,14 @@ fn manage_priority_schedule_and_force_set() {
         ));
 
         assert!(SubnetDeregistrationPriority::<Test>::get(net));
-        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(net));
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
+            net
+        ));
     });
 }
 
 #[test]
-fn manage_priority_clear_now() {
+fn manage_priority_owner_cancels_schedule_only() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(13);
         let owner_hot = U256::from(26);
@@ -113,8 +115,33 @@ fn manage_priority_clear_now() {
             false
         ));
 
-        assert_eq!(SubnetDeregistrationPriority::<Test>::get(net), false);
-        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(net));
+        assert!(SubnetDeregistrationPriority::<Test>::get(net));
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
+            net
+        ));
+    });
+}
+
+#[test]
+fn manage_priority_root_clears_flag() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(19);
+        let owner_hot = U256::from(38);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        SubnetDeregistrationPriority::<Test>::insert(net, true);
+        SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 55);
+
+        assert_ok!(SubtensorModule::manage_deregistration_priority(
+            RuntimeOrigin::root(),
+            net,
+            false
+        ));
+
+        assert!(!SubnetDeregistrationPriority::<Test>::get(net));
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
+            net
+        ));
     });
 }
 
@@ -160,7 +187,7 @@ fn force_set_deregistration_priority_is_noop_without_schedule() {
 }
 
 #[test]
-fn schedule_swap_coldkey_clears_priority() {
+fn schedule_swap_coldkey_cancels_priority_schedule() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(21);
         let owner_hot = U256::from(42);
@@ -178,8 +205,10 @@ fn schedule_swap_coldkey_clears_priority() {
             new_cold
         ));
 
-        assert_eq!(SubnetDeregistrationPriority::<Test>::get(net), false);
-        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(net));
+        assert!(SubnetDeregistrationPriority::<Test>::get(net));
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
+            net
+        ));
     });
 }
 
