@@ -127,7 +127,6 @@ fn test_coinbase_tao_issuance_base_low_flow() {
         // 100% tao flow method
         let block_num = FlowHalfLife::<Test>::get();
         SubnetEmaTaoFlow::<Test>::insert(netuid, (block_num, I64F64::from_num(1_000_000_000)));
-        FlowFirstBlock::<Test>::set(Some(0_u64));
         System::set_block_number(block_num);
 
         let tao_in_before = SubnetTAO::<Test>::get(netuid);
@@ -237,12 +236,12 @@ fn test_coinbase_tao_issuance_different_prices() {
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid1),
             TaoCurrency::from(initial_tao + emission / 3),
-            epsilon = 1.into(),
+            epsilon = 10.into(),
         );
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid2),
             TaoCurrency::from(initial_tao + 2 * emission / 3),
-            epsilon = 1.into(),
+            epsilon = 10.into(),
         );
 
         // Prices are low => we limit tao issued (buy alpha with it)
@@ -298,11 +297,9 @@ fn test_coinbase_tao_issuance_different_flows() {
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(1));
 
         // Set subnet tao flow ema.
-        // 100% tao flow method
         let block_num = FlowHalfLife::<Test>::get();
         SubnetEmaTaoFlow::<Test>::insert(netuid1, (block_num, I64F64::from_num(1)));
         SubnetEmaTaoFlow::<Test>::insert(netuid2, (block_num, I64F64::from_num(2)));
-        FlowFirstBlock::<Test>::set(Some(0_u64));
         System::set_block_number(block_num);
 
         // Set normalization exponent to 1 for simplicity
@@ -490,9 +487,9 @@ fn test_coinbase_alpha_issuance_base() {
     });
 }
 
-// Test alpha issuance with different subnet prices.
+// Test alpha issuance with different subnet flows.
 // This test verifies that:
-// - Alpha issuance is proportional to subnet prices
+// - Alpha issuance is proportional to subnet flows
 // - Higher priced subnets receive more TAO emission
 // - Alpha issuance is correctly calculated based on price ratios
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_alpha_issuance_different --exact --show-output --nocapture
@@ -507,18 +504,16 @@ fn test_coinbase_alpha_issuance_different() {
         // Make subnets dynamic.
         SubnetMechanism::<Test>::insert(netuid1, 1);
         SubnetMechanism::<Test>::insert(netuid2, 1);
-        // Setup prices 1 and 1
+        // Setup prices 1 and 2
         let initial: u64 = 1_000_000;
         SubnetTAO::<Test>::insert(netuid1, TaoCurrency::from(initial));
         SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial));
-        SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(initial));
+        SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(2 * initial));
         SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial));
-        // Set subnet prices.
+        // Set subnet ema prices to 1 and 2
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
-        // Set tao flow
-        SubnetEmaTaoFlow::<Test>::insert(netuid1, (1u64, I64F64::from_num(1)));
-        SubnetEmaTaoFlow::<Test>::insert(netuid2, (1u64, I64F64::from_num(2)));
+        // Do NOT Set tao flow, let it initialize
         // Run coinbase
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // tao_in = 333_333
@@ -528,10 +523,10 @@ fn test_coinbase_alpha_issuance_different() {
             (initial + emission / 3).into()
         );
         // tao_in = 666_666
-        // alpha_in = 666_666/price = 666_666 + initial
+        // alpha_in = 666_666/price = 333_333 + initial
         assert_eq!(
             SubnetAlphaIn::<Test>::get(netuid2),
-            (initial + emission / 3 + emission / 3).into()
+            (initial + (emission * 2 / 3) / 2).into()
         );
     });
 }

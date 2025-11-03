@@ -163,9 +163,7 @@ fn get_shares_normal_flows_three_subnets() {
         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         let n3 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        // 100% tao flow method
         let block_num = FlowHalfLife::<Test>::get();
-        FlowFirstBlock::<Test>::set(Some(0_u64));
         System::set_block_number(block_num);
 
         // Set (block_number, flow) with reasonable positive flows
@@ -212,9 +210,7 @@ fn get_shares_low_flows_sum_one_and_ordering() {
         let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        // 100% tao flow method
         let block_num = FlowHalfLife::<Test>::get();
-        FlowFirstBlock::<Test>::set(Some(0_u64));
         System::set_block_number(block_num);
 
         // Tiny flows to exercise precision/scaling path
@@ -256,9 +252,7 @@ fn get_shares_high_flows_sum_one_and_ordering() {
         let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        // 100% tao flow method
         let block_num = FlowHalfLife::<Test>::get();
-        FlowFirstBlock::<Test>::set(Some(0_u64));
         System::set_block_number(block_num);
 
         // Large but safe flows for I64F64
@@ -298,95 +292,6 @@ fn seed_price_and_flow(n1: NetUid, n2: NetUid, price1: f64, price2: f64, flow1: 
     SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(flow2)));
 }
 
-#[test]
-fn get_shares_price_flow_blend_1v3_price_and_3v1_flow() {
-    new_test_ext(1).execute_with(|| {
-        // two subnets
-        let owner_hotkey = U256::from(42);
-        let owner_coldkey = U256::from(43);
-        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-
-        // define "window" length half_life blocks and set first block to 0
-        let half_life: u64 = FlowHalfLife::<Test>::get();
-        FlowFirstBlock::<Test>::set(Some(0_u64));
-        FlowNormExponent::<Test>::set(u64f64(1.0));
-
-        // t = 0: expect (0.25, 0.75)
-        frame_system::Pallet::<Test>::set_block_number(0);
-        seed_price_and_flow(n1, n2, /*price*/ 1.0, 3.0, /*flow*/ 3.0, 1.0);
-        let shares = SubtensorModule::get_shares(&[n1, n2]);
-        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-        assert_abs_diff_eq!(s1 + s2, 1.0_f64, epsilon = 1e-9);
-        assert_abs_diff_eq!(s1, 0.25_f64, epsilon = 1e-6);
-        assert_abs_diff_eq!(s2, 0.75_f64, epsilon = 1e-6);
-
-        // t = half_life/2: expect (0.5, 0.5)
-        frame_system::Pallet::<Test>::set_block_number(half_life / 2);
-        seed_price_and_flow(n1, n2, 1.0, 3.0, 3.0, 1.0);
-        let shares = SubtensorModule::get_shares(&[n1, n2]);
-        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-        assert_abs_diff_eq!(s1 + s2, 1.0_f64, epsilon = 1e-9);
-        assert_abs_diff_eq!(s1, 0.5_f64, epsilon = 1e-6);
-        assert_abs_diff_eq!(s2, 0.5_f64, epsilon = 1e-6);
-
-        // t = half_life: expect (0.75, 0.25)
-        frame_system::Pallet::<Test>::set_block_number(half_life);
-        seed_price_and_flow(n1, n2, 1.0, 3.0, 3.0, 1.0);
-        let shares = SubtensorModule::get_shares(&[n1, n2]);
-        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-        assert_abs_diff_eq!(s1 + s2, 1.0_f64, epsilon = 1e-9);
-        assert_abs_diff_eq!(s1, 0.75_f64, epsilon = 1e-6);
-        assert_abs_diff_eq!(s2, 0.25_f64, epsilon = 1e-6);
-    });
-}
-
-#[test]
-fn get_shares_price_flow_blend_3v1_price_and_1v3_flow() {
-    new_test_ext(1).execute_with(|| {
-        let owner_hotkey = U256::from(50);
-        let owner_coldkey = U256::from(51);
-        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-
-        // window half_life and anchor at 0
-        let half_life: u64 = FlowHalfLife::<Test>::get();
-        FlowFirstBlock::<Test>::set(Some(0_u64));
-        FlowNormExponent::<Test>::set(u64f64(1.0));
-
-        // t = 0: prices dominate → (0.75, 0.25)
-        frame_system::Pallet::<Test>::set_block_number(0);
-        seed_price_and_flow(n1, n2, /*price*/ 3.0, 1.0, /*flow*/ 1.0, 3.0);
-        let shares = SubtensorModule::get_shares(&[n1, n2]);
-        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-        assert_abs_diff_eq!(s1 + s2, 1.0_f64, epsilon = 1e-9);
-        assert_abs_diff_eq!(s1, 0.75_f64, epsilon = 1e-6);
-        assert_abs_diff_eq!(s2, 0.25_f64, epsilon = 1e-6);
-
-        // t = half_life/2: equal → (0.5, 0.5)
-        frame_system::Pallet::<Test>::set_block_number(half_life / 2);
-        seed_price_and_flow(n1, n2, 3.0, 1.0, 1.0, 3.0);
-        let shares = SubtensorModule::get_shares(&[n1, n2]);
-        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-        assert_abs_diff_eq!(s1, 0.5_f64, epsilon = 1e-6);
-        assert_abs_diff_eq!(s2, 0.5_f64, epsilon = 1e-6);
-
-        // t = half_life: flows dominate → (0.25, 0.75)
-        frame_system::Pallet::<Test>::set_block_number(half_life);
-        seed_price_and_flow(n1, n2, 3.0, 1.0, 1.0, 3.0);
-        let shares = SubtensorModule::get_shares(&[n1, n2]);
-        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-        assert_abs_diff_eq!(s1, 0.25_f64, epsilon = 1e-6);
-        assert_abs_diff_eq!(s2, 0.75_f64, epsilon = 1e-6);
-    });
-}
-
 /// If one subnet has a negative EMA flow and the other positive,
 /// the negative one should contribute no weight (treated as zero),
 /// so the positive-flow subnet gets the full share.
@@ -401,7 +306,6 @@ fn get_shares_negative_vs_positive_flow() {
 
         // Configure blending window and current block
         let half_life: u64 = FlowHalfLife::<Test>::get();
-        FlowFirstBlock::<Test>::set(Some(0_u64));
         FlowNormExponent::<Test>::set(u64f64(1.0));
         frame_system::Pallet::<Test>::set_block_number(half_life);
         TaoFlowCutoff::<Test>::set(I64F64::from_num(0));
@@ -442,7 +346,6 @@ fn get_shares_both_negative_flows_zero_emission() {
 
         // Configure blending window and current block
         let half_life: u64 = FlowHalfLife::<Test>::get();
-        FlowFirstBlock::<Test>::set(Some(0_u64));
         FlowNormExponent::<Test>::set(u64f64(1.0));
         frame_system::Pallet::<Test>::set_block_number(half_life);
         TaoFlowCutoff::<Test>::set(I64F64::from_num(0));
@@ -479,7 +382,6 @@ fn get_shares_both_below_cutoff_zero_emission() {
 
         // Configure blending window and current block
         let half_life: u64 = FlowHalfLife::<Test>::get();
-        FlowFirstBlock::<Test>::set(Some(0_u64));
         FlowNormExponent::<Test>::set(u64f64(1.0));
         frame_system::Pallet::<Test>::set_block_number(half_life);
         TaoFlowCutoff::<Test>::set(I64F64::from_num(2_000));
@@ -519,7 +421,6 @@ fn get_shares_one_below_cutoff_other_full_emission() {
 
                 // Configure blending window and current block
                 let half_life: u64 = FlowHalfLife::<Test>::get();
-                FlowFirstBlock::<Test>::set(Some(0_u64));
                 FlowNormExponent::<Test>::set(u64f64(1.0));
                 frame_system::Pallet::<Test>::set_block_number(half_life);
                 TaoFlowCutoff::<Test>::set(I64F64::from_num(2_000));
@@ -561,7 +462,6 @@ fn get_shares_both_negative_above_cutoff() {
 
         // Configure blending window and current block
         let half_life: u64 = FlowHalfLife::<Test>::get();
-        FlowFirstBlock::<Test>::set(Some(0_u64));
         FlowNormExponent::<Test>::set(u64f64(1.0));
         frame_system::Pallet::<Test>::set_block_number(half_life);
         TaoFlowCutoff::<Test>::set(I64F64::from_num(-1000.0));
