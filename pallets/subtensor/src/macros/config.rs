@@ -27,18 +27,9 @@ mod config {
             + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
             + GetDispatchInfo;
 
-        /// Origin checking for council majority
-        type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
         ///  Currency type that will be used to place deposits on neurons
         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
             + fungible::Mutate<Self::AccountId>;
-
-        /// Senate members with members management functions.
-        type SenateMembers: crate::MemberManagement<Self::AccountId>;
-
-        /// Interface to allow other pallets to control who can register identities
-        type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
         /// The scheduler type used for scheduling delayed calls.
         type Scheduler: ScheduleAnon<
@@ -81,9 +72,6 @@ mod config {
         /// Initial Emission Ratio.
         #[pallet::constant]
         type InitialEmissionValue: Get<u16>;
-        /// Initial max weight limit.
-        #[pallet::constant]
-        type InitialMaxWeightsLimit: Get<u16>;
         /// Tempo for each network.
         #[pallet::constant]
         type InitialTempo: Get<u16>;
@@ -195,9 +183,6 @@ mod config {
         /// Initial childkey take transaction rate limit.
         #[pallet::constant]
         type InitialTxChildKeyTakeRateLimit: Get<u64>;
-        /// Initial percentage of total stake required to join senate.
-        #[pallet::constant]
-        type InitialSenateRequiredStakePercentage: Get<u64>;
         /// Initial adjustment alpha on burn and pow.
         #[pallet::constant]
         type InitialAdjustmentAlpha: Get<u64>;

@@ -22,22 +22,26 @@ pub mod migrate_fix_root_subnet_tao;
 pub mod migrate_fix_root_tao_and_alpha_in;
 pub mod migrate_identities_v2;
 pub mod migrate_init_total_issuance;
+pub mod migrate_kappa_map_to_default;
 pub mod migrate_network_immunity_period;
 pub mod migrate_network_lock_cost_2500;
 pub mod migrate_network_lock_reduction_interval;
 pub mod migrate_orphaned_storage_items;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_rao;
+pub mod migrate_rate_limit_keys;
 pub mod migrate_rate_limiting_last_blocks;
 pub mod migrate_remove_commitments_rate_limit;
 pub mod migrate_remove_network_modality;
 pub mod migrate_remove_stake_map;
+pub mod migrate_remove_tao_dividends;
 pub mod migrate_remove_total_hotkey_coldkey_stakes_this_interval;
 pub mod migrate_remove_unused_maps_and_values;
 pub mod migrate_remove_zero_total_hotkey_alpha;
 pub mod migrate_reset_bonds_moving_average;
 pub mod migrate_reset_max_burn;
 pub mod migrate_set_first_emission_block_number;
+pub mod migrate_set_first_tao_flow_block;
 pub mod migrate_set_min_burn;
 pub mod migrate_set_min_difficulty;
 pub mod migrate_set_nominator_min_stake;
@@ -101,4 +105,24 @@ pub(crate) fn migrate_storage<T: Config>(
     );
 
     weight
+}
+
+pub(crate) fn remove_prefix<T: Config>(module: &str, old_map: &str, weight: &mut Weight) {
+    let mut prefix = Vec::new();
+    prefix.extend_from_slice(&twox_128(module.as_bytes()));
+    prefix.extend_from_slice(&twox_128(old_map.as_bytes()));
+
+    let removal_results = clear_prefix(&prefix, Some(u32::MAX));
+
+    let removed_entries_count = match removal_results {
+        KillStorageResult::AllRemoved(removed) => removed as u64,
+        KillStorageResult::SomeRemaining(removed) => {
+            log::info!("Failed To Remove Some Items During migration");
+            removed as u64
+        }
+    };
+
+    log::info!("Removed {removed_entries_count:?} entries from {old_map:?} map.");
+
+    *weight = (*weight).saturating_add(T::DbWeight::get().writes(removed_entries_count));
 }

@@ -275,9 +275,16 @@ fn test_validate_unsigned_write_pulse() {
         let block_number = 100_000_000;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
+
+        let pulse = Pulse {
+            round: 1,
+            randomness: frame_support::BoundedVec::truncate_from(vec![0u8; 32]),
+            signature: frame_support::BoundedVec::truncate_from(vec![1u8; 96]),
+        };
+
         let pulses_payload = PulsesPayload {
             block_number,
-            pulses: vec![],
+            pulses: vec![pulse],
             public: alice.public(),
         };
         let signature = alice.sign(&pulses_payload.encode());

@@ -9,7 +9,7 @@ use frame_support::{
     weights::IdentityFee,
 };
 use frame_system::{
-    self as system, EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase,
+    self as system, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase,
 };
 pub use pallet_subtensor::*;
 pub use sp_core::U256;
@@ -142,7 +142,6 @@ impl pallet_transaction_payment::Config for Test {
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
-    pub const InitialMaxWeightsLimit: u16 = u16::MAX;
     pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
@@ -193,7 +192,6 @@ parameter_types! {
     pub const InitialMinDifficulty: u64 = 1;
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
-    pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
     pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
@@ -225,13 +223,9 @@ impl pallet_subtensor::Config for Test {
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = RuntimeCall;
-    type CouncilOrigin = EnsureNever<AccountId>;
-    type SenateMembers = ();
-    type TriumvirateInterface = ();
     type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
-    type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
     type InitialTempo = InitialTempo;
     type InitialDifficulty = InitialDifficulty;
     type InitialAdjustmentInterval = InitialAdjustmentInterval;
@@ -270,7 +264,6 @@ impl pallet_subtensor::Config for Test {
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
-    type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;

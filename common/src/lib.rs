@@ -147,7 +147,7 @@ pub enum ProxyType {
     NonCritical,
     NonTransfer,
     Senate,
-    NonFungibile, // Nothing involving moving TAO
+    NonFungible, // Nothing involving moving TAO
     Triumvirate,
     Governance, // Both above governance
     Staking,
@@ -159,6 +159,7 @@ pub enum ProxyType {
     SudoUncheckedSetCode,
     SwapHotkey,
     SubnetLeaseBeneficiary, // Used to operate the leased subnet
+    RootClaim,
 }
 
 impl Default for ProxyType {

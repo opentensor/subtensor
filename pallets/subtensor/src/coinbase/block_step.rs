@@ -7,7 +7,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
     pub fn block_step() -> Result<(), &'static str> {
         let block_number: u64 = Self::get_current_block_as_u64();
-        log::debug!("block_step for block: {block_number:?} ");
+        let last_block_hash: T::Hash = <frame_system::Pallet<T>>::parent_hash();
+
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Get the current coinbase emission.
@@ -21,6 +22,11 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::run_coinbase(block_emission);
         // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
+        // --- 5. Run auto-claim root divs.
+        Self::run_auto_claim_root_divs(last_block_hash);
+        // --- 6. Populate root coldkey maps.
+        Self::populate_root_coldkey_staking_maps();
+
         // Return ok.
         Ok(())
     }

@@ -54,6 +54,14 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
+pub const ALPHA_MAP_BATCH_SIZE: usize = 30;
+
+pub const MAX_NUM_ROOT_CLAIMS: u64 = 50;
+
+pub const MAX_SUBNET_CLAIMS: usize = 5;
+
+pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
+
 #[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
@@ -80,21 +88,19 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
+    use safe_math::FixedExt;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
+    use sp_std::collections::btree_map::BTreeMap;
+    use sp_std::collections::btree_set::BTreeSet;
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
-    use substrate_fixed::types::{I96F32, U64F64};
+    use substrate_fixed::types::{I64F64, I96F32, U64F64};
     use subtensor_macros::freeze_struct;
     use subtensor_runtime_common::{
         AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
     };
-
-    #[cfg(not(feature = "std"))]
-    use alloc::boxed::Box;
-    #[cfg(feature = "std")]
-    use sp_std::prelude::Box;
 
     /// Origin for the pallet
     pub type PalletsOriginOf<T> =
@@ -319,9 +325,61 @@ pub mod pallet {
     /// ==== Staking + Accounts ====
     /// ============================
 
+    #[derive(
+        Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
+    )]
+    /// Enum for the per-coldkey root claim setting.
+    pub enum RootClaimTypeEnum {
+        /// Swap any alpha emission for TAO.
+        #[default]
+        Swap,
+        /// Keep all alpha emission.
+        Keep,
+    }
+
+    /// Enum for the per-coldkey root claim frequency setting.
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum RootClaimFrequencyEnum {
+        /// Claim automatically.
+        #[default]
+        Auto,
+        /// Only claim manually; Never automatically.
+        Manual,
+    }
+
+    #[pallet::type_value]
+    /// Default minimum root claim amount.
+    /// This is the minimum amount of root claim that can be made.
+    /// Any amount less than this will not be claimed.
+    pub fn DefaultMinRootClaimAmount<T: Config>() -> I96F32 {
+        500_000u64.into()
+    }
+
+    #[pallet::type_value]
+    /// Default root claim type.
+    /// This is the type of root claim that will be made.
+    /// This is set by the user. Either swap to TAO or keep as alpha.
+    pub fn DefaultRootClaimType<T: Config>() -> RootClaimTypeEnum {
+        RootClaimTypeEnum::default()
+    }
+
+    #[pallet::type_value]
+    /// Default number of root claims per claim call.
+    /// Ideally this is calculated using the number of staking coldkey
+    /// and the block time.
+    pub fn DefaultNumRootClaim<T: Config>() -> u64 {
+        // once per week (+ spare keys for skipped tries)
+        5
+    }
+
     #[pallet::type_value]
     /// Default value for zero.
     pub fn DefaultZeroU64<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    /// Default value for zero.
+    pub fn DefaultZeroI64<T: Config>() -> i64 {
         0
     }
     /// Default value for Alpha currency.
@@ -655,11 +713,6 @@ pub mod pallet {
         T::InitialActivityCutoff::get()
     }
     #[pallet::type_value]
-    /// Default maximum weights limit.
-    pub fn DefaultMaxWeightsLimit<T: Config>() -> u16 {
-        T::InitialMaxWeightsLimit::get()
-    }
-    #[pallet::type_value]
     /// Default weights version key.
     pub fn DefaultWeightsVersionKey<T: Config>() -> u64 {
         T::InitialWeightsVersionKey::get()
@@ -795,11 +848,6 @@ pub mod pallet {
         4
     }
     #[pallet::type_value]
-    /// Senate requirements
-    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
-        T::InitialSenateRequiredStakePercentage::get()
-    }
-    #[pallet::type_value]
     /// -- ITEM (switches liquid alpha on)
     pub fn DefaultLiquidAlpha<T: Config>() -> bool {
         false
@@ -862,6 +910,12 @@ pub mod pallet {
     pub fn DefaultMovingPrice<T: Config>() -> I96F32 {
         I96F32::saturating_from_num(0.0)
     }
+
+    #[pallet::type_value]
+    /// Default subnet root claimable
+    pub fn DefaultRootClaimable<T: Config>() -> BTreeMap<NetUid, I96F32> {
+        Default::default()
+    }
     #[pallet::type_value]
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
@@ -887,6 +941,12 @@ pub mod pallet {
     /// Default value for setting subnet owner hotkey rate limit
     pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
         50400
+    }
+
+    /// Default last Alpha map key for iteration
+    #[pallet::type_value]
+    pub fn DefaultAlphaIterationLastKey<T: Config>() -> Option<Vec<u8>> {
+        None
     }
 
     #[pallet::type_value]
@@ -938,10 +998,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type DissolveNetworkScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultDissolveNetworkScheduleDuration<T>>;
-
-    #[pallet::storage]
-    pub type SenateRequiredStakePercentage<T> =
-        StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     #[pallet::storage]
     /// --- DMap ( netuid, coldkey ) --> blocknumber | last hotkey swap on network.
@@ -1055,17 +1111,6 @@ pub mod pallet {
         AlphaCurrency,
         ValueQuery,
         DefaultZeroAlpha<T>,
-    >;
-    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total root dividend paid to this hotkey on this subnet.
-    pub type TaoDividendsPerSubnet<T: Config> = StorageDoubleMap<
-        _,
-        Identity,
-        NetUid,
-        Blake2_128Concat,
-        T::AccountId,
-        TaoCurrency,
-        ValueQuery,
-        DefaultZeroTao<T>,
     >;
 
     /// ==================
@@ -1221,9 +1266,59 @@ pub mod pallet {
         U64F64, // Shares
         ValueQuery,
     >;
+
+    #[pallet::storage] // Contains last Alpha storage map key to iterate (check first)
+    pub type AlphaMapLastKey<T: Config> =
+        StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
+
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_tao_flow | Returns the TAO inflow-outflow balance.
+    pub type SubnetTaoFlow<T: Config> =
+        StorageMap<_, Identity, NetUid, i64, ValueQuery, DefaultZeroI64<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_ema_tao_flow | Returns the EMA of TAO inflow-outflow balance.
+    pub type SubnetEmaTaoFlow<T: Config> =
+        StorageMap<_, Identity, NetUid, (u64, I64F64), OptionQuery>;
+    #[pallet::type_value]
+    /// Default value for flow cutoff.
+    pub fn DefaultFlowCutoff<T: Config>() -> I64F64 {
+        I64F64::saturating_from_num(0)
+    }
+    #[pallet::storage]
+    /// --- ITEM --> TAO Flow Cutoff
+    pub type TaoFlowCutoff<T: Config> = StorageValue<_, I64F64, ValueQuery, DefaultFlowCutoff<T>>;
+    #[pallet::type_value]
+    /// Default value for flow normalization exponent.
+    pub fn DefaultFlowNormExponent<T: Config>() -> U64F64 {
+        U64F64::saturating_from_num(15).safe_div(U64F64::saturating_from_num(10))
+    }
+    #[pallet::storage]
+    /// --- ITEM --> Flow Normalization Exponent (p)
+    pub type FlowNormExponent<T: Config> =
+        StorageValue<_, U64F64, ValueQuery, DefaultFlowNormExponent<T>>;
+    #[pallet::type_value]
+    /// Default value for flow EMA smoothing.
+    pub fn DefaultFlowEmaSmoothingFactor<T: Config>() -> u64 {
+        // Example values:
+        //   half-life            factor value        i64 normalized
+        //   216000 (1 month) --> 0.000003209009576 ( 29_597_889_189_277)
+        //    50400 (1 week)  --> 0.000013752825678 (126_847_427_788_335)
+        29_597_889_189_277
+    }
+    #[pallet::type_value]
+    /// Flow EMA smoothing half-life.
+    pub fn FlowHalfLife<T: Config>() -> u64 {
+        216_000
+    }
+    #[pallet::storage]
+    /// --- ITEM --> Flow EMA smoothing factor (flow alpha), u64 normalized
+    pub type FlowEmaSmoothingFactor<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultFlowEmaSmoothingFactor<T>>;
+    #[pallet::storage]
+    /// --- ITEM --> Block when TAO flow calculation starts(ed)
+    pub type FlowFirstBlock<T: Config> = StorageValue<_, u64, OptionQuery>;
 
     /// ============================
     /// ==== Global Parameters =====
@@ -1342,13 +1437,9 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultPendingEmission<T>>;
+    /// --- MAP ( netuid ) --> pending_root_alpha_emission
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> pending_root_emission
-    pub type PendingRootDivs<T> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> pending_alpha_swapped
-    pub type PendingAlphaSwapped<T> =
+    pub type PendingRootAlphaDivs<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_owner_cut
@@ -1416,6 +1507,11 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> activity_cutoff
     pub type ActivityCutoff<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultActivityCutoff<T>>;
+    #[pallet::type_value]
+    /// Default maximum weights limit.
+    pub fn DefaultMaxWeightsLimit<T: Config>() -> u16 {
+        u16::MAX
+    }
     #[pallet::storage]
     /// --- MAP ( netuid ) --> max_weight_limit
     pub type MaxWeightsLimit<T> =
@@ -1847,6 +1943,53 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage] // --- MAP(netuid ) --> Root claim threshold
+    pub type RootClaimableThreshold<T: Config> =
+        StorageMap<_, Blake2_128Concat, NetUid, I96F32, ValueQuery, DefaultMinRootClaimAmount<T>>;
+
+    #[pallet::storage] // --- MAP ( hot ) --> MAP(netuid ) --> claimable_dividends | Root claimable dividends.
+    pub type RootClaimable<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        BTreeMap<NetUid, I96F32>,
+        ValueQuery,
+        DefaultRootClaimable<T>,
+    >;
+
+    // Already claimed root alpha.
+    #[pallet::storage]
+    pub type RootClaimed<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        u128,
+        ValueQuery,
+    >;
+    #[pallet::storage] // -- MAP ( cold ) --> root_claim_type enum
+    pub type RootClaimType<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        RootClaimTypeEnum,
+        ValueQuery,
+        DefaultRootClaimType<T>,
+    >;
+    #[pallet::storage] // --- MAP ( u64 ) --> coldkey | Maps coldkeys that have stake to an index
+    pub type StakingColdkeysByIndex<T: Config> =
+        StorageMap<_, Identity, u64, T::AccountId, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( coldkey ) --> index | Maps index that have stake to a coldkey
+    pub type StakingColdkeys<T: Config> = StorageMap<_, Identity, T::AccountId, u64, OptionQuery>;
+
+    #[pallet::storage] // --- Value --> num_staking_coldkeys
+    pub type NumStakingColdkeys<T: Config> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- Value --> num_root_claim | Number of coldkeys to claim each auto-claim.
+    pub type NumRootClaim<T: Config> = StorageValue<_, u64, ValueQuery, DefaultNumRootClaim<T>>;
+
     /// =============================
     /// ==== EVM related storage ====
     /// =============================
@@ -2071,81 +2214,6 @@ use sp_std::vec;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
-/// Trait for managing a membership pallet instance in the runtime
-pub trait MemberManagement<AccountId> {
-    /// Add member
-    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Remove a member
-    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Swap member
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo;
-
-    /// Get all members
-    fn members() -> Vec<AccountId>;
-
-    /// Check if an account is apart of the set
-    fn is_member(account: &AccountId) -> bool;
-
-    /// Get our maximum member count
-    fn max_members() -> u32;
-}
-
-impl<T> MemberManagement<T> for () {
-    /// Add member
-    fn add_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Remove a member
-    fn remove_member(_: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Swap member
-    fn swap_member(_: &T, _: &T) -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    // Get all members
-    fn members() -> Vec<T> {
-        vec![]
-    }
-
-    // Check if an account is apart of the set
-    fn is_member(_: &T) -> bool {
-        false
-    }
-
-    fn max_members() -> u32 {
-        0
-    }
-}
-
-/// Trait for interacting with collective pallets
-pub trait CollectiveInterface<AccountId, Hash, ProposalIndex> {
-    /// Remove vote
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, DispatchError>;
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: Hash,
-        index: ProposalIndex,
-        approve: bool,
-    ) -> Result<bool, DispatchError>;
-}
-
-impl<T, H, P> CollectiveInterface<T, H, P> for () {
-    fn remove_votes(_: &T) -> Result<bool, DispatchError> {
-        Ok(true)
-    }
-
-    fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
-        Ok(true)
-    }
-}
-
 #[derive(Clone)]
 pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
 
@@ -2295,16 +2363,22 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
+    #[codec(index = 0)]
     SetSNOwnerHotkey(NetUid),
     // Generic rate limit for subnet-owner hyperparameter updates (per netuid)
+    #[codec(index = 1)]
     OwnerHyperparamUpdate(NetUid, Hyperparameter),
     // Subnet registration rate limit
+    #[codec(index = 2)]
     NetworkLastRegistered,
     // Last tx block limit per account ID
+    #[codec(index = 3)]
     LastTxBlock(AccountId),
     // Last tx block child key limit per account ID
+    #[codec(index = 4)]
     LastTxBlockChildKeyTake(AccountId),
     // Last tx block delegate key limit per account ID
+    #[codec(index = 5)]
     LastTxBlockDelegateTake(AccountId),
 }
 

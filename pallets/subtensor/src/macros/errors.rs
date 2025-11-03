@@ -71,7 +71,7 @@ mod errors {
         /// The supplied PoW hash seal does not match the supplied work.
         InvalidSeal,
         /// The dispatch is attempting to set weights on chain with weight value exceeding the
-        /// MaxWeightLimit (max_weight_limit subnet hyperparameter).
+        /// configured max weight limit (currently `u16::MAX`).
         MaxWeightExceeded,
         /// The hotkey is attempting to become a delegate when the hotkey is already a delegate.
         HotKeyAlreadyDelegate,
@@ -97,8 +97,6 @@ mod errors {
         TooManyRegistrationsThisInterval,
         /// The hotkey is required to be the origin.
         TransactorAccountShouldBeHotKey,
-        /// A hotkey is attempting to do something only senate members can do.
-        NotSenateMember,
         /// Faucet is disabled.
         FaucetDisabled,
         /// Not a subnet owner.
@@ -130,8 +128,6 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
-        /// Not able to join the senate.
-        CouldNotJoinSenate,
         /// Attempting to set alpha high/low while disabled
         LiquidAlphaDisabled,
         /// Alpha high is too low: alpha_high > 0.8
@@ -264,5 +260,11 @@ mod errors {
         TrimmingWouldExceedMaxImmunePercentage,
         /// Violating the rules of Childkey-Parentkey consistency
         ChildParentInconsistency,
+        /// Invalid number of root claims
+        InvalidNumRootClaim,
+        /// Invalid value of root claim threshold
+        InvalidRootClaimThreshold,
+        /// Exceeded subnet limit number or zero.
+        InvalidSubnetNumber,
     }
 }

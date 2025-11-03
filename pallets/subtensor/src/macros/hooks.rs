@@ -138,6 +138,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<T>())
                 // Migrate last block rate limiting storage items
                 .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>())
+                // Re-encode rate limit keys after introducing OwnerHyperparamUpdate variant
+                .saturating_add(migrations::migrate_rate_limit_keys::migrate_rate_limit_keys::<T>())
                 // Migrate remove network modality
                 .saturating_add(migrations::migrate_remove_network_modality::migrate_remove_network_modality::<T>())
                 // Migrate Immunity Period
@@ -155,7 +157,13 @@ mod hooks {
                 // Migrate AutoStakeDestinationColdkeys
                 .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>())
                 // Migrate and fix LP ticks that saturated
-                .saturating_add(migrations::migrate_fix_liquidity_ticks::migrate_fix_liquidity_ticks::<T>());
+                .saturating_add(migrations::migrate_fix_liquidity_ticks::migrate_fix_liquidity_ticks::<T>())
+                // Migrate Kappa to default (0.5)
+                .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>())
+                // Set the first block of tao flow
+                .saturating_add(migrations::migrate_set_first_tao_flow_block::migrate_set_first_tao_flow_block::<T>())
+                // Remove obsolete map entries
+                .saturating_add(migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<T>());
             weight
         }
 

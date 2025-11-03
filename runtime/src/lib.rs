@@ -20,12 +20,12 @@ use codec::{Compact, Decode, Encode};
 use ethereum::AuthorizationList;
 use frame_support::{
     PalletId,
-    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    dispatch::DispatchResult,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
     traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
-use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
+use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
@@ -38,7 +38,7 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
-use pallet_subtensor_collective as pallet_collective;
+use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::SimSwapResult;
 use pallet_subtensor_utility as pallet_utility;
@@ -175,9 +175,6 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
 pub use pallet_scheduler;
 pub use pallet_subtensor;
 
-// Member type for membership
-type MemberCount = u32;
-
 // Method used to calculate the fee of an extrinsic
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
     pub const ITEMS_FEE: Balance = 2_000 * 10_000;
@@ -223,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 329,
+    spec_version: 334,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -489,149 +486,6 @@ impl pallet_transaction_payment::Config for Runtime {
     type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
 }
 
-// Configure collective pallet for council
-parameter_types! {
-    pub const CouncilMotionDuration: BlockNumber = 12 * HOURS;
-    pub const CouncilMaxProposals: u32 = 10;
-    pub const CouncilMaxMembers: u32 = 3;
-}
-
-// Configure collective pallet for Senate
-parameter_types! {
-    pub const SenateMaxMembers: u32 = 12;
-}
-
-use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
-pub struct CanProposeToTriumvirate;
-impl CanPropose<AccountId> for CanProposeToTriumvirate {
-    fn can_propose(account: &AccountId) -> bool {
-        Triumvirate::is_member(account)
-    }
-}
-
-pub struct CanVoteToTriumvirate;
-impl CanVote<AccountId> for CanVoteToTriumvirate {
-    fn can_vote(_: &AccountId) -> bool {
-        //Senate::is_member(account)
-        false // Disable voting from pallet_collective::vote
-    }
-}
-
-use pallet_subtensor::{
-    CollectiveInterface, CommitmentsInterface, MemberManagement, ProxyInterface,
-};
-pub struct ManageSenateMembers;
-impl MemberManagement<AccountId> for ManageSenateMembers {
-    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        let who = Address::Id(account.clone());
-        SenateMembers::add_member(RawOrigin::Root.into(), who)
-    }
-
-    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        let who = Address::Id(account.clone());
-        SenateMembers::remove_member(RawOrigin::Root.into(), who)
-    }
-
-    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
-        let remove = Address::Id(rm.clone());
-        let add = Address::Id(add.clone());
-
-        Triumvirate::remove_votes(rm)?;
-        SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
-    }
-
-    fn is_member(account: &AccountId) -> bool {
-        SenateMembers::members().contains(account)
-    }
-
-    fn members() -> Vec<AccountId> {
-        SenateMembers::members().into()
-    }
-
-    fn max_members() -> u32 {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct GetSenateMemberCount;
-impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
-    fn get_count() -> MemberCount {
-        SenateMembers::members().len() as u32
-    }
-}
-impl Get<MemberCount> for GetSenateMemberCount {
-    fn get() -> MemberCount {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::remove_votes(hotkey)
-    }
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: Hash,
-        index: u32,
-        approve: bool,
-    ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(hotkey.clone(), proposal, index, approve)
-    }
-}
-
-type EnsureMajoritySenate =
-    pallet_collective::EnsureProportionMoreThan<AccountId, TriumvirateCollective, 1, 2>;
-
-// We call pallet_collective TriumvirateCollective
-type TriumvirateCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<TriumvirateCollective> for Runtime {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = GetSenateMemberCount;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = CanProposeToTriumvirate;
-    type CanVote = CanVoteToTriumvirate;
-    type GetVotingMembers = GetSenateMemberCount;
-}
-
-// We call council members Triumvirate
-#[allow(dead_code)]
-type TriumvirateMembership = pallet_membership::Instance1;
-impl pallet_membership::Config<TriumvirateMembership> for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Triumvirate;
-    type MembershipChanged = Triumvirate;
-    type MaxMembers = CouncilMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
-}
-
-// We call our top K delegates membership Senate
-#[allow(dead_code)]
-type SenateMembership = pallet_membership::Instance2;
-impl pallet_membership::Config<SenateMembership> for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
-    type MaxMembers = SenateMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
-}
-
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -688,7 +542,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
             ),
-            ProxyType::NonFungibile => !matches!(
+            ProxyType::NonFungible => !matches!(
                 c,
                 RuntimeCall::Balances(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
@@ -759,20 +613,11 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
-                    | RuntimeCall::Triumvirate(..)
                     | RuntimeCall::Sudo(..)
             ),
-            ProxyType::Triumvirate => matches!(
-                c,
-                RuntimeCall::Triumvirate(..) | RuntimeCall::TriumvirateMembers(..)
-            ),
-            ProxyType::Senate => matches!(c, RuntimeCall::SenateMembers(..)),
-            ProxyType::Governance => matches!(
-                c,
-                RuntimeCall::SenateMembers(..)
-                    | RuntimeCall::Triumvirate(..)
-                    | RuntimeCall::TriumvirateMembers(..)
-            ),
+            ProxyType::Triumvirate => false, // deprecated
+            ProxyType::Senate => false,      // deprecated
+            ProxyType::Governance => false,  // deprecated
             ProxyType::Staking => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
@@ -839,9 +684,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                         pallet_admin_utils::Call::sudo_set_adjustment_alpha { .. }
                     )
                     | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_max_weight_limit { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_immunity_period { .. }
                     )
                     | RuntimeCall::AdminUtils(
@@ -881,6 +723,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                         pallet_admin_utils::Call::sudo_set_toggle_transfer { .. }
                     )
             ),
+            ProxyType::RootClaim => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root { .. })
+            ),
         }
     }
     fn is_superset(&self, o: &Self) -> bool {
@@ -892,7 +738,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 // NonTransfer is NOT a superset of Transfer or SmallTransfer
                 !matches!(o, ProxyType::Transfer | ProxyType::SmallTransfer)
             }
-            (ProxyType::Governance, ProxyType::Triumvirate | ProxyType::Senate) => true,
             (ProxyType::Transfer, ProxyType::SmallTransfer) => true,
             _ => false,
         }
@@ -964,21 +809,6 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
         match (left, right) {
             // Root is greater than anything.
             (OriginCaller::system(frame_system::RawOrigin::Root), _) => Some(Ordering::Greater),
-            // Check which one has more yes votes.
-            (
-                OriginCaller::Triumvirate(pallet_collective::RawOrigin::Members(
-                    l_yes_votes,
-                    l_count,
-                )),
-                OriginCaller::Triumvirate(pallet_collective::RawOrigin::Members(
-                    r_yes_votes,
-                    r_count,
-                )), // Equivalent to (l_yes_votes / l_count).cmp(&(r_yes_votes / r_count))
-            ) => Some(
-                l_yes_votes
-                    .saturating_mul(*r_count)
-                    .cmp(&r_yes_votes.saturating_mul(*l_count)),
-            ),
             // For every other origin we don't care, as they are not used for `ScheduleOrigin`.
             _ => None,
         }
@@ -1151,7 +981,6 @@ parameter_types! {
     pub const SubtensorInitialIssuance: u64 = 0;
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
-    pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
@@ -1185,7 +1014,7 @@ parameter_types! {
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
-    pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
+    pub const SubtensorInitialRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 1_296_000;
     pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
@@ -1217,9 +1046,6 @@ impl pallet_subtensor::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
-    type CouncilOrigin = EnsureMajoritySenate;
-    type SenateMembers = ManageSenateMembers;
-    type TriumvirateInterface = TriumvirateVotes;
     type Scheduler = Scheduler;
     type InitialRho = SubtensorInitialRho;
     type InitialAlphaSigmoidSteepness = SubtensorInitialAlphaSigmoidSteepness;
@@ -1232,7 +1058,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialIssuance = SubtensorInitialIssuance;
     type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
     type InitialEmissionValue = SubtensorInitialEmissionValue;
-    type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
     type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
     type InitialScalingLawPower = SubtensorInitialScalingLawPower;
     type InitialTempo = SubtensorInitialTempo;
@@ -1263,7 +1088,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
     type InitialMaxChildKeyTake = SubtensorInitialMaxChildKeyTake;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
-    type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
@@ -1625,6 +1449,89 @@ impl pallet_crowdloan::Config for Runtime {
     type MaxContributors = MaxContributors;
 }
 
+fn contracts_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedule<T> {
+    pallet_contracts::Schedule {
+        limits: pallet_contracts::Limits {
+            runtime_memory: 1024 * 1024 * 1024,
+            validator_runtime_memory: 1024 * 1024 * 1024 * 2,
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+const CONTRACT_STORAGE_KEY_PERCENT: Balance = 15;
+const CONTRACT_STORAGE_BYTE_PERCENT: Balance = 6;
+
+/// Contracts deposits charged at 15% of the existential deposit per key, 6% per byte.
+pub const fn contract_deposit(items: u32, bytes: u32) -> Balance {
+    let key_fee =
+        (EXISTENTIAL_DEPOSIT as Balance).saturating_mul(CONTRACT_STORAGE_KEY_PERCENT) / 100;
+    let byte_fee =
+        (EXISTENTIAL_DEPOSIT as Balance).saturating_mul(CONTRACT_STORAGE_BYTE_PERCENT) / 100;
+
+    (items as Balance)
+        .saturating_mul(key_fee)
+        .saturating_add((bytes as Balance).saturating_mul(byte_fee))
+}
+
+parameter_types! {
+    pub const ContractDepositPerItem: Balance = contract_deposit(1, 0);
+    pub const ContractDepositPerByte: Balance = contract_deposit(0, 1);
+    pub const ContractDefaultDepositLimit: Balance = contract_deposit(1024, 1024 * 1024);
+    pub ContractsSchedule: pallet_contracts::Schedule<Runtime> = contracts_schedule::<Runtime>();
+    pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+    pub const ContractMaxDelegateDependencies: u32 = 32;
+}
+
+pub struct ContractCallFilter;
+
+/// Whitelist dispatchables that are allowed to be called from contracts
+impl Contains<RuntimeCall> for ContractCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        match call {
+            RuntimeCall::Proxy(inner) => matches!(inner, pallet_proxy::Call::proxy { .. }),
+            _ => false,
+        }
+    }
+}
+
+impl pallet_contracts::Config for Runtime {
+    type Time = Timestamp;
+    type Randomness = RandomnessCollectiveFlip;
+    type Currency = Balances;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type CallFilter = ContractCallFilter;
+    type DepositPerItem = ContractDepositPerItem;
+    type DepositPerByte = ContractDepositPerByte;
+    type DefaultDepositLimit = ContractDefaultDepositLimit;
+    type CallStack = [pallet_contracts::Frame<Self>; 5];
+    type WeightPrice = pallet_transaction_payment::Pallet<Self>;
+    type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
+    type ChainExtension = subtensor_chain_extensions::SubtensorChainExtension<Self>;
+    type Schedule = ContractsSchedule;
+    type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
+    type MaxCodeLen = ConstU32<{ 128 * 1024 }>;
+    type MaxStorageKeyLen = ConstU32<128>;
+    type UnsafeUnstableInterface = ConstBool<false>;
+    type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    type Migrations = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type Migrations = pallet_contracts::migration::codegen::BenchMigrations;
+    type MaxDelegateDependencies = ContractMaxDelegateDependencies;
+    type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+    type Debug = ();
+    type Environment = ();
+    type Xcm = ();
+    type MaxTransientStorageSize = ConstU32<{ 1024 * 1024 }>;
+    type UploadOrigin = EnsureSigned<AccountId>;
+    type InstantiateOrigin = EnsureSigned<AccountId>;
+    type ApiVersion = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -1637,9 +1544,9 @@ construct_runtime!(
         Balances: pallet_balances = 5,
         TransactionPayment: pallet_transaction_payment = 6,
         SubtensorModule: pallet_subtensor = 7,
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 8,
-        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 9,
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 10,
+        // pallet_collective::<Instance1> (triumvirate) was 8
+        // pallet_membership::<Instance1> (triumvirate members) was 9
+        // pallet_membership::<Instance2> (senate members) was 10
         Utility: pallet_utility = 11,
         Sudo: pallet_sudo = 12,
         Multisig: pallet_multisig = 13,
@@ -1661,6 +1568,7 @@ construct_runtime!(
         Drand: pallet_drand = 26,
         Crowdloan: pallet_crowdloan = 27,
         Swap: pallet_subtensor_swap = 28,
+        Contracts: pallet_contracts = 29,
     }
 );
 
@@ -1685,12 +1593,22 @@ pub type TransactionExtensions = (
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
+parameter_types! {
+    pub const TriumviratePalletStr: &'static str = "Triumvirate";
+    pub const TriumvirateMembersPalletStr: &'static str = "TriumvirateMembers";
+    pub const SenateMembersPalletStr: &'static str = "SenateMembers";
+}
+
 type Migrations = (
     // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
     // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
+    // Remove storage from removed governance pallets
+    frame_support::migrations::RemovePallet<TriumviratePalletStr, RocksDbWeight>,
+    frame_support::migrations::RemovePallet<TriumvirateMembersPalletStr, RocksDbWeight>,
+    frame_support::migrations::RemovePallet<SenateMembersPalletStr, RocksDbWeight>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -1773,6 +1691,8 @@ fn generate_genesis_json() -> Vec<u8> {
 
     json_str.as_bytes().to_vec()
 }
+
+type EventRecord = frame_system::EventRecord<RuntimeEvent, Hash>;
 
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
@@ -2234,6 +2154,77 @@ impl_runtime_apis! {
             UncheckedExtrinsic::new_bare(
                 pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
             )
+        }
+    }
+
+    impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash, EventRecord>
+        for Runtime
+    {
+        fn call(
+            origin: AccountId,
+            dest: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            input_data: Vec<u8>,
+        ) -> pallet_contracts::ContractExecResult<Balance, EventRecord> {
+            let gas_limit = gas_limit.unwrap_or(BlockWeights::get().max_block);
+            Contracts::bare_call(
+                origin,
+                dest,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                input_data,
+                pallet_contracts::DebugInfo::Skip,
+                pallet_contracts::CollectEvents::Skip,
+                pallet_contracts::Determinism::Enforced,
+            )
+        }
+
+        fn instantiate(
+            origin: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            code: pallet_contracts::Code<Hash>,
+            data: Vec<u8>,
+            salt: Vec<u8>,
+        ) -> pallet_contracts::ContractInstantiateResult<AccountId, Balance, EventRecord>
+        {
+            let gas_limit = gas_limit.unwrap_or(BlockWeights::get().max_block);
+            Contracts::bare_instantiate(
+                origin,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                data,
+                salt,
+                pallet_contracts::DebugInfo::Skip,
+                pallet_contracts::CollectEvents::Skip,
+            )
+        }
+
+        fn upload_code(
+            origin: AccountId,
+            code: Vec<u8>,
+            storage_deposit_limit: Option<Balance>,
+            determinism: pallet_contracts::Determinism,
+        ) -> pallet_contracts::CodeUploadResult<Hash, Balance> {
+            Contracts::bare_upload_code(
+                origin,
+                code,
+                storage_deposit_limit,
+                determinism,
+            )
+        }
+
+        fn get_storage(
+            address: AccountId,
+            key: Vec<u8>,
+        ) -> pallet_contracts::GetStorageResult {
+            Contracts::get_storage(address, key)
         }
     }
 

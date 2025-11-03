@@ -120,34 +120,6 @@ fn test_swap_total_hotkey_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_senate_members --exact --nocapture
-#[test]
-fn test_swap_senate_members() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-
-        assert_ok!(SenateMembers::add_member(RuntimeOrigin::root(), old_hotkey));
-        let members = SenateMembers::members();
-        assert!(members.contains(&old_hotkey));
-        assert!(!members.contains(&new_hotkey));
-
-        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
-
-        // Assert that the old_hotkey is no longer a member and new_hotkey is now a member
-        let members = SenateMembers::members();
-        assert!(!members.contains(&old_hotkey));
-        assert!(members.contains(&new_hotkey));
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_delegates --exact --nocapture
 #[test]
 fn test_swap_delegates() {
@@ -904,7 +876,6 @@ fn test_swap_stake_success() {
         TotalHotkeyShares::<Test>::insert(old_hotkey, netuid, shares);
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(amount));
         AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaCurrency::from(amount));
-        TaoDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, TaoCurrency::from(amount));
 
         // Perform the swap
         SubtensorModule::perform_hotkey_swap_on_all_subnets(
@@ -953,14 +924,6 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, new_hotkey),
-            amount.into()
-        );
-        assert_eq!(
-            TaoDividendsPerSubnet::<Test>::get(netuid, old_hotkey),
-            TaoCurrency::ZERO
-        );
-        assert_eq!(
-            TaoDividendsPerSubnet::<Test>::get(netuid, new_hotkey),
             amount.into()
         );
     });
