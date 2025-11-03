@@ -177,6 +177,110 @@ fn is_within_limit_true_after_required_span() {
 }
 
 #[test]
+fn migrate_limit_scope_global_to_scoped() {
+    new_test_ext().execute_with(|| {
+        let target_call =
+            RuntimeCall::System(frame_system::Call::<Test>::remark { remark: Vec::new() });
+        let identifier = identifier_for(&target_call);
+
+        Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(3)));
+
+        assert!(RateLimiting::migrate_limit_scope(
+            &identifier,
+            None,
+            Some(9)
+        ));
+
+        match RateLimiting::limits(identifier).expect("config") {
+            RateLimit::Scoped(map) => {
+                assert_eq!(map.len(), 1);
+                assert_eq!(map.get(&9), Some(&RateLimitKind::Exact(3)));
+            }
+            other => panic!("unexpected config: {:?}", other),
+        }
+    });
+}
+
+#[test]
+fn migrate_limit_scope_scoped_to_scoped() {
+    new_test_ext().execute_with(|| {
+        let target_call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&target_call);
+
+        let mut map = sp_std::collections::btree_map::BTreeMap::new();
+        map.insert(1u16, RateLimitKind::Exact(4));
+        map.insert(2u16, RateLimitKind::Exact(6));
+        Limits::<Test, ()>::insert(identifier, RateLimit::Scoped(map));
+
+        assert!(RateLimiting::migrate_limit_scope(
+            &identifier,
+            Some(1),
+            Some(3)
+        ));
+
+        match RateLimiting::limits(identifier).expect("config") {
+            RateLimit::Scoped(map) => {
+                assert!(map.get(&1).is_none());
+                assert_eq!(map.get(&3), Some(&RateLimitKind::Exact(4)));
+                assert_eq!(map.get(&2), Some(&RateLimitKind::Exact(6)));
+            }
+            other => panic!("unexpected config: {:?}", other),
+        }
+    });
+}
+
+#[test]
+fn migrate_limit_scope_scoped_to_global() {
+    new_test_ext().execute_with(|| {
+        let target_call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&target_call);
+
+        let mut map = sp_std::collections::btree_map::BTreeMap::new();
+        map.insert(7u16, RateLimitKind::Exact(8));
+        Limits::<Test, ()>::insert(identifier, RateLimit::Scoped(map));
+
+        assert!(RateLimiting::migrate_limit_scope(
+            &identifier,
+            Some(7),
+            None
+        ));
+
+        match RateLimiting::limits(identifier).expect("config") {
+            RateLimit::Global(kind) => assert_eq!(kind, RateLimitKind::Exact(8)),
+            other => panic!("unexpected config: {:?}", other),
+        }
+    });
+}
+
+#[test]
+fn migrate_usage_key_moves_entry() {
+    new_test_ext().execute_with(|| {
+        let target_call =
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 0 });
+        let identifier = identifier_for(&target_call);
+
+        LastSeen::<Test, ()>::insert(identifier, Some(5u16), 11);
+
+        assert!(RateLimiting::migrate_usage_key(
+            &identifier,
+            Some(5),
+            Some(6)
+        ));
+        assert!(LastSeen::<Test, ()>::get(identifier, Some(5u16)).is_none());
+        assert_eq!(LastSeen::<Test, ()>::get(identifier, Some(6u16)), Some(11));
+
+        assert!(RateLimiting::migrate_usage_key(&identifier, Some(6), None));
+        assert!(LastSeen::<Test, ()>::get(identifier, Some(6u16)).is_none());
+        assert_eq!(
+            LastSeen::<Test, ()>::get(identifier, None::<UsageKey>),
+            Some(11)
+        );
+    });
+}
+
+#[test]
 fn set_rate_limit_updates_storage_and_emits_event() {
     new_test_ext().execute_with(|| {
         System::reset_events();

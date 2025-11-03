@@ -370,6 +370,76 @@ pub mod pallet {
             true
         }
 
+        /// Migrates a stored rate limit configuration from one scope to another.
+        ///
+        /// Returns `true` when an entry was moved. Passing identical `from`/`to` scopes simply
+        /// checks that a configuration exists.
+        pub fn migrate_limit_scope(
+            identifier: &TransactionIdentifier,
+            from: Option<<T as Config<I>>::LimitScope>,
+            to: Option<<T as Config<I>>::LimitScope>,
+        ) -> bool {
+            if from == to {
+                return Limits::<T, I>::contains_key(identifier);
+            }
+
+            let mut migrated = false;
+            Limits::<T, I>::mutate(identifier, |maybe_config| {
+                if let Some(config) = maybe_config {
+                    match (from.as_ref(), to.as_ref()) {
+                        (None, Some(target)) => {
+                            if let RateLimit::Global(kind) = config {
+                                *config = RateLimit::scoped_single(target.clone(), *kind);
+                                migrated = true;
+                            }
+                        }
+                        (Some(source), Some(target)) => {
+                            if let RateLimit::Scoped(map) = config {
+                                if let Some(kind) = map.remove(source) {
+                                    map.insert(target.clone(), kind);
+                                    migrated = true;
+                                }
+                            }
+                        }
+                        (Some(source), None) => {
+                            if let RateLimit::Scoped(map) = config {
+                                if map.len() == 1 && map.contains_key(source) {
+                                    if let Some(kind) = map.remove(source) {
+                                        *config = RateLimit::global(kind);
+                                        migrated = true;
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            });
+
+            migrated
+        }
+
+        /// Migrates the cached usage information for a rate-limited call to a new key.
+        ///
+        /// Returns `true` when an entry was moved. Passing identical keys simply checks that an
+        /// entry exists.
+        pub fn migrate_usage_key(
+            identifier: &TransactionIdentifier,
+            from: Option<<T as Config<I>>::UsageKey>,
+            to: Option<<T as Config<I>>::UsageKey>,
+        ) -> bool {
+            if from == to {
+                return LastSeen::<T, I>::contains_key(identifier, &to);
+            }
+
+            let Some(block) = LastSeen::<T, I>::take(identifier, from) else {
+                return false;
+            };
+
+            LastSeen::<T, I>::insert(identifier, to, block);
+            true
+        }
+
         /// Returns the configured limit for the specified pallet/extrinsic names, if any.
         pub fn limit_for_call_names(
             pallet_name: &str,
