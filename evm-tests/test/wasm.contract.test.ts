@@ -24,9 +24,6 @@ describe("Test wasm contract", () => {
     const hotkey2 = getRandomSubstrateKeypair();
     const coldkey2 = getRandomSubstrateKeypair();
 
-    const hotkey3 = getRandomSubstrateKeypair();
-    const coldkey3 = getRandomSubstrateKeypair();
-
     // set initial netuid to 0 to avoid warning
     let netuid: number = 0;
     // let inkClient: InkClient<typeof contracts.bittensor>;
@@ -70,13 +67,10 @@ describe("Test wasm contract", () => {
         api = await getDevnetApi()
 
         inkClient = getInkClient(contracts.bittensor)
-
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey2.publicKey))
-        // await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey3.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey2.publicKey))
-        // await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey3.publicKey))
         netuid = await addNewSubnetwork(api, hotkey, coldkey)
         await startCall(api, netuid, coldkey)
         console.log("test the case on subnet ", netuid)
@@ -85,7 +79,6 @@ describe("Test wasm contract", () => {
 
         await addNewSubnetwork(api, hotkey, coldkey)
         await startCall(api, netuid + 1, coldkey)
-        // await burnedRegister(api, netuid + 1, convertPublicKeyToSs58(hotkey3.publicKey), coldkey3)
     })
 
     it("Can instantiate contract", async () => {
