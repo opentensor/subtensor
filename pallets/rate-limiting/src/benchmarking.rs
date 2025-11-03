@@ -5,6 +5,7 @@
 use codec::Decode;
 use frame_benchmarking::v2::*;
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
+use sp_runtime::traits::DispatchOriginOf;
 
 use super::*;
 
@@ -36,7 +37,10 @@ mod benchmarks {
     fn set_rate_limit() {
         let call = sample_call::<T>();
         let limit = RateLimitKind::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
-        let scope = <T as Config>::LimitScopeResolver::context(call.as_ref());
+        let origin = T::RuntimeOrigin::from(RawOrigin::Root);
+        let resolver_origin: DispatchOriginOf<<T as Config>::RuntimeCall> =
+            Into::<DispatchOriginOf<<T as Config>::RuntimeCall>>::into(origin.clone());
+        let scope = <T as Config>::LimitScopeResolver::context(&resolver_origin, call.as_ref());
         let identifier =
             TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("identifier");
 
@@ -61,7 +65,10 @@ mod benchmarks {
     fn clear_rate_limit() {
         let call = sample_call::<T>();
         let limit = RateLimitKind::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
-        let scope = <T as Config>::LimitScopeResolver::context(call.as_ref());
+        let origin = T::RuntimeOrigin::from(RawOrigin::Root);
+        let resolver_origin: DispatchOriginOf<<T as Config>::RuntimeCall> =
+            Into::<DispatchOriginOf<<T as Config>::RuntimeCall>>::into(origin.clone());
+        let scope = <T as Config>::LimitScopeResolver::context(&resolver_origin, call.as_ref());
 
         // Pre-populate limit for benchmark call
         let identifier =

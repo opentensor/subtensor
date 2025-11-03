@@ -55,8 +55,8 @@
 //!   [`LastSeen`](pallet::LastSeen). This can refine the limit scope (for example by returning a
 //!   tuple of `(netuid, hyperparameter)`).
 //!
-//! Each resolver receives the call and may return `Some(identifier)` when scoping is required, or
-//! `None` to use the global entry. Extrinsics such as
+//! Each resolver receives the origin and call and may return `Some(identifier)` when scoping is
+//! required, or `None` to use the global entry. Extrinsics such as
 //! [`set_rate_limit`](pallet::Pallet::set_rate_limit) automatically consult these resolvers.
 //!
 //! ```ignore
@@ -64,8 +64,13 @@
 //!
 //! // Limits are scoped per netuid.
 //! pub struct ScopeResolver;
-//! impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeCall, NetUid, BlockNumber> for ScopeResolver {
-//!     fn context(call: &RuntimeCall) -> Option<NetUid> {
+//! impl pallet_rate_limiting::RateLimitScopeResolver<
+//!     RuntimeOrigin,
+//!     RuntimeCall,
+//!     NetUid,
+//!     BlockNumber,
+//! > for ScopeResolver {
+//!     fn context(origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<NetUid> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_weights { netuid, .. }) => {
 //!                 Some(*netuid)
@@ -74,15 +79,23 @@
 //!         }
 //!     }
 //!
-//!     fn adjust_span(_call: &RuntimeCall, span: BlockNumber) -> BlockNumber {
+//!     fn should_bypass(origin: &RuntimeOrigin, _call: &RuntimeCall) -> bool {
+//!         matches!(origin, RuntimeOrigin::Root)
+//!     }
+//!
+//!     fn adjust_span(_origin: &RuntimeOrigin, _call: &RuntimeCall, span: BlockNumber) -> BlockNumber {
 //!         span
 //!     }
 //! }
 //!
 //! // Usage tracking distinguishes hyperparameter + netuid.
 //! pub struct UsageResolver;
-//! impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeCall, (NetUid, HyperParam)> for UsageResolver {
-//!     fn context(call: &RuntimeCall) -> Option<(NetUid, HyperParam)> {
+//! impl pallet_rate_limiting::RateLimitUsageResolver<
+//!     RuntimeOrigin,
+//!     RuntimeCall,
+//!     (NetUid, HyperParam),
+//! > for UsageResolver {
+//!     fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<(NetUid, HyperParam)> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_hyperparam {
 //!                 netuid,
@@ -128,10 +141,10 @@ pub mod pallet {
     use codec::Codec;
     use frame_support::{
         pallet_prelude::*,
-        sp_runtime::traits::{Saturating, Zero},
         traits::{BuildGenesisConfig, EnsureOrigin, GetCallMetadata},
     };
     use frame_system::pallet_prelude::*;
+    use sp_runtime::traits::{DispatchOriginOf, Dispatchable, Saturating, Zero};
     use sp_std::{convert::TryFrom, marker::PhantomData, vec::Vec};
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -146,11 +159,14 @@ pub mod pallet {
     pub trait Config<I: 'static = ()>: frame_system::Config
     where
         BlockNumberFor<Self>: MaybeSerializeDeserialize,
+        <<Self as Config<I>>::RuntimeCall as Dispatchable>::RuntimeOrigin:
+            From<<Self as frame_system::Config>::RuntimeOrigin>,
     {
         /// The overarching runtime call type.
         type RuntimeCall: Parameter
             + Codec
             + GetCallMetadata
+            + Dispatchable
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
         /// Origin permitted to configure rate limits.
@@ -161,6 +177,7 @@ pub mod pallet {
 
         /// Resolves the scope for the given runtime call when configuring limits.
         type LimitScopeResolver: RateLimitScopeResolver<
+                DispatchOriginOf<<Self as Config<I>>::RuntimeCall>,
                 <Self as Config<I>>::RuntimeCall,
                 Self::LimitScope,
                 BlockNumberFor<Self>,
@@ -170,7 +187,11 @@ pub mod pallet {
         type UsageKey: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
 
         /// Resolves the usage key for the given runtime call when enforcing limits.
-        type UsageResolver: RateLimitUsageResolver<<Self as Config<I>>::RuntimeCall, Self::UsageKey>;
+        type UsageResolver: RateLimitUsageResolver<
+                DispatchOriginOf<<Self as Config<I>>::RuntimeCall>,
+                <Self as Config<I>>::RuntimeCall,
+                Self::UsageKey,
+            >;
 
         /// Helper used to construct runtime calls for benchmarking.
         #[cfg(feature = "runtime-benchmarks")]
@@ -311,16 +332,17 @@ pub mod pallet {
         /// Returns `true` when the given transaction identifier passes its configured rate limit
         /// within the provided usage scope.
         pub fn is_within_limit(
+            origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
+            call: &<T as Config<I>>::RuntimeCall,
             identifier: &TransactionIdentifier,
             scope: &Option<<T as Config<I>>::LimitScope>,
             usage_key: &Option<<T as Config<I>>::UsageKey>,
-            call: &<T as Config<I>>::RuntimeCall,
         ) -> Result<bool, DispatchError> {
-            if <T as Config<I>>::LimitScopeResolver::should_bypass(call) {
+            if <T as Config<I>>::LimitScopeResolver::should_bypass(origin, call) {
                 return Ok(true);
             }
 
-            let Some(block_span) = Self::effective_span(call, identifier, scope) else {
+            let Some(block_span) = Self::effective_span(origin, call, identifier, scope) else {
                 return Ok(true);
             };
 
@@ -340,13 +362,14 @@ pub mod pallet {
         }
 
         pub(crate) fn effective_span(
+            origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
             call: &<T as Config<I>>::RuntimeCall,
             identifier: &TransactionIdentifier,
             scope: &Option<<T as Config<I>>::LimitScope>,
         ) -> Option<BlockNumberFor<T>> {
             let span = Self::resolved_limit(identifier, scope)?;
             Some(<T as Config<I>>::LimitScopeResolver::adjust_span(
-                call, span,
+                origin, call, span,
             ))
         }
 
@@ -491,11 +514,15 @@ pub mod pallet {
             call: Box<<T as Config<I>>::RuntimeCall>,
             limit: RateLimitKind<BlockNumberFor<T>>,
         ) -> DispatchResult {
+            let resolver_origin: DispatchOriginOf<<T as Config<I>>::RuntimeCall> =
+                Into::<DispatchOriginOf<<T as Config<I>>::RuntimeCall>>::into(origin.clone());
+            let scope =
+                <T as Config<I>>::LimitScopeResolver::context(&resolver_origin, call.as_ref());
+            let scope_for_event = scope.clone();
+
             T::AdminOrigin::ensure_origin(origin)?;
 
             let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
-            let scope = <T as Config<I>>::LimitScopeResolver::context(call.as_ref());
-            let scope_for_event = scope.clone();
 
             if let Some(ref sc) = scope {
                 Limits::<T, I>::mutate(&identifier, |slot| match slot {
@@ -532,11 +559,15 @@ pub mod pallet {
             origin: OriginFor<T>,
             call: Box<<T as Config<I>>::RuntimeCall>,
         ) -> DispatchResult {
+            let resolver_origin: DispatchOriginOf<<T as Config<I>>::RuntimeCall> =
+                Into::<DispatchOriginOf<<T as Config<I>>::RuntimeCall>>::into(origin.clone());
+            let scope =
+                <T as Config<I>>::LimitScopeResolver::context(&resolver_origin, call.as_ref());
+            let usage = <T as Config<I>>::UsageResolver::context(&resolver_origin, call.as_ref());
+
             T::AdminOrigin::ensure_origin(origin)?;
 
             let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
-            let scope = <T as Config<I>>::LimitScopeResolver::context(call.as_ref());
-            let usage = <T as Config<I>>::UsageResolver::context(call.as_ref());
 
             let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
             let pallet = Vec::from(pallet_name.as_bytes());

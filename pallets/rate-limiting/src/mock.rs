@@ -61,10 +61,10 @@ pub type UsageKey = u16;
 pub struct TestScopeResolver;
 pub struct TestUsageResolver;
 
-impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeCall, LimitScope, u64>
+impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, LimitScope, u64>
     for TestScopeResolver
 {
-    fn context(call: &RuntimeCall) -> Option<LimitScope> {
+    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<LimitScope> {
         match call {
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
                 (*block_span).try_into().ok()
@@ -74,14 +74,14 @@ impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeCall, LimitScope, u64>
         }
     }
 
-    fn should_bypass(call: &RuntimeCall) -> bool {
+    fn should_bypass(_origin: &RuntimeOrigin, call: &RuntimeCall) -> bool {
         matches!(
             call,
             RuntimeCall::RateLimiting(RateLimitingCall::clear_rate_limit { .. })
         )
     }
 
-    fn adjust_span(call: &RuntimeCall, span: u64) -> u64 {
+    fn adjust_span(_origin: &RuntimeOrigin, call: &RuntimeCall, span: u64) -> u64 {
         if matches!(
             call,
             RuntimeCall::RateLimiting(RateLimitingCall::clear_all_rate_limits { .. })
@@ -93,8 +93,10 @@ impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeCall, LimitScope, u64>
     }
 }
 
-impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeCall, UsageKey> for TestUsageResolver {
-    fn context(call: &RuntimeCall) -> Option<UsageKey> {
+impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, UsageKey>
+    for TestUsageResolver
+{
+    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<UsageKey> {
         match call {
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
                 (*block_span).try_into().ok()

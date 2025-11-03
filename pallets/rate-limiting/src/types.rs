@@ -5,29 +5,29 @@ use sp_std::collections::btree_map::BTreeMap;
 
 /// Resolves the optional identifier within which a rate limit applies and can optionally adjust
 /// enforcement behaviour.
-pub trait RateLimitScopeResolver<Call, Scope, Span> {
+pub trait RateLimitScopeResolver<Origin, Call, Scope, Span> {
     /// Returns `Some(scope)` when the limit should be applied per-scope, or `None` for global
     /// limits.
-    fn context(call: &Call) -> Option<Scope>;
+    fn context(origin: &Origin, call: &Call) -> Option<Scope>;
 
-    /// Returns `true` when the rate limit should be bypassed for the provided call. Defaults to
-    /// `false`.
-    fn should_bypass(_call: &Call) -> bool {
+    /// Returns `true` when the rate limit should be bypassed for the provided origin/call pair.
+    /// Defaults to `false`.
+    fn should_bypass(_origin: &Origin, _call: &Call) -> bool {
         false
     }
 
     /// Optionally adjusts the effective span used during enforcement. Defaults to the original
     /// `span`.
-    fn adjust_span(_call: &Call, span: Span) -> Span {
+    fn adjust_span(_origin: &Origin, _call: &Call, span: Span) -> Span {
         span
     }
 }
 
 /// Resolves the optional usage tracking key applied when enforcing limits.
-pub trait RateLimitUsageResolver<Call, Usage> {
+pub trait RateLimitUsageResolver<Origin, Call, Usage> {
     /// Returns `Some(usage)` when usage should be tracked per-key, or `None` for global usage
     /// tracking.
-    fn context(call: &Call) -> Option<Usage>;
+    fn context(origin: &Origin, call: &Call) -> Option<Usage>;
 }
 
 /// Identifies a runtime call by pallet and extrinsic indices.

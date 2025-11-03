@@ -97,7 +97,7 @@ where
         _inherited_implication: &impl Implication,
         _source: TransactionSource,
     ) -> ValidateResult<Self::Val, <T as Config<I>>::RuntimeCall> {
-        if <T as Config<I>>::LimitScopeResolver::should_bypass(call) {
+        if <T as Config<I>>::LimitScopeResolver::should_bypass(&origin, call) {
             return Ok((ValidTransaction::default(), None, origin));
         }
 
@@ -106,10 +106,11 @@ where
             Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
         };
 
-        let scope = <T as Config<I>>::LimitScopeResolver::context(call);
-        let usage = <T as Config<I>>::UsageResolver::context(call);
+        let scope = <T as Config<I>>::LimitScopeResolver::context(&origin, call);
+        let usage = <T as Config<I>>::UsageResolver::context(&origin, call);
 
-        let Some(block_span) = Pallet::<T, I>::effective_span(call, &identifier, &scope) else {
+        let Some(block_span) = Pallet::<T, I>::effective_span(&origin, call, &identifier, &scope)
+        else {
             return Ok((ValidTransaction::default(), None, origin));
         };
 
