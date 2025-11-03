@@ -75,11 +75,10 @@ impl<T: Config> Pallet<T> {
             }
         } else {
             // Initialize EMA flow, set S(current_block) = min(price, ema_price) * init_factor
-            let init_factor = I64F64::saturating_from_num(1.);
             let moving_price = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
             let current_price =
                 I64F64::saturating_from_num(T::SwapInterface::current_alpha_price(netuid));
-            let ema_flow = moving_price.min(current_price).saturating_mul(init_factor);
+            let ema_flow = moving_price.min(current_price);
             SubnetEmaTaoFlow::<T>::insert(netuid, (current_block, ema_flow));
             ema_flow
         }
