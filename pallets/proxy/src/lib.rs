@@ -39,9 +39,9 @@ use frame::{
     prelude::*,
     traits::{Currency, InstanceFilter, ReservableCurrency},
 };
+use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 pub use pallet::*;
 use subtensor_macros::freeze_struct;
-use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 pub use weights::WeightInfo;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
@@ -748,13 +748,13 @@ pub mod pallet {
         NoSelfProxy,
     }
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
-		fn on_finalize(_n: SystemBlockNumberFor<T>) {
-			// clear this map on end of each block
-			let _ = LastCallResult::<T>::clear(u32::MAX, None);
-		}
-	}
+    #[pallet::hooks]
+    impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
+        fn on_finalize(_n: SystemBlockNumberFor<T>) {
+            // clear this map on end of each block
+            let _ = LastCallResult::<T>::clear(u32::MAX, None);
+        }
+    }
 
     /// The set of account proxies. Maps the account which has delegated to the accounts
     /// which are being delegated to, together with the amount held on deposit.
