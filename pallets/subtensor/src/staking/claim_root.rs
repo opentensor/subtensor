@@ -165,7 +165,7 @@ impl<T: Config> Pallet<T> {
                     netuid,
                     owed_u64.into(),
                     T::SwapInterface::min_price::<TaoCurrency>(),
-                    false,
+                    true,
                 ) {
                     Ok(owed_tao) => owed_tao,
                     Err(err) => {
