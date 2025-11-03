@@ -8132,6 +8132,7 @@ dependencies = [
  "pallet-drand",
  "pallet-membership",
  "pallet-preimage",
+ "pallet-proxy 40.1.0",
  "pallet-scheduler",
  "pallet-subtensor-swap",
  "pallet-utility 40.0.0",

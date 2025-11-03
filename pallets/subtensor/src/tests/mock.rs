@@ -45,6 +45,7 @@ frame_support::construct_runtime!(
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
+		Proxy: pallet_proxy = 14,
     }
 );
 
@@ -710,6 +711,7 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
 pub(crate) fn step_block(n: u16) {
     for _ in 0..n {
         Scheduler::on_finalize(System::block_number());
+		Proxy::on_finalize(System::block_number());
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
