@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used, clippy::indexing_slicing)]
+
 use codec::Encode;
 use sp_std::prelude::*;
 use subtensor_runtime_common::NetUid;
@@ -19,7 +21,6 @@ use frame_support::{
 };
 use frame_system::{Pallet as System, RawOrigin};
 
-#[allow(clippy::indexing_slicing)]
 #[test]
 fn manual_data_type_info() {
     let mut registry = scale_info::Registry::new();

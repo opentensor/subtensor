@@ -1,28 +1,32 @@
+use crate::consensus::hybrid_import_queue::HybridBlockImport;
 use crate::consensus::{ConsensusMechanism, StartAuthoringParams};
 use crate::{
     client::{FullBackend, FullClient},
-    conditional_evm_block_import::ConditionalEVMBlockImport,
     ethereum::EthConfiguration,
     service::{BIQ, FullSelectChain, GrandpaBlockImport},
 };
-use fc_consensus::FrontierBlockImport;
 use jsonrpsee::tokio;
 use node_subtensor_runtime::opaque::Block;
-use sc_client_api::{AuxStore, BlockOf};
+use sc_client_api::{AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{BlockImport, BoxBlockImport};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, InherentDataProviderExt};
+use sc_network_sync::SyncingService;
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::{Environment, Proposer, SelectChain, SyncOracle};
-use sp_consensus_aura::sr25519::AuthorityId;
+use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
 use sp_consensus_aura::{AuraApi, sr25519::AuthorityPair as AuraPair};
+use sp_consensus_babe::AuthorityId as BabeAuthorityId;
+use sp_consensus_babe::BabeConfiguration;
 use sp_consensus_slots::SlotDuration;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
+use sp_runtime::traits::Block as BlockT;
 use sp_runtime::traits::NumberFor;
 use std::{error::Error, sync::Arc};
 
@@ -48,7 +52,7 @@ impl ConsensusMechanism for AuraConsensus {
             + Send
             + Sync
             + 'static,
-        C::Api: AuraApi<Block, AuthorityId>,
+        C::Api: AuraApi<Block, AuraAuthorityId>,
         SC: SelectChain<Block> + 'static,
         I: BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static,
         PF: Environment<Block, Error = Error> + Send + Sync + 'static,
@@ -122,16 +126,18 @@ impl ConsensusMechanism for AuraConsensus {
     {
         let build_import_queue = Box::new(
             move |client: Arc<FullClient>,
-                  _backend: Arc<FullBackend>,
-                  config: &Configuration,
+                  backend: Arc<FullBackend>,
+                  service_config: &Configuration,
                   _eth_config: &EthConfiguration,
                   task_manager: &TaskManager,
                   telemetry: Option<TelemetryHandle>,
                   grandpa_block_import: GrandpaBlockImport,
-                  _transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
-                let conditional_block_import = ConditionalEVMBlockImport::new(
+                  transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
+                let expected_babe_config = get_expected_babe_configuration(&*client)?;
+                let conditional_block_import = HybridBlockImport::new(
+                    client.clone(),
                     grandpa_block_import.clone(),
-                    FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+                    expected_babe_config.clone(),
                 );
 
                 let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
@@ -145,17 +151,28 @@ impl ConsensusMechanism for AuraConsensus {
                     Ok((slot, timestamp))
                 };
 
-                let import_queue = super::aura_wrapped_import_queue::import_queue(
-                    sc_consensus_aura::ImportQueueParams {
+                // Aura needs the hybrid import queue, because it needs to
+                // 1. Validate the first Babe block it encounters before switching into Babe
+                //    consensus mode
+                // 2. Import the entire blockchain without restarting during warp sync, because
+                //    warp sync does not allow restarting sync midway.
+                let import_queue = super::hybrid_import_queue::import_queue(
+                    crate::consensus::hybrid_import_queue::HybridImportQueueParams {
                         block_import: conditional_block_import.clone(),
                         justification_import: Some(Box::new(grandpa_block_import.clone())),
                         client,
                         create_inherent_data_providers,
                         spawner: &task_manager.spawn_essential_handle(),
-                        registry: config.prometheus_registry(),
+                        registry: service_config.prometheus_registry(),
                         check_for_equivocation: Default::default(),
                         telemetry,
                         compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
+                        select_chain: sc_consensus::LongestChain::new(backend.clone()),
+                        babe_config: expected_babe_config,
+                        epoch_changes: conditional_block_import.babe_link().epoch_changes().clone(),
+                        offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+                            transaction_pool,
+                        ),
                     },
                 )
                 .map_err::<sc_service::Error, _>(Into::into)?;
@@ -178,31 +195,44 @@ impl ConsensusMechanism for AuraConsensus {
         &self,
         task_manager: &mut TaskManager,
         client: Arc<FullClient>,
-        triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
+        custom_service_signal: Option<Arc<std::sync::atomic::AtomicBool>>,
+        sync_service: Arc<SyncingService<Block>>,
     ) -> Result<(), sc_service::Error> {
         let client_clone = client.clone();
-        let triggered_clone = triggered.clone();
+        let custom_service_signal_clone = custom_service_signal.clone();
         let slot_duration = self.slot_duration(&client)?;
         task_manager.spawn_essential_handle().spawn(
-        "babe-switch",
-        None,
-        Box::pin(async move {
-            let client = client_clone;
-            let triggered = triggered_clone;
-            loop {
-                // Check if the runtime is Babe once per block.
-                if let Ok(c) = sc_consensus_babe::configuration(&*client) {
-                    if !c.authorities.is_empty() {
-                        log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
-						if let Some(triggered) = triggered {
-                        	triggered.store(true, std::sync::atomic::Ordering::SeqCst);
-						};
-                        break;
-                    }
-                };
-                tokio::time::sleep(slot_duration.as_duration()).await;
-            }
-        }));
+            "babe-switch",
+            None,
+            Box::pin(async move {
+                let client = client_clone;
+                let custom_service_signal = custom_service_signal_clone;
+                loop {
+                    // Check if the runtime is Babe once per block.
+                    if let Ok(c) = sc_consensus_babe::configuration(&*client) {
+                        // Aura Consensus uses the hybrid import queue which is able to import both
+                        // Aura and Babe blocks. Wait until sync finishes before switching to the
+                        // Babe service to not break warp sync.
+						//
+						// Note that although unintuitive, it is required that we wait until BOTH
+						// warp sync and state sync are finished before we can safely switch to the
+						// Babe service. If we only wait for the "warp sync" to finish while state
+						// sync is still in progress prior to switching, the warp sync will not
+						// complete successfully.
+                        let syncing = sync_service.status().await.is_ok_and(|status| status.warp_sync.is_some() || status.state_sync.is_some());
+                        if !c.authorities.is_empty() && !syncing {
+                            log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
+							// Signal that the node stopped due to the custom service exiting.
+                            if let Some(custom_service_signal) = custom_service_signal {
+                                custom_service_signal.store(true, std::sync::atomic::Ordering::SeqCst);
+                            };
+                            break;
+                        }
+                    };
+                    tokio::time::sleep(slot_duration.as_duration()).await;
+                }
+            }),
+        );
         Ok(())
     }
 
@@ -215,4 +245,42 @@ impl ConsensusMechanism for AuraConsensus {
         // Aura requires no special RPC methods.
         Ok(Default::default())
     }
+}
+
+/// Returns what the Babe configuration is expected to be at the first Babe block.
+///
+/// This is required for the hybrid import queue, so it is ready to validate the first encountered
+/// babe block(s) before switching to Babe consensus.
+fn get_expected_babe_configuration<B: BlockT, C>(
+    client: &C,
+) -> sp_blockchain::Result<BabeConfiguration>
+where
+    C: AuxStore + ProvideRuntimeApi<B> + UsageProvider<B>,
+    C::Api: AuraApi<B, AuraAuthorityId>,
+{
+    let at_hash = if client.usage_info().chain.finalized_state.is_some() {
+        client.usage_info().chain.best_hash
+    } else {
+        client.usage_info().chain.genesis_hash
+    };
+
+    let runtime_api = client.runtime_api();
+    let authorities = runtime_api
+        .authorities(at_hash)?
+        .into_iter()
+        .map(|a| (BabeAuthorityId::from(a.into_inner()), 1))
+        .collect();
+
+    let slot_duration = runtime_api.slot_duration(at_hash)?.as_millis();
+    let epoch_config = node_subtensor_runtime::BABE_GENESIS_EPOCH_CONFIG;
+    let config = sp_consensus_babe::BabeConfiguration {
+        slot_duration,
+        epoch_length: node_subtensor_runtime::EPOCH_DURATION_IN_SLOTS,
+        c: epoch_config.c,
+        authorities,
+        randomness: Default::default(),
+        allowed_slots: epoch_config.allowed_slots,
+    };
+
+    Ok(config)
 }

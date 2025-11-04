@@ -2,31 +2,7 @@ use super::*;
 use crate::HasMigrationRun;
 use frame_support::{traits::Get, weights::Weight};
 use scale_info::prelude::string::String;
-use sp_io::{
-    KillStorageResult,
-    hashing::twox_128,
-    storage::{clear, clear_prefix},
-};
-
-fn remove_prefix<T: Config>(old_map: &str, weight: &mut Weight) {
-    let mut prefix = Vec::new();
-    prefix.extend_from_slice(&twox_128("SubtensorModule".as_bytes()));
-    prefix.extend_from_slice(&twox_128(old_map.as_bytes()));
-
-    let removal_results = clear_prefix(&prefix, Some(u32::MAX));
-
-    let removed_entries_count = match removal_results {
-        KillStorageResult::AllRemoved(removed) => removed as u64,
-        KillStorageResult::SomeRemaining(removed) => {
-            log::info!("Failed To Remove Some Items During migration");
-            removed as u64
-        }
-    };
-
-    log::info!("Removed {removed_entries_count:?} entries from {old_map:?} map.");
-
-    *weight = (*weight).saturating_add(T::DbWeight::get().writes(removed_entries_count));
-}
+use sp_io::storage::clear;
 
 pub fn migrate_remove_unused_maps_and_values<T: Config>() -> Weight {
     let migration_name = b"migrate_remove_unused_maps_and_values".to_vec();
@@ -46,10 +22,10 @@ pub fn migrate_remove_unused_maps_and_values<T: Config>() -> Weight {
     );
 
     // Remove EmissionValues entries
-    remove_prefix::<T>("EmissionValues", &mut weight);
+    remove_prefix::<T>("SubtensorModule", "EmissionValues", &mut weight);
 
     // Remove NetworkMaxStake
-    remove_prefix::<T>("NetworkMaxStake", &mut weight);
+    remove_prefix::<T>("SubtensorModule", "NetworkMaxStake", &mut weight);
 
     // Remove SubnetLimit
     clear(b"SubtensorModule::SubnetLimit");

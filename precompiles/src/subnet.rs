@@ -290,27 +290,9 @@ where
     #[precompile::public("getMaxWeightLimit(uint16)")]
     #[precompile::view]
     fn get_max_weight_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::MaxWeightsLimit::<R>::get(NetUid::from(
-            netuid,
-        )))
-    }
-
-    #[precompile::public("setMaxWeightLimit(uint16,uint16)")]
-    #[precompile::payable]
-    fn set_max_weight_limit(
-        handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        max_weight_limit: u16,
-    ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_max_weight_limit {
-            netuid: netuid.into(),
-            max_weight_limit,
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        Ok(pallet_subtensor::Pallet::<R>::get_max_weight_limit(
+            NetUid::from(netuid),
+        ))
     }
 
     #[precompile::public("getImmunityPeriod(uint16)")]

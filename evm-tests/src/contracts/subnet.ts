@@ -672,24 +672,6 @@ export const ISubnetABI = [
             },
             {
                 internalType: "uint16",
-                name: "maxWeightLimit",
-                type: "uint16",
-            },
-        ],
-        name: "setMaxWeightLimit",
-        outputs: [],
-        stateMutability: "payable",
-        type: "function",
-    },
-    {
-        inputs: [
-            {
-                internalType: "uint16",
-                name: "netuid",
-                type: "uint16",
-            },
-            {
-                internalType: "uint16",
                 name: "minAllowedWeights",
                 type: "uint16",
             },

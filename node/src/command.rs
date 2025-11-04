@@ -194,8 +194,9 @@ pub fn run() -> sc_cli::Result<()> {
                     BenchmarkCmd::Storage(cmd) => {
                         let db = backend.expose_db();
                         let storage = backend.expose_storage();
+                        let shared_cache = backend.expose_shared_trie_cache();
 
-                        cmd.run(config, client, db, storage)
+                        cmd.run(config, client, db, storage, shared_cache)
                     }
                     BenchmarkCmd::Overhead(cmd) => {
                         let ext_builder = RemarkBuilder::new(client.clone());
@@ -244,6 +245,7 @@ pub fn run() -> sc_cli::Result<()> {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
@@ -273,12 +275,14 @@ fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
                 return start_babe_service(arg_matches);
             // Unknown error, return it.
             } else {
+                log::error!("Failed to start Babe service: {e:?}");
                 Err(e.into())
             }
         }
     }
 }
 
+#[allow(clippy::expect_used)]
 fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
@@ -288,16 +292,21 @@ fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     //
     // Passing this atomic bool is a hacky solution, allowing the node to set it to true to indicate
     // a Babe service should be spawned on exit instead of a regular shutdown.
-    let babe_switch = Arc::new(AtomicBool::new(false));
-    let babe_switch_clone = babe_switch.clone();
+    let custom_service_signal = Arc::new(AtomicBool::new(false));
+    let custom_service_signal_clone = custom_service_signal.clone();
     match runner.run_node_until_exit(|config| async move {
         let config = customise_config(arg_matches, config);
-        service::build_full::<AuraConsensus>(config, cli.eth, cli.sealing, Some(babe_switch_clone))
-            .await
+        service::build_full::<AuraConsensus>(
+            config,
+            cli.eth,
+            cli.sealing,
+            Some(custom_service_signal_clone),
+        )
+        .await
     }) {
         Ok(()) => Ok(()),
         Err(e) => {
-            if babe_switch.load(std::sync::atomic::Ordering::Relaxed) {
+            if custom_service_signal.load(std::sync::atomic::Ordering::Relaxed) {
                 start_babe_service(arg_matches)
             } else {
                 Err(e.into())
@@ -306,6 +315,7 @@ fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn customise_config(arg_matches: &ArgMatches, config: Configuration) -> Configuration {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
 
@@ -345,6 +355,7 @@ fn override_default_heap_pages(config: Configuration, pages: u64) -> Configurati
         keystore: config.keystore,
         database: config.database,
         trie_cache_maximum_size: config.trie_cache_maximum_size,
+        warm_up_trie_cache: config.warm_up_trie_cache,
         state_pruning: config.state_pruning,
         blocks_pruning: config.blocks_pruning,
         chain_spec: config.chain_spec,

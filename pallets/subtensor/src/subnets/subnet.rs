@@ -2,7 +2,6 @@ use super::*;
 use sp_core::Get;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
-
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
     ///
@@ -276,7 +275,6 @@ impl<T: Config> Pallet<T> {
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 64);
         Self::set_min_allowed_weights(netuid, 1);
-        Self::set_max_weight_limit(netuid, u16::MAX);
         Self::set_adjustment_interval(netuid, 360);
         Self::set_target_registrations_per_interval(netuid, 1);
         Self::set_adjustment_alpha(netuid, 17_893_341_751_498_265_066); // 18_446_744_073_709_551_615 * 0.97 = 17_893_341_751_498_265_066
@@ -302,9 +300,6 @@ impl<T: Config> Pallet<T> {
         }
         if !ActivityCutoff::<T>::contains_key(netuid) {
             ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
-        }
-        if !MaxWeightsLimit::<T>::contains_key(netuid) {
-            MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));
         }
         if !MinAllowedWeights::<T>::contains_key(netuid) {
             MinAllowedWeights::<T>::insert(netuid, MinAllowedWeights::<T>::get(netuid));

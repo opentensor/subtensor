@@ -59,6 +59,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 #[derive(
     Encode,
     Decode,
+    DecodeWithMemTracking,
     Clone,
     Copy,
     Eq,
@@ -113,6 +114,7 @@ pub enum DepositKind {
 }
 
 #[frame::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
 
@@ -122,9 +124,6 @@ pub mod pallet {
     /// Configuration trait.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
@@ -218,6 +217,8 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Dispatch the given `call` from an account that the sender is authorised for through
         /// `add_proxy`.
         ///
@@ -336,7 +337,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
-            let pure = Self::pure_account(&who, &proxy_type, index, None);
+            let pure = Self::pure_account(&who, &proxy_type, index, None)?;
             ensure!(!Proxies::<T>::contains_key(&pure), Error::<T>::Duplicate);
 
             let proxy_def = ProxyDefinition {
@@ -392,7 +393,7 @@ pub mod pallet {
             let spawner = T::Lookup::lookup(spawner)?;
 
             let when = (height, ext_index);
-            let proxy = Self::pure_account(&spawner, &proxy_type, index, Some(when));
+            let proxy = Self::pure_account(&spawner, &proxy_type, index, Some(when))?;
             ensure!(proxy == who, Error::<T>::NoPermission);
 
             let (_, deposit) = Proxies::<T>::take(&who);
@@ -448,24 +449,24 @@ pub mod pallet {
                 pending
                     .try_push(announcement)
                     .map_err(|_| Error::<T>::TooMany)?;
-                Self::rejig_deposit(
+                let new_deposit = Self::rejig_deposit(
                     &who,
                     *deposit,
                     T::AnnouncementDepositBase::get(),
                     T::AnnouncementDepositFactor::get(),
                     pending.len(),
-                )
-                .map(|d| {
-                    d.expect("Just pushed; pending.len() > 0; rejig_deposit returns Some; qed")
-                })
-                .map(|d| *deposit = d)
+                )?
+                .ok_or(Error::<T>::AnnouncementDepositInvariantViolated)?;
+
+                *deposit = new_deposit;
+                Ok::<(), DispatchError>(())
             })?;
+
             Self::deposit_event(Event::Announced {
                 real,
                 proxy: who,
                 call_hash,
             });
-
             Ok(())
         }
 
@@ -688,6 +689,17 @@ pub mod pallet {
             proxy_type: T::ProxyType,
             disambiguation_index: u16,
         },
+        /// A pure proxy was killed by its spawner.
+        PureKilled {
+            // The pure proxy account that was destroyed.
+            pure: T::AccountId,
+            // The account that created the pure proxy.
+            spawner: T::AccountId,
+            // The proxy type of the pure proxy that was destroyed.
+            proxy_type: T::ProxyType,
+            // The index originally passed to `create_pure` when this pure proxy was created.
+            disambiguation_index: u16,
+        },
         /// An announcement was placed to make a call in the future.
         Announced {
             real: T::AccountId,
@@ -707,17 +719,6 @@ pub mod pallet {
             delegatee: T::AccountId,
             proxy_type: T::ProxyType,
             delay: BlockNumberFor<T>,
-        },
-        /// A pure proxy was killed by its spawner.
-        PureKilled {
-            // The pure proxy account that was destroyed.
-            pure: T::AccountId,
-            // The account that created the pure proxy.
-            spawner: T::AccountId,
-            // The proxy type of the pure proxy that was destroyed.
-            proxy_type: T::ProxyType,
-            // The index originally passed to `create_pure` when this pure proxy was created.
-            disambiguation_index: u16,
         },
         /// A deposit stored for proxies or announcements was poked / updated.
         DepositPoked {
@@ -746,6 +747,10 @@ pub mod pallet {
         Unannounced,
         /// Cannot add self as proxy.
         NoSelfProxy,
+        /// Invariant violated: deposit recomputation returned None after updating announcements.
+        AnnouncementDepositInvariantViolated,
+        /// Failed to derive a valid account id from the provided entropy.
+        InvalidDerivedAccountId,
     }
 
     #[pallet::hooks]
@@ -791,7 +796,7 @@ pub mod pallet {
     pub type LastCallResult<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, DispatchResult, OptionQuery>;
 
-    #[pallet::view_functions_experimental]
+    #[pallet::view_functions]
     impl<T: Config> Pallet<T> {
         /// Check if a `RuntimeCall` is allowed for a given `ProxyType`.
         pub fn check_permissions(
@@ -845,7 +850,7 @@ impl<T: Config> Pallet<T> {
         proxy_type: &T::ProxyType,
         index: u16,
         maybe_when: Option<(BlockNumberFor<T>, u32)>,
-    ) -> T::AccountId {
+    ) -> Result<T::AccountId, DispatchError> {
         let (height, ext_index) = maybe_when.unwrap_or_else(|| {
             (
                 T::BlockNumberProvider::current_block_number(),
@@ -861,8 +866,9 @@ impl<T: Config> Pallet<T> {
             index,
         )
             .using_encoded(blake2_256);
-        Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
-            .expect("infinite length input; no invalid inputs for type; qed")
+
+        T::AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+            .map_err(|_| Error::<T>::InvalidDerivedAccountId.into())
     }
 
     /// Register a proxy account for the delegator that is able to make calls on its behalf.

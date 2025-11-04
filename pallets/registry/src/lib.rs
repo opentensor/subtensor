@@ -22,6 +22,7 @@ type BalanceOf<T> =
     <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 #[deny(missing_docs)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, traits::tokens::fungible};
@@ -34,10 +35,8 @@ pub mod pallet {
     // Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        /// Because this pallet emits events, it depends on the runtime's definition of an event.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// Currency type that will be used to place deposits on neurons
+        #[allow(deprecated)]
         type Currency: fungible::Mutate<Self::AccountId>
             + fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
@@ -109,6 +108,8 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Register an identity for an account. This will overwrite any existing identity.
         #[pallet::call_index(0)]
         #[pallet::weight((

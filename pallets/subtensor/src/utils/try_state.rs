@@ -5,6 +5,7 @@ use super::*;
 impl<T: Config> Pallet<T> {
     /// Checks [`TotalIssuance`] equals the sum of currency issuance, total stake, and total subnet
     /// locked.
+    #[allow(clippy::expect_used)]
     pub(crate) fn check_total_issuance() -> Result<(), sp_runtime::TryRuntimeError> {
         // Get the total currency issuance
         let currency_issuance = <T as Config>::Currency::total_issuance();

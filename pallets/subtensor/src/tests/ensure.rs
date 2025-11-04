@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)]
 use frame_support::{assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;

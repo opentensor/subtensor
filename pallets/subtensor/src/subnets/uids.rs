@@ -46,6 +46,7 @@ impl<T: Config> Pallet<T> {
             }
         }
         Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        StakeWeight::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
     }
 
     /// Replace the neuron under this uid.
@@ -162,7 +163,7 @@ impl<T: Config> Pallet<T> {
             let immune_percentage = Percent::from_rational(immune_count, max_n);
             ensure!(
                 immune_percentage < T::MaxImmuneUidsPercentage::get(),
-                Error::<T>::InvalidValue
+                Error::<T>::TrimmingWouldExceedMaxImmunePercentage
             );
 
             // Get all emissions with their UIDs and sort by emission (descending)
@@ -199,7 +200,6 @@ impl<T: Config> Pallet<T> {
                         IsNetworkMember::<T>::remove(&hotkey, netuid);
                         LastHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid);
                         AlphaDividendsPerSubnet::<T>::remove(netuid, &hotkey);
-                        TaoDividendsPerSubnet::<T>::remove(netuid, &hotkey);
                         Axons::<T>::remove(netuid, &hotkey);
                         NeuronCertificates::<T>::remove(netuid, &hotkey);
                         Prometheus::<T>::remove(netuid, &hotkey);
@@ -209,6 +209,7 @@ impl<T: Config> Pallet<T> {
                     #[allow(unknown_lints)]
                     Keys::<T>::remove(netuid, neuron_uid);
                     BlockAtRegistration::<T>::remove(netuid, neuron_uid);
+                    AssociatedEvmAddress::<T>::remove(netuid, neuron_uid);
                     for mecid in 0..mechanisms_count {
                         let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
                         Weights::<T>::remove(netuid_index, neuron_uid);
@@ -315,6 +316,7 @@ impl<T: Config> Pallet<T> {
 
                 // Swap uid specific storage items to new compressed positions
                 Keys::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
+                AssociatedEvmAddress::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
                 BlockAtRegistration::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
 
                 for mecid in 0..mechanisms_count {
@@ -350,6 +352,21 @@ impl<T: Config> Pallet<T> {
                         })
                     });
                 }
+            }
+
+            // Clear the UID map for the subnet
+            let clear_result = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
+            // Shouldn't happen, but possible.
+            ensure!(
+                clear_result.maybe_cursor.is_none(),
+                Error::<T>::UidMapCouldNotBeCleared
+            );
+
+            // Insert the new UIDs
+            for new_uid in old_to_new_uid.values() {
+                // Get the hotkey using Keys map and new UID.
+                let hotkey = Keys::<T>::get(netuid, *new_uid as u16);
+                Uids::<T>::insert(netuid, hotkey, *new_uid as u16);
             }
 
             // Update the subnet's uid count to reflect the new maximum

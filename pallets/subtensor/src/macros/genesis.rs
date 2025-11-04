@@ -4,10 +4,29 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod genesis {
+    use sp_core::crypto::Pair;
+    use sp_core::sr25519::Pair as Sr25519Pair;
 
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
+            // Alice's public key
+            let alice_bytes = sp_keyring::Sr25519Keyring::Alice.public();
+
+            // Create Alice's hotkey from seed string
+            let pair = Sr25519Pair::from_string("//Alice_hk", None)
+                .expect("Alice hotkey pair should be valid");
+            let alice_hk_bytes = pair.public().0;
+
+            let alice_account =
+                T::AccountId::decode(&mut &alice_bytes[..]).expect("Alice account should decode");
+            let alice_hk_account = T::AccountId::decode(&mut &alice_hk_bytes[..])
+                .expect("Alice hotkey account should decode");
+
+            let subnet_root_owner = prod_or_fast!(DefaultSubnetOwner::<T>::get(), alice_account);
+            let subnet_root_owner_hotkey =
+                prod_or_fast!(DefaultSubnetOwner::<T>::get(), alice_hk_account);
+
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
@@ -16,6 +35,12 @@ mod genesis {
 
             // Increment the number of total networks.
             TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
+
+            // Set the root network owner.
+            SubnetOwner::<T>::insert(NetUid::ROOT, subnet_root_owner);
+
+            // Set the root network owner hotkey.
+            SubnetOwnerHotkey::<T>::insert(NetUid::ROOT, subnet_root_owner_hotkey);
 
             // Set the number of validators to 1.
             SubnetworkN::<T>::insert(NetUid::ROOT, 0);
@@ -28,9 +53,6 @@ mod genesis {
 
             // Set the min allowed weights to zero, no weights restrictions.
             MinAllowedWeights::<T>::insert(NetUid::ROOT, 0);
-
-            // Set the max weight limit to infitiy, no weight restrictions.
-            MaxWeightsLimit::<T>::insert(NetUid::ROOT, u16::MAX);
 
             // Add default root tempo.
             Tempo::<T>::insert(NetUid::ROOT, 100);
@@ -59,7 +81,6 @@ mod genesis {
             MaxAllowedUids::<T>::insert(netuid, 256u16);
             MaxAllowedValidators::<T>::insert(netuid, 64u16);
             MinAllowedWeights::<T>::insert(netuid, 0);
-            MaxWeightsLimit::<T>::insert(netuid, u16::MAX);
             Tempo::<T>::insert(netuid, 100);
             NetworkRegistrationAllowed::<T>::insert(netuid, true);
             SubnetOwner::<T>::insert(netuid, hotkey.clone());

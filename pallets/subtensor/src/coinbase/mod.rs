@@ -4,3 +4,4 @@ pub mod block_step;
 pub mod reveal_commits;
 pub mod root;
 pub mod run_coinbase;
+pub mod subnet_emissions;

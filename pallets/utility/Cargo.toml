@@ -1,5 +1,5 @@
 [package]
-name = "pallet-utility"
+name = "pallet-subtensor-utility"
 version = "40.0.0"
 edition.workspace = true
 license = "Apache-2.0"
@@ -25,7 +25,6 @@ subtensor-macros.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-pallet-collective = { workspace = true, default-features = true }
 pallet-root-testing = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
@@ -47,7 +46,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -55,7 +53,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-collective/try-runtime",
 	"pallet-root-testing/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",

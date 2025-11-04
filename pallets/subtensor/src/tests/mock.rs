@@ -1,10 +1,13 @@
-#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::unwrap_used
+)]
 
 use core::num::NonZeroU64;
 
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
-use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
@@ -14,17 +17,19 @@ use frame_support::{
     traits::{Hooks, PrivilegeCmp},
 };
 use frame_system as system;
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
-use pallet_collective::MemberCount;
+use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
+use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
     BuildStorage, Percent,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::{cell::RefCell, cmp::Ordering};
+use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
+use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{Order, SwapHandler};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -34,10 +39,6 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>} = 2,
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 3,
-        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
-        Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 5,
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
         SubtensorModule: crate::{Pallet, Call, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
@@ -151,7 +152,6 @@ parameter_types! {
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
-    pub const InitialMaxWeightsLimit: u16 = u16::MAX;
     pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
@@ -202,7 +202,6 @@ parameter_types! {
     pub const InitialMinDifficulty: u64 = 1;
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
-    pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
     pub const InitialNetworkImmunityPeriod: u64 = 1_296_000;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
@@ -228,178 +227,14 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 10;
 }
 
-// Configure collective pallet for council
-parameter_types! {
-    pub const CouncilMotionDuration: BlockNumber = 100;
-    pub const CouncilMaxProposals: u32 = 10;
-    pub const CouncilMaxMembers: u32 = 3;
-}
-
-// Configure collective pallet for Senate
-parameter_types! {
-    pub const SenateMaxMembers: u32 = 12;
-}
-
-use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
-pub struct CanProposeToTriumvirate;
-impl CanPropose<AccountId> for CanProposeToTriumvirate {
-    fn can_propose(account: &AccountId) -> bool {
-        Triumvirate::is_member(account)
-    }
-}
-
-pub struct CanVoteToTriumvirate;
-impl CanVote<AccountId> for CanVoteToTriumvirate {
-    fn can_vote(_: &AccountId) -> bool {
-        //Senate::is_member(account)
-        false // Disable voting from pallet_collective::vote
-    }
-}
-
-use crate::{CollectiveInterface, MemberManagement, StakeThreshold};
-pub struct ManageSenateMembers;
-impl MemberManagement<AccountId> for ManageSenateMembers {
-    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        let who = *account;
-        SenateMembers::add_member(RawOrigin::Root.into(), who)
-    }
-
-    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        let who = *account;
-        SenateMembers::remove_member(RawOrigin::Root.into(), who)
-    }
-
-    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
-        let remove = *rm;
-        let add = *add;
-
-        Triumvirate::remove_votes(rm)?;
-        SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
-    }
-
-    fn is_member(account: &AccountId) -> bool {
-        SenateMembers::members().contains(account)
-    }
-
-    fn members() -> Vec<AccountId> {
-        SenateMembers::members().into()
-    }
-
-    fn max_members() -> u32 {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct GetSenateMemberCount;
-impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
-    fn get_count() -> MemberCount {
-        Senate::members().len() as u32
-    }
-}
-impl Get<MemberCount> for GetSenateMemberCount {
-    fn get() -> MemberCount {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, H256, u32> for TriumvirateVotes {
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::remove_votes(hotkey)
-    }
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: H256,
-        index: u32,
-        approve: bool,
-    ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(*hotkey, proposal, index, approve)
-    }
-}
-
-// We call pallet_collective TriumvirateCollective
-#[allow(dead_code)]
-type TriumvirateCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<TriumvirateCollective> for Test {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = GetSenateMemberCount;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = CanProposeToTriumvirate;
-    type CanVote = CanVoteToTriumvirate;
-    type GetVotingMembers = GetSenateMemberCount;
-}
-
-// We call council members Triumvirate
-#[allow(dead_code)]
-type TriumvirateMembership = pallet_membership::Instance1;
-impl pallet_membership::Config<TriumvirateMembership> for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Triumvirate;
-    type MembershipChanged = Triumvirate;
-    type MaxMembers = CouncilMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
-}
-
-// This is a dummy collective instance for managing senate members
-// Probably not the best solution, but fastest implementation
-#[allow(dead_code)]
-type SenateCollective = pallet_collective::Instance2;
-impl pallet_collective::Config<SenateCollective> for Test {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = SenateMaxMembers;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = ();
-    type CanVote = ();
-    type GetVotingMembers = ();
-}
-
-// We call our top K delegates membership Senate
-#[allow(dead_code)]
-type SenateMembership = pallet_membership::Instance2;
-impl pallet_membership::Config<SenateMembership> for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Senate;
-    type MembershipChanged = Senate;
-    type MaxMembers = SenateMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
-}
-
 impl crate::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
-    type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
-    type SenateMembers = ManageSenateMembers;
-    type TriumvirateInterface = TriumvirateVotes;
     type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
-    type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
     type InitialTempo = InitialTempo;
     type InitialDifficulty = InitialDifficulty;
     type InitialAdjustmentInterval = InitialAdjustmentInterval;
@@ -438,7 +273,6 @@ impl crate::Config for Test {
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
-    type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
@@ -456,7 +290,7 @@ impl crate::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
-    type SwapInterface = Swap;
+    type SwapInterface = pallet_subtensor_swap::Pallet<Self>;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = FakeProxier;
@@ -477,10 +311,11 @@ parameter_types! {
 }
 
 impl pallet_subtensor_swap::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
+    type TaoReserve = TaoCurrencyReserve<Self>;
+    type AlphaReserve = AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -523,7 +358,6 @@ impl pallet_scheduler::Config for Test {
 }
 
 impl pallet_utility::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
@@ -582,7 +416,6 @@ impl pallet_crowdloan::Config for Test {
     type PalletId = CrowdloanPalletId;
     type Currency = Balances;
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Test>;
     type Preimages = Preimage;
     type MinimumDeposit = MinimumDeposit;
@@ -628,7 +461,6 @@ mod test_crypto {
 pub type TestAuthId = test_crypto::TestAuthId;
 
 impl pallet_drand::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -654,7 +486,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_inherent(call)
     }
 }
@@ -675,10 +507,38 @@ where
     }
 }
 
+static TEST_LOGS_INIT: OnceLock<()> = OnceLock::new();
+
+pub fn init_logs_for_tests() {
+    if TEST_LOGS_INIT.get().is_some() {
+        return;
+    }
+
+    // RUST_LOG (full syntax) or "off" if unset
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("off"));
+
+    // Bridge log -> tracing (ok if already set)
+    let _ = tracing_log::LogTracer::init();
+
+    // Simple formatter
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(false)
+        .with_target(true)
+        .with_level(true)
+        .without_time();
+
+    let _ = tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt_layer)
+        .try_init();
+
+    let _ = TEST_LOGS_INIT.set(());
+}
+
 #[allow(dead_code)]
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
-    sp_tracing::try_init_simple();
+    init_logs_for_tests();
     let t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();
@@ -689,7 +549,7 @@ pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
 
 #[allow(dead_code)]
 pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExternalities {
-    sp_tracing::try_init_simple();
+    init_logs_for_tests();
     let mut t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();
@@ -980,7 +840,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         coldkey,
         netuid,
         tao_staked,
-        <Test as Config>::SwapInterface::max_price().into(),
+        <Test as Config>::SwapInterface::max_price(),
         false,
         false,
     )
@@ -1016,10 +876,10 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurre
         return (tao.to_u64().into(), 0);
     }
 
+    let order = GetAlphaForTao::<Test>::with_amount(tao);
     let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid.into(),
-        OrderType::Buy,
-        tao.into(),
+        order,
         <Test as pallet::Config>::SwapInterface::max_price(),
         false,
         true,
@@ -1029,10 +889,10 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurre
 
     let result = result.unwrap();
 
-    // we don't want to have silent 0 comparissons in tests
-    assert!(result.amount_paid_out > 0);
+    // we don't want to have silent 0 comparisons in tests
+    assert!(result.amount_paid_out > AlphaCurrency::ZERO);
 
-    (result.amount_paid_out.into(), result.fee_paid)
+    (result.amount_paid_out, result.fee_paid.into())
 }
 
 pub(crate) fn swap_alpha_to_tao_ext(
@@ -1046,13 +906,13 @@ pub(crate) fn swap_alpha_to_tao_ext(
 
     println!(
         "<Test as pallet::Config>::SwapInterface::min_price() = {:?}",
-        <Test as pallet::Config>::SwapInterface::min_price()
+        <Test as pallet::Config>::SwapInterface::min_price::<TaoCurrency>()
     );
 
+    let order = GetTaoForAlpha::<Test>::with_amount(alpha);
     let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid.into(),
-        OrderType::Sell,
-        alpha.into(),
+        order,
         <Test as pallet::Config>::SwapInterface::min_price(),
         drop_fees,
         true,
@@ -1062,10 +922,10 @@ pub(crate) fn swap_alpha_to_tao_ext(
 
     let result = result.unwrap();
 
-    // we don't want to have silent 0 comparissons in tests
-    assert!(result.amount_paid_out > 0);
+    // we don't want to have silent 0 comparisons in tests
+    assert!(!result.amount_paid_out.is_zero());
 
-    (result.amount_paid_out.into(), result.fee_paid)
+    (result.amount_paid_out, result.fee_paid.into())
 }
 
 pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (TaoCurrency, u64) {
@@ -1077,7 +937,9 @@ pub(crate) fn last_event() -> RuntimeEvent {
     System::events().pop().expect("RuntimeEvent expected").event
 }
 
-pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+pub fn assert_last_event<T: frame_system::pallet::Config>(
+    generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
+) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 

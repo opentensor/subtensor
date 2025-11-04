@@ -9,12 +9,14 @@ use crate::{
 use fc_consensus::FrontierBlockImport;
 use jsonrpsee::Methods;
 use node_subtensor_runtime::opaque::Block;
+use num_traits::Zero as _;
 use sc_client_api::{AuxStore, BlockOf};
 use sc_consensus::{BlockImport, BoxBlockImport};
 use sc_consensus_babe::{BabeLink, BabeWorkerHandle};
 use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, InherentDataProviderExt};
+use sc_network_sync::SyncingService;
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
@@ -42,6 +44,7 @@ impl ConsensusMechanism for BabeConsensus {
         sp_timestamp::InherentDataProvider,
     );
 
+    #[allow(clippy::expect_used)]
     fn start_authoring<C, SC, I, PF, SO, L, CIDP, BS, Error>(
         self,
         task_manager: &mut TaskManager,
@@ -138,8 +141,22 @@ impl ConsensusMechanism for BabeConsensus {
                   telemetry: Option<TelemetryHandle>,
                   grandpa_block_import: GrandpaBlockImport,
                   transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
+                let configuration = sc_consensus_babe::configuration(&*client)?;
+                // When Babe slot duration is zero, it means we are running an Aura runtime with a
+                // placeholder BabeApi, therefore the BabeApi is invalid.
+                //
+                // In this case, we return the same error if there was no BabeApi at all,
+                // signalling to the node that it needs an Aura service.
+                if configuration.slot_duration.is_zero() {
+                    return Err(sc_service::Error::Client(
+                        sp_blockchain::Error::VersionInvalid(
+                            "Unsupported or invalid BabeApi version".to_string(),
+                        ),
+                    ));
+                }
+
                 let (babe_import, babe_link) = sc_consensus_babe::block_import(
-                    sc_consensus_babe::configuration(&*client)?,
+                    configuration,
                     grandpa_block_import.clone(),
                     client.clone(),
                 )?;
@@ -178,7 +195,10 @@ impl ConsensusMechanism for BabeConsensus {
 
                 self.babe_link = Some(babe_link);
                 self.babe_worker_handle = Some(babe_worker_handle);
-                Ok((import_queue, Box::new(babe_import) as BoxBlockImport<Block>))
+                Ok((
+                    import_queue,
+                    Box::new(conditional_block_import) as BoxBlockImport<Block>,
+                ))
             },
         );
 
@@ -199,7 +219,8 @@ impl ConsensusMechanism for BabeConsensus {
         &self,
         _task_manager: &mut TaskManager,
         _client: Arc<FullClient>,
-        _triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
+        _custom_service_signal: Option<Arc<std::sync::atomic::AtomicBool>>,
+        _sync_service: Arc<SyncingService<Block>>,
     ) -> Result<(), sc_service::Error> {
         // No additional Babe handles required.
         Ok(())
