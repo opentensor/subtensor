@@ -34,13 +34,17 @@ impl<T: Config> Pallet<T> {
         // 2. Get subnets to emit to and emissions
         let subnet_emissions = Self::get_subnet_block_emissions(&subnets, block_emission);
         let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
+        let total_ema_price: U96F32 = subnets_to_emit_to
+            .iter()
+            .map(|netuid| Self::get_moving_alpha_price(*netuid))
+            .sum();
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
         let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
+        let subsidy_mode = total_ema_price <= U96F32::saturating_from_num(1);
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get subnet price.
@@ -79,15 +83,11 @@ impl<T: Config> Pallet<T> {
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
                     let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_sub(bought_alpha);
-                    });
+                    Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
                 }
-                is_subsidized.insert(*netuid_i, true);
             } else {
                 tao_in_i = default_tao_in_i;
                 alpha_in_i = tao_in_i.safe_div_or(price_i, alpha_emission_i);
-                is_subsidized.insert(*netuid_i, false);
             }
             log::debug!("alpha_in_i: {alpha_in_i:?}");
 
@@ -198,8 +198,7 @@ impl<T: Config> Pallet<T> {
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
             log::debug!("pending_alpha: {pending_alpha:?}");
 
-            let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
-            if !subsidized {
+            if !subsidy_mode {
                 PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
                     *total = total.saturating_add(tou64!(root_alpha).into());
                 });
