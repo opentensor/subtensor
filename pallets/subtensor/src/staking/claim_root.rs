@@ -3,7 +3,7 @@ use frame_support::weights::Weight;
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{Order, SwapHandler};
 
 impl<T: Config> Pallet<T> {
     pub fn block_hash_to_indices(block_hash: T::Hash, k: u64, n: u64) -> Vec<u64> {
@@ -196,6 +196,13 @@ impl<T: Config> Pallet<T> {
                     netuid,
                     owed_u64.into(),
                 );
+
+                // Sim-swap and record positive TAO flow
+                let order = GetTaoForAlpha::<T>::with_amount(AlphaCurrency::from(owed_u64));
+                let maybe_result = T::SwapInterface::sim_swap(netuid.into(), order);
+                if let Ok(result) = maybe_result {
+                    Self::record_tao_inflow(netuid, TaoCurrency::from(result.amount_paid_out));
+                }
             }
         };
 

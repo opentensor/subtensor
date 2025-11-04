@@ -113,6 +113,8 @@ fn test_claim_root_with_drain_emissions() {
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
 
+        let tao_flow_before = SubnetTaoFlow::<Test>::get(netuid);
+
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(coldkey),
             BTreeSet::from([netuid])
@@ -132,6 +134,9 @@ fn test_claim_root_with_drain_emissions() {
 
         let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
         assert_eq!(u128::from(new_stake), claimed);
+
+        // Check positive TAO flow is recorded
+        assert!(SubnetTaoFlow::<Test>::get(netuid) > tao_flow_before);
 
         // Distribute pending root alpha (round 2)
 
