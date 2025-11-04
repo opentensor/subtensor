@@ -8,7 +8,7 @@ use core::num::NonZeroU64;
 
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
-use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
+use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth, InstanceFilter};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
@@ -447,12 +447,26 @@ impl pallet_proxy::Config for Test {
     type ProxyDepositBase = ProxyDepositBase;
     type ProxyDepositFactor = ProxyDepositFactor;
     type MaxProxies = MaxProxies;
-    type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+    type WeightInfo = pallet_proxy::weights::SubstrateWeight<Test>;
     type MaxPending = MaxPending;
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
     type BlockNumberProvider = System;
+}
+
+impl InstanceFilter<RuntimeCall> for subtensor_runtime_common::ProxyType {
+    fn filter(&self, _c: &RuntimeCall) -> bool {
+        // In tests, allow all proxy types to pass through
+        true
+    }
+    fn is_superset(&self, o: &Self) -> bool {
+        match (self, o) {
+            (x, y) if x == y => true,
+            (subtensor_runtime_common::ProxyType::Any, _) => true,
+            _ => false,
+        }
+    }
 }
 
 mod test_crypto {
