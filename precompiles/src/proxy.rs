@@ -169,18 +169,18 @@ where
         match last_call_result {
             Some(last_call_result) => match last_call_result {
                 Ok(()) => {
-                    return Ok(());
+                    Ok(())
                 }
                 Err(e) => {
-                    return Err(PrecompileFailure::Error {
-                        exit_status: ExitError::Other(format!("{:?}", e).into()),
-                    });
+                    Err(PrecompileFailure::Error {
+                        exit_status: ExitError::Other(format!("{e:?}").into()),
+                    })
                 }
             },
             None => {
-                return Err(PrecompileFailure::Error {
+                Err(PrecompileFailure::Error {
                     exit_status: ExitError::Other("Proxy execution failed".into()),
-                });
+                })
             }
         }
     }

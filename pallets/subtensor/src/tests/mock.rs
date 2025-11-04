@@ -46,7 +46,7 @@ frame_support::construct_runtime!(
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
-        Proxy: pallet_proxy = 14,
+        Proxy: pallet_subtensor_proxy = 14,
     }
 );
 
@@ -424,6 +424,12 @@ impl pallet_crowdloan::Config for Test {
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
     type MaxContributors = MaxContributors;
+}
+
+impl pallet_subtensor_proxy::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = pallet_subtensor_proxy::weights::SubstrateWeight<Test>;
 }
 
 mod test_crypto {
