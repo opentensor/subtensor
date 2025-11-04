@@ -1,15 +1,13 @@
 import * as assert from "assert";
 
 import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
-import { generateRandomEthersWallet, generateRandomEthWallet } from "../src/utils";
+import { generateRandomEthersWallet } from "../src/utils";
 import { devnet, MultiAddress } from "@polkadot-api/descriptors"
-import { hexToU8a } from "@polkadot/util";
 import { PolkadotSigner, TypedApi } from "polkadot-api";
-import { convertH160ToSS58, convertPublicKeyToSs58 } from "../src/address-utils"
+import { convertH160ToPublicKey, convertH160ToSS58, convertPublicKeyToSs58 } from "../src/address-utils"
 import { IProxyABI, IPROXY_ADDRESS } from "../src/contracts/proxy"
-import { keccak256, ethers } from 'ethers';
+import { ethers } from 'ethers';
 import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor";
-import { Signer } from "@polkadot/api/types";
 import { KeyPair } from "@polkadot-labs/hdkd-helpers";
 
 import { decodeAddress } from "@polkadot/util-crypto";
@@ -49,6 +47,8 @@ async function getProxies(api: TypedApi<typeof devnet>, address: string) {
 describe("Test pure proxy precompile", () => {
     const evmWallet = generateRandomEthersWallet();
     const evmWallet2 = generateRandomEthersWallet();
+    const evmWallet3 = generateRandomEthersWallet();
+    const delegate = getRandomSubstrateKeypair();
     const receiver = getRandomSubstrateKeypair();
 
     let api: TypedApi<typeof devnet>
@@ -61,7 +61,8 @@ describe("Test pure proxy precompile", () => {
 
         await forceSetBalanceToEthAddress(api, evmWallet.address)
         await forceSetBalanceToEthAddress(api, evmWallet2.address)
-
+        await forceSetBalanceToEthAddress(api, evmWallet3.address)
+        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(delegate.publicKey))
     })
 
     it("Call createPureProxy, then use proxy to call transfer", async () => {
@@ -153,5 +154,40 @@ describe("Test pure proxy precompile", () => {
         } catch (error) {
             assert.notEqual(error, undefined, "should fail if proxy not set")
         }
+    })
+
+    it("Call createProxy, then use proxy to call transfer", async () => {
+        const proxies = await api.query.Proxy.Proxies.getValue(convertH160ToSS58(evmWallet2.address))
+        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet2)
+
+        const type = 0;
+        const delay = 0;
+
+        const tx = await contract.addProxy(convertH160ToPublicKey(evmWallet3.address), type, delay)
+        await tx.wait()
+
+
+        const proxiesAfterAdd = await await api.query.Proxy.Proxies.getValue(convertH160ToSS58(evmWallet2.address))
+
+        const length = proxiesAfterAdd[0].length
+        assert.equal(length, proxies[0].length + 1, "proxy should be set")
+        const proxy = proxiesAfterAdd[0][proxiesAfterAdd[0].length - 1]
+
+        assert.equal(proxy.delegate, convertH160ToSS58(evmWallet3.address), "proxy should be set")
+
+
+        const balance = (await api.query.System.Account.getValue(convertPublicKeyToSs58(receiver.publicKey))).data.free
+
+        const amount = 1000000000;
+
+        const contract2 = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet3)
+
+
+        const callCode = await getTransferCallCode(api, receiver, amount)
+        const tx2 = await contract2.proxyCall(convertH160ToPublicKey(evmWallet2.address), [type], callCode)
+        await tx2.wait()
+
+        const balanceAfter = (await api.query.System.Account.getValue(convertPublicKeyToSs58(receiver.publicKey))).data.free
+        assert.equal(balanceAfter, balance + BigInt(amount), "balance should be increased")
     })
 });
