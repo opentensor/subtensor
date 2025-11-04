@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };
@@ -1499,5 +1500,84 @@ fn test_claim_root_with_unrelated_subnets() {
 
         let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
         assert_eq!(u128::from(new_stake), claimed);
+    });
+}
+
+#[test]
+fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let other_coldkey = U256::from(10010);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubnetMechanism::<Test>::insert(netuid, 1);
+
+        let tao_reserve = TaoCurrency::from(50_000_000_000);
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+
+        let root_stake = 2_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &other_coldkey,
+            NetUid::ROOT,
+            (9 * root_stake).into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        // Check RootAlphaDividendsPerSubnet is empty on start
+        assert!(!RootAlphaDividendsPerSubnet::<Test>::contains_key(
+            netuid, hotkey
+        ));
+
+        let pending_root_alpha = 10_000_000u64;
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        // Check RootAlphaDividendsPerSubnet value
+        let root_claim_dividends1 = RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey);
+
+        let validator_take_percent = 0.18f64;
+        let estimated_root_claim_dividends =
+            (pending_root_alpha as f64) * (1f64 - validator_take_percent);
+
+        assert_abs_diff_eq!(
+            estimated_root_claim_dividends as u64,
+            u64::from(root_claim_dividends1),
+            epsilon = 100u64,
+        );
+
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        let root_claim_dividends2 = RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey);
+
+        // Check RootAlphaDividendsPerSubnet is cleaned each epoch
+        assert_eq!(root_claim_dividends1, root_claim_dividends2);
     });
 }

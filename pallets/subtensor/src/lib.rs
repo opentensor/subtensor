@@ -1090,8 +1090,20 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
-    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo.
+    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last alpha dividend this hotkey got on tempo.
     pub type AlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Blake2_128Concat,
+        T::AccountId,
+        AlphaCurrency,
+        ValueQuery,
+        DefaultZeroAlpha<T>,
+    >;
+
+    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last root alpha dividend this hotkey got on tempo.
+    pub type RootAlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
         NetUid,
