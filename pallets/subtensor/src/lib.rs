@@ -336,16 +336,6 @@ pub mod pallet {
         Keep,
     }
 
-    /// Enum for the per-coldkey root claim frequency setting.
-    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
-    pub enum RootClaimFrequencyEnum {
-        /// Claim automatically.
-        #[default]
-        Auto,
-        /// Only claim manually; Never automatically.
-        Manual,
-    }
-
     #[pallet::type_value]
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
