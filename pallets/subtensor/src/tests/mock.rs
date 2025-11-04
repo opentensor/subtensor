@@ -18,6 +18,7 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
+use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
@@ -30,7 +31,6 @@ use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
@@ -426,10 +426,33 @@ impl pallet_crowdloan::Config for Test {
     type MaxContributors = MaxContributors;
 }
 
-impl pallet_subtensor_proxy::Config for Test {
+// Proxy Pallet config
+parameter_types! {
+    // One storage item; key size sizeof(AccountId) = 32, value sizeof(Balance) = 8; 40 total
+    pub const ProxyDepositBase: Balance = 1;
+    // Adding 32 bytes + sizeof(ProxyType) = 32 + 1
+    pub const ProxyDepositFactor: Balance = 1;
+    pub const MaxProxies: u32 = 20; // max num proxies per acct
+    pub const MaxPending: u32 = 15 * 5; // max blocks pending ~15min
+    // 16 bytes
+    pub const AnnouncementDepositBase: Balance =  1;
+    // 68 bytes per announcement
+    pub const AnnouncementDepositFactor: Balance = 1;
+}
+
+impl pallet_proxy::Config for Test {
     type RuntimeCall = RuntimeCall;
-    type PalletsOrigin = OriginCaller;
-    type WeightInfo = pallet_subtensor_proxy::weights::SubstrateWeight<Test>;
+    type Currency = Balances;
+    type ProxyType = subtensor_runtime_common::ProxyType;
+    type ProxyDepositBase = ProxyDepositBase;
+    type ProxyDepositFactor = ProxyDepositFactor;
+    type MaxProxies = MaxProxies;
+    type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+    type MaxPending = MaxPending;
+    type CallHasher = BlakeTwo256;
+    type AnnouncementDepositBase = AnnouncementDepositBase;
+    type AnnouncementDepositFactor = AnnouncementDepositFactor;
+    type BlockNumberProvider = System;
 }
 
 mod test_crypto {

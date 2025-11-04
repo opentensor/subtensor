@@ -7,6 +7,7 @@ use fp_evm::{ExitError, PrecompileFailure};
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
+use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
 use sp_core::H256;
 use sp_runtime::{
@@ -24,11 +25,11 @@ where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_subtensor_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
-        + From<pallet_subtensor_proxy::Call<R>>
+        + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
@@ -43,11 +44,11 @@ where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_subtensor_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
-        + From<pallet_subtensor_proxy::Call<R>>
+        + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -65,7 +66,7 @@ where
                 exit_status: ExitError::Other("Invalid proxy type".into()),
             })?;
 
-        let call = pallet_subtensor_proxy::Call::<R>::create_pure {
+        let call = pallet_proxy::Call::<R>::create_pure {
             proxy_type,
             delay: delay.into(),
             index,
@@ -75,19 +76,15 @@ where
 
         // Success!
         // Try to get proxy address
-        let proxy_address: [u8; 32] = pallet_subtensor_proxy::pallet::Pallet::<R>::pure_account(
-            &account_id,
-            &proxy_type,
-            index,
-            None,
-        )
-        .map_err(|_| PrecompileFailure::Error {
-            exit_status: ExitError::Other("Proxy not found".into()),
-        })?
-        .into();
+        let proxy_address: [u8; 32] =
+            pallet_proxy::pallet::Pallet::<R>::pure_account(&account_id, &proxy_type, index, None)
+                .map_err(|_| PrecompileFailure::Error {
+                    exit_status: ExitError::Other("Proxy not found".into()),
+                })?
+                .into();
 
         // Check if in the proxies map
-        let proxy_entry = pallet_subtensor_proxy::pallet::Pallet::<R>::proxies(account_id.clone());
+        let proxy_entry = pallet_proxy::pallet::Pallet::<R>::proxies(account_id.clone());
         if proxy_entry
             .0
             .iter()
@@ -115,7 +112,7 @@ where
             exit_status: ExitError::Other("Invalid proxy type".into()),
         })?;
 
-        let call = pallet_subtensor_proxy::Call::<R>::kill_pure {
+        let call = pallet_proxy::Call::<R>::kill_pure {
             spawner: <<R as frame_system::Config>::Lookup as StaticLookup>::Source::from(
                 spawner.0.into(),
             ),
@@ -137,7 +134,7 @@ where
     ) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
 
-        let call = <R as pallet_subtensor_proxy::Config>::RuntimeCall::decode_with_depth_limit(
+        let call = <R as pallet_proxy::Config>::RuntimeCall::decode_with_depth_limit(
             MAX_DECODE_DEPTH,
             &mut &call[..],
         )
@@ -153,7 +150,7 @@ where
             proxy_type = Some(proxy_type_);
         };
 
-        let call = pallet_subtensor_proxy::Call::<R>::proxy {
+        let call = pallet_proxy::Call::<R>::proxy {
             real: <<R as frame_system::Config>::Lookup as StaticLookup>::Source::from(
                 real.0.into(),
             ),
@@ -165,23 +162,17 @@ where
 
         let real_account_id = R::AccountId::from(real.0.into());
 
-        let last_call_result = pallet_subtensor_proxy::LastCallResult::<R>::get(real_account_id);
+        let last_call_result = pallet_proxy::LastCallResult::<R>::get(real_account_id);
         match last_call_result {
             Some(last_call_result) => match last_call_result {
-                Ok(()) => {
-                    Ok(())
-                }
-                Err(e) => {
-                    Err(PrecompileFailure::Error {
-                        exit_status: ExitError::Other(format!("{e:?}").into()),
-                    })
-                }
+                Ok(()) => Ok(()),
+                Err(e) => Err(PrecompileFailure::Error {
+                    exit_status: ExitError::Other(format!("{e:?}").into()),
+                }),
             },
-            None => {
-                Err(PrecompileFailure::Error {
-                    exit_status: ExitError::Other("Proxy execution failed".into()),
-                })
-            }
+            None => Err(PrecompileFailure::Error {
+                exit_status: ExitError::Other("Proxy execution failed".into()),
+            }),
         }
     }
 
@@ -197,7 +188,7 @@ where
             exit_status: ExitError::Other("Invalid proxy type".into()),
         })?;
 
-        let call = pallet_subtensor_proxy::Call::<R>::add_proxy {
+        let call = pallet_proxy::Call::<R>::add_proxy {
             delegate: <<R as frame_system::Config>::Lookup as StaticLookup>::Source::from(
                 delegate.0.into(),
             ),
@@ -220,7 +211,7 @@ where
             exit_status: ExitError::Other("Invalid proxy type".into()),
         })?;
 
-        let call = pallet_subtensor_proxy::Call::<R>::remove_proxy {
+        let call = pallet_proxy::Call::<R>::remove_proxy {
             delegate: <<R as frame_system::Config>::Lookup as StaticLookup>::Source::from(
                 delegate.0.into(),
             ),
@@ -235,7 +226,7 @@ where
     pub fn remove_proxies(handle: &mut impl PrecompileHandle) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
 
-        let call = pallet_subtensor_proxy::Call::<R>::remove_proxies {};
+        let call = pallet_proxy::Call::<R>::remove_proxies {};
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
@@ -244,7 +235,7 @@ where
     pub fn poke_deposit(handle: &mut impl PrecompileHandle) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
 
-        let call = pallet_subtensor_proxy::Call::<R>::poke_deposit {};
+        let call = pallet_proxy::Call::<R>::poke_deposit {};
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
