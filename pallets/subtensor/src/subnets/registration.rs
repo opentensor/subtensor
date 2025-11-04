@@ -136,7 +136,7 @@ impl<T: Config> Pallet<T> {
         let burned_alpha = Self::swap_tao_for_alpha(
             netuid,
             actual_burn_amount,
-            T::SwapInterface::max_price().into(),
+            T::SwapInterface::max_price(),
             false,
         )?
         .amount_paid_out;

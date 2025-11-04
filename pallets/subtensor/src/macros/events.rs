@@ -50,7 +50,8 @@ mod events {
         BulkBalancesSet(u16, u16),
         /// max allowed uids has been set for a subnetwork.
         MaxAllowedUidsSet(NetUid, u16),
-        /// the max weight limit has been set for a subnetwork.
+        #[deprecated(note = "Max weight limit is now a constant and this event is unused")]
+        /// DEPRECATED: max weight limit updates are no longer supported.
         MaxWeightLimitSet(NetUid, u16),
         /// the difficulty has been set for a subnet.
         DifficultySet(NetUid, u64),
@@ -136,8 +137,6 @@ mod events {
         RAORecycledForRegistrationSet(NetUid, TaoCurrency),
         /// min stake is set for validators to set weights.
         StakeThresholdSet(u64),
-        /// setting the minimum required stake amount for senate registration.
-        SenateRequiredStakePercentSet(u64),
         /// setting the adjustment alpha on a subnet.
         AdjustmentAlphaSet(NetUid, u64),
         /// the faucet it called on the test net.
@@ -171,13 +170,6 @@ mod events {
         MaxDelegateTakeSet(u16),
         /// minimum delegate take is set by sudo/admin transaction
         MinDelegateTakeSet(u16),
-        /// a member of the senate is adjusted
-        SenateAdjusted {
-            /// the account ID of the old senate member, if any
-            old_member: Option<T::AccountId>,
-            /// the account ID of the new senate member
-            new_member: T::AccountId,
-        },
         /// A coldkey has been swapped
         ColdkeySwapped {
             /// the account ID of old coldkey
@@ -455,6 +447,25 @@ mod events {
             netuid: NetUid,
             /// The account ID of the hotkey.
             hotkey: T::AccountId,
+        },
+
+        /// Root emissions have been claimed for a coldkey on all subnets and hotkeys.
+        /// Parameters:
+        /// (coldkey)
+        RootClaimed {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+        },
+
+        /// Root claim type for a coldkey has been set.
+        /// Parameters:
+        /// (coldkey, u8)
+        RootClaimTypeSet {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+
+            /// Claim type
+            root_claim_type: RootClaimTypeEnum,
         },
     }
 }

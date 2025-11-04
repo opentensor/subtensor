@@ -1,4 +1,4 @@
-#![allow(clippy::indexing_slicing, clippy::unwrap_used)]
+#![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 
 use ark_serialize::CanonicalDeserialize;
 use ark_serialize::CanonicalSerialize;
@@ -281,15 +281,13 @@ fn test_set_weights_validate() {
         );
 
         // Increase the stake and make it to be equal to the minimum threshold
-        let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
-            netuid.into(),
-            min_stake.into(),
-        );
+        let fee =
+            <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake + fee.into()
+            min_stake + fee
         ));
         let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
 
@@ -733,7 +731,6 @@ fn test_weights_err_no_validator_permit() {
         add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 65555);
         register_ok_neuron(netuid, U256::from(2), U256::from(2), 75555);
@@ -919,7 +916,6 @@ fn test_weights_err_setting_weights_too_fast() {
         add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 65555);
         register_ok_neuron(netuid, U256::from(2), U256::from(2), 75555);
@@ -1062,95 +1058,6 @@ fn test_weights_err_has_duplicate_ids() {
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_weights_err_max_weight_limit --exact --show-output --nocapture
 // Test ensures weights cannot exceed max weight limit.
-#[test]
-fn test_weights_err_max_weight_limit() {
-    //TO DO SAM: uncomment when we implement run_to_block fn
-    new_test_ext(0).execute_with(|| {
-        // Add network.
-        let netuid = NetUid::from(1);
-        let tempo: u16 = 100;
-        add_network_disable_commit_reveal(netuid, tempo, 0);
-
-        // Set params.
-        SubtensorModule::set_max_allowed_uids(netuid, 5);
-        SubtensorModule::set_target_registrations_per_interval(netuid, 5);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX / 5);
-        SubtensorModule::set_min_allowed_weights(netuid, 0);
-
-        // Add 5 accounts.
-        println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 0, 0);
-        register_ok_neuron(netuid, U256::from(0), U256::from(0), 55555);
-        let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(0))
-            .expect("Not registered.");
-        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
-        assert!(SubtensorModule::is_hotkey_registered_on_network(
-            netuid,
-            &U256::from(0)
-        ));
-        step_block(1);
-
-        println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 1, 1);
-        register_ok_neuron(netuid, U256::from(1), U256::from(1), 65555);
-        assert!(SubtensorModule::is_hotkey_registered_on_network(
-            netuid,
-            &U256::from(1)
-        ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 2);
-        step_block(1);
-
-        println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 2, 2);
-        register_ok_neuron(netuid, U256::from(2), U256::from(2), 75555);
-        assert!(SubtensorModule::is_hotkey_registered_on_network(
-            netuid,
-            &U256::from(2)
-        ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
-        step_block(1);
-
-        println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 3, 3);
-        register_ok_neuron(netuid, U256::from(3), U256::from(3), 95555);
-        assert!(SubtensorModule::is_hotkey_registered_on_network(
-            netuid,
-            &U256::from(3)
-        ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 4);
-        step_block(1);
-
-        println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 4, 4);
-        register_ok_neuron(netuid, U256::from(4), U256::from(4), 35555);
-        assert!(SubtensorModule::is_hotkey_registered_on_network(
-            netuid,
-            &U256::from(4)
-        ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 5);
-        step_block(1);
-
-        // Non self-weight fails.
-        let uids: Vec<u16> = vec![1, 2, 3, 4];
-        let values: Vec<u16> = vec![u16::MAX / 4, u16::MAX / 4, u16::MAX / 54, u16::MAX / 4];
-        let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(0)),
-            1.into(),
-            uids,
-            values,
-            0,
-        );
-        assert_eq!(result, Err(Error::<Test>::MaxWeightExceeded.into()));
-
-        // Self-weight is a success.
-        let uids: Vec<u16> = vec![0]; // Self.
-        let values: Vec<u16> = vec![u16::MAX]; // normalizes to u32::MAX
-        assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(0)),
-            1.into(),
-            uids,
-            values,
-            0
-        ));
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_no_signature --exact --show-output --nocapture
 // Tests the call requires a valid origin.
 #[test]
@@ -1249,7 +1156,6 @@ fn test_set_weight_not_enough_values() {
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         SubtensorModule::add_balance_to_coldkey_account(&U256::from(2), 1);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &account_id,
@@ -1315,8 +1221,6 @@ fn test_set_weight_too_many_uids() {
 
         register_ok_neuron(1.into(), U256::from(3), U256::from(4), 300_000);
         SubtensorModule::set_min_allowed_weights(1.into(), 2);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
-
         // Should fail because we are setting more weights than there are neurons.
         let weight_keys: Vec<u16> = vec![0, 1, 2, 3, 4]; // more uids than neurons in subnet.
         let weight_values: Vec<u16> = vec![88, 102, 303, 1212, 11]; // random value.
@@ -1360,7 +1264,6 @@ fn test_set_weights_sum_larger_than_u16_max() {
             .expect("Not registered.");
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         SubtensorModule::add_balance_to_coldkey_account(&U256::from(2), 1);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
@@ -1548,52 +1451,16 @@ fn test_max_weight_limited_when_weight_limit_is_u16_max() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_max_weight_limited_when_max_weight_is_within_limit --exact --show-output --nocapture
-/// Check _truthy_ path for max weight limit
 #[test]
-fn test_max_weight_limited_when_max_weight_is_within_limit() {
+fn test_get_max_weight_limit_is_constant() {
     new_test_ext(0).execute_with(|| {
-        let max_allowed: u16 = 1;
-        let max_weight_limit = u16::MAX / 5;
-
-        let netuid = NetUid::from(1);
-        let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0];
-        let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| max_weight_limit - id));
-
-        SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
-
-        let expected = true;
-        let result = SubtensorModule::max_weight_limited(netuid, uid, &uids, &weights);
-
         assert_eq!(
-            expected, result,
-            "Failed get expected result when everything _should_ be fine"
+            SubtensorModule::get_max_weight_limit(NetUid::from(1)),
+            u16::MAX
         );
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_max_weight_limited_when_guard_checks_are_not_triggered --exact --show-output --nocapture
-/// Check _falsey_ path
-#[test]
-fn test_max_weight_limited_when_guard_checks_are_not_triggered() {
-    new_test_ext(0).execute_with(|| {
-        let max_allowed: u16 = 3;
-        let max_weight_limit = u16::MAX / 5;
-
-        let netuid = NetUid::from(1);
-        let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0];
-        let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| max_weight_limit + id));
-
-        SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
-
-        let expected = false;
-        let result = SubtensorModule::max_weight_limited(netuid, uid, &uids, &weights);
-
         assert_eq!(
-            expected, result,
-            "Failed get expected result when guard-checks were not triggered"
+            SubtensorModule::get_max_weight_limit(NetUid::ROOT),
+            u16::MAX
         );
     });
 }

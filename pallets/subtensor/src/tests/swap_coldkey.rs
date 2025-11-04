@@ -1,4 +1,10 @@
-#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
+#![allow(
+    unused,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 
 use approx::assert_abs_diff_eq;
 use codec::Encode;
@@ -15,7 +21,7 @@ use sp_runtime::traits::{DispatchInfoOf, TransactionExtension};
 use sp_runtime::{DispatchError, traits::TxBaseImplication};
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, SubnetInfo, TaoCurrency};
-use subtensor_swap_interface::{OrderType, SwapHandler};
+use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
 use super::mock;
 use super::mock::*;
@@ -1608,51 +1614,6 @@ fn test_coldkey_swap_total() {
             SubtensorModule::get_all_staked_hotkeys(&nominator3),
             vec![hotkey3, delegate3]
         );
-    });
-}
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_swap_senate_member --exact --nocapture
-#[test]
-fn test_swap_senate_member() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let non_member_hotkey = U256::from(3);
-        let mut weight = Weight::zero();
-
-        // Setup: Add old_hotkey as a Senate member
-        assert_ok!(SenateMembers::add_member(
-            RawOrigin::Root.into(),
-            old_hotkey
-        ));
-
-        // Test 1: Successful swap
-        assert_ok!(SubtensorModule::swap_senate_member(
-            &old_hotkey,
-            &new_hotkey,
-            &mut weight
-        ));
-        assert!(Senate::is_member(&new_hotkey));
-        assert!(!Senate::is_member(&old_hotkey));
-
-        // Verify weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2);
-        assert_eq!(weight, expected_weight);
-
-        // Reset weight for next test
-        weight = Weight::zero();
-
-        // Test 2: Swap with non-member (should not change anything)
-        assert_ok!(SubtensorModule::swap_senate_member(
-            &non_member_hotkey,
-            &new_hotkey,
-            &mut weight
-        ));
-        assert!(Senate::is_member(&new_hotkey));
-        assert!(!Senate::is_member(&non_member_hotkey));
-
-        // Verify weight update (should only have read operations)
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
-        assert_eq!(weight, expected_weight);
     });
 }
 

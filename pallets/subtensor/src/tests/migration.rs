@@ -1,4 +1,10 @@
-#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
+#![allow(
+    unused,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 
 use super::mock::*;
 use crate::*;
@@ -1018,6 +1024,117 @@ fn test_migrate_last_tx_block_delegate_take() {
         );
 
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
+fn test_migrate_rate_limit_keys() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_rate_limit_keys";
+        let prefix = {
+            let pallet_prefix = twox_128("SubtensorModule".as_bytes());
+            let storage_prefix = twox_128("LastRateLimitedBlock".as_bytes());
+            [pallet_prefix, storage_prefix].concat()
+        };
+
+        // Seed new-format entries that must survive the migration untouched.
+        let new_last_account = U256::from(10);
+        SubtensorModule::set_last_tx_block(&new_last_account, 555);
+        let new_child_account = U256::from(11);
+        SubtensorModule::set_last_tx_block_childkey(&new_child_account, 777);
+        let new_delegate_account = U256::from(12);
+        SubtensorModule::set_last_tx_block_delegate_take(&new_delegate_account, 888);
+
+        // Legacy NetworkLastRegistered entry (index 1)
+        let mut legacy_network_key = prefix.clone();
+        legacy_network_key.push(1u8);
+        sp_io::storage::set(&legacy_network_key, &111u64.encode());
+
+        // Legacy LastTxBlock entry (index 2) for an account that already has a new-format value.
+        let mut legacy_last_key = prefix.clone();
+        legacy_last_key.push(2u8);
+        legacy_last_key.extend_from_slice(&new_last_account.encode());
+        sp_io::storage::set(&legacy_last_key, &666u64.encode());
+
+        // Legacy LastTxBlockChildKeyTake entry (index 3)
+        let legacy_child_account = U256::from(3);
+        ChildKeys::<Test>::insert(
+            legacy_child_account,
+            NetUid::from(0),
+            vec![(0u64, U256::from(99))],
+        );
+        let mut legacy_child_key = prefix.clone();
+        legacy_child_key.push(3u8);
+        legacy_child_key.extend_from_slice(&legacy_child_account.encode());
+        sp_io::storage::set(&legacy_child_key, &333u64.encode());
+
+        // Legacy LastTxBlockDelegateTake entry (index 4)
+        let legacy_delegate_account = U256::from(4);
+        Delegates::<Test>::insert(legacy_delegate_account, 500u16);
+        let mut legacy_delegate_key = prefix.clone();
+        legacy_delegate_key.push(4u8);
+        legacy_delegate_key.extend_from_slice(&legacy_delegate_account.encode());
+        sp_io::storage::set(&legacy_delegate_key, &444u64.encode());
+
+        let weight = crate::migrations::migrate_rate_limit_keys::migrate_rate_limit_keys::<Test>();
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "Migration should be marked as executed"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+
+        // Legacy entries were migrated and cleared.
+        assert_eq!(
+            SubtensorModule::get_network_last_lock_block(),
+            111u64,
+            "Network last lock block should match migrated value"
+        );
+        assert!(
+            sp_io::storage::get(&legacy_network_key).is_none(),
+            "Legacy network entry should be cleared"
+        );
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block(&new_last_account),
+            666u64,
+            "LastTxBlock should reflect the merged legacy value"
+        );
+        assert!(
+            sp_io::storage::get(&legacy_last_key).is_none(),
+            "Legacy LastTxBlock entry should be cleared"
+        );
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_childkey_take(&legacy_child_account),
+            333u64,
+            "Child key take block should be migrated"
+        );
+        assert!(
+            sp_io::storage::get(&legacy_child_key).is_none(),
+            "Legacy child take entry should be cleared"
+        );
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_delegate_take(&legacy_delegate_account),
+            444u64,
+            "Delegate take block should be migrated"
+        );
+        assert!(
+            sp_io::storage::get(&legacy_delegate_key).is_none(),
+            "Legacy delegate take entry should be cleared"
+        );
+
+        // New-format entries remain untouched.
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_childkey_take(&new_child_account),
+            777u64,
+            "Existing child take entry should be preserved"
+        );
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_delegate_take(&new_delegate_account),
+            888u64,
+            "Existing delegate take entry should be preserved"
+        );
     });
 }
 
@@ -2164,4 +2281,119 @@ fn test_migrate_network_lock_cost_2500_sets_price_and_decay() {
             "second run should not change current lock cost"
         );
     });
+}
+
+#[test]
+fn test_migrate_kappa_map_to_default() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"kappa_map_to_default";
+        let default: u16 = DefaultKappa::<Test>::get();
+
+        let not_default: u16 = if default == u16::MAX {
+            default.saturating_sub(1)
+        } else {
+            default.saturating_add(1)
+        };
+
+        // ------------------------------
+        // 1. Pre-state: seed using the correct key type (NetUid)
+        // ------------------------------
+        let n0: NetUid = 0u16.into();
+        let n1: NetUid = 1u16.into();
+        let n2: NetUid = 42u16.into();
+
+        Kappa::<Test>::insert(n0, not_default);
+        Kappa::<Test>::insert(n1, default);
+        Kappa::<Test>::insert(n2, not_default);
+
+        assert_eq!(
+            Kappa::<Test>::get(n0),
+            not_default,
+            "precondition failed: Kappa[n0] should be non-default before migration"
+        );
+        assert_eq!(
+            Kappa::<Test>::get(n1),
+            default,
+            "precondition failed: Kappa[n1] should be default before migration"
+        );
+        assert_eq!(
+            Kappa::<Test>::get(n2),
+            not_default,
+            "precondition failed: Kappa[n2] should be non-default before migration"
+        );
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 2. Run migration
+        // ------------------------------
+        let w =
+            crate::migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 3. Verify results
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        assert_eq!(
+            Kappa::<Test>::get(n0),
+            default,
+            "Kappa[n0] should be reset to the configured default"
+        );
+        assert_eq!(
+            Kappa::<Test>::get(n1),
+            default,
+            "Kappa[n1] should remain at the configured default"
+        );
+        assert_eq!(
+            Kappa::<Test>::get(n2),
+            default,
+            "Kappa[n2] should be reset to the configured default"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_remove_tao_dividends() {
+    const MIGRATION_NAME: &str = "migrate_remove_tao_dividends";
+    let pallet_name = "SubtensorModule";
+    let storage_name = "TaoDividendsPerSubnet";
+    let migration =
+        crate::migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<Test>;
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        storage_name,
+        migration,
+        200_000,
+    );
+
+    let storage_name = "PendingAlphaSwapped";
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        storage_name,
+        migration,
+        200_000,
+    );
+
+    let storage_name = "PendingRootDivs";
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        storage_name,
+        migration,
+        200_000,
+    );
 }

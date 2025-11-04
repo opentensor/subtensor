@@ -7,7 +7,7 @@ use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
-use substrate_fixed::types::{I32F32, U96F32};
+use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
@@ -549,12 +549,9 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ScalingLawPowerSet(netuid, scaling_law_power));
     }
 
-    pub fn get_max_weight_limit(netuid: NetUid) -> u16 {
-        MaxWeightsLimit::<T>::get(netuid)
-    }
-    pub fn set_max_weight_limit(netuid: NetUid, max_weight_limit: u16) {
-        MaxWeightsLimit::<T>::insert(netuid, max_weight_limit);
-        Self::deposit_event(Event::MaxWeightLimitSet(netuid, max_weight_limit));
+    #[inline(always)]
+    pub const fn get_max_weight_limit(_netuid: NetUid) -> u16 {
+        u16::MAX
     }
 
     pub fn get_immunity_period(netuid: NetUid) -> u16 {
@@ -779,25 +776,6 @@ impl<T: Config> Pallet<T> {
         Self::set_rao_recycled(netuid, rao_recycled);
     }
 
-    pub fn set_senate_required_stake_perc(required_percent: u64) {
-        SenateRequiredStakePercentage::<T>::put(required_percent);
-    }
-
-    pub fn is_senate_member(hotkey: &T::AccountId) -> bool {
-        T::SenateMembers::is_member(hotkey)
-    }
-
-    pub fn do_set_senate_required_stake_perc(
-        origin: T::RuntimeOrigin,
-        required_percent: u64,
-    ) -> DispatchResult {
-        ensure_root(origin)?;
-
-        Self::set_senate_required_stake_perc(required_percent);
-        Self::deposit_event(Event::SenateRequiredStakePercentSet(required_percent));
-        Ok(())
-    }
-
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
     }
@@ -972,5 +950,20 @@ impl<T: Config> Pallet<T> {
     pub fn set_max_subnets(limit: u16) {
         SubnetLimit::<T>::put(limit);
         Self::deposit_event(Event::SubnetLimitSet(limit));
+    }
+
+    /// Sets TAO flow cutoff value (A)
+    pub fn set_tao_flow_cutoff(flow_cutoff: I64F64) {
+        TaoFlowCutoff::<T>::set(flow_cutoff);
+    }
+
+    /// Sets TAO flow normalization exponent (p)
+    pub fn set_tao_flow_normalization_exponent(exponent: U64F64) {
+        FlowNormExponent::<T>::set(exponent);
+    }
+
+    /// Sets TAO flow smoothing factor (alpha)
+    pub fn set_tao_flow_smoothing_factor(smoothing_factor: u64) {
+        FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
     }
 }

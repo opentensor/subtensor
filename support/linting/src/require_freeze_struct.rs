@@ -68,6 +68,7 @@ fn is_derive_encode_or_decode(attr: &Attribute) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
     use super::*;
 
     fn lint_struct(input: &str) -> Result {

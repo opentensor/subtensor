@@ -13,11 +13,17 @@ mod dispatches {
     use sp_runtime::{Percent, traits::Saturating};
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
+    use crate::MAX_NUM_ROOT_CLAIMS;
+    use crate::MAX_ROOT_CLAIM_THRESHOLD;
+    use crate::MAX_SUBNET_CLAIMS;
+
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// --- Sets the caller weights for the incentive mechanism. The call can be
         /// made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
@@ -78,7 +84,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4112_u64))
+        .saturating_add(T::DbWeight::get().reads(4111_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
@@ -706,8 +712,8 @@ mod dispatches {
         ///
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(340_800_000, 0)
-		.saturating_add(T::DbWeight::get().reads(26))
-		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(25_u64))
+		.saturating_add(T::DbWeight::get().writes(16_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1027,19 +1033,10 @@ mod dispatches {
         /// Register the hotkey to root network
         #[pallet::call_index(62)]
         #[pallet::weight((Weight::from_parts(135_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(24_u64))
-		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(22_u64))
+		.saturating_add(T::DbWeight::get().writes(19_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
-        }
-
-        /// Attempt to adjust the senate membership to include a hotkey
-        #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_parts(58_980_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7))
-		.saturating_add(T::DbWeight::get().writes(4)), DispatchClass::Normal, Pays::Yes))]
-        pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_adjust_senate(origin, hotkey)
         }
 
         /// User register a new subnetwork via burning token
@@ -1058,8 +1055,8 @@ mod dispatches {
         /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(47))
-        .saturating_add(T::DbWeight::get().writes(37)), DispatchClass::Normal, Pays::No))]
+        .saturating_add(T::DbWeight::get().reads(50_u64))
+        .saturating_add(T::DbWeight::get().writes(35_u64)), DispatchClass::Normal, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1132,7 +1129,7 @@ mod dispatches {
         ///
         #[pallet::call_index(75)]
         #[pallet::weight((
-            Weight::from_parts(45_360_000, 0)
+            Weight::from_parts(66_450_000, 0)
             .saturating_add(T::DbWeight::get().reads(5))
             .saturating_add(T::DbWeight::get().writes(2)),
             DispatchClass::Normal,
@@ -1229,93 +1226,12 @@ mod dispatches {
             Self::set_max_childkey_take(take);
             Ok(())
         }
-        // ==================================
-        // ==== Parameter Sudo calls ========
-        // ==================================
-        // Each function sets the corresponding hyper paramter on the specified network
-        // Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The caller, must be sudo.
-        //
-        // 	* `netuid` (u16):
-        // 		- The network identifier.
-        //
-        // 	* `hyperparameter value` (u16):
-        // 		- The value of the hyper parameter.
-        //
-
-        /// Authenticates a council proposal and dispatches a function call with `Root` origin.
-        ///
-        /// The dispatch origin for this call must be a council majority.
-        ///
-        /// ## Complexity
-        /// - O(1).
-        #[pallet::call_index(51)]
-        #[pallet::weight((Weight::from_parts(111_100_000, 0), DispatchClass::Operational, Pays::Yes))]
-        pub fn sudo(
-            origin: OriginFor<T>,
-            call: Box<T::SudoRuntimeCall>,
-        ) -> DispatchResultWithPostInfo {
-            // This is a public call, so we ensure that the origin is a council majority.
-            T::CouncilOrigin::ensure_origin(origin)?;
-
-            let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
-            let error = result.map(|_| ()).map_err(|e| e.error);
-            Self::deposit_event(Event::Sudid(error));
-
-            return result;
-        }
-
-        /// Authenticates a council proposal and dispatches a function call with `Root` origin.
-        /// This function does not check the weight of the call, and instead allows the
-        /// user to specify the weight of the call.
-        ///
-        /// The dispatch origin for this call must be a council majority.
-        ///
-        /// ## Complexity
-        /// - O(1).
-        #[allow(deprecated)]
-        #[pallet::call_index(52)]
-        #[pallet::weight((*weight, call.get_dispatch_info().class, Pays::Yes))]
-        pub fn sudo_unchecked_weight(
-            origin: OriginFor<T>,
-            call: Box<T::SudoRuntimeCall>,
-            weight: Weight,
-        ) -> DispatchResultWithPostInfo {
-            // We dont need to check the weight witness, suppress warning.
-            // See https://github.com/paritytech/polkadot-sdk/pull/1818.
-            let _ = weight;
-
-            // This is a public call, so we ensure that the origin is a council majority.
-            T::CouncilOrigin::ensure_origin(origin)?;
-
-            let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
-            let error = result.map(|_| ()).map_err(|e| e.error);
-            Self::deposit_event(Event::Sudid(error));
-
-            return result;
-        }
-
-        /// User vote on a proposal
-        #[pallet::call_index(55)]
-        #[pallet::weight((Weight::from_parts(111_100_000, 0)
-		.saturating_add(T::DbWeight::get().reads(0))
-		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
-        pub fn vote(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            proposal: T::Hash,
-            #[pallet::compact] index: u32,
-            approve: bool,
-        ) -> DispatchResultWithPostInfo {
-            Self::do_vote_root(origin, &hotkey, proposal, index, approve)
-        }
 
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(39_u64))
-		.saturating_add(T::DbWeight::get().writes(57_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(56_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1602,7 +1518,7 @@ mod dispatches {
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
             .saturating_add(T::DbWeight::get().reads(38_u64))
-            .saturating_add(T::DbWeight::get().writes(56_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().writes(55_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1671,8 +1587,8 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(358_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(38_u64))
-        .saturating_add(T::DbWeight::get().writes(21_u64)), DispatchClass::Operational, Pays::Yes))]
+        .saturating_add(T::DbWeight::get().reads(41_u64))
+        .saturating_add(T::DbWeight::get().writes(26_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
@@ -1786,7 +1702,7 @@ mod dispatches {
         #[pallet::weight((
             Weight::from_parts(351_300_000, 0)
             .saturating_add(T::DbWeight::get().reads(37_u64))
-            .saturating_add(T::DbWeight::get().writes(22_u64)),
+            .saturating_add(T::DbWeight::get().writes(24_u64)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -1850,8 +1766,8 @@ mod dispatches {
         ///
         #[pallet::call_index(88)]
         #[pallet::weight((Weight::from_parts(402_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(26))
-		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(25_u64))
+		.saturating_add(T::DbWeight::get().writes(16_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1914,8 +1830,8 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(377_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(30_u64))
-		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(29_u64))
+		.saturating_add(T::DbWeight::get().writes(15_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1959,7 +1875,7 @@ mod dispatches {
         #[pallet::weight((
             Weight::from_parts(411_500_000, 0)
             .saturating_add(T::DbWeight::get().reads(37_u64))
-            .saturating_add(T::DbWeight::get().writes(22_u64)),
+            .saturating_add(T::DbWeight::get().writes(24_u64)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -2136,8 +2052,8 @@ mod dispatches {
         /// Without limit_price it remove all the stake similar to `remove_stake` extrinsic
         #[pallet::call_index(103)]
         #[pallet::weight((Weight::from_parts(395_300_000, 10142)
-			.saturating_add(T::DbWeight::get().reads(30_u64))
-			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::Yes))]
+			.saturating_add(T::DbWeight::get().reads(29_u64))
+			.saturating_add(T::DbWeight::get().writes(15_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_full_limit(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
@@ -2293,8 +2209,8 @@ mod dispatches {
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
         #[pallet::weight((Weight::from_parts(29_930_000, 0)
-		.saturating_add(T::DbWeight::get().reads(3_u64))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(4_u64))
+		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
@@ -2392,10 +2308,118 @@ mod dispatches {
         #[pallet::call_index(120)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_dissolve_network(netuid)
+        }
+
+        /// --- Claims the root emissions for a coldkey.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// # Event:
+        /// * RootClaimed;
+        /// 	- On the successfully claiming the root emissions for a coldkey.
+        ///
+        /// # Raises:
+        ///
+        #[pallet::call_index(121)]
+        #[pallet::weight((
+            Weight::from_parts(117_000_000, 7767)
+                .saturating_add(T::DbWeight::get().reads(12_u64))
+                .saturating_add(T::DbWeight::get().writes(4_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn claim_root(
+            origin: OriginFor<T>,
+            subnets: BTreeSet<NetUid>,
+        ) -> DispatchResultWithPostInfo {
+            let coldkey: T::AccountId = ensure_signed(origin)?;
+
+            ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
+            ensure!(
+                subnets.len() <= MAX_SUBNET_CLAIMS,
+                Error::<T>::InvalidSubnetNumber
+            );
+
+            Self::maybe_add_coldkey_index(&coldkey);
+
+            let weight = Self::do_root_claim(coldkey, Some(subnets));
+            Ok((Some(weight), Pays::Yes).into())
+        }
+
+        /// --- Sets the root claim type for the coldkey.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// # Event:
+        /// * RootClaimTypeSet;
+        /// 	- On the successfully setting the root claim type for the coldkey.
+        ///
+        #[pallet::call_index(122)]
+        #[pallet::weight((
+            Weight::from_parts(19_420_000, 0).saturating_add(T::DbWeight::get().writes(4_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn set_root_claim_type(
+            origin: OriginFor<T>,
+            new_root_claim_type: RootClaimTypeEnum,
+        ) -> DispatchResult {
+            let coldkey: T::AccountId = ensure_signed(origin)?;
+
+            Self::maybe_add_coldkey_index(&coldkey);
+
+            Self::change_root_claim_type(&coldkey, new_root_claim_type);
+            Ok(())
+        }
+
+        /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
+        #[pallet::call_index(123)]
+        #[pallet::weight((
+            Weight::from_parts(4_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ensure!(
+                new_value <= MAX_NUM_ROOT_CLAIMS,
+                Error::<T>::InvalidNumRootClaim
+            );
+
+            NumRootClaim::<T>::set(new_value);
+
+            Ok(())
+        }
+
+        /// --- Sets root claim threshold for subnet (sudo or owner origin).
+        #[pallet::call_index(124)]
+        #[pallet::weight((
+            Weight::from_parts(5_711_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_root_claim_threshold(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            new_value: u64,
+        ) -> DispatchResult {
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            ensure!(
+                new_value <= I96F32::from(MAX_ROOT_CLAIM_THRESHOLD),
+                Error::<T>::InvalidRootClaimThreshold
+            );
+
+            RootClaimableThreshold::<T>::set(netuid, new_value.into());
+
+            Ok(())
         }
     }
 }

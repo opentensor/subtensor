@@ -5,7 +5,7 @@ use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo, TaoCurrency,
+    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
 
 use crate::{
@@ -17,11 +17,13 @@ use crate::{
 pub use pallet::*;
 
 mod impls;
+mod swap_step;
 #[cfg(test)]
 mod tests;
 
 #[allow(clippy::module_inception)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 mod pallet {
     use super::*;
     use frame_system::{ensure_root, ensure_signed};
@@ -35,6 +37,12 @@ mod pallet {
         /// Implementor of
         /// [`SubnetInfo`](subtensor_swap_interface::SubnetInfo).
         type SubnetInfo: SubnetInfo<Self::AccountId>;
+
+        /// Tao reserves info.
+        type TaoReserve: CurrencyReserve<TaoCurrency>;
+
+        /// Alpha reserves info.
+        type AlphaReserve: CurrencyReserve<AlphaCurrency>;
 
         /// Implementor of
         /// [`BalanceOps`](subtensor_swap_interface::BalanceOps).
@@ -138,6 +146,15 @@ mod pallet {
         u128,
         ValueQuery,
     >;
+
+    /// TAO reservoir for scraps of protocol claimed fees.
+    #[pallet::storage]
+    pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+
+    /// Alpha reservoir for scraps of protocol claimed fees.
+    #[pallet::storage]
+    pub type ScrapReservoirAlpha<T> =
+        StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -273,6 +290,8 @@ mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Set the fee rate for swaps on a specific subnet (normalized value).
         /// For example, 0.3% is approximately 196.
         ///
@@ -391,8 +410,8 @@ mod pallet {
             ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
 
             // Add provided liquidity to user-provided reserves
-            T::BalanceOps::increase_provided_tao_reserve(netuid.into(), tao_provided);
-            T::BalanceOps::increase_provided_alpha_reserve(netuid.into(), alpha_provided);
+            T::TaoReserve::increase_provided(netuid.into(), tao_provided);
+            T::AlphaReserve::increase_provided(netuid.into(), alpha_provided);
 
             // Emit an event
             Self::deposit_event(Event::LiquidityAdded {
@@ -447,8 +466,8 @@ mod pallet {
             )?;
 
             // Remove withdrawn liquidity from user-provided reserves
-            T::BalanceOps::decrease_provided_tao_reserve(netuid.into(), result.tao);
-            T::BalanceOps::decrease_provided_alpha_reserve(netuid.into(), result.alpha);
+            T::TaoReserve::decrease_provided(netuid.into(), result.tao);
+            T::AlphaReserve::decrease_provided(netuid.into(), result.alpha);
 
             // Emit an event
             Self::deposit_event(Event::LiquidityRemoved {

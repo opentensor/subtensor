@@ -7,7 +7,7 @@ use frame_support::{
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
-use frame_system::{EnsureNever, EnsureRoot, limits};
+use frame_system::{EnsureRoot, limits};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
@@ -77,7 +77,6 @@ pub type UncheckedExtrinsic = TestXt<RuntimeCall, ()>;
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
-    pub const InitialMaxWeightsLimit: u16 = u16::MAX;
     pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
@@ -128,7 +127,6 @@ parameter_types! {
     pub const InitialMinDifficulty: u64 = 1;
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
-    pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
     pub const InitialNetworkImmunityPeriod: u64 = 1_296_000;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
@@ -160,13 +158,9 @@ impl pallet_subtensor::Config for Test {
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
-    type CouncilOrigin = EnsureNever<AccountId>;
-    type SenateMembers = ();
-    type TriumvirateInterface = ();
     type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
-    type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
     type InitialTempo = InitialTempo;
     type InitialDifficulty = InitialDifficulty;
     type InitialAdjustmentInterval = InitialAdjustmentInterval;
@@ -205,7 +199,6 @@ impl pallet_subtensor::Config for Test {
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
-    type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
@@ -341,6 +334,8 @@ impl pallet_subtensor_swap::Config for Test {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
+    type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
+    type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;

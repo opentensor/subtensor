@@ -17,9 +17,7 @@
 
 use super::*;
 use crate::CommitmentsInterface;
-use frame_support::{dispatch::Pays, weights::Weight};
 use safe_math::*;
-use sp_core::Get;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
@@ -162,16 +160,12 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 13. Join the Senate if eligible.
-        // Returns the replaced member, if any.
-        let _ = Self::join_senate_if_eligible(&hotkey)?;
-
-        // --- 14. Force all members on root to become a delegate.
+        // --- 13. Force all members on root to become a delegate.
         if !Self::hotkey_is_delegate(&hotkey) {
             Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
         }
 
-        // --- 15. Update the registration counters for both the block and interval.
+        // --- 14. Update the registration counters for both the block and interval.
         #[allow(clippy::arithmetic_side_effects)]
         // note this RA + clippy false positive is a known substrate issue
         RegistrationsThisInterval::<T>::mutate(NetUid::ROOT, |val| *val += 1);
@@ -179,7 +173,7 @@ impl<T: Config> Pallet<T> {
         // note this RA + clippy false positive is a known substrate issue
         RegistrationsThisBlock::<T>::mutate(NetUid::ROOT, |val| *val += 1);
 
-        // --- 16. Log and announce the successful registration.
+        // --- 15. Log and announce the successful registration.
         log::debug!(
             "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
             NetUid::ROOT,
@@ -192,164 +186,8 @@ impl<T: Config> Pallet<T> {
             hotkey,
         ));
 
-        // --- 17. Finish and return success.
+        // --- 16. Finish and return success.
         Ok(())
-    }
-
-    // Checks if a hotkey should be a member of the Senate, and if so, adds them.
-    //
-    // This function is responsible for adding a hotkey to the Senate if they meet the requirements.
-    // The root key with the least stake is pruned in the event of a filled membership.
-    //
-    // # Arguments:
-    // * 'origin': Represents the origin of the call.
-    // * 'hotkey': The hotkey that the user wants to register to the root network.
-    //
-    // # Returns:
-    // * 'DispatchResult': A result type indicating success or failure of the registration.
-    //
-    pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
-        ensure!(
-            Self::if_subnet_exist(NetUid::ROOT),
-            Error::<T>::RootNetworkDoesNotExist
-        );
-
-        // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
-        let coldkey = ensure_signed(origin)?;
-        log::debug!("do_root_register( coldkey: {coldkey:?}, hotkey: {hotkey:?} )");
-
-        // --- 2. Check if the hotkey is already registered to the root network. If not, error out.
-        ensure!(
-            Uids::<T>::contains_key(NetUid::ROOT, &hotkey),
-            Error::<T>::HotKeyNotRegisteredInSubNet
-        );
-
-        // --- 3. Create a network account for the user if it doesn't exist.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
-
-        // --- 4. Join the Senate if eligible.
-        // Returns the replaced member, if any.
-        let replaced = Self::join_senate_if_eligible(&hotkey)?;
-
-        if replaced.is_none() {
-            // Not eligible to join the Senate, or no replacement needed.
-            // Check if the hotkey is *now* a member of the Senate.
-            // Otherwise, error out.
-            ensure!(
-                T::SenateMembers::is_member(&hotkey),
-                Error::<T>::StakeTooLowForRoot, // Had less stake than the lowest stake incumbent.
-            );
-        }
-
-        // --- 5. Log and announce the successful Senate adjustment.
-        log::debug!("SenateAdjusted(old_hotkey:{replaced:?} hotkey:{hotkey:?})");
-        Self::deposit_event(Event::SenateAdjusted {
-            old_member: replaced.cloned(),
-            new_member: hotkey,
-        });
-
-        // --- 6. Finish and return success.
-        Ok(())
-    }
-
-    // Checks if a hotkey should be a member of the Senate, and if so, adds them.
-    //
-    // # Arguments:
-    // * 'hotkey': The hotkey that the user wants to register to the root network.
-    //
-    // # Returns:
-    // * 'Result<Option<&T::AccountId>, Error<T>>': A result containing the replaced member, if any.
-    //
-    fn join_senate_if_eligible(hotkey: &T::AccountId) -> Result<Option<&T::AccountId>, Error<T>> {
-        // --- 1. Check the hotkey is registered in the root network.
-        ensure!(
-            Uids::<T>::contains_key(NetUid::ROOT, hotkey),
-            Error::<T>::HotKeyNotRegisteredInSubNet
-        );
-
-        // --- 2. Verify the hotkey is NOT already a member of the Senate.
-        ensure!(
-            !T::SenateMembers::is_member(hotkey),
-            Error::<T>::HotKeyAlreadyRegisteredInSubNet
-        );
-
-        // --- 3. Grab the hotkey's stake.
-        let current_stake = Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT);
-
-        // Add the hotkey to the Senate.
-        // If we're full, we'll swap out the lowest stake member.
-        let members = T::SenateMembers::members();
-        let last: Option<&T::AccountId> = None;
-        if (members.len() as u32) == T::SenateMembers::max_members() {
-            let mut sorted_members = members.clone();
-            sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_stake_for_hotkey_on_subnet(a, NetUid::ROOT);
-                let b_stake = Self::get_stake_for_hotkey_on_subnet(b, NetUid::ROOT);
-
-                b_stake.cmp(&a_stake)
-            });
-
-            if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_stake_for_hotkey_on_subnet(last, NetUid::ROOT);
-
-                if last_stake < current_stake {
-                    // Swap the member with the lowest stake.
-                    T::SenateMembers::swap_member(last, hotkey)
-                        .map_err(|_| Error::<T>::CouldNotJoinSenate)?;
-                }
-            }
-        } else {
-            T::SenateMembers::add_member(hotkey).map_err(|_| Error::<T>::CouldNotJoinSenate)?;
-        }
-
-        // Return the swapped out member, if any.
-        Ok(last)
-    }
-
-    pub fn do_vote_root(
-        origin: T::RuntimeOrigin,
-        hotkey: &T::AccountId,
-        proposal: T::Hash,
-        index: u32,
-        approve: bool,
-    ) -> DispatchResultWithPostInfo {
-        // --- 1. Ensure that the caller has signed with their coldkey.
-        let coldkey = ensure_signed(origin.clone())?;
-
-        // --- 2. Ensure that the calling coldkey owns the associated hotkey.
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 3. Ensure that the calling hotkey is a member of the senate.
-        ensure!(
-            T::SenateMembers::is_member(hotkey),
-            Error::<T>::NotSenateMember
-        );
-
-        // --- 4. Detects first vote of the member in the motion
-        let is_account_voting_first_time =
-            T::TriumvirateInterface::add_vote(hotkey, proposal, index, approve)?;
-
-        // --- 5. Calculate extrinsic weight
-        let members = T::SenateMembers::members();
-        let member_count = members.len() as u32;
-        let vote_weight = Weight::from_parts(20_528_275, 4980)
-            .saturating_add(Weight::from_parts(48_856, 0).saturating_mul(member_count.into()))
-            .saturating_add(T::DbWeight::get().reads(2_u64))
-            .saturating_add(T::DbWeight::get().writes(1_u64))
-            .saturating_add(Weight::from_parts(0, 128).saturating_mul(member_count.into()));
-
-        Ok((
-            Some(vote_weight),
-            if is_account_voting_first_time {
-                Pays::No
-            } else {
-                Pays::Yes
-            },
-        )
-            .into())
     }
 
     /// Facilitates the removal of a user's subnetwork.
@@ -366,22 +204,24 @@ impl<T: Config> Pallet<T> {
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
     pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
-        // 1. --- The network exists?
+        // --- The network exists?
         ensure!(
             Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,
             Error::<T>::SubnetNotExists
         );
 
-        // 2. --- Perform the cleanup before removing the network.
+        Self::finalize_all_subnet_root_dividends(netuid);
+
+        // --- Perform the cleanup before removing the network.
         T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
 
-        // 3. --- Remove the network
+        // --- Remove the network
         Self::remove_network(netuid);
 
-        // 4. --- Emit the NetworkRemoved event
+        // --- Emit the NetworkRemoved event
         log::info!("NetworkRemoved( netuid:{netuid:?} )");
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
@@ -446,7 +286,6 @@ impl<T: Config> Pallet<T> {
         MaxAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
         ActivityCutoff::<T>::remove(netuid);
-        MaxWeightsLimit::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);
@@ -476,8 +315,7 @@ impl<T: Config> Pallet<T> {
         // --- 15. Mechanism step / emissions bookkeeping.
         FirstEmissionBlockNumber::<T>::remove(netuid);
         PendingEmission::<T>::remove(netuid);
-        PendingRootDivs::<T>::remove(netuid);
-        PendingAlphaSwapped::<T>::remove(netuid);
+        PendingRootAlphaDivs::<T>::remove(netuid);
         PendingOwnerCut::<T>::remove(netuid);
         BlocksSinceLastStep::<T>::remove(netuid);
         LastMechansimStepBlock::<T>::remove(netuid);
@@ -510,6 +348,7 @@ impl<T: Config> Pallet<T> {
         RAORecycledForRegistration::<T>::remove(netuid);
         MaxRegistrationsPerBlock::<T>::remove(netuid);
         WeightsVersionKey::<T>::remove(netuid);
+        PendingRootAlphaDivs::<T>::remove(netuid);
 
         // --- 17. Subtoken / feature flags.
         LiquidAlphaOn::<T>::remove(netuid);
@@ -528,7 +367,6 @@ impl<T: Config> Pallet<T> {
         let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 

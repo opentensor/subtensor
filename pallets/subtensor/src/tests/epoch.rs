@@ -1,5 +1,6 @@
 #![allow(
     clippy::arithmetic_side_effects,
+    clippy::expect_used,
     clippy::indexing_slicing,
     clippy::unwrap_used
 )]
@@ -1023,7 +1024,6 @@ fn test_bonds() {
 		SubtensorModule::set_target_registrations_per_interval(netuid, n);
 		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
         SubtensorModule::set_min_allowed_weights( netuid, 1 );
-        SubtensorModule::set_max_weight_limit( netuid, u16::MAX );
 		SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
 
 
@@ -1324,13 +1324,13 @@ fn test_set_alpha_disabled() {
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
-            DefaultMinStake::<Test>::get().into(),
+            DefaultMinStake::<Test>::get(),
         );
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            (5 * DefaultMinStake::<Test>::get().to_u64() + fee).into()
+            TaoCurrency::from(5) * DefaultMinStake::<Test>::get() + fee
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -1369,7 +1369,6 @@ fn test_active_stake() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
@@ -1586,7 +1585,6 @@ fn test_outdated_weights() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
@@ -1776,7 +1774,6 @@ fn test_zero_weights() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // === Register [validator, server]
         for key in 0..n as u64 {
@@ -1979,7 +1976,6 @@ fn test_deregistered_miner_bonds() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
@@ -2294,14 +2290,14 @@ fn test_get_set_alpha() {
 
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
-            DefaultMinStake::<Test>::get().into(),
+            DefaultMinStake::<Test>::get(),
         );
 
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            (DefaultMinStake::<Test>::get().to_u64() + fee * 2).into()
+            DefaultMinStake::<Test>::get() + fee * 2.into()
         ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
@@ -2699,7 +2695,6 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
     SubtensorModule::set_target_registrations_per_interval(netuid, n);
     SubtensorModule::set_weights_set_rate_limit(netuid, 0);
     SubtensorModule::set_min_allowed_weights(netuid, 1);
-    SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
     SubtensorModule::set_bonds_penalty(netuid, 0);
     SubtensorModule::set_alpha_sigmoid_steepness(netuid, 1000);
     SubtensorModule::set_bonds_moving_average(netuid, 975_000);
@@ -3881,5 +3876,57 @@ fn test_last_update_size_mismatch() {
             0
         );
         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
+    });
+}
+
+#[test]
+fn empty_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = 155.into();
+        assert!(Pallet::<Test>::is_epoch_input_state_consistent(netuid));
+    });
+}
+
+#[test]
+fn unique_hotkeys_and_uids_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = 155.into();
+
+        // (netuid, uid) -> hotkey (AccountId = U256)
+        Keys::<Test>::insert(netuid, 0u16, U256::from(1u64));
+        Keys::<Test>::insert(netuid, 1u16, U256::from(2u64));
+        Keys::<Test>::insert(netuid, 2u16, U256::from(3u64));
+
+        assert!(Pallet::<Test>::is_epoch_input_state_consistent(netuid));
+    });
+}
+
+#[test]
+fn duplicate_hotkey_within_same_netuid_fails() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = 155.into();
+
+        // Same hotkey mapped from two different UIDs in the SAME netuid
+        let hk = U256::from(42u64);
+        Keys::<Test>::insert(netuid, 0u16, hk);
+        Keys::<Test>::insert(netuid, 1u16, U256::from(42u64)); // duplicate hotkey
+
+        assert!(!Pallet::<Test>::is_epoch_input_state_consistent(netuid));
+    });
+}
+
+#[test]
+fn same_hotkey_across_different_netuids_is_ok() {
+    new_test_ext(1).execute_with(|| {
+        let net_a: NetUid = 10.into();
+        let net_b: NetUid = 11.into();
+
+        // Same hotkey appears once in each netuid — each net checks independently.
+        let hk = U256::from(777u64);
+        Keys::<Test>::insert(net_a, 0u16, hk);
+        Keys::<Test>::insert(net_b, 0u16, hk);
+
+        assert!(Pallet::<Test>::is_epoch_input_state_consistent(net_a));
+        assert!(Pallet::<Test>::is_epoch_input_state_consistent(net_b));
     });
 }
