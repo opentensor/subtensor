@@ -172,7 +172,7 @@ impl TryFrom<u8> for ProxyType {
             2 => Ok(Self::NonCritical),
             3 => Ok(Self::NonTransfer),
             4 => Ok(Self::Senate),
-            5 => Ok(Self::NonFungibile),
+            5 => Ok(Self::NonFungible),
             6 => Ok(Self::Triumvirate),
             7 => Ok(Self::Governance),
             8 => Ok(Self::Staking),
