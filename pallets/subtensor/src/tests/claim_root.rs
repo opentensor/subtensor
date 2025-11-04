@@ -3,12 +3,7 @@
 use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };
-use crate::{
-    DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
-    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetTAO,
-    SubtokenEnabled, Tempo, pallet,
-};
+use crate::*;
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
@@ -763,6 +758,7 @@ fn test_claim_root_with_run_coinbase() {
 
         let root_stake = 200_000_000u64;
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(root_stake));
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from(2));
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
@@ -869,6 +865,7 @@ fn test_claim_root_with_block_emissions() {
 
         let root_stake = 200_000_000u64;
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(root_stake));
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from(2));
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
@@ -973,6 +970,9 @@ fn test_claim_root_coinbase_distribution() {
         let initial_tao = 200_000_000u64;
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(initial_tao));
 
+        // Avoid subsidy mode
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from(2));
+
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
@@ -996,7 +996,12 @@ fn test_claim_root_coinbase_distribution() {
         run_to_block(2);
 
         let alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        assert_eq!(initial_alpha_issuance + alpha_emissions, alpha_issuance);
+
+        // Both alpha_in and alpha_out are increased, hence multiply emissions by 2 to get total issuance increase
+        assert_eq!(
+            initial_alpha_issuance + alpha_emissions * AlphaCurrency::from(2),
+            alpha_issuance
+        );
 
         let root_prop = initial_tao as f64 / (u64::from(alpha_issuance) + initial_tao) as f64;
         let root_validators_share = 0.5f64;
