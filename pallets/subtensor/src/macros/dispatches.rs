@@ -1243,6 +1243,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(91_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        #[cfg(feature = "pow-faucet")]
         pub fn faucet(
             origin: OriginFor<T>,
             block_number: u64,
