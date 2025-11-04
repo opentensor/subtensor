@@ -48,7 +48,6 @@ describe("Test pure proxy precompile", () => {
     const evmWallet = generateRandomEthersWallet();
     const evmWallet2 = generateRandomEthersWallet();
     const evmWallet3 = generateRandomEthersWallet();
-    const delegate = getRandomSubstrateKeypair();
     const receiver = getRandomSubstrateKeypair();
 
     let api: TypedApi<typeof devnet>
@@ -62,7 +61,6 @@ describe("Test pure proxy precompile", () => {
         await forceSetBalanceToEthAddress(api, evmWallet.address)
         await forceSetBalanceToEthAddress(api, evmWallet2.address)
         await forceSetBalanceToEthAddress(api, evmWallet3.address)
-        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(delegate.publicKey))
     })
 
     it("Call createPureProxy, then use proxy to call transfer", async () => {
