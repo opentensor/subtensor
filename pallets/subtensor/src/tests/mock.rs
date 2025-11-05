@@ -27,6 +27,7 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
+use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
@@ -694,6 +695,7 @@ pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    SubnetMechanism::<Test>::insert(netuid, if netuid == NetUid::ROOT { 0 } else { 1 });
     FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
     SubtokenEnabled::<Test>::insert(netuid, true);
 }
@@ -867,6 +869,8 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
 pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
+    Swap::maybe_initialize_v3(netuid).unwrap();
+    SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(Swap::current_price(netuid)));
 }
 
 pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurrency, u64) {

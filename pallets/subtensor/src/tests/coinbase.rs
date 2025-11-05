@@ -657,7 +657,7 @@ fn test_owner_cut_base() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_swapped --exact --show-output --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_emission --exact --show-output --nocapture
 #[test]
 fn test_pending_emission() {
     new_test_ext(1).execute_with(|| {
