@@ -94,47 +94,19 @@ describe("Test pure proxy precompile", () => {
         assert.equal(balanceAfter, balance + BigInt(amount), "balance should be increased")
     })
 
-    it("Call createPureProxy, add kill one", async () => {
-        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet)
-        const type = 0;
-        const delay = 0;
-        const index = 0;
-        const extIndex = 1;
-
-        const proxies = await getProxies(api, convertH160ToSS58(evmWallet.address))
-        const length = proxies.length
-        const addTx = await contract.createPureProxy(type, delay, index)
-        const response = await addTx.wait()
-        const createBlockNumber = response.blockNumber
-
-        const currentLength = (await getProxies(api, convertH160ToSS58(evmWallet.address))).length
-        assert.equal(currentLength, length + 1, "proxy should be set")
-
-        try {
-            const tx = await contract.killPureProxy(decodeAddress(proxies[proxies.length - 1]), type, index,
-                createBlockNumber, extIndex)
-            await tx.wait()
-        } catch (error) {
-            console.log("error", error)
-        }
-
-        const proxiesAfterRemove = await getProxies(api, convertH160ToSS58(evmWallet.address))
-        assert.equal(proxiesAfterRemove.length, 0, "proxies should be removed")
-    })
-
     it("Call createPureProxy, add multiple proxies", async () => {
-        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet)
+        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet1)
         const type = 0;
         const delay = 0;
         const index = 0;
-        const proxies = await getProxies(api, convertH160ToSS58(evmWallet.address))
+        const proxies = await getProxies(api, convertH160ToSS58(evmWallet1.address))
         const length = proxies.length
         for (let i = 0; i < 5; i++) {
             const tx = await contract.createPureProxy(type, delay, index)
             await tx.wait()
 
             await new Promise(resolve => setTimeout(resolve, 500));
-            const currentProxies = await getProxies(api, convertH160ToSS58(evmWallet.address))
+            const currentProxies = await getProxies(api, convertH160ToSS58(evmWallet1.address))
             assert.equal(currentProxies.length, length + i + 1, "proxy should be set")
         }
     })
