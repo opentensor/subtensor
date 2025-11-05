@@ -204,21 +204,23 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(asfloat!(0.0));
             log::debug!("root_proportion: {root_proportion:?}");
             // Get root proportion of alpha_out dividends.
-            let root_alpha: U96F32 = root_proportion
-                .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
-                .saturating_mul(asfloat!(0.5)); // 50% to validators.
-            // Remove root alpha from alpha_out.
-            log::debug!("root_alpha: {root_alpha:?}");
-            // Get pending alpha as original alpha_out - root_alpha.
-            let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
-            log::debug!("pending_alpha: {pending_alpha:?}");
-
+            let mut root_alpha: U96F32 = asfloat!(0.0);
             let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
             if !subsidized {
+                // Only give root alpha if not being subsidized.
+                root_alpha = root_proportion
+                    .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
+                    .saturating_mul(asfloat!(0.5)); // 50% to validators.
                 PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
                     *total = total.saturating_add(tou64!(root_alpha).into());
                 });
             }
+            // Remove root alpha from alpha_out.
+            log::debug!("root_alpha: {root_alpha:?}");
+
+            // Get pending alpha as original alpha_out - root_alpha.
+            let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
+            log::debug!("pending_alpha: {pending_alpha:?}");
 
             // Accumulate alpha emission in pending.
             PendingEmission::<T>::mutate(*netuid_i, |total| {
