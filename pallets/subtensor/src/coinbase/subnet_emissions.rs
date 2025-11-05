@@ -75,7 +75,8 @@ impl<T: Config> Pallet<T> {
             }
         } else {
             // Initialize EMA flow, set S(current_block) = min(price, ema_price) * init_factor
-            let moving_price = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
+            let moving_price = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid))
+                .saturating_mul(I64F64::saturating_from_num(1_000_000_000)); // Convert to RAO
             let current_price =
                 I64F64::saturating_from_num(T::SwapInterface::current_alpha_price(netuid));
             let ema_flow = moving_price.min(current_price);
