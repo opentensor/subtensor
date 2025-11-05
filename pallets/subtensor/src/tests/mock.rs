@@ -428,15 +428,17 @@ impl pallet_crowdloan::Config for Test {
 
 // Proxy Pallet config
 parameter_types! {
-    // One storage item; key size sizeof(AccountId) = 32, value sizeof(Balance) = 8; 40 total
+    // Set as 1 for testing purposes
     pub const ProxyDepositBase: Balance = 1;
-    // Adding 32 bytes + sizeof(ProxyType) = 32 + 1
+    // Set as 1 for testing purposes
     pub const ProxyDepositFactor: Balance = 1;
+    // Set as 20 for testing purposes
     pub const MaxProxies: u32 = 20; // max num proxies per acct
-    pub const MaxPending: u32 = 15 * 5; // max blocks pending ~15min
-    // 16 bytes
+    // Set as 15 for testing purposes
+    pub const MaxPending: u32 = 15; // max blocks pending ~15min
+    // Set as 1 for testing purposes
     pub const AnnouncementDepositBase: Balance =  1;
-    // 68 bytes per announcement
+    // Set as 1 for testing purposes
     pub const AnnouncementDepositFactor: Balance = 1;
 }
 
