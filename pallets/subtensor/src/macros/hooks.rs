@@ -161,7 +161,7 @@ mod hooks {
                 // Remove obsolete map entries
                 .saturating_add(migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<T>())
                 // Re-init tao flows
-                .saturating_add(migrations::migrate_init_tao_flows::migrate_init_tao_flows::<T>());
+                .saturating_add(migrations::migrate_init_tao_flow::migrate_init_tao_flow::<T>());
             weight
         }
 
