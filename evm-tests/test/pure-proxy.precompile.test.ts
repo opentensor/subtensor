@@ -95,18 +95,18 @@ describe("Test pure proxy precompile", () => {
     })
 
     it("Call createPureProxy, add multiple proxies", async () => {
-        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet1)
+        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet)
         const type = 0;
         const delay = 0;
         const index = 0;
-        const proxies = await getProxies(api, convertH160ToSS58(evmWallet1.address))
+        const proxies = await getProxies(api, convertH160ToSS58(evmWallet.address))
         const length = proxies.length
         for (let i = 0; i < 5; i++) {
             const tx = await contract.createPureProxy(type, delay, index)
             await tx.wait()
 
             await new Promise(resolve => setTimeout(resolve, 500));
-            const currentProxies = await getProxies(api, convertH160ToSS58(evmWallet1.address))
+            const currentProxies = await getProxies(api, convertH160ToSS58(evmWallet.address))
             assert.equal(currentProxies.length, length + i + 1, "proxy should be set")
         }
     })
