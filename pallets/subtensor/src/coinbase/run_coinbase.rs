@@ -58,6 +58,8 @@ impl<T: Config> Pallet<T> {
                 .copied()
                 .unwrap_or(asfloat!(0));
             log::debug!("default_tao_in_i: {default_tao_in_i:?}");
+            let default_alpha_in_i: U96F32 =
+                default_tao_in_i.safe_div_or(price_i, U96F32::saturating_from_num(0.0));
             // Get alpha_emission total
             let alpha_emission_i: U96F32 = asfloat!(
                 Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i).into())
@@ -76,7 +78,7 @@ impl<T: Config> Pallet<T> {
                 subsidy_amount.insert(*netuid_i, difference_tao);
             } else {
                 tao_in_i = default_tao_in_i;
-                alpha_in_i = alpha_in_default_i;
+                alpha_in_i = default_alpha_in_i;
                 subsidy_amount.insert(*netuid_i, U96F32::from_num(0.0));
             }
             log::debug!("alpha_in_i: {alpha_in_i:?}");
@@ -205,8 +207,7 @@ impl<T: Config> Pallet<T> {
             log::debug!("root_proportion: {root_proportion:?}");
             // Get root proportion of alpha_out dividends.
             let mut root_alpha: U96F32 = asfloat!(0.0);
-            let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
-            if !subsidized {
+            if !subsidy_mode {
                 // Only give root alpha if not being subsidized.
                 root_alpha = root_proportion
                     .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
