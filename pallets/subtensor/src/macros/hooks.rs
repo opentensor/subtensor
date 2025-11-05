@@ -158,10 +158,10 @@ mod hooks {
                 .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>())
                 // Migrate Kappa to default (0.5)
                 .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>())
-                // Set the first block of tao flow
-                .saturating_add(migrations::migrate_set_first_tao_flow_block::migrate_set_first_tao_flow_block::<T>())
                 // Remove obsolete map entries
-                .saturating_add(migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<T>());
+                .saturating_add(migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<T>())
+                // Re-init tao flows
+                .saturating_add(migrations::migrate_init_tao_flow::migrate_init_tao_flow::<T>());
             weight
         }
 
