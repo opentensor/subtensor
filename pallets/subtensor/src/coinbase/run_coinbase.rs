@@ -39,6 +39,8 @@ impl<T: Config> Pallet<T> {
             .map(|netuid| Self::get_moving_alpha_price(*netuid))
             .sum();
         let subsidy_mode = total_ema_price <= U96F32::saturating_from_num(1);
+        log::debug!("subsidy_mode: {subsidy_mode:?}");
+        log::debug!("total_ema_price: {total_ema_price:?}");
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
