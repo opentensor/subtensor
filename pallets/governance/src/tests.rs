@@ -423,11 +423,11 @@ fn propose_works_with_inline_preimage() {
         );
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::Proposed {
+            RuntimeEvent::Governance(Event::<Test>::ProposalSubmitted {
                 account: U256::from(1),
                 proposal_index: 0,
                 proposal_hash,
-                end: now + MotionDuration::get(),
+                voting_end: now + MotionDuration::get(),
             })
         );
     });
@@ -476,11 +476,11 @@ fn propose_works_with_lookup_preimage() {
         );
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::Proposed {
+            RuntimeEvent::Governance(Event::<Test>::ProposalSubmitted {
                 account: U256::from(1),
                 proposal_index: 0,
                 proposal_hash,
-                end: now + MotionDuration::get(),
+                voting_end: now + MotionDuration::get(),
             })
         );
     });
@@ -680,7 +680,7 @@ fn vote_aye_as_first_voter_works() {
         assert_eq!(votes.nays.to_vec(), vec![]);
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::Voted {
+            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: true,
@@ -709,7 +709,7 @@ fn vote_nay_as_first_voter_works() {
         assert_eq!(votes.ayes.to_vec(), vec![]);
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::Voted {
+            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: false,
@@ -732,7 +732,7 @@ fn vote_can_be_updated() {
         assert_eq!(votes.nays.to_vec(), vec![]);
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::Voted {
+            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: true,
@@ -748,7 +748,7 @@ fn vote_can_be_updated() {
         assert_eq!(votes.ayes.to_vec(), vec![]);
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::Voted {
+            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: false,
@@ -764,7 +764,7 @@ fn vote_can_be_updated() {
         assert_eq!(votes.nays.to_vec(), vec![]);
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::Voted {
+            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: true,
@@ -796,7 +796,7 @@ fn two_aye_votes_schedule_proposal() {
         let events = last_n_events(3);
         assert_eq!(
             events[0],
-            RuntimeEvent::Governance(Event::<Test>::Voted {
+            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
                 account: U256::from(1003),
                 proposal_hash,
                 voted: true,
@@ -806,7 +806,7 @@ fn two_aye_votes_schedule_proposal() {
         );
         assert_eq!(
             events[2],
-            RuntimeEvent::Governance(Event::<Test>::Scheduled { proposal_hash })
+            RuntimeEvent::Governance(Event::<Test>::ProposalScheduled { proposal_hash })
         );
     });
 }
@@ -827,7 +827,7 @@ fn two_nay_votes_cancel_proposal() {
         let events = last_n_events(2);
         assert_eq!(
             events[0],
-            RuntimeEvent::Governance(Event::<Test>::Voted {
+            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
                 account: U256::from(1003),
                 proposal_hash,
                 voted: false,
@@ -837,7 +837,7 @@ fn two_nay_votes_cancel_proposal() {
         );
         assert_eq!(
             events[1],
-            RuntimeEvent::Governance(Event::<Test>::Cancelled { proposal_hash })
+            RuntimeEvent::Governance(Event::<Test>::ProposalCancelled { proposal_hash })
         );
     });
 }

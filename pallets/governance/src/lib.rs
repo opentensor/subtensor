@@ -271,14 +271,14 @@ pub mod pallet {
             outgoing: Vec<T::AccountId>,
         },
         /// A proposal has been submitted.
-        Proposed {
+        ProposalSubmitted {
             account: T::AccountId,
             proposal_index: u32,
             proposal_hash: T::Hash,
-            end: BlockNumberFor<T>,
+            voting_end: BlockNumberFor<T>,
         },
         /// A triumvirate member has voted on a proposal.
-        Voted {
+        TriumvirateMemberVoted {
             account: T::AccountId,
             proposal_hash: T::Hash,
             voted: bool,
@@ -296,9 +296,9 @@ pub mod pallet {
             building_no: u32,
         },
         /// A proposal has been scheduled for execution.
-        Scheduled { proposal_hash: T::Hash },
+        ProposalScheduled { proposal_hash: T::Hash },
         /// A proposal has been cancelled.
-        Cancelled { proposal_hash: T::Hash },
+        ProposalCancelled { proposal_hash: T::Hash },
     }
 
     #[pallet::error]
@@ -512,11 +512,11 @@ pub mod pallet {
                 },
             );
 
-            Self::deposit_event(Event::<T>::Proposed {
+            Self::deposit_event(Event::<T>::ProposalSubmitted {
                 account: who,
                 proposal_index,
                 proposal_hash,
-                end,
+                voting_end: end,
             });
             Ok(())
         }
@@ -544,7 +544,7 @@ pub mod pallet {
             let yes_votes = voting.ayes.len() as u32;
             let no_votes = voting.nays.len() as u32;
 
-            Self::deposit_event(Event::<T>::Voted {
+            Self::deposit_event(Event::<T>::TriumvirateMemberVoted {
                 account: who,
                 proposal_hash,
                 voted: approve,
@@ -741,13 +741,13 @@ impl<T: Config> Pallet<T> {
 
         Self::clear_proposal(proposal_hash);
 
-        Self::deposit_event(Event::<T>::Scheduled { proposal_hash });
+        Self::deposit_event(Event::<T>::ProposalScheduled { proposal_hash });
         Ok(())
     }
 
     fn do_cancel(proposal_hash: T::Hash) -> DispatchResult {
         Self::clear_proposal(proposal_hash);
-        Self::deposit_event(Event::<T>::Cancelled { proposal_hash });
+        Self::deposit_event(Event::<T>::ProposalCancelled { proposal_hash });
         Ok(())
     }
 
