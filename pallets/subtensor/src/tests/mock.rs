@@ -691,7 +691,7 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16, mechanism: u16 ) {
+pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16, mechanism: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);

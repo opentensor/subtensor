@@ -662,23 +662,30 @@ fn test_owner_cut_base() {
 #[test]
 fn test_pending_emission() {
     new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let emission: u64 = 1_000_000;
-        add_network(netuid, 1, 0, 0);
-        mock::setup_reserves(netuid, 1_000_000.into(), 1.into());
-        SubtensorModule::run_coinbase(U96F32::from_num(0));
-        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000)); // Add root weight.
-        SubtensorModule::run_coinbase(U96F32::from_num(0));
+        let emission: u64 = 1_000_000_000;
+        let subnet_owner_ck = U256::from(2);
+        let subnet_owner_hk = U256::from(3);
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-        SubtensorModule::run_coinbase(U96F32::from_num(0));
-        // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
+
+        // Setup price = 1000000 (1M TAO vs 1 Alpha)
+        // Alpha issuance = 1
+        mock::setup_reserves(netuid, 1_000_000.into(), 1.into());
+
+        // Add root stake and 100% tao weight
+        // Alpha issuance = 1 + emission / price + 10^9 = 1000001001
+        // root_proportion = root_tao * 1.0 / (root_tao * 1.0 + alpha_issuance) = 0.499999749750125
+        // root_alpha = root_proportion * alpha_emission / 2 = 249999875
+        // PendingEmission = alpha_emission - 249999875 = 750000125
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000));
+        SubtensorModule::set_tao_weight(u64::MAX);
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
 
         assert_abs_diff_eq!(
             u64::from(PendingEmission::<Test>::get(netuid)),
-            1_000_000_000 - 125000000,
+            750000125,
             epsilon = 1
-        ); // 1 - swapped.
+        );
     });
 }
 
