@@ -640,8 +640,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("incentive_sum: {incentive_sum:?}");
 
         let pending_validator_alpha = if !incentive_sum.is_zero() {
-            pending_alpha
-                .saturating_add(pending_root_alpha)
+            alpha_out
                 .saturating_div(2.into())
                 .saturating_sub(pending_root_alpha)
         } else {
