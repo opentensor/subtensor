@@ -69,7 +69,7 @@ impl<T: Config> Pallet<T> {
             let mut alpha_in_i: U96F32;
             let mut tao_in_i: U96F32;
 
-			if default_alpha_in_i > alpha_emission_i {
+            if default_alpha_in_i > alpha_emission_i {
                 alpha_in_i = alpha_emission_i;
                 tao_in_i = alpha_in_i.saturating_mul(price_i);
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
@@ -77,7 +77,7 @@ impl<T: Config> Pallet<T> {
             } else {
                 tao_in_i = default_tao_in_i;
                 alpha_in_i = alpha_in_default_i;
-				subsidy_amount.insert(*netuid_i, U96F32::from_num(0.0);
+                subsidy_amount.insert(*netuid_i, U96F32::from_num(0.0));
             }
             log::debug!("alpha_in_i: {alpha_in_i:?}");
 
@@ -101,31 +101,30 @@ impl<T: Config> Pallet<T> {
         log::debug!("alpha_out: {alpha_out:?}");
 
         // --- 4. Inject and subsidize
-		for netuid_i in subnets_to_emit_to.iter() {
+        for netuid_i in subnets_to_emit_to.iter() {
             let tao_in_i: TaoCurrency =
                 tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-			let alpha_in_i: AlphaCurrency =
-				AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
-			let difference_tao: U96F32 = *subsidy_amount.get(netuid_i).unwrap_or(&asfloat!(0));
+            let alpha_in_i: AlphaCurrency =
+                AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
+            let difference_tao: U96F32 = *subsidy_amount.get(netuid_i).unwrap_or(&asfloat!(0));
 
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
-			if difference_tao > asfloat!(0) {
-				let buy_swap_result = Self::swap_tao_for_alpha(
-					*netuid_i,
-					tou64!(difference_tao).into(),
-					T::SwapInterface::max_price(),
-					true,
-				);
-				if let Ok(buy_swap_result_ok) = buy_swap_result {
-					let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-					SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-						*total = total.saturating_sub(bought_alpha);
-					});
-				}
-			}
-		}
-
+            if difference_tao > asfloat!(0) {
+                let buy_swap_result = Self::swap_tao_for_alpha(
+                    *netuid_i,
+                    tou64!(difference_tao).into(),
+                    T::SwapInterface::max_price(),
+                    true,
+                );
+                if let Ok(buy_swap_result_ok) = buy_swap_result {
+                    let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
+                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
+                        *total = total.saturating_sub(bought_alpha);
+                    });
+                }
+            }
+        }
 
         // --- 5. Update counters
         for netuid_i in subnets_to_emit_to.iter() {
@@ -154,10 +153,10 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tao_in_i.into());
             });
 
-			let difference_tao: U96F32 = *subsidy_amount.get(netuid_i).unwrap_or(&asfloat!(0));
+            let difference_tao: U96F32 = *subsidy_amount.get(netuid_i).unwrap_or(&asfloat!(0));
             TotalIssuance::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_in_i.into());
-				*total = total.saturating_add(tou64!(difference_tao).into());
+                *total = total.saturating_add(tou64!(difference_tao).into());
             });
         }
 
