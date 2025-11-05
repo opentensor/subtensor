@@ -40,6 +40,7 @@ impl<T: Config> Pallet<T> {
         let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut ti_delta: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
@@ -105,10 +106,12 @@ impl<T: Config> Pallet<T> {
             tao_in.insert(*netuid_i, tao_in_i);
             alpha_in.insert(*netuid_i, alpha_in_i);
             alpha_out.insert(*netuid_i, alpha_out_i);
+            ti_delta.insert(*netuid_i, default_tao_in_i);
         }
         log::debug!("tao_in: {tao_in:?}");
         log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
+        log::debug!("ti_delta: {ti_delta:?}");
 
         // --- 4. Injection.
         // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
@@ -138,8 +141,10 @@ impl<T: Config> Pallet<T> {
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_in_i.into());
             });
+            let ti_delta_i: TaoCurrency =
+                tou64!(*ti_delta.get(netuid_i).unwrap_or(&asfloat!(0))).into();
             TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(ti_delta_i.into());
             });
             // Adjust protocol liquidity based on new reserves
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);

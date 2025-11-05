@@ -244,8 +244,9 @@ fn test_coinbase_tao_issuance_different_prices() {
             epsilon = 10.into(),
         );
 
-        // Prices are low => we limit tao issued (buy alpha with it)
-        let tao_issued = TaoCurrency::from(((0.1 + 0.2) * emission as f64) as u64);
+        // Prices are low => we limit tao issued (buy alpha with it), but total issuance
+        // is still increased by emission amount
+        let tao_issued = TaoCurrency::from(emission);
         assert_abs_diff_eq!(
             TotalIssuance::<Test>::get(),
             tao_issued,
