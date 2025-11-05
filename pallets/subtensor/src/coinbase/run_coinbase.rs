@@ -69,11 +69,15 @@ impl<T: Config> Pallet<T> {
             if price_i < tao_in_ratio {
                 tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
                 alpha_in_i = block_emission;
-                let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
+                let difference_tao: TaoCurrency =
+                    tou64!(default_tao_in_i.saturating_sub(tao_in_i)).into();
+                TotalIssuance::<T>::mutate(|total| {
+                    *total = total.saturating_add(difference_tao);
+                });
                 // Difference becomes buy.
                 let buy_swap_result = Self::swap_tao_for_alpha(
                     *netuid_i,
-                    tou64!(difference_tao).into(),
+                    difference_tao,
                     T::SwapInterface::max_price(),
                     true,
                 );
