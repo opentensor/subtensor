@@ -229,6 +229,9 @@ impl<T: Config> Pallet<T> {
             if Self::should_run_epoch(netuid, current_block)
                 && Self::is_epoch_input_state_consistent(netuid)
             {
+                let alpha_out_i: AlphaCurrency =
+                    tou64!(*alpha_out.get(&netuid).unwrap_or(&asfloat!(0.0))).into();
+
                 // Restart counters.
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);
@@ -246,7 +249,13 @@ impl<T: Config> Pallet<T> {
                 PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Drain pending root alpha divs, alpha emission, and owner cut.
-                Self::drain_pending_emission(netuid, pending_alpha, pending_root_alpha, owner_cut);
+                Self::drain_pending_emission(
+                    netuid,
+                    pending_alpha,
+                    pending_root_alpha,
+                    alpha_out_i,
+                    owner_cut,
+                );
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
@@ -604,6 +613,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         pending_alpha: AlphaCurrency,
         pending_root_alpha: AlphaCurrency,
+        alpha_out: AlphaCurrency, // total alpha out for the subnet
         owner_cut: AlphaCurrency,
     ) {
         log::debug!(
@@ -614,7 +624,7 @@ impl<T: Config> Pallet<T> {
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
-            Self::epoch_with_mechanisms(netuid, pending_alpha.saturating_add(pending_root_alpha));
+            Self::epoch_with_mechanisms(netuid, alpha_out);
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
         // Compute the pending validator alpha.

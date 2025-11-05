@@ -76,6 +76,7 @@ fn test_claim_root_with_drain_emissions() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -144,6 +145,7 @@ fn test_claim_root_with_drain_emissions() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -245,6 +247,7 @@ fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -346,6 +349,7 @@ fn test_claim_root_adding_stake_disproportionally_for_two_stakers() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -437,6 +441,7 @@ fn test_claim_root_with_changed_stake() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -489,6 +494,7 @@ fn test_claim_root_with_changed_stake() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -542,6 +548,7 @@ fn test_claim_root_with_changed_stake() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -634,6 +641,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -678,6 +686,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -714,6 +723,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -1100,6 +1110,7 @@ fn test_claim_root_with_swap_coldkey() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -1190,6 +1201,7 @@ fn test_claim_root_with_swap_hotkey() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -1306,6 +1318,7 @@ fn test_claim_root_on_network_deregistration() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -1446,6 +1459,7 @@ fn test_claim_root_with_unrelated_subnets() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
