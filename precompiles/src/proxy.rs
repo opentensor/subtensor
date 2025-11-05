@@ -84,7 +84,7 @@ where
                 .into();
 
         // Check if in the proxies map
-        let proxy_entry = pallet_proxy::pallet::Pallet::<R>::proxies(account_id.clone());
+        let proxy_entry = pallet_proxy::pallet::Pallet::<R>::proxies(proxy_address.into());
         if proxy_entry
             .0
             .iter()
