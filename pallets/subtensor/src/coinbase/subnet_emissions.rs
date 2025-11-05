@@ -51,6 +51,7 @@ impl<T: Config> Pallet<T> {
 
     // Update SubnetEmaTaoFlow if needed and return its value for
     // the current block
+    #[allow(dead_code)]
     fn get_ema_flow(netuid: NetUid) -> I64F64 {
         let current_block: u64 = Self::get_current_block_as_u64();
 
@@ -75,10 +76,11 @@ impl<T: Config> Pallet<T> {
             }
         } else {
             // Initialize EMA flow, set S(current_block) = min(price, ema_price) * init_factor
+            let init_factor = I64F64::saturating_from_num(1_000_000_000);
             let moving_price = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
             let current_price =
                 I64F64::saturating_from_num(T::SwapInterface::current_alpha_price(netuid));
-            let ema_flow = moving_price.min(current_price);
+            let ema_flow = init_factor.saturating_mul(moving_price.min(current_price));
             SubnetEmaTaoFlow::<T>::insert(netuid, (current_block, ema_flow));
             ema_flow
         }
@@ -87,6 +89,7 @@ impl<T: Config> Pallet<T> {
     // Either the minimal EMA flow L = min{Si}, or an artificial
     // cut off at some higher value A (TaoFlowCutoff)
     // L = max {A, min{min{S[i], 0}}}
+    #[allow(dead_code)]
     fn get_lower_limit(ema_flows: &BTreeMap<NetUid, I64F64>) -> I64F64 {
         let zero = I64F64::saturating_from_num(0);
         let min_flow = ema_flows
@@ -178,6 +181,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Implementation of shares that uses TAO flow
+    #[allow(dead_code)]
     fn get_shares_flow(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
         // Get raw flows
         let ema_flows = subnets_to_emit_to
@@ -213,5 +217,35 @@ impl<T: Config> Pallet<T> {
     // Combines ema price method and tao flow method linearly over FlowHalfLife blocks
     pub(crate) fn get_shares(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
         Self::get_shares_flow(subnets_to_emit_to)
+        // Self::get_shares_price_ema(subnets_to_emit_to)
+    }
+
+    // DEPRECATED: Implementation of shares that uses EMA prices will be gradually deprecated
+    #[allow(dead_code)]
+    fn get_shares_price_ema(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
+        // Get sum of alpha moving prices
+        let total_moving_prices = subnets_to_emit_to
+            .iter()
+            .map(|netuid| U64F64::saturating_from_num(Self::get_moving_alpha_price(*netuid)))
+            .fold(U64F64::saturating_from_num(0.0), |acc, ema| {
+                acc.saturating_add(ema)
+            });
+        log::debug!("total_moving_prices: {total_moving_prices:?}");
+
+        // Calculate shares.
+        subnets_to_emit_to
+            .iter()
+            .map(|netuid| {
+                let moving_price =
+                    U64F64::saturating_from_num(Self::get_moving_alpha_price(*netuid));
+                log::debug!("moving_price_i: {moving_price:?}");
+
+                let share = moving_price
+                    .checked_div(total_moving_prices)
+                    .unwrap_or(U64F64::saturating_from_num(0));
+
+                (*netuid, share)
+            })
+            .collect::<BTreeMap<NetUid, U64F64>>()
     }
 }
