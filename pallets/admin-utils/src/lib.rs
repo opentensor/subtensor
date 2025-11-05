@@ -2186,6 +2186,20 @@ pub mod pallet {
             log::debug!("set_tao_flow_smoothing_factor( {smoothing_factor:?} ) ");
             Ok(())
         }
+
+        /// Sets the global maximum number of mechanisms in a subnet
+        #[pallet::call_index(84)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_max_mechanism_count(
+            origin: OriginFor<T>,
+            max_mechanism_count: MechId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::do_set_max_mechanism_count(max_mechanism_count)?;
+            Ok(())
+        }
     }
 }
 
