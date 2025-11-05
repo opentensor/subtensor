@@ -618,8 +618,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         let stake = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         // Set up initial state
-        add_network(netuid1, 1, 1);
-        add_network(netuid2, 1, 1);
+        add_network(netuid1, 1, 1, 0);
+        add_network(netuid2, 1, 1, 0);
         register_ok_neuron(netuid1, old_hotkey, coldkey1, 1234);
         register_ok_neuron(netuid2, old_hotkey, coldkey1, 1234);
 
@@ -775,7 +775,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         assert_eq!(SubtensorModule::get_tx_rate_limit(), tx_rate_limit);
 
         // Setup initial state
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
         register_ok_neuron(netuid, old_hotkey, coldkey, 0);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
 
@@ -824,7 +824,7 @@ fn test_do_swap_hotkey_err_not_owner() {
         let swap_cost = 1_000_000_000u64;
 
         // Setup initial state
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
         register_ok_neuron(netuid, old_hotkey, coldkey, 0);
         SubtensorModule::add_balance_to_coldkey_account(&not_owner_coldkey, swap_cost);
 

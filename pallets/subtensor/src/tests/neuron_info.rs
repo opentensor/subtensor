@@ -26,7 +26,7 @@ fn test_get_neuron_some() {
         let hotkey0 = U256::from(0);
         let coldkey0 = U256::from(0);
 
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 39420842);
 
         let neuron = SubtensorModule::get_neuron(netuid, uid);
@@ -43,7 +43,7 @@ fn test_get_neurons_list() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
 
         let _uid: u16 = 42;
 

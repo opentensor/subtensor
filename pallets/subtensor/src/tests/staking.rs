@@ -1404,7 +1404,7 @@ fn test_hotkey_belongs_to_coldkey_ok() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let start_nonce: u64 = 0;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
@@ -1759,7 +1759,7 @@ fn test_delegate_take_can_be_decreased() {
 
         // Register the neuron to a new network
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1794,7 +1794,7 @@ fn test_can_set_min_take_ok() {
 
         // Register the neuron to a new network
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates
@@ -1826,7 +1826,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
 
         // Register the neuron to a new network
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Set min take
@@ -1861,7 +1861,7 @@ fn test_delegate_take_can_be_increased() {
 
         // Register the neuron to a new network
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1896,7 +1896,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
 
         // Register the neuron to a new network
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1935,7 +1935,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
 
         // Register the neuron to a new network
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1973,7 +1973,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
 
         // Register the neuron to a new network
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -2015,7 +2015,7 @@ fn test_rate_limits_enforced_on_increase_take() {
 
         // Register the neuron to a new network
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -2075,7 +2075,7 @@ fn test_rate_limits_enforced_on_decrease_before_increase_take() {
 
         // Register the neuron to a new network
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -2217,7 +2217,7 @@ fn test_get_total_delegated_stake_no_delegations() {
         let coldkey = U256::from(2);
         let netuid = NetUid::from(1u16);
 
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, delegate, coldkey, 0);
 
         // Check that there's no delegated stake
@@ -2408,7 +2408,7 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         let stake = 100_000_000_000;
 
         // Add network, register hotkeys, and setup network parameters
-        add_network(netuid, subnet_tempo, 0);
+        add_network(netuid, subnet_tempo, 0, 0);
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
         register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
         register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
@@ -2762,7 +2762,7 @@ fn test_max_amount_add_root() {
 fn test_max_amount_add_stable() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
 
         // 0 price => max is 0
         assert_eq!(
@@ -2959,7 +2959,7 @@ fn test_max_amount_remove_root() {
 fn test_max_amount_remove_stable() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
 
         // 0 price => max is u64::MAX
         assert_eq!(
@@ -3206,7 +3206,7 @@ fn test_max_amount_move_root_root() {
 fn test_max_amount_move_root_stable() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
 
         // 0 price on (root, stable) exchange => max is u64::MAX
         assert_eq!(
@@ -3272,7 +3272,7 @@ fn test_max_amount_move_stable_dynamic() {
     new_test_ext(0).execute_with(|| {
         // Add stable subnet
         let stable_netuid = NetUid::from(1);
-        add_network(stable_netuid, 1, 0);
+        add_network(stable_netuid, 1, 0, 0);
 
         // Add dynamic subnet
         let subnet_owner_coldkey = U256::from(1001);
@@ -3372,7 +3372,7 @@ fn test_max_amount_move_dynamic_stable() {
     new_test_ext(0).execute_with(|| {
         // Add stable subnet
         let stable_netuid = NetUid::from(1);
-        add_network(stable_netuid, 1, 0);
+        add_network(stable_netuid, 1, 0, 0);
 
         // Add dynamic subnet
         let subnet_owner_coldkey = U256::from(1001);
@@ -5463,7 +5463,7 @@ fn test_add_root_updates_counters() {
     new_test_ext(0).execute_with(|| {
         let hotkey_account_id = U256::from(561337);
         let coldkey_account_id = U256::from(61337);
-        add_network(NetUid::ROOT, 10, 0);
+        add_network(NetUid::ROOT, 10, 0, 0);
         assert_ok!(SubtensorModule::root_register(
             RuntimeOrigin::signed(coldkey_account_id).clone(),
             hotkey_account_id,
@@ -5518,7 +5518,7 @@ fn test_remove_root_updates_counters() {
     new_test_ext(0).execute_with(|| {
         let hotkey_account_id = U256::from(561337);
         let coldkey_account_id = U256::from(61337);
-        add_network(NetUid::ROOT, 10, 0);
+        add_network(NetUid::ROOT, 10, 0, 0);
         assert_ok!(SubtensorModule::root_register(
             RuntimeOrigin::signed(coldkey_account_id).clone(),
             hotkey_account_id,

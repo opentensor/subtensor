@@ -167,7 +167,7 @@ fn init_run_epochs(
     bonds_penalty: u16,
 ) {
     // === Create the network
-    add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+    add_network(netuid, u16::MAX - 1, 0, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
 
     // === Set bonds penalty
     SubtensorModule::set_bonds_penalty(netuid, bonds_penalty);

@@ -13,7 +13,7 @@ fn test_registration_difficulty_adjustment() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;
         let modality: u16 = 1;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
 
         // owners are not deregistered
         crate::SubnetOwner::<Test>::insert(netuid, U256::from(99999));

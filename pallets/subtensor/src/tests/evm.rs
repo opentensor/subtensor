@@ -38,7 +38,7 @@ fn test_associate_evm_key_success() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
@@ -87,7 +87,7 @@ fn test_associate_evm_key_different_block_number_success() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
@@ -134,7 +134,7 @@ fn test_associate_evm_key_coldkey_does_not_own_hotkey() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
 
         let hotkey = U256::from(2);
 
@@ -169,7 +169,7 @@ fn test_associate_evm_key_hotkey_not_registered_in_subnet() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -206,7 +206,7 @@ fn test_associate_evm_key_using_wrong_hash_function() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
@@ -246,7 +246,7 @@ fn test_associate_evm_key_rate_limit_exceeded() {
 
         let tempo: u16 = 2;
         let modality: u16 = 2;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         System::set_block_number(EvmKeyAssociateRateLimit::get());
 
         let coldkey = U256::from(1);
@@ -318,7 +318,7 @@ fn test_associate_evm_key_uid_not_found() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
 
         let hotkey = U256::from(2);
 

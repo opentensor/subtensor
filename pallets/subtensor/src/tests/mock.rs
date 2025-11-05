@@ -6,6 +6,7 @@
 
 use core::num::NonZeroU64;
 
+use crate::subnets::mechanism;
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
@@ -691,11 +692,11 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
+pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16, mechanism: u16 ) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
-    SubnetMechanism::<Test>::insert(netuid, if netuid == NetUid::ROOT { 0 } else { 1 });
+    SubnetMechanism::<Test>::insert(netuid, mechanism);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
     SubtokenEnabled::<Test>::insert(netuid, true);
 }
@@ -756,7 +757,7 @@ pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) 
 
 #[allow(dead_code)]
 pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: u16) {
-    add_network(netuid, tempo, _modality);
+    add_network(netuid, tempo, _modality, 0);
     SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
 }
 

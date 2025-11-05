@@ -572,8 +572,8 @@ fn test_subtoken_enable_trading_ok_with_enable() {
         // unstake, transfer, swap just very little
         let unstake_amount = AlphaCurrency::from(DefaultMinStake::<Test>::get().to_u64() * 10);
 
-        add_network(netuid, 10, 0);
-        add_network(netuid2, 10, 0);
+        add_network(netuid, 10, 0, 0);
+        add_network(netuid2, 10, 0, 0);
 
         let reserve = stake_amount.to_u64() * 1000;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
@@ -802,7 +802,7 @@ fn test_get_symbol_for_subnet_returns_default_symbol_if_netuid_is_out_of_bounds(
 fn test_update_symbol_works_as_root_if_symbol_exists_and_available() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 10, 0);
+        add_network(netuid, 10, 0, 0);
 
         // only one network so we can set any symbol, except the root symbol
         for i in 1..SYMBOLS.len() {
@@ -824,7 +824,7 @@ fn test_update_symbol_works_as_subnet_owner_if_symbol_exists_and_available() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let netuid = NetUid::from(1);
-        add_network(netuid, 10, 0);
+        add_network(netuid, 10, 0, 0);
         SubnetOwner::<Test>::insert(netuid, coldkey);
 
         // only one network so we can set any symbol, except the root symbol
@@ -848,7 +848,7 @@ fn test_update_symbol_fails_if_symbol_doesnt_exist() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let netuid = NetUid::from(1);
-        add_network(netuid, 10, 0);
+        add_network(netuid, 10, 0, 0);
         SubnetOwner::<Test>::insert(netuid, coldkey);
 
         assert_err!(
@@ -867,12 +867,12 @@ fn test_update_symbol_fails_if_symbol_already_in_use() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let netuid = NetUid::from(1);
-        add_network(netuid, 10, 0);
+        add_network(netuid, 10, 0, 0);
         SubnetOwner::<Test>::insert(netuid, coldkey);
 
         let coldkey2 = U256::from(2);
         let netuid2 = NetUid::from(2);
-        add_network(netuid2, 10, 0);
+        add_network(netuid2, 10, 0, 0);
         SubnetOwner::<Test>::insert(netuid2, coldkey2);
 
         assert_ok!(SubtensorModule::update_symbol(

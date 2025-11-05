@@ -493,7 +493,7 @@ fn init_run_epochs(
 //     new_test_ext(1).execute_with(|| {
 //         log::info!("test_overflow:");
 //         let netuid = NetUid::from(1);
-//         add_network(netuid, 1,  0);
+//         add_network(netuid, 1,  0, 0);
 //         SubtensorModule::set_max_allowed_uids(netuid, 3);
 //         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
 //             &U256::from(0),
@@ -2160,7 +2160,7 @@ fn test_validator_permits() {
                 }
                 new_test_ext(1).execute_with(|| {
                     let block_number: u64 = 0;
-                    add_network(netuid, tempo, 0);
+                    add_network(netuid, tempo, 0, 0);
                     SubtensorModule::set_max_allowed_uids(netuid, network_n as u16);
                     assert_eq!(
                         SubtensorModule::get_max_allowed_uids(netuid),
@@ -2420,7 +2420,7 @@ fn test_blocks_since_last_step() {
 
         let netuid = NetUid::from(1);
         let tempo: u16 = 7200;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
 
         let original_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
 
@@ -2530,7 +2530,7 @@ fn test_epoch_outputs_single_staker_registered_no_weights() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let high_tempo: u16 = u16::MAX - 1; // Don't run automatically.
-        add_network(netuid, high_tempo, 0);
+        add_network(netuid, high_tempo, 0, 0);
 
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
@@ -3583,7 +3583,7 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
         let tempo: u16 = 10;
         let reveal: u64 = 2;
 
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
@@ -3679,7 +3679,7 @@ fn test_epoch_no_mask_when_commit_reveal_disabled() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(32);
         let tempo: u16 = 5;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
 
         let (hot, cold) = (U256::from(1000), U256::from(1100));
@@ -3728,7 +3728,7 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
         let tempo: u16 = 8;
         let reveal: u16 = 2;
 
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal as u64));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);

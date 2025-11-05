@@ -74,7 +74,7 @@ fn test_serving_ok() {
         let protocol: u8 = 0;
         let placeholder1: u8 = 0;
         let placeholder2: u8 = 0;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         assert_ok!(SubtensorModule::serve_axon(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -113,7 +113,7 @@ fn test_serving_tls_ok() {
         let placeholder1: u8 = 0;
         let placeholder2: u8 = 0;
         let certificate: Vec<u8> = "CERT".as_bytes().to_vec();
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         assert_ok!(SubtensorModule::serve_axon_tls(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -170,7 +170,7 @@ fn test_serving_set_metadata_update() {
         let protocol: u8 = 0;
         let placeholder1: u8 = 0;
         let placeholder2: u8 = 0;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         assert_ok!(SubtensorModule::serve_axon(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -234,7 +234,7 @@ fn test_axon_serving_rate_limit_exceeded() {
         let protocol: u8 = 0;
         let placeholder1: u8 = 0;
         let placeholder2: u8 = 0;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         run_to_block(1); // Go to block 1
         // No issue on multiple
@@ -316,7 +316,7 @@ fn test_axon_invalid_port() {
         let protocol: u8 = 0;
         let placeholder1: u8 = 0;
         let placeholder2: u8 = 0;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         run_to_block(1); // Go to block 1
         assert_eq!(
@@ -369,7 +369,7 @@ fn test_prometheus_serving_ok() {
         let port: u16 = 128;
         let ip_type: u8 = 4;
         let modality: u16 = 0;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         assert_ok!(SubtensorModule::serve_prometheus(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -398,7 +398,7 @@ fn test_prometheus_serving_set_metadata_update() {
         let port: u16 = 128;
         let ip_type: u8 = 4;
         let modality: u16 = 0;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         assert_ok!(SubtensorModule::serve_prometheus(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -444,7 +444,7 @@ fn test_prometheus_serving_rate_limit_exceeded() {
         let port: u16 = 128;
         let ip_type: u8 = 4;
         let modality: u16 = 0;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         run_to_block(1); // Go to block 1
         // No issue on multiple
@@ -507,7 +507,7 @@ fn test_prometheus_invalid_port() {
         let port: u16 = 0;
         let ip_type: u8 = 4;
         let modality: u16 = 0;
-        add_network(netuid, tempo, modality);
+        add_network(netuid, tempo, modality, 0);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         run_to_block(1); // Go to block 1
         assert_eq!(
@@ -658,7 +658,7 @@ fn test_do_set_identity() {
         let netuid = NetUid::from(1);
 
         // Register a hotkey for the coldkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Prepare identity data
@@ -845,7 +845,7 @@ fn test_set_and_get_identity() {
         let netuid = NetUid::from(1);
 
         // Register a hotkey for the coldkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Prepare identity data
@@ -1119,7 +1119,7 @@ fn test_do_set_subnet_identity() {
         let netuid = NetUid::from(1);
 
         // Register a hotkey for the coldkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set coldkey as the owner of the subnet
@@ -1426,7 +1426,7 @@ fn test_serve_axon_validate() {
 
         // Register the hotkey in the subnet and try again
         let coldkey = U256::from(1);
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Submit to the signed extension validate function

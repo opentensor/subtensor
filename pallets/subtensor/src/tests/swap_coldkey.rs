@@ -67,7 +67,7 @@ fn test_swap_subnet_owner() {
         let new_coldkey = U256::from(2);
         let netuid = NetUid::from(1u16);
 
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         SubnetOwner::<Test>::insert(netuid, old_coldkey);
 
         let mut weight = Weight::zero();
@@ -93,7 +93,7 @@ fn test_swap_total_coldkey_stake() {
         let stake = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         let netuid = NetUid::from(1u16);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake * 2 + 1_000);
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
         register_ok_neuron(netuid, other_hotkey, other_coldkey, 1001000);
@@ -260,8 +260,8 @@ fn test_swap_with_multiple_subnets() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
 
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
+        add_network(netuid1, 1, 0, 0);
+        add_network(netuid2, 1, 0, 0);
         SubnetOwner::<Test>::insert(netuid1, old_coldkey);
         SubnetOwner::<Test>::insert(netuid2, old_coldkey);
 
@@ -310,7 +310,7 @@ fn test_swap_idempotency() {
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Add a network
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake); // Give old coldkey some balance
         // Stake to a hotkey
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
@@ -364,8 +364,8 @@ fn test_swap_with_max_values() {
         let max_stake = 21_000_000_000_000_000; // 21 Million TAO; max possible balance.
 
         // Add a network
-        add_network(netuid, 1, 0);
-        add_network(netuid2, 1, 0);
+        add_network(netuid, 1, 0, 0);
+        add_network(netuid2, 1, 0, 0);
 
         // Register hotkey on each subnet.
         // hotkey2 is owned by other_coldkey.
@@ -448,7 +448,7 @@ fn test_swap_with_non_existent_new_coldkey() {
         let stake = DefaultMinStake::<Test>::get().to_u64() * 10;
         let netuid = NetUid::from(1);
 
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
         // Give old coldkey some balance.
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake + 1_000);
@@ -592,7 +592,7 @@ fn test_swap_concurrent_modifications() {
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Setup initial state
-        add_network(netuid, 1, 1);
+        add_network(netuid, 1, 1, 0);
         SubtensorModule::add_balance_to_coldkey_account(
             &new_coldkey,
             initial_stake + additional_stake + 1_000_000,
@@ -693,7 +693,7 @@ fn test_do_swap_coldkey_success() {
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Setup initial state
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey1, old_coldkey, 0);
         register_ok_neuron(netuid, hotkey2, old_coldkey, 0);
 
@@ -870,7 +870,7 @@ fn test_swap_stake_for_coldkey() {
         // Setup initial state
         // Add a network
         let netuid = NetUid::from(1u16);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
 
         // Register hotkeys
         register_ok_neuron(netuid, hotkey1, old_coldkey, 0);
@@ -1026,7 +1026,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         // Setup initial state
         // Add a network
         let netuid = NetUid::from(1u16);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         // Give some balance to old coldkey
         SubtensorModule::add_balance_to_coldkey_account(
             &old_coldkey,
@@ -1090,7 +1090,7 @@ fn test_swap_delegated_stake_for_coldkey() {
         let netuid = NetUid::from(1);
 
         // Setup initial state
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey1, other_coldkey, 0);
         register_ok_neuron(netuid, hotkey2, other_coldkey, 0);
 
@@ -1231,8 +1231,8 @@ fn test_swap_subnet_owner_for_coldkey() {
         let mut weight = Weight::zero();
 
         // Initialize SubnetOwner for old_coldkey
-        add_network(netuid1, 13, 0);
-        add_network(netuid2, 14, 0);
+        add_network(netuid1, 13, 0, 0);
+        add_network(netuid2, 14, 0, 0);
         SubnetOwner::<Test>::insert(netuid1, old_coldkey);
         SubnetOwner::<Test>::insert(netuid2, old_coldkey);
 
@@ -1260,7 +1260,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         let swap_cost = SubtensorModule::get_key_swap_cost().to_u64();
 
         // Setup initial state
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 0);
 
         // Set TotalNetworks because swap relies on it
@@ -1292,7 +1292,7 @@ fn test_coldkey_has_associated_hotkeys() {
         let netuid = NetUid::from(1u16);
 
         // Setup initial state
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
     });
@@ -1330,9 +1330,9 @@ fn test_coldkey_swap_total() {
         mock::setup_reserves(netuid3, reserve.into(), reserve.into());
 
         // Setup initial state
-        add_network(netuid1, 13, 0);
-        add_network(netuid2, 14, 0);
-        add_network(netuid3, 15, 0);
+        add_network(netuid1, 13, 0, 0);
+        add_network(netuid2, 14, 0, 0);
+        add_network(netuid3, 15, 0, 0);
         register_ok_neuron(netuid1, hotkey1, coldkey, 0);
         register_ok_neuron(netuid2, hotkey2, coldkey, 0);
         register_ok_neuron(netuid3, hotkey3, coldkey, 0);
@@ -1633,8 +1633,8 @@ fn test_coldkey_delegations() {
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
         mock::setup_reserves(netuid2, reserve.into(), reserve.into());
 
-        add_network(netuid, 13, 0); // root
-        add_network(netuid2, 13, 0);
+        add_network(netuid, 13, 0, 0); // root
+        add_network(netuid2, 13, 0, 0);
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
@@ -1785,7 +1785,7 @@ fn test_schedule_swap_coldkey_execution() {
 
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 0);
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000000000000000);
         assert_ok!(SubtensorModule::add_stake(
@@ -1994,7 +1994,7 @@ fn test_coldkey_swap_delegate_identity_updated() {
         let tempo = 1;
 
         SubtensorModule::set_burn(netuid, burn_cost);
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
 
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
         mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
@@ -2047,7 +2047,7 @@ fn test_coldkey_swap_no_identity_no_changes() {
         let tempo = 1;
 
         SubtensorModule::set_burn(netuid, burn_cost);
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
 
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
         mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
@@ -2085,7 +2085,7 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         let tempo = 1;
 
         SubtensorModule::set_burn(netuid, burn_cost);
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
         mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
 
@@ -2182,7 +2182,7 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
         // others...
 
         // Create netuid
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -2528,7 +2528,7 @@ fn test_coldkey_in_swap_schedule_prevents_critical_calls() {
         // - dissolve_network
 
         // Create netuid
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -2590,7 +2590,7 @@ fn test_swap_auto_stake_destination_coldkeys() {
         let netuid = NetUid::from(1u16);
         let coldkeys = vec![U256::from(4), U256::from(5), old_coldkey];
 
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         AutoStakeDestinationColdkeys::<Test>::insert(hotkey, netuid, coldkeys.clone());
         AutoStakeDestination::<Test>::insert(old_coldkey, netuid, hotkey);
 

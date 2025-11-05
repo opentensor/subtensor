@@ -105,7 +105,7 @@ fn test_coinbase_tao_issuance_base_low() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let emission = TaoCurrency::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 1);
         assert_eq!(SubnetTAO::<Test>::get(netuid), TaoCurrency::ZERO);
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         assert_eq!(SubnetTAO::<Test>::get(netuid), emission);
@@ -152,9 +152,9 @@ fn test_coinbase_tao_issuance_multiple() {
         let netuid2 = NetUid::from(2);
         let netuid3 = NetUid::from(3);
         let emission = TaoCurrency::from(3_333_333);
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
-        add_network(netuid3, 1, 0);
+        add_network(netuid1, 1, 0, 0);
+        add_network(netuid2, 1, 0, 0);
+        add_network(netuid3, 1, 0, 0);
         assert_eq!(SubnetTAO::<Test>::get(netuid1), TaoCurrency::ZERO);
         assert_eq!(SubnetTAO::<Test>::get(netuid2), TaoCurrency::ZERO);
         assert_eq!(SubnetTAO::<Test>::get(netuid3), TaoCurrency::ZERO);
@@ -191,8 +191,8 @@ fn test_coinbase_tao_issuance_different_prices() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission = 100_000_000;
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
+        add_network(netuid1, 1, 0, 0);
+        add_network(netuid2, 1, 0, 0);
 
         // Setup prices 0.1 and 0.2
         let initial_tao: u64 = 100_000_u64;
@@ -350,7 +350,7 @@ fn test_coinbase_tao_issuance_different_prices() {
 fn test_coinbase_moving_prices() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         // Set price to 1.0
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000));
         SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000));
@@ -406,7 +406,7 @@ fn test_coinbase_moving_prices() {
 fn test_update_moving_price_initial() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         // Set current price to 1.0
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000));
         SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000));
@@ -431,7 +431,7 @@ fn test_update_moving_price_initial() {
 fn test_update_moving_price_after_time() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         // Set current price to 1.0
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000));
         SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000));
@@ -462,8 +462,8 @@ fn test_coinbase_alpha_issuance_base() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
+        add_network(netuid1, 1, 0, 0);
+        add_network(netuid2, 1, 0, 0);
         // Set up prices 1 and 1
         let initial: u64 = 1_000_000;
         SubnetTAO::<Test>::insert(netuid1, TaoCurrency::from(initial));
@@ -499,8 +499,8 @@ fn test_coinbase_alpha_issuance_different() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
+        add_network(netuid1, 1, 0, 0);
+        add_network(netuid2, 1, 0, 0);
         // Make subnets dynamic.
         SubnetMechanism::<Test>::insert(netuid1, 1);
         SubnetMechanism::<Test>::insert(netuid2, 1);
@@ -538,8 +538,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
+        add_network(netuid1, 1, 0, 0);
+        add_network(netuid2, 1, 0, 0);
         // Make subnets dynamic.
         SubnetMechanism::<Test>::insert(netuid1, 1);
         SubnetMechanism::<Test>::insert(netuid2, 1);
@@ -573,8 +573,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
+        add_network(netuid1, 1, 0, 0);
+        add_network(netuid2, 1, 0, 0);
 
         // Make subnets dynamic.
         SubnetMechanism::<Test>::insert(netuid1, 1);
@@ -645,7 +645,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
 fn test_owner_cut_base() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_subnet_owner_cut(0);
@@ -663,7 +663,7 @@ fn test_pending_emission() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let emission: u64 = 1_000_000;
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         mock::setup_reserves(netuid, 1_000_000.into(), 1.into());
         SubtensorModule::run_coinbase(U96F32::from_num(0));
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000)); // Add root weight.
@@ -700,7 +700,7 @@ fn test_drain_base() {
 fn test_drain_base_with_subnet() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         SubtensorModule::drain_pending_emission(
             netuid,
             AlphaCurrency::ZERO,
@@ -716,7 +716,7 @@ fn test_drain_base_with_subnet() {
 fn test_drain_base_with_subnet_with_single_staker_not_registered() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
         let stake_before = AlphaCurrency::from(1_000_000_000);
@@ -745,7 +745,7 @@ fn test_drain_base_with_subnet_with_single_staker_not_registered() {
 fn test_drain_base_with_subnet_with_single_staker_registered() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
         let stake_before = AlphaCurrency::from(1_000_000_000);
@@ -779,7 +779,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered() {
 fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
         let stake_before = AlphaCurrency::from(1_000_000_000);
@@ -830,7 +830,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
 fn test_drain_base_with_subnet_with_two_stakers_registered() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         let hotkey1 = U256::from(1);
         let hotkey2 = U256::from(2);
         let coldkey = U256::from(3);
@@ -879,7 +879,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered() {
 fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         let hotkey1 = U256::from(1);
         let hotkey2 = U256::from(2);
         let coldkey = U256::from(3);
@@ -955,7 +955,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
 fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         let hotkey1 = U256::from(1);
         let hotkey2 = U256::from(2);
         let coldkey = U256::from(3);
@@ -1036,7 +1036,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
  {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         let hotkey1 = U256::from(1);
         let hotkey2 = U256::from(2);
         let coldkey = U256::from(3);
@@ -1116,7 +1116,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
 fn test_drain_alpha_childkey_parentkey() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         SubtensorModule::set_ck_burn(0);
         let parent = U256::from(1);
         let child = U256::from(2);
@@ -1165,8 +1165,8 @@ fn test_get_root_children() {
     new_test_ext(1).execute_with(|| {
         // Init netuid 1
         let alpha = NetUid::from(1);
-        add_network(NetUid::ROOT, 1, 0);
-        add_network(alpha, 1, 0);
+        add_network(NetUid::ROOT, 1, 0, 0);
+        add_network(alpha, 1, 0, 0);
 
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
@@ -1291,8 +1291,8 @@ fn test_get_root_children_drain() {
     new_test_ext(1).execute_with(|| {
         // Init netuid 1
         let alpha = NetUid::from(1);
-        add_network(NetUid::ROOT, 1, 0);
-        add_network(alpha, 1, 0);
+        add_network(NetUid::ROOT, 1, 0, 0);
+        add_network(alpha, 1, 0, 0);
         SubtensorModule::set_ck_burn(0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
@@ -1438,8 +1438,8 @@ fn test_get_root_children_drain_half_proportion() {
     new_test_ext(1).execute_with(|| {
         // Init netuid 1
         let alpha = NetUid::from(1);
-        add_network(NetUid::ROOT, 1, 0);
-        add_network(alpha, 1, 0);
+        add_network(NetUid::ROOT, 1, 0, 0);
+        add_network(alpha, 1, 0, 0);
         SubtensorModule::set_ck_burn(0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
@@ -1527,8 +1527,8 @@ fn test_get_root_children_drain_with_take() {
     new_test_ext(1).execute_with(|| {
         // Init netuid 1
         let alpha = NetUid::from(1);
-        add_network(NetUid::ROOT, 1, 0);
-        add_network(alpha, 1, 0);
+        add_network(NetUid::ROOT, 1, 0, 0);
+        add_network(alpha, 1, 0, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
@@ -1614,8 +1614,8 @@ fn test_get_root_children_drain_with_half_take() {
     new_test_ext(1).execute_with(|| {
         // Init netuid 1
         let alpha = NetUid::from(1);
-        add_network(NetUid::ROOT, 1, 0);
-        add_network(alpha, 1, 0);
+        add_network(NetUid::ROOT, 1, 0, 0);
+        add_network(alpha, 1, 0, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         SubtensorModule::set_ck_burn(0);
@@ -1702,8 +1702,8 @@ fn test_get_root_children_drain_with_half_take() {
 //     new_test_ext(1).execute_with(|| {
 //         // Init netuid 1
 //         let alpha = NetUid::from(1);
-//         add_network(NetUid::ROOT, 1, 0);
-//         add_network(alpha, 1, 0);
+//         add_network(NetUid::ROOT, 1, 0, 0);
+//         add_network(alpha, 1, 0, 0);
 //         // Set TAO weight to 1.
 //         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
 //                                                    // Create keys.
@@ -2735,7 +2735,7 @@ fn test_coinbase_v3_liquidity_update() {
 fn test_drain_alpha_childkey_parentkey_with_burn() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         let parent = U256::from(1);
         let child = U256::from(2);
         let coldkey = U256::from(3);

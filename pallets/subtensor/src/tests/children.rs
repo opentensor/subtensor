@@ -31,7 +31,7 @@ fn test_do_set_child_singular_success() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set child
@@ -78,7 +78,7 @@ fn test_do_set_child_singular_invalid_child() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Attempt to set child as the same hotkey
@@ -108,7 +108,7 @@ fn test_do_set_child_singular_non_associated_coldkey() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey with a different coldkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, U256::from(999), 0);
 
         // Attempt to set child
@@ -136,7 +136,7 @@ fn test_do_set_child_singular_root_network() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
 
         // Attempt to set child
         assert_err!(
@@ -170,7 +170,7 @@ fn test_do_set_child_singular_old_children_cleanup() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set old child
@@ -208,7 +208,7 @@ fn test_do_set_child_singular_new_children_assignment() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set child
@@ -240,7 +240,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
         let netuid = NetUid::from(1);
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set child with minimum proportion
@@ -283,7 +283,7 @@ fn test_do_set_child_singular_multiple_children() {
         let proportion2: u64 = 500;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set first child
@@ -330,7 +330,7 @@ fn test_add_singular_child() {
             ),
             Err(Error::<Test>::SubnetNotExists.into())
         );
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         step_rate_limit(&TransactionType::SetChildren, netuid);
         assert_eq!(
             SubtensorModule::do_schedule_children(
@@ -375,7 +375,7 @@ fn test_get_stake_for_hotkey_on_subnet() {
         let child = U256::from(2);
         let coldkey1 = U256::from(3);
         let coldkey2 = U256::from(4);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, parent, coldkey1, 0);
         register_ok_neuron(netuid, child, coldkey2, 0);
         // Set parent-child relationship with 100% stake allocation
@@ -437,7 +437,7 @@ fn test_do_revoke_child_singular_success() {
         let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         // Set child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child)]);
@@ -491,7 +491,7 @@ fn test_do_revoke_child_singular_non_associated_coldkey() {
         let netuid = NetUid::from(1);
 
         // Add network and register hotkey with a different coldkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, U256::from(999), 0);
 
         // Attempt to revoke child
@@ -522,7 +522,7 @@ fn test_do_revoke_child_singular_child_not_associated() {
         let netuid = NetUid::from(1);
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         // Attempt to revoke child that is not associated
         assert_err!(
             SubtensorModule::do_schedule_children(
@@ -555,7 +555,7 @@ fn test_do_schedule_children_multiple_success() {
         let proportion2: u64 = 2000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set multiple children
@@ -621,7 +621,7 @@ fn test_do_schedule_children_multiple_invalid_child() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Attempt to set child as the same hotkey
@@ -653,7 +653,7 @@ fn test_do_schedule_children_multiple_non_associated_coldkey() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey with a different coldkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, U256::from(999), 0);
 
         // Attempt to set children
@@ -685,7 +685,7 @@ fn test_do_schedule_children_multiple_root_network() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
 
         // Attempt to set children
         assert_err!(
@@ -720,7 +720,7 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set old child
@@ -765,7 +765,7 @@ fn test_do_schedule_children_multiple_proportion_edge_cases() {
         let netuid = NetUid::from(1);
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set children with minimum and maximum proportions
@@ -807,7 +807,7 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set initial children
@@ -864,7 +864,7 @@ fn test_childkey_take_functionality() {
         let netuid = NetUid::from(1);
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Test default and max childkey take
@@ -940,7 +940,7 @@ fn test_childkey_take_rate_limiting() {
         let netuid = NetUid::from(1);
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set a rate limit for childkey take changes
@@ -1041,7 +1041,7 @@ fn test_multiple_networks_childkey_take() {
         for netuid in 1..NUM_NETWORKS {
             let netuid = NetUid::from(netuid);
             // Add network
-            add_network(netuid, 13, 0);
+            add_network(netuid, 13, 0, 0);
 
             // Register neuron
             register_ok_neuron(netuid, hotkey, coldkey, 0);
@@ -1118,7 +1118,7 @@ fn test_do_schedule_children_multiple_empty_list() {
         let netuid = NetUid::from(1);
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set empty children list
@@ -1150,7 +1150,7 @@ fn test_do_revoke_children_multiple_success() {
         let proportion2: u64 = 2000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set multiple children
@@ -1221,7 +1221,7 @@ fn test_do_revoke_children_multiple_non_associated_coldkey() {
         let netuid = NetUid::from(1);
 
         // Add network and register hotkey with a different coldkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, U256::from(999), 0);
 
         // Attempt to revoke children
@@ -1257,7 +1257,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set multiple children
@@ -1314,7 +1314,7 @@ fn test_do_revoke_children_multiple_non_existent_children() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set one child
@@ -1349,7 +1349,7 @@ fn test_do_revoke_children_multiple_empty_list() {
         let netuid = NetUid::from(1);
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Attempt to revoke with an empty list
@@ -1383,7 +1383,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         let proportion3: u64 = 3000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set multiple children
@@ -1533,7 +1533,7 @@ fn test_get_parents_chain() {
         log::info!("Created hotkeys: {hotkeys:?}");
 
         // Add network
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
         log::info!("Network added and parameters set: netuid={netuid}");
@@ -1653,7 +1653,7 @@ fn test_get_stake_for_hotkey_on_subnet_basic() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
 
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
@@ -1682,7 +1682,7 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
         let coldkey1 = U256::from(2);
         let coldkey2 = U256::from(3);
 
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey1, 0);
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -2157,8 +2157,8 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_networks() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
 
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
+        add_network(netuid1, 1, 0, 0);
+        add_network(netuid2, 1, 0, 0);
         register_ok_neuron(netuid1, hotkey, coldkey, 0);
         register_ok_neuron(netuid2, hotkey, coldkey, 0);
 
@@ -2196,7 +2196,7 @@ fn test_do_set_child_below_min_stake() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         StakeThreshold::<Test>::set(1_000_000_000_000);
 
@@ -2231,7 +2231,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000);
 
@@ -2305,7 +2305,7 @@ fn test_do_set_child_cooldown_period() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
         // Set minimum stake for setting children
@@ -2378,7 +2378,7 @@ fn test_do_set_pending_children_runs_in_epoch() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
         // Set minimum stake for setting children
@@ -2443,8 +2443,8 @@ fn test_revoke_child_no_min_stake_check() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(NetUid::ROOT, 13, 0);
-        add_network(netuid, 13, 0);
+        add_network(NetUid::ROOT, 13, 0, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
         let reserve = 1_000_000_000_000_000;
@@ -2517,7 +2517,7 @@ fn test_do_set_child_registration_disabled() {
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
         let reserve = 1_000_000_000_000_000;
@@ -2579,7 +2579,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         let tempo = 13;
 
         // Add network and register hotkey
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // First set_children transaction
@@ -2849,7 +2849,7 @@ fn test_childkey_take_drain() {
             let proportion: u64 = u64::MAX / 2;
 
             // Add network, register hotkeys, and setup network parameters
-            add_network(netuid, subnet_tempo, 0);
+            add_network(netuid, subnet_tempo, 0, 0);
             SubtensorModule::set_ck_burn(0);
             mock::setup_reserves(netuid, (stake * 10_000).into(), (stake * 10_000).into());
             register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
@@ -3182,7 +3182,7 @@ fn test_parent_child_chain_emission() {
 fn test_parent_child_chain_epoch() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         SubtensorModule::set_ck_burn(0);
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
@@ -3327,7 +3327,7 @@ fn test_parent_child_chain_epoch() {
 fn test_dividend_distribution_with_children() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         SubtensorModule::set_ck_burn(0);
         mock::setup_reserves(
             netuid,
@@ -3863,7 +3863,7 @@ fn test_do_set_child_as_sn_owner_not_enough_stake() {
 fn test_dividend_distribution_with_children_same_coldkey_owner() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
+        add_network(netuid, 1, 0, 0);
         // Set SN owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
         mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
@@ -4044,7 +4044,7 @@ fn test_pending_cooldown_as_expected() {
         let expected_cooldown = PendingChildKeyCooldown::<Test>::get();
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set multiple children
@@ -4075,7 +4075,7 @@ fn test_do_set_childkey_take_success() {
         let take = 5000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set childkey take
@@ -4104,7 +4104,7 @@ fn test_do_set_childkey_take_non_associated_coldkey() {
         let take = 5000;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set childkey take
@@ -4125,7 +4125,7 @@ fn test_do_set_childkey_take_invalid_take_value() {
         let take = SubtensorModule::get_max_childkey_take() + 1;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set childkey take
@@ -4147,7 +4147,7 @@ fn test_do_set_childkey_take_rate_limit_exceeded() {
         let higher_take = 5000;
         let lower_take = 1000;
 
-        add_network(netuid, 13, 0);
+        add_network(netuid, 13, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set initial childkey take

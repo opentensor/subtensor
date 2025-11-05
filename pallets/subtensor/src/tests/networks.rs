@@ -27,7 +27,7 @@ fn test_registration_ok() {
         );
 
         //add network
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
 
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -1452,7 +1452,7 @@ fn test_migrate_network_immunity_period() {
 //         );
 
 //         //add network
-//         add_network(netuid, tempo, 0);
+//         add_network(netuid, tempo, 0, 0);
 
 //         assert_ok!(SubtensorModule::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -1505,7 +1505,7 @@ fn test_migrate_network_immunity_period() {
 //         );
 
 //         //add network
-//         add_network(netuid, tempo, 0);
+//         add_network(netuid, tempo, 0, 0);
 
 //         assert_ok!(SubtensorModule::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -1559,7 +1559,7 @@ fn test_migrate_network_immunity_period() {
 //         );
 
 //         //add network
-//         add_network(netuid, tempo, 0);
+//         add_network(netuid, tempo, 0, 0);
 
 //         assert_ok!(SubtensorModule::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -1620,7 +1620,7 @@ fn test_migrate_network_immunity_period() {
 //         );
 
 //         //add network
-//         add_network(netuid, tempo, 0);
+//         add_network(netuid, tempo, 0, 0);
 
 //         assert_ok!(SubtensorModule::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),

@@ -1058,7 +1058,7 @@ fn test_commit_reveal_mechanism_weights_ok() {
 
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
 
         // Three neurons: validator (caller) + two destinations
         let hk1 = U256::from(55);
@@ -1146,7 +1146,7 @@ fn test_commit_reveal_above_mechanism_count_fails() {
 
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
 
         // Two neurons: validator (caller) + miner
         let hk1 = U256::from(55);
@@ -1234,7 +1234,7 @@ fn test_reveal_crv3_commits_sub_success() {
         let hotkey2: AccountId = U256::from(2);
         let reveal_round: u64 = 1000;
 
-        add_network(netuid, 5, 0);
+        add_network(netuid, 5, 0, 0);
         // ensure we actually have mecid=1 available
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8));
 
@@ -1340,7 +1340,7 @@ fn test_crv3_above_mechanism_count_fails() {
         let hotkey2: AccountId = U256::from(2);
         let reveal_round: u64 = 1000;
 
-        add_network(netuid, 5, 0);
+        add_network(netuid, 5, 0, 0);
         // ensure we actually have mecid=1 available
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8));
 
@@ -1412,7 +1412,7 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
         let commit_data_2: Vec<u8> = vec![4, 5, 6];
         let reveal_round: u64 = 1000;
 
-        add_network(netuid, 5, 0);
+        add_network(netuid, 5, 0, 0);
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8)); // allow subids {0,1}
 
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
@@ -1505,7 +1505,7 @@ fn epoch_mechanism_emergency_mode_distributes_by_stake() {
         let mecid = MechId::from(1u8);
         let idx = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
         let tempo: u16 = 5;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8)); // allow subids {0,1}
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         SubtensorModule::set_target_registrations_per_interval(netuid, 4);

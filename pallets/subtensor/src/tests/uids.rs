@@ -35,7 +35,7 @@ fn test_replace_neuron() {
         let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
         let evm_address = H160::from_slice(&[1_u8; 20]);
         //add network
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
 
         // Register a neuron.
         assert_ok!(SubtensorModule::register(
@@ -173,7 +173,7 @@ fn test_bonds_cleared_on_replace() {
         let evm_address = H160::from_slice(&[1_u8; 20]);
 
         //add network
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
 
         // Register a neuron.
         assert_ok!(SubtensorModule::register(
@@ -253,8 +253,8 @@ fn test_replace_neuron_multiple_subnets() {
         let _new_colkey_account_id = U256::from(12345);
         let evm_address = H160::from_slice(&[1_u8; 20]);
         //add network
-        add_network(netuid, tempo, 0);
-        add_network(netuid1, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
+        add_network(netuid1, tempo, 0, 0);
 
         // Register a neuron on both networks.
         assert_ok!(SubtensorModule::register(

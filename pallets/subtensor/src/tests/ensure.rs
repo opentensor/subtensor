@@ -12,7 +12,7 @@ use crate::{OwnerHyperparamRateLimit, SubnetOwner, SubtokenEnabled};
 fn ensure_subnet_owner_returns_who_and_checks_ownership() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 10, 0);
+        add_network(netuid, 10, 0, 0);
 
         let owner: U256 = U256::from(42);
         SubnetOwner::<Test>::insert(netuid, owner);
@@ -40,7 +40,7 @@ fn ensure_subnet_owner_returns_who_and_checks_ownership() {
 fn ensure_subnet_owner_or_root_distinguishes_root_and_owner() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(2);
-        add_network(netuid, 10, 0);
+        add_network(netuid, 10, 0, 0);
         let owner: U256 = U256::from(9);
         SubnetOwner::<Test>::insert(netuid, owner);
 
@@ -67,7 +67,7 @@ fn ensure_root_with_rate_limit_blocks_in_freeze_window() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let tempo = 10;
-        add_network(netuid, 10, 0);
+        add_network(netuid, 10, 0, 0);
 
         // Set freeze window to 3
         let freeze_window = 3;
@@ -91,7 +91,7 @@ fn ensure_owner_or_root_with_limits_checks_rl_and_freeze() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let tempo = 10;
-        add_network(netuid, 10, 0);
+        add_network(netuid, 10, 0, 0);
         SubtokenEnabled::<Test>::insert(netuid, true);
         let owner: U256 = U256::from(5);
         SubnetOwner::<Test>::insert(netuid, owner);

@@ -65,9 +65,9 @@ fn test_initialise_ti() {
 fn test_migration_transfer_nets_to_foundation() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 1
-        add_network(1.into(), 1, 0);
+        add_network(1.into(), 1, 0, 0);
         // Create subnet 11
-        add_network(11.into(), 1, 0);
+        add_network(11.into(), 1, 0, 0);
 
         log::info!("{:?}", SubtensorModule::get_subnet_owner(1.into()));
         //assert_eq!(SubtensorModule::<Test>::get_subnet_owner(1), );
@@ -85,7 +85,7 @@ fn test_migration_transfer_nets_to_foundation() {
 fn test_migration_delete_subnet_3() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 3
-        add_network(3.into(), 1, 0);
+        add_network(3.into(), 1, 0, 0);
         assert!(SubtensorModule::if_subnet_exist(3.into()));
 
         // Run the migration to transfer ownership
@@ -99,7 +99,7 @@ fn test_migration_delete_subnet_3() {
 fn test_migration_delete_subnet_21() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 21
-        add_network(21.into(), 1, 0);
+        add_network(21.into(), 1, 0, 0);
         assert!(SubtensorModule::if_subnet_exist(21.into()));
 
         // Run the migration to transfer ownership
@@ -216,10 +216,10 @@ fn test_migrate_commit_reveal_2() {
 //         NetworkMinLockCost::<Test>::set(500);
 
 //         // Add networks root and alpha
-//         add_network(netuid_0, 1, 0);
-//         add_network(netuid_1, 1, 0);
-//         add_network(netuid_2, 1, 0);
-//         add_network(netuid_3, 1, 0);
+//         add_network(netuid_0, 1, 0, 0);
+//         add_network(netuid_1, 1, 0, 0);
+//         add_network(netuid_2, 1, 0, 0);
+//         add_network(netuid_3, 1, 0, 0);
 
 //         // Set subnet lock
 //         SubnetLocked::<Test>::insert(netuid_1, lock_amount);
@@ -392,7 +392,7 @@ fn test_migrate_subnet_volume() {
     new_test_ext(1).execute_with(|| {
         // Setup initial state
         let netuid_1 = NetUid::from(1);
-        add_network(netuid_1, 1, 0);
+        add_network(netuid_1, 1, 0, 0);
 
         // SubnetValue for netuid 1 key
         let old_key: [u8; 34] = hex_literal::hex!(
@@ -431,7 +431,7 @@ fn test_migrate_set_first_emission_block_number() {
     let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
     let block_number = 100;
     for netuid in netuids.iter() {
-        add_network(*netuid, 1, 0);
+        add_network(*netuid, 1, 0, 0);
     }
     run_to_block(block_number);
     let weight = crate::migrations::migrate_set_first_emission_block_number::migrate_set_first_emission_block_number::<Test>();
@@ -452,7 +452,7 @@ fn test_migrate_set_subtoken_enable() {
         let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
         let block_number = 100;
         for netuid in netuids.iter() {
-            add_network(*netuid, 1, 0);
+            add_network(*netuid, 1, 0, 0);
         }
 
         let new_netuid = NetUid::from(4);
@@ -1225,7 +1225,7 @@ fn test_migrate_subnet_symbols() {
 
         // Create 100 subnets
         for i in 0..100 {
-            add_network(i.into(), 1, 0);
+            add_network(i.into(), 1, 0, 0);
         }
 
         // Shift some symbols
@@ -1279,7 +1279,7 @@ fn test_migrate_set_registration_enable() {
         // Create 3 subnets
         let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
         for netuid in netuids.iter() {
-            add_network(*netuid, 1, 0);
+            add_network(*netuid, 1, 0, 0);
             // Set registration to false to simulate the need for migration
             SubtensorModule::set_network_registration_allowed(*netuid, false);
             SubtensorModule::set_network_pow_registration_allowed(*netuid, false);
@@ -1368,7 +1368,7 @@ fn test_migrate_crv3_commits_add_block() {
         // ------------------------------
         // 1. Create a network so helper can compute first‑block
         // ------------------------------
-        add_network(netuid, tempo, 0);
+        add_network(netuid, tempo, 0, 0);
 
         // ------------------------------
         // 2. Simulate OLD storage (3‑tuple)
@@ -1445,7 +1445,7 @@ fn test_migrate_disable_commit_reveal() {
     // ---------------------------------------------------------------------
     new_test_ext(1).execute_with(|| {
         for (i, netuid) in netuids.iter().enumerate() {
-            add_network(*netuid, 5u16 + i as u16, 0);
+            add_network(*netuid, 5u16 + i as u16, 0, 0);
             CommitRevealWeightsEnabled::<Test>::insert(*netuid, true);
         }
         assert!(
@@ -1505,8 +1505,8 @@ fn test_migrate_commit_reveal_settings() {
         let netuid1: u16 = 1;
         let netuid2: u16 = 2;
         // Add networks to simulate existing networks
-        add_network(netuid1.into(), 1, 0);
-        add_network(netuid2.into(), 1, 0);
+        add_network(netuid1.into(), 1, 0, 0);
+        add_network(netuid2.into(), 1, 0, 0);
 
         // Ensure the storage items use default values initially (but aren't explicitly set)
         // Since these are ValueQuery storage items, they return defaults even when not set
@@ -1579,7 +1579,7 @@ fn test_migrate_commit_reveal_settings_multiple_networks() {
         // Set up multiple networks
         let netuids = vec![1u16, 2u16, 3u16, 10u16, 42u16];
         for netuid in &netuids {
-            add_network((*netuid).into(), 1, 0);
+            add_network((*netuid).into(), 1, 0, 0);
         }
 
         // Run migration
@@ -1600,7 +1600,7 @@ fn test_migrate_commit_reveal_settings_multiple_networks() {
 fn test_migrate_commit_reveal_settings_values_access() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
-        add_network(netuid.into(), 1, 0);
+        add_network(netuid.into(), 1, 0, 0);
 
         // Run migration
         crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
@@ -1829,7 +1829,7 @@ fn test_migrate_remove_network_modality() {
         // Create multiple networks to test
         let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
         for netuid in netuids.iter() {
-            add_network(*netuid, 1, 0);
+            add_network(*netuid, 1, 0, 0);
         }
 
         // Set initial storage version to 7 (below target)
