@@ -228,15 +228,8 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tou64!(pending_alpha).into());
             });
         }
-
-        // --- 8. Update moving prices after using them in the emission calculation.
-        // Only update price EMA for subnets that we emit to.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Update moving prices after using them above.
-            Self::update_moving_price(*netuid_i);
-        }
-
-        // --- 9. Drain pending emission through the subnet based on tempo.
+    
+        // --- Drain pending emissions for all subnets hat are at their tempo.
         // Run the epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
             

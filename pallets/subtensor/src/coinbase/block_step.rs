@@ -21,12 +21,15 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
 
         // --- 3. Reveal matured weights.
         Self::reveal_crv3_commits();
+        // --- 4. Run emission through network.
         Self::run_coinbase(block_emission);
-        // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
+        // --- 5. Update moving prices AFTER using them for emissions.
+        Self::update_moving_prices();
+        // --- 6. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
-        // --- 5. Run auto-claim root divs.
+        // --- 7. Run auto-claim root divs.
         Self::run_auto_claim_root_divs(last_block_hash);
-        // --- 6. Populate root coldkey maps.
+        // --- 8. Populate root coldkey maps.
         Self::populate_root_coldkey_staking_maps();
 
         // Return ok.
@@ -261,6 +264,16 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             return Self::get_min_burn(netuid);
         } else {
             return next_value.saturating_to_num::<u64>().into();
+        }
+    }
+
+    pub fn update_moving_prices() {
+        let subnets_to_emit_to: Vec<NetUid> =
+            Self::get_subnets_to_emit_to(&Self::get_all_subnet_netuids());
+        // Only update price EMA for subnets that we emit to.
+        for netuid_i in subnets_to_emit_to.iter() {
+            // Update moving prices after using them above.
+            Self::update_moving_price(*netuid_i);
         }
     }
 
