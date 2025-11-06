@@ -780,7 +780,7 @@ fn test_claim_root_with_run_coinbase() {
         );
 
         // Set moving price > 1.0 and price > 1.0
-        // So we turn off subsidy
+        // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
         pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
             netuid,
@@ -891,7 +891,7 @@ fn test_claim_root_with_block_emissions() {
         SubtensorModule::maybe_add_coldkey_index(&coldkey);
 
         // Set moving price > 1.0 and price > 1.0
-        // So we turn off subsidy
+        // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
         pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
             netuid,
@@ -1016,7 +1016,7 @@ fn test_claim_root_coinbase_distribution() {
         let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
 
         // Set moving price > 1.0 and price > 1.0
-        // So we turn off subsidy
+        // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
         pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
             netuid,

@@ -2924,7 +2924,7 @@ fn test_zero_shares_zero_emission() {
 }
 
 #[test]
-fn test_mining_emission_distribution_with_subsidy() {
+fn test_mining_emission_distribution_with_no_root_sell() {
     new_test_ext(1).execute_with(|| {
         let validator_coldkey = U256::from(1);
         let validator_hotkey = U256::from(2);
@@ -3014,7 +3014,7 @@ fn test_mining_emission_distribution_with_subsidy() {
         // Set tao weight non zero
         SubtensorModule::set_tao_weight(u64::MAX / 10);
 
-        // Make subsidy happen
+        // Make root sell NOT happen
         // set price very low, e.g. a lot of alpha in
         //SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
         pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
@@ -3114,9 +3114,9 @@ fn test_mining_emission_distribution_with_subsidy() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_mining_emission_distribution_with_no_subsidy --exact --show-output --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_mining_emission_distribution_with_root_sell --exact --show-output --nocapture
 #[test]
-fn test_mining_emission_distribution_with_no_subsidy() {
+fn test_mining_emission_distribution_with_root_sell() {
     new_test_ext(1).execute_with(|| {
         let validator_coldkey = U256::from(1);
         let validator_hotkey = U256::from(2);
@@ -3208,7 +3208,7 @@ fn test_mining_emission_distribution_with_no_subsidy() {
         // Set tao weight non zero
         SubtensorModule::set_tao_weight(u64::MAX / 10);
 
-        // Make subsidy not happen
+        // Make root sell happen
         // Set moving price > 1.0
         // Set price > 1.0
         pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
@@ -3236,7 +3236,7 @@ fn test_mining_emission_distribution_with_no_subsidy() {
         step_block(1);
         // Verify root alpha divs
         let new_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
-        // Check that we are NOT being subsidized, i.e. that root alpha divs are are changing
+        // Check that we ARE root selling, i.e. that root alpha divs are changing
         assert_ne!(
             new_root_alpha_divs, old_root_alpha_divs,
             "Root alpha divs should be changing"
