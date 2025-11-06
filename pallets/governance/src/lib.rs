@@ -538,9 +538,8 @@ pub mod pallet {
                 Error::<T>::ProposalMissing
             );
 
-            Self::do_vote(&who, proposal_hash, proposal_index, approve)?;
+            let voting = Self::do_vote(&who, proposal_hash, proposal_index, approve)?;
 
-            let voting = Voting::<T>::get(proposal_hash).ok_or(Error::<T>::ProposalMissing)?;
             let yes_votes = voting.ayes.len() as u32;
             let no_votes = voting.nays.len() as u32;
 
@@ -553,7 +552,7 @@ pub mod pallet {
             });
 
             if yes_votes >= 2 {
-                Self::do_schedule(proposal_hash)?;
+                Self::do_schedule(proposal_hash, proposal_index)?;
             } else if no_votes >= 2 {
                 Self::do_cancel(proposal_hash)?;
             }
@@ -578,27 +577,55 @@ pub mod pallet {
                 Error::<T>::ProposalNotScheduled
             );
 
-            Self::do_collective_vote(&who, proposal_hash, proposal_index, approve)?;
+            let voting = Self::do_collective_vote(&who, proposal_hash, proposal_index, approve)?;
 
-            let voting = CollectiveVoting::<T>::get(proposal_hash)
-                .ok_or(Error::<T>::ProposalNotScheduled)?;
-            let economic_yes_votes = voting.economic_ayes.len() as u32;
-            let economic_no_votes = voting.economic_nays.len() as u32;
-            let building_yes_votes = voting.building_ayes.len() as u32;
-            let building_no_votes = voting.building_nays.len() as u32;
+            let economic_yes_votes = voting.economic_ayes.len() as i32;
+            let economic_no_votes = voting.economic_nays.len() as i32;
+            let building_yes_votes = voting.building_ayes.len() as i32;
+            let building_no_votes = voting.building_nays.len() as i32;
 
             Self::deposit_event(Event::<T>::CollectiveMemberVoted {
                 account: who,
                 proposal_hash,
                 voted: approve,
-                economic_yes: economic_yes_votes,
-                economic_no: economic_no_votes,
-                building_yes: building_yes_votes,
-                building_no: building_no_votes,
+                economic_yes: economic_yes_votes as u32,
+                economic_no: economic_no_votes as u32,
+                building_yes: building_yes_votes as u32,
+                building_no: building_no_votes as u32,
             });
 
-            if economic_yes_votes >= 2 || building_yes_votes >= 2 {
-                Self::do_schedule(proposal_hash)?;
+            let economic_net_score = economic_yes_votes.saturating_sub(economic_no_votes);
+            let building_net_score = building_yes_votes.saturating_sub(building_no_votes);
+
+            let economic_fast_track_threshold =
+                T::FastTrackThreshold::get().mul_ceil(ECONOMIC_COLLECTIVE_SIZE);
+            let building_fast_track_threshold =
+                T::FastTrackThreshold::get().mul_ceil(BUILDING_COLLECTIVE_SIZE);
+            let economic_cancellation_threshold =
+                T::CancellationThreshold::get().mul_ceil(ECONOMIC_COLLECTIVE_SIZE);
+            let building_cancellation_threshold =
+                T::CancellationThreshold::get().mul_ceil(BUILDING_COLLECTIVE_SIZE);
+
+            let has_reached_economic_fast_track = economic_net_score.is_positive()
+                && economic_net_score.abs() as u32 >= economic_fast_track_threshold;
+            let has_reached_building_fast_track = building_net_score.is_positive()
+                && building_net_score.abs() as u32 >= building_fast_track_threshold;
+            let should_fast_track =
+                has_reached_economic_fast_track || has_reached_building_fast_track;
+
+            let has_reached_economic_cancellation = economic_net_score.is_negative()
+                && economic_net_score.abs() as u32 >= economic_cancellation_threshold;
+            let has_reached_building_cancellation = building_net_score.is_negative()
+                && building_net_score.abs() as u32 >= building_cancellation_threshold;
+            let should_cancel =
+                has_reached_economic_cancellation || has_reached_building_cancellation;
+
+            if should_fast_track {
+                Self::do_fast_track(proposal_hash)?;
+            } else if should_cancel {
+                Self::do_cancel(proposal_hash)?;
+            } else {
+                // handle delay adjust by comparing economic/building net scores
             }
 
             Ok(())
@@ -643,14 +670,12 @@ impl<T: Config> Pallet<T> {
         proposal_hash: T::Hash,
         index: ProposalIndex,
         approve: bool,
-    ) -> DispatchResult {
-        Voting::<T>::try_mutate(proposal_hash, |voting| -> DispatchResult {
+    ) -> Result<Votes<T::AccountId, BlockNumberFor<T>>, DispatchError> {
+        Voting::<T>::try_mutate(proposal_hash, |voting| {
             let voting = voting.as_mut().ok_or(Error::<T>::ProposalMissing)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
-
             Self::do_vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
-
-            Ok(())
+            Ok(voting.clone())
         })
     }
 
@@ -659,8 +684,8 @@ impl<T: Config> Pallet<T> {
         proposal_hash: T::Hash,
         index: ProposalIndex,
         approve: bool,
-    ) -> DispatchResult {
-        CollectiveVoting::<T>::try_mutate(proposal_hash, |voting| -> DispatchResult {
+    ) -> Result<CollectiveVotes<T::AccountId>, DispatchError> {
+        CollectiveVoting::<T>::try_mutate(proposal_hash, |voting| {
             let voting = voting.as_mut().ok_or(Error::<T>::ProposalNotScheduled)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
 
@@ -679,7 +704,7 @@ impl<T: Config> Pallet<T> {
                 )?,
             }
 
-            Ok(())
+            Ok(voting.clone())
         })
     }
 
@@ -719,7 +744,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_schedule(proposal_hash: T::Hash) -> DispatchResult {
+    fn do_schedule(proposal_hash: T::Hash, proposal_index: ProposalIndex) -> DispatchResult {
         Scheduled::<T>::try_append(proposal_hash).map_err(|_| Error::<T>::TooManyScheduled)?;
 
         let bounded = ProposalOf::<T>::get(proposal_hash).ok_or(Error::<T>::ProposalMissing)?;
@@ -741,6 +766,17 @@ impl<T: Config> Pallet<T> {
 
         Self::clear_proposal(proposal_hash);
 
+        CollectiveVoting::<T>::insert(
+            proposal_hash,
+            CollectiveVotes {
+                index: proposal_index,
+                economic_ayes: BoundedVec::new(),
+                economic_nays: BoundedVec::new(),
+                building_ayes: BoundedVec::new(),
+                building_nays: BoundedVec::new(),
+            },
+        );
+
         Self::deposit_event(Event::<T>::ProposalScheduled { proposal_hash });
         Ok(())
     }
@@ -748,6 +784,10 @@ impl<T: Config> Pallet<T> {
     fn do_cancel(proposal_hash: T::Hash) -> DispatchResult {
         Self::clear_proposal(proposal_hash);
         Self::deposit_event(Event::<T>::ProposalCancelled { proposal_hash });
+        Ok(())
+    }
+
+    fn do_fast_track(_proposal_hash: T::Hash) -> DispatchResult {
         Ok(())
     }
 

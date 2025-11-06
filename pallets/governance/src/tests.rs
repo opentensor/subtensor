@@ -787,6 +787,16 @@ fn two_aye_votes_schedule_proposal() {
         assert_eq!(Proposals::<Test>::get(), vec![]);
         assert!(!Voting::<Test>::contains_key(proposal_hash));
         assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
+        assert_eq!(
+            CollectiveVoting::<Test>::get(proposal_hash),
+            Some(CollectiveVotes {
+                index: proposal_index,
+                economic_ayes: BoundedVec::new(),
+                economic_nays: BoundedVec::new(),
+                building_ayes: BoundedVec::new(),
+                building_nays: BoundedVec::new(),
+            })
+        );
         let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
         let now = frame_system::Pallet::<Test>::block_number();
         assert_eq!(
@@ -1002,7 +1012,7 @@ fn collective_vote_from_non_collective_member_fails() {
 
         assert_noop!(
             Pallet::<Test>::collective_vote(
-                RuntimeOrigin::signed(U256::from(2001)),
+                RuntimeOrigin::signed(U256::from(42)),
                 proposal_hash,
                 proposal_index,
                 true
@@ -1024,7 +1034,57 @@ fn collective_vote_on_non_scheduled_proposal_fails() {
                 proposal_index,
                 true
             ),
-            Error::<Test>::NotCollectiveMember
+            Error::<Test>::ProposalNotScheduled
+        );
+    });
+}
+
+#[test]
+fn collective_vote_on_proposal_with_wrong_index_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, _proposal_index) = create_scheduled_proposal();
+
+        assert_noop!(
+            Pallet::<Test>::collective_vote(
+                RuntimeOrigin::signed(U256::from(2001)),
+                proposal_hash,
+                42,
+                true
+            ),
+            Error::<Test>::WrongProposalIndex
+        );
+    });
+}
+
+#[test]
+fn duplicate_collective_vote_on_scheduled_proposal_already_voted_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_scheduled_proposal();
+
+        let aye_voter = RuntimeOrigin::signed(U256::from(2001));
+        let approve = true;
+        assert_ok!(Pallet::<Test>::collective_vote(
+            aye_voter.clone(),
+            proposal_hash,
+            proposal_index,
+            approve
+        ));
+        assert_noop!(
+            Pallet::<Test>::collective_vote(aye_voter, proposal_hash, proposal_index, approve),
+            Error::<Test>::DuplicateVote
+        );
+
+        let nay_voter = RuntimeOrigin::signed(U256::from(2002));
+        let approve = false;
+        assert_ok!(Pallet::<Test>::collective_vote(
+            nay_voter.clone(),
+            proposal_hash,
+            proposal_index,
+            approve
+        ));
+        assert_noop!(
+            Pallet::<Test>::collective_vote(nay_voter, proposal_hash, proposal_index, approve),
+            Error::<Test>::DuplicateVote
         );
     });
 }
@@ -1038,11 +1098,6 @@ fn collective_rotation_works() {
         let next_building_collective = (1..=BUILDING_COLLECTIVE_SIZE)
             .map(|i| U256::from(5000 + i))
             .collect::<Vec<_>>();
-        assert_eq!(EconomicCollective::<Test>::get().to_vec(), vec![]);
-        assert_eq!(BuildingCollective::<Test>::get().to_vec(), vec![]);
-
-        // Trigger the initial collective rotation given both are empty.
-        run_to_block(2);
 
         assert_eq!(
             EconomicCollective::<Test>::get().len(),

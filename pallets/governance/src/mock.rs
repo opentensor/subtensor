@@ -228,9 +228,9 @@ impl TestState {
         .unwrap()
         .into();
         ext.execute_with(|| {
-            System::set_block_number(self.block_number);
             set_next_economic_collective(self.economic_collective.to_vec());
             set_next_building_collective(self.building_collective.to_vec());
+            run_to_block(self.block_number);
         });
         ext
     }
