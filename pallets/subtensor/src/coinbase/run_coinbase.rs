@@ -156,8 +156,8 @@ impl<T: Config> Pallet<T> {
                 log::debug!("price_i: {price_i:?}");
 
                 log::debug!("default_tao_in_i: {tao_emission_i:?}");
-                let default_alpha_in_i: U96F32 =
-                    tao_emission_i.safe_div_or(price_i, U96F32::saturating_from_num(alpha_emission_i));
+                let default_alpha_in_i: U96F32 = tao_emission_i
+                    .safe_div_or(price_i, U96F32::saturating_from_num(alpha_emission_i));
 
                 // Get initial alpha_in
                 if default_alpha_in_i > alpha_emission_i {
