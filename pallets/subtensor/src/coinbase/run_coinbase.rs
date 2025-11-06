@@ -35,14 +35,13 @@ impl<T: Config> Pallet<T> {
         let subnet_emissions = Self::get_subnet_block_emissions(&subnets, block_emission);
         let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
 
-        // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
-        // Computation is described in detail in the dtao whitepaper.
-        let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut tao_in_total: TaoCurrency = 0.into();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
+            // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
+            // Computation is described in detail in the dtao whitepaper.
             // Get subnet price.
             let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
             log::debug!("price_i: {price_i:?}");
@@ -101,49 +100,43 @@ impl<T: Config> Pallet<T> {
                 alpha_in_i = asfloat!(0.0);
                 alpha_out_i = asfloat!(0.0);
             }
-            // Insert values into maps
-            tao_in.insert(*netuid_i, tao_in_i);
-            alpha_in.insert(*netuid_i, alpha_in_i);
+            // Insert value into map
             alpha_out.insert(*netuid_i, alpha_out_i);
-        }
-        log::debug!("tao_in: {tao_in:?}");
-        log::debug!("alpha_in: {alpha_in:?}");
-        log::debug!("alpha_out: {alpha_out:?}");
 
-        // --- 4. Injection.
-        // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
-        // This operation changes the pool liquidity each block.
-        for netuid_i in subnets_to_emit_to.iter() {
+            // --- 4. Injection.
+            // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
+            // This operation changes the pool liquidity each block.
             // Inject Alpha in.
-            let alpha_in_i =
-                AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
-            SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
+            let alpha_in_curr = AlphaCurrency::from(tou64!(alpha_in_i));
+            SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_curr);
             SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_in_i);
+                *total = total.saturating_add(alpha_in_curr);
             });
             // Injection Alpha out.
-            let alpha_out_i =
-                AlphaCurrency::from(tou64!(*alpha_out.get(netuid_i).unwrap_or(&asfloat!(0))));
-            SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_out_i);
+            let alpha_out_curr = AlphaCurrency::from(tou64!(alpha_out_i));
+            SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_out_curr);
             SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_out_i);
+                *total = total.saturating_add(alpha_out_curr);
             });
             // Inject TAO in.
-            let tao_in_i: TaoCurrency =
-                tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_i));
+            let tao_in_curr: TaoCurrency = tou64!(tao_in_i).into();
+            SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_curr));
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(tao_in_curr.into());
             });
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
-            });
-            TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
-            });
+            tao_in_total = tao_in_total.saturating_add(tao_in_curr);
             // Adjust protocol liquidity based on new reserves
-            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
+            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_curr, alpha_in_curr);
         }
+
+        TotalStake::<T>::mutate(|total| {
+            *total = total.saturating_add(tao_in_total.into());
+        });
+        TotalIssuance::<T>::mutate(|total| {
+            *total = total.saturating_add(tao_in_total.into());
+        });
+
+        log::debug!("alpha_out: {alpha_out:?}");
 
         // --- 5. Compute owner cuts and remove them from alpha_out remaining.
         // Remove owner cuts here so that we can properly seperate root dividends in the next step.
