@@ -7,9 +7,11 @@ use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
+        // Filter out root subnet.
         // Filter out subnets with no first emission block number.
         subnets
             .iter()
+            .filter(|netuid| *netuid != NetUid::ROOT)
             .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
             .copied()
             .collect()
