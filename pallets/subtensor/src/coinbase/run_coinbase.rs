@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
         let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut subsidy_amount: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut excess_amount: BTreeMap<NetUid, U96F32> = BTreeMap::new();
 
         // Only calculate for subnets that we are emitting to.
         for (&netuid_i, &tao_emission_i) in subnet_emissions.iter() {
@@ -162,8 +162,8 @@ impl<T: Config> Pallet<T> {
                     tao_in_i = alpha_in_i.saturating_mul(price_i);
                 }
 
-                let subsidy_tao: U96F32 = tao_emission_i.saturating_sub(tao_in_i);
-                subsidy_amount.insert(netuid_i, subsidy_tao);
+                let excess_tao: U96F32 = tao_emission_i.saturating_sub(tao_in_i);
+                excess_amount.insert(netuid_i, excess_tao);
             }
 
             // Insert values into maps
@@ -171,7 +171,7 @@ impl<T: Config> Pallet<T> {
             alpha_in.insert(netuid_i, alpha_in_i);
             alpha_out.insert(netuid_i, alpha_out_i);
         }
-        (tao_in, alpha_in, alpha_out, subsidy_amount)
+        (tao_in, alpha_in, alpha_out, excess_amount)
     }
 
     pub fn emit_to_subnets(
@@ -180,14 +180,13 @@ impl<T: Config> Pallet<T> {
         root_sell_flag: bool,
     ) {
         // --- 1. Get subnet terms (tao_in, alpha_in, and alpha_out)
-        // and subsidy amount.
-        let (tao_in, alpha_in, alpha_out, subsidy_amount) =
-            Self::get_subnet_terms(subnet_emissions);
+        // and excess_tao amounts.
+        let (tao_in, alpha_in, alpha_out, excess_amount) = Self::get_subnet_terms(subnet_emissions);
 
         log::debug!("tao_in: {tao_in:?}");
         log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
-        log::debug!("subsidy_amount: {subsidy_amount:?}");
+        log::debug!("excess_amount: {excess_amount:?}");
 
         // --- 2. Inject TAO and ALPHA to pool and swap with excess TAO.
         Self::inject_and_maybe_swap(subnets_to_emit_to, &tao_in, &alpha_in, &excess_amount);
