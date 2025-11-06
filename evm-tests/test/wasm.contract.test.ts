@@ -15,6 +15,15 @@ import { tao } from "../src/balance-math";
 const bittensorWasmPath = "./bittensor/target/ink/bittensor.wasm"
 const bittensorBytecode = fs.readFileSync(bittensorWasmPath)
 
+/*
+The test file is to verify all the functions in the wasm contract are working correctly.
+The test call each function defined in the contract extension.
+
+Current issue:
+Can't generate the descriptor for the wasm contract if we add the function to return a complicate struct.
+https://github.com/polkadot-api/polkadot-api/issues/1207
+*/
+
 describe("Test wasm contract", () => {
 
     let api: TypedApi<typeof devnet>
