@@ -241,7 +241,7 @@ fn dissolve_owner_cut_refund_logic() {
             .floor()
             .saturating_to_num::<u64>();
 
-        // Use sim swap to estimate owner TAO.
+        // Use the current alpha price to estimate the TAO equivalent.
         let owner_emission_tao = {
             let price: U96F32 =
                 <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
