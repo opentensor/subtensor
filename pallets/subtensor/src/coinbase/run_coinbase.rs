@@ -53,13 +53,12 @@ impl<T: Config> Pallet<T> {
         Self::distribute_emissions_to_subnets(&emissions_to_distribute);
     }
 
-    pub fn inject_and_subsidize(
+    pub fn inject_and_maybe_swap(
         subnets_to_emit_to: &[NetUid],
         tao_in: &BTreeMap<NetUid, U96F32>,
         alpha_in: &BTreeMap<NetUid, U96F32>,
         excess_tao: &BTreeMap<NetUid, U96F32>,
     ) {
-        // --- 2. Inject and subsidize
         for netuid_i in subnets_to_emit_to.iter() {
             let tao_in_i: TaoCurrency =
                 tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
@@ -190,8 +189,8 @@ impl<T: Config> Pallet<T> {
         log::debug!("alpha_out: {alpha_out:?}");
         log::debug!("subsidy_amount: {subsidy_amount:?}");
 
-        // --- 2. Inject TAO and ALPHA to pool and subsidize.
-        Self::inject_and_subsidize(subnets_to_emit_to, &tao_in, &alpha_in, &subsidy_amount);
+        // --- 2. Inject TAO and ALPHA to pool and swap with excess TAO.
+        Self::inject_and_maybe_swap(subnets_to_emit_to, &tao_in, &alpha_in, &excess_amount);
 
         // --- 3. Inject ALPHA for participants.
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
