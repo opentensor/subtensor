@@ -83,9 +83,7 @@ impl<T: Config> Pallet<T> {
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
                     let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_sub(bought_alpha);
-                    });
+                    Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
                 }
                 is_subsidized.insert(*netuid_i, true);
             } else {
@@ -110,6 +108,7 @@ impl<T: Config> Pallet<T> {
             alpha_in.insert(*netuid_i, alpha_in_i);
             alpha_out.insert(*netuid_i, alpha_out_i);
         }
+        log::debug!("is_subsidized: {is_subsidized:?}");
         log::debug!("tao_in: {tao_in:?}");
         log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
@@ -235,9 +234,6 @@ impl<T: Config> Pallet<T> {
             if Self::should_run_epoch(netuid, current_block)
                 && Self::is_epoch_input_state_consistent(netuid)
             {
-                let alpha_out_i: AlphaCurrency =
-                    tou64!(*alpha_out.get(&netuid).unwrap_or(&asfloat!(0.0))).into();
-
                 // Restart counters.
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);
@@ -259,7 +255,7 @@ impl<T: Config> Pallet<T> {
                     netuid,
                     pending_alpha,
                     pending_root_alpha,
-                    alpha_out_i,
+                    pending_alpha.saturating_add(pending_root_alpha),
                     owner_cut,
                 );
             } else {
@@ -497,6 +493,7 @@ impl<T: Config> Pallet<T> {
             let destination = maybe_dest.clone().unwrap_or(hotkey.clone());
 
             if let Some(dest) = maybe_dest {
+                log::debug!("incentives: auto staking {incentive:?} to {dest:?}");
                 Self::deposit_event(Event::<T>::AutoStakeAdded {
                     netuid,
                     destination: dest,
@@ -505,6 +502,9 @@ impl<T: Config> Pallet<T> {
                     incentive,
                 });
             }
+            log::debug!(
+                "incentives: increasing stake for {hotkey:?} to {incentive:?} with owner {owner:?}"
+            );
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination,
                 &owner,
@@ -619,7 +619,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         pending_alpha: AlphaCurrency,
         pending_root_alpha: AlphaCurrency,
-        alpha_out: AlphaCurrency, // total alpha out for the subnet
+        total_alpha: AlphaCurrency,
         owner_cut: AlphaCurrency,
     ) {
         log::debug!(
@@ -630,7 +630,7 @@ impl<T: Config> Pallet<T> {
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
-            Self::epoch_with_mechanisms(netuid, alpha_out);
+            Self::epoch_with_mechanisms(netuid, total_alpha);
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
         // Compute the pending validator alpha.
@@ -646,7 +646,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("incentive_sum: {incentive_sum:?}");
 
         let pending_validator_alpha = if !incentive_sum.is_zero() {
-            alpha_out
+            total_alpha
                 .saturating_div(2.into())
                 .saturating_sub(pending_root_alpha)
         } else {
