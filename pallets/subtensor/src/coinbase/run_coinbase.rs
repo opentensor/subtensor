@@ -120,9 +120,7 @@ impl<T: Config> Pallet<T> {
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
                     let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_sub(bought_alpha);
-                    });
+                    Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
                 }
             }
         }
