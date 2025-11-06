@@ -8,7 +8,10 @@ use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use pallet_subtensor_swap::position::PositionId;
 use sp_core::U256;
-use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
+use substrate_fixed::{
+    transcendental::sqrt,
+    types::{I64F64, I96F32, U64F64, U96F32},
+};
 use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex};
 use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
@@ -3331,5 +3334,79 @@ fn test_coinbase_subnets_with_no_reg_get_no_emission() {
         assert!(tao_in_2[&netuid1] > zero);
         assert!(alpha_in_2[&netuid1] > zero);
         assert!(alpha_out_2[&netuid1] > zero);
+    });
+}
+
+#[test]
+fn test_coinbase_alpha_in_more_than_alpha_emission() {
+    new_test_ext(1).execute_with(|| {
+        let zero = U96F32::saturating_from_num(0);
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+        mock::setup_reserves(
+            netuid0,
+            TaoCurrency::from(1_000_000_000_000_000),
+            AlphaCurrency::from(1_000_000_000_000_000),
+        );
+
+        // Set netuid0 to have price tao_emission / price > alpha_emission
+        let alpha_emission = U96F32::saturating_from_num(
+            SubtensorModule::get_block_emission_for_issuance(
+                SubtensorModule::get_alpha_issuance(netuid0).into(),
+            )
+            .unwrap_or(0),
+        );
+        let price_to_set: U64F64 = U64F64::saturating_from_num(0.2);
+        let price_to_set_fixed: U96F32 = U96F32::saturating_from_num(price_to_set);
+        let sqrt_price_to_set: U64F64 = sqrt(price_to_set).unwrap();
+
+        let tao_emission: U96F32 = U96F32::saturating_from_num(alpha_emission)
+            .saturating_mul(price_to_set_fixed)
+            .saturating_add(U96F32::saturating_from_num(0.01));
+
+        // Set the price
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(netuid0, sqrt_price_to_set);
+        // Check the price is set
+        assert_abs_diff_eq!(
+            pallet_subtensor_swap::Pallet::<Test>::current_alpha_price(netuid0).to_num::<f64>(),
+            price_to_set.to_num::<f64>(),
+            epsilon = 1.0
+        );
+
+        let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
+
+        let (tao_in, alpha_in, alpha_out, subsidy_amount) =
+            SubtensorModule::get_subnet_terms(&subnet_emissions);
+
+        // Check our condition is met
+        assert!(tao_emission / price_to_set_fixed > alpha_emission);
+
+        // alpha_out should be the alpha_emission, always
+        assert_abs_diff_eq!(
+            alpha_out[&netuid0].to_num::<f64>(),
+            alpha_emission.to_num::<f64>(),
+            epsilon = 1.0
+        );
+
+        // alpha_in should equal the alpha_emission
+        assert_abs_diff_eq!(
+            alpha_in[&netuid0].to_num::<f64>(),
+            alpha_emission.to_num::<f64>(),
+            epsilon = 1.0
+        );
+        // tao_in should be the alpha_in at the ratio of the price
+        assert_abs_diff_eq!(
+            tao_in[&netuid0].to_num::<f64>(),
+            alpha_in[&netuid0]
+                .saturating_mul(price_to_set_fixed)
+                .to_num::<f64>(),
+            epsilon = 1.0
+        );
+
+        // subsidy_amount should be the difference between the tao_emission and the tao_in
+        assert_abs_diff_eq!(
+            subsidy_amount[&netuid0].to_num::<f64>(),
+            tao_emission.to_num::<f64>() - tao_in[&netuid0].to_num::<f64>(),
+            epsilon = 1.0
+        );
     });
 }
