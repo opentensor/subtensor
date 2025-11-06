@@ -216,43 +216,45 @@ fn dissolve_owner_cut_refund_logic() {
         // One staker and a TAO pot (not relevant to refund amount).
         let sh = U256::from(77);
         let sc = U256::from(88);
-        Alpha::<Test>::insert((sh, sc, net), U64F64::from_num(100u128));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &sh,
+            &sc,
+            net,
+            AlphaCurrency::from(800u64),
+        );
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(1_000));
 
         // Lock & emissions: total emitted α = 800.
         let lock: TaoCurrency = TaoCurrency::from(2_000);
         SubtensorModule::set_subnet_locked_balance(net, lock);
-        Emission::<Test>::insert(
-            net,
-            vec![AlphaCurrency::from(200), AlphaCurrency::from(600)],
-        );
+        // ensure there was some Alpha issued
+        assert!(SubtensorModule::get_alpha_issuance(net).to_u64() > 0);
 
         // Owner cut = 11796 / 65535 (about 18%).
         SubnetOwnerCut::<Test>::put(11_796u16);
 
         // Compute expected refund with the SAME math as the pallet.
         let frac: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
-        let total_emitted_alpha: u64 = 800;
+        let total_emitted_alpha: u64 = SubtensorModule::get_alpha_issuance(net).to_u64();
         let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha)
             .saturating_mul(frac)
             .floor()
             .saturating_to_num::<u64>();
 
-        // Current α→τ price for this subnet.
-        let price: U96F32 =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
-        let owner_emission_tao_u64: u64 = U96F32::from_num(owner_alpha_u64)
-            .saturating_mul(price)
-            .floor()
-            .saturating_to_num::<u64>();
+        // Use sim swap to estimate owner TAO.
+        let order = GetTaoForAlpha::<Test>::with_amount(owner_alpha_u64);
+        let owner_emission_tao =
+            <Test as pallet::Config>::SwapInterface::sim_swap(net.into(), order)
+                .map(|res| res.amount_paid_out)
+                .expect("sim swap failed");
 
-        let expected_refund: TaoCurrency =
-            lock.saturating_sub(TaoCurrency::from(owner_emission_tao_u64));
+        let expected_refund: TaoCurrency = lock.saturating_sub(owner_emission_tao);
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
         let after = SubtensorModule::get_coldkey_balance(&oc);
 
+        assert!(after > before); // some refund is expected
         assert_eq!(
             TaoCurrency::from(after),
             TaoCurrency::from(before) + expected_refund
@@ -841,15 +843,10 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(tao_pot));
         SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(lock));
 
+        // ensure there was some Alpha issued
+        assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
+
         // Owner already earned some emission; owner-cut = 50 %
-        Emission::<Test>::insert(
-            netuid,
-            vec![
-                AlphaCurrency::from(1_000),
-                AlphaCurrency::from(2_000),
-                AlphaCurrency::from(1_500),
-            ],
-        );
         SubnetOwnerCut::<Test>::put(32_768u16); // ~ 0.5 in fixed-point
 
         // ── 4) balances before ──────────────────────────────────────────────
@@ -879,7 +876,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
 
         // ── 5b) expected owner refund with price-aware emission deduction ───
         let frac: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
-        let total_emitted_alpha: u64 = 1_000 + 2_000 + 1_500; // 4500 α
+        let total_emitted_alpha: u64 = SubtensorModule::get_alpha_issuance(netuid).to_u64();
         let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha)
             .saturating_mul(frac)
             .floor()
@@ -947,16 +944,25 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         // Lock and (nonzero) emissions
         let lock_u64: u64 = 50_000;
         SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(lock_u64));
-        Emission::<Test>::insert(
-            netuid,
-            vec![AlphaCurrency::from(1_500u64), AlphaCurrency::from(3_000u64)], // total 4_500 α
-        );
         // Owner cut ≈ 50%
         SubnetOwnerCut::<Test>::put(32_768u16);
 
+        // give some stake to other key
+        let other_cold = U256::from(1_234);
+        let other_hot = U256::from(2_345);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &other_hot,
+            &other_cold,
+            netuid,
+            AlphaCurrency::from(30u64), // not nearly enough to cover the lock
+        );
+
+        // ensure there was some Alpha issued
+        assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
+
         // Compute expected refund using the same math as the pallet
         let frac: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
-        let total_emitted_alpha: u64 = 1_500 + 3_000; // 4_500 α
+        let total_emitted_alpha: u64 = SubtensorModule::get_alpha_issuance(netuid).to_u64();
         let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha)
             .saturating_mul(frac)
             .floor()
@@ -1011,7 +1017,17 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         // Lock and emissions present (should be ignored for refund)
         let lock_u64: u64 = 42_000;
         SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(lock_u64));
-        Emission::<Test>::insert(netuid, vec![AlphaCurrency::from(5_000u64)]);
+        // give some stake to other key
+        let other_cold = U256::from(1_234);
+        let other_hot = U256::from(2_345);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &other_hot,
+            &other_cold,
+            netuid,
+            AlphaCurrency::from(300u64), // not nearly enough to cover the lock
+        );
+        // ensure there was some Alpha issued
+        assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
         SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
 
         // Balances before
@@ -1046,7 +1062,9 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
 
         // lock = 0; emissions present (must not matter)
         SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(0u64));
-        Emission::<Test>::insert(netuid, vec![AlphaCurrency::from(10_000u64)]);
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(10_000));
+        // ensure there was some Alpha issued
+        assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
         SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
 
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
