@@ -3287,3 +3287,49 @@ fn test_mining_emission_distribution_with_root_sell() {
         );
     });
 }
+
+#[test]
+fn test_coinbase_subnets_with_no_reg_get_no_emission() {
+    new_test_ext(1).execute_with(|| {
+        let zero = U96F32::saturating_from_num(0);
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let netuid1 = add_dynamic_network(&U256::from(3), &U256::from(4));
+
+        let subnet_emissions = BTreeMap::from([
+            (netuid0, U96F32::saturating_from_num(1)),
+            (netuid1, U96F32::saturating_from_num(1)),
+        ]);
+
+        let (tao_in, alpha_in, alpha_out, subsidy_amount) =
+            SubtensorModule::get_subnet_terms(&subnet_emissions);
+        assert_eq!(tao_in.len(), 2);
+        assert_eq!(alpha_in.len(), 2);
+        assert_eq!(alpha_out.len(), 2);
+
+        assert!(tao_in[&netuid0] > zero);
+        assert!(alpha_in[&netuid0] > zero);
+        assert!(alpha_out[&netuid0] > zero);
+
+        assert!(tao_in[&netuid1] > zero);
+        assert!(alpha_in[&netuid1] > zero);
+        assert!(alpha_out[&netuid1] > zero);
+
+        // Disabled registration of both methods
+        NetworkRegistrationAllowed::<Test>::insert(netuid0, false);
+        NetworkPowRegistrationAllowed::<Test>::insert(netuid0, false);
+
+        let (tao_in_2, alpha_in_2, alpha_out_2, subsidy_amount_2) =
+            SubtensorModule::get_subnet_terms(&subnet_emissions);
+        assert_eq!(tao_in_2.len(), 2);
+        assert_eq!(alpha_in_2.len(), 2);
+        assert_eq!(alpha_out_2.len(), 2);
+
+        assert!(tao_in_2[&netuid0] == zero);
+        assert!(alpha_in_2[&netuid0] == zero);
+        assert!(alpha_out_2[&netuid0] == zero);
+
+        assert!(tao_in_2[&netuid1] > zero);
+        assert!(alpha_in_2[&netuid1] > zero);
+        assert!(alpha_out_2[&netuid1] > zero);
+    });
+}
