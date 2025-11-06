@@ -1,9 +1,12 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
+use sp_runtime::SaturatedConversion;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
+
+pub(crate) const ROOT_CLAIM_CLEANUP_BATCH_SIZE: usize = 100;
 
 impl<T: Config> Pallet<T> {
     pub fn block_hash_to_indices(block_hash: T::Hash, k: u64, n: u64) -> Vec<u64> {
@@ -384,16 +387,98 @@ impl<T: Config> Pallet<T> {
         RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
     }
 
-    /// Claim all root dividends for subnet and remove all associated data.
-    pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
+    /// Start removing root claimable for the given subnet.
+    pub fn start_removing_root_claim_data_for_subnet(netuid: NetUid) {
+        // TODO: check for empty RootClaimSubnetCleanup and return DispatchResult
+        // TODO: prevent double network dissolution
+        // TODO: prevent network creation during removal
 
-        for hotkey in hotkeys.iter() {
-            RootClaimable::<T>::mutate(hotkey, |claimable| {
-                claimable.remove(&netuid);
-            });
+        let root_cleanup_data = RootClaimSubnetCleanup {
+            netuid,
+            last_root_claimable_hotkey: None,
+            root_claim_cleanup_started: false,
+        };
+
+        LastRootClaimCleanupData::<T>::put(root_cleanup_data);
+    }
+
+    pub fn iterate_and_clean_root_claim_data_for_subnet() {
+        let Some(mut root_cleanup_data) = LastRootClaimCleanupData::<T>::get() else {
+            return; // nothing to clean yet
+        };
+
+        // Initialize RootClaimable cleanup
+        let mut starting_root_claimable_key = None;
+        if root_cleanup_data.last_root_claimable_hotkey.is_none()
+            && !root_cleanup_data.root_claim_cleanup_started
+        {
+            starting_root_claimable_key = RootClaimable::<T>::iter_keys().next();
+
+            root_cleanup_data.last_root_claimable_hotkey = starting_root_claimable_key
+                .as_ref()
+                .map(RootClaimable::<T>::hashed_key_for);
         }
 
-        let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+        // Clean RootClaimable
+        if let Some(starting_raw_key) = root_cleanup_data.last_root_claimable_hotkey {
+            // Get the key batch
+            let mut hotkeys = RootClaimable::<T>::iter_keys_from(starting_raw_key)
+                .take(ROOT_CLAIM_CLEANUP_BATCH_SIZE)
+                .collect::<Vec<_>>();
+
+            // New iteration: insert the starting key in the batch if it's a new iteration
+            // iter_keys_from() skips the starting key
+            if let Some(starting_key) = starting_root_claimable_key {
+                if hotkeys.len() == ROOT_CLAIM_CLEANUP_BATCH_SIZE {
+                    hotkeys.remove(hotkeys.len().saturating_sub(1));
+                }
+                hotkeys.insert(0, starting_key);
+            }
+
+            let mut new_starting_key = None;
+            let new_iteration = hotkeys.len() < ROOT_CLAIM_CLEANUP_BATCH_SIZE;
+
+            // Remove RootClaimable for subnet
+            for hotkey in hotkeys {
+                RootClaimable::<T>::mutate(&hotkey, |claimable| {
+                    claimable.remove(&root_cleanup_data.netuid);
+                });
+
+                new_starting_key = Some(RootClaimable::<T>::hashed_key_for(&hotkey));
+            }
+
+            // Continue with RootClaimed if it's the last batch
+            if new_iteration {
+                new_starting_key = None;
+
+                // Start RootClaimed cleanup next block
+                root_cleanup_data.root_claim_cleanup_started = true;
+            }
+
+            root_cleanup_data.last_root_claimable_hotkey = new_starting_key;
+
+            LastRootClaimCleanupData::<T>::put(root_cleanup_data);
+
+            return; // single iteration finished
+        }
+
+        // Clean RootClaimed
+        if root_cleanup_data.root_claim_cleanup_started {
+            let root_claimed_result = RootClaimed::<T>::clear_prefix(
+                (root_cleanup_data.netuid,),
+                ROOT_CLAIM_CLEANUP_BATCH_SIZE.saturated_into::<u32>(),
+                None,
+            );
+
+            if root_claimed_result.maybe_cursor.is_some() {
+                return; // continue next block
+            }
+            // Finished cleaning RootClaimed
+        }
+
+        // TODO: events
+
+        // Finish cleaning RootClaimable for subnet
+        LastRootClaimCleanupData::<T>::take();
     }
 }

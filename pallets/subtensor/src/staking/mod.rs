@@ -1,7 +1,7 @@
 use super::*;
 pub mod account;
 pub mod add_stake;
-mod claim_root;
+pub mod claim_root;
 pub mod decrease_take;
 pub mod helpers;
 pub mod increase_take;

@@ -336,6 +336,22 @@ pub mod pallet {
         Keep,
     }
 
+    /// Contains necessary data to gradually clean root claims on network deregistration.
+    //   #[crate::freeze_struct("5629a5d581979e73")]
+    #[derive(
+        Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
+    )]
+    pub struct RootClaimSubnetCleanup {
+        /// Subnet to cleanup
+        pub netuid: NetUid,
+
+        /// Last hotkey to clean RootClaimable (binary key).
+        pub last_root_claimable_hotkey: Option<Vec<u8>>,
+
+        /// RootClaimed cleanup in progress.
+        pub root_claim_cleanup_started: bool,
+    }
+
     #[pallet::type_value]
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
@@ -1987,6 +2003,12 @@ pub mod pallet {
     pub type NumStakingColdkeys<T: Config> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- Value --> num_root_claim | Number of coldkeys to claim each auto-claim.
     pub type NumRootClaim<T: Config> = StorageValue<_, u64, ValueQuery, DefaultNumRootClaim<T>>;
+
+    /// Contains necessary data to gradually clean root claims on network deregistration.
+    /// None means no active cleanup.
+    #[pallet::storage]
+    pub type LastRootClaimCleanupData<T: Config> =
+        StorageValue<_, RootClaimSubnetCleanup, OptionQuery>;
 
     /// =============================
     /// ==== EVM related storage ====

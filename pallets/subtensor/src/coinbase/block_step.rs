@@ -26,6 +26,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::run_auto_claim_root_divs(last_block_hash);
         // --- 6. Populate root coldkey maps.
         Self::populate_root_coldkey_staking_maps();
+        // --- 6. Cleanup deregistered network.
+        Self::iterate_and_clean_root_claim_data_for_subnet();
 
         // Return ok.
         Ok(())
