@@ -661,15 +661,27 @@ fn test_owner_cut_base() {
 #[test]
 fn test_pending_emission() {
     new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
         let emission: u64 = 1_000_000;
-        add_network(netuid, 1, 0);
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let netuid = add_dynamic_network(&hotkey, &coldkey);
+        Tempo::<Test>::insert(netuid, 1);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+
         mock::setup_reserves(netuid, 1_000_000.into(), 1.into());
         SubtensorModule::run_coinbase(U96F32::from_num(0));
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000)); // Add root weight.
         SubtensorModule::run_coinbase(U96F32::from_num(0));
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        // Set moving price > 1.0
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+
+        // Make sure we are not subsidizing, so we have root alpha divs.
+        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
+        assert!(!subsidy_mode, "Subsidy mode should be false");
+
         SubtensorModule::run_coinbase(U96F32::from_num(0));
         // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
 
@@ -678,6 +690,12 @@ fn test_pending_emission() {
             1_000_000_000 - 125000000,
             epsilon = 1
         ); // 1 - swapped.
+
+        assert_abs_diff_eq!(
+            u64::from(PendingRootAlphaDivs::<Test>::get(netuid)),
+            125000000,
+            epsilon = 1
+        ); // 1 / 2 = 125000000
     });
 }
 
