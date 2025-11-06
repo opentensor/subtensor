@@ -3027,10 +3027,12 @@ fn test_mining_emission_distribution_with_subsidy() {
             U64F64::saturating_from_num(0.01),
         );
 
+        // Make sure we ARE subsidizing, so we have root alpha divs.
+        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
+        assert!(subsidy_mode, "Subsidy mode should be true");
+
         // Run run_coinbase until emissions are drained
         step_block(subnet_tempo);
-
-        log::info!("is_sub: Running epoch with subsidy");
 
         let old_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
         let per_block_emission = SubtensorModule::get_block_emission_for_issuance(
@@ -3127,7 +3129,6 @@ fn test_mining_emission_distribution_with_no_subsidy() {
         let validator_miner_hotkey = U256::from(4);
         let miner_coldkey = U256::from(5);
         let miner_hotkey = U256::from(6);
-        let netuid = NetUid::from(1);
         let subnet_tempo = 10;
         let stake: u64 = 100_000_000_000;
         let root_stake: u64 = 200_000_000_000; // 200 TAO
@@ -3138,8 +3139,11 @@ fn test_mining_emission_distribution_with_no_subsidy() {
         NetworksAdded::<Test>::insert(NetUid::ROOT, true);
 
         // Add network, register hotkeys, and setup network parameters
-        add_network(netuid, subnet_tempo, 0);
-        SubnetMechanism::<Test>::insert(netuid, 1); // Set mechanism to 1
+        let owner_hotkey = U256::from(10);
+        let owner_coldkey = U256::from(11);
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        Tempo::<Test>::insert(netuid, 1);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
 
         // Setup large LPs to prevent slippage
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000));
@@ -3210,18 +3214,21 @@ fn test_mining_emission_distribution_with_no_subsidy() {
         SubtensorModule::set_tao_weight(u64::MAX / 10);
 
         // Make subsidy not happen
-        // set price very high
-        // e.g. very little alpha in pool
-        //SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(5));
+        // Set moving price > 1.0
+        // Set price > 1.0
         pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
             netuid,
             U64F64::saturating_from_num(10.0),
         );
 
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+
+        // Make sure we are not subsidizing, so we have root alpha divs.
+        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
+        assert!(!subsidy_mode, "Subsidy mode should be false");
+
         // Run run_coinbase until emissions are drained
         step_block(subnet_tempo);
-
-        log::info!("is_sub: Running epoch with no subsidy");
 
         let old_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
         let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -3232,7 +3239,7 @@ fn test_mining_emission_distribution_with_no_subsidy() {
 
         // step by one block
         step_block(1);
-        // Verify that root alpha divs
+        // Verify root alpha divs
         let new_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
         // Check that we are NOT being subsidized, i.e. that root alpha divs are are changing
         assert_ne!(
