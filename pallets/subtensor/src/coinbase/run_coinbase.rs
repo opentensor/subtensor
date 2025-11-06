@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
         let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut excess_amount: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut excess_tao: BTreeMap<NetUid, U96F32> = BTreeMap::new();
 
         // Only calculate for subnets that we are emitting to.
         for (&netuid_i, &tao_emission_i) in subnet_emissions.iter() {
@@ -162,8 +162,8 @@ impl<T: Config> Pallet<T> {
                     tao_in_i = alpha_in_i.saturating_mul(price_i);
                 }
 
-                let excess_tao: U96F32 = tao_emission_i.saturating_sub(tao_in_i);
-                excess_amount.insert(netuid_i, excess_tao);
+                let excess_amount: U96F32 = tao_emission_i.saturating_sub(tao_in_i);
+                excess_tao.insert(netuid_i, excess_amount);
             }
 
             // Insert values into maps
@@ -171,7 +171,7 @@ impl<T: Config> Pallet<T> {
             alpha_in.insert(netuid_i, alpha_in_i);
             alpha_out.insert(netuid_i, alpha_out_i);
         }
-        (tao_in, alpha_in, alpha_out, excess_amount)
+        (tao_in, alpha_in, alpha_out, excess_tao)
     }
 
     pub fn emit_to_subnets(
