@@ -3077,11 +3077,15 @@ fn test_mining_emission_distribution_with_subsidy() {
 
         let miner_uid = Uids::<Test>::get(netuid, miner_hotkey).unwrap_or(0);
         log::info!("Miner uid: {miner_uid:?}");
-        let miner_incentive: AlphaCurrency =
-            (*Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
+        let miner_incentive: AlphaCurrency = {
+            let miner_incentive = Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
                 .get(miner_uid as usize)
-                .expect("Miner uid should be present") as u64)
-                .into();
+                .copied();
+
+            assert!(miner_incentive.is_some());
+
+            (miner_incentive.unwrap_or_default() as u64).into()
+        };
         log::info!("Miner incentive: {miner_incentive:?}");
 
         // Miner emissions
@@ -3245,11 +3249,15 @@ fn test_mining_emission_distribution_with_no_subsidy() {
         step_block(subnet_tempo - 1);
 
         let miner_uid = Uids::<Test>::get(netuid, miner_hotkey).unwrap_or(0);
-        let miner_incentive: AlphaCurrency =
-            (*Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
+        let miner_incentive: AlphaCurrency = {
+            let miner_incentive = Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
                 .get(miner_uid as usize)
-                .expect("Miner uid should be present") as u64)
-                .into();
+                .copied();
+
+            assert!(miner_incentive.is_some());
+
+            (miner_incentive.unwrap_or_default() as u64).into()
+        };
         log::info!("Miner incentive: {miner_incentive:?}");
 
         let per_block_emission = SubtensorModule::get_block_emission_for_issuance(
