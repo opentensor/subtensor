@@ -463,22 +463,12 @@ impl<T: Config> Pallet<T> {
                     .saturating_to_num::<u64>();
 
                 owner_emission_tao = if owner_alpha_u64 > 0 {
-                    let order = GetTaoForAlpha::with_amount(owner_alpha_u64);
-                    match T::SwapInterface::sim_swap(netuid.into(), order) {
-                        Ok(sim) => TaoCurrency::from(sim.amount_paid_out),
-                        Err(e) => {
-                            log::debug!(
-                                "destroy_alpha_in_out_stakes: sim_swap owner α→τ failed (netuid={netuid:?}, alpha={owner_alpha_u64}, err={e:?}); falling back to price multiply.",
-                            );
-                            let cur_price: U96F32 =
-                                T::SwapInterface::current_alpha_price(netuid.into());
-                            let val_u64 = U96F32::from_num(owner_alpha_u64)
-                                .saturating_mul(cur_price)
-                                .floor()
-                                .saturating_to_num::<u64>();
-                            TaoCurrency::from(val_u64)
-                        }
-                    }
+                    let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
+                    let val_u64 = U96F32::from_num(owner_alpha_u64)
+                        .saturating_mul(cur_price)
+                        .floor()
+                        .saturating_to_num::<u64>();
+                    TaoCurrency::from(val_u64)
                 } else {
                     TaoCurrency::ZERO
                 };
