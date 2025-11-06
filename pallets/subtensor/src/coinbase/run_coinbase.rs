@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
         let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut subsidy_amount: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut excess_tao: BTreeMap<NetUid, U96F32> = BTreeMap::new();
 
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
@@ -72,11 +72,11 @@ impl<T: Config> Pallet<T> {
                 alpha_in_i = alpha_emission_i;
                 tao_in_i = alpha_in_i.saturating_mul(price_i);
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
-                subsidy_amount.insert(*netuid_i, difference_tao);
+                excess_tao.insert(*netuid_i, difference_tao);
             } else {
                 tao_in_i = default_tao_in_i;
                 alpha_in_i = default_alpha_in_i;
-                subsidy_amount.insert(*netuid_i, U96F32::from_num(0.0));
+                excess_tao.insert(*netuid_i, U96F32::from_num(0.0));
             }
             log::debug!("alpha_in_i: {alpha_in_i:?}");
 
@@ -98,16 +98,16 @@ impl<T: Config> Pallet<T> {
         log::debug!("tao_in: {tao_in:?}");
         log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
-        log::debug!("subsidy_amount: {subsidy_amount:?}");
+        log::debug!("excess_tao: {excess_tao:?}");
         log::debug!("root_sell_flag: {root_sell_flag:?}");
 
-        // --- 4. Inject and subsidize
+        // --- 4. Inject and buy Alpha with any excess TAO.
         for netuid_i in subnets_to_emit_to.iter() {
             let tao_in_i: TaoCurrency =
                 tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
             let alpha_in_i: AlphaCurrency =
                 AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
-            let difference_tao: U96F32 = *subsidy_amount.get(netuid_i).unwrap_or(&asfloat!(0));
+            let difference_tao: U96F32 = *excess_tao.get(netuid_i).unwrap_or(&asfloat!(0));
 
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
@@ -154,7 +154,7 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tao_in_i.into());
             });
 
-            let difference_tao: U96F32 = *subsidy_amount.get(netuid_i).unwrap_or(&asfloat!(0));
+            let difference_tao: U96F32 = *excess_tao.get(netuid_i).unwrap_or(&asfloat!(0));
             TotalIssuance::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_in_i.into());
                 *total = total.saturating_add(tou64!(difference_tao).into());
