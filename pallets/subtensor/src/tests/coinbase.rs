@@ -3347,6 +3347,8 @@ fn test_coinbase_alpha_in_more_than_alpha_emission() {
             TaoCurrency::from(1_000_000_000_000_000),
             AlphaCurrency::from(1_000_000_000_000_000),
         );
+        // Initialize swap v3
+        Swap::maybe_initialize_v3(netuid0);
 
         // Set netuid0 to have price tao_emission / price > alpha_emission
         let alpha_emission = U96F32::saturating_from_num(
@@ -3355,7 +3357,7 @@ fn test_coinbase_alpha_in_more_than_alpha_emission() {
             )
             .unwrap_or(0),
         );
-        let price_to_set: U64F64 = U64F64::saturating_from_num(0.2);
+        let price_to_set: U64F64 = U64F64::saturating_from_num(0.01);
         let price_to_set_fixed: U96F32 = U96F32::saturating_from_num(price_to_set);
         let sqrt_price_to_set: U64F64 = sqrt(price_to_set).unwrap();
 
@@ -3369,7 +3371,7 @@ fn test_coinbase_alpha_in_more_than_alpha_emission() {
         assert_abs_diff_eq!(
             pallet_subtensor_swap::Pallet::<Test>::current_alpha_price(netuid0).to_num::<f64>(),
             price_to_set.to_num::<f64>(),
-            epsilon = 1.0
+            epsilon = 0.001
         );
 
         let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
