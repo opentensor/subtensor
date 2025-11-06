@@ -11,7 +11,7 @@ impl<T: Config> Pallet<T> {
         // Filter out subnets with no first emission block number.
         subnets
             .iter()
-            .filter(|netuid| *netuid != NetUid::ROOT)
+            .filter(|&netuid| *netuid != NetUid::ROOT)
             .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
             .copied()
             .collect()
