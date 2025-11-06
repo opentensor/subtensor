@@ -787,9 +787,9 @@ fn test_claim_root_with_run_coinbase() {
             U64F64::saturating_from_num(10.0),
         );
 
-        // Make sure we are not subsidizing, so we have root alpha divs.
-        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
-        assert!(!subsidy_mode, "Subsidy mode should be false");
+        // Make sure we are root selling, so we have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
 
         // Distribute pending root alpha
 
@@ -898,9 +898,9 @@ fn test_claim_root_with_block_emissions() {
             U64F64::saturating_from_num(10.0),
         );
 
-        // Make sure we are not subsidizing, so we have root alpha divs.
-        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
-        assert!(!subsidy_mode, "Subsidy mode should be false");
+        // Make sure we are root selling, so we have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
 
         let initial_total_hotkey_alpha = 10_000_000u64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1023,9 +1023,9 @@ fn test_claim_root_coinbase_distribution() {
             U64F64::saturating_from_num(10.0),
         );
 
-        // Make sure we are not subsidizing, so we have root alpha divs.
-        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
-        assert!(!subsidy_mode, "Subsidy mode should be false");
+        // Make sure we are root selling, so we have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
 
         // Check total issuance (saved to pending alpha divs)
         run_to_block(2);

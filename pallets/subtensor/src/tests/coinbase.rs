@@ -678,9 +678,9 @@ fn test_pending_emission() {
         // Set moving price > 1.0
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
 
-        // Make sure we are not subsidizing, so we have root alpha divs.
-        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
-        assert!(!subsidy_mode, "Subsidy mode should be false");
+        // Make sure we are root selling, so we have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
 
         SubtensorModule::run_coinbase(U96F32::from_num(0));
         // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
@@ -3022,9 +3022,9 @@ fn test_mining_emission_distribution_with_subsidy() {
             U64F64::saturating_from_num(0.01),
         );
 
-        // Make sure we ARE subsidizing, so we have root alpha divs.
-        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
-        assert!(subsidy_mode, "Subsidy mode should be true");
+        // Make sure we ARE NOT root selling, so we do not have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(!root_sell_flag, "Root sell flag should be false");
 
         // Run run_coinbase until emissions are drained
         step_block(subnet_tempo);
@@ -3039,7 +3039,7 @@ fn test_mining_emission_distribution_with_subsidy() {
         step_block(1);
         // Verify that root alpha divs
         let new_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
-        // Check that we are indeed being subsidized, i.e. that root alpha divs are NOT increasing
+        // Check that we are indeed NOT root selling, i.e. that root alpha divs are NOT increasing
         assert_eq!(
             new_root_alpha_divs, old_root_alpha_divs,
             "Root alpha divs should not increase"
@@ -3218,9 +3218,9 @@ fn test_mining_emission_distribution_with_no_subsidy() {
 
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
 
-        // Make sure we are not subsidizing, so we have root alpha divs.
-        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
-        assert!(!subsidy_mode, "Subsidy mode should be false");
+        // Make sure we are root selling, so we have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
 
         // Run run_coinbase until emissions are drained
         step_block(subnet_tempo);

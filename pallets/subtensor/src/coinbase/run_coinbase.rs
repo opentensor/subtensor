@@ -34,7 +34,7 @@ impl<T: Config> Pallet<T> {
         // 2. Get subnets to emit to and emissions
         let subnet_emissions = Self::get_subnet_block_emissions(&subnets, block_emission);
         let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
-        let subsidy_mode = Self::get_network_subsidy_mode(&subnets_to_emit_to);
+        let root_sell_flag = Self::get_network_root_sell_flag(&subnets_to_emit_to);
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
@@ -98,7 +98,8 @@ impl<T: Config> Pallet<T> {
         log::debug!("tao_in: {tao_in:?}");
         log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
-        log::debug!("subsidy_mode: {subsidy_mode:?}");
+        log::debug!("subsidy_amount: {subsidy_amount:?}");
+        log::debug!("root_sell_flag: {root_sell_flag:?}");
 
         // --- 4. Inject and subsidize
         for netuid_i in subnets_to_emit_to.iter() {
@@ -195,18 +196,7 @@ impl<T: Config> Pallet<T> {
             // Get remaining alpha out.
             let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0.0));
             log::debug!("alpha_out_i: {alpha_out_i:?}");
-            // Get total ALPHA on subnet.
-            let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
-            log::debug!("alpha_issuance: {alpha_issuance:?}");
-            // Get root proportional dividends.
-            let root_proportion: U96F32 = tao_weight
-                .checked_div(tao_weight.saturating_add(alpha_issuance))
-                .unwrap_or(asfloat!(0.0));
-            log::debug!("root_proportion: {root_proportion:?}");
-            // Get root proportion of alpha_out dividends.
-            let mut root_alpha: U96F32 = asfloat!(0.0);
-            if !subsidy_mode {
-                // Only give root alpha if not being subsidized.
+            if root_sell_flag {
                 root_alpha = root_proportion
                     .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
                     .saturating_mul(asfloat!(0.5)); // 50% to validators.
@@ -270,14 +260,15 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_network_subsidy_mode(subnets_to_emit_to: &[NetUid]) -> bool {
+    pub fn get_network_root_sell_flag(subnets_to_emit_to: &[NetUid]) -> bool {
         let total_ema_price: U96F32 = subnets_to_emit_to
             .iter()
             .map(|netuid| Self::get_moving_alpha_price(*netuid))
             .sum();
 
-        // If the total EMA price is less than or equal to 1, then we subsidize the network.
-        total_ema_price <= U96F32::saturating_from_num(1)
+        // If the total EMA price is less than or equal to 1
+        // then we WILL NOT root sell.
+        total_ema_price > U96F32::saturating_from_num(1)
     }
 
     pub fn calculate_dividends_and_incentives(
