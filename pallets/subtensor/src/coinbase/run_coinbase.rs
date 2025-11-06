@@ -263,12 +263,11 @@ impl<T: Config> Pallet<T> {
                 let owner_cut = PendingOwnerCut::<T>::get(netuid);
                 PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
-                // Drain pending root alpha divs, alpha emission, and owner cut.
+                // Distribute the emission.
                 Self::distribute_emission(
                     netuid,
                     pending_alpha,
                     pending_root_alpha,
-                    pending_alpha.saturating_add(pending_root_alpha),
                     owner_cut,
                 );
             } else {
@@ -632,7 +631,6 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         pending_alpha: AlphaCurrency,
         pending_root_alpha: AlphaCurrency,
-        total_alpha: AlphaCurrency,
         owner_cut: AlphaCurrency,
     ) {
         log::debug!(
@@ -640,6 +638,7 @@ impl<T: Config> Pallet<T> {
         );
 
         let tao_weight = Self::get_tao_weight();
+        let total_alpha = pending_alpha.saturating_add(pending_root_alpha);
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
