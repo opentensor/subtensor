@@ -6,8 +6,8 @@ use crate::tests::mock::{
 use crate::{
     DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
     NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetTAO,
-    SubtokenEnabled, Tempo, pallet,
+    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
+    SubnetTAO, SubtokenEnabled, Tempo, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
@@ -18,7 +18,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
-use substrate_fixed::types::{I96F32, U96F32};
+use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -779,6 +779,18 @@ fn test_claim_root_with_run_coinbase() {
             initial_total_hotkey_alpha.into(),
         );
 
+        // Set moving price > 1.0 and price > 1.0
+        // So we turn off subsidy
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
+            netuid,
+            U64F64::saturating_from_num(10.0),
+        );
+
+        // Make sure we are not subsidizing, so we have root alpha divs.
+        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
+        assert!(!subsidy_mode, "Subsidy mode should be false");
+
         // Distribute pending root alpha
 
         let initial_stake: u64 =
@@ -877,6 +889,18 @@ fn test_claim_root_with_block_emissions() {
             root_stake.into(),
         );
         SubtensorModule::maybe_add_coldkey_index(&coldkey);
+
+        // Set moving price > 1.0 and price > 1.0
+        // So we turn off subsidy
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
+            netuid,
+            U64F64::saturating_from_num(10.0),
+        );
+
+        // Make sure we are not subsidizing, so we have root alpha divs.
+        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
+        assert!(!subsidy_mode, "Subsidy mode should be false");
 
         let initial_total_hotkey_alpha = 10_000_000u64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -991,12 +1015,27 @@ fn test_claim_root_coinbase_distribution() {
         let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
         let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
 
-        // Check total issuance (saved to pending alpha divs)
+        // Set moving price > 1.0 and price > 1.0
+        // So we turn off subsidy
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
+            netuid,
+            U64F64::saturating_from_num(10.0),
+        );
 
+        // Make sure we are not subsidizing, so we have root alpha divs.
+        let subsidy_mode = SubtensorModule::get_network_subsidy_mode(&[netuid]);
+        assert!(!subsidy_mode, "Subsidy mode should be false");
+
+        // Check total issuance (saved to pending alpha divs)
         run_to_block(2);
 
         let alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        assert_eq!(initial_alpha_issuance + alpha_emissions, alpha_issuance);
+        // We went two blocks so we should have 2x the alpha emissions
+        assert_eq!(
+            initial_alpha_issuance + alpha_emissions.saturating_mul(2.into()),
+            alpha_issuance
+        );
 
         let root_prop = initial_tao as f64 / (u64::from(alpha_issuance) + initial_tao) as f64;
         let root_validators_share = 0.5f64;
