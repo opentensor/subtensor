@@ -467,5 +467,25 @@ mod events {
             /// Claim type
             root_claim_type: RootClaimTypeEnum,
         },
+        /// Network was deregistered. We clean root claim data.
+        RootClaimCleanupStarted {
+            /// Subnet ID
+            netuid: NetUid,
+        },
+
+        /// Network was deregistered. We clean root claim data.
+        RootClaimCleanupProgress {
+            /// Subnet ID
+            netuid: NetUid,
+            /// Progress of RootClaimable map cleanup
+            root_claimable_iteration: bool,
+            /// Progress of RootClaimed map cleanup
+            root_claimed_iteration: bool,
+        },
+        /// Finished root claim data cleanup for subnet.
+        RootClaimCleanupFinished {
+            /// Subnet ID
+            netuid: NetUid,
+        },
     }
 }

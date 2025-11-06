@@ -399,6 +399,8 @@ impl<T: Config> Pallet<T> {
             root_claim_cleanup_started: false,
         };
 
+        Self::deposit_event(Event::RootClaimCleanupStarted { netuid });
+
         LastRootClaimCleanupData::<T>::put(root_cleanup_data);
     }
 
@@ -406,6 +408,8 @@ impl<T: Config> Pallet<T> {
         let Some(mut root_cleanup_data) = LastRootClaimCleanupData::<T>::get() else {
             return; // nothing to clean yet
         };
+
+        let netuid = root_cleanup_data.netuid;
 
         // Initialize RootClaimable cleanup
         let mut starting_root_claimable_key = None;
@@ -441,11 +445,17 @@ impl<T: Config> Pallet<T> {
             // Remove RootClaimable for subnet
             for hotkey in hotkeys {
                 RootClaimable::<T>::mutate(&hotkey, |claimable| {
-                    claimable.remove(&root_cleanup_data.netuid);
+                    claimable.remove(&netuid);
                 });
 
                 new_starting_key = Some(RootClaimable::<T>::hashed_key_for(&hotkey));
             }
+
+            Self::deposit_event(Event::RootClaimCleanupProgress {
+                netuid,
+                root_claimable_iteration: true,
+                root_claimed_iteration: false,
+            });
 
             // Continue with RootClaimed if it's the last batch
             if new_iteration {
@@ -465,10 +475,16 @@ impl<T: Config> Pallet<T> {
         // Clean RootClaimed
         if root_cleanup_data.root_claim_cleanup_started {
             let root_claimed_result = RootClaimed::<T>::clear_prefix(
-                (root_cleanup_data.netuid,),
+                (netuid,),
                 ROOT_CLAIM_CLEANUP_BATCH_SIZE.saturated_into::<u32>(),
                 None,
             );
+
+            Self::deposit_event(Event::RootClaimCleanupProgress {
+                netuid,
+                root_claimable_iteration: false,
+                root_claimed_iteration: true,
+            });
 
             if root_claimed_result.maybe_cursor.is_some() {
                 return; // continue next block
@@ -476,9 +492,9 @@ impl<T: Config> Pallet<T> {
             // Finished cleaning RootClaimed
         }
 
-        // TODO: events
-
         // Finish cleaning RootClaimable for subnet
         LastRootClaimCleanupData::<T>::take();
+
+        Self::deposit_event(Event::RootClaimCleanupFinished { netuid });
     }
 }
