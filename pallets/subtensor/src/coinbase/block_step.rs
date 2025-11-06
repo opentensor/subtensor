@@ -18,7 +18,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 .to_u64(),
         );
         log::debug!("Block emission: {block_emission:?}");
-        // --- 3. Run emission through network.
+
+        // --- 3. Reveal matured weights.
+        Self::reveal_crv3_commits();
         Self::run_coinbase(block_emission);
         // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
@@ -259,6 +261,16 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             return Self::get_min_burn(netuid);
         } else {
             return next_value.saturating_to_num::<u64>().into();
+        }
+    }
+
+    pub fn reveal_crv3_commits() {
+        let netuids: Vec<NetUid> = Self::get_all_subnet_netuids();
+        for netuid in netuids.into_iter().filter(|netuid| *netuid != NetUid::ROOT) {
+            // Reveal matured weights.
+            if let Err(e) = Self::reveal_crv3_commits_for_subnet(netuid) {
+                log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");
+            };
         }
     }
 }
