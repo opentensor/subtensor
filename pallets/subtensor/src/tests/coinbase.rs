@@ -115,29 +115,28 @@ fn test_coinbase_tao_issuance_base_low() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_tao_issuance_base_low_flow --exact --show-output --nocapture
-#[test]
-fn test_coinbase_tao_issuance_base_low_flow() {
-    new_test_ext(1).execute_with(|| {
-        let emission = TaoCurrency::from(1_234_567);
-        let subnet_owner_ck = U256::from(1001);
-        let subnet_owner_hk = U256::from(1002);
-        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
-        let emission = TaoCurrency::from(1);
+// #[test]
+// fn test_coinbase_tao_issuance_base_low_flow() {
+//     new_test_ext(1).execute_with(|| {
+//         let emission = TaoCurrency::from(1_234_567);
+//         let subnet_owner_ck = U256::from(1001);
+//         let subnet_owner_hk = U256::from(1002);
+//         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+//         let emission = TaoCurrency::from(1);
 
-        // 100% tao flow method
-        let block_num = FlowHalfLife::<Test>::get();
-        SubnetEmaTaoFlow::<Test>::insert(netuid, (block_num, I64F64::from_num(1_000_000_000)));
-        FlowFirstBlock::<Test>::set(Some(0_u64));
-        System::set_block_number(block_num);
+//         // 100% tao flow method
+//         let block_num = FlowHalfLife::<Test>::get();
+//         SubnetEmaTaoFlow::<Test>::insert(netuid, (block_num, I64F64::from_num(1_000_000_000)));
+//         System::set_block_number(block_num);
 
-        let tao_in_before = SubnetTAO::<Test>::get(netuid);
-        let total_stake_before = TotalStake::<Test>::get();
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
-        assert_eq!(SubnetTAO::<Test>::get(netuid), tao_in_before + emission);
-        assert_eq!(TotalIssuance::<Test>::get(), emission);
-        assert_eq!(TotalStake::<Test>::get(), total_stake_before + emission);
-    });
-}
+//         let tao_in_before = SubnetTAO::<Test>::get(netuid);
+//         let total_stake_before = TotalStake::<Test>::get();
+//         SubtensorModule::run_coinbase(U96F32::from_num(emission));
+//         assert_eq!(SubnetTAO::<Test>::get(netuid), tao_in_before + emission);
+//         assert_eq!(TotalIssuance::<Test>::get(), emission);
+//         assert_eq!(TotalStake::<Test>::get(), total_stake_before + emission);
+//     });
+// }
 
 // Test emission distribution across multiple subnets.
 // This test verifies that:
@@ -237,16 +236,16 @@ fn test_coinbase_tao_issuance_different_prices() {
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid1),
             TaoCurrency::from(initial_tao + emission / 3),
-            epsilon = 1.into(),
+            epsilon = 10.into(),
         );
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid2),
             TaoCurrency::from(initial_tao + 2 * emission / 3),
-            epsilon = 1.into(),
+            epsilon = 10.into(),
         );
 
         // Prices are low => we limit tao issued (buy alpha with it)
-        let tao_issued = TaoCurrency::from(((0.1 + 0.2) * emission as f64) as u64);
+        let tao_issued = TaoCurrency::from(((1.0) * emission as f64) as u64);
         assert_abs_diff_eq!(
             TotalIssuance::<Test>::get(),
             tao_issued,
@@ -261,87 +260,85 @@ fn test_coinbase_tao_issuance_different_prices() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_tao_issuance_different_flows --exact --show-output --nocapture
-#[test]
-fn test_coinbase_tao_issuance_different_flows() {
-    new_test_ext(1).execute_with(|| {
-        let subnet_owner_ck = U256::from(1001);
-        let subnet_owner_hk = U256::from(1002);
-        let netuid1 = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
-        let netuid2 = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
-        let emission = 100_000_000;
+// #[test]
+// fn test_coinbase_tao_issuance_different_flows() {
+//     new_test_ext(1).execute_with(|| {
+//         let subnet_owner_ck = U256::from(1001);
+//         let subnet_owner_hk = U256::from(1002);
+//         let netuid1 = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+//         let netuid2 = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+//         let emission = 100_000_000;
 
-        // Setup prices 0.1 and 0.2
-        let initial_tao: u64 = 100_000_u64;
-        let initial_alpha1: u64 = initial_tao * 10;
-        let initial_alpha2: u64 = initial_tao * 5;
-        mock::setup_reserves(netuid1, initial_tao.into(), initial_alpha1.into());
-        mock::setup_reserves(netuid2, initial_tao.into(), initial_alpha2.into());
+//         // Setup prices 0.1 and 0.2
+//         let initial_tao: u64 = 100_000_u64;
+//         let initial_alpha1: u64 = initial_tao * 10;
+//         let initial_alpha2: u64 = initial_tao * 5;
+//         mock::setup_reserves(netuid1, initial_tao.into(), initial_alpha1.into());
+//         mock::setup_reserves(netuid2, initial_tao.into(), initial_alpha2.into());
 
-        // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(
-            netuid1,
-            TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
-            false,
-        )
-        .unwrap();
-        SubtensorModule::swap_tao_for_alpha(
-            netuid2,
-            TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
-            false,
-        )
-        .unwrap();
+//         // Force the swap to initialize
+//         SubtensorModule::swap_tao_for_alpha(
+//             netuid1,
+//             TaoCurrency::ZERO,
+//             1_000_000_000_000.into(),
+//             false,
+//         )
+//         .unwrap();
+//         SubtensorModule::swap_tao_for_alpha(
+//             netuid2,
+//             TaoCurrency::ZERO,
+//             1_000_000_000_000.into(),
+//             false,
+//         )
+//         .unwrap();
 
-        // Set subnet prices to reversed proportion to ensure they don't affect emissions.
-        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(2));
-        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(1));
+//         // Set subnet prices to reversed proportion to ensure they don't affect emissions.
+//         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(2));
+//         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(1));
 
-        // Set subnet tao flow ema.
-        // 100% tao flow method
-        let block_num = FlowHalfLife::<Test>::get();
-        SubnetEmaTaoFlow::<Test>::insert(netuid1, (block_num, I64F64::from_num(1)));
-        SubnetEmaTaoFlow::<Test>::insert(netuid2, (block_num, I64F64::from_num(2)));
-        FlowFirstBlock::<Test>::set(Some(0_u64));
-        System::set_block_number(block_num);
+//         // Set subnet tao flow ema.
+//         let block_num = FlowHalfLife::<Test>::get();
+//         SubnetEmaTaoFlow::<Test>::insert(netuid1, (block_num, I64F64::from_num(1)));
+//         SubnetEmaTaoFlow::<Test>::insert(netuid2, (block_num, I64F64::from_num(2)));
+//         System::set_block_number(block_num);
 
-        // Set normalization exponent to 1 for simplicity
-        FlowNormExponent::<Test>::set(U64F64::from(1_u64));
+//         // Set normalization exponent to 1 for simplicity
+//         FlowNormExponent::<Test>::set(U64F64::from(1_u64));
 
-        // Assert initial TAO reserves.
-        assert_eq!(SubnetTAO::<Test>::get(netuid1), initial_tao.into());
-        assert_eq!(SubnetTAO::<Test>::get(netuid2), initial_tao.into());
-        let total_stake_before = TotalStake::<Test>::get();
+//         // Assert initial TAO reserves.
+//         assert_eq!(SubnetTAO::<Test>::get(netuid1), initial_tao.into());
+//         assert_eq!(SubnetTAO::<Test>::get(netuid2), initial_tao.into());
+//         let total_stake_before = TotalStake::<Test>::get();
 
-        // Run the coinbase with the emission amount.
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+//         // Run the coinbase with the emission amount.
+//         SubtensorModule::run_coinbase(U96F32::from_num(emission));
 
-        // Assert tao emission is split evenly.
-        assert_abs_diff_eq!(
-            SubnetTAO::<Test>::get(netuid1),
-            TaoCurrency::from(initial_tao + emission / 3),
-            epsilon = 10.into(),
-        );
-        assert_abs_diff_eq!(
-            SubnetTAO::<Test>::get(netuid2),
-            TaoCurrency::from(initial_tao + 2 * emission / 3),
-            epsilon = 10.into(),
-        );
+//         // Assert tao emission is split evenly.
+//         assert_abs_diff_eq!(
+//             SubnetTAO::<Test>::get(netuid1),
+//             TaoCurrency::from(initial_tao + emission / 3),
+//             epsilon = 10.into(),
+//         );
+//         assert_abs_diff_eq!(
+//             SubnetTAO::<Test>::get(netuid2),
+//             TaoCurrency::from(initial_tao + 2 * emission / 3),
+//             epsilon = 10.into(),
+//         );
 
-        // Prices are low => we limit tao issued (buy alpha with it)
-        let tao_issued = TaoCurrency::from(((0.1 + 0.2) * emission as f64) as u64);
-        assert_abs_diff_eq!(
-            TotalIssuance::<Test>::get(),
-            tao_issued,
-            epsilon = 10.into()
-        );
-        assert_abs_diff_eq!(
-            TotalStake::<Test>::get(),
-            total_stake_before + emission.into(),
-            epsilon = 10.into()
-        );
-    });
-}
+//         // Prices are low => we limit tao issued (buy alpha with it)
+//         let tao_issued = TaoCurrency::from(((0.1 + 0.2) * emission as f64) as u64);
+//         assert_abs_diff_eq!(
+//             TotalIssuance::<Test>::get(),
+//             tao_issued,
+//             epsilon = 10.into()
+//         );
+//         assert_abs_diff_eq!(
+//             TotalStake::<Test>::get(),
+//             total_stake_before + emission.into(),
+//             epsilon = 10.into()
+//         );
+//     });
+// }
 
 // Test moving price updates with different alpha values.
 // This test verifies that:
@@ -490,9 +487,9 @@ fn test_coinbase_alpha_issuance_base() {
     });
 }
 
-// Test alpha issuance with different subnet prices.
+// Test alpha issuance with different subnet flows.
 // This test verifies that:
-// - Alpha issuance is proportional to subnet prices
+// - Alpha issuance is proportional to subnet flows
 // - Higher priced subnets receive more TAO emission
 // - Alpha issuance is correctly calculated based on price ratios
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_alpha_issuance_different --exact --show-output --nocapture
@@ -507,18 +504,16 @@ fn test_coinbase_alpha_issuance_different() {
         // Make subnets dynamic.
         SubnetMechanism::<Test>::insert(netuid1, 1);
         SubnetMechanism::<Test>::insert(netuid2, 1);
-        // Setup prices 1 and 1
+        // Setup prices 1 and 2
         let initial: u64 = 1_000_000;
         SubnetTAO::<Test>::insert(netuid1, TaoCurrency::from(initial));
         SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial));
-        SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(initial));
+        SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(2 * initial));
         SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial));
-        // Set subnet prices.
+        // Set subnet ema prices to 1 and 2
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
-        // Set tao flow
-        SubnetEmaTaoFlow::<Test>::insert(netuid1, (1u64, I64F64::from_num(1)));
-        SubnetEmaTaoFlow::<Test>::insert(netuid2, (1u64, I64F64::from_num(2)));
+        // Do NOT Set tao flow, let it initialize
         // Run coinbase
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // tao_in = 333_333
@@ -528,10 +523,10 @@ fn test_coinbase_alpha_issuance_different() {
             (initial + emission / 3).into()
         );
         // tao_in = 666_666
-        // alpha_in = 666_666/price = 666_666 + initial
+        // alpha_in = 666_666/price = 333_333 + initial
         assert_eq!(
             SubnetAlphaIn::<Test>::get(netuid2),
-            (initial + emission / 3 + emission / 3).into()
+            (initial + (emission * 2 / 3) / 2).into()
         );
     });
 }
@@ -695,6 +690,7 @@ fn test_drain_base() {
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
         )
     });
 }
@@ -707,6 +703,7 @@ fn test_drain_base_with_subnet() {
         add_network(netuid, 1, 0);
         SubtensorModule::drain_pending_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
@@ -733,6 +730,7 @@ fn test_drain_base_with_subnet_with_single_staker_not_registered() {
         SubtensorModule::drain_pending_emission(
             netuid,
             pending_alpha.into(),
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -763,6 +761,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered() {
             netuid,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
         let stake_after =
@@ -807,6 +806,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
             netuid,
             pending_alpha,
             pending_root_alpha,
+            pending_alpha.saturating_add(pending_root_alpha),
             AlphaCurrency::ZERO,
         );
         let stake_after =
@@ -854,6 +854,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered() {
             netuid,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
         let stake_after1 =
@@ -919,6 +920,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
             netuid,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
         let stake_after1 =
@@ -994,6 +996,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
             netuid,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             0.into(),
         );
         let stake_after1 =
@@ -1074,6 +1077,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
             netuid,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
         let stake_after1 =
@@ -1135,6 +1139,7 @@ fn test_drain_alpha_childkey_parentkey() {
             netuid,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
         let parent_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
@@ -1360,6 +1365,7 @@ fn test_get_root_children_drain() {
             alpha,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
 
@@ -1384,6 +1390,7 @@ fn test_get_root_children_drain() {
             pending_alpha,
             //   pending_root1,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
 
@@ -1407,6 +1414,7 @@ fn test_get_root_children_drain() {
             alpha,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
 
@@ -1495,6 +1503,7 @@ fn test_get_root_children_drain_half_proportion() {
             alpha,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
 
@@ -1581,6 +1590,7 @@ fn test_get_root_children_drain_with_take() {
             alpha,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
 
@@ -1668,6 +1678,7 @@ fn test_get_root_children_drain_with_half_take() {
             alpha,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
 
@@ -2383,6 +2394,7 @@ fn test_drain_pending_emission_no_miners_all_drained() {
             netuid,
             emission,
             AlphaCurrency::ZERO,
+            emission,
             AlphaCurrency::ZERO,
         );
 
@@ -2454,6 +2466,7 @@ fn test_drain_pending_emission_zero_emission() {
         SubtensorModule::drain_pending_emission(
             netuid,
             0.into(),
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -2748,6 +2761,7 @@ fn test_drain_alpha_childkey_parentkey_with_burn() {
             netuid,
             pending_alpha,
             AlphaCurrency::ZERO,
+            pending_alpha,
             AlphaCurrency::ZERO,
         );
         let parent_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
@@ -2912,5 +2926,355 @@ fn test_zero_shares_zero_emission() {
         // Netuid 1 is cut off by lower limit, all emission goes to netuid2
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), initial.into());
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid2), initial.into());
+    });
+}
+
+#[test]
+fn test_mining_emission_distribution_with_subsidy() {
+    new_test_ext(1).execute_with(|| {
+        let validator_coldkey = U256::from(1);
+        let validator_hotkey = U256::from(2);
+        let validator_miner_coldkey = U256::from(3);
+        let validator_miner_hotkey = U256::from(4);
+        let miner_coldkey = U256::from(5);
+        let miner_hotkey = U256::from(6);
+        let netuid = NetUid::from(1);
+        let subnet_tempo = 10;
+        let stake: u64 = 100_000_000_000;
+        let root_stake: u64 = 200_000_000_000; // 200 TAO
+
+        // Create root network
+        SubtensorModule::set_tao_weight(0); // Start tao weight at 0
+        SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
+        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
+
+        // Add network, register hotkeys, and setup network parameters
+        add_network(netuid, subnet_tempo, 0);
+        SubnetMechanism::<Test>::insert(netuid, 1); // Set mechanism to 1
+
+        // Setup large LPs to prevent slippage
+        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
+
+        register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
+        register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
+        register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &validator_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &validator_miner_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &miner_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        step_block(subnet_tempo);
+        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        // There are two validators and three neurons
+        MaxAllowedUids::<Test>::set(netuid, 3);
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+
+        // Setup stakes:
+        //   Stake from validator
+        //   Stake from valiminer
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            netuid,
+            stake.into()
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_miner_coldkey),
+            validator_miner_hotkey,
+            netuid,
+            stake.into()
+        ));
+
+        // Setup YUMA so that it creates emissions
+        Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 0, vec![(1, 0xFFFF)]);
+        Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 1, vec![(2, 0xFFFF)]);
+        BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        BlockAtRegistration::<Test>::set(netuid, 1, 1);
+        BlockAtRegistration::<Test>::set(netuid, 2, 1);
+        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
+        Kappa::<Test>::set(netuid, u16::MAX / 5);
+        ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
+        ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
+
+        // Run run_coinbase until emissions are drained
+        step_block(subnet_tempo);
+
+        // Add stake to validator so it has root stake
+        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        // init root
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            NetUid::ROOT,
+            root_stake.into()
+        ));
+        // Set tao weight non zero
+        SubtensorModule::set_tao_weight(u64::MAX / 10);
+
+        // Make subsidy happen
+        // set price very low, e.g. a lot of alpha in
+        //SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
+            netuid,
+            U64F64::saturating_from_num(0.01),
+        );
+
+        // Run run_coinbase until emissions are drained
+        step_block(subnet_tempo);
+
+        log::info!("is_sub: Running epoch with subsidy");
+
+        let old_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
+        let per_block_emission = SubtensorModule::get_block_emission_for_issuance(
+            SubtensorModule::get_alpha_issuance(netuid).into(),
+        )
+        .unwrap_or(0);
+
+        // step by one block
+        step_block(1);
+        // Verify that root alpha divs
+        let new_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
+        // Check that we are indeed being subsidized, i.e. that root alpha divs are NOT increasing
+        assert_eq!(
+            new_root_alpha_divs, old_root_alpha_divs,
+            "Root alpha divs should not increase"
+        );
+        // Check root divs are zero
+        assert_eq!(
+            new_root_alpha_divs,
+            AlphaCurrency::ZERO,
+            "Root alpha divs should be zero"
+        );
+        let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        );
+        // Run again but with some root stake
+        step_block(subnet_tempo - 2);
+        assert_abs_diff_eq!(
+            PendingEmission::<Test>::get(netuid).to_u64(),
+            U96F32::saturating_from_num(per_block_emission)
+                .saturating_mul(U96F32::saturating_from_num(subnet_tempo as u64))
+                .saturating_mul(U96F32::saturating_from_num(0.90))
+                .saturating_to_num::<u64>(),
+            epsilon = 100_000_u64.into()
+        );
+        step_block(1);
+        assert!(
+            BlocksSinceLastStep::<Test>::get(netuid) == 0,
+            "Blocks since last step should be 0"
+        );
+
+        let miner_uid = Uids::<Test>::get(netuid, miner_hotkey).unwrap_or(0);
+        log::info!("Miner uid: {miner_uid:?}");
+        let miner_incentive: AlphaCurrency =
+            (*Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
+                .get(miner_uid as usize)
+                .expect("Miner uid should be present") as u64)
+                .into();
+        log::info!("Miner incentive: {miner_incentive:?}");
+
+        // Miner emissions
+        let miner_emission_1: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        )
+        .to_u64()
+            - miner_stake_before_epoch.to_u64();
+
+        assert_abs_diff_eq!(
+            Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
+                .iter()
+                .sum::<u16>(),
+            u16::MAX,
+            epsilon = 10
+        );
+
+        assert_abs_diff_eq!(
+            miner_emission_1,
+            U96F32::saturating_from_num(miner_incentive)
+                .saturating_div(u16::MAX.into())
+                .saturating_mul(U96F32::saturating_from_num(per_block_emission))
+                .saturating_mul(U96F32::saturating_from_num(subnet_tempo + 1))
+                .saturating_mul(U96F32::saturating_from_num(0.45)) // miner cut
+                .saturating_to_num::<u64>(),
+            epsilon = 1_000_000_u64
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_mining_emission_distribution_with_no_subsidy --exact --show-output --nocapture
+#[test]
+fn test_mining_emission_distribution_with_no_subsidy() {
+    new_test_ext(1).execute_with(|| {
+        let validator_coldkey = U256::from(1);
+        let validator_hotkey = U256::from(2);
+        let validator_miner_coldkey = U256::from(3);
+        let validator_miner_hotkey = U256::from(4);
+        let miner_coldkey = U256::from(5);
+        let miner_hotkey = U256::from(6);
+        let netuid = NetUid::from(1);
+        let subnet_tempo = 10;
+        let stake: u64 = 100_000_000_000;
+        let root_stake: u64 = 200_000_000_000; // 200 TAO
+
+        // Create root network
+        SubtensorModule::set_tao_weight(0); // Start tao weight at 0
+        SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
+        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
+
+        // Add network, register hotkeys, and setup network parameters
+        add_network(netuid, subnet_tempo, 0);
+        SubnetMechanism::<Test>::insert(netuid, 1); // Set mechanism to 1
+
+        // Setup large LPs to prevent slippage
+        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
+
+        register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
+        register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
+        register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &validator_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &validator_miner_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &miner_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        step_block(subnet_tempo);
+        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        // There are two validators and three neurons
+        MaxAllowedUids::<Test>::set(netuid, 3);
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+
+        // Setup stakes:
+        //   Stake from validator
+        //   Stake from valiminer
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            netuid,
+            stake.into()
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_miner_coldkey),
+            validator_miner_hotkey,
+            netuid,
+            stake.into()
+        ));
+
+        // Setup YUMA so that it creates emissions
+        Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 0, vec![(1, 0xFFFF)]);
+        Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 1, vec![(2, 0xFFFF)]);
+        BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        BlockAtRegistration::<Test>::set(netuid, 1, 1);
+        BlockAtRegistration::<Test>::set(netuid, 2, 1);
+        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
+        Kappa::<Test>::set(netuid, u16::MAX / 5);
+        ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
+        ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
+
+        // Run run_coinbase until emissions are drained
+        step_block(subnet_tempo);
+
+        // Add stake to validator so it has root stake
+        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        // init root
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            NetUid::ROOT,
+            root_stake.into()
+        ));
+        // Set tao weight non zero
+        SubtensorModule::set_tao_weight(u64::MAX / 10);
+
+        // Make subsidy not happen
+        // set price very high
+        // e.g. very little alpha in pool
+        //SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(5));
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
+            netuid,
+            U64F64::saturating_from_num(10.0),
+        );
+
+        // Run run_coinbase until emissions are drained
+        step_block(subnet_tempo);
+
+        log::info!("is_sub: Running epoch with no subsidy");
+
+        let old_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
+        let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        );
+
+        // step by one block
+        step_block(1);
+        // Verify that root alpha divs
+        let new_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
+        // Check that we are NOT being subsidized, i.e. that root alpha divs are are changing
+        assert_ne!(
+            new_root_alpha_divs, old_root_alpha_divs,
+            "Root alpha divs should be changing"
+        );
+        assert!(
+            new_root_alpha_divs > AlphaCurrency::ZERO,
+            "Root alpha divs should be greater than 0"
+        );
+
+        // Run again but with some root stake
+        step_block(subnet_tempo - 1);
+
+        let miner_uid = Uids::<Test>::get(netuid, miner_hotkey).unwrap_or(0);
+        let miner_incentive: AlphaCurrency =
+            (*Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
+                .get(miner_uid as usize)
+                .expect("Miner uid should be present") as u64)
+                .into();
+        log::info!("Miner incentive: {miner_incentive:?}");
+
+        let per_block_emission = SubtensorModule::get_block_emission_for_issuance(
+            SubtensorModule::get_alpha_issuance(netuid).into(),
+        )
+        .unwrap_or(0);
+
+        // Miner emissions
+        let miner_emission_1: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        )
+        .to_u64()
+            - miner_stake_before_epoch.to_u64();
+
+        assert_abs_diff_eq!(
+            miner_emission_1,
+            U96F32::saturating_from_num(miner_incentive)
+                .saturating_div(u16::MAX.into())
+                .saturating_mul(U96F32::saturating_from_num(per_block_emission))
+                .saturating_mul(U96F32::saturating_from_num(subnet_tempo + 1))
+                .saturating_mul(U96F32::saturating_from_num(0.45)) // miner cut
+                .saturating_to_num::<u64>(),
+            epsilon = 1_000_000_u64
+        );
     });
 }

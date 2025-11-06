@@ -69,19 +69,21 @@ impl<T: Config> Pallet<T> {
             if price_i < tao_in_ratio {
                 tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
                 alpha_in_i = block_emission;
-                let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
+                let difference_tao: TaoCurrency =
+                    tou64!(default_tao_in_i.saturating_sub(tao_in_i)).into();
+                TotalIssuance::<T>::mutate(|total| {
+                    *total = total.saturating_add(difference_tao);
+                });
                 // Difference becomes buy.
                 let buy_swap_result = Self::swap_tao_for_alpha(
                     *netuid_i,
-                    tou64!(difference_tao).into(),
+                    difference_tao,
                     T::SwapInterface::max_price(),
                     true,
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
                     let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_sub(bought_alpha);
-                    });
+                    Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
                 }
                 is_subsidized.insert(*netuid_i, true);
             } else {
@@ -106,6 +108,7 @@ impl<T: Config> Pallet<T> {
             alpha_in.insert(*netuid_i, alpha_in_i);
             alpha_out.insert(*netuid_i, alpha_out_i);
         }
+        log::debug!("is_subsidized: {is_subsidized:?}");
         log::debug!("tao_in: {tao_in:?}");
         log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
@@ -189,21 +192,23 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(asfloat!(0.0));
             log::debug!("root_proportion: {root_proportion:?}");
             // Get root proportion of alpha_out dividends.
-            let root_alpha: U96F32 = root_proportion
-                .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
-                .saturating_mul(asfloat!(0.5)); // 50% to validators.
-            // Remove root alpha from alpha_out.
-            log::debug!("root_alpha: {root_alpha:?}");
-            // Get pending alpha as original alpha_out - root_alpha.
-            let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
-            log::debug!("pending_alpha: {pending_alpha:?}");
-
+            let mut root_alpha: U96F32 = asfloat!(0.0);
             let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
             if !subsidized {
+                // Only give root alpha if not being subsidized.
+                root_alpha = root_proportion
+                    .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
+                    .saturating_mul(asfloat!(0.5)); // 50% to validators.
                 PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
                     *total = total.saturating_add(tou64!(root_alpha).into());
                 });
             }
+            // Remove root alpha from alpha_out.
+            log::debug!("root_alpha: {root_alpha:?}");
+
+            // Get pending alpha as original alpha_out - root_alpha.
+            let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
+            log::debug!("pending_alpha: {pending_alpha:?}");
 
             // Accumulate alpha emission in pending.
             PendingEmission::<T>::mutate(*netuid_i, |total| {
@@ -246,7 +251,13 @@ impl<T: Config> Pallet<T> {
                 PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Drain pending root alpha divs, alpha emission, and owner cut.
-                Self::drain_pending_emission(netuid, pending_alpha, pending_root_alpha, owner_cut);
+                Self::drain_pending_emission(
+                    netuid,
+                    pending_alpha,
+                    pending_root_alpha,
+                    pending_alpha.saturating_add(pending_root_alpha),
+                    owner_cut,
+                );
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
@@ -482,6 +493,7 @@ impl<T: Config> Pallet<T> {
             let destination = maybe_dest.clone().unwrap_or(hotkey.clone());
 
             if let Some(dest) = maybe_dest {
+                log::debug!("incentives: auto staking {incentive:?} to {dest:?}");
                 Self::deposit_event(Event::<T>::AutoStakeAdded {
                     netuid,
                     destination: dest,
@@ -490,6 +502,9 @@ impl<T: Config> Pallet<T> {
                     incentive,
                 });
             }
+            log::debug!(
+                "incentives: increasing stake for {hotkey:?} to {incentive:?} with owner {owner:?}"
+            );
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination,
                 &owner,
@@ -604,6 +619,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         pending_alpha: AlphaCurrency,
         pending_root_alpha: AlphaCurrency,
+        total_alpha: AlphaCurrency,
         owner_cut: AlphaCurrency,
     ) {
         log::debug!(
@@ -614,7 +630,7 @@ impl<T: Config> Pallet<T> {
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
-            Self::epoch_with_mechanisms(netuid, pending_alpha.saturating_add(pending_root_alpha));
+            Self::epoch_with_mechanisms(netuid, total_alpha);
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
         // Compute the pending validator alpha.
@@ -630,8 +646,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("incentive_sum: {incentive_sum:?}");
 
         let pending_validator_alpha = if !incentive_sum.is_zero() {
-            pending_alpha
-                .saturating_add(pending_root_alpha)
+            total_alpha
                 .saturating_div(2.into())
                 .saturating_sub(pending_root_alpha)
         } else {
