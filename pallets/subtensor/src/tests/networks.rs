@@ -242,11 +242,15 @@ fn dissolve_owner_cut_refund_logic() {
             .saturating_to_num::<u64>();
 
         // Use sim swap to estimate owner TAO.
-        let order = GetTaoForAlpha::<Test>::with_amount(owner_alpha_u64);
-        let owner_emission_tao =
-            <Test as pallet::Config>::SwapInterface::sim_swap(net.into(), order)
-                .map(|res| res.amount_paid_out)
-                .expect("sim swap failed");
+        let owner_emission_tao = {
+            let price: U96F32 =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
+            U96F32::from_num(owner_alpha_u64)
+                .saturating_mul(price)
+                .floor()
+                .saturating_to_num::<u64>()
+                .into()
+        };
 
         let expected_refund: TaoCurrency = lock.saturating_sub(owner_emission_tao);
 
@@ -882,22 +886,17 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             .floor()
             .saturating_to_num::<u64>();
 
-        let order = GetTaoForAlpha::<Test>::with_amount(owner_alpha_u64);
-        let owner_emission_tao =
-            <Test as pallet::Config>::SwapInterface::sim_swap(netuid.into(), order)
-                .map(|res| res.amount_paid_out)
-                .unwrap_or_else(|_| {
-                    // Fallback matches the pallet's fallback
-                    let price: U96F32 =
-                        <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
-                    U96F32::from_num(owner_alpha_u64)
-                        .saturating_mul(price)
-                        .floor()
-                        .saturating_to_num::<u64>()
-                        .into()
-                });
+        let owner_emission_tao: u64 = {
+            // Fallback matches the pallet's fallback
+            let price: U96F32 =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+            U96F32::from_num(owner_alpha_u64)
+                .saturating_mul(price)
+                .floor()
+                .saturating_to_num::<u64>()
+        };
 
-        let expected_refund = lock.saturating_sub(owner_emission_tao.to_u64());
+        let expected_refund = lock.saturating_sub(owner_emission_tao);
 
         // ── 6) run distribution (credits τ to coldkeys, wipes α state) ─────
         assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
@@ -968,19 +967,14 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
             .floor()
             .saturating_to_num::<u64>();
 
-        // Prefer sim_swap; fall back to current price if unavailable.
-        let order = GetTaoForAlpha::<Test>::with_amount(owner_alpha_u64);
-        let owner_emission_tao_u64 =
-            <Test as pallet::Config>::SwapInterface::sim_swap(netuid.into(), order)
-                .map(|res| res.amount_paid_out.to_u64())
-                .unwrap_or_else(|_| {
-                    let price: U96F32 =
-                        <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
-                    U96F32::from_num(owner_alpha_u64)
-                        .saturating_mul(price)
-                        .floor()
-                        .saturating_to_num::<u64>()
-                });
+        let owner_emission_tao_u64 = {
+            let price: U96F32 =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+            U96F32::from_num(owner_alpha_u64)
+                .saturating_mul(price)
+                .floor()
+                .saturating_to_num::<u64>()
+        };
 
         let expected_refund: u64 = lock_u64.saturating_sub(owner_emission_tao_u64);
 
