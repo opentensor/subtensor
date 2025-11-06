@@ -1,5 +1,4 @@
 use super::*;
-use crate::alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
 use safe_math::FixedExt;
 use substrate_fixed::transcendental::{exp, ln};
@@ -7,13 +6,12 @@ use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
-
     pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
         // Filter out subnets with no first emission block number.
         subnets
-            .to_owned()
-            .into_iter()
+            .iter()
             .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
+            .copied()
             .collect()
     }
 

@@ -34,11 +34,7 @@ impl<T: Config> Pallet<T> {
         // 2. Get subnets to emit to and emissions
         let subnet_emissions = Self::get_subnet_block_emissions(&subnets, block_emission);
         let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
-        let total_ema_price: U96F32 = subnets_to_emit_to
-            .iter()
-            .map(|netuid| Self::get_moving_alpha_price(*netuid))
-            .sum();
-        let subsidy_mode = total_ema_price <= U96F32::saturating_from_num(1);
+        let subsidy_mode = Self::get_network_subsidy_mode(&subnets_to_emit_to);
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
@@ -58,6 +54,9 @@ impl<T: Config> Pallet<T> {
                 .copied()
                 .unwrap_or(asfloat!(0));
             log::debug!("default_tao_in_i: {default_tao_in_i:?}");
+            let default_alpha_in_i: U96F32 =
+                default_tao_in_i.safe_div_or(price_i, U96F32::saturating_from_num(0.0));
+            log::debug!("default_alpha_in_i: {default_alpha_in_i:?}");
             // Get alpha_emission total
             let alpha_emission_i: U96F32 = asfloat!(
                 Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i).into())
@@ -76,7 +75,7 @@ impl<T: Config> Pallet<T> {
                 subsidy_amount.insert(*netuid_i, difference_tao);
             } else {
                 tao_in_i = default_tao_in_i;
-                alpha_in_i = alpha_in_default_i;
+                alpha_in_i = default_alpha_in_i;
                 subsidy_amount.insert(*netuid_i, U96F32::from_num(0.0));
             }
             log::debug!("alpha_in_i: {alpha_in_i:?}");
@@ -96,10 +95,10 @@ impl<T: Config> Pallet<T> {
             alpha_in.insert(*netuid_i, alpha_in_i);
             alpha_out.insert(*netuid_i, alpha_out_i);
         }
-        log::debug!("is_subsidized: {is_subsidized:?}");
         log::debug!("tao_in: {tao_in:?}");
         log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
+        log::debug!("subsidy_mode: {subsidy_mode:?}");
 
         // --- 4. Inject and subsidize
         for netuid_i in subnets_to_emit_to.iter() {
@@ -206,8 +205,7 @@ impl<T: Config> Pallet<T> {
             log::debug!("root_proportion: {root_proportion:?}");
             // Get root proportion of alpha_out dividends.
             let mut root_alpha: U96F32 = asfloat!(0.0);
-            let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
-            if !subsidized {
+            if !subsidy_mode {
                 // Only give root alpha if not being subsidized.
                 root_alpha = root_proportion
                     .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
@@ -264,17 +262,22 @@ impl<T: Config> Pallet<T> {
                 PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Distribute the emission.
-                Self::distribute_emission(
-                    netuid,
-                    pending_alpha,
-                    pending_root_alpha,
-                    owner_cut,
-                );
+                Self::distribute_emission(netuid, pending_alpha, pending_root_alpha, owner_cut);
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
             }
         }
+    }
+
+    pub fn get_network_subsidy_mode(subnets_to_emit_to: &[NetUid]) -> bool {
+        let total_ema_price: U96F32 = subnets_to_emit_to
+            .iter()
+            .map(|netuid| Self::get_moving_alpha_price(*netuid))
+            .sum();
+
+        // If the total EMA price is less than or equal to 1, then we subsidize the network.
+        total_ema_price <= U96F32::saturating_from_num(1)
     }
 
     pub fn calculate_dividends_and_incentives(

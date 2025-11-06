@@ -1003,12 +1003,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let pending_tao = TaoCurrency::from(1_000_000_000);
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoCurrency::ZERO);
-        SubtensorModule::distribute_emission(
-            netuid,
-            pending_alpha,
-            AlphaCurrency::ZERO,
-            0.into(),
-        );
+        SubtensorModule::distribute_emission(netuid, pending_alpha, AlphaCurrency::ZERO, 0.into());
         let stake_after1 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
         let root_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
