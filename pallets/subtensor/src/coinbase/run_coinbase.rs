@@ -255,16 +255,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_network_subsidy_mode(subnets_to_emit_to: &[NetUid]) -> bool {
-        let total_ema_price: U96F32 = subnets_to_emit_to
-            .iter()
-            .map(|netuid| Self::get_moving_alpha_price(*netuid))
-            .sum();
-
-        // If the total EMA price is less than or equal to 1, then we subsidize the network.
-        total_ema_price <= U96F32::saturating_from_num(1)
-    }
-
     pub fn drain_pending(
         subnets: &[NetUid],
         current_block: u64,
