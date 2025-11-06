@@ -447,19 +447,13 @@ impl<T: Config> Pallet<T> {
         let should_refund_owner: bool = reg_at < start_block;
 
         // 3) Compute owner's received emission in TAO at current price (ONLY if we may refund).
-        //    Emission::<T> is Vec<AlphaCurrency>. We:
-        //      - sum emitted α,
+        // We:
+        //      - get the current alpha issuance,
         //      - apply owner fraction to get owner α,
         //      - price that α using a *simulated* AMM swap.
         let mut owner_emission_tao = TaoCurrency::ZERO;
         if should_refund_owner && !lock_cost.is_zero() {
-            let total_emitted_alpha_u128: u128 =
-                Emission::<T>::get(netuid)
-                    .into_iter()
-                    .fold(0u128, |acc, e_alpha| {
-                        let e_u64: u64 = Into::<u64>::into(e_alpha);
-                        acc.saturating_add(e_u64 as u128)
-                    });
+            let total_emitted_alpha_u128: u128 = Self::get_alpha_issuance(netuid).to_u64() as u128;
 
             if total_emitted_alpha_u128 > 0 {
                 let owner_fraction: U96F32 = Self::get_float_subnet_owner_cut();
