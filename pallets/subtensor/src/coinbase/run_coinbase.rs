@@ -520,9 +520,7 @@ impl<T: Config> Pallet<T> {
                     incentive,
                 });
             }
-            log::debug!(
-                "incentives: increasing stake for {hotkey:?} to {incentive:?} with owner {owner:?}"
-            );
+
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination,
                 &owner,
