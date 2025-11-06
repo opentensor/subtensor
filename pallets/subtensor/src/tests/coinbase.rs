@@ -3337,6 +3337,7 @@ fn test_coinbase_subnets_with_no_reg_get_no_emission() {
     });
 }
 
+// Tests for the excess TAO condition
 #[test]
 fn test_coinbase_alpha_in_more_than_alpha_emission() {
     new_test_ext(1).execute_with(|| {
@@ -3376,7 +3377,7 @@ fn test_coinbase_alpha_in_more_than_alpha_emission() {
 
         let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
 
-        let (tao_in, alpha_in, alpha_out, subsidy_amount) =
+        let (tao_in, alpha_in, alpha_out, excess_tao) =
             SubtensorModule::get_subnet_terms(&subnet_emissions);
 
         // Check our condition is met
@@ -3404,9 +3405,9 @@ fn test_coinbase_alpha_in_more_than_alpha_emission() {
             epsilon = 1.0
         );
 
-        // subsidy_amount should be the difference between the tao_emission and the tao_in
+        // excess_tao should be the difference between the tao_emission and the tao_in
         assert_abs_diff_eq!(
-            subsidy_amount[&netuid0].to_num::<f64>(),
+            excess_tao[&netuid0].to_num::<f64>(),
             tao_emission.to_num::<f64>() - tao_in[&netuid0].to_num::<f64>(),
             epsilon = 1.0
         );
