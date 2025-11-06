@@ -3303,8 +3303,7 @@ fn test_coinbase_subnets_with_no_reg_get_no_emission() {
             (netuid1, U96F32::saturating_from_num(1)),
         ]);
 
-        let (tao_in, alpha_in, alpha_out, subsidy_amount) =
-            SubtensorModule::get_subnet_terms(&subnet_emissions);
+        let (tao_in, alpha_in, alpha_out, _) = SubtensorModule::get_subnet_terms(&subnet_emissions);
         assert_eq!(tao_in.len(), 2);
         assert_eq!(alpha_in.len(), 2);
         assert_eq!(alpha_out.len(), 2);
@@ -3321,7 +3320,7 @@ fn test_coinbase_subnets_with_no_reg_get_no_emission() {
         NetworkRegistrationAllowed::<Test>::insert(netuid0, false);
         NetworkPowRegistrationAllowed::<Test>::insert(netuid0, false);
 
-        let (tao_in_2, alpha_in_2, alpha_out_2, subsidy_amount_2) =
+        let (tao_in_2, alpha_in_2, alpha_out_2, _) =
             SubtensorModule::get_subnet_terms(&subnet_emissions);
         assert_eq!(tao_in_2.len(), 2);
         assert_eq!(alpha_in_2.len(), 2);
