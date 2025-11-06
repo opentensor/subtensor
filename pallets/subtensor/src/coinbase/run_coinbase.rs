@@ -152,7 +152,7 @@ impl<T: Config> Pallet<T> {
                 alpha_out_i = alpha_emission_i;
 
                 // Get subnet price.
-                let price_i = T::SwapInterface::current_alpha_price(netuid_i.into());
+                let price_i: U96F32 = T::SwapInterface::current_alpha_price(netuid_i.into());
                 log::debug!("price_i: {price_i:?}");
 
                 tao_in_i = tao_emission_i;
