@@ -264,7 +264,7 @@ impl<T: Config> Pallet<T> {
                 PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Drain pending root alpha divs, alpha emission, and owner cut.
-                Self::drain_pending_emission(
+                Self::distribute_emission(
                     netuid,
                     pending_alpha,
                     pending_root_alpha,
@@ -628,7 +628,7 @@ impl<T: Config> Pallet<T> {
         (incentives, (alpha_dividends, root_alpha_dividends))
     }
 
-    pub fn drain_pending_emission(
+    pub fn distribute_emission(
         netuid: NetUid,
         pending_alpha: AlphaCurrency,
         pending_root_alpha: AlphaCurrency,

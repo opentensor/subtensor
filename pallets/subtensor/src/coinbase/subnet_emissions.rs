@@ -7,21 +7,22 @@ use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
-    pub fn get_subnet_block_emissions(
-        subnets: &[NetUid],
-        block_emission: U96F32,
-    ) -> BTreeMap<NetUid, U96F32> {
+
+    pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
         // Filter out subnets with no first emission block number.
-        let subnets_to_emit_to: Vec<NetUid> = subnets
+        subnets
             .to_owned()
-            .clone()
             .into_iter()
             .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
-            .collect();
-        log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
+            .collect()
+    }
 
+    pub fn get_subnet_block_emissions(
+        subnets_to_emit_to: &[NetUid],
+        block_emission: U96F32,
+    ) -> BTreeMap<NetUid, U96F32> {
         // Get subnet TAO emissions.
-        let shares = Self::get_shares(&subnets_to_emit_to);
+        let shares = Self::get_shares(subnets_to_emit_to);
         log::debug!("Subnet emission shares = {shares:?}");
 
         shares
