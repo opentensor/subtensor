@@ -1788,3 +1788,44 @@ fn test_claim_root_iterative_cleanup_of_data() {
         assert_eq!(LastRootClaimCleanupData::<Test>::get(), None);
     });
 }
+#[test]
+fn test_claim_root_deny_start_call_on_dissolved_network_with_active_cleanup() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // dissolve network
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+
+        let next_netuid = SubtensorModule::get_next_netuid();
+        assert_eq!(netuid, next_netuid);
+
+        // register the same
+        SubtensorModule::add_balance_to_coldkey_account(
+            &owner_coldkey,
+            SubtensorModule::get_network_lock_cost().into(),
+        );
+        assert_ok!(SubtensorModule::register_network(
+            RawOrigin::Signed(owner_coldkey.clone()).into(),
+            owner_hotkey.clone()
+        ));
+
+        // deny start_call
+        assert_err!(
+            SubtensorModule::do_start_call(RawOrigin::Signed(owner_coldkey).into(), netuid),
+            Error::<Test>::ActiveRootClaimSubnetCleanup
+        );
+
+        // remove cleanup data and retry
+        LastRootClaimCleanupData::<Test>::take();
+
+        // Wait for allowed start call block
+        frame_system::Pallet::<Test>::set_block_number(100000000);
+
+        assert_ok!(SubtensorModule::do_start_call(
+            RawOrigin::Signed(owner_coldkey).into(),
+            netuid
+        ),);
+    });
+}

@@ -497,4 +497,14 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::RootClaimCleanupFinished { netuid });
     }
+
+    pub fn ensure_no_active_root_claim_cleanup(netuid: NetUid) -> DispatchResult {
+        if let Some(root_cleanup_data) = LastRootClaimCleanupData::<T>::get() {
+            if root_cleanup_data.netuid == netuid {
+                return Err(Error::<T>::ActiveRootClaimSubnetCleanup.into());
+            }
+        }
+
+        Ok(())
+    }
 }

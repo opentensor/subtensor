@@ -266,5 +266,7 @@ mod errors {
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.
         InvalidSubnetNumber,
+        /// Root claim cleanup for subnet is in progress.
+        ActiveRootClaimSubnetCleanup,
     }
 }

@@ -347,6 +347,7 @@ impl<T: Config> Pallet<T> {
     /// * `DispatchResult`: A result indicating the success or failure of the operation.
     pub fn do_start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+        Self::ensure_no_active_root_claim_cleanup(netuid)?;
         Self::ensure_subnet_owner(origin, netuid)?;
         ensure!(
             FirstEmissionBlockNumber::<T>::get(netuid).is_none(),
