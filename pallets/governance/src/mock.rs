@@ -127,6 +127,7 @@ parameter_types! {
     pub const MotionDuration: BlockNumberFor<Test> = 20;
     pub const InitialSchedulingDelay: BlockNumberFor<Test> = 20;
     pub const CollectiveRotationPeriod: BlockNumberFor<Test> = 100;
+    pub const CleanupPeriod: BlockNumberFor<Test> = 500;
     pub const FastTrackThreshold: Percent = Percent::from_percent(67); // ~2/3
     pub const CancellationThreshold: Percent = Percent::from_percent(51);
 }
@@ -146,6 +147,7 @@ impl pallet_governance::Config for Test {
     type MotionDuration = MotionDuration;
     type InitialSchedulingDelay = InitialSchedulingDelay;
     type CollectiveRotationPeriod = CollectiveRotationPeriod;
+    type CleanupPeriod = CleanupPeriod;
     type CancellationThreshold = CancellationThreshold;
     type FastTrackThreshold = FastTrackThreshold;
 }

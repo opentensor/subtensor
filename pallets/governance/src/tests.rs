@@ -1224,15 +1224,8 @@ fn collective_vote_can_be_updated() {
             })
         );
 
-        println!(
-            "{:?}",
-            pallet_scheduler::Agenda::<Test>::iter().collect::<Vec<_>>()
-        );
-        run_to_block(frame_system::Pallet::<Test>::block_number() + 100);
-        println!(
-            "{:?}",
-            pallet_scheduler::Agenda::<Test>::iter().collect::<Vec<_>>()
-        );
+        // Trigger cleanup to avoid duplicate scheduled error
+        run_to_block(frame_system::Pallet::<Test>::block_number() + CleanupPeriod::get());
 
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
         let building_member = U256::from(3001);
@@ -1363,7 +1356,19 @@ fn collective_nay_votes_to_threshold_on_scheduled_proposal_cancels() {
 }
 
 #[test]
-fn collective_rotation_works() {
+fn cleanup_run_on_initialize() {
+    TestState::default().build_and_execute(|| {
+        let now = frame_system::Pallet::<Test>::block_number();
+        run_to_block(now + CleanupPeriod::get());
+        assert!(Scheduled::<Test>::get().is_empty());
+        assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
+        let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
+        assert!(pallet_scheduler::Lookup::<Test>::get(task_name).is_none());
+    });
+}
+
+#[test]
+fn collective_rotation_run_on_initialize() {
     TestState::default().build_and_execute(|| {
         let next_economic_collective = (1..=ECONOMIC_COLLECTIVE_SIZE)
             .map(|i| U256::from(4000 + i))

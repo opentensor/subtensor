@@ -8,7 +8,10 @@ use frame_support::{
     sp_runtime::traits::Dispatchable,
     traits::{
         Bounded, ChangeMembers, IsSubType, QueryPreimage, StorePreimage, fungible,
-        schedule::{DispatchTime, Priority, v3::Named as ScheduleNamed},
+        schedule::{
+            DispatchTime, Priority,
+            v3::{Named as ScheduleNamed, TaskName},
+        },
     },
 };
 use frame_system::pallet_prelude::*;
@@ -164,6 +167,10 @@ pub mod pallet {
         /// Period of time between collective rotations.
         #[pallet::constant]
         type CollectiveRotationPeriod: Get<BlockNumberFor<Self>>;
+
+        /// Period of time between cleanup of proposals and scheduled proposals.
+        #[pallet::constant]
+        type CleanupPeriod: Get<BlockNumberFor<Self>>;
 
         /// Percent threshold for a proposal to be cancelled by a collective vote.
         #[pallet::constant]
@@ -351,17 +358,25 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+        fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+            let mut weight = Weight::zero();
+
             let economic_collective = EconomicCollective::<T>::get();
             let building_collective = BuildingCollective::<T>::get();
             let is_first_run = economic_collective.is_empty() || building_collective.is_empty();
-            let must_rotate = n % T::CollectiveRotationPeriod::get() == Zero::zero();
+            let should_rotate = now % T::CollectiveRotationPeriod::get() == Zero::zero();
+            let should_cleanup = now % T::CleanupPeriod::get() == Zero::zero();
 
-            if is_first_run || must_rotate {
-                Self::do_rotate_collectives();
+            if is_first_run || should_rotate {
+                weight.saturating_accrue(Self::do_rotate_collectives());
             }
 
-            Weight::zero()
+            if should_cleanup {
+                weight.saturating_accrue(Self::do_cleanup_proposals(now));
+                weight.saturating_accrue(Self::do_cleanup_scheduled());
+            }
+
+            weight
         }
     }
 
@@ -739,11 +754,7 @@ impl<T: Config> Pallet<T> {
         ensure!(T::Preimages::have(&bounded), Error::<T>::CallUnavailable);
 
         let now = frame_system::Pallet::<T>::block_number();
-        let name = proposal_hash
-            .as_ref()
-            .try_into()
-            // Unreachable because we expect the hash to be 32 bytes.
-            .map_err(|_| Error::<T>::InvalidProposalHashLength)?;
+        let name = Self::task_name_from_hash(proposal_hash)?;
         T::Scheduler::schedule_named(
             name,
             DispatchTime::At(now + T::InitialSchedulingDelay::get()),
@@ -776,11 +787,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn do_fast_track(proposal_hash: T::Hash) -> DispatchResult {
-        let name = proposal_hash
-            .as_ref()
-            .try_into()
-            // Unreachable because we expect the hash to be 32 bytes.
-            .map_err(|_| Error::<T>::InvalidProposalHashLength)?;
+        let name = Self::task_name_from_hash(proposal_hash)?;
         T::Scheduler::reschedule_named(
             name,
             // It will be scheduled on the next block because scheduler already ran for this block.
@@ -792,10 +799,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn do_cancel_scheduled(proposal_hash: T::Hash) -> DispatchResult {
-        let name = proposal_hash
-            .as_ref()
-            .try_into()
-            .map_err(|_| Error::<T>::InvalidProposalHashLength)?;
+        let name = Self::task_name_from_hash(proposal_hash)?;
         T::Scheduler::cancel_named(name)?;
         Self::clear_scheduled_proposal(proposal_hash);
         Self::deposit_event(Event::<T>::ScheduledProposalCancelled { proposal_hash });
@@ -817,11 +821,70 @@ impl<T: Config> Pallet<T> {
         CollectiveVoting::<T>::remove(&proposal_hash);
     }
 
-    fn do_rotate_collectives() {
+    fn do_rotate_collectives() -> Weight {
+        let mut weight = Weight::zero();
+
         let economic_collective_members = T::CollectiveMembersProvider::get_economic_collective();
         let building_collective_members = T::CollectiveMembersProvider::get_building_collective();
+        // TODO: handle weights
+
         EconomicCollective::<T>::put(economic_collective_members);
         BuildingCollective::<T>::put(building_collective_members);
+        weight.saturating_accrue(T::DbWeight::get().writes(2));
+
+        weight
+    }
+
+    fn do_cleanup_proposals(now: BlockNumberFor<T>) -> Weight {
+        let mut weight = Weight::zero();
+
+        let mut proposals = Proposals::<T>::get();
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+        proposals.retain(|(_, proposal_hash)| {
+            let voting = Voting::<T>::get(proposal_hash);
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+            match voting {
+                Some(voting) if voting.end > now => true,
+                _ => {
+                    ProposalOf::<T>::remove(proposal_hash);
+                    Voting::<T>::remove(proposal_hash);
+                    weight.saturating_accrue(T::DbWeight::get().writes(2));
+                    false
+                }
+            }
+        });
+
+        Proposals::<T>::put(proposals);
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        weight
+    }
+
+    fn do_cleanup_scheduled() -> Weight {
+        let mut weight = Weight::zero();
+
+        let mut scheduled = Scheduled::<T>::get();
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+        scheduled.retain(
+            |proposal_hash| match Self::task_name_from_hash(*proposal_hash) {
+                Ok(name) => {
+                    let dispatch_time = T::Scheduler::next_dispatch_time(name);
+                    CollectiveVoting::<T>::remove(proposal_hash);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+                    dispatch_time.is_ok()
+                }
+                // Unreachable because proposal hash is always 32 bytes.
+                Err(_) => false,
+            },
+        );
+
+        Scheduled::<T>::put(scheduled);
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        weight
     }
 
     fn ensure_allowed_proposer(origin: OriginFor<T>) -> Result<T::AccountId, DispatchError> {
@@ -855,6 +918,13 @@ impl<T: Config> Pallet<T> {
         } else {
             Err(Error::<T>::NotCollectiveMember.into())
         }
+    }
+
+    fn task_name_from_hash(proposal_hash: T::Hash) -> Result<TaskName, DispatchError> {
+        Ok(proposal_hash
+            .as_ref()
+            .try_into()
+            .map_err(|_| Error::<T>::InvalidProposalHashLength)?)
     }
 
     fn economic_fast_track_threshold() -> u32 {
