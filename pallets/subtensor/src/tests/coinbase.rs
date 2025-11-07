@@ -686,16 +686,22 @@ fn test_pending_emission() {
         // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
 
         assert_abs_diff_eq!(
-            u64::from(PendingEmission::<Test>::get(netuid)),
-            1_000_000_000 - 125000000,
+            u64::from(PendingServerEmission::<Test>::get(netuid)),
+            500_000_000,
             epsilon = 1
-        ); // 1 - swapped.
+        ); // 1 / 2.
+
+        assert_abs_diff_eq!(
+            u64::from(PendingValidatorEmission::<Test>::get(netuid)),
+            500_000_000 - 125000000,
+            epsilon = 1
+        ); // 1 / 2 - swapped.
 
         assert_abs_diff_eq!(
             u64::from(PendingRootAlphaDivs::<Test>::get(netuid)),
             125000000,
             epsilon = 1
-        ); // 1 / 2 = 125000000
+        ); // 1 / 2 * 0.25 --> (from root_prop)
     });
 }
 
@@ -3081,9 +3087,10 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         // Run again but with some root stake
         step_block(subnet_tempo - 2);
         assert_abs_diff_eq!(
-            PendingEmission::<Test>::get(netuid).to_u64(),
+            PendingServerEmission::<Test>::get(netuid).to_u64(),
             U96F32::saturating_from_num(per_block_emission)
                 .saturating_mul(U96F32::saturating_from_num(subnet_tempo as u64))
+                .saturating_mul(U96F32::saturating_from_num(0.5)) // miner cut
                 .saturating_mul(U96F32::saturating_from_num(0.90))
                 .saturating_to_num::<u64>(),
             epsilon = 100_000_u64.into()

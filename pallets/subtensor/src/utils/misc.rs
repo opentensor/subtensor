@@ -334,9 +334,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_tempo(netuid: NetUid) -> u16 {
         Tempo::<T>::get(netuid)
     }
-    pub fn get_pending_emission(netuid: NetUid) -> AlphaCurrency {
-        PendingEmission::<T>::get(netuid)
-    }
     pub fn get_last_adjustment_block(netuid: NetUid) -> u64 {
         LastAdjustmentBlock::<T>::get(netuid)
     }
