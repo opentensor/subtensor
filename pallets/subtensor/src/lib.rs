@@ -342,14 +342,18 @@ pub mod pallet {
         Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
     )]
     pub struct RootClaimSubnetCleanup {
-        /// Subnet to cleanup
-        pub netuid: NetUid,
-
         /// Last hotkey to clean RootClaimable (binary key).
         pub last_root_claimable_hotkey: Option<Vec<u8>>,
 
         /// RootClaimed cleanup in progress.
         pub root_claim_cleanup_started: bool,
+    }
+
+    impl RootClaimSubnetCleanup {
+        /// Cleanup has already at least one iteration passed.
+        pub fn cleanup_in_progress(&self) -> bool {
+            self.last_root_claimable_hotkey.is_some() || self.root_claim_cleanup_started
+        }
     }
 
     #[pallet::type_value]
@@ -2008,7 +2012,7 @@ pub mod pallet {
     /// None means no active cleanup.
     #[pallet::storage]
     pub type LastRootClaimCleanupData<T: Config> =
-        StorageValue<_, RootClaimSubnetCleanup, OptionQuery>;
+        StorageMap<_, Twox64Concat, NetUid, RootClaimSubnetCleanup, OptionQuery>;
 
     /// =============================
     /// ==== EVM related storage ====

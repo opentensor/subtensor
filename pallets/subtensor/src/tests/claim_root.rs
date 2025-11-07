@@ -1324,7 +1324,7 @@ fn test_claim_root_on_network_deregistration() {
             netuid, &hotkey, &coldkey,
         )));
 
-        assert_eq!(LastRootClaimCleanupData::<Test>::get(), None);
+        assert_eq!(LastRootClaimCleanupData::<Test>::get(netuid), None);
 
         // Claim root via network deregistration
 
@@ -1339,13 +1339,12 @@ fn test_claim_root_on_network_deregistration() {
         )));
 
         let expected_root_cleanup_data = RootClaimSubnetCleanup {
-            netuid,
             last_root_claimable_hotkey: None,
             root_claim_cleanup_started: false,
         };
 
         assert_eq!(
-            LastRootClaimCleanupData::<Test>::get(),
+            LastRootClaimCleanupData::<Test>::get(netuid),
             Some(expected_root_cleanup_data)
         );
 
@@ -1359,13 +1358,12 @@ fn test_claim_root_on_network_deregistration() {
         )));
 
         let expected_root_cleanup_data = RootClaimSubnetCleanup {
-            netuid,
             last_root_claimable_hotkey: None,
             root_claim_cleanup_started: true,
         };
 
         assert_eq!(
-            LastRootClaimCleanupData::<Test>::get(),
+            LastRootClaimCleanupData::<Test>::get(netuid),
             Some(expected_root_cleanup_data)
         );
 
@@ -1374,7 +1372,7 @@ fn test_claim_root_on_network_deregistration() {
         assert!(!RootClaimed::<Test>::contains_key((
             netuid, &hotkey, &coldkey,
         )));
-        assert_eq!(LastRootClaimCleanupData::<Test>::get(), None);
+        assert_eq!(LastRootClaimCleanupData::<Test>::get(netuid), None);
     });
 }
 
@@ -1661,7 +1659,7 @@ fn test_claim_root_iterative_cleanup_of_data() {
 
         // dissolve network
 
-        assert_eq!(LastRootClaimCleanupData::<Test>::get(), None);
+        assert_eq!(LastRootClaimCleanupData::<Test>::get(netuid), None);
 
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
 
@@ -1674,13 +1672,12 @@ fn test_claim_root_iterative_cleanup_of_data() {
         }));
 
         let expected_root_cleanup_data = RootClaimSubnetCleanup {
-            netuid,
             last_root_claimable_hotkey: None,
             root_claim_cleanup_started: false,
         };
 
         assert_eq!(
-            LastRootClaimCleanupData::<Test>::get(),
+            LastRootClaimCleanupData::<Test>::get(netuid),
             Some(expected_root_cleanup_data)
         );
 
@@ -1691,7 +1688,7 @@ fn test_claim_root_iterative_cleanup_of_data() {
         assert!(netuid_present_in_claimable(netuid));
         assert!(RootClaimed::<Test>::contains_prefix((netuid,)));
 
-        let root_cleanup_data = LastRootClaimCleanupData::<Test>::get()
+        let root_cleanup_data = LastRootClaimCleanupData::<Test>::get(netuid)
             .iter()
             .next()
             .cloned()
@@ -1712,7 +1709,7 @@ fn test_claim_root_iterative_cleanup_of_data() {
         assert!(!netuid_present_in_claimable(netuid));
         assert!(RootClaimed::<Test>::contains_prefix((netuid,)));
 
-        let root_cleanup_data = LastRootClaimCleanupData::<Test>::get()
+        let root_cleanup_data = LastRootClaimCleanupData::<Test>::get(netuid)
             .iter()
             .next()
             .cloned()
@@ -1785,7 +1782,7 @@ fn test_claim_root_iterative_cleanup_of_data() {
                     if netuid == netuid
             )
         }));
-        assert_eq!(LastRootClaimCleanupData::<Test>::get(), None);
+        assert_eq!(LastRootClaimCleanupData::<Test>::get(netuid), None);
     });
 }
 #[test]
@@ -1798,6 +1795,8 @@ fn test_claim_root_deny_start_call_on_dissolved_network_with_active_cleanup() {
         // dissolve network
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
 
+        assert!(LastRootClaimCleanupData::<Test>::contains_key(netuid));
+
         let next_netuid = SubtensorModule::get_next_netuid();
         assert_eq!(netuid, next_netuid);
 
@@ -1807,8 +1806,8 @@ fn test_claim_root_deny_start_call_on_dissolved_network_with_active_cleanup() {
             SubtensorModule::get_network_lock_cost().into(),
         );
         assert_ok!(SubtensorModule::register_network(
-            RawOrigin::Signed(owner_coldkey.clone()).into(),
-            owner_hotkey.clone()
+            RawOrigin::Signed(owner_coldkey).into(),
+            owner_hotkey
         ));
 
         // deny start_call
@@ -1818,7 +1817,7 @@ fn test_claim_root_deny_start_call_on_dissolved_network_with_active_cleanup() {
         );
 
         // remove cleanup data and retry
-        LastRootClaimCleanupData::<Test>::take();
+        LastRootClaimCleanupData::<Test>::remove(netuid);
 
         // Wait for allowed start call block
         frame_system::Pallet::<Test>::set_block_number(100000000);
@@ -1827,5 +1826,178 @@ fn test_claim_root_deny_start_call_on_dissolved_network_with_active_cleanup() {
             RawOrigin::Signed(owner_coldkey).into(),
             netuid
         ),);
+    });
+}
+
+#[test]
+fn test_claim_root_iterative_cleanup_of_data_for_several_networks() {
+    new_test_ext(1).execute_with(|| {
+        fn netuid_present_in_claimable(netuid: NetUid) -> bool {
+            RootClaimable::<Test>::iter().any(|(_, claimable)| claimable.contains_key(&netuid))
+        }
+
+        let owner_coldkey = U256::from(1001);
+        let owner_hotkey = U256::from(1002);
+        let owner_coldkey2 = U256::from(1003);
+        let owner_hotkey2 = U256::from(1004);
+        let netuid1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let netuid2 = add_dynamic_network(&owner_hotkey2, &owner_coldkey2);
+
+        // manually populate data
+        let root_claimable_number = 1000i32;
+        let root_claimable_data = BTreeMap::from([
+            (netuid1, I96F32::from(0u32)),
+            (netuid2, I96F32::from(0u32)),
+        ]);
+        for i in 1..=root_claimable_number {
+            let hotkey = U256::from(i);
+            RootClaimable::<Test>::insert(hotkey, root_claimable_data.clone());
+        }
+
+        let root_claimed_number = 1000i32;
+        for i in 1..=root_claimed_number {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i);
+            RootClaimed::<Test>::insert((netuid1, hotkey, coldkey), 0u128);
+            RootClaimed::<Test>::insert((netuid2, hotkey, coldkey), 0u128);
+        }
+
+        // dissolve network 1
+
+        assert_eq!(LastRootClaimCleanupData::<Test>::get(netuid1), None);
+        assert_eq!(LastRootClaimCleanupData::<Test>::get(netuid2), None);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid1));
+
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::RootClaimCleanupStarted{ netuid })
+                    if *netuid == netuid1
+            )
+        }));
+
+        assert_eq!(
+            LastRootClaimCleanupData::<Test>::get(netuid1).map(|x| x.cleanup_in_progress()),
+            Some(false)
+        );
+        assert_eq!(LastRootClaimCleanupData::<Test>::get(netuid2), None);
+
+        // dissolve_another network & start cleanup
+
+        run_to_block_ext(2, true);
+
+        assert!(LastRootClaimCleanupData::<Test>::contains_key(netuid1));
+        assert!(!LastRootClaimCleanupData::<Test>::contains_key(netuid2));
+
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid2));
+
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::RootClaimCleanupStarted{ netuid })
+                    if *netuid == netuid2
+            )
+        }));
+
+        assert_eq!(
+            LastRootClaimCleanupData::<Test>::get(netuid1).map(|x| x.cleanup_in_progress()),
+            Some(true)
+        );
+
+        assert_eq!(
+            LastRootClaimCleanupData::<Test>::get(netuid2).map(|x| x.cleanup_in_progress()),
+            Some(false)
+        );
+
+        // Cleanup RootClaimable
+
+        let blocks_required_for_root_claimable =
+            root_claimable_number as usize / ROOT_CLAIM_CLEANUP_BATCH_SIZE
+                + 1 /* starting block */
+                + 1 /* incomplete or empty iteration */;
+
+        run_to_block_ext(blocks_required_for_root_claimable as u64, true);
+
+        assert!(!netuid_present_in_claimable(netuid1));
+        assert!(netuid_present_in_claimable(netuid2));
+        assert!(RootClaimed::<Test>::contains_prefix((netuid1,)));
+        assert!(RootClaimed::<Test>::contains_prefix((netuid2,)));
+
+        assert_eq!(
+            LastRootClaimCleanupData::<Test>::get(netuid1).map(|x| x.cleanup_in_progress()),
+            Some(true)
+        );
+        assert_eq!(
+            LastRootClaimCleanupData::<Test>::get(netuid2).map(|x| x.cleanup_in_progress()),
+            Some(false)
+        );
+
+        let expected_progress_event_number =  root_claimable_number as usize / ROOT_CLAIM_CLEANUP_BATCH_SIZE
+            + 1 /* incomplete or empty iteration */;
+
+        let actual_progress_event_number =
+            System::events().iter().filter(|e| {
+                matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::RootClaimCleanupProgress{ netuid, root_claimable_iteration, .. })
+                    if *netuid == netuid1 && *root_claimable_iteration
+            )
+            }).count();
+
+        assert_eq!(expected_progress_event_number, actual_progress_event_number);
+
+        // Cleanup RootClaimed
+
+        /*
+            Can't test `RootClaimed::clear_prefix` in test environment because of the different overlay mode.
+
+            let blocks_required_for_root_claimed =
+                root_claimed_number as usize / ROOT_CLAIM_CLEANUP_BATCH_SIZE
+                    + 1 /* incomplete or empty iteration */
+                    + blocks_required_for_root_claimable /* previous iterations */;
+        */
+
+        let blocks_to_finish = 30;
+
+        run_to_block_ext(blocks_to_finish as u64, true);
+
+        // Testing for at least one RootClaimCleanupProgress for RootClaimed
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                    RuntimeEvent::SubtensorModule(Event::RootClaimCleanupProgress{ netuid, root_claimed_iteration, .. })
+                        if *netuid == netuid1 && *root_claimed_iteration
+            )
+        }));
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                    RuntimeEvent::SubtensorModule(Event::RootClaimCleanupProgress{ netuid, root_claimed_iteration, .. })
+                        if *netuid == netuid2 && *root_claimed_iteration
+            )
+        }));
+
+        assert!(!netuid_present_in_claimable(netuid1));
+        assert!(!netuid_present_in_claimable(netuid2));
+        assert!(!RootClaimed::<Test>::contains_prefix((netuid1,)));
+        assert!(!RootClaimed::<Test>::contains_prefix((netuid2,)));
+
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::RootClaimCleanupFinished{ netuid })
+                    if *netuid == netuid1
+            )
+        }));
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::RootClaimCleanupFinished{ netuid })
+                    if *netuid == netuid2
+            )
+        }));
+        assert_eq!(LastRootClaimCleanupData::<Test>::get(netuid1), None);
+        assert_eq!(LastRootClaimCleanupData::<Test>::get(netuid2), None);
     });
 }

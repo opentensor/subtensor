@@ -391,25 +391,32 @@ impl<T: Config> Pallet<T> {
     pub fn start_removing_root_claim_data_for_subnet(netuid: NetUid) {
         // TODO: check for empty RootClaimSubnetCleanup and return DispatchResult
         // TODO: prevent double network dissolution
-        // TODO: prevent network creation during removal
 
         let root_cleanup_data = RootClaimSubnetCleanup {
-            netuid,
             last_root_claimable_hotkey: None,
             root_claim_cleanup_started: false,
         };
 
         Self::deposit_event(Event::RootClaimCleanupStarted { netuid });
 
-        LastRootClaimCleanupData::<T>::put(root_cleanup_data);
+        LastRootClaimCleanupData::<T>::insert(netuid, root_cleanup_data);
     }
 
     pub fn iterate_and_clean_root_claim_data_for_subnet() {
-        let Some(mut root_cleanup_data) = LastRootClaimCleanupData::<T>::get() else {
+        let mut active_root_cleanup_data = None;
+        for (netuid, root_cleanup_data) in LastRootClaimCleanupData::<T>::iter() {
+            // Assign the first OR active cleanup for this iteration.
+            if active_root_cleanup_data.is_none() || root_cleanup_data.cleanup_in_progress() {
+                active_root_cleanup_data.replace((netuid, root_cleanup_data.clone()));
+
+                if root_cleanup_data.cleanup_in_progress() {
+                    break;
+                }
+            }
+        }
+        let Some((netuid, mut root_cleanup_data)) = active_root_cleanup_data else {
             return; // nothing to clean yet
         };
-
-        let netuid = root_cleanup_data.netuid;
 
         // Initialize RootClaimable cleanup
         let mut starting_root_claimable_key = None;
@@ -467,7 +474,7 @@ impl<T: Config> Pallet<T> {
 
             root_cleanup_data.last_root_claimable_hotkey = new_starting_key;
 
-            LastRootClaimCleanupData::<T>::put(root_cleanup_data);
+            LastRootClaimCleanupData::<T>::insert(netuid, root_cleanup_data);
 
             return; // single iteration finished
         }
@@ -493,16 +500,14 @@ impl<T: Config> Pallet<T> {
         }
 
         // Finish cleaning RootClaimable for subnet
-        LastRootClaimCleanupData::<T>::take();
+        LastRootClaimCleanupData::<T>::remove(netuid);
 
         Self::deposit_event(Event::RootClaimCleanupFinished { netuid });
     }
 
     pub fn ensure_no_active_root_claim_cleanup(netuid: NetUid) -> DispatchResult {
-        if let Some(root_cleanup_data) = LastRootClaimCleanupData::<T>::get() {
-            if root_cleanup_data.netuid == netuid {
-                return Err(Error::<T>::ActiveRootClaimSubnetCleanup.into());
-            }
+        if LastRootClaimCleanupData::<T>::contains_key(netuid) {
+            return Err(Error::<T>::ActiveRootClaimSubnetCleanup.into());
         }
 
         Ok(())
