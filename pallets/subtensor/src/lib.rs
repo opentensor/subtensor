@@ -1433,7 +1433,7 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultPendingEmission<T>>;
-	#[pallet::storage]
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> total_emission
     pub type TotalEmission<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
