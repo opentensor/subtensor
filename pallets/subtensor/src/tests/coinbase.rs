@@ -3429,6 +3429,7 @@ fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
 
         let tao_in = BTreeMap::from([(netuid0, U96F32::saturating_from_num(123))]);
         let alpha_in = BTreeMap::from([(netuid0, U96F32::saturating_from_num(456))]);
+        // We have excess TAO, so we will be swapping with it.
         let excess_tao = BTreeMap::from([(netuid0, U96F32::saturating_from_num(789100))]);
 
         // Run the inject and maybe swap
