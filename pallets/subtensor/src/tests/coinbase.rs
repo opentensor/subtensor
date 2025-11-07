@@ -3413,7 +3413,7 @@ fn test_coinbase_alpha_in_more_than_alpha_emission() {
     });
 }
 
-// Tests for the excess TAO condition
+// Tests for the inject and swap are in the right order.
 #[test]
 fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
     new_test_ext(1).execute_with(|| {
@@ -3450,5 +3450,92 @@ fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
             price_after.to_num::<f64>(),
             epsilon = 1.0
         );
+    });
+}
+
+#[test]
+fn test_coinbase_drain_pending_increments_blockssincelaststep() {
+    new_test_ext(1).execute_with(|| {
+        let zero = U96F32::saturating_from_num(0);
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+
+        let blocks_since_last_step_before = BlocksSinceLastStep::<Test>::get(netuid0);
+
+        // Check that blockssincelaststep is incremented
+        SubtensorModule::drain_pending(&[netuid0], 1);
+
+        let blocks_since_last_step_after = BlocksSinceLastStep::<Test>::get(netuid0);
+        assert!(blocks_since_last_step_after > blocks_since_last_step_before);
+        assert_eq!(
+            blocks_since_last_step_after,
+            blocks_since_last_step_before + 1
+        );
+    });
+}
+
+#[test]
+fn test_coinbase_drain_pending_resets_blockssincelaststep() {
+    new_test_ext(1).execute_with(|| {
+        let zero = U96F32::saturating_from_num(0);
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+        Tempo::<Test>::insert(netuid0, 100);
+        // Ensure the block number we use is the tempo block
+        let block_number = 98;
+        assert!(SubtensorModule::should_run_epoch(netuid0, block_number));
+
+        let blocks_since_last_step_before = 12345678;
+        BlocksSinceLastStep::<Test>::insert(netuid0, blocks_since_last_step_before);
+        LastMechansimStepBlock::<Test>::insert(netuid0, 12345); // garbage value
+
+        // Check that blockssincelaststep is reset to 0 on tempo
+        SubtensorModule::drain_pending(&[netuid0], block_number);
+
+        let blocks_since_last_step_after = BlocksSinceLastStep::<Test>::get(netuid0);
+        assert_eq!(blocks_since_last_step_after, 0);
+        // Also check LastMechansimStepBlock is set to the block number we ran on
+        assert_eq!(LastMechansimStepBlock::<Test>::get(netuid0), block_number);
+    });
+}
+
+#[test]
+fn test_coinbase_drain_pending_gets_counters_and_resets_them() {
+    new_test_ext(1).execute_with(|| {
+        let zero = U96F32::saturating_from_num(0);
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+        Tempo::<Test>::insert(netuid0, 100);
+        // Ensure the block number we use is the tempo block
+        let block_number = 98;
+        assert!(SubtensorModule::should_run_epoch(netuid0, block_number));
+
+        mock::setup_reserves(
+            netuid0,
+            TaoCurrency::from(1_000_000_000_000_000),
+            AlphaCurrency::from(1_000_000_000_000_000),
+        );
+        // Initialize swap v3
+        Swap::maybe_initialize_v3(netuid0);
+
+        let pending_em = AlphaCurrency::from(123434534);
+        let pending_root = AlphaCurrency::from(12222222);
+        let pending_owner_cut = AlphaCurrency::from(12345678);
+
+        PendingEmission::<Test>::insert(netuid0, pending_em);
+        PendingRootAlphaDivs::<Test>::insert(netuid0, pending_root);
+        PendingOwnerCut::<Test>::insert(netuid0, pending_owner_cut);
+
+        let emissions_to_distribute = SubtensorModule::drain_pending(&[netuid0], block_number);
+        assert_eq!(emissions_to_distribute.len(), 1);
+        assert_eq!(
+            emissions_to_distribute[&netuid0],
+            (pending_em, pending_root, pending_owner_cut)
+        );
+
+        // Check that the pending emissions are reset
+        assert_eq!(PendingEmission::<Test>::get(netuid0), AlphaCurrency::ZERO);
+        assert_eq!(
+            PendingRootAlphaDivs::<Test>::get(netuid0),
+            AlphaCurrency::ZERO
+        );
+        assert_eq!(PendingOwnerCut::<Test>::get(netuid0), AlphaCurrency::ZERO);
     });
 }
