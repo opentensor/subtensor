@@ -3569,14 +3569,6 @@ fn test_coinbase_drain_pending_gets_counters_and_resets_them() {
         let block_number = 98;
         assert!(SubtensorModule::should_run_epoch(netuid0, block_number));
 
-        mock::setup_reserves(
-            netuid0,
-            TaoCurrency::from(1_000_000_000_000_000),
-            AlphaCurrency::from(1_000_000_000_000_000),
-        );
-        // Initialize swap v3
-        Swap::maybe_initialize_v3(netuid0);
-
         let pending_em = AlphaCurrency::from(123434534);
         let pending_root = AlphaCurrency::from(12222222);
         let pending_owner_cut = AlphaCurrency::from(12345678);
