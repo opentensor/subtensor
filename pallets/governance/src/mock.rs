@@ -103,14 +103,20 @@ thread_local! {
     pub static BUILDING_COLLECTIVE: RefCell<Vec<AccountOf<Test>>> = const { RefCell::new(vec![]) };
 }
 
-pub fn set_next_economic_collective(members: Vec<U256>) {
-    assert_eq!(members.len(), ECONOMIC_COLLECTIVE_SIZE as usize);
-    ECONOMIC_COLLECTIVE.with_borrow_mut(|c| *c = members.clone());
+#[macro_export]
+macro_rules! set_next_economic_collective {
+    ($members:expr) => {{
+        assert_eq!($members.len(), ECONOMIC_COLLECTIVE_SIZE as usize);
+        ECONOMIC_COLLECTIVE.with_borrow_mut(|c| *c = $members.clone());
+    }};
 }
 
-pub fn set_next_building_collective(members: Vec<U256>) {
-    assert_eq!(members.len(), BUILDING_COLLECTIVE_SIZE as usize);
-    BUILDING_COLLECTIVE.with_borrow_mut(|c| *c = members.clone());
+#[macro_export]
+macro_rules! set_next_building_collective {
+    ($members:expr) => {{
+        assert_eq!($members.len(), BUILDING_COLLECTIVE_SIZE as usize);
+        BUILDING_COLLECTIVE.with_borrow_mut(|c| *c = $members.clone());
+    }};
 }
 
 parameter_types! {
@@ -121,8 +127,8 @@ parameter_types! {
     pub const MotionDuration: BlockNumberFor<Test> = 20;
     pub const InitialSchedulingDelay: BlockNumberFor<Test> = 20;
     pub const CollectiveRotationPeriod: BlockNumberFor<Test> = 100;
-    pub const CancellationThreshold: Percent = Percent::from_percent(50);
-    pub FastTrackThreshold: Percent = Percent::from_rational(2u32, 3u32); // ~66.67%
+    pub const FastTrackThreshold: Percent = Percent::from_percent(67); // ~2/3
+    pub const CancellationThreshold: Percent = Percent::from_percent(51);
 }
 
 impl pallet_governance::Config for Test {
@@ -228,8 +234,8 @@ impl TestState {
         .unwrap()
         .into();
         ext.execute_with(|| {
-            set_next_economic_collective(self.economic_collective.to_vec());
-            set_next_building_collective(self.building_collective.to_vec());
+            set_next_economic_collective!(self.economic_collective.to_vec());
+            set_next_building_collective!(self.building_collective.to_vec());
             run_to_block(self.block_number);
         });
         ext

@@ -165,11 +165,11 @@ pub mod pallet {
         #[pallet::constant]
         type CollectiveRotationPeriod: Get<BlockNumberFor<Self>>;
 
-        /// Percentage threshold for a proposal to be cancelled by a collective vote.
+        /// Percent threshold for a proposal to be cancelled by a collective vote.
         #[pallet::constant]
         type CancellationThreshold: Get<Percent>;
 
-        /// Percentage threshold for a proposal to be fast-tracked by a collective vote.
+        /// Percent threshold for a proposal to be fast-tracked by a collective vote.
         #[pallet::constant]
         type FastTrackThreshold: Get<Percent>;
     }
@@ -299,6 +299,10 @@ pub mod pallet {
         ProposalScheduled { proposal_hash: T::Hash },
         /// A proposal has been cancelled.
         ProposalCancelled { proposal_hash: T::Hash },
+        /// A scheduled proposal has been fast-tracked.
+        ScheduledProposalFastTracked { proposal_hash: T::Hash },
+        /// A scheduled proposal has been cancelled.
+        ScheduledProposalCancelled { proposal_hash: T::Hash },
     }
 
     #[pallet::error]
@@ -579,53 +583,37 @@ pub mod pallet {
 
             let voting = Self::do_collective_vote(&who, proposal_hash, proposal_index, approve)?;
 
-            let economic_yes_votes = voting.economic_ayes.len() as i32;
-            let economic_no_votes = voting.economic_nays.len() as i32;
-            let building_yes_votes = voting.building_ayes.len() as i32;
-            let building_no_votes = voting.building_nays.len() as i32;
+            let economic_yes_votes = voting.economic_ayes.len() as u32;
+            let economic_no_votes = voting.economic_nays.len() as u32;
+            let building_yes_votes = voting.building_ayes.len() as u32;
+            let building_no_votes = voting.building_nays.len() as u32;
 
             Self::deposit_event(Event::<T>::CollectiveMemberVoted {
                 account: who,
                 proposal_hash,
                 voted: approve,
-                economic_yes: economic_yes_votes as u32,
-                economic_no: economic_no_votes as u32,
-                building_yes: building_yes_votes as u32,
-                building_no: building_no_votes as u32,
+                economic_yes: economic_yes_votes,
+                economic_no: economic_no_votes,
+                building_yes: building_yes_votes,
+                building_no: building_no_votes,
             });
 
-            let economic_net_score = economic_yes_votes.saturating_sub(economic_no_votes);
-            let building_net_score = building_yes_votes.saturating_sub(building_no_votes);
+            let should_fast_track = economic_yes_votes >= Self::economic_fast_track_threshold()
+                || building_yes_votes >= Self::building_fast_track_threshold();
 
-            let economic_fast_track_threshold =
-                T::FastTrackThreshold::get().mul_ceil(ECONOMIC_COLLECTIVE_SIZE);
-            let building_fast_track_threshold =
-                T::FastTrackThreshold::get().mul_ceil(BUILDING_COLLECTIVE_SIZE);
-            let economic_cancellation_threshold =
-                T::CancellationThreshold::get().mul_ceil(ECONOMIC_COLLECTIVE_SIZE);
-            let building_cancellation_threshold =
-                T::CancellationThreshold::get().mul_ceil(BUILDING_COLLECTIVE_SIZE);
+            let should_cancel = economic_no_votes >= Self::economic_cancellation_threshold()
+                || building_no_votes >= Self::building_cancellation_threshold();
 
-            let has_reached_economic_fast_track = economic_net_score.is_positive()
-                && economic_net_score.abs() as u32 >= economic_fast_track_threshold;
-            let has_reached_building_fast_track = building_net_score.is_positive()
-                && building_net_score.abs() as u32 >= building_fast_track_threshold;
-            let should_fast_track =
-                has_reached_economic_fast_track || has_reached_building_fast_track;
-
-            let has_reached_economic_cancellation = economic_net_score.is_negative()
-                && economic_net_score.abs() as u32 >= economic_cancellation_threshold;
-            let has_reached_building_cancellation = building_net_score.is_negative()
-                && building_net_score.abs() as u32 >= building_cancellation_threshold;
-            let should_cancel =
-                has_reached_economic_cancellation || has_reached_building_cancellation;
+            let should_adjust_delay = !should_fast_track
+                && !should_cancel
+                && (economic_no_votes > 0 || building_no_votes > 0);
 
             if should_fast_track {
                 Self::do_fast_track(proposal_hash)?;
             } else if should_cancel {
-                Self::do_cancel(proposal_hash)?;
-            } else {
-                // handle delay adjust by comparing economic/building net scores
+                Self::do_cancel_scheduled(proposal_hash)?;
+            } else if should_adjust_delay {
+                // handle delay adjustment
             }
 
             Ok(())
@@ -751,19 +739,19 @@ impl<T: Config> Pallet<T> {
         ensure!(T::Preimages::have(&bounded), Error::<T>::CallUnavailable);
 
         let now = frame_system::Pallet::<T>::block_number();
+        let name = proposal_hash
+            .as_ref()
+            .try_into()
+            // Unreachable because we expect the hash to be 32 bytes.
+            .map_err(|_| Error::<T>::InvalidProposalHashLength)?;
         T::Scheduler::schedule_named(
-            proposal_hash
-                .as_ref()
-                .try_into()
-                // Unreachable because we expect the hash to be 32 bytes.
-                .map_err(|_| Error::<T>::InvalidProposalHashLength)?,
+            name,
             DispatchTime::At(now + T::InitialSchedulingDelay::get()),
             None,
             Priority::default(),
             RawOrigin::Root.into(),
             bounded,
         )?;
-
         Self::clear_proposal(proposal_hash);
 
         CollectiveVoting::<T>::insert(
@@ -787,7 +775,30 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_fast_track(_proposal_hash: T::Hash) -> DispatchResult {
+    fn do_fast_track(proposal_hash: T::Hash) -> DispatchResult {
+        let name = proposal_hash
+            .as_ref()
+            .try_into()
+            // Unreachable because we expect the hash to be 32 bytes.
+            .map_err(|_| Error::<T>::InvalidProposalHashLength)?;
+        T::Scheduler::reschedule_named(
+            name,
+            // It will be scheduled on the next block because scheduler already ran for this block.
+            DispatchTime::After(Zero::zero()),
+        )?;
+        Self::clear_scheduled_proposal(proposal_hash);
+        Self::deposit_event(Event::<T>::ScheduledProposalFastTracked { proposal_hash });
+        Ok(())
+    }
+
+    fn do_cancel_scheduled(proposal_hash: T::Hash) -> DispatchResult {
+        let name = proposal_hash
+            .as_ref()
+            .try_into()
+            .map_err(|_| Error::<T>::InvalidProposalHashLength)?;
+        T::Scheduler::cancel_named(name)?;
+        Self::clear_scheduled_proposal(proposal_hash);
+        Self::deposit_event(Event::<T>::ScheduledProposalCancelled { proposal_hash });
         Ok(())
     }
 
@@ -797,6 +808,13 @@ impl<T: Config> Pallet<T> {
         });
         ProposalOf::<T>::remove(&proposal_hash);
         Voting::<T>::remove(&proposal_hash);
+    }
+
+    fn clear_scheduled_proposal(proposal_hash: T::Hash) {
+        Scheduled::<T>::mutate(|scheduled| {
+            scheduled.retain(|h| h != &proposal_hash);
+        });
+        CollectiveVoting::<T>::remove(&proposal_hash);
     }
 
     fn do_rotate_collectives() {
@@ -837,5 +855,21 @@ impl<T: Config> Pallet<T> {
         } else {
             Err(Error::<T>::NotCollectiveMember.into())
         }
+    }
+
+    fn economic_fast_track_threshold() -> u32 {
+        T::FastTrackThreshold::get().mul_ceil(ECONOMIC_COLLECTIVE_SIZE)
+    }
+
+    fn building_fast_track_threshold() -> u32 {
+        T::FastTrackThreshold::get().mul_ceil(BUILDING_COLLECTIVE_SIZE) as u32
+    }
+
+    fn economic_cancellation_threshold() -> u32 {
+        T::CancellationThreshold::get().mul_ceil(ECONOMIC_COLLECTIVE_SIZE) as u32
+    }
+
+    fn building_cancellation_threshold() -> u32 {
+        T::CancellationThreshold::get().mul_ceil(BUILDING_COLLECTIVE_SIZE) as u32
     }
 }
