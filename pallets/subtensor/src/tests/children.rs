@@ -2827,7 +2827,7 @@ fn test_set_weights_no_parent() {
     });
 }
 
-/// Test that drain_pending_emission sends childkey take fully to the nominators if childkey
+/// Test that distribute_emission sends childkey take fully to the nominators if childkey
 /// doesn't have its own stake, independently of parent hotkey take.
 /// cargo test --package pallet-subtensor --lib -- tests::children::test_childkey_take_drain --exact --show-output
 #[allow(clippy::assertions_on_constants)]
