@@ -3386,14 +3386,14 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
         assert_abs_diff_eq!(
             alpha_out[&netuid0].to_num::<f64>(),
             alpha_emission.to_num::<f64>(),
-            epsilon = 1.0
+            epsilon = 0.01
         );
 
         // alpha_in should equal the alpha_emission
         assert_abs_diff_eq!(
             alpha_in[&netuid0].to_num::<f64>(),
             alpha_emission.to_num::<f64>(),
-            epsilon = 1.0
+            epsilon = 0.01
         );
         // tao_in should be the alpha_in at the ratio of the price
         assert_abs_diff_eq!(
@@ -3401,14 +3401,14 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
             alpha_in[&netuid0]
                 .saturating_mul(price_to_set_fixed)
                 .to_num::<f64>(),
-            epsilon = 1.0
+            epsilon = 0.01
         );
 
         // excess_tao should be the difference between the tao_emission and the tao_in
         assert_abs_diff_eq!(
             excess_tao[&netuid0].to_num::<f64>(),
             tao_emission.to_num::<f64>() - tao_in[&netuid0].to_num::<f64>(),
-            epsilon = 1.0
+            epsilon = 0.01
         );
     });
 }
