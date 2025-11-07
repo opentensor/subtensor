@@ -687,7 +687,7 @@ impl<T: Config> Pallet<T> {
         let validator_alpha = if !incentive_sum.is_zero() {
             pending_validator_alpha
         } else {
-            // If the incentive is 0, then Alpha Validators get .
+            // If the incentive is 0, then Alpha Validators get both the server and validator alpha.
             pending_validator_alpha.saturating_add(pending_server_alpha)
         };
         let root_alpha = pending_root_alpha;
