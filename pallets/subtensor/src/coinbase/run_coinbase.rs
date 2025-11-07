@@ -195,29 +195,27 @@ impl<T: Config> Pallet<T> {
             let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0.0));
             log::debug!("alpha_out_i: {alpha_out_i:?}");
 
-            // Get root proportion of alpha_out dividends.
-            let mut root_alpha: U96F32 = asfloat!(0.0);
+            // Get ALPHA issuance.
+            let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
+            log::debug!("alpha_issuance: {alpha_issuance:?}");
+
+            // Get root proportional dividends.
+            let root_proportion: U96F32 = tao_weight
+                .checked_div(tao_weight.saturating_add(alpha_issuance))
+                .unwrap_or(asfloat!(0.0));
+            log::debug!("root_proportion: {root_proportion:?}");
+
+            // Get root alpha from root prop.
+            let root_alpha: U96F32 = root_proportion
+                .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
+                .saturating_mul(asfloat!(0.5)); // 50% to validators.
+            log::debug!("root_alpha: {root_alpha:?}");
+
             if root_sell_flag {
-                // Get ALPHA issuance.
-                let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
-                log::debug!("alpha_issuance: {alpha_issuance:?}");
-
-                // Get root proportional dividends.
-                let root_proportion: U96F32 = tao_weight
-                    .checked_div(tao_weight.saturating_add(alpha_issuance))
-                    .unwrap_or(asfloat!(0.0));
-                log::debug!("root_proportion: {root_proportion:?}");
-
-                // Get root alpha from root prop.
-                root_alpha = root_proportion
-                    .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
-                    .saturating_mul(asfloat!(0.5)); // 50% to validators.
                 PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
                     *total = total.saturating_add(tou64!(root_alpha).into());
                 });
             }
-            // Remove root alpha from alpha_out.
-            log::debug!("root_alpha: {root_alpha:?}");
 
             // Get pending alpha as original alpha_out - root_alpha.
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
@@ -226,6 +224,10 @@ impl<T: Config> Pallet<T> {
             // Accumulate alpha emission in pending.
             PendingEmission::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tou64!(pending_alpha).into());
+            });
+            // Accumulate total alpha emission, including burned alpha from root prop.
+            TotalEmission::<T>::mutate(*netuid_i, |total| {
+                *total = total.saturating_add(tou64!(alpha_out_i).into());
             });
         }
 
@@ -263,8 +265,18 @@ impl<T: Config> Pallet<T> {
                 let owner_cut = PendingOwnerCut::<T>::get(netuid);
                 PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
+                // Get total emission and drain.
+                let total_emission = TotalEmission::<T>::get(netuid);
+                TotalEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
+
                 // Distribute the emission.
-                Self::distribute_emission(netuid, pending_alpha, pending_root_alpha, owner_cut);
+                Self::distribute_emission(
+                    netuid,
+                    pending_alpha,
+                    pending_root_alpha,
+                    total_emission,
+                    owner_cut,
+                );
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
@@ -635,6 +647,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         pending_alpha: AlphaCurrency,
         pending_root_alpha: AlphaCurrency,
+        total_alpha: AlphaCurrency,
         owner_cut: AlphaCurrency,
     ) {
         log::debug!(
@@ -642,7 +655,6 @@ impl<T: Config> Pallet<T> {
         );
 
         let tao_weight = Self::get_tao_weight();
-        let total_alpha = pending_alpha.saturating_add(pending_root_alpha);
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
