@@ -3412,3 +3412,42 @@ fn test_coinbase_alpha_in_more_than_alpha_emission() {
         );
     });
 }
+
+// Tests for the excess TAO condition
+#[test]
+fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
+    new_test_ext(1).execute_with(|| {
+        let zero = U96F32::saturating_from_num(0);
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+        mock::setup_reserves(
+            netuid0,
+            TaoCurrency::from(1_000_000_000_000_000),
+            AlphaCurrency::from(1_000_000_000_000_000),
+        );
+        // Initialize swap v3
+        Swap::maybe_initialize_v3(netuid0);
+
+        let tao_in = BTreeMap::from([(netuid0, U96F32::saturating_from_num(123))]);
+        let alpha_in = BTreeMap::from([(netuid0, U96F32::saturating_from_num(456))]);
+        let excess_tao = BTreeMap::from([(netuid0, U96F32::saturating_from_num(789100))]);
+
+        // Run the inject and maybe swap
+        SubtensorModule::inject_and_maybe_swap(&[netuid0], &tao_in, &alpha_in, &excess_tao);
+
+        let tao_in_after = SubnetTAO::<Test>::get(netuid0);
+        let alpha_in_after = SubnetAlphaIn::<Test>::get(netuid0);
+
+        // Make sure that when we inject and swap, we do it in the right order.
+        // Thereby not skewing the ratio away from the price.
+        let ratio_after: U96F32 = U96F32::saturating_from_num(alpha_in_after.to_u64())
+            .saturating_div(U96F32::saturating_from_num(tao_in_after.to_u64()));
+        let price_after: U96F32 = U96F32::saturating_from_num(
+            pallet_subtensor_swap::Pallet::<Test>::current_alpha_price(netuid0).to_num::<f64>(),
+        );
+        assert_abs_diff_eq!(
+            ratio_after.to_num::<f64>(),
+            price_after.to_num::<f64>(),
+            epsilon = 1.0
+        );
+    });
+}
