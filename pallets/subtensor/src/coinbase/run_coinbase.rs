@@ -262,23 +262,6 @@ impl<T: Config> Pallet<T> {
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);
 
-                // Get and drain the PendingEmission.
-                // deprecated
-                let pending_emission = PendingEmission::<T>::get(netuid);
-                PendingEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
-                // If pending_emission is not zero, we split it between the server emission and the validator emission.
-                if !pending_emission.is_zero() {
-                    let server_alpha = pending_emission.saturating_div(2.into());
-                    let validator_alpha = pending_emission.saturating_sub(server_alpha);
-
-                    PendingServerEmission::<T>::mutate(netuid, |total| {
-                        *total = total.saturating_add(server_alpha)
-                    });
-                    PendingValidatorEmission::<T>::mutate(netuid, |total| {
-                        *total = total.saturating_add(validator_alpha)
-                    });
-                }
-
                 // Get and drain the subnet pending emission.
                 let pending_server_alpha = PendingServerEmission::<T>::get(netuid);
                 PendingServerEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
