@@ -62,11 +62,8 @@ impl<T: Config> Pallet<T> {
             // Get initial alpha_in
             let mut alpha_in_i: U96F32;
             let mut tao_in_i: U96F32;
-            let tao_in_ratio: U96F32 = default_tao_in_i.safe_div_or(
-                U96F32::saturating_from_num(block_emission),
-                U96F32::saturating_from_num(0.0),
-            );
-            if price_i < tao_in_ratio {
+
+            if price_i < default_tao_in_i {
                 tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
                 alpha_in_i = block_emission;
                 let difference_tao: TaoCurrency =
