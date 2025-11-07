@@ -75,6 +75,7 @@ fn test_claim_root_with_drain_emissions() {
         SubtensorModule::distribute_emission(
             netuid,
             AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );
@@ -142,6 +143,7 @@ fn test_claim_root_with_drain_emissions() {
 
         SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -244,6 +246,7 @@ fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
         SubtensorModule::distribute_emission(
             netuid,
             AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );
@@ -345,6 +348,7 @@ fn test_claim_root_adding_stake_disproportionally_for_two_stakers() {
         SubtensorModule::distribute_emission(
             netuid,
             AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );
@@ -436,6 +440,7 @@ fn test_claim_root_with_changed_stake() {
         SubtensorModule::distribute_emission(
             netuid,
             AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );
@@ -487,6 +492,7 @@ fn test_claim_root_with_changed_stake() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -540,6 +546,7 @@ fn test_claim_root_with_changed_stake() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -633,6 +640,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         SubtensorModule::distribute_emission(
             netuid,
             AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );
@@ -677,6 +685,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         SubtensorModule::distribute_emission(
             netuid,
             AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );
@@ -712,6 +721,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
 
         SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -1138,6 +1148,7 @@ fn test_claim_root_with_swap_coldkey() {
         SubtensorModule::distribute_emission(
             netuid,
             AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );
@@ -1227,6 +1238,7 @@ fn test_claim_root_with_swap_hotkey() {
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -1343,6 +1355,7 @@ fn test_claim_root_on_network_deregistration() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -1483,6 +1496,7 @@ fn test_claim_root_with_unrelated_subnets() {
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
