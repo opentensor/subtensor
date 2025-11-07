@@ -3413,6 +3413,68 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
     });
 }
 
+#[test]
+fn test_coinbase_subnet_terms_with_alpha_in_lte_alpha_emission() {
+    new_test_ext(1).execute_with(|| {
+        let zero = U96F32::saturating_from_num(0);
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+        mock::setup_reserves(
+            netuid0,
+            TaoCurrency::from(1_000_000_000_000_000),
+            AlphaCurrency::from(1_000_000_000_000_000),
+        );
+        // Initialize swap v3
+        Swap::maybe_initialize_v3(netuid0);
+
+        let alpha_emission = U96F32::saturating_from_num(
+            SubtensorModule::get_block_emission_for_issuance(
+                SubtensorModule::get_alpha_issuance(netuid0).into(),
+            )
+            .unwrap_or(0),
+        );
+        let tao_emission = U96F32::saturating_from_num(34566756_u64);
+
+        let price: U96F32 = Swap::current_alpha_price(netuid0);
+
+        let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
+
+        let (tao_in, alpha_in, alpha_out, excess_tao) =
+            SubtensorModule::get_subnet_terms(&subnet_emissions);
+
+        // Check our condition is met
+        assert!(tao_emission / price <= alpha_emission);
+
+        // alpha_out should be the alpha_emission, always
+        assert_abs_diff_eq!(
+            alpha_out[&netuid0].to_num::<f64>(),
+            alpha_emission.to_num::<f64>(),
+            epsilon = 0.1
+        );
+
+        // assuming alpha_in < alpha_emission
+        // Then alpha_in should be tao_emission / price
+        assert_abs_diff_eq!(
+            alpha_in[&netuid0].to_num::<f64>(),
+            tao_emission.to_num::<f64>() / price.to_num::<f64>(),
+            epsilon = 0.01
+        );
+
+        // tao_in should be the tao_emission
+        assert_abs_diff_eq!(
+            tao_in[&netuid0].to_num::<f64>(),
+            tao_emission.to_num::<f64>(),
+            epsilon = 0.01
+        );
+
+        // excess_tao should be 0
+        assert_abs_diff_eq!(
+            excess_tao[&netuid0].to_num::<f64>(),
+            tao_emission.to_num::<f64>() - tao_in[&netuid0].to_num::<f64>(),
+            epsilon = 0.01
+        );
+    });
+}
+
 // Tests for the inject and swap are in the right order.
 #[test]
 fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
