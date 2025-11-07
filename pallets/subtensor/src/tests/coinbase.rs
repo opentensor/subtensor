@@ -3338,7 +3338,7 @@ fn test_coinbase_subnets_with_no_reg_get_no_emission() {
 
 // Tests for the excess TAO condition
 #[test]
-fn test_coinbase_alpha_in_more_than_alpha_emission() {
+fn test_coinbase_subnet_terms_with_alpha_in_more_than_alpha_emission() {
     new_test_ext(1).execute_with(|| {
         let zero = U96F32::saturating_from_num(0);
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
