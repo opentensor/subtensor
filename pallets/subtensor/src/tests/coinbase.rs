@@ -3593,3 +3593,142 @@ fn test_coinbase_drain_pending_gets_counters_and_resets_them() {
         assert_eq!(PendingOwnerCut::<Test>::get(netuid0), AlphaCurrency::ZERO);
     });
 }
+
+#[test]
+fn test_coinbase_emit_to_subnets_with_no_root_sell() {
+    new_test_ext(1).execute_with(|| {
+        let zero = U96F32::saturating_from_num(0);
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+        // Set owner cut to ~10%
+        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        mock::setup_reserves(
+            netuid0,
+            TaoCurrency::from(1_000_000_000_000_000),
+            AlphaCurrency::from(1_000_000_000_000_000),
+        );
+        // Initialize swap v3
+        Swap::maybe_initialize_v3(netuid0);
+
+        let tao_emission = U96F32::saturating_from_num(12345678);
+        let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
+
+        // NO root sell
+        let root_sell_flag = false;
+
+        let alpha_emission = U96F32::saturating_from_num(
+            SubtensorModule::get_block_emission_for_issuance(
+                SubtensorModule::get_alpha_issuance(netuid0).into(),
+            )
+            .unwrap_or(0),
+        );
+        let price: U96F32 = Swap::current_alpha_price(netuid0);
+        let (tao_in, alpha_in, alpha_out, excess_tao) =
+            SubtensorModule::get_subnet_terms(&subnet_emissions);
+        // Based on the price, we should have NO excess TAO
+        assert!(tao_emission / price <= alpha_emission);
+
+        // ==== Run the emit to subnets =====
+        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, root_sell_flag);
+
+        // Find the owner cut expected
+        let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let owner_cut_expected: U96F32 = owner_cut.saturating_mul(alpha_emission);
+        log::info!("owner_cut_expected: {owner_cut_expected:?}");
+        log::info!("alpha_emission: {alpha_emission:?}");
+        log::info!("owner_cut: {owner_cut:?}");
+
+        // ===== Check that the pending emissions are set correctly =====
+        // Owner cut is as expected
+        assert_abs_diff_eq!(
+            PendingOwnerCut::<Test>::get(netuid0).to_u64(),
+            owner_cut_expected.saturating_to_num::<u64>(),
+            epsilon = 200_u64
+        );
+        // NO root sell, so no root alpha divs
+        assert_eq!(
+            PendingRootAlphaDivs::<Test>::get(netuid0),
+            AlphaCurrency::ZERO
+        );
+        // Should be alpha_emission minus the owner cut,
+        // we don't deduct any root alpha b/c NO root sell
+        assert_abs_diff_eq!(
+            PendingEmission::<Test>::get(netuid0).to_u64(),
+            alpha_emission
+                .saturating_sub(owner_cut_expected)
+                .saturating_to_num::<u64>(),
+            epsilon = 200_u64
+        );
+    });
+}
+
+#[test]
+fn test_coinbase_emit_to_subnets_with_root_sell() {
+    new_test_ext(1).execute_with(|| {
+        let zero = U96F32::saturating_from_num(0);
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+        // Set owner cut to ~10%
+        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        mock::setup_reserves(
+            netuid0,
+            TaoCurrency::from(1_000_000_000_000_000),
+            AlphaCurrency::from(1_000_000_000_000_000),
+        );
+        // Initialize swap v3
+        Swap::maybe_initialize_v3(netuid0);
+
+        let tao_emission = U96F32::saturating_from_num(12345678);
+        let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
+
+        // NO root sell
+        let root_sell_flag = true;
+
+        let alpha_emission: U96F32 = U96F32::saturating_from_num(
+            SubtensorModule::get_block_emission_for_issuance(
+                SubtensorModule::get_alpha_issuance(netuid0).into(),
+            )
+            .unwrap_or(0),
+        );
+        let price: U96F32 = Swap::current_alpha_price(netuid0);
+        let (tao_in, alpha_in, alpha_out, excess_tao) =
+            SubtensorModule::get_subnet_terms(&subnet_emissions);
+        // Based on the price, we should have NO excess TAO
+        assert!(tao_emission / price <= alpha_emission);
+
+        // ==== Run the emit to subnets =====
+        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, root_sell_flag);
+
+        // Find the owner cut expected
+        let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let owner_cut_expected: U96F32 = owner_cut.saturating_mul(alpha_emission);
+        log::info!("owner_cut_expected: {owner_cut_expected:?}");
+        log::info!("alpha_emission: {alpha_emission:?}");
+        log::info!("owner_cut: {owner_cut:?}");
+
+        let expected_root_alpha_divs: AlphaCurrency = AlphaCurrency::from(12345678);
+
+        let expected_emission: U96F32 = alpha_emission
+            .saturating_sub(owner_cut_expected)
+            .saturating_sub(U96F32::saturating_from_num(expected_root_alpha_divs.to_u64()).into());
+
+        // ===== Check that the pending emissions are set correctly =====
+        // Owner cut is as expected
+        assert_abs_diff_eq!(
+            PendingOwnerCut::<Test>::get(netuid0).to_u64(),
+            owner_cut_expected.saturating_to_num::<u64>(),
+            epsilon = 200_u64
+        );
+        // YES root sell, so we have root alpha divs
+        assert_abs_diff_eq!(
+            PendingRootAlphaDivs::<Test>::get(netuid0).to_u64(),
+            expected_root_alpha_divs.to_u64(),
+            epsilon = 200_u64
+        );
+        // Should be alpha_emission minus the owner cut,
+        // minus the root alpha divs
+        assert_abs_diff_eq!(
+            PendingEmission::<Test>::get(netuid0).to_u64(),
+            expected_emission.saturating_to_num::<u64>(),
+            epsilon = 200_u64
+        );
+    });
+}
