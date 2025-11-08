@@ -100,6 +100,10 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         let subnet_tao = SubnetTAO::<T>::get(*netuid);
         if subnet_tao > pool_initial_tao {
             Pallet::<T>::recycle_tao(subnet_tao.saturating_sub(pool_initial_tao));
+            TotalStake::<T>::mutate(|total| {
+                *total = total.saturating_sub(subnet_tao.saturating_sub(pool_initial_tao));
+            });
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
         }
         SubnetTAO::<T>::insert(*netuid, pool_initial_tao);
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
