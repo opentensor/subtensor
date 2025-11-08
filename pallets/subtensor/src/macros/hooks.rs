@@ -163,7 +163,9 @@ mod hooks {
                 // Re-init tao flows
                 .saturating_add(migrations::migrate_init_tao_flow::migrate_init_tao_flow::<T>())
                 // Migrate pending emissions
-                .saturating_add(migrations::migrate_pending_emissions::migrate_pending_emissions::<T>());
+                .saturating_add(migrations::migrate_pending_emissions::migrate_pending_emissions::<T>())
+                // Reset unactive subnets
+                .saturating_add(migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<T>());
             weight
         }
 

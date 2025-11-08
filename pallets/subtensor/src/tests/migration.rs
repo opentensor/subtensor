@@ -26,8 +26,8 @@ use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
-use substrate_fixed::types::I96F32;
 use substrate_fixed::types::extra::U2;
+use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
 
 #[allow(clippy::arithmetic_side_effects)]
@@ -2396,4 +2396,165 @@ fn test_migrate_remove_tao_dividends() {
         migration,
         200_000,
     );
+}
+
+#[test]
+fn test_migrate_reset_unactive_sn() {
+    new_test_ext(1).execute_with(|| {
+        // Register some subnets
+        let netuid0 = add_dynamic_network(&U256::from(0), &U256::from(0));
+        let netuid1 = add_dynamic_network(&U256::from(1), &U256::from(1));
+        let netuid2 = add_dynamic_network(&U256::from(2), &U256::from(2));
+        let inactive_netuids = vec![netuid0, netuid1, netuid2];
+        // Add active subnets
+        let netuid3 = add_dynamic_network(&U256::from(3), &U256::from(3));
+        let netuid4 = add_dynamic_network(&U256::from(4), &U256::from(4));
+        let netuid5 = add_dynamic_network(&U256::from(5), &U256::from(5));
+        let active_netuids = vec![netuid3, netuid4, netuid5];
+        let netuids: Vec<NetUid> = inactive_netuids
+            .iter()
+            .chain(active_netuids.iter())
+            .copied()
+            .collect();
+
+        // Add stake to the subnet pools
+        for netuid in &netuids {
+            SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(123123_u64));
+            SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(123123_u64));
+            SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(123123_u64));
+            SubnetVolume::<Test>::insert(netuid, 123123_u128);
+            SubnetLocked::<Test>::insert(netuid, TaoCurrency::from(399999_u64));
+
+            // Make sure the FirstEmissionBlockNumber is None
+            assert!(FirstEmissionBlockNumber::<Test>::get(netuid).is_none());
+        }
+        for netuid in &active_netuids {
+            // Set the FirstEmissionBlockNumber for the active subnet
+            FirstEmissionBlockNumber::<Test>::insert(netuid, 100);
+        }
+
+        let alpha_amt = AlphaCurrency::from(123123_u64);
+        let tao_amt = TaoCurrency::from(333333_u64);
+        // Create some Stake entries
+        for netuid in &netuids {
+            for hotkey in 0..10 {
+                let hk = U256::from(hotkey);
+                TotalHotkeyAlpha::<Test>::insert(hk, netuid, alpha_amt);
+                TotalHotkeyShares::<Test>::insert(hk, netuid, U64F64::from(123123_u64));
+                TotalHotkeyAlphaLastEpoch::<Test>::insert(hk, netuid, alpha_amt);
+
+                let mut claimable: BTreeMap<NetUid, I96F32> = BTreeMap::new();
+                claimable.insert(*netuid, I96F32::from(alpha_amt.to_u64()));
+                RootClaimable::<Test>::insert(hk, claimable);
+                for coldkey in 0..10 {
+                    let ck = U256::from(coldkey);
+                    Alpha::<Test>::insert((hk, ck, netuid), U64F64::from(123_u64));
+                    RootClaimed::<Test>::insert((netuid, hk, ck), 222_u128);
+                }
+            }
+        }
+        // Add some pending emissions
+        let alpha_em_amt = AlphaCurrency::from(355555_u64);
+        for netuid in &netuids {
+            PendingServerEmission::<Test>::insert(netuid, alpha_em_amt);
+            PendingValidatorEmission::<Test>::insert(netuid, alpha_em_amt);
+            PendingRootAlphaDivs::<Test>::insert(netuid, alpha_em_amt);
+            PendingOwnerCut::<Test>::insert(netuid, alpha_em_amt);
+        }
+
+        // Run the migration
+        let w = crate::migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // Verify the results
+        let initial_tao = Pallet::<Test>::get_network_min_lock();
+        let initial_alpha = initial_tao.to_u64().into();
+        for netuid in &inactive_netuids {
+            assert_eq!(
+                PendingServerEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_eq!(
+                PendingValidatorEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_eq!(
+                PendingRootAlphaDivs::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_eq!(SubnetTAO::<Test>::get(netuid), initial_tao);
+            assert_eq!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
+            assert_eq!(SubnetAlphaOut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_eq!(SubnetVolume::<Test>::get(netuid), 0u128);
+            for hotkey in 0..10 {
+                let hk = U256::from(hotkey);
+                assert_eq!(
+                    TotalHotkeyAlpha::<Test>::get(hk, netuid),
+                    AlphaCurrency::ZERO
+                );
+                assert_eq!(
+                    TotalHotkeyShares::<Test>::get(hk, netuid),
+                    U64F64::from_num(0.0)
+                );
+                assert_eq!(
+                    TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
+                    AlphaCurrency::ZERO
+                );
+                assert_eq!(RootClaimable::<Test>::get(hk).get(netuid), None);
+                for coldkey in 0..10 {
+                    let ck = U256::from(coldkey);
+                    assert_eq!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
+                    assert_eq!(RootClaimed::<Test>::get((netuid, hk, ck)), 0u128);
+                }
+            }
+
+            // Don't touch SubnetLocked
+            assert_ne!(SubnetLocked::<Test>::get(netuid), TaoCurrency::ZERO);
+        }
+
+        // !!! Make sure the active subnets were not reset
+        for netuid in &active_netuids {
+            assert_ne!(
+                PendingServerEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_ne!(
+                PendingValidatorEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_ne!(
+                PendingRootAlphaDivs::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
+            assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
+            assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_ne!(SubnetVolume::<Test>::get(netuid), 0u128);
+            for hotkey in 0..10 {
+                let hk = U256::from(hotkey);
+                assert_ne!(
+                    TotalHotkeyAlpha::<Test>::get(hk, netuid),
+                    AlphaCurrency::ZERO
+                );
+                assert_ne!(
+                    TotalHotkeyShares::<Test>::get(hk, netuid),
+                    U64F64::from_num(0.0)
+                );
+                assert_ne!(
+                    TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
+                    AlphaCurrency::ZERO
+                );
+                assert_ne!(RootClaimable::<Test>::get(hk).get(netuid), None);
+                for coldkey in 0..10 {
+                    let ck = U256::from(coldkey);
+                    assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
+                    assert_ne!(RootClaimed::<Test>::get((netuid, hk, ck)), 0u128);
+                }
+            }
+            // Don't touch SubnetLocked
+            assert_ne!(SubnetLocked::<Test>::get(netuid), TaoCurrency::ZERO);
+        }
+    });
 }
