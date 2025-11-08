@@ -1,4 +1,5 @@
 use super::*;
+use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
 use subtensor_swap_interface::SwapHandler;
 
@@ -50,6 +51,37 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
     let (unactive_netuids, w) = get_unactive_sn_netuids::<T>(pool_initial_alpha);
     weight = weight.saturating_add(w);
 
+    // Collect the hotkeys to remove for each subnet
+    let mut to_remove_alpha_hotkeys: BTreeMap<NetUid, Vec<T::AccountId>> = BTreeMap::new();
+    let mut to_remove_alpha_coldkeys: BTreeMap<NetUid, Vec<(T::AccountId, T::AccountId)>> =
+        BTreeMap::new();
+    let mut all_hotkeys_set = BTreeSet::new();
+    for (hotkey, netuid_i, _) in TotalHotkeyAlpha::<T>::iter() {
+        weight = weight.saturating_add(T::DbWeight::get().reads(1));
+        if unactive_netuids.contains(&netuid_i) {
+            // Only for unactive subnets
+            to_remove_alpha_hotkeys
+                .entry(netuid_i)
+                .or_insert(Vec::new())
+                .push(hotkey.clone());
+            all_hotkeys_set.insert(hotkey);
+        }
+    }
+
+    // Collect the coldkeys to remove for each subnet
+    for hotkey in all_hotkeys_set.iter() {
+        for ((coldkey, netuid_i), _) in Alpha::<T>::iter_prefix((&hotkey,)) {
+            weight = weight.saturating_add(T::DbWeight::get().reads(1));
+            if unactive_netuids.contains(&netuid_i) {
+                // Only for unactive subnets
+                to_remove_alpha_coldkeys
+                    .entry(netuid_i)
+                    .or_insert(Vec::new())
+                    .push((hotkey.clone(), coldkey));
+            }
+        }
+    }
+
     for netuid in unactive_netuids.iter() {
         // Reset the subnet as it shouldn't have any emissions
         PendingServerEmission::<T>::remove(*netuid);
@@ -89,47 +121,35 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 14));
 
         // Reset Alpha stake entries for this subnet
-        let mut to_reset = Vec::new();
-        for (hotkey, netuid_, alpha) in TotalHotkeyAlpha::<T>::iter() {
-            weight = weight.saturating_add(T::DbWeight::get().reads(1));
-            if netuid_ != *netuid {
-                // skip netuids that are not the subnet we are resetting
-                continue;
-            }
+        let to_reset: Vec<T::AccountId> = match to_remove_alpha_hotkeys.get(netuid) {
+            Some(hotkeys) => hotkeys.clone(),
+            None => Vec::new(),
+        };
 
-            if alpha > AlphaCurrency::from(0) {
-                to_reset.push((hotkey, netuid, alpha));
-            }
-        }
-
-        for (hotkey, netuid_i, _) in to_reset {
-            TotalHotkeyAlpha::<T>::remove(&hotkey, netuid_i);
-            TotalHotkeyShares::<T>::remove(&hotkey, netuid_i);
-            TotalHotkeyAlphaLastEpoch::<T>::remove(&hotkey, netuid_i);
+        for hotkey in to_reset {
+            TotalHotkeyAlpha::<T>::remove(&hotkey, *netuid);
+            TotalHotkeyShares::<T>::remove(&hotkey, *netuid);
+            TotalHotkeyAlphaLastEpoch::<T>::remove(&hotkey, *netuid);
             weight = weight.saturating_add(T::DbWeight::get().writes(3));
 
             // Reset root claimable and claimed
             RootClaimable::<T>::mutate(&hotkey, |claimable| {
-                claimable.remove(netuid_i);
+                claimable.remove(netuid);
             });
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-            let removal_result =
-                RootClaimed::<T>::clear_prefix((netuid_i, &hotkey), u32::MAX, None);
+            let removal_result = RootClaimed::<T>::clear_prefix((*netuid, &hotkey), u32::MAX, None);
             weight = weight.saturating_add(
                 T::DbWeight::get()
                     .reads_writes(removal_result.loops as u64, removal_result.backend as u64),
             );
 
-            let mut to_reset_alpha: Vec<(&T::AccountId, T::AccountId, NetUid)> = Vec::new();
-            for ((coldkey, netuid_j), _) in Alpha::<T>::iter_prefix((&hotkey,)) {
-                weight = weight.saturating_add(T::DbWeight::get().reads(1));
-                if netuid_j != *netuid_i {
-                    continue;
-                }
-                to_reset_alpha.push((&hotkey, coldkey, netuid_j));
-            }
-            for (hotkey, coldkey, netuid_j) in to_reset_alpha {
-                Alpha::<T>::remove((hotkey, coldkey, netuid_j));
+            let to_reset_alpha: Vec<(T::AccountId, T::AccountId)> =
+                match to_remove_alpha_coldkeys.get(netuid) {
+                    Some(coldkeys) => coldkeys.clone(),
+                    None => Vec::new(),
+                };
+            for (hotkey, coldkey) in to_reset_alpha {
+                Alpha::<T>::remove((hotkey, coldkey, netuid));
                 weight = weight.saturating_add(T::DbWeight::get().writes(1));
             }
         }
