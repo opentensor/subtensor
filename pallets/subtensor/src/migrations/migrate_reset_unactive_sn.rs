@@ -18,6 +18,10 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
+    // From init_new_network
+    let pool_initial_tao: TaoCurrency = Pallet::<T>::get_network_min_lock();
+    let pool_initial_alpha: AlphaCurrency = pool_initial_tao.to_u64().into();
+
     // Loop over all subnets, if the AlphaIssuance is > 10, but FirstEmissionBlockNumber is None
     // then we reset the subnet
     for netuid in Pallet::<T>::get_all_subnet_netuids()
@@ -27,9 +31,7 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         let alpha_issuance = Pallet::<T>::get_alpha_issuance(*netuid);
         let first_emission_block_number = FirstEmissionBlockNumber::<T>::get(*netuid);
         weight = weight.saturating_add(T::DbWeight::get().reads(3));
-        if alpha_issuance > AlphaCurrency::from(1_000_000_000)
-            && first_emission_block_number.is_none()
-        {
+        if alpha_issuance != pool_initial_alpha && first_emission_block_number.is_none() {
             // Reset the subnet as it shouldn'ty have any emissions
             PendingServerEmission::<T>::remove(*netuid);
             PendingValidatorEmission::<T>::remove(*netuid);
@@ -37,8 +39,6 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
             PendingOwnerCut::<T>::remove(*netuid);
 
             // Reset pool
-            let pool_initial_tao: TaoCurrency = Pallet::<T>::get_network_min_lock();
-            let pool_initial_alpha: AlphaCurrency = pool_initial_tao.to_u64().into();
 
             // Recycle already emitted TAO
             let subnet_tao = SubnetTAO::<T>::get(*netuid);

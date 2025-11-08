@@ -2417,10 +2417,13 @@ fn test_migrate_reset_unactive_sn() {
             .copied()
             .collect();
 
+        let initial_tao = Pallet::<Test>::get_network_min_lock();
+        let initial_alpha = initial_tao.to_u64().into();
+
         // Add stake to the subnet pools
         for netuid in &netuids {
-            SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(123123_u64));
-            SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(123123_u64));
+            SubnetTAO::<Test>::insert(netuid, initial_tao + TaoCurrency::from(123123_u64));
+            SubnetAlphaIn::<Test>::insert(netuid, initial_alpha + AlphaCurrency::from(123123_u64));
             SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(123123_u64));
             SubnetVolume::<Test>::insert(netuid, 123123_u128);
             SubnetLocked::<Test>::insert(netuid, TaoCurrency::from(399999_u64));
@@ -2470,8 +2473,6 @@ fn test_migrate_reset_unactive_sn() {
         assert!(!w.is_zero(), "weight must be non-zero");
 
         // Verify the results
-        let initial_tao = Pallet::<Test>::get_network_min_lock();
-        let initial_alpha = initial_tao.to_u64().into();
         for netuid in &inactive_netuids {
             assert_eq!(
                 PendingServerEmission::<Test>::get(netuid),
