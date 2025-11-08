@@ -3095,7 +3095,8 @@ fn test_parent_child_chain_emission() {
         );
 
         // Set pending emission to 0
-        PendingEmission::<Test>::insert(netuid, AlphaCurrency::ZERO);
+        PendingValidatorEmission::<Test>::insert(netuid, AlphaCurrency::ZERO);
+        PendingServerEmission::<Test>::insert(netuid, AlphaCurrency::ZERO);
 
         // Run epoch with emission value
         SubtensorModule::run_coinbase(emission);

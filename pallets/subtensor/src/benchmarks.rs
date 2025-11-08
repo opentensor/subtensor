@@ -1619,6 +1619,7 @@ mod pallet_benchmarks {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );
 

@@ -374,7 +374,8 @@ fn dissolve_clears_all_per_subnet_storages() {
         SubnetMechanism::<Test>::insert(net, 1u16);
         NetworkRegistrationAllowed::<Test>::insert(net, true);
         NetworkPowRegistrationAllowed::<Test>::insert(net, true);
-        PendingEmission::<Test>::insert(net, AlphaCurrency::from(1));
+        PendingServerEmission::<Test>::insert(net, AlphaCurrency::from(1));
+        PendingValidatorEmission::<Test>::insert(net, AlphaCurrency::from(1));
         PendingRootAlphaDivs::<Test>::insert(net, AlphaCurrency::from(1));
         PendingOwnerCut::<Test>::insert(net, AlphaCurrency::from(1));
         BlocksSinceLastStep::<Test>::insert(net, 1u64);
@@ -529,7 +530,8 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!SubnetMechanism::<Test>::contains_key(net));
         assert!(!NetworkRegistrationAllowed::<Test>::contains_key(net));
         assert!(!NetworkPowRegistrationAllowed::<Test>::contains_key(net));
-        assert!(!PendingEmission::<Test>::contains_key(net));
+        assert!(!PendingServerEmission::<Test>::contains_key(net));
+        assert!(!PendingValidatorEmission::<Test>::contains_key(net));
         assert!(!PendingRootAlphaDivs::<Test>::contains_key(net));
         assert!(!PendingOwnerCut::<Test>::contains_key(net));
         assert!(!BlocksSinceLastStep::<Test>::contains_key(net));

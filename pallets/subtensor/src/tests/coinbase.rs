@@ -689,16 +689,22 @@ fn test_pending_emission() {
         // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
 
         assert_abs_diff_eq!(
-            u64::from(PendingEmission::<Test>::get(netuid)),
-            1_000_000_000 - 125000000,
+            u64::from(PendingServerEmission::<Test>::get(netuid)),
+            500_000_000,
             epsilon = 1
-        ); // 1 - swapped.
+        ); // 1 / 2.
+
+        assert_abs_diff_eq!(
+            u64::from(PendingValidatorEmission::<Test>::get(netuid)),
+            500_000_000 - 125000000,
+            epsilon = 1
+        ); // 1 / 2 - swapped.
 
         assert_abs_diff_eq!(
             u64::from(PendingRootAlphaDivs::<Test>::get(netuid)),
             125000000,
             epsilon = 1
-        ); // 1 / 2 = 125000000
+        ); // 1 / 2 * 0.25 --> (from root_prop)
     });
 }
 
@@ -708,6 +714,7 @@ fn test_drain_base() {
     new_test_ext(1).execute_with(|| {
         SubtensorModule::distribute_emission(
             0.into(),
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
@@ -723,6 +730,7 @@ fn test_drain_base_with_subnet() {
         add_network(netuid, 1, 0);
         SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
@@ -748,7 +756,8 @@ fn test_drain_base_with_subnet_with_single_staker_not_registered() {
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             netuid,
-            pending_alpha.into(),
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -777,7 +786,8 @@ fn test_drain_base_with_subnet_with_single_staker_registered() {
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             netuid,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -821,7 +831,8 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
         assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoCurrency::ZERO);
         SubtensorModule::distribute_emission(
             netuid,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             pending_root_alpha,
             AlphaCurrency::ZERO,
         );
@@ -868,7 +879,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered() {
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             netuid,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -933,7 +945,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
         assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoCurrency::ZERO);
         SubtensorModule::distribute_emission(
             netuid,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1006,7 +1019,13 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let pending_tao = TaoCurrency::from(1_000_000_000);
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoCurrency::ZERO);
-        SubtensorModule::distribute_emission(netuid, pending_alpha, AlphaCurrency::ZERO, 0.into());
+        SubtensorModule::distribute_emission(
+            netuid,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
+            AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
+        );
         let stake_after1 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
         let root_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1083,7 +1102,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoCurrency::ZERO);
         SubtensorModule::distribute_emission(
             netuid,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1144,7 +1164,8 @@ fn test_drain_alpha_childkey_parentkey() {
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             netuid,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1369,7 +1390,8 @@ fn test_get_root_children_drain() {
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             alpha,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1392,8 +1414,8 @@ fn test_get_root_children_drain() {
         let pending_root1 = TaoCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             alpha,
-            pending_alpha,
-            //   pending_root1,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1416,7 +1438,8 @@ fn test_get_root_children_drain() {
         let pending_root2 = TaoCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             alpha,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1504,7 +1527,8 @@ fn test_get_root_children_drain_half_proportion() {
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             alpha,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1590,7 +1614,8 @@ fn test_get_root_children_drain_with_take() {
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             alpha,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -1677,7 +1702,8 @@ fn test_get_root_children_drain_with_half_take() {
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             alpha,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -2392,7 +2418,8 @@ fn test_distribute_emission_no_miners_all_drained() {
         // Run drain pending without any miners.
         SubtensorModule::distribute_emission(
             netuid,
-            emission,
+            emission.saturating_div(2.into()).into(),
+            emission.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -2464,7 +2491,8 @@ fn test_distribute_emission_zero_emission() {
         // Set the emission to be ZERO.
         SubtensorModule::distribute_emission(
             netuid,
-            0.into(),
+            AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -2757,7 +2785,8 @@ fn test_drain_alpha_childkey_parentkey_with_burn() {
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
         SubtensorModule::distribute_emission(
             netuid,
-            pending_alpha,
+            pending_alpha.saturating_div(2.into()).into(),
+            pending_alpha.saturating_div(2.into()).into(),
             AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
         );
@@ -3061,9 +3090,10 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         // Run again but with some root stake
         step_block(subnet_tempo - 2);
         assert_abs_diff_eq!(
-            PendingEmission::<Test>::get(netuid).to_u64(),
+            PendingServerEmission::<Test>::get(netuid).to_u64(),
             U96F32::saturating_from_num(per_block_emission)
                 .saturating_mul(U96F32::saturating_from_num(subnet_tempo as u64))
+                .saturating_mul(U96F32::saturating_from_num(0.5)) // miner cut
                 .saturating_mul(U96F32::saturating_from_num(0.90))
                 .saturating_to_num::<u64>(),
             epsilon = 100_000_u64.into()
@@ -3569,11 +3599,13 @@ fn test_coinbase_drain_pending_gets_counters_and_resets_them() {
         let block_number = 98;
         assert!(SubtensorModule::should_run_epoch(netuid0, block_number));
 
-        let pending_em = AlphaCurrency::from(123434534);
+        let pending_server_em = AlphaCurrency::from(123434534);
+        let pending_validator_em = AlphaCurrency::from(111111);
         let pending_root = AlphaCurrency::from(12222222);
         let pending_owner_cut = AlphaCurrency::from(12345678);
 
-        PendingEmission::<Test>::insert(netuid0, pending_em);
+        PendingServerEmission::<Test>::insert(netuid0, pending_server_em);
+        PendingValidatorEmission::<Test>::insert(netuid0, pending_validator_em);
         PendingRootAlphaDivs::<Test>::insert(netuid0, pending_root);
         PendingOwnerCut::<Test>::insert(netuid0, pending_owner_cut);
 
@@ -3581,11 +3613,23 @@ fn test_coinbase_drain_pending_gets_counters_and_resets_them() {
         assert_eq!(emissions_to_distribute.len(), 1);
         assert_eq!(
             emissions_to_distribute[&netuid0],
-            (pending_em, pending_root, pending_owner_cut)
+            (
+                pending_server_em,
+                pending_validator_em,
+                pending_root,
+                pending_owner_cut
+            )
         );
 
         // Check that the pending emissions are reset
-        assert_eq!(PendingEmission::<Test>::get(netuid0), AlphaCurrency::ZERO);
+        assert_eq!(
+            PendingServerEmission::<Test>::get(netuid0),
+            AlphaCurrency::ZERO
+        );
+        assert_eq!(
+            PendingValidatorEmission::<Test>::get(netuid0),
+            AlphaCurrency::ZERO
+        );
         assert_eq!(
             PendingRootAlphaDivs::<Test>::get(netuid0),
             AlphaCurrency::ZERO
@@ -3637,6 +3681,20 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
         log::info!("alpha_emission: {alpha_emission:?}");
         log::info!("owner_cut: {owner_cut:?}");
 
+        let alpha_issuance: U96F32 =
+            U96F32::saturating_from_num(SubtensorModule::get_alpha_issuance(netuid0));
+        let root_tao: U96F32 = U96F32::saturating_from_num(SubnetTAO::<Test>::get(NetUid::ROOT));
+        let tao_weight: U96F32 = root_tao.saturating_mul(SubtensorModule::get_tao_weight());
+        let root_prop: U96F32 = tao_weight
+            .checked_div(tao_weight.saturating_add(alpha_issuance))
+            .unwrap_or(U96F32::min_value());
+        // Expect root alpha divs to be root prop * alpha emission
+        let expected_root_alpha_divs: AlphaCurrency = AlphaCurrency::from(
+            root_prop
+                .saturating_mul(alpha_emission)
+                .saturating_to_num::<u64>(),
+        );
+
         // ===== Check that the pending emissions are set correctly =====
         // Owner cut is as expected
         assert_abs_diff_eq!(
@@ -3650,11 +3708,21 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
             AlphaCurrency::ZERO
         );
         // Should be alpha_emission minus the owner cut,
-        // we don't deduct any root alpha b/c NO root sell
         assert_abs_diff_eq!(
-            PendingEmission::<Test>::get(netuid0).to_u64(),
+            PendingServerEmission::<Test>::get(netuid0).to_u64(),
             alpha_emission
                 .saturating_sub(owner_cut_expected)
+                .saturating_div(U96F32::saturating_from_num(2))
+                .saturating_to_num::<u64>(),
+            epsilon = 200_u64
+        );
+        // We ALWAYS deduct the root alpha divs
+        assert_abs_diff_eq!(
+            PendingValidatorEmission::<Test>::get(netuid0).to_u64(),
+            alpha_emission
+                .saturating_sub(owner_cut_expected)
+                .saturating_div(U96F32::saturating_from_num(2))
+                .saturating_sub(expected_root_alpha_divs.to_u64().into())
                 .saturating_to_num::<u64>(),
             epsilon = 200_u64
         );
@@ -3704,11 +3772,19 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
         log::info!("alpha_emission: {alpha_emission:?}");
         log::info!("owner_cut: {owner_cut:?}");
 
-        let expected_root_alpha_divs: AlphaCurrency = AlphaCurrency::from(12345678);
-
-        let expected_emission: U96F32 = alpha_emission
-            .saturating_sub(owner_cut_expected)
-            .saturating_sub(U96F32::saturating_from_num(expected_root_alpha_divs.to_u64()).into());
+        let alpha_issuance: U96F32 =
+            U96F32::saturating_from_num(SubtensorModule::get_alpha_issuance(netuid0));
+        let root_tao: U96F32 = U96F32::saturating_from_num(SubnetTAO::<Test>::get(NetUid::ROOT));
+        let tao_weight: U96F32 = root_tao.saturating_mul(SubtensorModule::get_tao_weight());
+        let root_prop: U96F32 = tao_weight
+            .checked_div(tao_weight.saturating_add(alpha_issuance))
+            .unwrap_or(U96F32::min_value());
+        // Expect root alpha divs to be root prop * alpha emission
+        let expected_root_alpha_divs: AlphaCurrency = AlphaCurrency::from(
+            root_prop
+                .saturating_mul(alpha_emission)
+                .saturating_to_num::<u64>(),
+        );
 
         // ===== Check that the pending emissions are set correctly =====
         // Owner cut is as expected
@@ -3723,11 +3799,23 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
             expected_root_alpha_divs.to_u64(),
             epsilon = 200_u64
         );
-        // Should be alpha_emission minus the owner cut,
-        // minus the root alpha divs
+        // Should be alpha_emission minus the owner cut
         assert_abs_diff_eq!(
-            PendingEmission::<Test>::get(netuid0).to_u64(),
-            expected_emission.saturating_to_num::<u64>(),
+            PendingServerEmission::<Test>::get(netuid0).to_u64(),
+            alpha_emission
+                .saturating_sub(owner_cut_expected)
+                .saturating_div(U96F32::saturating_from_num(2))
+                .saturating_to_num::<u64>(),
+            epsilon = 200_u64
+        );
+        // Validator emission is also minus root alpha divs
+        assert_abs_diff_eq!(
+            PendingValidatorEmission::<Test>::get(netuid0).to_u64(),
+            alpha_emission
+                .saturating_sub(owner_cut_expected)
+                .saturating_div(U96F32::saturating_from_num(2))
+                .saturating_sub(expected_root_alpha_divs.to_u64().into())
+                .saturating_to_num::<u64>(),
             epsilon = 200_u64
         );
     });
