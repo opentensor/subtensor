@@ -2440,6 +2440,19 @@ fn test_migrate_reset_unactive_sn_get_unactive_netuids() {
             // Remove the FirstEmissionBlockNumber
             FirstEmissionBlockNumber::<Test>::remove(netuid);
             SubtokenEnabled::<Test>::remove(netuid);
+
+            // Try registering on the subnet to simulate a real network
+            // give balance to the coldkey
+            let coldkey_account_id = U256::from(1111);
+            let hotkey_account_id = U256::from(1111);
+            let burn_cost = SubtensorModule::get_burn(*netuid);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
+            // register the neuron
+            assert_ok!(SubtensorModule::burned_register(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                *netuid,
+                hotkey_account_id
+            ));
         }
         for netuid in &active_netuids {
             // Set the FirstEmissionBlockNumber for the active subnet
