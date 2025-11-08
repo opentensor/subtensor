@@ -127,44 +127,28 @@ impl<T: Config> Pallet<T> {
 
         // Only calculate for subnets that we are emitting to.
         for (&netuid_i, &tao_emission_i) in subnet_emissions.iter() {
-            let mut tao_in_i: U96F32;
-            let mut alpha_in_i: U96F32;
-            let alpha_out_i: U96F32;
-            // Only emit if the subnetwork allows registration.
-            if !Self::get_network_registration_allowed(netuid_i)
-                && !Self::get_network_pow_registration_allowed(netuid_i)
-            {
-                tao_in_i = asfloat!(0.0);
-                alpha_in_i = asfloat!(0.0);
-                alpha_out_i = asfloat!(0.0);
-            } else {
-                // Get alpha_emission total
-                let alpha_emission_i: U96F32 = asfloat!(
-                    Self::get_block_emission_for_issuance(
-                        Self::get_alpha_issuance(netuid_i).into()
-                    )
+            // Get alpha_emission this block.
+            let alpha_emission_i: U96F32 = asfloat!(
+                Self::get_block_emission_for_issuance(Self::get_alpha_issuance(netuid_i).into())
                     .unwrap_or(0)
-                );
-                log::debug!("alpha_emission_i: {alpha_emission_i:?}");
+            );
+            log::debug!("alpha_emission_i: {alpha_emission_i:?}");
 
-                // Get alpha_out.
-                alpha_out_i = alpha_emission_i;
+            // Get subnet price.
+            let price_i: U96F32 = T::SwapInterface::current_alpha_price(netuid_i.into());
+            log::debug!("price_i: {price_i:?}");
 
-                // Get subnet price.
-                let price_i: U96F32 = T::SwapInterface::current_alpha_price(netuid_i.into());
-                log::debug!("price_i: {price_i:?}");
+            let mut tao_in_i: U96F32 = tao_emission_i;
+            let alpha_out_i: U96F32 = alpha_emission_i;
+            let mut alpha_in_i: U96F32 = tao_emission_i.safe_div_or(price_i, U96F32::from_num(0.0));
 
-                tao_in_i = tao_emission_i;
-                alpha_in_i = tao_emission_i.safe_div_or(price_i, U96F32::saturating_from_num(0.0));
-
-                if alpha_in_i > alpha_emission_i {
-                    alpha_in_i = alpha_emission_i;
-                    tao_in_i = alpha_in_i.saturating_mul(price_i);
-                }
-
-                let excess_amount: U96F32 = tao_emission_i.saturating_sub(tao_in_i);
-                excess_tao.insert(netuid_i, excess_amount);
+            if alpha_in_i > alpha_emission_i {
+                alpha_in_i = alpha_emission_i;
+                tao_in_i = alpha_in_i.saturating_mul(price_i);
             }
+
+            let excess_amount: U96F32 = tao_emission_i.saturating_sub(tao_in_i);
+            excess_tao.insert(netuid_i, excess_amount);
 
             // Insert values into maps
             tao_in.insert(netuid_i, tao_in_i);
