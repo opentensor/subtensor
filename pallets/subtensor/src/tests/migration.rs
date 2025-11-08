@@ -2405,12 +2405,12 @@ fn test_migrate_reset_unactive_sn_get_unactive_netuids() {
         let netuid0 = add_dynamic_network(&U256::from(0), &U256::from(0));
         let netuid1 = add_dynamic_network(&U256::from(1), &U256::from(1));
         let netuid2 = add_dynamic_network(&U256::from(2), &U256::from(2));
-        let inactive_netuids = vec![netuid0, netuid1, netuid2];
+        let inactive_netuids = [netuid0, netuid1, netuid2];
         // Add active subnets
         let netuid3 = add_dynamic_network(&U256::from(3), &U256::from(3));
         let netuid4 = add_dynamic_network(&U256::from(4), &U256::from(4));
         let netuid5 = add_dynamic_network(&U256::from(5), &U256::from(5));
-        let active_netuids = vec![netuid3, netuid4, netuid5];
+        let active_netuids = [netuid3, netuid4, netuid5];
         let netuids: Vec<NetUid> = inactive_netuids
             .iter()
             .chain(active_netuids.iter())

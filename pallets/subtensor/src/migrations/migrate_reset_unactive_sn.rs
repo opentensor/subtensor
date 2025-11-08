@@ -79,10 +79,7 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
 
         // Reset v3 pool
         T::SwapInterface::clear_protocol_liquidity(*netuid).unwrap_or_else(|e| {
-            log::error!(
-                "Failed to clear protocol liquidity for netuid {netuid:?}: {:?}",
-                e
-            );
+            log::error!("Failed to clear protocol liquidity for netuid {netuid:?}: {e:?}");
         });
 
         // Reset Alpha stake entries for this subnet
