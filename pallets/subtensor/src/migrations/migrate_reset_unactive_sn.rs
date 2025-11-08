@@ -88,7 +88,10 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         PendingValidatorEmission::<T>::remove(*netuid);
         PendingRootAlphaDivs::<T>::remove(*netuid);
         PendingOwnerCut::<T>::remove(*netuid);
-        weight = weight.saturating_add(T::DbWeight::get().writes(4));
+        SubnetTaoInEmission::<T>::remove(*netuid);
+        SubnetAlphaInEmission::<T>::remove(*netuid);
+        SubnetAlphaOutEmission::<T>::remove(*netuid);
+        weight = weight.saturating_add(T::DbWeight::get().writes(7));
 
         // Reset pool
         let actual_tao_lock_amount = SubnetLocked::<T>::get(*netuid);
