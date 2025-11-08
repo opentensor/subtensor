@@ -106,9 +106,10 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         // Recycle already emitted TAO
         let subnet_tao = SubnetTAO::<T>::get(*netuid);
         if subnet_tao > pool_initial_tao {
-            Pallet::<T>::recycle_tao(subnet_tao.saturating_sub(pool_initial_tao));
+            let tao_to_recycle = subnet_tao.saturating_sub(pool_initial_tao);
+            Pallet::<T>::recycle_tao(tao_to_recycle);
             TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_sub(subnet_tao.saturating_sub(pool_initial_tao));
+                *total = total.saturating_sub(tao_to_recycle);
             });
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
         }
