@@ -2399,6 +2399,75 @@ fn test_migrate_remove_tao_dividends() {
 }
 
 #[test]
+fn test_migrate_reset_unactive_sn_get_unactive_netuids() {
+    new_test_ext(1).execute_with(|| {
+        // Register some subnets
+        let netuid0 = add_dynamic_network(&U256::from(0), &U256::from(0));
+        let netuid1 = add_dynamic_network(&U256::from(1), &U256::from(1));
+        let netuid2 = add_dynamic_network(&U256::from(2), &U256::from(2));
+        let inactive_netuids = vec![netuid0, netuid1, netuid2];
+        // Add active subnets
+        let netuid3 = add_dynamic_network(&U256::from(3), &U256::from(3));
+        let netuid4 = add_dynamic_network(&U256::from(4), &U256::from(4));
+        let netuid5 = add_dynamic_network(&U256::from(5), &U256::from(5));
+        let active_netuids = vec![netuid3, netuid4, netuid5];
+        let netuids: Vec<NetUid> = inactive_netuids
+            .iter()
+            .chain(active_netuids.iter())
+            .copied()
+            .collect();
+
+        let initial_tao = Pallet::<Test>::get_network_min_lock();
+        let initial_alpha = initial_tao.to_u64().into();
+        let actual_tao_lock_amount = TaoCurrency::from(322222229_u64);
+        let actual_tao_lock_amount_less_pool_tao =
+            actual_tao_lock_amount.saturating_sub(initial_tao);
+        // Add stake to the subnet pools
+        for netuid in &netuids {
+            SubnetTAO::<Test>::insert(netuid, initial_tao + TaoCurrency::from(123123_u64));
+            SubnetAlphaIn::<Test>::insert(netuid, initial_alpha + AlphaCurrency::from(123123_u64));
+            SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(123123_u64));
+            SubnetVolume::<Test>::insert(netuid, 123123_u128);
+            SubnetLocked::<Test>::insert(netuid, actual_tao_lock_amount);
+            RAORecycledForRegistration::<Test>::insert(
+                netuid,
+                actual_tao_lock_amount_less_pool_tao,
+            );
+
+            // Set AlphaSqrtPrice
+            pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(netuid, U64F64::from(123123_u64));
+
+            // Remove the FirstEmissionBlockNumber
+            FirstEmissionBlockNumber::<Test>::remove(netuid);
+            SubtokenEnabled::<Test>::remove(netuid);
+        }
+        for netuid in &active_netuids {
+            // Set the FirstEmissionBlockNumber for the active subnet
+            FirstEmissionBlockNumber::<Test>::insert(netuid, 100);
+            // Also set SubtokenEnabled to true
+            SubtokenEnabled::<Test>::insert(netuid, true);
+        }
+
+        let (unactive_netuids, w) =
+            crate::migrations::migrate_reset_unactive_sn::get_unactive_sn_netuids::<Test>(
+                initial_alpha,
+            );
+        // Make sure ALL the inactive subnets are in the unactive netuids
+        assert!(
+            inactive_netuids
+                .iter()
+                .all(|netuid| unactive_netuids.contains(netuid))
+        );
+        // Make sure the active subnets are not in the unactive netuids
+        assert!(
+            active_netuids
+                .iter()
+                .all(|netuid| !unactive_netuids.contains(netuid))
+        );
+    });
+}
+
+#[test]
 fn test_migrate_reset_unactive_sn() {
     new_test_ext(1).execute_with(|| {
         // Register some subnets
@@ -2419,7 +2488,9 @@ fn test_migrate_reset_unactive_sn() {
 
         let initial_tao = Pallet::<Test>::get_network_min_lock();
         let initial_alpha = initial_tao.to_u64().into();
-
+        let actual_tao_lock_amount = TaoCurrency::from(322222229_u64);
+        let actual_tao_lock_amount_less_pool_tao =
+            actual_tao_lock_amount.saturating_sub(initial_tao);
         // Add stake to the subnet pools
         for netuid in &netuids {
             SubnetTAO::<Test>::insert(netuid, initial_tao + TaoCurrency::from(123123_u64));
