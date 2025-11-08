@@ -56,11 +56,13 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         PendingValidatorEmission::<T>::remove(*netuid);
         PendingRootAlphaDivs::<T>::remove(*netuid);
         PendingOwnerCut::<T>::remove(*netuid);
+        weight = weight.saturating_add(T::DbWeight::get().writes(4));
 
         // Reset pool
         let actual_tao_lock_amount = SubnetLocked::<T>::get(*netuid);
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
+        weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
         // Recycle already emitted TAO
         let subnet_tao = SubnetTAO::<T>::get(*netuid);
@@ -68,6 +70,7 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
             Pallet::<T>::recycle_tao(subnet_tao.saturating_sub(pool_initial_tao));
         }
         SubnetTAO::<T>::insert(*netuid, pool_initial_tao);
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
         // Reset pool alpha
         SubnetAlphaIn::<T>::insert(*netuid, pool_initial_alpha);
@@ -76,40 +79,58 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         SubnetVolume::<T>::insert(*netuid, 0u128);
         // Reset recycled (from init_new_network)
         RAORecycledForRegistration::<T>::insert(*netuid, actual_tao_lock_amount_less_pool_tao);
+        weight = weight.saturating_add(T::DbWeight::get().writes(4));
 
         // Reset v3 pool
         T::SwapInterface::clear_protocol_liquidity(*netuid).unwrap_or_else(|e| {
             log::error!("Failed to clear protocol liquidity for netuid {netuid:?}: {e:?}");
         });
+        // might be based on ticks but this is a rough estimate
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 14));
 
         // Reset Alpha stake entries for this subnet
         let mut to_reset = Vec::new();
-        for (hotkey, _, alpha) in
-            TotalHotkeyAlpha::<T>::iter().filter(|(_, netuid_, _)| *netuid_ == *netuid)
-        {
+        for (hotkey, netuid_, alpha) in TotalHotkeyAlpha::<T>::iter() {
+            weight = weight.saturating_add(T::DbWeight::get().reads(1));
+            if netuid_ != *netuid {
+                // skip netuids that are not the subnet we are resetting
+                continue;
+            }
+
             if alpha > AlphaCurrency::from(0) {
                 to_reset.push((hotkey, netuid, alpha));
             }
         }
-        for (hotkey, netuid_, _) in to_reset {
-            TotalHotkeyAlpha::<T>::remove(&hotkey, netuid_);
-            TotalHotkeyShares::<T>::remove(&hotkey, netuid_);
-            TotalHotkeyAlphaLastEpoch::<T>::remove(&hotkey, netuid_);
+
+        for (hotkey, netuid_i, _) in to_reset {
+            TotalHotkeyAlpha::<T>::remove(&hotkey, netuid_i);
+            TotalHotkeyShares::<T>::remove(&hotkey, netuid_i);
+            TotalHotkeyAlphaLastEpoch::<T>::remove(&hotkey, netuid_i);
+            weight = weight.saturating_add(T::DbWeight::get().writes(3));
 
             // Reset root claimable and claimed
             RootClaimable::<T>::mutate(&hotkey, |claimable| {
-                claimable.remove(netuid_);
+                claimable.remove(netuid_i);
             });
-            let _ = RootClaimed::<T>::clear_prefix((netuid_, &hotkey), u32::MAX, None);
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+            let removal_result =
+                RootClaimed::<T>::clear_prefix((netuid_i, &hotkey), u32::MAX, None);
+            weight = weight.saturating_add(
+                T::DbWeight::get()
+                    .reads_writes(removal_result.loops as u64, removal_result.backend as u64),
+            );
 
             let mut to_reset_alpha: Vec<(&T::AccountId, T::AccountId, NetUid)> = Vec::new();
-            for ((coldkey, _), _) in
-                Alpha::<T>::iter_prefix((&hotkey,)).filter(|((_, netuid_), _)| *netuid_ == *netuid)
-            {
-                to_reset_alpha.push((&hotkey, coldkey, *netuid_));
+            for ((coldkey, netuid_j), _) in Alpha::<T>::iter_prefix((&hotkey,)) {
+                weight = weight.saturating_add(T::DbWeight::get().reads(1));
+                if netuid_j != *netuid_i {
+                    continue;
+                }
+                to_reset_alpha.push((&hotkey, coldkey, netuid_j));
             }
-            for (hotkey, coldkey, netuid_) in to_reset_alpha {
-                Alpha::<T>::remove((hotkey, coldkey, netuid_));
+            for (hotkey, coldkey, netuid_j) in to_reset_alpha {
+                Alpha::<T>::remove((hotkey, coldkey, netuid_j));
+                weight = weight.saturating_add(T::DbWeight::get().writes(1));
             }
         }
     }
