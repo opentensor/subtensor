@@ -96,6 +96,13 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
+        // Reset v3 pool
+        T::SwapInterface::clear_protocol_liquidity(*netuid).unwrap_or_else(|e| {
+            log::error!("Failed to clear protocol liquidity for netuid {netuid:?}: {e:?}");
+        });
+        // might be based on ticks but this is a rough estimate
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 14));
+
         // Recycle already emitted TAO
         let subnet_tao = SubnetTAO::<T>::get(*netuid);
         if subnet_tao > pool_initial_tao {
@@ -116,13 +123,6 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         // Reset recycled (from init_new_network)
         RAORecycledForRegistration::<T>::insert(*netuid, actual_tao_lock_amount_less_pool_tao);
         weight = weight.saturating_add(T::DbWeight::get().writes(4));
-
-        // Reset v3 pool
-        T::SwapInterface::clear_protocol_liquidity(*netuid).unwrap_or_else(|e| {
-            log::error!("Failed to clear protocol liquidity for netuid {netuid:?}: {e:?}");
-        });
-        // might be based on ticks but this is a rough estimate
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 14));
 
         // Reset Alpha stake entries for this subnet
         let to_reset: Vec<T::AccountId> = match to_remove_alpha_hotkeys.get(netuid) {
