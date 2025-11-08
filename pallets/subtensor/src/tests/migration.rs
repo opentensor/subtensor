@@ -2425,12 +2425,15 @@ fn test_migrate_reset_unactive_sn() {
             SubnetVolume::<Test>::insert(netuid, 123123_u128);
             SubnetLocked::<Test>::insert(netuid, TaoCurrency::from(399999_u64));
 
-            // Make sure the FirstEmissionBlockNumber is None
-            assert!(FirstEmissionBlockNumber::<Test>::get(netuid).is_none());
+            // Remove the FirstEmissionBlockNumber
+            FirstEmissionBlockNumber::<Test>::remove(netuid);
+            SubtokenEnabled::<Test>::remove(netuid);
         }
         for netuid in &active_netuids {
             // Set the FirstEmissionBlockNumber for the active subnet
             FirstEmissionBlockNumber::<Test>::insert(netuid, 100);
+            // Also set SubtokenEnabled to true
+            SubtokenEnabled::<Test>::insert(netuid, true);
         }
 
         let alpha_amt = AlphaCurrency::from(123123_u64);

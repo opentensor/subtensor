@@ -3337,6 +3337,8 @@ fn test_pending_emission_start_call_not_done() {
         let owner_hotkey = U256::from(10);
         let owner_coldkey = U256::from(11);
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        // Remove FirstEmissionBlockNumber
+        FirstEmissionBlockNumber::<Test>::remove(netuid);
         Tempo::<Test>::insert(netuid, subnet_tempo);
 
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
