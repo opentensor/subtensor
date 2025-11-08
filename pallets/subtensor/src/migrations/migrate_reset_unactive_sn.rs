@@ -33,7 +33,7 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         let first_emission_block_number = FirstEmissionBlockNumber::<T>::get(*netuid);
         weight = weight.saturating_add(T::DbWeight::get().reads(3));
         if alpha_issuance != pool_initial_alpha && first_emission_block_number.is_none() {
-            // Reset the subnet as it shouldn'ty have any emissions
+            // Reset the subnet as it shouldn't have any emissions
             PendingServerEmission::<T>::remove(*netuid);
             PendingValidatorEmission::<T>::remove(*netuid);
             PendingRootAlphaDivs::<T>::remove(*netuid);
