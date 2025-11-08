@@ -63,25 +63,25 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
                     to_reset.push((hotkey, netuid, alpha));
                 }
             }
-            for (hotkey, netuid, _) in to_reset {
-                TotalHotkeyAlpha::<T>::remove(&hotkey, netuid);
-                TotalHotkeyShares::<T>::remove(&hotkey, netuid);
-                TotalHotkeyAlphaLastEpoch::<T>::remove(&hotkey, netuid);
+            for (hotkey, netuid_, _) in to_reset {
+                TotalHotkeyAlpha::<T>::remove(&hotkey, netuid_);
+                TotalHotkeyShares::<T>::remove(&hotkey, netuid_);
+                TotalHotkeyAlphaLastEpoch::<T>::remove(&hotkey, netuid_);
 
                 // Reset root claimable and claimed
                 RootClaimable::<T>::mutate(&hotkey, |claimable| {
-                    claimable.remove(netuid);
+                    claimable.remove(netuid_);
                 });
-                let _ = RootClaimed::<T>::clear_prefix((netuid, &hotkey), u32::MAX, None);
+                let _ = RootClaimed::<T>::clear_prefix((netuid_, &hotkey), u32::MAX, None);
 
                 let mut to_reset_alpha: Vec<(&T::AccountId, T::AccountId, NetUid)> = Vec::new();
                 for ((coldkey, _), _) in Alpha::<T>::iter_prefix((&hotkey,))
                     .filter(|((_, netuid_), _)| *netuid_ == *netuid)
                 {
-                    to_reset_alpha.push((&hotkey, coldkey, *netuid));
+                    to_reset_alpha.push((&hotkey, coldkey, *netuid_));
                 }
-                for (hotkey, coldkey, netuid) in to_reset_alpha {
-                    Alpha::<T>::remove((hotkey, coldkey, netuid));
+                for (hotkey, coldkey, netuid_) in to_reset_alpha {
+                    Alpha::<T>::remove((hotkey, coldkey, netuid_));
                 }
             }
         }

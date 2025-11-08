@@ -2449,12 +2449,9 @@ fn test_migrate_reset_unactive_sn() {
                 TotalHotkeyShares::<Test>::insert(hk, netuid, U64F64::from(123123_u64));
                 TotalHotkeyAlphaLastEpoch::<Test>::insert(hk, netuid, alpha_amt);
 
-                let mut claimable: BTreeMap<NetUid, I96F32> = BTreeMap::new();
-                claimable
-                    .entry(*netuid)
-                    .and_modify(|v| *v = I96F32::from(alpha_amt.to_u64()))
-                    .or_insert(I96F32::from(alpha_amt.to_u64()));
-                RootClaimable::<Test>::insert(hk, claimable);
+                RootClaimable::<Test>::mutate(hk, |claimable| {
+                    claimable.insert(*netuid, I96F32::from(alpha_amt.to_u64()));
+                });
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
                     Alpha::<Test>::insert((hk, ck, netuid), U64F64::from(123_u64));
@@ -2553,7 +2550,7 @@ fn test_migrate_reset_unactive_sn() {
                     TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
                     AlphaCurrency::ZERO
                 );
-                assert_ne!(RootClaimable::<Test>::get(hk).get(netuid), None);
+                assert!(RootClaimable::<Test>::get(hk).contains_key(netuid));
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
                     assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
