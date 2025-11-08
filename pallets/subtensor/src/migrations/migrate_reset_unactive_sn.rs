@@ -22,7 +22,8 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
     let pool_initial_tao: TaoCurrency = Pallet::<T>::get_network_min_lock();
     let pool_initial_alpha: AlphaCurrency = pool_initial_tao.to_u64().into();
 
-    // Loop over all subnets, if the AlphaIssuance is > 10, but FirstEmissionBlockNumber is None
+    // Loop over all subnets, if the AlphaIssuance is > pool_initial_alpha
+    // but FirstEmissionBlockNumber is None
     // then we reset the subnet
     for netuid in Pallet::<T>::get_all_subnet_netuids()
         .iter()
