@@ -2450,7 +2450,10 @@ fn test_migrate_reset_unactive_sn() {
                 TotalHotkeyAlphaLastEpoch::<Test>::insert(hk, netuid, alpha_amt);
 
                 let mut claimable: BTreeMap<NetUid, I96F32> = BTreeMap::new();
-                claimable.insert(*netuid, I96F32::from(alpha_amt.to_u64()));
+                claimable
+                    .entry(*netuid)
+                    .and_modify(|v| *v = I96F32::from(alpha_amt.to_u64()))
+                    .or_insert(I96F32::from(alpha_amt.to_u64()));
                 RootClaimable::<Test>::insert(hk, claimable);
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
