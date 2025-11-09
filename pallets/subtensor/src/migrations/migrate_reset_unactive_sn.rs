@@ -100,9 +100,14 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
         // Reset v3 pool
-        T::SwapInterface::clear_protocol_liquidity(*netuid).unwrap_or_else(|e| {
-            log::error!("Failed to clear protocol liquidity for netuid {netuid:?}: {e:?}");
-        });
+        let burned_tao = match T::SwapInterface::clear_protocol_liquidity(*netuid) {
+            Ok((_tao, fee_tao, _alpha, _fee_alpha)) => fee_tao,
+            Err(e) => {
+                log::error!("Failed to clear protocol liquidity for netuid {netuid:?}: {e:?}");
+                TaoCurrency::ZERO
+            }
+        };
+        Pallet::<T>::recycle_tao(burned_tao);
         // might be based on ticks but this is a rough estimate
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 14));
 
@@ -114,10 +119,11 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_sub(tao_to_recycle);
             });
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
+            SubnetTAO::<T>::mutate(*netuid, |amount| {
+                *amount = amount.saturating_sub(tao_to_recycle);
+            });
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
         }
-        SubnetTAO::<T>::insert(*netuid, pool_initial_tao);
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
         // Reset pool alpha
         SubnetAlphaIn::<T>::insert(*netuid, pool_initial_alpha);
