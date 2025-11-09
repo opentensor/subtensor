@@ -2497,7 +2497,7 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
         SubnetAlphaOutEmission::<Test>::insert(netuid, AlphaCurrency::from(12345678_u64));
     }
 
-    return (active_netuids, inactive_netuids);
+    (active_netuids, inactive_netuids)
 }
 
 #[test]
