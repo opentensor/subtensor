@@ -89,12 +89,16 @@ fn test_coinbase_tao_issuance_base() {
         let subnet_owner_ck = U256::from(1001);
         let subnet_owner_hk = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        let total_issuance_before = TotalIssuance::<Test>::get();
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from(3141) / I96F32::from(1000));
         let tao_in_before = SubnetTAO::<Test>::get(netuid);
         let total_stake_before = TotalStake::<Test>::get();
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         assert_eq!(SubnetTAO::<Test>::get(netuid), tao_in_before + emission);
-        assert_eq!(TotalIssuance::<Test>::get(), emission);
+        assert_eq!(
+            TotalIssuance::<Test>::get(),
+            total_issuance_before + emission
+        );
         assert_eq!(TotalStake::<Test>::get(), total_stake_before + emission);
     });
 }
