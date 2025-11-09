@@ -94,12 +94,6 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         SubnetAlphaOutEmission::<T>::remove(*netuid);
         weight = weight.saturating_add(T::DbWeight::get().writes(7));
 
-        // Reset pool
-        let actual_tao_lock_amount = SubnetLocked::<T>::get(*netuid);
-        let actual_tao_lock_amount_less_pool_tao =
-            actual_tao_lock_amount.saturating_sub(pool_initial_tao);
-        weight = weight.saturating_add(T::DbWeight::get().reads(1));
-
         // Reset v3 pool
         let burned_tao = match T::SwapInterface::clear_protocol_liquidity(*netuid) {
             Ok((_tao, fee_tao, _alpha, _fee_alpha)) => fee_tao,
