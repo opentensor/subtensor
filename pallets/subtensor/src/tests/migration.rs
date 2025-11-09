@@ -2417,12 +2417,27 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
 
     let initial_tao = Pallet::<Test>::get_network_min_lock();
     let initial_alpha: AlphaCurrency = initial_tao.to_u64().into();
-    let actual_tao_lock_amount = initial_tao.saturating_add(TaoCurrency::from(12345678_u64));
-    let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount.saturating_sub(initial_tao);
+    let actual_tao_lock_amount = TaoCurrency::from(
+        initial_tao
+            .to_u64()
+            .checked_add(12_345_678_u64)
+            .expect("initial_tao + 12_345_678_u64 should not overflow"),
+    );
+    let actual_tao_lock_amount_less_pool_tao = TaoCurrency::from(
+        actual_tao_lock_amount
+            .to_u64()
+            .checked_sub(initial_tao.to_u64())
+            .expect("actual_tao_lock_amount >= initial_tao"),
+    );
 
     // Add stake to the subnet pools
     for netuid in &netuids {
-        let stake_in_pool = initial_tao.saturating_add(TaoCurrency::from(123123_u64));
+        let stake_in_pool = TaoCurrency::from(
+            initial_tao
+                .to_u64()
+                .checked_add(123_123_u64)
+                .expect("initial_tao + 123_123 must stay in range"),
+        );
         SubnetTAO::<Test>::insert(netuid, stake_in_pool);
         TotalStake::<Test>::mutate(|total_stake| {
             *total_stake = total_stake.saturating_add(stake_in_pool);
