@@ -164,33 +164,8 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         }
     }
 
-    // Recalculate total stake to ensure it matches the updated subnet pots.
-    let recalculated_total_stake = SubnetTAO::<T>::iter()
-        .fold(TaoCurrency::ZERO, |acc, (_, stake)| {
-            acc.saturating_add(stake)
-        });
-    let subnet_count = SubnetTAO::<T>::iter().count() as u64;
-    TotalStake::<T>::put(recalculated_total_stake);
-    weight = weight.saturating_add(T::DbWeight::get().reads_writes(subnet_count, 1));
-
-    // Recalculate total issuance so subsequent migrations become no-ops.
-    let stake_sum = Owner::<T>::iter().fold(TaoCurrency::ZERO, |acc, (hotkey, _)| {
-        acc.saturating_add(Pallet::<T>::get_total_stake_for_hotkey(&hotkey))
-    });
-    let owner_count = Owner::<T>::iter().count() as u64;
-    let locked_sum = SubnetLocked::<T>::iter().fold(TaoCurrency::ZERO, |acc, (_, locked)| {
-        acc.saturating_add(locked)
-    });
-    let locked_count = SubnetLocked::<T>::iter().count() as u64;
-    let currency_total = <T as Config>::Currency::total_issuance();
-    let total_issuance_value = stake_sum
-        .saturating_add(locked_sum)
-        .saturating_add(currency_total.into());
-    TotalIssuance::<T>::put(total_issuance_value);
-    weight = weight.saturating_add(T::DbWeight::get().reads_writes(
-        owner_count.saturating_add(locked_count).saturating_add(1),
-        1,
-    ));
+    // Run total issuance migration
+    crate::migrations::migrate_init_total_issuance::migrate_init_total_issuance::<T>();
 
     // Mark Migration as Completed
     HasMigrationRun::<T>::insert(&migration_name, true);
