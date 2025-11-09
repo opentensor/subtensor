@@ -1,5 +1,4 @@
 use super::*;
-use frame_support::traits::tokens::fungible::Inspect;
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
 use subtensor_swap_interface::SwapHandler;
@@ -107,6 +106,7 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 14));
 
         // Recycle already emitted TAO
+        // or mint 1 TAO to the pool
         let subnet_tao = SubnetTAO::<T>::get(*netuid);
         if subnet_tao > pool_initial_tao {
             let tao_to_recycle = subnet_tao.saturating_sub(pool_initial_tao);
@@ -118,6 +118,18 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
                 *amount = amount.saturating_sub(tao_to_recycle);
             });
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
+        } else if subnet_tao < pool_initial_tao {
+            let tao_to_add = pool_initial_tao.saturating_sub(subnet_tao);
+            TotalStake::<T>::mutate(|total| {
+                *total = total.saturating_add(tao_to_add);
+            });
+            SubnetTAO::<T>::mutate(*netuid, |amount| {
+                *amount = amount.saturating_add(tao_to_add);
+            });
+            TotalIssuance::<T>::mutate(|total| {
+                *total = total.saturating_add(tao_to_add);
+            });
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
         }
 
         // Reset pool alpha
@@ -125,8 +137,6 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         SubnetAlphaOut::<T>::insert(*netuid, AlphaCurrency::ZERO);
         // Reset volume
         SubnetVolume::<T>::insert(*netuid, 0u128);
-        // Reset recycled (from init_new_network)
-        RAORecycledForRegistration::<T>::insert(*netuid, actual_tao_lock_amount_less_pool_tao);
         weight = weight.saturating_add(T::DbWeight::get().writes(4));
 
         // Reset Alpha stake entries for this subnet
