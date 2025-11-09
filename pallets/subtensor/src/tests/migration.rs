@@ -2416,23 +2416,38 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
     let initial_tao = Pallet::<Test>::get_network_min_lock();
     let initial_alpha: AlphaCurrency = initial_tao.to_u64().into();
 
+    const EXTRA_POOL_TAO: u64 = 123_123_u64;
+    const EXTRA_POOL_ALPHA: u64 = 123_123_u64;
+
     // Add stake to the subnet pools
     for netuid in &netuids {
-        let extra_for_pool = TaoCurrency::from(123_123_u64);
-        let stake_in_pool = initial_tao + extra_for_pool;
+        let extra_for_pool = TaoCurrency::from(EXTRA_POOL_TAO);
+        let stake_in_pool = TaoCurrency::from(
+            u64::from(initial_tao)
+                .checked_add(EXTRA_POOL_TAO)
+                .expect("initial_tao + extra_for_pool overflow"),
+        );
         SubnetTAO::<Test>::insert(netuid, stake_in_pool);
         TotalStake::<Test>::mutate(|total_stake| {
-            *total_stake += extra_for_pool;
+            let updated_total = u64::from(*total_stake)
+                .checked_add(EXTRA_POOL_TAO)
+                .expect("total stake overflow");
+            *total_stake = updated_total.into();
         });
         TotalIssuance::<Test>::mutate(|total_issuance| {
-            *total_issuance += extra_for_pool;
+            let updated_total = u64::from(*total_issuance)
+                .checked_add(EXTRA_POOL_TAO)
+                .expect("total issuance overflow");
+            *total_issuance = updated_total.into();
         });
 
-        SubnetAlphaIn::<Test>::insert(
-            netuid,
-            initial_alpha + AlphaCurrency::from(123_123_u64),
+        let subnet_alpha_in = AlphaCurrency::from(
+            u64::from(initial_alpha)
+                .checked_add(EXTRA_POOL_ALPHA)
+                .expect("initial alpha + extra alpha overflow"),
         );
-        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(123123_u64));
+        SubnetAlphaIn::<Test>::insert(netuid, subnet_alpha_in);
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(EXTRA_POOL_ALPHA));
         SubnetVolume::<Test>::insert(netuid, 123123_u128);
 
         // Try registering on the subnet to simulate a real network
@@ -2442,7 +2457,10 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
         let burn_cost = SubtensorModule::get_burn(*netuid);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
         TotalIssuance::<Test>::mutate(|total_issuance| {
-            *total_issuance += burn_cost;
+            let updated_total = u64::from(*total_issuance)
+                .checked_add(u64::from(burn_cost))
+                .expect("total issuance overflow (burn)");
+            *total_issuance = updated_total.into();
         });
 
         // register the neuron
