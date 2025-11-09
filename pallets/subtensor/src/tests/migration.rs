@@ -2555,7 +2555,11 @@ fn test_migrate_reset_unactive_sn() {
         // Verify the results
         for netuid in &inactive_netuids {
             let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
-            let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount - initial_tao;
+            let actual_tao_lock_amount_less_pool_tao = if (actual_tao_lock_amount < initial_tao) {
+                TaoCurrency::ZERO
+            } else {
+                actual_tao_lock_amount - initial_tao
+            };
             assert_eq!(
                 PendingServerEmission::<Test>::get(netuid),
                 AlphaCurrency::ZERO
