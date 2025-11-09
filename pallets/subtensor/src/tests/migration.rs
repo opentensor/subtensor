@@ -2422,7 +2422,7 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
 
     // Add stake to the subnet pools
     for netuid in &netuids {
-        let stake_in_pool = initial_tao + TaoCurrency::from(123123_u64);
+        let stake_in_pool = initial_tao.saturating_add(TaoCurrency::from(123123_u64));
         SubnetTAO::<Test>::insert(netuid, stake_in_pool);
         TotalStake::<Test>::mutate(|total_stake| {
             *total_stake = total_stake.saturating_add(stake_in_pool);
@@ -2431,7 +2431,7 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
             *total_issuance = total_issuance.saturating_add(stake_in_pool);
         });
 
-        SubnetAlphaIn::<Test>::insert(netuid, initial_alpha + AlphaCurrency::from(123123_u64));
+        SubnetAlphaIn::<Test>::insert(netuid, initial_alpha.saturating_add(AlphaCurrency::from(123123_u64)));
         SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(123123_u64));
         SubnetVolume::<Test>::insert(netuid, 123123_u128);
         SubnetLocked::<Test>::insert(netuid, actual_tao_lock_amount);
