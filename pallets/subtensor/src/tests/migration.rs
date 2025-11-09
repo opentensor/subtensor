@@ -2431,7 +2431,10 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
             *total_issuance = total_issuance.saturating_add(stake_in_pool);
         });
 
-        SubnetAlphaIn::<Test>::insert(netuid, initial_alpha.saturating_add(AlphaCurrency::from(123123_u64)));
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            initial_alpha.saturating_add(AlphaCurrency::from(123123_u64)),
+        );
         SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(123123_u64));
         SubnetVolume::<Test>::insert(netuid, 123123_u128);
         SubnetLocked::<Test>::insert(netuid, actual_tao_lock_amount);
