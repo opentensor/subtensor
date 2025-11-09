@@ -2016,7 +2016,7 @@ fn test_migrate_network_lock_reduction_interval_and_decay() {
 
         // last_lock_block should be set one week in the future
         let last_lock_block = Pallet::<Test>::get_network_last_lock_block();
-        let expected_block = current_block_before.saturating_add(ONE_WEEK_BLOCKS);
+        let expected_block = current_block_before + ONE_WEEK_BLOCKS;
         assert_eq!(
             last_lock_block,
             expected_block,
@@ -2243,10 +2243,8 @@ fn test_migrate_network_lock_cost_2500_sets_price_and_decay() {
         let min_lock_rao: u64 = Pallet::<Test>::get_network_min_lock().to_u64();
 
         step_block(1);
-        let expected_after_1: u64 = core::cmp::max(
-            min_lock_rao,
-            TARGET_COST_RAO.saturating_sub(per_block_decrement),
-        );
+        let expected_after_1: u64 =
+            core::cmp::max(min_lock_rao, TARGET_COST_RAO - per_block_decrement);
         let lock_cost_after_1 = Pallet::<Test>::get_network_lock_cost();
         assert_eq!(
             lock_cost_after_1,
@@ -2293,9 +2291,9 @@ fn test_migrate_kappa_map_to_default() {
         let default: u16 = DefaultKappa::<Test>::get();
 
         let not_default: u16 = if default == u16::MAX {
-            default.saturating_sub(1)
+            default - 1
         } else {
-            default.saturating_add(1)
+            default + 1
         };
 
         // ------------------------------
@@ -2421,18 +2419,18 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
     // Add stake to the subnet pools
     for netuid in &netuids {
         let extra_for_pool = TaoCurrency::from(123_123_u64);
-        let stake_in_pool = initial_tao.saturating_add(extra_for_pool);
+        let stake_in_pool = initial_tao + extra_for_pool;
         SubnetTAO::<Test>::insert(netuid, stake_in_pool);
         TotalStake::<Test>::mutate(|total_stake| {
-            *total_stake = total_stake.saturating_add(extra_for_pool);
+            *total_stake += extra_for_pool;
         });
         TotalIssuance::<Test>::mutate(|total_issuance| {
-            *total_issuance = total_issuance.saturating_add(extra_for_pool);
+            *total_issuance += extra_for_pool;
         });
 
         SubnetAlphaIn::<Test>::insert(
             netuid,
-            initial_alpha.saturating_add(AlphaCurrency::from(123123_u64)),
+            initial_alpha + AlphaCurrency::from(123_123_u64),
         );
         SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(123123_u64));
         SubnetVolume::<Test>::insert(netuid, 123123_u128);
@@ -2444,7 +2442,7 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
         let burn_cost = SubtensorModule::get_burn(*netuid);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
         TotalIssuance::<Test>::mutate(|total_issuance| {
-            *total_issuance = total_issuance.saturating_add(burn_cost);
+            *total_issuance += burn_cost;
         });
 
         // register the neuron
@@ -2539,8 +2537,7 @@ fn test_migrate_reset_unactive_sn() {
         // Verify the results
         for netuid in &inactive_netuids {
             let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
-            let actual_tao_lock_amount_less_pool_tao =
-                actual_tao_lock_amount.saturating_sub(initial_tao);
+            let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount - initial_tao;
             assert_eq!(
                 PendingServerEmission::<Test>::get(netuid),
                 AlphaCurrency::ZERO
@@ -2602,8 +2599,7 @@ fn test_migrate_reset_unactive_sn() {
         // !!! Make sure the active subnets were not reset
         for netuid in &active_netuids {
             let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
-            let actual_tao_lock_amount_less_pool_tao =
-                actual_tao_lock_amount.saturating_sub(initial_tao);
+            let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount - initial_tao;
             assert_ne!(
                 PendingServerEmission::<Test>::get(netuid),
                 AlphaCurrency::ZERO
