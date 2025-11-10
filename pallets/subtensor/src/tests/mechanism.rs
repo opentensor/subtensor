@@ -742,11 +742,8 @@ fn epoch_with_mechanisms_persists_and_aggregates_all_terms() {
         // Fetch persisted vectors
         let active = Active::<Test>::get(netuid);
         let emission_v = Emission::<Test>::get(netuid);
-        let rank_v = Rank::<Test>::get(netuid);
-        let trust_v = Trust::<Test>::get(netuid);
         let cons_v = Consensus::<Test>::get(netuid);
         let div_v = Dividends::<Test>::get(netuid);
-        let prun_v = PruningScores::<Test>::get(netuid);
         let vtrust_v = ValidatorTrust::<Test>::get(netuid);
         let vperm_v = ValidatorPermit::<Test>::get(netuid);
 
@@ -777,15 +774,8 @@ fn epoch_with_mechanisms_persists_and_aggregates_all_terms() {
             assert_abs_diff_eq!(u64::from(emission_v[uid]), exp_em, epsilon = 1);
 
             // u16 terms
-            assert_abs_diff_eq!(rank_v[uid], wu16(t0.rank, t1.rank), epsilon = 1);
-            assert_abs_diff_eq!(trust_v[uid], wu16(t0.trust, t1.trust), epsilon = 1);
             assert_abs_diff_eq!(cons_v[uid], wu16(t0.consensus, t1.consensus), epsilon = 1);
             assert_abs_diff_eq!(div_v[uid], wu16(t0.dividend, t1.dividend), epsilon = 1);
-            assert_abs_diff_eq!(
-                prun_v[uid],
-                wu16(t0.pruning_score, t1.pruning_score),
-                epsilon = 1
-            );
             assert_abs_diff_eq!(
                 vtrust_v[uid],
                 wu16(t0.validator_trust, t1.validator_trust),
@@ -855,7 +845,6 @@ fn neuron_dereg_cleans_weights_across_subids() {
                 AlphaCurrency::from(3u64),
             ],
         );
-        Trust::<Test>::insert(netuid, vec![11u16, 99u16, 33u16]);
         Consensus::<Test>::insert(netuid, vec![21u16, 88u16, 44u16]);
         Dividends::<Test>::insert(netuid, vec![7u16, 77u16, 17u16]);
 
@@ -883,9 +872,6 @@ fn neuron_dereg_cleans_weights_across_subids() {
         assert_eq!(e[0], 1u64.into());
         assert_eq!(e[1], 0u64.into());
         assert_eq!(e[2], 3u64.into());
-
-        let t = Trust::<Test>::get(netuid);
-        assert_eq!(t, vec![11, 0, 33]);
 
         let c = Consensus::<Test>::get(netuid);
         assert_eq!(c, vec![21, 0, 44]);
@@ -921,7 +907,6 @@ fn clear_neuron_handles_absent_rows_gracefully() {
 
         // Minimal vectors with non-zero at index 0 (we will clear UID=0)
         Emission::<Test>::insert(netuid, vec![AlphaCurrency::from(5u64)]);
-        Trust::<Test>::insert(netuid, vec![5u16]);
         Consensus::<Test>::insert(netuid, vec![6u16]);
         Dividends::<Test>::insert(netuid, vec![7u16]);
 
@@ -929,12 +914,12 @@ fn clear_neuron_handles_absent_rows_gracefully() {
         let neuron_uid: u16 = 0;
         SubtensorModule::clear_neuron(netuid, neuron_uid);
 
-        // All zeroed at index 0
+        // Emission/Consensus/Dividends zeroed at index 0
         assert_eq!(
             Emission::<Test>::get(netuid),
             vec![AlphaCurrency::from(0u64)]
         );
-        assert_eq!(Trust::<Test>::get(netuid), vec![0u16]);
+
         assert_eq!(Consensus::<Test>::get(netuid), vec![0u16]);
         assert_eq!(Dividends::<Test>::get(netuid), vec![0u16]);
     });
