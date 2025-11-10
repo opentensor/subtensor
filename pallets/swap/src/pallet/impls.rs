@@ -511,7 +511,7 @@ impl<T: Config> Pallet<T> {
         Ok((position, tao, alpha))
     }
 
-    /// Remove liquidity and return the tao and alpha amounts.
+    /// Remove liquidity and credit balances back to (coldkey_account_id, hotkey_account_id) stake.
     /// Removing is allowed even when user liquidity is enabled.
     ///
     /// Account ID and Position ID identify position in the storage map
@@ -878,6 +878,7 @@ impl<T: Config> Pallet<T> {
                             rm.alpha.saturating_add(rm.fee_alpha);
 
                         // ---------------- USER: refund τ and convert α → stake ----------------
+
                         // 1) Refund τ principal directly.
                         if rm.tao > TaoCurrency::ZERO {
                             T::BalanceOps::increase_balance(&owner, rm.tao);
@@ -943,8 +944,6 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
-    /// # Returns
-    /// * `(TaoCurrency, AlphaCurrency)` - The amount of TAO and ALPHA burned
     pub fn do_clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         let protocol_account = Self::protocol_account_id();
 
