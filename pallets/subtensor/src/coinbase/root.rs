@@ -348,7 +348,6 @@ impl<T: Config> Pallet<T> {
         RAORecycledForRegistration::<T>::remove(netuid);
         MaxRegistrationsPerBlock::<T>::remove(netuid);
         WeightsVersionKey::<T>::remove(netuid);
-        PendingRootAlphaDivs::<T>::remove(netuid);
 
         // --- 17. Subtoken / feature flags.
         LiquidAlphaOn::<T>::remove(netuid);

@@ -76,6 +76,7 @@ fn test_claim_root_with_drain_emissions() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -135,7 +136,7 @@ fn test_claim_root_with_drain_emissions() {
 
         // Check root claimed value saved
 
-        let claimed = RootClaimed::<Test>::get((&hotkey, &coldkey, netuid));
+        let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
         assert_eq!(u128::from(new_stake), claimed);
 
         // Distribute pending root alpha (round 2)
@@ -144,6 +145,7 @@ fn test_claim_root_with_drain_emissions() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -180,7 +182,7 @@ fn test_claim_root_with_drain_emissions() {
 
         // Check root claimed value saved (round 2)
 
-        let claimed = RootClaimed::<Test>::get((&hotkey, &coldkey, netuid));
+        let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
         assert_eq!(u128::from(u64::from(new_stake2)), claimed);
     });
 }
@@ -245,6 +247,7 @@ fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -346,6 +349,7 @@ fn test_claim_root_adding_stake_disproportionally_for_two_stakers() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -437,6 +441,7 @@ fn test_claim_root_with_changed_stake() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -489,6 +494,7 @@ fn test_claim_root_with_changed_stake() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -542,6 +548,7 @@ fn test_claim_root_with_changed_stake() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -634,6 +641,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -678,6 +686,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -714,6 +723,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -1100,6 +1110,7 @@ fn test_claim_root_with_swap_coldkey() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -1125,11 +1136,11 @@ fn test_claim_root_with_swap_coldkey() {
 
         assert_eq!(
             u128::from(new_stake),
-            RootClaimed::<Test>::get((&hotkey, &coldkey, netuid))
+            RootClaimed::<Test>::get((netuid, &hotkey, &coldkey))
         );
         assert_eq!(
             0u128,
-            RootClaimed::<Test>::get((&hotkey, &new_coldkey, netuid))
+            RootClaimed::<Test>::get((netuid, &hotkey, &new_coldkey))
         );
 
         // Swap coldkey
@@ -1143,10 +1154,10 @@ fn test_claim_root_with_swap_coldkey() {
 
         // Check swapped keys claimed values
 
-        assert_eq!(0u128, RootClaimed::<Test>::get((&hotkey, &coldkey, netuid)));
+        assert_eq!(0u128, RootClaimed::<Test>::get((netuid, &hotkey, &coldkey)));
         assert_eq!(
             u128::from(new_stake),
-            RootClaimed::<Test>::get((&hotkey, &new_coldkey, netuid))
+            RootClaimed::<Test>::get((netuid, &hotkey, &new_coldkey,))
         );
     });
 }
@@ -1190,6 +1201,7 @@ fn test_claim_root_with_swap_hotkey() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -1215,11 +1227,11 @@ fn test_claim_root_with_swap_hotkey() {
 
         assert_eq!(
             u128::from(new_stake),
-            RootClaimed::<Test>::get((&hotkey, &coldkey, netuid))
+            RootClaimed::<Test>::get((netuid, &hotkey, &coldkey,))
         );
         assert_eq!(
             0u128,
-            RootClaimed::<Test>::get((&new_hotkey, &coldkey, netuid))
+            RootClaimed::<Test>::get((netuid, &new_hotkey, &coldkey,))
         );
 
         let _old_claimable = *RootClaimable::<Test>::get(hotkey)
@@ -1239,10 +1251,13 @@ fn test_claim_root_with_swap_hotkey() {
 
         // Check swapped keys claimed values
 
-        assert_eq!(0u128, RootClaimed::<Test>::get((&hotkey, &coldkey, netuid)));
+        assert_eq!(
+            0u128,
+            RootClaimed::<Test>::get((netuid, &hotkey, &coldkey,))
+        );
         assert_eq!(
             u128::from(new_stake),
-            RootClaimed::<Test>::get((&new_hotkey, &coldkey, netuid))
+            RootClaimed::<Test>::get((netuid, &new_hotkey, &coldkey,))
         );
 
         assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
@@ -1281,7 +1296,6 @@ fn test_claim_root_on_network_deregistration() {
             NetUid::ROOT,
             root_stake.into(),
         );
-        let root_stake_rate = 0.1f64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &other_coldkey,
@@ -1304,36 +1318,27 @@ fn test_claim_root_on_network_deregistration() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
+
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
+
+        assert!(RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+
+        assert!(RootClaimed::<Test>::contains_key((
+            netuid, &hotkey, &coldkey,
+        )));
 
         // Claim root via network deregistration
 
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
 
-        // Check new stake
-        let validator_take_percent = 0.18f64;
-
-        let new_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-        )
-        .into();
-
-        let estimated_stake_increment = (pending_root_alpha as f64)
-            * (1f64 - validator_take_percent)
-            * current_price
-            * root_stake_rate;
-
-        assert_abs_diff_eq!(
-            new_stake,
-            root_stake + estimated_stake_increment as u64,
-            epsilon = 10000u64,
-        );
-
         assert!(!RootClaimed::<Test>::contains_key((
-            &hotkey, &coldkey, netuid
+            netuid, &hotkey, &coldkey,
         )));
         assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
     });
@@ -1454,6 +1459,7 @@ fn test_claim_root_with_unrelated_subnets() {
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
+            pending_root_alpha.into(), // alpha out
             AlphaCurrency::ZERO,
         );
 
@@ -1505,7 +1511,7 @@ fn test_claim_root_with_unrelated_subnets() {
 
         // Check root claimed value saved
 
-        let claimed = RootClaimed::<Test>::get((&hotkey, &coldkey, netuid));
+        let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
         assert_eq!(u128::from(new_stake), claimed);
     });
 }

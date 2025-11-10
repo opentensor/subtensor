@@ -88,7 +88,6 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
-    use safe_math::FixedExt;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::btree_map::BTreeMap;
@@ -1298,7 +1297,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for flow normalization exponent.
     pub fn DefaultFlowNormExponent<T: Config>() -> U64F64 {
-        U64F64::saturating_from_num(15).safe_div(U64F64::saturating_from_num(10))
+        U64F64::saturating_from_num(1)
     }
     #[pallet::storage]
     /// --- ITEM --> Flow Normalization Exponent (p)
@@ -1308,7 +1307,7 @@ pub mod pallet {
     /// Default value for flow EMA smoothing.
     pub fn DefaultFlowEmaSmoothingFactor<T: Config>() -> u64 {
         // Example values:
-        //   half-life            factor value        i64 normalized
+        //   half-life            factor value        i64 normalized (x 2^63)
         //   216000 (1 month) --> 0.000003209009576 ( 29_597_889_189_277)
         //    50400 (1 week)  --> 0.000013752825678 (126_847_427_788_335)
         29_597_889_189_277
@@ -1322,9 +1321,6 @@ pub mod pallet {
     /// --- ITEM --> Flow EMA smoothing factor (flow alpha), u64 normalized
     pub type FlowEmaSmoothingFactor<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultFlowEmaSmoothingFactor<T>>;
-    #[pallet::storage]
-    /// --- ITEM --> Block when TAO flow calculation starts(ed)
-    pub type FlowFirstBlock<T: Config> = StorageValue<_, u64, OptionQuery>;
 
     /// ============================
     /// ==== Global Parameters =====
@@ -1968,9 +1964,9 @@ pub mod pallet {
     pub type RootClaimed<T: Config> = StorageNMap<
         _,
         (
+            NMapKey<Identity, NetUid>,               // subnet
             NMapKey<Blake2_128Concat, T::AccountId>, // hot
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, NetUid>,               // subnet
         ),
         u128,
         ValueQuery,
