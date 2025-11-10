@@ -79,17 +79,17 @@ pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
 pub mod pallet {
-    use crate::RateLimitKey;
     use crate::migrations;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
+    use crate::RateLimitKey;
     use frame_support::Twox64Concat;
     use frame_support::{
-        BoundedVec,
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
         traits::{
-            OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable, tokens::fungible,
+            tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
         },
+        BoundedVec,
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
@@ -348,6 +348,19 @@ pub mod pallet {
         },
     }
 
+    /// Enum for consensus mode used in liquid alpha calculation
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum ConsensusMode {
+        /// Use current in-memory consensus (current behavior)
+        Current,
+        /// Use previous consensus from storage
+        Previous,
+        /// Use max of current and previous consensus
+        Max,
+        /// Auto mode: Previous if bond_penalty == 1, otherwise Current
+        #[default]
+        Auto,
+    }
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
     /// Any amount less than this will not be claimed.
@@ -949,6 +962,12 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
+    }
+
+    #[pallet::type_value]
+    /// Default consensus mode for liquid alpha calculation
+    pub fn DefaultConsensusMode<T: Config>() -> ConsensusMode {
+        ConsensusMode::default()
     }
 
     /// Default value for coldkey swap announcement delay.
@@ -1918,6 +1937,12 @@ pub mod pallet {
     pub type AlphaValues<T> =
         StorageMap<_, Identity, NetUid, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
 
+    #[pallet::storage]
+    /// MAP ( netuid ) --> consensus mode for liquid alpha calculation
+    pub type LiquidAlphaConsensusMode<T> =
+        StorageMap<_, Identity, NetUid, ConsensusMode, ValueQuery, DefaultConsensusMode<T>>;
+
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> If subtoken trading enabled
     #[pallet::storage]
     pub type SubtokenEnabled<T> =
@@ -1932,10 +1957,10 @@ pub mod pallet {
     /// alpha = 0.1 means slow response, 10% weight to new values per epoch
     pub fn DefaultVotingPowerEmaAlpha<T: Config>() -> u64 {
         0_003_570_000_000_000_000 // 0.00357 * 10^18 = 2 weeks e-folding (time-constant) @ 361
-        // blocks per tempo
-        // After 2 weeks  -> EMA reaches 63.2% of a step change
-        // After ~4 weeks -> 86.5%
-        // After ~6 weeks -> 95%
+                                  // blocks per tempo
+                                  // After 2 weeks  -> EMA reaches 63.2% of a step change
+                                  // After ~4 weeks -> 86.5%
+                                  // After ~6 weeks -> 95%
     }
 
     #[pallet::storage]
@@ -2704,7 +2729,7 @@ pub enum RateLimitKey<AccountId> {
 pub trait ProxyInterface<AccountId> {
     fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult;
     fn remove_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId)
-    -> DispatchResult;
+        -> DispatchResult;
 }
 
 impl<T> ProxyInterface<T> for () {
