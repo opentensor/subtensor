@@ -65,6 +65,9 @@ fn test_register_leased_network_works() {
             contributor2_share
         );
 
+        // Ensure the lease hotkey has 0 take from staking
+        assert_eq!(SubtensorModule::get_hotkey_take(&lease.hotkey), 0);
+
         // Ensure each contributor and beneficiary has been refunded their share of the leftover cap
         let leftover_cap = cap.saturating_sub(lease.cost);
 
@@ -502,54 +505,84 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         // Setup the correct block to distribute dividends
         run_to_block(<Test as Config>::LeaseDividendsDistributionInterval::get() as u64);
 
-        // Get the initial subnet tao after stake and ensure all contributor
-        // balances are in initial state
-        let subnet_tao_before = SubnetTAO::<Test>::get(lease.netuid);
-        let contributor1_balance_before = SubtensorModule::get_coldkey_balance(&contributions[0].0);
-        let contributor2_balance_before = SubtensorModule::get_coldkey_balance(&contributions[1].0);
-        let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
+        // Get the initial alpha for the contributors and beneficiary and ensure they are zero
+        let contributor1_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[0].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[1].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &beneficiary,
+            lease.netuid,
+        );
+        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
 
         // Setup some previously accumulated dividends
-        let accumulated_dividends = AlphaCurrency::from(5_000_000);
+        let accumulated_dividends = AlphaCurrency::from(10_000_000_000);
         AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
 
         // Distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were distributed correctly relative to their shares
-        let distributed_tao = subnet_tao_before - SubnetTAO::<Test>::get(lease.netuid);
-        let contributor1_balance_delta = SubtensorModule::get_coldkey_balance(&contributions[0].0)
-            .saturating_sub(contributor1_balance_before);
-        let contributor2_balance_delta = SubtensorModule::get_coldkey_balance(&contributions[1].0)
-            .saturating_sub(contributor2_balance_before);
-        let beneficiary_balance_delta = SubtensorModule::get_coldkey_balance(&beneficiary)
-            .saturating_sub(beneficiary_balance_before);
+        let distributed_alpha =
+            accumulated_dividends + emissions_share.mul_ceil(owner_cut_alpha.to_u64()).into();
+        assert_ne!(distributed_alpha, AlphaCurrency::ZERO);
+        let contributor1_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[0].0,
+            lease.netuid,
+        )
+        .saturating_sub(contributor1_alpha_before);
+        assert_ne!(contributor1_alpha_delta, AlphaCurrency::ZERO);
+        let contributor2_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[1].0,
+            lease.netuid,
+        )
+        .saturating_sub(contributor2_alpha_before);
+        assert_ne!(contributor2_alpha_delta, AlphaCurrency::ZERO);
+        let beneficiary_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &beneficiary,
+            lease.netuid,
+        )
+        .saturating_sub(beneficiary_alpha_before);
+        assert_ne!(beneficiary_alpha_delta, AlphaCurrency::ZERO);
 
+        // What has been distributed should be equal to the sum of all contributors received alpha
         assert_eq!(
-            distributed_tao,
-            (beneficiary_balance_delta + contributor1_balance_delta + contributor2_balance_delta)
-                .into()
+            distributed_alpha,
+            (beneficiary_alpha_delta + contributor1_alpha_delta + contributor2_alpha_delta).into()
         );
 
-        let expected_contributor1_balance =
+        let expected_contributor1_alpha =
             SubnetLeaseShares::<Test>::get(lease_id, contributions[0].0)
-                .saturating_mul(U64F64::from(distributed_tao.to_u64()))
-                .floor()
+                .saturating_mul(U64F64::from(distributed_alpha.to_u64()))
+                .ceil()
                 .to_num::<u64>();
-        assert_eq!(contributor1_balance_delta, expected_contributor1_balance);
+        assert_eq!(contributor1_alpha_delta, expected_contributor1_alpha.into());
 
-        let expected_contributor2_balance =
+        let expected_contributor2_alpha =
             SubnetLeaseShares::<Test>::get(lease_id, contributions[1].0)
-                .saturating_mul(U64F64::from(distributed_tao.to_u64()))
-                .floor()
+                .saturating_mul(U64F64::from(distributed_alpha.to_u64()))
+                .ceil()
                 .to_num::<u64>();
-        assert_eq!(contributor2_balance_delta, expected_contributor2_balance);
+        assert_eq!(contributor2_alpha_delta, expected_contributor2_alpha.into());
 
         // The beneficiary should have received the remaining dividends
-        let expected_beneficiary_balance = distributed_tao.to_u64()
-            - (expected_contributor1_balance + expected_contributor2_balance);
-        assert_eq!(beneficiary_balance_delta, expected_beneficiary_balance);
+        let expected_beneficiary_alpha = distributed_alpha.to_u64()
+            - (expected_contributor1_alpha + expected_contributor2_alpha);
+        assert_eq!(beneficiary_alpha_delta, expected_beneficiary_alpha.into());
 
         // Ensure nothing was accumulated for later distribution
         assert_eq!(
@@ -584,23 +617,33 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
         // Setup the correct block to distribute dividends
         run_to_block(<Test as Config>::LeaseDividendsDistributionInterval::get() as u64);
 
-        // Get the initial subnet tao after stake and beneficiary balance
-        let subnet_tao_before = SubnetTAO::<Test>::get(lease.netuid);
-        let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
+        // Get the initial alpha for the beneficiary and ensure it is zero
+        let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &beneficiary,
+            lease.netuid,
+        );
+        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
 
         // Setup some previously accumulated dividends
-        let accumulated_dividends = AlphaCurrency::from(5_000_000);
+        let accumulated_dividends = AlphaCurrency::from(10_000_000_000);
         AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
 
         // Distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were distributed correctly relative to their shares
-        let distributed_tao = subnet_tao_before - SubnetTAO::<Test>::get(lease.netuid);
-        let beneficiary_balance_delta = SubtensorModule::get_coldkey_balance(&beneficiary)
-            .saturating_sub(beneficiary_balance_before);
-        assert_eq!(distributed_tao, beneficiary_balance_delta.into());
+        let distributed_alpha =
+            accumulated_dividends + emissions_share.mul_ceil(owner_cut_alpha.to_u64()).into();
+        assert_ne!(distributed_alpha, AlphaCurrency::ZERO);
+        let beneficiary_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &beneficiary,
+            lease.netuid,
+        )
+        .saturating_sub(beneficiary_alpha_before);
+        assert_eq!(beneficiary_alpha_delta, distributed_alpha.into());
 
         // Ensure nothing was accumulated for later distribution
         assert_eq!(
@@ -628,7 +671,7 @@ fn test_distribute_lease_network_dividends_accumulates_if_not_the_correct_block(
         let end_block = 500;
         let emissions_share = Percent::from_percent(30);
         let tao_to_stake = 100_000_000_000; // 100 TAO
-        let (lease_id, _) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network(
             beneficiary,
             emissions_share,
             Some(end_block),
@@ -638,31 +681,58 @@ fn test_distribute_lease_network_dividends_accumulates_if_not_the_correct_block(
         // Setup incorrect block to distribute dividends
         run_to_block(<Test as Config>::LeaseDividendsDistributionInterval::get() as u64 + 1);
 
-        // Get the initial subnet tao after stake and ensure all contributor
-        let contributor1_balance_before = SubtensorModule::get_coldkey_balance(&contributions[0].0);
-        let contributor2_balance_before = SubtensorModule::get_coldkey_balance(&contributions[1].0);
-        let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
+        // Get the initial alpha for the contributors and beneficiary and ensure they are zero
+        let contributor1_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[0].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[1].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &beneficiary,
+            lease.netuid,
+        );
+        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
 
         // Setup some previously accumulated dividends
-        let accumulated_dividends = AlphaCurrency::from(5_000_000);
+        let accumulated_dividends = AlphaCurrency::from(10_000_000_000);
         AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
 
         // Distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&contributions[0].0),
-            contributor1_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &contributions[0].0,
+                lease.netuid
+            ),
+            contributor1_alpha_before
         );
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&contributions[1].0),
-            contributor2_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &contributions[1].0,
+                lease.netuid
+            ),
+            contributor2_alpha_before
         );
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&beneficiary),
-            beneficiary_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &beneficiary,
+                lease.netuid
+            ),
+            beneficiary_alpha_before
         );
 
         // Ensure we correctly accumulated the dividends
@@ -711,29 +781,58 @@ fn test_distribute_lease_network_dividends_does_nothing_if_lease_has_ended() {
         // Run to the end of the lease
         run_to_block(end_block);
 
-        let subnet_tao_before = SubnetTAO::<Test>::get(lease.netuid);
-        let contributor1_balance_before = SubtensorModule::get_coldkey_balance(&contributions[0].0);
-        let contributor2_balance_before = SubtensorModule::get_coldkey_balance(&contributions[1].0);
-        let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
+        // Get the initial alpha for the contributors and beneficiary and ensure they are zero
+        let contributor1_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[0].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[1].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &beneficiary,
+            lease.netuid,
+        );
+        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
+
+        // No dividends are present, lease is new
         let accumulated_dividends_before = AccumulatedLeaseDividends::<Test>::get(lease_id);
+        assert_eq!(accumulated_dividends_before, AlphaCurrency::ZERO);
 
         // Try to distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
-        assert_eq!(SubnetTAO::<Test>::get(lease.netuid), subnet_tao_before);
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&contributions[0].0),
-            contributor1_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &contributions[0].0,
+                lease.netuid
+            ),
+            contributor1_alpha_before
         );
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&contributions[1].0),
-            contributor2_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &contributions[1].0,
+                lease.netuid
+            ),
+            contributor2_alpha_before
         );
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&beneficiary),
-            beneficiary_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &beneficiary,
+                lease.netuid
+            ),
+            beneficiary_alpha_before
         );
         // Ensure nothing was accumulated for later distribution
         assert_eq!(
@@ -768,28 +867,54 @@ fn test_distribute_lease_network_dividends_accumulates_if_amount_is_too_low() {
             None, // We don't add any liquidity
         );
 
-        let subnet_tao_before = SubnetTAO::<Test>::get(lease.netuid);
-        let contributor1_balance_before = SubtensorModule::get_coldkey_balance(&contributions[0].0);
-        let contributor2_balance_before = SubtensorModule::get_coldkey_balance(&contributions[1].0);
-        let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
+        // Get the initial alpha for the contributors and beneficiary and ensure they are zero
+        let contributor1_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[0].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[1].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &beneficiary,
+            lease.netuid,
+        );
+        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
 
         // Try to distribute the dividends
         let owner_cut_alpha = AlphaCurrency::from(5_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
-        assert_eq!(SubnetTAO::<Test>::get(lease.netuid), subnet_tao_before);
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&contributions[0].0),
-            contributor1_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &contributions[0].0,
+                lease.netuid
+            ),
+            contributor1_alpha_before
         );
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&contributions[1].0),
-            contributor2_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &contributions[1].0,
+                lease.netuid
+            ),
+            contributor2_alpha_before
         );
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&beneficiary),
-            beneficiary_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &beneficiary,
+                lease.netuid
+            ),
+            beneficiary_alpha_before
         );
         // Ensure the correct amount of alpha was accumulated for later dividends distribution
         assert_eq!(
@@ -824,28 +949,53 @@ fn test_distribute_lease_network_dividends_accumulates_if_insufficient_liquidity
             None, // We don't add any liquidity
         );
 
-        let subnet_tao_before = SubnetTAO::<Test>::get(lease.netuid);
-        let contributor1_balance_before = SubtensorModule::get_coldkey_balance(&contributions[0].0);
-        let contributor2_balance_before = SubtensorModule::get_coldkey_balance(&contributions[1].0);
-        let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
+        let contributor1_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[0].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &contributions[1].0,
+            lease.netuid,
+        );
+        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &beneficiary,
+            lease.netuid,
+        );
+        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
 
         // Try to distribute the dividends
         let owner_cut_alpha = AlphaCurrency::from(5_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
-        assert_eq!(SubnetTAO::<Test>::get(lease.netuid), subnet_tao_before);
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&contributions[0].0),
-            contributor1_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &contributions[0].0,
+                lease.netuid
+            ),
+            contributor1_alpha_before
         );
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&contributions[1].0),
-            contributor2_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &contributions[1].0,
+                lease.netuid
+            ),
+            contributor2_alpha_before
         );
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&beneficiary),
-            beneficiary_balance_before
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &lease.hotkey,
+                &beneficiary,
+                lease.netuid
+            ),
+            beneficiary_alpha_before
         );
         // Ensure the correct amount of alpha was accumulated for later dividends distribution
         assert_eq!(
