@@ -1433,8 +1433,8 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> pending_server_emission
     pub type PendingServerEmission<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
-    #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_validator_emission
+    #[pallet::storage]
     pub type PendingValidatorEmission<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     /// --- MAP ( netuid ) --> pending_root_alpha_emission

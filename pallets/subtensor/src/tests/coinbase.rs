@@ -89,12 +89,16 @@ fn test_coinbase_tao_issuance_base() {
         let subnet_owner_ck = U256::from(1001);
         let subnet_owner_hk = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        let total_issuance_before = TotalIssuance::<Test>::get();
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from(3141) / I96F32::from(1000));
         let tao_in_before = SubnetTAO::<Test>::get(netuid);
         let total_stake_before = TotalStake::<Test>::get();
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         assert_eq!(SubnetTAO::<Test>::get(netuid), tao_in_before + emission);
-        assert_eq!(TotalIssuance::<Test>::get(), emission);
+        assert_eq!(
+            TotalIssuance::<Test>::get(),
+            total_issuance_before + emission
+        );
         assert_eq!(TotalStake::<Test>::get(), total_stake_before + emission);
     });
 }
@@ -3314,6 +3318,89 @@ fn test_mining_emission_distribution_with_root_sell() {
                 .saturating_mul(U96F32::saturating_from_num(0.45)) // miner cut
                 .saturating_to_num::<u64>(),
             epsilon = 1_000_000_u64
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_emission_start_call_not_done --exact --show-output --nocapture
+#[test]
+fn test_pending_emission_start_call_not_done() {
+    new_test_ext(1).execute_with(|| {
+        let validator_coldkey = U256::from(1);
+        let validator_hotkey = U256::from(2);
+        let subnet_tempo = 10;
+        let stake: u64 = 100_000_000_000;
+        let root_stake: u64 = 200_000_000_000; // 200 TAO
+
+        // Create root network
+        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
+        // enabled root
+        SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
+
+        // Add network, register hotkeys, and setup network parameters
+        let owner_hotkey = U256::from(10);
+        let owner_coldkey = U256::from(11);
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        // Remove FirstEmissionBlockNumber
+        FirstEmissionBlockNumber::<Test>::remove(netuid);
+        Tempo::<Test>::insert(netuid, subnet_tempo);
+
+        register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &validator_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        step_block(subnet_tempo);
+        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        // There are two validators and three neurons
+        MaxAllowedUids::<Test>::set(netuid, 3);
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+
+        // Add stake to validator so it has root stake
+        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        // init root
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            NetUid::ROOT,
+            root_stake.into()
+        ));
+        // Set tao weight non zero
+        SubtensorModule::set_tao_weight(u64::MAX / 10);
+
+        // Make root sell happen
+        // Set moving price > 1.0
+        // Set price > 1.0
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
+            netuid,
+            U64F64::saturating_from_num(10.0),
+        );
+
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+
+        // Make sure we are root selling, so we have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
+
+        // !!! Check that the subnet FirstEmissionBlockNumber is None -- no entry
+        assert!(FirstEmissionBlockNumber::<Test>::get(netuid).is_none());
+
+        // Run run_coinbase until emissions are accumulated
+        step_block(subnet_tempo - 2);
+
+        // Verify that all pending emissions are zero
+        assert_eq!(
+            PendingServerEmission::<Test>::get(netuid),
+            AlphaCurrency::ZERO
+        );
+        assert_eq!(
+            PendingValidatorEmission::<Test>::get(netuid),
+            AlphaCurrency::ZERO
+        );
+        assert_eq!(
+            PendingRootAlphaDivs::<Test>::get(netuid),
+            AlphaCurrency::ZERO
         );
     });
 }

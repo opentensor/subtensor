@@ -31,9 +31,12 @@ impl<T: Config> Pallet<T> {
             .collect();
         log::debug!("All subnet netuids: {subnets:?}");
 
+        let subnets_to_emit_to: Vec<NetUid> = Self::get_subnets_to_emit_to(&subnets);
+        log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
+
         // 2. Get subnets to emit to and emissions
-        let subnet_emissions = Self::get_subnet_block_emissions(&subnets, block_emission);
-        let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
+        let subnet_emissions =
+            Self::get_subnet_block_emissions(&subnets_to_emit_to, block_emission);
         let root_sell_flag = Self::get_network_root_sell_flag(&subnets_to_emit_to);
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
