@@ -3555,6 +3555,8 @@ fn test_liquid_alpha_equal_values_against_itself() {
 
         // compute bonds with liquid alpha enabled
         SubtensorModule::set_liquid_alpha_enabled(netuid.into(), true);
+        // Set consensus mode to Current to match the original behavior (using in-memory consensus)
+        SubtensorModule::set_liquid_alpha_consensus_mode(netuid.into(), ConsensusMode::Current);
         let new_bonds_liquid_alpha_on =
             SubtensorModule::compute_bonds(netuid.into(), &weights, &bonds, &consensus);
 
