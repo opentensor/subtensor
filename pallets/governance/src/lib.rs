@@ -26,8 +26,8 @@ pub use pallet::*;
 /// WARNING: Any changes to these 3 constants require a migration to update the `BoundedVec` in storage
 /// for `Triumvirate`, `EconomicCollective`, or `BuildingCollective`.
 pub const TRIUMVIRATE_SIZE: u32 = 3;
-pub const ECONOMIC_COLLECTIVE_SIZE: u32 = 10;
-pub const BUILDING_COLLECTIVE_SIZE: u32 = 10;
+pub const ECONOMIC_COLLECTIVE_SIZE: u32 = 16;
+pub const BUILDING_COLLECTIVE_SIZE: u32 = 16;
 
 pub type CurrencyOf<T> = <T as Config>::Currency;
 
