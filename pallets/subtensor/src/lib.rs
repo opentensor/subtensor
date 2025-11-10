@@ -346,6 +346,20 @@ pub mod pallet {
         Manual,
     }
 
+    /// Enum for consensus mode used in liquid alpha calculation
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum ConsensusMode {
+        /// Use current in-memory consensus (current behavior)
+        Current,
+        /// Use previous consensus from storage
+        Previous,
+        /// Use max of current and previous consensus
+        Max,
+        /// Auto mode: Previous if bond_penalty == 1, otherwise Current
+        #[default]
+        Auto,
+    }
+
     #[pallet::type_value]
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
@@ -860,6 +874,12 @@ pub mod pallet {
     /// (alpha_low: 0.7, alpha_high: 0.9)
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
+    }
+
+    #[pallet::type_value]
+    /// Default consensus mode for liquid alpha calculation
+    pub fn DefaultConsensusMode<T: Config>() -> ConsensusMode {
+        ConsensusMode::default()
     }
     #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
@@ -1631,6 +1651,10 @@ pub mod pallet {
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
         StorageMap<_, Identity, NetUid, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
+    #[pallet::storage]
+    /// MAP ( netuid ) --> consensus mode for liquid alpha calculation
+    pub type LiquidAlphaConsensusMode<T> =
+        StorageMap<_, Identity, NetUid, ConsensusMode, ValueQuery, DefaultConsensusMode<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> If subtoken trading enabled
     pub type SubtokenEnabled<T> =
