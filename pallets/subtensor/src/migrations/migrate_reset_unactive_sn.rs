@@ -1,7 +1,4 @@
 use super::*;
-use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
-
-use subtensor_swap_interface::SwapHandler;
 
 pub fn get_unactive_sn_netuids<T: Config>(
     pool_initial_alpha: AlphaCurrency,
@@ -51,37 +48,6 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
     let (unactive_netuids, w) = get_unactive_sn_netuids::<T>(pool_initial_alpha);
     weight = weight.saturating_add(w);
 
-    // Collect the hotkeys to remove for each subnet
-    let mut to_remove_alpha_hotkeys: BTreeMap<NetUid, Vec<T::AccountId>> = BTreeMap::new();
-    let mut to_remove_alpha_coldkeys: BTreeMap<NetUid, Vec<(T::AccountId, T::AccountId)>> =
-        BTreeMap::new();
-    let mut all_hotkeys_set = BTreeSet::new();
-    for (hotkey, netuid_i, _) in TotalHotkeyAlpha::<T>::iter() {
-        weight = weight.saturating_add(T::DbWeight::get().reads(1));
-        if unactive_netuids.contains(&netuid_i) {
-            // Only for unactive subnets
-            to_remove_alpha_hotkeys
-                .entry(netuid_i)
-                .or_insert(Vec::new())
-                .push(hotkey.clone());
-            all_hotkeys_set.insert(hotkey);
-        }
-    }
-
-    // Collect the coldkeys to remove for each subnet
-    for hotkey in all_hotkeys_set.iter() {
-        for ((coldkey, netuid_i), _) in Alpha::<T>::iter_prefix((&hotkey,)) {
-            weight = weight.saturating_add(T::DbWeight::get().reads(1));
-            if unactive_netuids.contains(&netuid_i) {
-                // Only for unactive subnets
-                to_remove_alpha_coldkeys
-                    .entry(netuid_i)
-                    .or_insert(Vec::new())
-                    .push((hotkey.clone(), coldkey));
-            }
-        }
-    }
-
     for netuid in unactive_netuids.iter() {
         // Reset the subnet as it shouldn't have any emissions
         PendingServerEmission::<T>::remove(*netuid);
@@ -92,55 +58,11 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         SubnetAlphaInEmission::<T>::remove(*netuid);
         SubnetAlphaOutEmission::<T>::remove(*netuid);
         weight = weight.saturating_add(T::DbWeight::get().writes(7));
-
-        // Reset v3 pool
-        let burned_tao = match T::SwapInterface::clear_protocol_liquidity(*netuid) {
-            Ok((_tao, fee_tao, _alpha, _fee_alpha)) => fee_tao,
-            Err(e) => {
-                log::error!("Failed to clear protocol liquidity for netuid {netuid:?}: {e:?}");
-                TaoCurrency::ZERO
-            }
-        };
-        Pallet::<T>::recycle_tao(burned_tao);
-        // might be based on ticks but this is a rough estimate
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 14));
-
-        // Recycle already emitted TAO
-        // or mint 1 TAO to the pool
-        let subnet_tao = SubnetTAO::<T>::get(*netuid);
-        if subnet_tao > pool_initial_tao {
-            let tao_to_recycle = subnet_tao.saturating_sub(pool_initial_tao);
-            Pallet::<T>::recycle_tao(tao_to_recycle);
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_sub(tao_to_recycle);
-            });
-            SubnetTAO::<T>::mutate(*netuid, |amount| {
-                *amount = amount.saturating_sub(tao_to_recycle);
-            });
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
-        } else if subnet_tao < pool_initial_tao {
-            let tao_to_add = pool_initial_tao.saturating_sub(subnet_tao);
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_to_add);
-            });
-            SubnetTAO::<T>::mutate(*netuid, |amount| {
-                *amount = amount.saturating_add(tao_to_add);
-            });
-            TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_to_add);
-            });
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
-        }
-
-        // Reset pool alpha
-        SubnetAlphaIn::<T>::insert(*netuid, pool_initial_alpha);
-        // Reset volume
-        SubnetVolume::<T>::insert(*netuid, 0u128);
-        weight = weight.saturating_add(T::DbWeight::get().writes(4));
     }
 
     // Run total issuance migration
-    crate::migrations::migrate_init_total_issuance::migrate_init_total_issuance::<T>();
+    let ti_w = crate::migrations::migrate_init_total_issuance::migrate_init_total_issuance::<T>();
+    weight = weight.saturating_add(ti_w);
 
     // Mark Migration as Completed
     HasMigrationRun::<T>::insert(&migration_name, true);

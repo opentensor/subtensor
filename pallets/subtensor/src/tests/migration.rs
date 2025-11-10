@@ -2577,10 +2577,12 @@ fn test_migrate_reset_unactive_sn() {
                 RAORecycledForRegistration::<Test>::get(netuid),
                 actual_tao_lock_amount_less_pool_tao
             );
-            assert!(!pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(*netuid));
+            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
+                *netuid
+            ));
             assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
-            assert_eq!(SubnetTAO::<Test>::get(netuid), initial_tao);
-            assert_eq!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
+            assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
+            assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
             assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaCurrency::ZERO);
             assert_eq!(SubnetTaoInEmission::<Test>::get(netuid), TaoCurrency::ZERO);
             assert_eq!(
@@ -2591,7 +2593,7 @@ fn test_migrate_reset_unactive_sn() {
                 SubnetAlphaOutEmission::<Test>::get(netuid),
                 AlphaCurrency::ZERO
             );
-            assert_eq!(SubnetVolume::<Test>::get(netuid), 0u128);
+            assert_ne!(SubnetVolume::<Test>::get(netuid), 0u128);
             for hotkey in 0..10 {
                 let hk = U256::from(hotkey);
                 assert_ne!(
