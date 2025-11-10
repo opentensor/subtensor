@@ -878,13 +878,11 @@ impl<T: Config> Pallet<T> {
                             rm.alpha.saturating_add(rm.fee_alpha);
 
                         // ---------------- USER: refund τ and convert α → stake ----------------
-                        let tao_total_from_pool = rm.tao.saturating_add(rm.fee_tao);
                         // 1) Refund τ principal directly.
-                        if tao_total_from_pool > TaoCurrency::ZERO {
-                            T::BalanceOps::increase_balance(&owner, tao_total_from_pool);
-                            user_refunded_tao =
-                                user_refunded_tao.saturating_add(tao_total_from_pool);
-                            T::TaoReserve::decrease_provided(netuid, tao_total_from_pool);
+                        if rm.tao > TaoCurrency::ZERO {
+                            T::BalanceOps::increase_balance(&owner, rm.tao);
+                            user_refunded_tao = user_refunded_tao.saturating_add(rm.tao);
+                            T::TaoReserve::decrease_provided(netuid, rm.tao);
                         }
 
                         // 2) Stake ALL withdrawn α (principal + fees) to the best permitted validator.
@@ -947,16 +945,12 @@ impl<T: Config> Pallet<T> {
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
     /// # Returns
     /// * `(TaoCurrency, AlphaCurrency)` - The amount of TAO and ALPHA burned
-    pub fn do_clear_protocol_liquidity(
-        netuid: NetUid,
-    ) -> Result<(TaoCurrency, TaoCurrency, AlphaCurrency, AlphaCurrency), DispatchError> {
+    pub fn do_clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         let protocol_account = Self::protocol_account_id();
 
         // 1) Force-close only protocol positions, burning proceeds.
-        let mut tao = TaoCurrency::ZERO;
-        let mut fee_tao = TaoCurrency::ZERO;
-        let mut alpha = AlphaCurrency::ZERO;
-        let mut fee_alpha = AlphaCurrency::ZERO;
+        let mut burned_tao = TaoCurrency::ZERO;
+        let mut burned_alpha = AlphaCurrency::ZERO;
 
         // Collect protocol position IDs first to avoid mutating while iterating.
         let protocol_pos_ids: sp_std::vec::Vec<PositionId> = Positions::<T>::iter_prefix((netuid,))
@@ -972,20 +966,27 @@ impl<T: Config> Pallet<T> {
         for pos_id in protocol_pos_ids {
             match Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
                 Ok(rm) => {
-                    tao = tao.saturating_add(rm.tao);
-                    fee_tao = fee_tao.saturating_add(rm.fee_tao);
-                    alpha = alpha.saturating_add(rm.alpha);
-                    fee_alpha = fee_alpha.saturating_add(rm.fee_alpha);
+                    let alpha_total_from_pool: AlphaCurrency =
+                        rm.alpha.saturating_add(rm.fee_alpha);
+                    let tao = rm.tao;
+
+                    if tao > TaoCurrency::ZERO {
+                        burned_tao = burned_tao.saturating_add(tao);
+                    }
+                    if alpha_total_from_pool > AlphaCurrency::ZERO {
+                        burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
+                    }
 
                     log::debug!(
-                        "clear_protocol_liquidity: burned protocol pos: netuid={netuid:?}, \
-                        pos_id={pos_id:?}, τ={fee_tao:?}, α={fee_alpha:?}; \
-                        protocol liquidity: {tao:?}, {alpha:?}"
+                        "clear_protocol_liquidity: burned protocol pos: netuid={netuid:?}, pos_id={pos_id:?}, τ={tao:?}, α_total={alpha_total_from_pool:?}"
                     );
                 }
-                Err(e) => log::debug!(
-                    "clear_protocol_liquidity: force-close failed: netuid={netuid:?}, pos_id={pos_id:?}, err={e:?}"
-                ),
+                Err(e) => {
+                    log::debug!(
+                        "clear_protocol_liquidity: force-close failed: netuid={netuid:?}, pos_id={pos_id:?}, err={e:?}"
+                    );
+                    continue;
+                }
             }
         }
 
@@ -1011,11 +1012,10 @@ impl<T: Config> Pallet<T> {
         EnabledUserLiquidity::<T>::remove(netuid);
 
         log::debug!(
-            "clear_protocol_liquidity: netuid={netuid:?}, protocol_fees: τ={fee_tao:?}, α={fee_alpha:?}; \
-            protocol liquidity: {tao:?}, {alpha:?}; state cleared"
+            "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
         );
 
-        Ok((tao, fee_tao, alpha, fee_alpha))
+        Ok(())
     }
 }
 
@@ -1138,9 +1138,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
         EnabledUserLiquidity::<T>::insert(netuid, enabled)
     }
-    fn clear_protocol_liquidity(
-        netuid: NetUid,
-    ) -> Result<(TaoCurrency, TaoCurrency, AlphaCurrency, AlphaCurrency), DispatchError> {
+    fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
     }
 }
