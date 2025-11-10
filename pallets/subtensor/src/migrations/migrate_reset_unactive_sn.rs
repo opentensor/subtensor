@@ -60,10 +60,6 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
         weight = weight.saturating_add(T::DbWeight::get().writes(7));
     }
 
-    // Run total issuance migration
-    let ti_w = crate::migrations::migrate_init_total_issuance::migrate_init_total_issuance::<T>();
-    weight = weight.saturating_add(ti_w);
-
     // Mark Migration as Completed
     HasMigrationRun::<T>::insert(&migration_name, true);
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
