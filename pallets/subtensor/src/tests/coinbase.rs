@@ -3080,7 +3080,6 @@ fn test_mining_emission_distribution_with_subsidy() {
         let miner_incentive: AlphaCurrency =
             (*Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
                 .get(miner_uid as usize)
-                .ok_or("Miner uid should be present")
                 .expect("Miner uid should be present") as u64)
                 .into();
         log::info!("Miner incentive: {miner_incentive:?}");
@@ -3249,7 +3248,6 @@ fn test_mining_emission_distribution_with_no_subsidy() {
         let miner_incentive: AlphaCurrency =
             (*Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
                 .get(miner_uid as usize)
-                .ok_or("Miner uid should be present")
                 .expect("Miner uid should be present") as u64)
                 .into();
         log::info!("Miner incentive: {miner_incentive:?}");
