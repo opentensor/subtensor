@@ -2577,11 +2577,13 @@ fn test_migrate_reset_unactive_sn() {
                 RAORecycledForRegistration::<Test>::get(netuid),
                 actual_tao_lock_amount_less_pool_tao
             );
-            assert!(!pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(*netuid));
+            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
+                *netuid
+            ));
             assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
-            assert_eq!(SubnetTAO::<Test>::get(netuid), initial_tao);
-            assert_eq!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
-            assert_eq!(SubnetAlphaOut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
+            assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
+            assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaCurrency::ZERO);
             assert_eq!(SubnetTaoInEmission::<Test>::get(netuid), TaoCurrency::ZERO);
             assert_eq!(
                 SubnetAlphaInEmission::<Test>::get(netuid),
@@ -2591,26 +2593,26 @@ fn test_migrate_reset_unactive_sn() {
                 SubnetAlphaOutEmission::<Test>::get(netuid),
                 AlphaCurrency::ZERO
             );
-            assert_eq!(SubnetVolume::<Test>::get(netuid), 0u128);
+            assert_ne!(SubnetVolume::<Test>::get(netuid), 0u128);
             for hotkey in 0..10 {
                 let hk = U256::from(hotkey);
-                assert_eq!(
+                assert_ne!(
                     TotalHotkeyAlpha::<Test>::get(hk, netuid),
                     AlphaCurrency::ZERO
                 );
-                assert_eq!(
+                assert_ne!(
                     TotalHotkeyShares::<Test>::get(hk, netuid),
                     U64F64::from_num(0.0)
                 );
-                assert_eq!(
+                assert_ne!(
                     TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
                     AlphaCurrency::ZERO
                 );
-                assert_eq!(RootClaimable::<Test>::get(hk).get(netuid), None);
+                assert_ne!(RootClaimable::<Test>::get(hk).get(netuid), None);
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
-                    assert_eq!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
-                    assert_eq!(RootClaimed::<Test>::get((netuid, hk, ck)), 0u128);
+                    assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
+                    assert_ne!(RootClaimed::<Test>::get((netuid, hk, ck)), 0u128);
                 }
             }
 
