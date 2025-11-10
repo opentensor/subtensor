@@ -15,7 +15,7 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
 frame-system.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
-serde = { workspace = true, features = ["derive"], optional = true }
+serde = { workspace = true, features = ["derive"] }
 sp-std.workspace = true
 sp-runtime.workspace = true
 subtensor-runtime-common.workspace = true
@@ -33,7 +33,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
-	"serde",
+	"serde/std",
 	"sp-std/std",
 	"sp-runtime/std",
 	"subtensor-runtime-common/std",

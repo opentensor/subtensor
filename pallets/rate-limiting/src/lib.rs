@@ -145,7 +145,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::{DispatchOriginOf, Dispatchable, Saturating, Zero};
-    use sp_std::{convert::TryFrom, marker::PhantomData, vec::Vec};
+    use sp_std::{boxed::Box, convert::TryFrom, marker::PhantomData, vec::Vec};
 
     #[cfg(feature = "runtime-benchmarks")]
     use crate::benchmarking::BenchmarkHelper as BenchmarkHelperTrait;

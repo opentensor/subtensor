@@ -1,6 +1,7 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::DispatchError, traits::GetCallMetadata};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_std::collections::btree_map::BTreeMap;
 
 /// Resolves the optional identifier within which a rate limit applies and can optionally adjust
@@ -31,8 +32,9 @@ pub trait RateLimitUsageResolver<Origin, Call, Usage> {
 }
 
 /// Identifies a runtime call by pallet and extrinsic indices.
-#[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
 #[derive(
+    Serialize,
+    Deserialize,
     Clone,
     Copy,
     PartialEq,
@@ -101,8 +103,9 @@ impl TransactionIdentifier {
 }
 
 /// Policy describing the block span enforced by a rate limit.
-#[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
 #[derive(
+    Serialize,
+    Deserialize,
     Clone,
     Copy,
     PartialEq,
@@ -125,14 +128,21 @@ pub enum RateLimitKind<BlockNumber> {
 ///
 /// The configuration is mutually exclusive: either the call is globally limited or it stores a set
 /// of per-scope spans.
-#[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(
-    feature = "std",
-    serde(
-        bound = "Scope: Ord + serde::Serialize + serde::de::DeserializeOwned, BlockNumber: serde::Serialize + serde::de::DeserializeOwned"
-    )
+#[derive(
+    Serialize,
+    Deserialize,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    Debug,
 )]
-#[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
+#[serde(
+    bound = "Scope: Ord + serde::Serialize + serde::de::DeserializeOwned, BlockNumber: serde::Serialize + serde::de::DeserializeOwned"
+)]
 pub enum RateLimit<Scope, BlockNumber> {
     /// Global span applied to every invocation.
     Global(RateLimitKind<BlockNumber>),
