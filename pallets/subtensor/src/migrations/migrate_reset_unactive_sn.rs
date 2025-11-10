@@ -134,44 +134,9 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
 
         // Reset pool alpha
         SubnetAlphaIn::<T>::insert(*netuid, pool_initial_alpha);
-        SubnetAlphaOut::<T>::insert(*netuid, AlphaCurrency::ZERO);
         // Reset volume
         SubnetVolume::<T>::insert(*netuid, 0u128);
         weight = weight.saturating_add(T::DbWeight::get().writes(4));
-
-        // Reset Alpha stake entries for this subnet
-        let to_reset: Vec<T::AccountId> = match to_remove_alpha_hotkeys.get(netuid) {
-            Some(hotkeys) => hotkeys.clone(),
-            None => Vec::new(),
-        };
-
-        for hotkey in to_reset {
-            TotalHotkeyAlpha::<T>::remove(&hotkey, *netuid);
-            TotalHotkeyShares::<T>::remove(&hotkey, *netuid);
-            TotalHotkeyAlphaLastEpoch::<T>::remove(&hotkey, *netuid);
-            weight = weight.saturating_add(T::DbWeight::get().writes(3));
-
-            // Reset root claimable and claimed
-            RootClaimable::<T>::mutate(&hotkey, |claimable| {
-                claimable.remove(netuid);
-            });
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-            let removal_result = RootClaimed::<T>::clear_prefix((*netuid, &hotkey), u32::MAX, None);
-            weight = weight.saturating_add(
-                T::DbWeight::get()
-                    .reads_writes(removal_result.loops as u64, removal_result.backend as u64),
-            );
-
-            let to_reset_alpha: Vec<(T::AccountId, T::AccountId)> =
-                match to_remove_alpha_coldkeys.get(netuid) {
-                    Some(coldkeys) => coldkeys.clone(),
-                    None => Vec::new(),
-                };
-            for (hotkey, coldkey) in to_reset_alpha {
-                Alpha::<T>::remove((hotkey, coldkey, netuid));
-                weight = weight.saturating_add(T::DbWeight::get().writes(1));
-            }
-        }
     }
 
     // Run total issuance migration
