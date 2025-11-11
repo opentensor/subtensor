@@ -1368,25 +1368,6 @@ impl<T: Config> Pallet<T> {
                     .map(|&c| I32F32::saturating_from_num(c).safe_div(I32F32::saturating_from_num(u16::MAX)))
                     .collect()
             }
-            ConsensusMode::Max => {
-                // Use element-wise max of current and previous
-                let previous_consensus_u16 = Consensus::<T>::get(netuid);
-                let previous_consensus: Vec<I32F32> = previous_consensus_u16
-                    .iter()
-                    .map(|&c| I32F32::saturating_from_num(c).safe_div(I32F32::saturating_from_num(u16::MAX)))
-                    .collect();
-
-                // For each position: max(current, previous)
-                // If previous doesn't exist at that index (network grew), treat previous as 0
-                current_consensus
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &curr)| {
-                        let prev = previous_consensus.get(i).copied().unwrap_or(I32F32::from_num(0));
-                        if curr > prev { curr } else { prev }
-                    })
-                    .collect()
-            }
             ConsensusMode::Auto => {
                 // Auto mode: Previous if bond_penalty == 1, otherwise Current
                 if bonds_penalty == I32F32::from_num(1) {
