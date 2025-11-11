@@ -2695,10 +2695,14 @@ fn test_migrate_reset_unactive_sn_idempotence() {
             .copied()
             .collect::<Vec<_>>();
 
+        // Run total issuance migration *before* running the migration.
+        crate::migrations::migrate_init_total_issuance::migrate_init_total_issuance::<Test>();
+
         // Run the migration
         let w = crate::migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<Test>();
         assert!(!w.is_zero(), "weight must be non-zero");
 
+        // Store the values after running the migration
         let mut subnet_tao_before = BTreeMap::new();
         for netuid in &netuids {
             subnet_tao_before.insert(netuid, SubnetTAO::<Test>::get(netuid));
@@ -2706,7 +2710,7 @@ fn test_migrate_reset_unactive_sn_idempotence() {
         let total_stake_before = TotalStake::<Test>::get();
         let total_issuance_before = TotalIssuance::<Test>::get();
 
-        // Run total issuance migration
+        // Run total issuance migration again, to make sure no changes happen from it.
         crate::migrations::migrate_init_total_issuance::migrate_init_total_issuance::<Test>();
 
         // Verify that none of the values are different
