@@ -190,7 +190,8 @@ fn test_compute_consensus_current_mode() {
         let (current_consensus, _previous_values) = create_test_consensus_data(netuid);
 
         // Compute consensus for liquid alpha
-        let result = SubtensorModule::compute_consensus_for_liquid_alpha(netuid, &current_consensus);
+        let result =
+            SubtensorModule::compute_consensus_for_liquid_alpha(netuid, &current_consensus);
 
         // Should return current consensus (not previous)
         assert_eq!(result.len(), n);
@@ -213,7 +214,8 @@ fn test_compute_consensus_previous_mode() {
         let (current_consensus, previous_values) = create_test_consensus_data(netuid);
 
         // Compute consensus for liquid alpha
-        let result = SubtensorModule::compute_consensus_for_liquid_alpha(netuid, &current_consensus);
+        let result =
+            SubtensorModule::compute_consensus_for_liquid_alpha(netuid, &current_consensus);
 
         // Should return previous consensus from storage (not current)
         assert_eq!(result.len(), n);
@@ -225,7 +227,10 @@ fn test_compute_consensus_previous_mode() {
             } else {
                 expected - *res
             };
-            assert!(diff < I32F32::from_num(0.001), "Values should be approximately equal");
+            assert!(
+                diff < I32F32::from_num(0.001),
+                "Values should be approximately equal"
+            );
         }
     });
 }
@@ -244,16 +249,21 @@ fn test_compute_consensus_auto_mode() {
 
         // Test 1: bond_penalty != 1, should use Current
         SubtensorModule::set_bonds_penalty(netuid, u16::MAX / 2); // 0.5
-        let result = SubtensorModule::compute_consensus_for_liquid_alpha(netuid, &current_consensus);
+        let result =
+            SubtensorModule::compute_consensus_for_liquid_alpha(netuid, &current_consensus);
 
         assert_eq!(result.len(), n);
         for (res, curr) in result.iter().zip(current_consensus.iter()) {
-            assert_eq!(res, curr, "Should use current consensus when bond_penalty != 1");
+            assert_eq!(
+                res, curr,
+                "Should use current consensus when bond_penalty != 1"
+            );
         }
 
         // Test 2: bond_penalty == 1, should use Previous
         SubtensorModule::set_bonds_penalty(netuid, u16::MAX); // 1.0
-        let result = SubtensorModule::compute_consensus_for_liquid_alpha(netuid, &current_consensus);
+        let result =
+            SubtensorModule::compute_consensus_for_liquid_alpha(netuid, &current_consensus);
 
         assert_eq!(result.len(), n);
         for (res, &prev) in result.iter().zip(previous_values.iter()) {
@@ -263,7 +273,10 @@ fn test_compute_consensus_auto_mode() {
             } else {
                 expected - *res
             };
-            assert!(diff < I32F32::from_num(0.001), "Should use previous consensus when bond_penalty == 1");
+            assert!(
+                diff < I32F32::from_num(0.001),
+                "Should use previous consensus when bond_penalty == 1"
+            );
         }
     });
 }
