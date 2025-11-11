@@ -351,8 +351,6 @@ pub mod pallet {
         Current,
         /// Use previous consensus from storage
         Previous,
-        /// Use max of current and previous consensus
-        Max,
         /// Auto mode: Previous if bond_penalty == 1, otherwise Current
         #[default]
         Auto,
