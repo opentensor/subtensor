@@ -537,6 +537,7 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         let distributed_alpha =
             accumulated_dividends + emissions_share.mul_ceil(owner_cut_alpha.to_u64()).into();
         assert_ne!(distributed_alpha, AlphaCurrency::ZERO);
+
         let contributor1_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &contributions[0].0,
@@ -544,6 +545,7 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         )
         .saturating_sub(contributor1_alpha_before);
         assert_ne!(contributor1_alpha_delta, AlphaCurrency::ZERO);
+
         let contributor2_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &contributions[1].0,
@@ -551,6 +553,7 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         )
         .saturating_sub(contributor2_alpha_before);
         assert_ne!(contributor2_alpha_delta, AlphaCurrency::ZERO);
+
         let beneficiary_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &beneficiary,
@@ -571,6 +574,14 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
                 .ceil()
                 .to_num::<u64>();
         assert_eq!(contributor1_alpha_delta, expected_contributor1_alpha.into());
+        assert_eq!(
+            System::events().get(2).expect("Event not found").event,
+            RuntimeEvent::SubtensorModule(Event::SubnetLeaseDividendsDistributed {
+                lease_id,
+                contributor: contributions[0].0.into(),
+                alpha: expected_contributor1_alpha.into(),
+            },)
+        );
 
         let expected_contributor2_alpha =
             SubnetLeaseShares::<Test>::get(lease_id, contributions[1].0)
@@ -578,11 +589,27 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
                 .ceil()
                 .to_num::<u64>();
         assert_eq!(contributor2_alpha_delta, expected_contributor2_alpha.into());
+        assert_eq!(
+            System::events().get(5).expect("Event not found").event,
+            RuntimeEvent::SubtensorModule(Event::SubnetLeaseDividendsDistributed {
+                lease_id,
+                contributor: contributions[1].0.into(),
+                alpha: expected_contributor2_alpha.into(),
+            },)
+        );
 
         // The beneficiary should have received the remaining dividends
         let expected_beneficiary_alpha = distributed_alpha.to_u64()
             - (expected_contributor1_alpha + expected_contributor2_alpha);
         assert_eq!(beneficiary_alpha_delta, expected_beneficiary_alpha.into());
+        assert_eq!(
+            System::events().get(8).expect("Event not found").event,
+            RuntimeEvent::SubtensorModule(Event::SubnetLeaseDividendsDistributed {
+                lease_id,
+                contributor: beneficiary.into(),
+                alpha: expected_beneficiary_alpha.into(),
+            },)
+        );
 
         // Ensure nothing was accumulated for later distribution
         assert_eq!(
@@ -644,6 +671,13 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
         )
         .saturating_sub(beneficiary_alpha_before);
         assert_eq!(beneficiary_alpha_delta, distributed_alpha.into());
+        assert_last_event::<Test>(RuntimeEvent::SubtensorModule(
+            Event::SubnetLeaseDividendsDistributed {
+                lease_id,
+                contributor: beneficiary.into(),
+                alpha: distributed_alpha,
+            },
+        ));
 
         // Ensure nothing was accumulated for later distribution
         assert_eq!(

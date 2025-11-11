@@ -302,6 +302,7 @@ impl<T: Config> Pallet<T> {
                     .saturating_mul(U64F64::from(total_contributors_cut_alpha.to_u64()))
                     .ceil()
                     .saturating_to_num::<u64>();
+
                 Self::transfer_stake_within_subnet(
                     &lease.coldkey,
                     &lease.hotkey,
@@ -311,6 +312,12 @@ impl<T: Config> Pallet<T> {
                     alpha_for_contributor.into(),
                 )?;
                 alpha_distributed = alpha_distributed.saturating_add(alpha_for_contributor.into());
+
+                Self::deposit_event(Event::SubnetLeaseDividendsDistributed {
+                    lease_id,
+                    contributor,
+                    alpha: alpha_for_contributor.into(),
+                });
             }
 
             // Distribute the leftover alpha to the beneficiary
@@ -324,6 +331,11 @@ impl<T: Config> Pallet<T> {
                 lease.netuid,
                 beneficiary_cut_alpha.into(),
             )?;
+            Self::deposit_event(Event::SubnetLeaseDividendsDistributed {
+                lease_id,
+                contributor: lease.beneficiary.clone(),
+                alpha: beneficiary_cut_alpha.into(),
+            });
 
             // Reset the accumulated dividends
             AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaCurrency::ZERO);
