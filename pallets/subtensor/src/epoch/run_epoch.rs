@@ -1328,12 +1328,20 @@ impl<T: Config> Pallet<T> {
                 .any(|&c| c != I32F32::saturating_from_num(0))
         {
             // Liquid Alpha is enabled, compute the appropriate consensus for liquid alpha based on mode
-            let consensus_for_liquid_alpha = Self::compute_consensus_for_liquid_alpha(netuid, consensus);
-            log::trace!("consensus_for_liquid_alpha: {:?}", &consensus_for_liquid_alpha);
+            let consensus_for_liquid_alpha =
+                Self::compute_consensus_for_liquid_alpha(netuid, consensus);
+            log::trace!(
+                "consensus_for_liquid_alpha: {:?}",
+                &consensus_for_liquid_alpha
+            );
 
             // Compute the liquid alphas matrix.
-            let alphas: Vec<Vec<I32F32>> =
-                Self::compute_liquid_alpha_values(netuid, weights, bonds, &consensus_for_liquid_alpha);
+            let alphas: Vec<Vec<I32F32>> = Self::compute_liquid_alpha_values(
+                netuid,
+                weights,
+                bonds,
+                &consensus_for_liquid_alpha,
+            );
             log::trace!("alphas: {:?}", &alphas);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
@@ -1374,12 +1382,20 @@ impl<T: Config> Pallet<T> {
                 .any(|&c| c != I32F32::saturating_from_num(0))
         {
             // Liquid Alpha is enabled, compute the appropriate consensus for liquid alpha based on mode
-            let consensus_for_liquid_alpha = Self::compute_consensus_for_liquid_alpha(netuid, consensus);
-            log::trace!("consensus_for_liquid_alpha: {:?}", &consensus_for_liquid_alpha);
+            let consensus_for_liquid_alpha =
+                Self::compute_consensus_for_liquid_alpha(netuid, consensus);
+            log::trace!(
+                "consensus_for_liquid_alpha: {:?}",
+                &consensus_for_liquid_alpha
+            );
 
             // Compute the liquid alphas matrix.
-            let alphas: Vec<Vec<I32F32>> =
-                Self::compute_liquid_alpha_values_sparse(netuid, weights, bonds, &consensus_for_liquid_alpha);
+            let alphas: Vec<Vec<I32F32>> = Self::compute_liquid_alpha_values_sparse(
+                netuid,
+                weights,
+                bonds,
+                &consensus_for_liquid_alpha,
+            );
             log::trace!("alphas: {:?}", &alphas);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
@@ -1418,7 +1434,10 @@ impl<T: Config> Pallet<T> {
                 let previous_consensus_u16 = Consensus::<T>::get(netuid);
                 previous_consensus_u16
                     .iter()
-                    .map(|&c| I32F32::saturating_from_num(c).safe_div(I32F32::saturating_from_num(u16::MAX)))
+                    .map(|&c| {
+                        I32F32::saturating_from_num(c)
+                            .safe_div(I32F32::saturating_from_num(u16::MAX))
+                    })
                     .collect()
             }
             ConsensusMode::Auto => {
@@ -1427,7 +1446,10 @@ impl<T: Config> Pallet<T> {
                     let previous_consensus_u16 = Consensus::<T>::get(netuid);
                     previous_consensus_u16
                         .iter()
-                        .map(|&c| I32F32::saturating_from_num(c).safe_div(I32F32::saturating_from_num(u16::MAX)))
+                        .map(|&c| {
+                            I32F32::saturating_from_num(c)
+                                .safe_div(I32F32::saturating_from_num(u16::MAX))
+                        })
                         .collect()
                 } else {
                     current_consensus.to_vec()
@@ -1657,9 +1679,7 @@ impl<T: Config> Pallet<T> {
 
         Self::set_liquid_alpha_consensus_mode(netuid, mode.clone());
 
-        log::debug!(
-            "LiquidAlphaConsensusModeSet( netuid: {netuid:?}, mode: {mode:?} )",
-        );
+        log::debug!("LiquidAlphaConsensusModeSet( netuid: {netuid:?}, mode: {mode:?} )",);
         Ok(())
     }
 
