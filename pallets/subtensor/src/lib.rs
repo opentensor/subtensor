@@ -1430,9 +1430,13 @@ pub mod pallet {
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> pending_emission
-    pub type PendingEmission<T> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultPendingEmission<T>>;
+    /// --- MAP ( netuid ) --> pending_server_emission
+    pub type PendingServerEmission<T> =
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+    /// --- MAP ( netuid ) --> pending_validator_emission
+    #[pallet::storage]
+    pub type PendingValidatorEmission<T> =
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     /// --- MAP ( netuid ) --> pending_root_alpha_emission
     #[pallet::storage]
     pub type PendingRootAlphaDivs<T> =

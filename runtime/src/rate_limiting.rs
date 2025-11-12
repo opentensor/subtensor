@@ -2,7 +2,7 @@ use frame_system::RawOrigin;
 use pallet_admin_utils::Call as AdminUtilsCall;
 use pallet_rate_limiting::{RateLimitScopeResolver, RateLimitUsageResolver};
 use pallet_subtensor::{Call as SubtensorCall, Tempo};
-use subtensor_runtime_common::{BlockNumber, MechId, NetUid, RateLimitScope, RateLimitUsageKey};
+use subtensor_runtime_common::{BlockNumber, NetUid, RateLimitScope, RateLimitUsageKey};
 
 use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
 
@@ -99,18 +99,21 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                 | SubtensorCall::reveal_weights { netuid, .. }
                 | SubtensorCall::batch_reveal_weights { netuid, .. }
                 | SubtensorCall::commit_timelocked_weights { netuid, .. } => {
-                    let (_, uid) = neuron_identity(origin, netuid)?;
-                    Some(RateLimitUsageKey::<AccountId>::SubnetNeuron { netuid, uid })
+                    let (_, uid) = neuron_identity(origin, *netuid)?;
+                    Some(RateLimitUsageKey::<AccountId>::SubnetNeuron {
+                        netuid: *netuid,
+                        uid,
+                    })
                 }
                 SubtensorCall::set_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::commit_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::reveal_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::commit_crv3_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::commit_timelocked_mechanism_weights { netuid, mecid, .. } => {
-                    let (_, uid) = neuron_identity(origin, netuid)?;
+                    let (_, uid) = neuron_identity(origin, *netuid)?;
                     Some(RateLimitUsageKey::<AccountId>::SubnetMechanismNeuron {
-                        netuid,
-                        mecid,
+                        netuid: *netuid,
+                        mecid: *mecid,
                         uid,
                     })
                 }
