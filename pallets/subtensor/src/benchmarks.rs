@@ -1615,11 +1615,11 @@ mod pallet_benchmarks {
         );
 
         let pending_root_alpha = 10_000_000u64;
-        Subtensor::<T>::drain_pending_emission(
+        Subtensor::<T>::distribute_emission(
             netuid,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
-            pending_root_alpha.into(), // alpha out
+            pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );
 
