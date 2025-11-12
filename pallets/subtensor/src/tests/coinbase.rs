@@ -3326,47 +3326,42 @@ fn test_mining_emission_distribution_with_root_sell() {
 }
 
 #[test]
-fn test_coinbase_subnet_terms_with_no_reg_get_no_emission() {
+fn test_coinbase_subnets_with_no_reg_get_no_emission() {
     new_test_ext(1).execute_with(|| {
         let zero = U96F32::saturating_from_num(0);
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         let netuid1 = add_dynamic_network(&U256::from(3), &U256::from(4));
 
-        let subnet_emissions = BTreeMap::from([
-            (netuid0, U96F32::saturating_from_num(1)),
-            (netuid1, U96F32::saturating_from_num(1)),
-        ]);
+        // Setup initial state
+        SubtokenEnabled::<Test>::insert(netuid0, true);
+        SubtokenEnabled::<Test>::insert(netuid1, true);
+        FirstEmissionBlockNumber::<Test>::insert(netuid0, 0);
+        FirstEmissionBlockNumber::<Test>::insert(netuid1, 0);
+        // Explicitly allow registration for both subnets
+        NetworkRegistrationAllowed::<Test>::insert(netuid0, true);
+        NetworkRegistrationAllowed::<Test>::insert(netuid1, true);
+        NetworkPowRegistrationAllowed::<Test>::insert(netuid0, false);
+        NetworkPowRegistrationAllowed::<Test>::insert(netuid1, true);
 
-        let (tao_in, alpha_in, alpha_out, _) = SubtensorModule::get_subnet_terms(&subnet_emissions);
-        assert_eq!(tao_in.len(), 2);
-        assert_eq!(alpha_in.len(), 2);
-        assert_eq!(alpha_out.len(), 2);
+        // Note that netuid0 has only one method allowed
+        // And, netuid1 has *both* methods allowed
+        // Both should be in the list.
+        let subnets_to_emit_to_0 = SubtensorModule::get_subnets_to_emit_to(&[netuid0, netuid1]);
+        // Check that both subnets are in the list
+        assert_eq!(subnets_to_emit_to_0.len(), 2);
+        assert!(subnets_to_emit_to_0.contains(&netuid0));
+        assert!(subnets_to_emit_to_0.contains(&netuid1));
 
-        assert!(tao_in[&netuid0] > zero);
-        assert!(alpha_in[&netuid0] > zero);
-        assert!(alpha_out[&netuid0] > zero);
-
-        assert!(tao_in[&netuid1] > zero);
-        assert!(alpha_in[&netuid1] > zero);
-        assert!(alpha_out[&netuid1] > zero);
-
-        // Disabled registration of both methods
+        // Disabled registration of both methods on ONLY netuid0
         NetworkRegistrationAllowed::<Test>::insert(netuid0, false);
         NetworkPowRegistrationAllowed::<Test>::insert(netuid0, false);
 
-        let (tao_in_2, alpha_in_2, alpha_out_2, _) =
-            SubtensorModule::get_subnet_terms(&subnet_emissions);
-        assert_eq!(tao_in_2.len(), 2);
-        assert_eq!(alpha_in_2.len(), 2);
-        assert_eq!(alpha_out_2.len(), 2);
-
-        assert!(tao_in_2[&netuid0] == zero);
-        assert!(alpha_in_2[&netuid0] == zero);
-        assert!(alpha_out_2[&netuid0] == zero);
-
-        assert!(tao_in_2[&netuid1] > zero);
-        assert!(alpha_in_2[&netuid1] > zero);
-        assert!(alpha_out_2[&netuid1] > zero);
+        // Check that netuid0 is not in the list
+        let subnets_to_emit_to_1 = SubtensorModule::get_subnets_to_emit_to(&[netuid0, netuid1]);
+        assert_eq!(subnets_to_emit_to_1.len(), 1);
+        assert!(!subnets_to_emit_to_1.contains(&netuid0));
+        // Netuid1 still in the list
+        assert!(subnets_to_emit_to_1.contains(&netuid1));        
     });
 }
 
