@@ -91,7 +91,7 @@ The governance system consists of three main actors working together:
 
 1. Triumvirate members cast votes (aye/nay) on the proposal
 
-- 2/3 vote aye, proposal is approved: Proposal is scheduled for execution in 7 days (configurable) and enters "Delay Period"
+- 2/3 vote aye, proposal is approved: Proposal is scheduled for execution in 1 hour (configurable) and enters "Delay Period"
 - 2/3 vote nay, proposal is rejected: Proposal is cleaned up from storage (it was never scheduled for execution).
 
 - Triumvirate members can change their vote during the voting period (before the proposal is scheduled or cancelled).
@@ -100,29 +100,29 @@ The governance system consists of three main actors working together:
 
 #### Delay Period (Collective Oversight)
 
-When a proposal has been approved by the Triumvirate, it is scheduled in 7 days (configurable) and enters the "Delay Period" where the Economic and Building Collectives can vote to delay, cancel or fast-track the proposal.
+When a proposal has been approved by the Triumvirate, it is scheduled in 1 hour (configurable) and enters the "Delay Period" where the Economic and Building Collectives can vote to delay, cancel or fast-track the proposal.
 
 1. Both collectives can vote aye/nay on the proposal
-2. Delay is an exponential function of the number of nays votes, set to 1.5^n (configurable).
+2. Delay is an exponential function of the number of nays votes, set to 2^n (configurable).
 
-- Initial delay is 7 days (configurable).
-- After 1 nays vote, the delay is 1.5^1 \* 7 days = 10.5 days.
-- After 2 nays votes, the delay is 1.5^2 \* 7 days = ~16 days.
-- After 3 nays votes, the delay is 1.5^3 \* 7 days = ~23 days.
-- After 4 nays votes, the delay is 1.5^4 \* 7 days = ~35 days.
-- After 5 nays votes, the delay is 1.5^5 \* 7 days = ~53 days.
-- After 6 nays votes, the delay is 1.5^6 \* 7 days = ~80 days.
-- After 7 nays votes, the delay is 1.5^7 \* 7 days = ~120 days.
-- After 8 nays votes, the delay is 1.5^8 \* 7 days = ~180 days.
+- Initial delay is 1 hour (configurable).
+- After 1 nays vote, the delay is 2^1 \* 1 hour = 2 hours.
+- After 2 nays votes, the delay is 2^2 \* 1 hour = 4 hours.
+- After 3 nays votes, the delay is 2^3 \* 1 hour = 8 hours.
+- After 4 nays votes, the delay is 2^4 \* 1 hour = 16 hours.
+- After 5 nays votes, the delay is 2^5 \* 1 hour = 32 hours.
+- After 6 nays votes, the delay is 2^6 \* 1 hour = 64 hours.
+- After 7 nays votes, the delay is 2^7 \* 1 hour = 128 hours.
+- After 8 nays votes, the delay is 2^8 \* 1 hour = 256 hours.
 - After 9 nays votes, proposal is cancelled (given we have a collective size of 16, hence more than 1/2 of the collective votes nay).
 
 3. If the delay period expires without cancellation: Proposal executes automatically
 
-- The delay is calculated based on the collective with the most nays votes (i.e., if Economic has 3 nays and Building has 1 nay, the delay is based on 3 nays = ~23 days).
+- The delay is calculated based on the collective with the most nays votes (i.e., if Economic has 3 nays and Building has 1 nay, the delay is based on 3 nays = 8 hours).
 - More than 2/3 of aye vote for any collective fast tracks the proposal (next block execution) (threshold configurable)
 - More than 1/2 of nay vote for any collective cancels the proposal (threshold configurable)
 - Collective members can change their vote during the delay period. If changing a nay vote to aye reduces the delay below the time already elapsed, the proposal executes immediately.
-  - **Example**: A proposal has 3 nays votes, creating a 23-day delay. After 17 days have elapsed, a collective member changes their nay vote to aye, reducing the delay to 16 days. Since 17 days have already passed (more than the new 16-day delay), the proposal executes immediately.
+  - **Example**: A proposal has 3 nays votes, creating a 8 hours delay. After 5 hours have elapsed, a collective member changes their nay vote to aye, reducing the delay to 4 hours. Since 5 hours have already passed (more than the new 4 hours delay), the proposal executes immediately.
 
 **Open Questions:**
 
