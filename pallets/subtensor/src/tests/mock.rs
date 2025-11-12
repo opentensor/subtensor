@@ -765,6 +765,9 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    TotalIssuance::<Test>::mutate(|total_issuance| {
+        *total_issuance = total_issuance.saturating_add(lock_cost);
+    });
 
     assert_ok!(SubtensorModule::register_network(
         RawOrigin::Signed(*coldkey).into(),
@@ -782,6 +785,9 @@ pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256)
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    TotalIssuance::<Test>::mutate(|total_issuance| {
+        *total_issuance = total_issuance.saturating_add(lock_cost);
+    });
 
     assert_ok!(SubtensorModule::register_network(
         RawOrigin::Signed(*coldkey).into(),
