@@ -293,13 +293,13 @@ fn set_triumvirate_removes_votes_of_outgoing_triumvirate_members() {
             vec![U256::from(1001), U256::from(1002), U256::from(1003)]
         );
 
-        vote_aye!(U256::from(1001), proposal_hash1, proposal_index1);
+        vote_aye_on_proposed!(U256::from(1001), proposal_hash1, proposal_index1);
 
-        vote_nay!(U256::from(1002), proposal_hash2, proposal_index2);
-        vote_aye!(U256::from(1003), proposal_hash2, proposal_index2);
+        vote_nay_on_proposed!(U256::from(1002), proposal_hash2, proposal_index2);
+        vote_aye_on_proposed!(U256::from(1003), proposal_hash2, proposal_index2);
 
-        vote_nay!(U256::from(1001), proposal_hash3, proposal_index3);
-        vote_aye!(U256::from(1002), proposal_hash3, proposal_index3);
+        vote_nay_on_proposed!(U256::from(1001), proposal_hash3, proposal_index3);
+        vote_aye_on_proposed!(U256::from(1002), proposal_hash3, proposal_index3);
 
         let triumvirate =
             BoundedVec::truncate_from(vec![U256::from(1001), U256::from(1003), U256::from(1004)]);
@@ -308,13 +308,13 @@ fn set_triumvirate_removes_votes_of_outgoing_triumvirate_members() {
             triumvirate.clone()
         ));
         assert_eq!(Triumvirate::<Test>::get(), triumvirate);
-        let voting1 = Voting::<Test>::get(proposal_hash1).unwrap();
+        let voting1 = TriumvirateVoting::<Test>::get(proposal_hash1).unwrap();
         assert_eq!(voting1.ayes.to_vec(), vec![U256::from(1001)]);
         assert!(voting1.nays.to_vec().is_empty());
-        let voting2 = Voting::<Test>::get(proposal_hash2).unwrap();
+        let voting2 = TriumvirateVoting::<Test>::get(proposal_hash2).unwrap();
         assert_eq!(voting2.ayes.to_vec(), vec![U256::from(1003)]);
         assert!(voting2.nays.to_vec().is_empty());
-        let voting3 = Voting::<Test>::get(proposal_hash3).unwrap();
+        let voting3 = TriumvirateVoting::<Test>::get(proposal_hash3).unwrap();
         assert!(voting3.ayes.to_vec().is_empty());
         assert_eq!(voting3.nays.to_vec(), vec![U256::from(1001)]);
         assert_eq!(
@@ -413,8 +413,8 @@ fn propose_works_with_inline_preimage() {
         );
         let now = frame_system::Pallet::<Test>::block_number();
         assert_eq!(
-            Voting::<Test>::get(proposal_hash),
-            Some(Votes {
+            TriumvirateVoting::<Test>::get(proposal_hash),
+            Some(TriumvirateVotes {
                 index: proposal_index,
                 ayes: BoundedVec::new(),
                 nays: BoundedVec::new(),
@@ -466,8 +466,8 @@ fn propose_works_with_lookup_preimage() {
         assert!(<Test as pallet::Config>::Preimages::have(&bounded_proposal));
         let now = frame_system::Pallet::<Test>::block_number();
         assert_eq!(
-            Voting::<Test>::get(proposal_hash),
-            Some(Votes {
+            TriumvirateVoting::<Test>::get(proposal_hash),
+            Some(TriumvirateVotes {
                 index: proposal_index,
                 ayes: BoundedVec::new(),
                 nays: BoundedVec::new(),
@@ -602,8 +602,8 @@ fn propose_with_already_scheduled_proposal_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
-        vote_aye!(U256::from(1001), proposal_hash, proposal_index);
-        vote_aye!(U256::from(1002), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1002), proposal_hash, proposal_index);
 
         let proposal = Box::new(RuntimeCall::System(
             frame_system::Call::<Test>::set_storage {
@@ -663,19 +663,19 @@ fn propose_with_too_many_proposals_fails() {
 }
 
 #[test]
-fn vote_aye_as_first_voter_works() {
+fn triumirate_vote_aye_as_first_voter_works() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
         let approve = true;
-        assert_ok!(Pallet::<Test>::vote(
+        assert_ok!(Pallet::<Test>::vote_on_proposed(
             RuntimeOrigin::signed(U256::from(1001)),
             proposal_hash,
             proposal_index,
             approve
         ));
 
-        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        let votes = TriumvirateVoting::<Test>::get(proposal_hash).unwrap();
         assert_eq!(votes.ayes.to_vec(), vec![U256::from(1001)]);
         assert!(votes.nays.to_vec().is_empty());
         assert_eq!(
@@ -692,19 +692,19 @@ fn vote_aye_as_first_voter_works() {
 }
 
 #[test]
-fn vote_nay_as_first_voter_works() {
+fn triumvirate_vote_nay_as_first_voter_works() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
         let approve = false;
-        assert_ok!(Pallet::<Test>::vote(
+        assert_ok!(Pallet::<Test>::vote_on_proposed(
             RuntimeOrigin::signed(U256::from(1001)),
             proposal_hash,
             proposal_index,
             approve
         ));
 
-        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        let votes = TriumvirateVoting::<Test>::get(proposal_hash).unwrap();
         assert_eq!(votes.nays.to_vec(), vec![U256::from(1001)]);
         assert!(votes.ayes.to_vec().is_empty());
         assert_eq!(
@@ -721,13 +721,13 @@ fn vote_nay_as_first_voter_works() {
 }
 
 #[test]
-fn vote_can_be_updated() {
+fn triumvirate_vote_can_be_updated() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
         // Vote aye initially
-        vote_aye!(U256::from(1001), proposal_hash, proposal_index);
-        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        vote_aye_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
+        let votes = TriumvirateVoting::<Test>::get(proposal_hash).unwrap();
         assert_eq!(votes.ayes.to_vec(), vec![U256::from(1001)]);
         assert!(votes.nays.to_vec().is_empty());
         assert_eq!(
@@ -742,8 +742,8 @@ fn vote_can_be_updated() {
         );
 
         // Then vote nay, replacing the aye vote
-        vote_nay!(U256::from(1001), proposal_hash, proposal_index);
-        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        vote_nay_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
+        let votes = TriumvirateVoting::<Test>::get(proposal_hash).unwrap();
         assert_eq!(votes.nays.to_vec(), vec![U256::from(1001)]);
         assert!(votes.ayes.to_vec().is_empty());
         assert_eq!(
@@ -758,8 +758,8 @@ fn vote_can_be_updated() {
         );
 
         // Then vote aye again, replacing the nay vote
-        vote_aye!(U256::from(1001), proposal_hash, proposal_index);
-        let votes = Voting::<Test>::get(proposal_hash).unwrap();
+        vote_aye_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
+        let votes = TriumvirateVoting::<Test>::get(proposal_hash).unwrap();
         assert_eq!(votes.ayes.to_vec(), vec![U256::from(1001)]);
         assert!(votes.nays.to_vec().is_empty());
         assert_eq!(
@@ -776,25 +776,23 @@ fn vote_can_be_updated() {
 }
 
 #[test]
-fn two_aye_votes_schedule_proposal() {
+fn two_triumvirate_aye_votes_schedule_proposal() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
-        vote_aye!(U256::from(1001), proposal_hash, proposal_index);
-        vote_nay!(U256::from(1002), proposal_hash, proposal_index);
-        vote_aye!(U256::from(1003), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
+        vote_nay_on_proposed!(U256::from(1002), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1003), proposal_hash, proposal_index);
 
         assert!(Proposals::<Test>::get().is_empty());
-        assert!(!Voting::<Test>::contains_key(proposal_hash));
+        assert!(!TriumvirateVoting::<Test>::contains_key(proposal_hash));
         assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
         assert_eq!(
             CollectiveVoting::<Test>::get(proposal_hash),
             Some(CollectiveVotes {
                 index: proposal_index,
-                economic_ayes: BoundedVec::new(),
-                economic_nays: BoundedVec::new(),
-                building_ayes: BoundedVec::new(),
-                building_nays: BoundedVec::new(),
+                ayes: BoundedVec::new(),
+                nays: BoundedVec::new(),
             })
         );
         let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
@@ -822,16 +820,16 @@ fn two_aye_votes_schedule_proposal() {
 }
 
 #[test]
-fn two_nay_votes_cancel_proposal() {
+fn two_triumvirate_nay_votes_cancel_proposal() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
-        vote_nay!(U256::from(1001), proposal_hash, proposal_index);
-        vote_aye!(U256::from(1002), proposal_hash, proposal_index);
-        vote_nay!(U256::from(1003), proposal_hash, proposal_index);
+        vote_nay_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1002), proposal_hash, proposal_index);
+        vote_nay_on_proposed!(U256::from(1003), proposal_hash, proposal_index);
 
         assert!(Proposals::<Test>::get().is_empty());
-        assert!(!Voting::<Test>::contains_key(proposal_hash));
+        assert!(!TriumvirateVoting::<Test>::contains_key(proposal_hash));
         assert!(Scheduled::<Test>::get().is_empty());
         assert_eq!(ProposalOf::<Test>::get(proposal_hash), None);
         let events = last_n_events(2);
@@ -853,28 +851,38 @@ fn two_nay_votes_cancel_proposal() {
 }
 
 #[test]
-fn vote_as_bad_origin_fails() {
+fn triumvirate_vote_as_bad_origin_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
         assert_noop!(
-            Pallet::<Test>::vote(RuntimeOrigin::root(), proposal_hash, proposal_index, true),
+            Pallet::<Test>::vote_on_proposed(
+                RuntimeOrigin::root(),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
             DispatchError::BadOrigin
         );
         assert_noop!(
-            Pallet::<Test>::vote(RuntimeOrigin::none(), proposal_hash, proposal_index, true),
+            Pallet::<Test>::vote_on_proposed(
+                RuntimeOrigin::none(),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
             DispatchError::BadOrigin
         );
     });
 }
 
 #[test]
-fn vote_as_non_triumvirate_member_fails() {
+fn triumvirate_vote_as_non_triumvirate_member_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
         assert_noop!(
-            Pallet::<Test>::vote(
+            Pallet::<Test>::vote_on_proposed(
                 RuntimeOrigin::signed(U256::from(42)),
                 proposal_hash,
                 proposal_index,
@@ -886,12 +894,12 @@ fn vote_as_non_triumvirate_member_fails() {
 }
 
 #[test]
-fn vote_on_missing_proposal_fails() {
+fn triumvirate_vote_on_missing_proposal_fails() {
     TestState::default().build_and_execute(|| {
         let invalid_proposal_hash =
             <Test as frame_system::Config>::Hashing::hash(b"Invalid proposal");
         assert_noop!(
-            Pallet::<Test>::vote(
+            Pallet::<Test>::vote_on_proposed(
                 RuntimeOrigin::signed(U256::from(1001)),
                 invalid_proposal_hash,
                 0,
@@ -903,18 +911,18 @@ fn vote_on_missing_proposal_fails() {
 }
 
 #[test]
-fn vote_on_scheduled_proposal_fails() {
+fn triumvirate_vote_on_scheduled_proposal_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
-        vote_aye!(U256::from(1001), proposal_hash, proposal_index);
-        vote_aye!(U256::from(1002), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1002), proposal_hash, proposal_index);
 
         assert!(Proposals::<Test>::get().is_empty());
         assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
 
         assert_noop!(
-            Pallet::<Test>::vote(
+            Pallet::<Test>::vote_on_proposed(
                 RuntimeOrigin::signed(U256::from(1003)),
                 proposal_hash,
                 proposal_index,
@@ -926,12 +934,12 @@ fn vote_on_scheduled_proposal_fails() {
 }
 
 #[test]
-fn vote_on_proposal_with_wrong_index_fails() {
+fn triumvirate_vote_on_proposal_with_wrong_index_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
         assert_noop!(
-            Pallet::<Test>::vote(
+            Pallet::<Test>::vote_on_proposed(
                 RuntimeOrigin::signed(U256::from(1001)),
                 proposal_hash,
                 proposal_index + 1,
@@ -943,40 +951,40 @@ fn vote_on_proposal_with_wrong_index_fails() {
 }
 
 #[test]
-fn duplicate_vote_on_proposal_already_voted_fails() {
+fn duplicate_triumvirate_vote_on_proposal_already_voted_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
         let aye_voter = RuntimeOrigin::signed(U256::from(1001));
         let approve = true;
-        assert_ok!(Pallet::<Test>::vote(
+        assert_ok!(Pallet::<Test>::vote_on_proposed(
             aye_voter.clone(),
             proposal_hash,
             proposal_index,
             approve
         ));
         assert_noop!(
-            Pallet::<Test>::vote(aye_voter, proposal_hash, proposal_index, approve),
+            Pallet::<Test>::vote_on_proposed(aye_voter, proposal_hash, proposal_index, approve),
             Error::<Test>::DuplicateVote
         );
 
         let nay_voter = RuntimeOrigin::signed(U256::from(1002));
         let approve = false;
-        assert_ok!(Pallet::<Test>::vote(
+        assert_ok!(Pallet::<Test>::vote_on_proposed(
             nay_voter.clone(),
             proposal_hash,
             proposal_index,
             approve
         ));
         assert_noop!(
-            Pallet::<Test>::vote(nay_voter, proposal_hash, proposal_index, approve),
+            Pallet::<Test>::vote_on_proposed(nay_voter, proposal_hash, proposal_index, approve),
             Error::<Test>::DuplicateVote
         );
     });
 }
 
 #[test]
-fn aye_vote_on_proposal_with_too_many_scheduled_fails() {
+fn triumvirate_aye_vote_on_proposal_with_too_many_scheduled_fails() {
     TestState::default().build_and_execute(|| {
         // We fill the scheduled proposals up to the maximum.
         for i in 0..MaxScheduled::get() {
@@ -986,15 +994,15 @@ fn aye_vote_on_proposal_with_too_many_scheduled_fails() {
                     items: vec![(b"Foobar".to_vec(), i.to_be_bytes().to_vec())],
                 }
             );
-            vote_aye!(U256::from(1001), proposal_hash, proposal_index);
-            vote_aye!(U256::from(1002), proposal_hash, proposal_index);
+            vote_aye_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
+            vote_aye_on_proposed!(U256::from(1002), proposal_hash, proposal_index);
         }
 
         let (proposal_hash, proposal_index) = create_proposal!();
 
-        vote_aye!(U256::from(1001), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
         assert_noop!(
-            Pallet::<Test>::vote(
+            Pallet::<Test>::vote_on_proposed(
                 RuntimeOrigin::signed(U256::from(1002)),
                 proposal_hash,
                 proposal_index,
@@ -1006,12 +1014,182 @@ fn aye_vote_on_proposal_with_too_many_scheduled_fails() {
 }
 
 #[test]
+fn collective_aye_vote_on_scheduled_proposal_works() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
+
+        // Add an aye vote from an economic collective member.
+        let economic_member = U256::from(2001);
+        assert_ok!(Pallet::<Test>::vote_on_scheduled(
+            RuntimeOrigin::signed(economic_member),
+            proposal_hash,
+            proposal_index,
+            true
+        ));
+        assert_eq!(
+            CollectiveVoting::<Test>::get(proposal_hash),
+            Some(CollectiveVotes {
+                index: proposal_index,
+                ayes: BoundedVec::truncate_from(vec![economic_member]),
+                nays: BoundedVec::new(),
+            })
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+                account: economic_member,
+                proposal_hash,
+                voted: true,
+                yes: 1,
+                no: 0,
+            })
+        );
+
+        // Add a second aye vote from a building collective member.
+        let building_member = U256::from(3001);
+        assert_ok!(Pallet::<Test>::vote_on_scheduled(
+            RuntimeOrigin::signed(building_member),
+            proposal_hash,
+            proposal_index,
+            true
+        ));
+
+        assert_eq!(
+            CollectiveVoting::<Test>::get(proposal_hash),
+            Some(CollectiveVotes {
+                index: proposal_index,
+                ayes: BoundedVec::truncate_from(vec![economic_member, building_member]),
+                nays: BoundedVec::new(),
+            })
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+                account: building_member,
+                proposal_hash,
+                voted: true,
+                yes: 2,
+                no: 0,
+            })
+        );
+    });
+}
+
+#[test]
+fn collective_vote_can_be_updated() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
+        let economic_member = U256::from(2001);
+
+        // Vote aye initially as an economic collective member
+        vote_aye_on_scheduled!(economic_member, proposal_hash, proposal_index);
+        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
+        assert_eq!(votes.ayes.to_vec(), vec![economic_member]);
+        assert!(votes.nays.to_vec().is_empty());
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+                account: economic_member,
+                proposal_hash,
+                voted: true,
+                yes: 1,
+                no: 0,
+            })
+        );
+
+        // Then vote nay, replacing the aye vote
+        vote_nay_on_scheduled!(economic_member, proposal_hash, proposal_index);
+        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
+        assert!(votes.ayes.to_vec().is_empty());
+        assert_eq!(votes.nays.to_vec(), vec![economic_member]);
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+                account: economic_member,
+                proposal_hash,
+                voted: false,
+                yes: 0,
+                no: 1,
+            })
+        );
+
+        // Then vote aye again, replacing the nay vote
+        vote_aye_on_scheduled!(economic_member, proposal_hash, proposal_index);
+        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
+        assert_eq!(votes.ayes.to_vec(), vec![economic_member]);
+        assert!(votes.nays.to_vec().is_empty());
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+                account: economic_member,
+                proposal_hash,
+                voted: true,
+                yes: 1,
+                no: 0,
+            })
+        );
+    });
+}
+
+#[test]
+fn collective_aye_votes_to_threshold_on_scheduled_proposal_fast_tracks() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
+        let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
+        let combined_collective = EconomicCollective::<Test>::get()
+            .into_iter()
+            .chain(BuildingCollective::<Test>::get().into_iter());
+
+        for member in combined_collective.into_iter().take(threshold as usize) {
+            vote_aye_on_scheduled!(member, proposal_hash, proposal_index);
+        }
+
+        assert!(Scheduled::<Test>::get().is_empty());
+        assert_eq!(CollectiveVoting::<Test>::get(proposal_hash), None);
+        let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
+        let now = frame_system::Pallet::<Test>::block_number();
+        assert_eq!(
+            pallet_scheduler::Lookup::<Test>::get(task_name).unwrap().0,
+            now + 1
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalFastTracked { proposal_hash })
+        );
+    });
+}
+
+#[test]
+fn collective_nay_votes_to_threshold_on_scheduled_proposal_cancels() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
+        let threshold = CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
+        let combined_collective = EconomicCollective::<Test>::get()
+            .into_iter()
+            .chain(BuildingCollective::<Test>::get().into_iter());
+
+        for member in combined_collective.into_iter().take(threshold as usize) {
+            vote_nay_on_scheduled!(member, proposal_hash, proposal_index);
+        }
+
+        assert!(Scheduled::<Test>::get().is_empty());
+        assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
+        let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
+        assert!(pallet_scheduler::Lookup::<Test>::get(task_name).is_none());
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalCancelled { proposal_hash })
+        );
+    });
+}
+
+#[test]
 fn collective_vote_from_non_collective_member_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
 
         assert_noop!(
-            Pallet::<Test>::collective_vote(
+            Pallet::<Test>::vote_on_scheduled(
                 RuntimeOrigin::signed(U256::from(42)),
                 proposal_hash,
                 proposal_index,
@@ -1028,7 +1206,7 @@ fn collective_vote_on_non_scheduled_proposal_fails() {
         let (proposal_hash, proposal_index) = create_proposal!();
 
         assert_noop!(
-            Pallet::<Test>::collective_vote(
+            Pallet::<Test>::vote_on_scheduled(
                 RuntimeOrigin::signed(U256::from(2001)),
                 proposal_hash,
                 proposal_index,
@@ -1045,7 +1223,7 @@ fn collective_vote_on_proposal_with_wrong_index_fails() {
         let (proposal_hash, _proposal_index) = create_scheduled_proposal!();
 
         assert_noop!(
-            Pallet::<Test>::collective_vote(
+            Pallet::<Test>::vote_on_scheduled(
                 RuntimeOrigin::signed(U256::from(2001)),
                 proposal_hash,
                 42,
@@ -1063,307 +1241,29 @@ fn duplicate_collective_vote_on_scheduled_proposal_already_voted_fails() {
 
         let aye_voter = RuntimeOrigin::signed(U256::from(2001));
         let approve = true;
-        assert_ok!(Pallet::<Test>::collective_vote(
+        assert_ok!(Pallet::<Test>::vote_on_scheduled(
             aye_voter.clone(),
             proposal_hash,
             proposal_index,
             approve
         ));
         assert_noop!(
-            Pallet::<Test>::collective_vote(aye_voter, proposal_hash, proposal_index, approve),
+            Pallet::<Test>::vote_on_scheduled(aye_voter, proposal_hash, proposal_index, approve),
             Error::<Test>::DuplicateVote
         );
 
         let nay_voter = RuntimeOrigin::signed(U256::from(2002));
         let approve = false;
-        assert_ok!(Pallet::<Test>::collective_vote(
+        assert_ok!(Pallet::<Test>::vote_on_scheduled(
             nay_voter.clone(),
             proposal_hash,
             proposal_index,
             approve
         ));
         assert_noop!(
-            Pallet::<Test>::collective_vote(nay_voter, proposal_hash, proposal_index, approve),
+            Pallet::<Test>::vote_on_scheduled(nay_voter, proposal_hash, proposal_index, approve),
             Error::<Test>::DuplicateVote
         );
-    });
-}
-
-#[test]
-fn basic_collective_aye_vote_on_scheduled_proposal_works() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-
-        // Add an aye vote from an economic collective member.
-        assert_ok!(Pallet::<Test>::collective_vote(
-            RuntimeOrigin::signed(U256::from(2001)),
-            proposal_hash,
-            proposal_index,
-            true
-        ));
-
-        assert_eq!(
-            CollectiveVoting::<Test>::get(proposal_hash),
-            Some(CollectiveVotes {
-                index: proposal_index,
-                economic_ayes: BoundedVec::truncate_from(vec![U256::from(2001)]),
-                economic_nays: BoundedVec::new(),
-                building_ayes: BoundedVec::new(),
-                building_nays: BoundedVec::new(),
-            })
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
-                account: CollectiveMember::Economic(U256::from(2001)),
-                proposal_hash,
-                voted: true,
-                economic_yes: 1,
-                economic_no: 0,
-                building_yes: 0,
-                building_no: 0,
-            })
-        );
-
-        // Add a second aye vote from a building collective member.
-        assert_ok!(Pallet::<Test>::collective_vote(
-            RuntimeOrigin::signed(U256::from(3001)),
-            proposal_hash,
-            proposal_index,
-            true
-        ));
-
-        assert_eq!(
-            CollectiveVoting::<Test>::get(proposal_hash),
-            Some(CollectiveVotes {
-                index: proposal_index,
-                economic_ayes: BoundedVec::truncate_from(vec![U256::from(2001)]),
-                economic_nays: BoundedVec::new(),
-                building_ayes: BoundedVec::truncate_from(vec![U256::from(3001)]),
-                building_nays: BoundedVec::new(),
-            })
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
-                account: CollectiveMember::Building(U256::from(3001)),
-                proposal_hash,
-                voted: true,
-                economic_yes: 1,
-                economic_no: 0,
-                building_yes: 1,
-                building_no: 0,
-            })
-        );
-    });
-}
-
-#[test]
-fn collective_vote_can_be_updated() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let economic_member = U256::from(2001);
-
-        // Vote aye initially as an economic collective member
-        collective_vote_aye!(economic_member, proposal_hash, proposal_index);
-        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert_eq!(votes.economic_ayes.to_vec(), vec![economic_member]);
-        assert!(votes.economic_nays.to_vec().is_empty());
-        assert!(votes.building_ayes.to_vec().is_empty());
-        assert!(votes.building_nays.to_vec().is_empty());
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
-                account: CollectiveMember::Economic(economic_member),
-                proposal_hash,
-                voted: true,
-                economic_yes: 1,
-                economic_no: 0,
-                building_yes: 0,
-                building_no: 0,
-            })
-        );
-
-        // Then vote nay, replacing the aye vote
-        collective_vote_nay!(economic_member, proposal_hash, proposal_index);
-        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert!(votes.economic_ayes.to_vec().is_empty());
-        assert_eq!(votes.economic_nays.to_vec(), vec![economic_member]);
-        assert!(votes.building_ayes.to_vec().is_empty());
-        assert!(votes.building_nays.to_vec().is_empty());
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
-                account: CollectiveMember::Economic(economic_member),
-                proposal_hash,
-                voted: false,
-                economic_yes: 0,
-                economic_no: 1,
-                building_yes: 0,
-                building_no: 0,
-            })
-        );
-
-        // Then vote aye again, replacing the nay vote
-        collective_vote_aye!(economic_member, proposal_hash, proposal_index);
-        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert_eq!(votes.economic_ayes.to_vec(), vec![economic_member]);
-        assert!(votes.economic_nays.to_vec().is_empty());
-        assert!(votes.building_ayes.to_vec().is_empty());
-        assert!(votes.building_nays.to_vec().is_empty());
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
-                account: CollectiveMember::Economic(economic_member),
-                proposal_hash,
-                voted: true,
-                economic_yes: 1,
-                economic_no: 0,
-                building_yes: 0,
-                building_no: 0,
-            })
-        );
-
-        // Trigger cleanup to avoid duplicate scheduled error
-        run_to_block(frame_system::Pallet::<Test>::block_number() + CleanupPeriod::get());
-
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let building_member = U256::from(3001);
-
-        // Vote aye initially as a building collective member
-        collective_vote_aye!(building_member, proposal_hash, proposal_index);
-        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert!(votes.economic_ayes.to_vec().is_empty());
-        assert!(votes.economic_nays.to_vec().is_empty());
-        assert_eq!(votes.building_ayes.to_vec(), vec![building_member]);
-        assert!(votes.building_nays.to_vec().is_empty());
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
-                account: CollectiveMember::Building(building_member),
-                proposal_hash,
-                voted: true,
-                economic_yes: 0,
-                economic_no: 0,
-                building_yes: 1,
-                building_no: 0,
-            })
-        );
-
-        // Then vote nay, replacing the aye vote
-        collective_vote_nay!(building_member, proposal_hash, proposal_index);
-        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert!(votes.economic_ayes.to_vec().is_empty());
-        assert!(votes.economic_nays.to_vec().is_empty());
-        assert!(votes.building_ayes.to_vec().is_empty());
-        assert_eq!(votes.building_nays.to_vec(), vec![building_member]);
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
-                account: CollectiveMember::Building(building_member),
-                proposal_hash,
-                voted: false,
-                economic_yes: 0,
-                economic_no: 0,
-                building_yes: 0,
-                building_no: 1,
-            })
-        );
-
-        // Then vote aye again, replacing the nay vote
-        collective_vote_aye!(building_member, proposal_hash, proposal_index);
-        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert!(votes.economic_ayes.to_vec().is_empty());
-        assert!(votes.economic_nays.to_vec().is_empty());
-        assert_eq!(votes.building_ayes.to_vec(), vec![building_member]);
-        assert!(votes.building_nays.to_vec().is_empty());
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
-                account: CollectiveMember::Building(building_member),
-                proposal_hash,
-                voted: true,
-                economic_yes: 0,
-                economic_no: 0,
-                building_yes: 1,
-                building_no: 0,
-            })
-        );
-    });
-}
-
-#[test]
-fn collective_aye_votes_to_threshold_on_scheduled_proposal_fast_tracks() {
-    fn execute_for(
-        collective: impl IntoIterator<Item = <Test as frame_system::Config>::AccountId>,
-        collective_size: u32,
-    ) {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let threshold = FastTrackThreshold::get().mul_ceil(collective_size);
-
-        for member in collective.into_iter().take(threshold as usize) {
-            collective_vote_aye!(member, proposal_hash, proposal_index);
-        }
-
-        assert!(Scheduled::<Test>::get().is_empty());
-        assert_eq!(CollectiveVoting::<Test>::get(proposal_hash), None);
-        let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
-        let now = frame_system::Pallet::<Test>::block_number();
-        assert_eq!(
-            pallet_scheduler::Lookup::<Test>::get(task_name).unwrap().0,
-            now + 1
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalFastTracked { proposal_hash })
-        );
-    }
-
-    TestState::default().build_and_execute(|| {
-        execute_for(EconomicCollective::<Test>::get(), ECONOMIC_COLLECTIVE_SIZE);
-        run_to_block(frame_system::Pallet::<Test>::block_number() + 1);
-        execute_for(BuildingCollective::<Test>::get(), BUILDING_COLLECTIVE_SIZE);
-    });
-}
-
-#[test]
-fn collective_nay_votes_to_threshold_on_scheduled_proposal_cancels() {
-    fn execute_for(
-        collective: impl IntoIterator<Item = <Test as frame_system::Config>::AccountId>,
-        collective_size: u32,
-    ) {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let threshold = CancellationThreshold::get().mul_ceil(collective_size);
-
-        for member in collective.into_iter().take(threshold as usize) {
-            collective_vote_nay!(member, proposal_hash, proposal_index);
-        }
-
-        assert!(Scheduled::<Test>::get().is_empty());
-        assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
-        let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
-        assert!(pallet_scheduler::Lookup::<Test>::get(task_name).is_none());
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalCancelled { proposal_hash })
-        );
-    }
-
-    TestState::default().build_and_execute(|| {
-        execute_for(EconomicCollective::<Test>::get(), ECONOMIC_COLLECTIVE_SIZE);
-        execute_for(BuildingCollective::<Test>::get(), BUILDING_COLLECTIVE_SIZE);
-    });
-}
-
-#[test]
-fn cleanup_run_on_initialize() {
-    TestState::default().build_and_execute(|| {
-        let now = frame_system::Pallet::<Test>::block_number();
-        run_to_block(now + CleanupPeriod::get());
-        assert!(Scheduled::<Test>::get().is_empty());
-        assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
-        let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
-        assert!(pallet_scheduler::Lookup::<Test>::get(task_name).is_none());
     });
 }
 
@@ -1444,16 +1344,16 @@ macro_rules! create_proposal {
 macro_rules! create_scheduled_proposal {
     () => {{
         let (proposal_hash, proposal_index) = create_proposal!();
-        vote_aye!(U256::from(1001), proposal_hash, proposal_index);
-        vote_aye!(U256::from(1002), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1001), proposal_hash, proposal_index);
+        vote_aye_on_proposed!(U256::from(1002), proposal_hash, proposal_index);
         (proposal_hash, proposal_index)
     }};
 }
 
 #[macro_export]
-macro_rules! vote_aye {
+macro_rules! vote_aye_on_proposed {
     ($voter:expr, $proposal_hash:expr, $proposal_index:expr) => {{
-        assert_ok!(Pallet::<Test>::vote(
+        assert_ok!(Pallet::<Test>::vote_on_proposed(
             RuntimeOrigin::signed($voter),
             $proposal_hash,
             $proposal_index,
@@ -1463,9 +1363,9 @@ macro_rules! vote_aye {
 }
 
 #[macro_export]
-macro_rules! vote_nay {
+macro_rules! vote_nay_on_proposed {
     ($voter:expr, $proposal_hash:expr, $proposal_index:expr) => {{
-        assert_ok!(Pallet::<Test>::vote(
+        assert_ok!(Pallet::<Test>::vote_on_proposed(
             RuntimeOrigin::signed($voter),
             $proposal_hash,
             $proposal_index,
@@ -1475,9 +1375,9 @@ macro_rules! vote_nay {
 }
 
 #[macro_export]
-macro_rules! collective_vote_aye {
+macro_rules! vote_aye_on_scheduled {
     ($voter:expr, $proposal_hash:expr, $proposal_index:expr) => {{
-        assert_ok!(Pallet::<Test>::collective_vote(
+        assert_ok!(Pallet::<Test>::vote_on_scheduled(
             RuntimeOrigin::signed($voter),
             $proposal_hash,
             $proposal_index,
@@ -1487,9 +1387,9 @@ macro_rules! collective_vote_aye {
 }
 
 #[macro_export]
-macro_rules! collective_vote_nay {
+macro_rules! vote_nay_on_scheduled {
     ($voter:expr, $proposal_hash:expr, $proposal_index:expr) => {{
-        assert_ok!(Pallet::<Test>::collective_vote(
+        assert_ok!(Pallet::<Test>::vote_on_scheduled(
             RuntimeOrigin::signed($voter),
             $proposal_hash,
             $proposal_index,
