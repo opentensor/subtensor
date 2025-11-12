@@ -12,6 +12,12 @@ from typing import Dict, List, Optional, Set
 DEFAULT_SKIP_WORKFLOWS = {"Validate-Benchmarks", "Label Triggers"}
 PER_PAGE = 100
 MAX_PAGES = 10
+DISPATCH_UNSUPPORTED_CODES = {404, 422}
+
+
+class WorkflowDispatchNotSupported(Exception):
+    """Raised when a workflow cannot be triggered via workflow_dispatch."""
+    pass
 
 
 def env(name: str, required: bool = True) -> str:
@@ -41,6 +47,31 @@ def github_request(url: str, token: str, method: str = "GET", payload: Optional[
         body = exc.read().decode("utf-8", errors="ignore")
         print(f"GitHub API error ({exc.code}) for {url}:\n{body}", file=sys.stderr)
         raise
+
+
+def dispatch_workflow(*, repo: str, token: str, workflow_id: int, ref: str) -> None:
+    if not ref:
+        raise WorkflowDispatchNotSupported("Missing ref for workflow_dispatch.")
+    url = f"https://api.github.com/repos/{repo}/actions/workflows/{workflow_id}/dispatches"
+    payload = json.dumps({"ref": ref}).encode("utf-8")
+    request = urllib.request.Request(url, data=payload, method="POST")
+    request.add_header("Authorization", f"Bearer {token}")
+    request.add_header("Accept", "application/vnd.github+json")
+    request.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(request, timeout=30):
+            return
+    except urllib.error.HTTPError as exc:
+        if exc.code in DISPATCH_UNSUPPORTED_CODES:
+            raise WorkflowDispatchNotSupported from exc
+        body = exc.read().decode("utf-8", errors="ignore")
+        print(f"GitHub API error ({exc.code}) for {url}:\n{body}", file=sys.stderr)
+        raise
+
+
+def rerun_workflow(*, repo: str, token: str, run_id: int) -> None:
+    rerun_url = f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/rerun"
+    github_request(rerun_url, token, method="POST", payload={})
 
 
 def collect_runs(
@@ -106,6 +137,7 @@ def main() -> None:
         sys.exit(1)
 
     head_sha = os.environ.get("PR_HEAD_SHA", "").strip()
+    head_ref = os.environ.get("PR_HEAD_REF", "").strip()
 
     extra_skip = {
         value.strip()
@@ -131,16 +163,27 @@ def main() -> None:
         print(f"No pull_request workflow runs found for PR #{pr_number}; nothing to re-run.")
         return
 
-    print(f"Re-running {len(runs)} workflow(s) for PR #{pr_number}.")
+    print(f"Triggering {len(runs)} workflow(s) for PR #{pr_number}.")
     for run in runs:
         run_id = run.get("id")
         name = run.get("name")
         run_number = run.get("run_number")
+        workflow_id = run.get("workflow_id")
         if run_id is None:
             continue
-        print(f"  • {name} (run #{run_number})")
-        rerun_url = f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/rerun"
-        github_request(rerun_url, token, method="POST", payload={})
+        ref = head_ref or (run.get("head_branch") or "")
+        dispatched = False
+        if workflow_id is not None and ref:
+            try:
+                dispatch_workflow(repo=repo, token=token, workflow_id=workflow_id, ref=ref)
+                print(f"  • {name} dispatched via workflow_dispatch on '{ref}'")
+                dispatched = True
+            except WorkflowDispatchNotSupported:
+                print(f"  • {name} does not support workflow_dispatch; re-running run #{run_number}.")
+
+        if not dispatched:
+            print(f"  • {name} (run #{run_number}) rerun requested.")
+            rerun_workflow(repo=repo, token=token, run_id=run_id)
 
 
 if __name__ == "__main__":

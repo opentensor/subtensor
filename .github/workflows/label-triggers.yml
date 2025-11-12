@@ -73,7 +73,7 @@ jobs:
 
           output_path = os.environ["GITHUB_OUTPUT"]
           with open(output_path, "a", encoding="utf-8") as handle:
-              handle.write(f"spec_version={new_value}\\n")
+              handle.write(f"spec_version={new_value}\n")
           PY
 
       - name: Commit spec_version bump
@@ -92,11 +92,13 @@ jobs:
           fi
 
           version="${{ steps.bump_spec.outputs.spec_version }}"
+          version="${version//$'\n'/}"
+          version="${version//$'\r'/}"
           if [ -z "$version" ]; then
             version="(unknown)"
           fi
 
-          git commit -m "chore: bump spec_version to ${version}"
+          git commit -m "chore: bump spec version to ${version}"
           branch=$(git symbolic-ref --quiet --short HEAD || true)
           if [ -z "$branch" ]; then
             echo "Unable to determine branch name for push." >&2
@@ -106,6 +108,7 @@ jobs:
           head_sha=$(git rev-parse HEAD)
           echo "changes_made=true" >> "$GITHUB_OUTPUT"
           echo "head_sha=${head_sha}" >> "$GITHUB_OUTPUT"
+          echo "head_ref=${branch}" >> "$GITHUB_OUTPUT"
 
       - name: Re-run pull_request workflows (except Validate-Benchmarks)
         if: steps.commit_spec.outputs.changes_made == 'true'
@@ -115,6 +118,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ steps.commit_spec.outputs.head_sha }}
+          PR_HEAD_REF: ${{ steps.commit_spec.outputs.head_ref }}
 
       - name: Remove bump-spec-version label
         if: ${{ success() }}
