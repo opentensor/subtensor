@@ -31,13 +31,14 @@ The governance system consists of three main actors working together:
 
 - **Purpose**: Authorized to submit proposals (calls executed with root privilege)
 - **Assignment**: Allowed proposer account keys are configured in the runtime via governance
-- **Permissions**: 
+- **Permissions**:
   - Can submit proposals to the main governance track (i.e., runtime upgrade proposals or any root extrinsic)
   - Can cancel or withdraw their own proposals anytime before execution (i.e., if they find a bug in the proposal code)
   - Can eject its own key from the allowed proposers list (i.e., if it is lost or compromised)
   - Can propose an update to the allowed proposers list via proposal flow
 
 **Open Questions:**
+
 - Q1: Who can add/remove proposer accounts? Only governance or should Triumvirate have emergency powers?
 - Q2: Who validates that proposal code matches stated intent before Triumvirate votes? Share runtime WASM hash like Polkadot fellowship does?
 
@@ -52,7 +53,8 @@ The governance system consists of three main actors working together:
   - Can vote on proposals submitted by allowed proposers
 
 **Open Questions:**
-  - Q3: How to allow a triumvirate member to resign?
+
+- Q3: How to allow a triumvirate member to resign?
 
 #### Economic and Building Collectives
 
@@ -67,8 +69,9 @@ The governance system consists of three main actors working together:
   - Can replace a Triumvirate member every 6 months via single atomic vote (remove current holder + install replacement candidate, with rotating seat selection)
   - Can mark himself as eligible for nomination to the Triumvirate
   - Can accept a nomination to the Triumvirate
-  
+
 **Open Questions:**
+
 - Q4: How to handle the nomination process?
 - Q5: How to incentivize the collective members to vote?
 
@@ -87,8 +90,9 @@ The governance system consists of three main actors working together:
 #### Triumvirate Approval
 
 1. Triumvirate members cast votes (aye/nay) on the proposal
-  - 2/3 vote aye, proposal is approved: Proposal is scheduled for execution in 7 days (configurable) and enters "Delay Period"
-  - 2/3 vote nay, proposal is rejected: Proposal is cleaned up from storage (it was never scheduled for execution).
+
+- 2/3 vote aye, proposal is approved: Proposal is scheduled for execution in 7 days (configurable) and enters "Delay Period"
+- 2/3 vote nay, proposal is rejected: Proposal is cleaned up from storage (it was never scheduled for execution).
 
 - Triumvirate members can change their vote during the voting period (before the proposal is scheduled or cancelled).
 - There is a queue limit in the number of scheduled proposals and in the delay period (configurable).
@@ -100,16 +104,18 @@ When a proposal has been approved by the Triumvirate, it is scheduled in 7 days 
 
 1. Both collectives can vote aye/nay on the proposal
 2. Delay is an exponential function of the number of nays votes, set to 1.5^n (configurable).
-  - Initial delay is 7 days (configurable).
-  - After 1 nays vote, the delay is 1.5^1 * 7 days = 10.5 days.
-  - After 2 nays votes, the delay is 1.5^2 * 7 days = ~16 days.
-  - After 3 nays votes, the delay is 1.5^3 * 7 days = ~23 days.
-  - After 4 nays votes, the delay is 1.5^4 * 7 days = ~35 days.
-  - After 5 nays votes, the delay is 1.5^5 * 7 days = ~53 days.
-  - After 6 nays votes, the delay is 1.5^6 * 7 days = ~80 days.
-  - After 7 nays votes, the delay is 1.5^7 * 7 days = ~120 days.
-  - After 8 nays votes, the delay is 1.5^8 * 7 days = ~180 days.
-  - After 9 nays votes, proposal is cancelled (given we have a collective size of 16, hence more than 1/2 of the collective votes nay).
+
+- Initial delay is 7 days (configurable).
+- After 1 nays vote, the delay is 1.5^1 \* 7 days = 10.5 days.
+- After 2 nays votes, the delay is 1.5^2 \* 7 days = ~16 days.
+- After 3 nays votes, the delay is 1.5^3 \* 7 days = ~23 days.
+- After 4 nays votes, the delay is 1.5^4 \* 7 days = ~35 days.
+- After 5 nays votes, the delay is 1.5^5 \* 7 days = ~53 days.
+- After 6 nays votes, the delay is 1.5^6 \* 7 days = ~80 days.
+- After 7 nays votes, the delay is 1.5^7 \* 7 days = ~120 days.
+- After 8 nays votes, the delay is 1.5^8 \* 7 days = ~180 days.
+- After 9 nays votes, proposal is cancelled (given we have a collective size of 16, hence more than 1/2 of the collective votes nay).
+
 3. If the delay period expires without cancellation: Proposal executes automatically
 
 - The delay is calculated based on the collective with the most nays votes (i.e., if Economic has 3 nays and Building has 1 nay, the delay is based on 3 nays = ~23 days).
@@ -119,6 +125,7 @@ When a proposal has been approved by the Triumvirate, it is scheduled in 7 days 
   - **Example**: A proposal has 3 nays votes, creating a 23-day delay. After 17 days have elapsed, a collective member changes their nay vote to aye, reducing the delay to 16 days. Since 17 days have already passed (more than the new 16-day delay), the proposal executes immediately.
 
 **Open Questions:**
+
 - Q6: Should the voting be across both collectives or each collective votes independently? What if a collective decide to go rogue and fast track proposals that the other collective is against or vice versa?
 
 #### Execution
@@ -136,6 +143,7 @@ Each collective can replace one Triumvirate member every 6 months through a **si
 - Economic and Building collectives have independent cycles (seat are rotated independently)
 
 **Open Questions:**
+
 - Q7: How to have an emergency replacement vote?
 - Q8: Can a replaced member be voted back in immediately, or should there be a cooldown period?
 
@@ -156,6 +164,7 @@ Each collective can replace one Triumvirate member every 6 months through a **si
 The replacement happens in a single vote where the collective votes **both** to remove the current seat holder **and** to install a specific replacement candidate. This is an atomic operation: either both happen or neither happens.
 
 **Process:**
+
 1. **Eligibility Phase**: Collective members can mark themselves as eligible for nomination to the Triumvirate.
 2. **Voting Phase**: Collective members can vote aye/nay during the voting period to replace the current seat holder.
    - Threshold of more than 1/2 of the collective size (configurable)
