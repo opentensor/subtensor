@@ -63,7 +63,7 @@ describe("Test the Neuron precompile with emission", () => {
 
         let i = 0;
         while (i < 10) {
-            const emission = await api.query.SubtensorModule.PendingEmission.getValue(netuid)
+            const emission = await api.query.SubtensorModule.ServerEmission.getValue(netuid)
 
             console.log("emission is ", emission);
             await new Promise((resolve) => setTimeout(resolve, 2000));
