@@ -536,6 +536,12 @@ pub mod pallet {
                 max_allowed_uids <= DefaultMaxAllowedUids::<T>::get(),
                 Error::<T>::MaxAllowedUidsGreaterThanDefaultMaxAllowedUids
             );
+            // Prevent chain bloat: Require max UIDs to be limited
+            let mechanism_count = pallet_subtensor::MechanismCountCurrent::<T>::get(netuid);
+            pallet_subtensor::Pallet::<T>::check_max_uids_vs_mechanism_count(
+                max_allowed_uids,
+                mechanism_count.into(),
+            )?;
             pallet_subtensor::Pallet::<T>::set_max_allowed_uids(netuid, max_allowed_uids);
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,

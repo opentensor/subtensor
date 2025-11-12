@@ -540,6 +540,20 @@ fn test_sudo_set_max_allowed_uids() {
             Error::<Test>::MaxAllowedUidsGreaterThanDefaultMaxAllowedUids
         );
 
+        // Chain bloat check against mechanism count
+        // Set MechanismCountCurrent to exceed 256 / DefaultMaxAllowedUids (16)
+        MechanismCountCurrent::<Test>::insert(netuid, MechId::from(32));
+        let large_max_uids = 16_u16;
+        assert_noop!(
+            AdminUtils::sudo_set_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                large_max_uids
+            ),
+            SubtensorError::<Test>::TooManyUIDsPerMechanism
+        );
+        MechanismCountCurrent::<Test>::insert(netuid, MechId::from(1));
+
         // Normal case
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -2341,6 +2355,7 @@ fn test_sudo_set_mechanism_count() {
         add_network(netuid, 10);
         // Set the Subnet Owner
         SubnetOwner::<Test>::insert(netuid, sn_owner);
+        MaxAllowedUids::<Test>::insert(netuid, 256_u16);
 
         assert_eq!(
             AdminUtils::sudo_set_mechanism_count(
@@ -2354,7 +2369,13 @@ fn test_sudo_set_mechanism_count() {
             AdminUtils::sudo_set_mechanism_count(RuntimeOrigin::root(), netuid, ss_count_bad),
             pallet_subtensor::Error::<Test>::InvalidValue
         );
+        assert_noop!(
+            AdminUtils::sudo_set_mechanism_count(RuntimeOrigin::root(), netuid, ss_count_ok),
+            pallet_subtensor::Error::<Test>::TooManyUIDsPerMechanism
+        );
 
+        // Reduce max UIDs to 128
+        MaxAllowedUids::<Test>::insert(netuid, 128_u16);
         assert_ok!(AdminUtils::sudo_set_mechanism_count(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
@@ -2380,6 +2401,8 @@ fn test_sudo_set_mechanism_count_and_emissions() {
         add_network(netuid, 10);
         // Set the Subnet Owner
         SubnetOwner::<Test>::insert(netuid, sn_owner);
+        MaxMechanismCount::<Test>::set(MechId::from(2));
+        MaxAllowedUids::<Test>::set(netuid, 128_u16);
 
         assert_ok!(AdminUtils::sudo_set_mechanism_count(
             <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
