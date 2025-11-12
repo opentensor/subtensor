@@ -2310,6 +2310,7 @@ pub mod pallet {
         MechId::from(1)
     }
 
+    #[pallet::type_value]
     /// -- ITEM (Maximum number of sub-subnets)
     pub fn DefaultMaxMechanismCount<T: Config>() -> MechId {
         MechId::from(2)
@@ -2318,7 +2319,6 @@ pub mod pallet {
     /// ITEM( max_mechanism_count )
     pub type MaxMechanismCount<T> =
         StorageValue<_, MechId, ValueQuery, DefaultMaxMechanismCount<T>>;
-    #[pallet::type_value]
     /// -- ITEM (Rate limit for mechanism count updates)
     #[pallet::type_value]
     pub fn MechanismCountSetRateLimit<T: Config>() -> u64 {
