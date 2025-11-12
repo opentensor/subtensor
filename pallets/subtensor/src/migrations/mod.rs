@@ -41,6 +41,7 @@ pub mod migrate_remove_unused_maps_and_values;
 pub mod migrate_remove_zero_total_hotkey_alpha;
 pub mod migrate_reset_bonds_moving_average;
 pub mod migrate_reset_max_burn;
+pub mod migrate_reset_unactive_sn;
 pub mod migrate_set_first_emission_block_number;
 pub mod migrate_set_min_burn;
 pub mod migrate_set_min_difficulty;
@@ -55,7 +56,6 @@ pub mod migrate_subnet_symbols;
 pub mod migrate_subnet_volume;
 pub mod migrate_to_v1_separate_emission;
 pub mod migrate_to_v2_fixed_total_stake;
-pub mod migrate_total_issuance;
 pub mod migrate_transfer_ownership_to_foundation;
 pub mod migrate_upgrade_revealed_commitments;
 

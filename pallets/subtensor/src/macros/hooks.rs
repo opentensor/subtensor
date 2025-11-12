@@ -72,9 +72,6 @@ mod hooks {
                 .saturating_add(migrations::migrate_delete_subnet_21::migrate_delete_subnet_21::<T>())
                 // Storage version v4 -> v5
                 .saturating_add(migrations::migrate_delete_subnet_3::migrate_delete_subnet_3::<T>())
-                // Doesn't check storage version. TODO: Remove after upgrade
-                // Storage version v5 -> v6
-                .saturating_add(migrations::migrate_total_issuance::migrate_total_issuance::<T>(false))
                 // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
                 // Storage version v6 -> v7
                 .saturating_add(migrations::migrate_populate_owned_hotkeys::migrate_populate_owned::<T>())
@@ -163,7 +160,9 @@ mod hooks {
                 // Re-init tao flows
                 .saturating_add(migrations::migrate_init_tao_flow::migrate_init_tao_flow::<T>())
                 // Migrate pending emissions
-                .saturating_add(migrations::migrate_pending_emissions::migrate_pending_emissions::<T>());
+                .saturating_add(migrations::migrate_pending_emissions::migrate_pending_emissions::<T>())
+                // Reset unactive subnets
+                .saturating_add(migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<T>());
             weight
         }
 
