@@ -51,14 +51,6 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
             T::DbWeight::get().reads((Owner::<T>::iter().count() as u64).saturating_mul(2)),
         );
 
-        // Calculate the sum of all locked subnet values
-        let locked_sum = SubnetLocked::<T>::iter().fold(TaoCurrency::ZERO, |acc, (_, locked)| {
-            acc.saturating_add(locked)
-        });
-        // Add weight for reading all subnet locked entries
-        weight = weight
-            .saturating_add(T::DbWeight::get().reads(SubnetLocked::<T>::iter().count() as u64));
-
         // Retrieve the total balance sum
         let total_balance = <T as Config>::Currency::total_issuance();
         // Add weight for reading total issuance
@@ -69,8 +61,7 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
             Ok(total_balance_sum) => {
                 // Compute the total issuance value
                 let total_issuance_value = stake_sum
-                    .saturating_add(total_balance_sum.into())
-                    .saturating_add(locked_sum.into());
+                    .saturating_add(total_balance_sum.into());
 
                 // Update the total issuance in storage
                 TotalIssuance::<T>::put(total_issuance_value);
