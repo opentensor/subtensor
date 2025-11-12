@@ -6,6 +6,7 @@ on:
       - unlabeled
       - synchronize
       - opened
+  workflow_dispatch:
 concurrency:
   group: cargo-audit-${{ github.ref }}
   cancel-in-progress: true

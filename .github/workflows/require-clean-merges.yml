@@ -6,6 +6,7 @@ on:
       - devnet-ready
       - devnet
       - testnet
+  workflow_dispatch:
 
 jobs:
   assert-clean-merges:

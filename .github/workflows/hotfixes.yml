@@ -3,6 +3,7 @@ name: Handle Hotfix PRs
 on:
   pull_request:
     types: [opened]
+  workflow_dispatch:
 
 permissions:
   pull-requests: write

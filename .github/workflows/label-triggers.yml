@@ -6,6 +6,7 @@ on:
       - unlabeled
       - synchronize
       - opened
+  workflow_dispatch:
 
 permissions:
   issues: write
@@ -30,7 +31,7 @@ jobs:
             })
 
   bump_spec_version:
-    if: ${{ github.event.label.name == 'bump-spec-version' }}
+    if: ${{ github.event.action == 'labeled' && github.event.label.name == 'bump-spec-version' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out PR branch
@@ -112,7 +113,14 @@ jobs:
 
       - name: Re-run pull_request workflows (except Validate-Benchmarks)
         if: steps.commit_spec.outputs.changes_made == 'true'
-        run: python3 ci-tools/scripts/ci/rerun_pr_workflows.py
+        run: |
+          set -euo pipefail
+          script_path="scripts/ci/rerun_pr_workflows.py"
+          if [ ! -f "$script_path" ]; then
+            script_path="ci-tools/scripts/ci/rerun_pr_workflows.py"
+          fi
+          echo "Using rerun helper at $script_path"
+          python3 "$script_path"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
