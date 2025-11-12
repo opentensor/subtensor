@@ -9,7 +9,7 @@ on:
 
 jobs:
   assert-clean-merges:
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
           else
             echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
           fi
-          
+
       - name: Add Fork Remote and Fetch PR Branch
         if: github.event.pull_request.head.repo.fork == true
         run: |
