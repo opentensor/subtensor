@@ -232,9 +232,6 @@ impl<T: Config> Pallet<T> {
             }
             log::debug!("root_alpha: {root_alpha:?}");
 
-            // Deduct root alpha from alpha_out.
-            alpha_out_i = alpha_out_i.saturating_sub(root_alpha);
-
             // Get pending server alpha, which is the miner cut of the alpha out.
             // Currently miner cut is 50% of the alpha out.
             let pending_server_alpha = alpha_out_i.saturating_mul(asfloat!(0.5));
