@@ -10757,6 +10757,7 @@ dependencies = [
  "pallet-crowdloan",
  "pallet-drand",
  "pallet-preimage",
+ "pallet-rate-limiting",
  "pallet-scheduler",
  "pallet-subtensor-proxy",
  "pallet-subtensor-swap",

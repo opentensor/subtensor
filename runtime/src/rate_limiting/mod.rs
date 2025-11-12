@@ -6,6 +6,8 @@ use subtensor_runtime_common::{BlockNumber, NetUid, RateLimitScope, RateLimitUsa
 
 use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
 
+pub(crate) mod migration;
+
 fn signed_origin(origin: &RuntimeOrigin) -> Option<AccountId> {
     match origin.clone().into() {
         Ok(RawOrigin::Signed(who)) => Some(who),

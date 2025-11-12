@@ -393,6 +393,18 @@ pub mod pallet {
             true
         }
 
+        /// Inserts or updates the cached usage timestamp for a rate-limited call.
+        ///
+        /// This is primarily intended for migrations that need to hydrate the new tracking storage
+        /// from legacy pallets.
+        pub fn record_last_seen(
+            identifier: &TransactionIdentifier,
+            usage_key: Option<<T as Config<I>>::UsageKey>,
+            block_number: BlockNumberFor<T>,
+        ) {
+            LastSeen::<T, I>::insert(identifier, usage_key, block_number);
+        }
+
         /// Migrates a stored rate limit configuration from one scope to another.
         ///
         /// Returns `true` when an entry was moved. Passing identical `from`/`to` scopes simply

@@ -55,6 +55,7 @@ sha2.workspace = true
 rand_chacha.workspace = true
 pallet-crowdloan.workspace = true
 pallet-subtensor-proxy.workspace = true
+pallet-rate-limiting.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -112,6 +113,7 @@ std = [
 	"pallet-crowdloan/std",
 	"pallet-drand/std",
 	"pallet-subtensor-proxy/std",
+	"pallet-rate-limiting/std",
 	"pallet-subtensor-swap/std",
 	"subtensor-swap-interface/std",
 	"pallet-subtensor-utility/std",
