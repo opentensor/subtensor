@@ -30,7 +30,7 @@ jobs:
             })
 
   bump_spec_version:
-    if: ${{ github.event.label.name == 'bump-spec-verison' }}
+    if: ${{ github.event.label.name == 'bump-spec-version' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out PR branch
@@ -116,7 +116,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ steps.commit_spec.outputs.head_sha }}
 
-      - name: Remove bump-spec-verison label
+      - name: Remove bump-spec-version label
         if: ${{ success() }}
         uses: actions/github-script@v6
         with:
@@ -126,7 +126,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                name: 'bump-spec-verison'
+                name: 'bump-spec-version'
               })
             } catch (error) {
               if (error.status !== 404) {
