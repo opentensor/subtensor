@@ -3361,7 +3361,7 @@ fn test_coinbase_subnets_with_no_reg_get_no_emission() {
         assert_eq!(subnets_to_emit_to_1.len(), 1);
         assert!(!subnets_to_emit_to_1.contains(&netuid0));
         // Netuid1 still in the list
-        assert!(subnets_to_emit_to_1.contains(&netuid1));        
+        assert!(subnets_to_emit_to_1.contains(&netuid1));
     });
 }
 

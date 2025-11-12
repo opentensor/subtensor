@@ -221,25 +221,16 @@ impl<T: Config> Pallet<T> {
                 .saturating_mul(asfloat!(0.5)); // 50% to validators.
             log::debug!("root_alpha: {root_alpha:?}");
 
-            if root_sell_flag {
-                // Only accumulate root alpha divs if root sell is allowed.
-                PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(tou64!(root_alpha).into());
-                });
-            } else {
-                // If we are not selling the root alpha, we should recycle it.
-                Self::recycle_subnet_alpha(*netuid_i, AlphaCurrency::from(tou64!(root_alpha)));
-            }
-            log::debug!("root_alpha: {root_alpha:?}");
-
             // Get pending server alpha, which is the miner cut of the alpha out.
             // Currently miner cut is 50% of the alpha out.
             let pending_server_alpha = alpha_out_i.saturating_mul(asfloat!(0.5));
+            log::debug!("pending_server_alpha: {pending_server_alpha:?}");
             // The total validator alpha is the remaining alpha out minus the server alpha.
             let total_validator_alpha = alpha_out_i.saturating_sub(pending_server_alpha);
-
+            log::debug!("total_validator_alpha: {total_validator_alpha:?}");
             // The alpha validators don't get the root alpha.
             let pending_validator_alpha = total_validator_alpha.saturating_sub(root_alpha);
+            log::debug!("pending_validator_alpha: {pending_validator_alpha:?}");
 
             // Accumulate the server alpha emission.
             PendingServerEmission::<T>::mutate(*netuid_i, |total| {
@@ -249,6 +240,16 @@ impl<T: Config> Pallet<T> {
             PendingValidatorEmission::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tou64!(pending_validator_alpha).into());
             });
+
+            if root_sell_flag {
+                // Only accumulate root alpha divs if root sell is allowed.
+                PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(root_alpha).into());
+                });
+            } else {
+                // If we are not selling the root alpha, we should recycle it.
+                Self::recycle_subnet_alpha(*netuid_i, AlphaCurrency::from(tou64!(root_alpha)));
+            }
         }
     }
 
