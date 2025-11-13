@@ -87,14 +87,14 @@ impl<T: Config> Pallet<T> {
         let one = U64F64::saturating_from_num(1);
         let sqrt_price_high = TickIndex::max_sqrt_price();
         U64F64::saturating_from_num(alpha)
-            .safe_div(one.safe_div(sqrt_price_curr).saturating_sub(one.safe_div(sqrt_price_high)))
+            .safe_div(
+                one.safe_div(sqrt_price_curr)
+                    .saturating_sub(one.safe_div(sqrt_price_high)),
+            )
             .saturating_to_num::<u64>()
     }
 
-    pub fn token_amounts_to_price_sqrt(
-        tao: TaoCurrency,
-        alpha: AlphaCurrency,
-    ) -> SqrtPrice {
+    pub fn token_amounts_to_price_sqrt(tao: TaoCurrency, alpha: AlphaCurrency) -> SqrtPrice {
         let sqrt_price_low = I64F64::saturating_from_num(TickIndex::min_sqrt_price());
         let sqrt_price_high = I64F64::saturating_from_num(TickIndex::max_sqrt_price());
         let zero = I64F64::saturating_from_num(0);
@@ -102,9 +102,16 @@ impl<T: Config> Pallet<T> {
         let p = I64F64::saturating_from_num(tao).safe_div(I64F64::saturating_from_num(alpha));
         let a = sqrt_price_low.saturating_sub(p.safe_div(sqrt_price_high));
         let epsilon = I64F64::saturating_from_num(0.000000000001);
-        let dsqrt = a.saturating_mul(a).saturating_add(I64F64::saturating_from_num(4).saturating_mul(p)).checked_sqrt(epsilon).unwrap_or(zero);
+        let dsqrt = a
+            .saturating_mul(a)
+            .saturating_add(I64F64::saturating_from_num(4).saturating_mul(p))
+            .checked_sqrt(epsilon)
+            .unwrap_or(zero);
 
-        a.saturating_add(dsqrt).safe_div(I64F64::saturating_from_num(2)).saturating_to_num::<U64F64>().into()
+        a.saturating_add(dsqrt)
+            .safe_div(I64F64::saturating_from_num(2))
+            .saturating_to_num::<U64F64>()
+            .into()
     }
 
     // initializes V3 swap for a subnet if needed
@@ -226,7 +233,10 @@ impl<T: Config> Pallet<T> {
             if let Ok((tao, _alpha)) = maybe_token_amounts {
                 // Get updated reserves, calculate liquidity
                 let new_tao_reserve = tao.saturating_add(corrected_tao_delta.to_u64());
-                let new_liquidity = Self::token_amounts_to_protocol_liquidity(new_tao_reserve.into(), current_sqrt_price);
+                let new_liquidity = Self::token_amounts_to_protocol_liquidity(
+                    new_tao_reserve.into(),
+                    current_sqrt_price,
+                );
                 let liquidity_delta = new_liquidity.saturating_sub(position.liquidity);
 
                 // Update current liquidity
@@ -1278,56 +1288,80 @@ impl<T: Config> SwapHandler for Pallet<T> {
         (total_tao, total_alpha, protocol_tao, protocol_alpha)
     }
 
-
-    /// Adjust protocol liquidity so that all implied liquidity matches 
+    /// Adjust protocol liquidity so that all implied liquidity matches
     /// reserves.
-    /// Any excess TAO or Alpha that is out of price proportion is already 
-    /// added to reserves, but it needs to remain pending for liquidity. 
+    /// Any excess TAO or Alpha that is out of price proportion is already
+    /// added to reserves, but it needs to remain pending for liquidity.
     /// Add it to TAO / Alpha scrap reservoirs.
     fn migrate_fix_protocol_liquidity(netuid: NetUid, weight: &mut Weight) {
-        let (tao_implied_reserve_total, alpha_implied_reserve_total, tao_implied_reserve_protocol, alpha_implied_reserve_protocol) =
-            Self::migrate_get_implied_reserves(netuid, weight);
+        let (
+            tao_implied_reserve_total,
+            alpha_implied_reserve_total,
+            tao_implied_reserve_protocol,
+            alpha_implied_reserve_protocol,
+        ) = Self::migrate_get_implied_reserves(netuid, weight);
 
         // Get actual protocol reserves
-        let tao_implied_reserve_users = tao_implied_reserve_total.saturating_sub(tao_implied_reserve_protocol);
-        let alpha_implied_reserve_users = alpha_implied_reserve_total.saturating_sub(alpha_implied_reserve_protocol);
+        let tao_implied_reserve_users =
+            tao_implied_reserve_total.saturating_sub(tao_implied_reserve_protocol);
+        let alpha_implied_reserve_users =
+            alpha_implied_reserve_total.saturating_sub(alpha_implied_reserve_protocol);
         let tao_actual_reserve_total = T::TaoReserve::reserve(netuid.into());
         let alpha_actual_reserve_total = T::AlphaReserve::reserve(netuid.into());
-        let tao_actual_reserve_protocol = tao_actual_reserve_total.saturating_sub(tao_implied_reserve_users);
-        let alpha_actual_reserve_protocol = alpha_actual_reserve_total.saturating_sub(alpha_implied_reserve_users);
+        let tao_actual_reserve_protocol =
+            tao_actual_reserve_total.saturating_sub(tao_implied_reserve_users);
+        let alpha_actual_reserve_protocol =
+            alpha_actual_reserve_total.saturating_sub(alpha_implied_reserve_users);
         *weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 0));
 
         // Calculate correct protocol liquidity
-        let implied_sqrt_price = Self::token_amounts_to_price_sqrt(tao_implied_reserve_protocol, alpha_implied_reserve_protocol);
+        let implied_sqrt_price = Self::token_amounts_to_price_sqrt(
+            tao_implied_reserve_protocol,
+            alpha_implied_reserve_protocol,
+        );
         let current_sqrt_price = AlphaSqrtPrice::<T>::get(netuid);
         let sqrt_price_low = TickIndex::min_sqrt_price();
         let sqrt_price_high = TickIndex::max_sqrt_price();
         let one = U64F64::saturating_from_num(1);
         *weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
 
-        let (correct_liquidity, excess_tao, excess_alpha) = 
-            if current_sqrt_price > implied_sqrt_price {
-                let correct_liquidity = Self::token_amounts_to_protocol_liquidity(tao_actual_reserve_protocol, implied_sqrt_price);
-                let alpha_corrected = U64F64::saturating_from_num(correct_liquidity)
-                    .saturating_mul(
-                        one.safe_div(implied_sqrt_price)
-                            .saturating_sub(one.safe_div(sqrt_price_high)),
-                    );
-                (
-                    correct_liquidity,
-                    TaoCurrency::from(0),
-                    AlphaCurrency::from(U64F64::saturating_from_num(alpha_actual_reserve_protocol).saturating_sub(alpha_corrected).saturating_to_num::<u64>())
-                )
-            } else {
-                let correct_liquidity = Self::token_amounts_to_protocol_liquidity_from_alpha(alpha_actual_reserve_protocol, implied_sqrt_price);
-                let tao_corrected = U64F64::saturating_from_num(correct_liquidity)
-                    .saturating_mul(implied_sqrt_price.saturating_sub(sqrt_price_low));
-                (
-                    correct_liquidity,
-                    TaoCurrency::from(U64F64::saturating_from_num(tao_actual_reserve_protocol).saturating_sub(tao_corrected).saturating_to_num::<u64>()),
-                    AlphaCurrency::from(0)
-                )
-            };
+        let (correct_liquidity, excess_tao, excess_alpha) = if current_sqrt_price
+            > implied_sqrt_price
+        {
+            let correct_liquidity = Self::token_amounts_to_protocol_liquidity(
+                tao_actual_reserve_protocol,
+                implied_sqrt_price,
+            );
+            let alpha_corrected = U64F64::saturating_from_num(correct_liquidity).saturating_mul(
+                one.safe_div(implied_sqrt_price)
+                    .saturating_sub(one.safe_div(sqrt_price_high)),
+            );
+            (
+                correct_liquidity,
+                TaoCurrency::from(0),
+                AlphaCurrency::from(
+                    U64F64::saturating_from_num(alpha_actual_reserve_protocol)
+                        .saturating_sub(alpha_corrected)
+                        .saturating_to_num::<u64>(),
+                ),
+            )
+        } else {
+            let correct_liquidity = Self::token_amounts_to_protocol_liquidity_from_alpha(
+                alpha_actual_reserve_protocol,
+                implied_sqrt_price,
+            );
+            let tao_corrected = U64F64::saturating_from_num(correct_liquidity)
+                .saturating_mul(implied_sqrt_price.saturating_sub(sqrt_price_low));
+            (
+                correct_liquidity,
+                TaoCurrency::from(
+                    U64F64::saturating_from_num(tao_actual_reserve_protocol)
+                        .saturating_sub(tao_corrected)
+                        .saturating_to_num::<u64>(),
+                ),
+                AlphaCurrency::from(0),
+            )
+        };
 
         // Update protocol position
         let protocol_account_id = Self::protocol_account_id();
@@ -1340,8 +1374,16 @@ impl<T: Config> SwapHandler for Pallet<T> {
             let (tao_fees, alpha_fees) = position.collect_fees();
 
             // Add fees and excess tao and alpha to scrap reservoirs
-            ScrapReservoirTao::<T>::mutate(netuid, |tao_scrap| *tao_scrap = tao_scrap.saturating_add(TaoCurrency::from(tao_fees)).saturating_add(excess_tao));
-            ScrapReservoirAlpha::<T>::mutate(netuid, |alpha_scrap| *alpha_scrap = alpha_scrap.saturating_add(AlphaCurrency::from(alpha_fees)).saturating_add(excess_alpha));
+            ScrapReservoirTao::<T>::mutate(netuid, |tao_scrap| {
+                *tao_scrap = tao_scrap
+                    .saturating_add(TaoCurrency::from(tao_fees))
+                    .saturating_add(excess_tao)
+            });
+            ScrapReservoirAlpha::<T>::mutate(netuid, |alpha_scrap| {
+                *alpha_scrap = alpha_scrap
+                    .saturating_add(AlphaCurrency::from(alpha_fees))
+                    .saturating_add(excess_alpha)
+            });
 
             // Set new liquidity
             if correct_liquidity > position.liquidity {
@@ -1370,10 +1412,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
 
             // Update position
             position.liquidity = correct_liquidity;
-            Positions::<T>::insert(
-                (netuid, protocol_account_id, position.id),
-                position.clone(),
-            );
+            Positions::<T>::insert((netuid, protocol_account_id, position.id), position.clone());
 
             *weight = weight.saturating_add(T::DbWeight::get().reads_writes(5, 6));
         }

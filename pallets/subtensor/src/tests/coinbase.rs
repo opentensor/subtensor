@@ -3002,7 +3002,7 @@ fn test_coinbase_liquidity_reserves() {
         );
     });
 }
-        
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_zero_shares_zero_emission --exact --show-output --nocapture
 #[test]
 fn test_zero_shares_zero_emission() {
