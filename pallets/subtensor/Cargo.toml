@@ -59,6 +59,8 @@ pallet-subtensor-proxy.workspace = true
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler.workspace = true
+pallet-subtensor-proxy.workspace = true
+subtensor-runtime-common.workspace = true
 pallet-subtensor-swap.workspace = true
 sp-version.workspace = true
 # Substrate

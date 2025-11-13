@@ -1,6 +1,6 @@
 import { Address } from "viem"
 import { encodeAddress } from "@polkadot/util-crypto";
-import { ss58Address } from "@polkadot-labs/hdkd-helpers";
+import { ss58Address, ss58Decode } from "@polkadot-labs/hdkd-helpers";
 import { hexToU8a } from "@polkadot/util";
 import { blake2AsU8a, decodeAddress } from "@polkadot/util-crypto";
 import { Binary } from "polkadot-api";

@@ -314,7 +314,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 15. Mechanism step / emissions bookkeeping.
         FirstEmissionBlockNumber::<T>::remove(netuid);
-        PendingEmission::<T>::remove(netuid);
+        PendingValidatorEmission::<T>::remove(netuid);
+        PendingServerEmission::<T>::remove(netuid);
         PendingRootAlphaDivs::<T>::remove(netuid);
         PendingOwnerCut::<T>::remove(netuid);
         BlocksSinceLastStep::<T>::remove(netuid);

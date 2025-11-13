@@ -139,8 +139,8 @@ pub mod pallet {
         Alpha,
         /// Enum for crowdloan precompile
         Crowdloan,
-        /// Pure proxy precompile
-        PureProxy,
+        /// Proxy precompile
+        Proxy,
         /// Leasing precompile
         Leasing,
     }

@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   run:
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: ubuntu-latest
     env:
       RUST_BACKTRACE: full
     steps:
