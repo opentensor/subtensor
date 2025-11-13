@@ -81,7 +81,24 @@ def dispatch_workflow(
 
 def rerun_workflow(*, repo: str, token: str, run_id: int) -> None:
     rerun_url = f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/rerun"
-    github_request(rerun_url, token, method="POST", payload={})
+    request = urllib.request.Request(
+        rerun_url,
+        data=json.dumps({}).encode("utf-8"),
+        method="POST",
+    )
+    request.add_header("Authorization", f"Bearer {token}")
+    request.add_header("Accept", "application/vnd.github+json")
+    request.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(request, timeout=30):
+            return
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        if exc.code == 403 and "already running" in body.lower():
+            print(f"    Run {run_id} is already in progress; skipping rerun request.")
+            return
+        print(f"GitHub API error ({exc.code}) for {rerun_url}:\n{body}", file=sys.stderr)
+        raise
 
 
 def collect_runs(
