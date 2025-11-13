@@ -181,7 +181,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: 'false'
+          enable-cache: "false"
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
@@ -275,7 +275,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: 'false'
+          enable-cache: "false"
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
