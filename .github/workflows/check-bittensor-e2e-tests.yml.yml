@@ -134,7 +134,7 @@ jobs:
         run: sudo mkdir -p /mnt/data && sudo chown -R runner:runner /mnt/data
 
       - name: Build Docker Image (direct tar output)
-        run: docker build -f Dockerfile-localnet -t localnet --output type=docker,dest=/mnt/data/subtensor-localnet.tar .
+        run: DOCKER_BUILDKIT=1 docker buildx build -f Dockerfile-localnet -t localnet --output type=docker,dest=/mnt/data/subtensor-localnet.tar .
 
       - name: Upload Docker Image as Artifact
         uses: actions/upload-artifact@v4
