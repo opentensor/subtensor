@@ -5,7 +5,7 @@ echo "start run-ci.sh"
 scripts/localnet.sh &
 
 i=1
-while [ $i -le 1000 ]; do
+while [ $i -le 2000 ]; do
   if nc -z localhost 9944; then
     echo "node subtensor is running after $i seconds"
     break
