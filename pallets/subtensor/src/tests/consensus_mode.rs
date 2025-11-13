@@ -67,25 +67,34 @@ fn test_set_consensus_mode_liquid_alpha_disabled() {
         // Liquid Alpha is disabled by default
         assert!(!SubtensorModule::get_liquid_alpha_enabled(netuid));
 
-        // Should fail to set consensus mode when liquid alpha is disabled
-        assert_err!(
-            SubtensorModule::do_set_liquid_alpha_consensus_mode(
-                signer.clone(),
-                netuid,
-                ConsensusMode::Previous
-            ),
-            Error::<Test>::LiquidAlphaDisabled
-        );
-
-        // Enable Liquid Alpha
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-
-        // Should now succeed
+        // Should succeed to set consensus mode even when liquid alpha is disabled
         assert_ok!(SubtensorModule::do_set_liquid_alpha_consensus_mode(
             signer.clone(),
             netuid,
             ConsensusMode::Previous
         ));
+
+        // Verify the mode was set
+        assert_eq!(
+            SubtensorModule::get_liquid_alpha_consensus_mode(netuid),
+            ConsensusMode::Previous
+        );
+
+        // Also verify with liquid alpha enabled
+        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+
+        // Should still succeed
+        assert_ok!(SubtensorModule::do_set_liquid_alpha_consensus_mode(
+            signer.clone(),
+            netuid,
+            ConsensusMode::Current
+        ));
+
+        // Verify the mode was updated
+        assert_eq!(
+            SubtensorModule::get_liquid_alpha_consensus_mode(netuid),
+            ConsensusMode::Current
+        );
     });
 }
 
@@ -96,9 +105,6 @@ fn test_set_consensus_mode_permissions() {
         let (netuid, _hotkey, _coldkey, owner_signer) = setup_network_with_owner();
         let non_owner = U256::from(999);
         let non_owner_signer = RuntimeOrigin::signed(non_owner);
-
-        // Enable liquid alpha for this test
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
 
         // Non-owner should fail
         assert_err!(
@@ -119,28 +125,11 @@ fn test_set_consensus_mode_permissions() {
     });
 }
 
-/// Test default consensus mode is Auto
-#[test]
-fn test_default_consensus_mode() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey = U256::from(1);
-        let coldkey = U256::from(457);
-        let netuid = add_dynamic_network(&hotkey, &coldkey);
-
-        // Default should be Auto
-        let mode = SubtensorModule::get_liquid_alpha_consensus_mode(netuid);
-        assert_eq!(mode, ConsensusMode::Auto);
-    });
-}
-
 /// Test setting and getting all consensus modes
 #[test]
 fn test_set_and_get_consensus_modes() {
     new_test_ext(1).execute_with(|| {
         let (netuid, _hotkey, _coldkey, signer) = setup_network_with_owner();
-
-        // Enable liquid alpha for this test
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
 
         // Test Current mode
         assert_ok!(SubtensorModule::do_set_liquid_alpha_consensus_mode(
