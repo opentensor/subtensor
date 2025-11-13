@@ -134,6 +134,8 @@ jobs:
         run: |
           sudo systemctl stop docker
           sudo mkdir -p /mnt/data/docker
+          sudo chown -R runner:runner /mnt/data
+          sudo chmod -R 777 /mnt/data
           echo '{"data-root": "/mnt/data/docker"}' | sudo tee /etc/docker/daemon.json
           sudo systemctl start docker
           docker info | grep "Docker Root Dir"
