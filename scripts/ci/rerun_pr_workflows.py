@@ -101,6 +101,29 @@ def rerun_workflow(*, repo: str, token: str, run_id: int) -> None:
         raise
 
 
+def cancel_workflow_run(*, repo: str, token: str, run_id: int) -> bool:
+    cancel_url = f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/cancel"
+    request = urllib.request.Request(
+        cancel_url,
+        data=json.dumps({}).encode("utf-8"),
+        method="POST",
+    )
+    request.add_header("Authorization", f"Bearer {token}")
+    request.add_header("Accept", "application/vnd.github+json")
+    request.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(request, timeout=30):
+            return True
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        lower = body.lower()
+        if exc.code in (403, 409) and ("completed" in lower or "not in progress" in lower):
+            print(f"    Run {run_id} already finished; skipping cancel request.")
+            return False
+        print(f"GitHub API error ({exc.code}) for {cancel_url}:\n{body}", file=sys.stderr)
+        raise
+
+
 def collect_runs(
     *,
     repo: str,
@@ -200,6 +223,9 @@ def main() -> None:
         workflow_id = run.get("workflow_id")
         if run_id is None:
             continue
+        cancelled = cancel_workflow_run(repo=repo, token=token, run_id=run_id)
+        if cancelled:
+            print(f"    Cancelled existing run {run_id}.")
         ref = head_ref or (run.get("head_branch") or "")
         dispatched = False
         if workflow_id is not None and ref:
