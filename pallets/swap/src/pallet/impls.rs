@@ -80,6 +80,33 @@ impl<T: Config> Pallet<T> {
             .saturating_to_num::<u64>()
     }
 
+    pub fn token_amounts_to_protocol_liquidity_from_alpha(
+        alpha: AlphaCurrency,
+        sqrt_price_curr: SqrtPrice,
+    ) -> u64 {
+        let one = U64F64::saturating_from_num(1);
+        let sqrt_price_high = TickIndex::max_sqrt_price();
+        U64F64::saturating_from_num(alpha)
+            .safe_div(one.safe_div(sqrt_price_curr).saturating_sub(one.safe_div(sqrt_price_high)))
+            .saturating_to_num::<u64>()
+    }
+
+    pub fn token_amounts_to_price_sqrt(
+        tao: TaoCurrency,
+        alpha: AlphaCurrency,
+    ) -> SqrtPrice {
+        let sqrt_price_low = I64F64::saturating_from_num(TickIndex::min_sqrt_price());
+        let sqrt_price_high = I64F64::saturating_from_num(TickIndex::max_sqrt_price());
+        let zero = I64F64::saturating_from_num(0);
+
+        let p = I64F64::saturating_from_num(tao).safe_div(I64F64::saturating_from_num(alpha));
+        let a = sqrt_price_low.saturating_sub(p.safe_div(sqrt_price_high));
+        let epsilon = I64F64::saturating_from_num(0.000000000001);
+        let dsqrt = a.saturating_mul(a).saturating_add(I64F64::saturating_from_num(4).saturating_mul(p)).checked_sqrt(epsilon).unwrap_or(zero);
+
+        a.saturating_add(dsqrt).safe_div(I64F64::saturating_from_num(2)).saturating_to_num::<U64F64>().into()
+    }
+
     // initializes V3 swap for a subnet if needed
     pub(super) fn maybe_initialize_v3(netuid: NetUid) -> Result<(), Error<T>> {
         if SwapV3Initialized::<T>::get(netuid) {
@@ -1271,26 +1298,33 @@ impl<T: Config> SwapHandler for Pallet<T> {
         *weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 0));
 
         // Calculate correct protocol liquidity
-        let epsilon = U64F64::saturating_from_num(0.000000000001);
-        let implied_price = U64F64::saturating_from_num(tao_implied_reserve_protocol)
-            .safe_div(U64F64::saturating_from_num(alpha_implied_reserve_protocol));
-        let implied_price_sqrt = implied_price.checked_sqrt(epsilon).unwrap_or(U64F64::from_num(0));
+        let implied_sqrt_price = Self::token_amounts_to_price_sqrt(tao_implied_reserve_protocol, alpha_implied_reserve_protocol);
         let current_sqrt_price = AlphaSqrtPrice::<T>::get(netuid);
+        let sqrt_price_low = TickIndex::min_sqrt_price();
+        let sqrt_price_high = TickIndex::max_sqrt_price();
+        let one = U64F64::saturating_from_num(1);
         *weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
 
         let (correct_liquidity, excess_tao, excess_alpha) = 
-            if current_sqrt_price > implied_price_sqrt {
-                let correct_liquidity = U64F64::saturating_from_num(tao_actual_reserve_protocol).safe_div(implied_price_sqrt);
+            if current_sqrt_price > implied_sqrt_price {
+                let correct_liquidity = Self::token_amounts_to_protocol_liquidity(tao_actual_reserve_protocol, implied_sqrt_price);
+                let alpha_corrected = U64F64::saturating_from_num(correct_liquidity)
+                    .saturating_mul(
+                        one.safe_div(implied_sqrt_price)
+                            .saturating_sub(one.safe_div(sqrt_price_high)),
+                    );
                 (
-                    correct_liquidity.saturating_to_num::<u64>(),
+                    correct_liquidity,
                     TaoCurrency::from(0),
-                    AlphaCurrency::from(U64F64::saturating_from_num(alpha_actual_reserve_protocol).saturating_sub(correct_liquidity.safe_div(implied_price_sqrt)).saturating_to_num::<u64>())
+                    AlphaCurrency::from(U64F64::saturating_from_num(alpha_actual_reserve_protocol).saturating_sub(alpha_corrected).saturating_to_num::<u64>())
                 )
             } else {
-                let correct_liquidity = U64F64::saturating_from_num(alpha_actual_reserve_protocol).safe_div(implied_price_sqrt);
+                let correct_liquidity = Self::token_amounts_to_protocol_liquidity_from_alpha(alpha_actual_reserve_protocol, implied_sqrt_price);
+                let tao_corrected = U64F64::saturating_from_num(correct_liquidity)
+                    .saturating_mul(implied_sqrt_price.saturating_sub(sqrt_price_low));
                 (
-                    correct_liquidity.saturating_to_num::<u64>(),
-                    TaoCurrency::from(U64F64::saturating_from_num(tao_actual_reserve_protocol).saturating_sub(correct_liquidity.saturating_mul(implied_price_sqrt)).saturating_to_num::<u64>()),
+                    correct_liquidity,
+                    TaoCurrency::from(U64F64::saturating_from_num(tao_actual_reserve_protocol).saturating_sub(tao_corrected).saturating_to_num::<u64>()),
                     AlphaCurrency::from(0)
                 )
             };
