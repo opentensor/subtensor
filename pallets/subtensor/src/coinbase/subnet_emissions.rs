@@ -1,26 +1,26 @@
 use super::*;
-use crate::alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
 use safe_math::FixedExt;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
+    pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
+        // Filter out subnets with no first emission block number.
+        subnets
+            .iter()
+            .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
+            .copied()
+            .collect()
+    }
+
     pub fn get_subnet_block_emissions(
-        subnets: &[NetUid],
+        subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
-        // Filter out subnets with no first emission block number.
-        let subnets_to_emit_to: Vec<NetUid> = subnets
-            .to_owned()
-            .clone()
-            .into_iter()
-            .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
-            .collect();
-        log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
-
         // Get subnet TAO emissions.
-        let shares = Self::get_shares(&subnets_to_emit_to);
+        let shares = Self::get_shares(subnets_to_emit_to);
         log::debug!("Subnet emission shares = {shares:?}");
 
         shares
@@ -50,6 +50,7 @@ impl<T: Config> Pallet<T> {
 
     // Update SubnetEmaTaoFlow if needed and return its value for
     // the current block
+    #[allow(dead_code)]
     fn get_ema_flow(netuid: NetUid) -> I64F64 {
         let current_block: u64 = Self::get_current_block_as_u64();
 
@@ -73,8 +74,12 @@ impl<T: Config> Pallet<T> {
                 last_block_ema
             }
         } else {
-            // Initialize EMA flow, set S(current_block) = 0
-            let ema_flow = I64F64::saturating_from_num(0);
+            // Initialize EMA flow, set S(current_block) = min(price, ema_price) * init_factor
+            let init_factor = I64F64::saturating_from_num(1_000_000_000);
+            let moving_price = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
+            let current_price =
+                I64F64::saturating_from_num(T::SwapInterface::current_alpha_price(netuid));
+            let ema_flow = init_factor.saturating_mul(moving_price.min(current_price));
             SubnetEmaTaoFlow::<T>::insert(netuid, (current_block, ema_flow));
             ema_flow
         }
@@ -83,6 +88,7 @@ impl<T: Config> Pallet<T> {
     // Either the minimal EMA flow L = min{Si}, or an artificial
     // cut off at some higher value A (TaoFlowCutoff)
     // L = max {A, min{min{S[i], 0}}}
+    #[allow(dead_code)]
     fn get_lower_limit(ema_flows: &BTreeMap<NetUid, I64F64>) -> I64F64 {
         let zero = I64F64::saturating_from_num(0);
         let min_flow = ema_flows
@@ -174,6 +180,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Implementation of shares that uses TAO flow
+    #[allow(dead_code)]
     fn get_shares_flow(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
         // Get raw flows
         let ema_flows = subnets_to_emit_to
@@ -206,7 +213,14 @@ impl<T: Config> Pallet<T> {
         offset_flows
     }
 
+    // Combines ema price method and tao flow method linearly over FlowHalfLife blocks
+    pub(crate) fn get_shares(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
+        Self::get_shares_flow(subnets_to_emit_to)
+        // Self::get_shares_price_ema(subnets_to_emit_to)
+    }
+
     // DEPRECATED: Implementation of shares that uses EMA prices will be gradually deprecated
+    #[allow(dead_code)]
     fn get_shares_price_ema(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
         // Get sum of alpha moving prices
         let total_moving_prices = subnets_to_emit_to
@@ -232,62 +246,5 @@ impl<T: Config> Pallet<T> {
                 (*netuid, share)
             })
             .collect::<BTreeMap<NetUid, U64F64>>()
-    }
-
-    // Combines ema price method and tao flow method linearly over FlowHalfLife blocks
-    pub(crate) fn get_shares(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
-        let current_block: u64 = Self::get_current_block_as_u64();
-
-        // Weight of tao flow method
-        let period = FlowHalfLife::<T>::get();
-        let one = U64F64::saturating_from_num(1);
-        let zero = U64F64::saturating_from_num(0);
-        let tao_flow_weight = if let Some(start_block) = FlowFirstBlock::<T>::get() {
-            if (current_block > start_block) && (current_block < start_block.saturating_add(period))
-            {
-                // Combination period in progress
-                let start_fixed = U64F64::saturating_from_num(start_block);
-                let current_fixed = U64F64::saturating_from_num(current_block);
-                let period_fixed = U64F64::saturating_from_num(period);
-                current_fixed
-                    .saturating_sub(start_fixed)
-                    .safe_div(period_fixed)
-            } else if current_block >= start_block.saturating_add(period) {
-                // Over combination period
-                one
-            } else {
-                // Not yet in combination period
-                zero
-            }
-        } else {
-            zero
-        };
-
-        // Get shares for each method as needed
-        let shares_flow = if tao_flow_weight > zero {
-            Self::get_shares_flow(subnets_to_emit_to)
-        } else {
-            BTreeMap::new()
-        };
-
-        let shares_prices = if tao_flow_weight < one {
-            Self::get_shares_price_ema(subnets_to_emit_to)
-        } else {
-            BTreeMap::new()
-        };
-
-        // Combine
-        let mut shares_combined = BTreeMap::new();
-        for netuid in subnets_to_emit_to.iter() {
-            let share_flow = shares_flow.get(netuid).unwrap_or(&zero);
-            let share_prices = shares_prices.get(netuid).unwrap_or(&zero);
-            shares_combined.insert(
-                *netuid,
-                share_flow.saturating_mul(tao_flow_weight).saturating_add(
-                    share_prices.saturating_mul(one.saturating_sub(tao_flow_weight)),
-                ),
-            );
-        }
-        shares_combined
     }
 }
