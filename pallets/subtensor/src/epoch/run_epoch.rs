@@ -1369,7 +1369,6 @@ impl<T: Config> Pallet<T> {
         current_consensus: &[I32F32],
     ) -> Vec<I32F32> {
         let mode = Self::get_liquid_alpha_consensus_mode(netuid);
-        let bonds_penalty = Self::get_float_bonds_penalty(netuid);
 
         match mode {
             ConsensusMode::Current => {
@@ -1389,6 +1388,7 @@ impl<T: Config> Pallet<T> {
             }
             ConsensusMode::Auto => {
                 // Auto mode: Previous if bond_penalty == 1, otherwise Current
+                let bonds_penalty = Self::get_float_bonds_penalty(netuid);
                 if bonds_penalty == I32F32::from_num(1) {
                     let previous_consensus_u16 = Consensus::<T>::get(netuid);
                     previous_consensus_u16
@@ -1618,11 +1618,6 @@ impl<T: Config> Pallet<T> {
         mode: ConsensusMode,
     ) -> Result<(), DispatchError> {
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
-
-        ensure!(
-            Self::get_liquid_alpha_enabled(netuid),
-            Error::<T>::LiquidAlphaDisabled
-        );
 
         Self::set_liquid_alpha_consensus_mode(netuid, mode.clone());
 
