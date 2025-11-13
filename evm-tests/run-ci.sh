@@ -2,7 +2,7 @@
 
 echo "start run-ci.sh"
 
-scripts/localnet.sh &
+scripts/localnet.sh &>/dev/null &
 
 i=1
 while [ $i -le 2000 ]; do
