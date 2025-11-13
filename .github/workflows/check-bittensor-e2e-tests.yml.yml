@@ -131,7 +131,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
         
       - name: Create directory
-        run: mkdir -p /mnt/data && chown -R runner:runner /mnt/data
+        run: sudo mkdir -p /mnt/data && sudo chown -R runner:runner /mnt/data
 
       - name: Build Docker Image
         run: docker build -f Dockerfile-localnet -t localnet .
