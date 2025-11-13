@@ -129,24 +129,21 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+        
       - name: Create directory
-        run: sudo mkdir -p /mnt/build-cache && sudo chown -R runner:runner /mnt/build-cache
+        run: mkdir -p /mnt/data && chown -R runner:runner /mnt/data
 
-      - name: Build Docker Image (direct tar output)
-        run: |
-          docker buildx build \
-            -f Dockerfile-localnet \
-            -t localnet \
-            --cache-to type=local,dest=/mnt/build-cache \
-            --cache-from type=local,src=/mnt/build-cache \
-            --output type=docker,dest=subtensor-localnet.tar .
+      - name: Build Docker Image
+        run: docker build -f Dockerfile-localnet -t localnet .
+
+      - name: Save Docker Image as Tar
+        run: docker save -o /mnt/data/subtensor-localnet.tar localnet
 
       - name: Upload Docker Image as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: subtensor-localnet
-          path: subtensor-localnet.tar
+          path: /mnt/data/subtensor-localnet.tar
 
   # main btcli job
   run-btcli-e2e-tests:
