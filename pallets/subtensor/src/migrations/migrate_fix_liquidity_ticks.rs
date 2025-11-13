@@ -26,20 +26,14 @@ pub fn migrate_fix_liquidity_ticks<T: Config>() -> Weight {
     T::SwapInterface::migrate_fix_liquidity_ticks(&mut weight);
     T::SwapInterface::migrate_fix_current_liquidity(&mut weight);
 
-    // Fix reserves for all subnets
+    // Fix protocol liquidity for all subnets
     let netuids: Vec<NetUid> = NetworksAdded::<T>::iter()
         .map(|(netuid, _)| netuid)
         .collect();
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
     for netuid in netuids.into_iter() {
-        let (tao_reserve, alpha_reserve) =
-            T::SwapInterface::migrate_get_implied_reserves(netuid, &mut weight);
-        SubnetTaoProvided::<T>::insert(netuid, TaoCurrency::from(0));
-        SubnetTAO::<T>::insert(netuid, tao_reserve);
-        SubnetAlphaInProvided::<T>::insert(netuid, AlphaCurrency::from(0));
-        SubnetAlphaIn::<T>::insert(netuid, alpha_reserve);
-        weight = weight.saturating_add(T::DbWeight::get().writes(4));
+        T::SwapInterface::migrate_fix_protocol_liquidity(netuid, &mut weight);
     }
 
     ////////////////////////////////////////////////////////

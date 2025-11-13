@@ -1382,7 +1382,6 @@ fn test_convert_deltas() {
         ] {
             {
                 AlphaSqrtPrice::<Test>::insert(netuid, sqrt_price);
-
                 assert_abs_diff_eq!(
                     BasicSwapStep::<Test, AlphaCurrency, TaoCurrency>::convert_deltas(
                         netuid,

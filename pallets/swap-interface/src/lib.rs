@@ -57,7 +57,8 @@ pub trait SwapHandler {
     fn migrate_get_implied_reserves(
         netuid: NetUid,
         weight: &mut Weight,
-    ) -> (TaoCurrency, AlphaCurrency);
+    ) -> (TaoCurrency, AlphaCurrency, TaoCurrency, AlphaCurrency);
+    fn migrate_fix_protocol_liquidity(netuid: NetUid, weight: &mut Weight);
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>
