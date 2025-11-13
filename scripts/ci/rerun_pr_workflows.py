@@ -49,11 +49,21 @@ def github_request(url: str, token: str, method: str = "GET", payload: Optional[
         raise
 
 
-def dispatch_workflow(*, repo: str, token: str, workflow_id: int, ref: str) -> None:
+def dispatch_workflow(
+    *,
+    repo: str,
+    token: str,
+    workflow_id: int,
+    ref: str,
+    inputs: Optional[Dict[str, str]] = None,
+) -> None:
     if not ref:
         raise WorkflowDispatchNotSupported("Missing ref for workflow_dispatch.")
     url = f"https://api.github.com/repos/{repo}/actions/workflows/{workflow_id}/dispatches"
-    payload = json.dumps({"ref": ref}).encode("utf-8")
+    body: Dict[str, object] = {"ref": ref}
+    if inputs:
+        body["inputs"] = inputs
+    payload = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(url, data=payload, method="POST")
     request.add_header("Authorization", f"Bearer {token}")
     request.add_header("Accept", "application/vnd.github+json")
@@ -146,6 +156,8 @@ def main() -> None:
     }
     skip_names = DEFAULT_SKIP_WORKFLOWS | extra_skip
 
+    dispatch_inputs = {"pr-number": str(pr_number)}
+
     runs = []
     if head_sha:
         runs = collect_runs(repo=repo, token=token, pr_number=pr_number, skip_names=skip_names, target_head=head_sha)
@@ -175,7 +187,13 @@ def main() -> None:
         dispatched = False
         if workflow_id is not None and ref:
             try:
-                dispatch_workflow(repo=repo, token=token, workflow_id=workflow_id, ref=ref)
+                dispatch_workflow(
+                    repo=repo,
+                    token=token,
+                    workflow_id=workflow_id,
+                    ref=ref,
+                    inputs=dispatch_inputs,
+                )
                 print(f"  • {name} dispatched via workflow_dispatch on '{ref}'")
                 dispatched = True
             except WorkflowDispatchNotSupported:
