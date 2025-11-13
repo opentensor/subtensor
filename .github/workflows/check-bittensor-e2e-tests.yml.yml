@@ -130,6 +130,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Setup tmate session
+        id: setup-tmate-session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+
       - name: Build Docker Image
         run: docker build -f Dockerfile-localnet -t localnet .
 
@@ -181,7 +187,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: 'false'
+          enable-cache: "false"
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
@@ -275,7 +281,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: 'false'
+          enable-cache: "false"
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
