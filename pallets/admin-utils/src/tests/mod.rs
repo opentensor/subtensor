@@ -2874,3 +2874,90 @@ fn test_sudo_set_min_allowed_uids() {
         );
     });
 }
+
+#[test]
+fn test_sudo_add_staking_invulnerable() {
+    new_test_ext().execute_with(|| {
+        let address_a = U256::from(1);
+        let address_b = U256::from(2);
+        let address_c = U256::from(3);
+
+        // Normal case
+        assert_ok!(AdminUtils::sudo_add_staking_invulnerable(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            address_a
+        ));
+        assert_ok!(AdminUtils::sudo_add_staking_invulnerable(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            address_b
+        ));
+
+        // Can't add a or b when already invulnerable
+        assert_err!(
+            AdminUtils::sudo_add_staking_invulnerable(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                address_a
+            ),
+            Error::<Test>::AddressAlreadyInvulnerable
+        );
+        assert_err!(
+            AdminUtils::sudo_add_staking_invulnerable(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                address_b
+            ),
+            Error::<Test>::AddressAlreadyInvulnerable
+        );
+
+        // Can add c after failing to add a or b
+        assert_ok!(AdminUtils::sudo_add_staking_invulnerable(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            address_c
+        ));
+    });
+}
+
+#[test]
+fn test_sudo_remove_staking_invulnerable() {
+    new_test_ext().execute_with(|| {
+        // Removing when no entries is a noop
+        let address_a = U256::from(1);
+        let address_b = U256::from(2);
+        let address_c = U256::from(3);
+
+        assert_err!(
+            AdminUtils::sudo_remove_staking_invulnerable(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                address_a
+            ),
+            Error::<Test>::AddressNotInvulnerable
+        );
+
+        // Add some addresses.
+        assert_ok!(AdminUtils::sudo_add_staking_invulnerable(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            address_a
+        ));
+        assert_ok!(AdminUtils::sudo_add_staking_invulnerable(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            address_b
+        ));
+        assert_ok!(AdminUtils::sudo_add_staking_invulnerable(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            address_c
+        ));
+
+        // Can remove a,b,c
+        assert_ok!(AdminUtils::sudo_remove_staking_invulnerable(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            address_a
+        ));
+        assert_ok!(AdminUtils::sudo_remove_staking_invulnerable(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            address_b
+        ));
+        assert_ok!(AdminUtils::sudo_remove_staking_invulnerable(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            address_c
+        ));
+    });
+}

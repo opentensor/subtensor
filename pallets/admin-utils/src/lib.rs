@@ -39,6 +39,7 @@ pub mod pallet {
         frame_system::Config
         + pallet_subtensor::pallet::Config
         + pallet_evm_chain_id::pallet::Config
+        + pallet_staking::Config
     {
         /// Unit of assets
         type Balance: Balance;
@@ -93,6 +94,10 @@ pub mod pallet {
         MaxAllowedUidsLessThanMinAllowedUids,
         /// The maximum allowed UIDs must be less than the default maximum allowed UIDs.
         MaxAllowedUidsGreaterThanDefaultMaxAllowedUids,
+        /// Address is already invulnerable
+        AddressAlreadyInvulnerable,
+        /// Address is not invulnerable
+        AddressNotInvulnerable,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -2056,6 +2061,54 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_node_validator_emissions_percent(percent)
+        }
+
+        /// Conveniance method to add a new address to pallet_staking Invulnerables.
+        #[pallet::call_index(82)]
+        #[pallet::weight((
+            Weight::from_parts(6_171_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_add_staking_invulnerable(
+            origin: OriginFor<T>,
+            to_add: <T as frame_system::Config>::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            let mut addresses = pallet_staking::Invulnerables::<T>::get();
+            if addresses.iter().any(|a| a == &to_add) {
+                return Err(Error::<T>::AddressAlreadyInvulnerable)?;
+            };
+            addresses.push(to_add);
+            pallet_staking::Invulnerables::<T>::set(addresses);
+
+            Ok(())
+        }
+
+        /// Conveniance method to remove an address from pallet_staking Invulnerables.
+        #[pallet::call_index(83)]
+        #[pallet::weight((
+            Weight::from_parts(6_171_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_remove_staking_invulnerable(
+            origin: OriginFor<T>,
+            address: <T as frame_system::Config>::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            let addresses = pallet_staking::Invulnerables::<T>::get();
+            if !addresses.iter().any(|a| a == &address) {
+                return Err(Error::<T>::AddressNotInvulnerable)?;
+            };
+            let addresses = addresses.into_iter().filter(|a| *a != address).collect();
+            pallet_staking::Invulnerables::<T>::set(addresses);
+
+            Ok(())
         }
     }
 }

@@ -29,6 +29,7 @@ sp-weights.workspace = true
 substrate-fixed.workspace = true
 pallet-evm-chain-id.workspace = true
 pallet-drand.workspace = true
+pallet-staking.workspace = true
 sp-consensus-grandpa.workspace = true
 subtensor-swap-interface.workspace = true
 subtensor-runtime-common.workspace = true
@@ -45,6 +46,10 @@ sp-std.workspace = true
 pallet-subtensor-swap.workspace = true
 pallet-crowdloan.workspace = true
 pallet-preimage.workspace = true
+pallet-timestamp.workspace = true
+frame-election-provider-support.workspace = true
+sp-staking.workspace = true
+pallet-bags-list.workspace = true
 
 [features]
 default = ["std"]
@@ -74,7 +79,12 @@ std = [
 	"substrate-fixed/std",
 	"subtensor-swap-interface/std",
 	"subtensor-runtime-common/std",
-	"sp-consensus-aura/std"
+	"sp-consensus-aura/std",
+	"frame-election-provider-support/std",
+	"pallet-bags-list/std",
+	"pallet-staking/std",
+	"pallet-timestamp/std",
+	"sp-staking/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -89,6 +99,11 @@ runtime-benchmarks = [
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -102,4 +117,8 @@ try-runtime = [
 	"pallet-crowdloan/try-runtime",
 	"pallet-preimage/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-timestamp/try-runtime"
 ]

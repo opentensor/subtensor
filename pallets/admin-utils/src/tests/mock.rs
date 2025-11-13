@@ -2,19 +2,26 @@
 
 use core::num::NonZeroU64;
 
+use frame_election_provider_support::{
+    SequentialPhragmen, VoteWeight,
+    bounds::{ElectionBounds, ElectionBoundsBuilder},
+};
 use frame_support::{
     PalletId, assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureRoot, limits};
-use sp_core::U256;
+use pallet_staking::{NominationsQuota, UseValidatorsMap};
+use sp_core::{ConstBool, U256};
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
-    BuildStorage, KeyTypeId, Perbill, Percent,
+    AccountId32, BuildStorage, KeyTypeId, Perbill, Percent,
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
 };
+use sp_staking::SessionIndex;
+use sp_staking::offence::OffenceSeverity;
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
@@ -34,6 +41,11 @@ frame_support::construct_runtime!(
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 11,
+
+        // Pallets for testing staking helpers
+        Staking: pallet_staking::{Pallet, Call, Storage, Event<T>, HoldReason} = 12,
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage} = 13,
+        VoterBagsList: pallet_bags_list::<Instance1> = 14,
     }
 );
 
@@ -231,6 +243,103 @@ parameter_types! {
     pub const PreimageByteDeposit: Balance = 1;
 }
 
+impl pallet_timestamp::Config for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<5>;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub static MaxBackersPerWinner: u32 = 256;
+    pub static MaxWinnersPerPage: u32 = 10;
+    pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
+    pub static AbsoluteMaxNominations: u32 = 16;
+    pub static MaxUnlockingChunks: u32 = 32;
+    pub static HistoryDepth: u32 = 80;
+    pub static MaxControllersInDeprecationBatch: u32 = 5900;
+}
+pub struct OnChainSeqPhragmen;
+impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type System = Test;
+    type Solver = SequentialPhragmen<AccountId, Perbill>;
+    type DataProvider = Staking;
+    type WeightInfo = ();
+    type MaxBackersPerWinner = MaxBackersPerWinner;
+    type MaxWinnersPerPage = MaxWinnersPerPage;
+    type Bounds = ElectionsBounds;
+    type Sort = ConstBool<true>;
+}
+
+pub struct WeightedNominationsQuota<const MAX: u32>;
+impl<Balance, const MAX: u32> NominationsQuota<Balance> for WeightedNominationsQuota<MAX>
+where
+    u128: From<Balance>,
+{
+    type MaxNominations = AbsoluteMaxNominations;
+
+    fn curve(balance: Balance) -> u32 {
+        match balance.into() {
+            // random curve for testing.
+            0..=110 => MAX,
+            111 => 0,
+            222 => 2,
+            333 => MAX + 10,
+            _ => MAX,
+        }
+    }
+}
+
+impl<AccountId> pallet_staking::SessionInterface<AccountId> for Test {
+    fn report_offence(_validator: AccountId, _severity: OffenceSeverity) {
+        ()
+    }
+    fn validators() -> Vec<AccountId> {
+        Vec::new()
+    }
+    fn prune_historical_up_to(_: SessionIndex) {
+        ()
+    }
+}
+
+impl pallet_bags_list::Config<pallet_bags_list::Instance1> for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type ScoreProvider = Staking;
+    type BagThresholds = ();
+    type Score = VoteWeight;
+}
+
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
+impl pallet_staking::Config for Test {
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type OldCurrency = Balances;
+    type Currency = Balances;
+    type CurrencyBalance = u64;
+    type UnixTime = Timestamp;
+    type RewardRemainder = ();
+    type Reward = ();
+    type SessionsPerEra = ();
+    type SlashDeferDuration = ();
+    type AdminOrigin = EnsureRoot<AccountId32>;
+    type SessionInterface = Self;
+    type EraPayout = ();
+    type NextNewSession = ();
+    type MaxExposurePageSize = ();
+    type MaxValidatorSet = ();
+    type ElectionProvider =
+        frame_election_provider_support::onchain::OnChainExecution<OnChainSeqPhragmen>;
+    type GenesisElectionProvider = Self::ElectionProvider;
+    type VoterList = VoterBagsList;
+    type TargetList = UseValidatorsMap<Self>;
+    type NominationsQuota = WeightedNominationsQuota<16>;
+    type MaxUnlockingChunks = MaxUnlockingChunks;
+    type HistoryDepth = HistoryDepth;
+    type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+    type EventListeners = ();
+    type Filter = ();
+}
+
 impl pallet_preimage::Config for Test {
     type WeightInfo = pallet_preimage::weights::SubstrateWeight<Test>;
     type RuntimeEvent = RuntimeEvent;
@@ -305,18 +414,11 @@ impl pallet_grandpa::Config for Test {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-    type MaxLocks = ();
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 8];
+    type MaxLocks = frame_support::traits::ConstU32<1024>;
     type Balance = u64;
-    type RuntimeEvent = RuntimeEvent;
-    type DustRemoval = ();
     type ExistentialDeposit = ConstU64<1>;
     type AccountStore = System;
-    type WeightInfo = ();
-    type FreezeIdentifier = ();
-    type MaxFreezes = ();
-    type RuntimeHoldReason = ();
+    type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 // Swap-related parameter types
