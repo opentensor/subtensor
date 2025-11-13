@@ -320,6 +320,11 @@ pub mod pallet {
         ScheduledProposalFastTracked { proposal_hash: T::Hash },
         /// A scheduled proposal has been cancelled by collectives.
         ScheduledProposalCancelled { proposal_hash: T::Hash },
+        /// A scheduled proposal schedule time has been delayed by collectives.
+        ScheduledProposalDelayAdjusted {
+            proposal_hash: T::Hash,
+            dispatch_time: DispatchTime<BlockNumberFor<T>>,
+        },
     }
 
     #[pallet::error]
@@ -688,7 +693,7 @@ impl<T: Config> Pallet<T> {
         proposal_hash: T::Hash,
         index: ProposalIndex,
         approve: bool,
-    ) -> Result<CollectiveVotes<T::AccountId>, DispatchError> {
+    ) -> Result<CollectiveVotes<T::AccountId, BlockNumberFor<T>>, DispatchError> {
         CollectiveVoting::<T>::try_mutate(proposal_hash, |voting| {
             let voting = voting.as_mut().ok_or(Error::<T>::ProposalNotScheduled)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
@@ -795,50 +800,38 @@ impl<T: Config> Pallet<T> {
 
     fn do_adjust_delay(
         proposal_hash: T::Hash,
-        mut voting: CollectiveVotes<T::AccountId>,
+        mut voting: CollectiveVotes<T::AccountId, BlockNumberFor<T>>,
     ) -> DispatchResult {
         let net_score = voting.nays.len() as i32 - voting.ayes.len() as i32;
-        let now = frame_system::Pallet::<T>::block_number();
-        let name = Self::task_name_from_hash(proposal_hash)?;
 
         // Delay based on net opposition
-        let additional_delay = if new_score > 0 {
-            T::InitialSchedulingDelay::get()
-                .saturating_mul(1.5_f64.powi(net_score as u32))
-                .ceil() as BlockNumberFor<T>
+        let additional_delay = if net_score > 0 {
+            let initial_delay = T::InitialSchedulingDelay::get().into().as_u64() as f64;
+            let multiplier = 1.5_f64.powi(net_score as i32);
+            ((initial_delay * multiplier).ceil() as u32).into()
         } else {
-            Zero::zero();
+            Zero::zero()
         };
-        
-        let 
 
-        if net_score > 0 {
-            let new_delay = 2_u64.pow(net_score as u32) * T::InitialSchedulingDelay::get();
-            let is_past_new_delay = now >= voting.initial_dispatch_time + new_delay;
+        let now = frame_system::Pallet::<T>::block_number();
+        let elapsed_time = now.saturating_sub(voting.initial_dispatch_time);
 
-            // New delay is lower and we are past it, we should fast track
-            if new_delay < voting.delay && is_past_new_delay {
-                Self::do_fast_track(proposal_hash)?;
-                return;
-            }
-
-            // New delay is higher, adjust delay
-            voting.delay = new_delay;
-            let new_dispatch_time = DispatchTime::At(voting.initial_dispatch_time + new_delay);
-            T::Scheduler::reschedule_named(name, new_dispatch_time)?;
-        } else {
-            // New delay is reset to 0 and we are past initial dispatch time, fast track
-            if now >= voting.initial_dispatch_time {
-                Self::do_fast_track(proposal_hash)?;
-                return;
-            }
-
-            // New delay is reset to 0 and we are not past initial dispatch time, adjust delay
-            voting.delay = 0;
-            let new_dispatch_time = DispatchTime::At(voting.initial_dispatch_time);
-            T::Scheduler::reschedule_named(name, new_dispatch_time)?;
+        // We are past new delay, fast track
+        if elapsed_time >= additional_delay {
+            return Self::do_fast_track(proposal_hash);
         }
 
+        let name = Self::task_name_from_hash(proposal_hash)?;
+        let dispatch_time = DispatchTime::At(voting.initial_dispatch_time + additional_delay);
+        T::Scheduler::reschedule_named(name, dispatch_time)?;
+
+        voting.delay = additional_delay;
+        CollectiveVoting::<T>::insert(proposal_hash, voting);
+
+        Self::deposit_event(Event::<T>::ScheduledProposalDelayAdjusted {
+            proposal_hash,
+            dispatch_time,
+        });
         Ok(())
     }
 

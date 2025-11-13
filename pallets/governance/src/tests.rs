@@ -787,12 +787,15 @@ fn two_triumvirate_aye_votes_schedule_proposal() {
         assert!(Proposals::<Test>::get().is_empty());
         assert!(!TriumvirateVoting::<Test>::contains_key(proposal_hash));
         assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
+        let now = frame_system::Pallet::<Test>::block_number();
         assert_eq!(
             CollectiveVoting::<Test>::get(proposal_hash),
             Some(CollectiveVotes {
                 index: proposal_index,
                 ayes: BoundedVec::new(),
                 nays: BoundedVec::new(),
+                initial_dispatch_time: now + MotionDuration::get(),
+                delay: Zero::zero(),
             })
         );
         let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
@@ -1026,12 +1029,15 @@ fn collective_aye_vote_on_scheduled_proposal_works() {
             proposal_index,
             true
         ));
+        let now = frame_system::Pallet::<Test>::block_number();
         assert_eq!(
             CollectiveVoting::<Test>::get(proposal_hash),
             Some(CollectiveVotes {
                 index: proposal_index,
                 ayes: BoundedVec::truncate_from(vec![economic_member]),
                 nays: BoundedVec::new(),
+                initial_dispatch_time: now + MotionDuration::get(),
+                delay: Zero::zero(),
             })
         );
         assert_eq!(
@@ -1060,6 +1066,8 @@ fn collective_aye_vote_on_scheduled_proposal_works() {
                 index: proposal_index,
                 ayes: BoundedVec::truncate_from(vec![economic_member, building_member]),
                 nays: BoundedVec::new(),
+                initial_dispatch_time: now + MotionDuration::get(),
+                delay: Zero::zero(),
             })
         );
         assert_eq!(
