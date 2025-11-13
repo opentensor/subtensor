@@ -7,10 +7,18 @@ use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
+        // Filter out root subnet.
         // Filter out subnets with no first emission block number.
         subnets
             .iter()
+            .filter(|netuid| !netuid.is_root())
             .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
+            .filter(|netuid| SubtokenEnabled::<T>::get(*netuid))
+            .filter(|&netuid| {
+                // Only emit TAO if the subnetwork allows registration.
+                Self::get_network_registration_allowed(*netuid)
+                    || Self::get_network_pow_registration_allowed(*netuid)
+            })
             .copied()
             .collect()
     }
