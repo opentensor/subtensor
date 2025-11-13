@@ -213,34 +213,34 @@ describe("Test wasm contract", () => {
         assert.equal(stakeAfter, BigInt(0))
     })
 
-    // it("Can unstake all alpha from contract", async () => {
-    //     await addStakeWithoutStake()
-    //     // Get stake before unstake_all_alpha
-    //     const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-    //         convertPublicKeyToSs58(hotkey.publicKey),
-    //         contractAddress,
-    //         netuid,
-    //     ))?.stake
+    it("Can unstake all alpha from contract", async () => {
+        await addStakeWithoutStake()
+        // Get stake before unstake_all_alpha
+        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid,
+        ))?.stake
 
-    //     assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
 
-    //     // Call unstake_all_alpha
-    //     const message = inkClient.message("unstake_all_alpha")
-    //     const data = message.encode({
-    //         hotkey: Binary.fromBytes(hotkey.publicKey),
-    //     })
-    //     await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+        // Call unstake_all_alpha
+        const message = inkClient.message("unstake_all_alpha")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
-    //     // Verify stake is now zero
-    //     const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-    //         convertPublicKeyToSs58(hotkey.publicKey),
-    //         contractAddress,
-    //         netuid,
-    //     ))?.stake
+        // Verify stake is now zero
+        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid,
+        ))?.stake
 
-    //     assert.ok(stakeAfter !== undefined)
-    //     assert.equal(stakeAfter, BigInt(0))
-    // })
+        assert.ok(stakeAfter !== undefined)
+        assert.equal(stakeAfter, BigInt(0))
+    })
 
     // it("Can move stake between hotkeys", async () => {
     //     await addStakeWithoutStake()
