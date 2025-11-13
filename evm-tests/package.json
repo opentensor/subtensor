@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test": "mocha --timeout 999999 --file src/setup.ts --require ts-node/register test/wasm*test.ts"
+    "test": "mocha --timeout 999999 --retries 3 --file src/setup.ts --require ts-node/register test/*test.ts"
   },
   "keywords": [],
   "author": "",
