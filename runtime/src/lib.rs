@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 346,
+    spec_version: 347,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1120,7 +1120,7 @@ parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
     pub const SwapMaxPositions: u32 = 100;
-    pub const SwapMinimumLiquidity: u64 = 1_000;
+    pub const SwapMinimumLiquidity: u128 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1_000_000) };
 }
 

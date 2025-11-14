@@ -7,6 +7,7 @@ use frame_support::sp_runtime::DispatchError;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
 use pallet_subtensor_swap::Call as SwapCall;
+use pallet_subtensor_swap::position::PositionId;
 use pallet_subtensor_swap::tick::TickIndex;
 use safe_math::FixedExt;
 use sp_core::{Get, H256, U256};
@@ -5573,6 +5574,87 @@ fn test_remove_root_updates_counters() {
         assert_eq!(
             SubnetVolume::<Test>::get(NetUid::ROOT),
             stake_amount as u128
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_liquidity_reserves --exact --show-output
+#[test]
+fn test_add_stake_liquidity_reserves() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1001);
+        let owner_coldkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let amount = TaoCurrency::from(10_000_000_000_000_000);
+
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount.into());
+
+        // Setup reserves that will make amount push the liquidity limits
+        let tao_reserve_before = TaoCurrency::from(20_000_000_000_000);
+        let alpha_reserve_before = AlphaCurrency::from(1_700_000_000_000_000);
+        mock::setup_reserves(netuid, tao_reserve_before, alpha_reserve_before);
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            TaoCurrency::ZERO,
+            1_000_000_000_000.into(),
+            false,
+        )
+        .unwrap();
+
+        // Calculate implied reserves before
+        let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
+        let position_before = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let price_sqrt_before = pallet_subtensor_swap::AlphaSqrtPrice::<Test>::get(netuid);
+        let (tao_implied_before, _alpha_implied_before) =
+            position_before.to_token_amounts(price_sqrt_before).unwrap();
+
+        ////////////////////////////////////////////
+        // Call add_stake extrinsic
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            owner_hotkey,
+            netuid,
+            amount
+        ));
+
+        ////////////////////////////////////////////
+        // Call remove_stake extrinsic for a small alpha amount
+        let unstake_amount = AlphaCurrency::from(100_000_000);
+        remove_stake_rate_limit_for_tests(&owner_hotkey, &coldkey, netuid);
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(coldkey),
+            owner_hotkey,
+            netuid,
+            unstake_amount
+        ));
+
+        // Calculate implied reserves after
+        let position_after = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let price_sqrt_after = pallet_subtensor_swap::AlphaSqrtPrice::<Test>::get(netuid);
+        let (tao_implied_after, _alpha_implied_after) =
+            position_after.to_token_amounts(price_sqrt_after).unwrap();
+
+        // Verify implied and realized reserve diffs match
+        let tao_reserve_after = SubnetTAO::<Test>::get(netuid);
+        assert_eq!(
+            tao_reserve_after - tao_reserve_before,
+            (tao_implied_after - tao_implied_before).into(),
         );
     });
 }

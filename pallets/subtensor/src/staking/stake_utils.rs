@@ -1239,6 +1239,30 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn increase_protocol_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
+        SubnetTAO::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(tao);
+        });
+    }
+
+    pub fn decrease_protocol_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
+        SubnetTAO::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(tao);
+        });
+    }
+
+    pub fn increase_protocol_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
+        SubnetAlphaIn::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(alpha);
+        });
+    }
+
+    pub fn decrease_protocol_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
+        SubnetAlphaIn::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(alpha);
+        });
+    }
+
     pub fn set_stake_operation_limit(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,

@@ -153,6 +153,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_childkeys::migrate_fix_childkeys::<T>())
                 // Migrate AutoStakeDestinationColdkeys
                 .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>())
+                // Migrate and fix LP ticks that saturated
+                .saturating_add(migrations::migrate_fix_liquidity_ticks::migrate_fix_liquidity_ticks::<T>())
                 // Migrate Kappa to default (0.5)
                 .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>())
                 // Remove obsolete map entries

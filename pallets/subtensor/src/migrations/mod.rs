@@ -17,6 +17,7 @@ pub mod migrate_delete_subnet_3;
 pub mod migrate_disable_commit_reveal;
 pub mod migrate_fix_childkeys;
 pub mod migrate_fix_is_network_member;
+pub mod migrate_fix_liquidity_ticks;
 pub mod migrate_fix_root_subnet_tao;
 pub mod migrate_fix_root_tao_and_alpha_in;
 pub mod migrate_identities_v2;
