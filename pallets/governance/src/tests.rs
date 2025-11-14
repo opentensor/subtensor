@@ -1111,7 +1111,7 @@ fn collective_vote_can_be_updated() {
         assert!(votes.ayes.to_vec().is_empty());
         assert_eq!(votes.nays.to_vec(), vec![economic_member]);
         assert_eq!(
-            last_event(),
+            System::events().into_iter().rev().nth(3).unwrap().event,
             RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
                 account: economic_member,
                 proposal_hash,
@@ -1127,7 +1127,7 @@ fn collective_vote_can_be_updated() {
         assert_eq!(votes.ayes.to_vec(), vec![economic_member]);
         assert!(votes.nays.to_vec().is_empty());
         assert_eq!(
-            last_event(),
+            System::events().into_iter().rev().nth(3).unwrap().event,
             RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
                 account: economic_member,
                 proposal_hash,

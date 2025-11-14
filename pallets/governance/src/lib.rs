@@ -813,13 +813,18 @@ impl<T: Config> Pallet<T> {
             Zero::zero()
         };
 
+        // No change, no need to reschedule
+        if voting.delay == additional_delay {
+            return Ok(());
+        }
+
         let now = frame_system::Pallet::<T>::block_number();
         let elapsed_time = now.saturating_sub(voting.initial_dispatch_time);
 
         // We are past new delay, fast track
-        if elapsed_time >= additional_delay {
-            return Self::do_fast_track(proposal_hash);
-        }
+        // if elapsed_time >= additional_delay {
+        //     return Self::do_fast_track(proposal_hash);
+        // }
 
         let name = Self::task_name_from_hash(proposal_hash)?;
         let dispatch_time = DispatchTime::At(voting.initial_dispatch_time + additional_delay);
