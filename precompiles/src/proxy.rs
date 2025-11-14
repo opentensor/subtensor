@@ -15,6 +15,7 @@ use sp_runtime::{
     traits::{Dispatchable, StaticLookup},
 };
 use sp_std::boxed::Box;
+use sp_std::vec;
 use sp_std::vec::Vec;
 use subtensor_runtime_common::ProxyType;
 pub struct ProxyPrecompile<R>(PhantomData<R>);
@@ -238,5 +239,23 @@ where
         let call = pallet_proxy::Call::<R>::poke_deposit {};
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("getProxies(bytes32)")]
+    #[precompile::view]
+    pub fn get_proxies(
+        _handle: &mut impl PrecompileHandle,
+        account_id: H256,
+    ) -> EvmResult<Vec<H256>> {
+        let account_id = R::AccountId::from(account_id.0.into());
+
+        let proxies = pallet_proxy::pallet::Pallet::<R>::proxies(account_id);
+        let mut result: Vec<H256> = vec![];
+        for proxy in proxies.0 {
+            let delegate: [u8; 32] = proxy.delegate.into();
+            result.push(delegate.into());
+        }
+
+        Ok(result)
     }
 }

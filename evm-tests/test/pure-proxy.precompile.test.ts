@@ -130,34 +130,68 @@ describe("Test pure proxy precompile", () => {
         const proxies = await api.query.Proxy.Proxies.getValue(convertH160ToSS58(evmWallet2.address))
         const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet2)
 
+        const proxiesFromContract = await contract.getProxies(convertH160ToPublicKey(evmWallet2.address))
+        assert.equal(proxiesFromContract.length, proxies[0].length, "proxies length should be equal")
+
         const type = 0;
         const delay = 0;
 
         const tx = await contract.addProxy(convertH160ToPublicKey(evmWallet3.address), type, delay)
         await tx.wait()
 
-
         const proxiesAfterAdd = await await api.query.Proxy.Proxies.getValue(convertH160ToSS58(evmWallet2.address))
+        const proxiesList = proxiesAfterAdd[0].map(proxy => proxy.delegate)
+        const proxiesFromContractAfterAdd = await contract.getProxies(convertH160ToPublicKey(evmWallet2.address))
+        assert.equal(proxiesFromContractAfterAdd.length, proxiesList.length, "proxy length should be equal")
 
-        const length = proxiesAfterAdd[0].length
-        assert.equal(length, proxies[0].length + 1, "proxy should be set")
-        const proxy = proxiesAfterAdd[0][proxiesAfterAdd[0].length - 1]
+        for (let index = 0; index < proxiesFromContractAfterAdd.length; index++) {
+            let proxySs58 = convertPublicKeyToSs58(proxiesFromContractAfterAdd[index])
+            assert.ok(proxiesList.includes(proxySs58), "proxy should be set")
+        }
 
-        assert.equal(proxy.delegate, convertH160ToSS58(evmWallet3.address), "proxy should be set")
+        assert.equal(proxiesList.length, proxies[0].length + 1, "proxy should be set")
+        const proxy = proxiesList[proxiesList.length - 1]
 
-
+        assert.equal(proxy, convertH160ToSS58(evmWallet3.address), "proxy should be set")
         const balance = (await api.query.System.Account.getValue(convertPublicKeyToSs58(receiver.publicKey))).data.free
 
         const amount = 1000000000;
 
         const contract2 = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet3)
-
-
         const callCode = await getTransferCallCode(api, receiver, amount)
         const tx2 = await contract2.proxyCall(convertH160ToPublicKey(evmWallet2.address), [type], callCode)
         await tx2.wait()
 
         const balanceAfter = (await api.query.System.Account.getValue(convertPublicKeyToSs58(receiver.publicKey))).data.free
         assert.equal(balanceAfter, balance + BigInt(amount), "balance should be increased")
+    })
+
+    it("Call addProxy many times, then check getProxies is correct", async () => {
+        const proxies = await api.query.Proxy.Proxies.getValue(convertH160ToSS58(evmWallet2.address))
+        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet2)
+
+        const proxiesFromContract = await contract.getProxies(convertH160ToPublicKey(evmWallet2.address))
+        assert.equal(proxiesFromContract.length, proxies[0].length, "proxies length should be equal")
+
+        const type = 0;
+        const delay = 0;
+
+        for (let i = 0; i < 5; i++) {
+            const evmWallet = generateRandomEthersWallet()
+            const tx = await contract.addProxy(convertH160ToPublicKey(evmWallet.address), type, delay)
+            await tx.wait()
+        }
+
+        const proxiesAfterAdd = await await api.query.Proxy.Proxies.getValue(convertH160ToSS58(evmWallet2.address))
+        const proxiesList = proxiesAfterAdd[0].map(proxy => proxy.delegate)
+
+        const proxiesFromContractAfterAdd = await contract.getProxies(convertH160ToPublicKey(evmWallet2.address))
+
+        assert.equal(proxiesFromContractAfterAdd.length, proxiesList.length, "proxy length should be equal")
+
+        for (let index = 0; index < proxiesFromContractAfterAdd.length; index++) {
+            let proxySs58 = convertPublicKeyToSs58(proxiesFromContractAfterAdd[index])
+            assert.ok(proxiesList.includes(proxySs58), "proxy should be set")
+        }
     })
 });
