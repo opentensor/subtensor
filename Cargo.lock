@@ -9793,6 +9793,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-governance"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-preimage",
+ "pallet-scheduler",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "subtensor-macros",
+]
+
+[[package]]
 name = "pallet-grandpa"
 version = "41.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80#81fa2c54e94f824eba7dabe9dffd063481cb2d80"
