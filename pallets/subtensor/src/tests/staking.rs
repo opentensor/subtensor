@@ -5596,14 +5596,13 @@ fn test_staking_records_flow() {
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Initialize swap v3
-        let order = GetAlphaForTao::<Test>::with_amount(0);
-        assert_ok!(<tests::mock::Test as pallet::Config>::SwapInterface::swap(
-            netuid.into(),
-            order,
-            TaoCurrency::MAX,
+        SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            TaoCurrency::ZERO,
+            1_000_000_000_000.into(),
             false,
-            true
-        ));
+        )
+        .unwrap();
 
         // Add stake with slippage safety and check if the result is ok
         assert_ok!(SubtensorModule::stake_into_subnet(

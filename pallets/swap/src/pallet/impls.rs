@@ -1112,6 +1112,24 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::current_price(netuid.into())
     }
 
+    fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
+        let protocol_account_id = Self::protocol_account_id();
+        let mut positions =
+            Positions::<T>::iter_prefix_values((netuid, protocol_account_id.clone()))
+                .collect::<sp_std::vec::Vec<_>>();
+
+        if let Some(position) = positions.get_mut(0) {
+            let current_sqrt_price = AlphaSqrtPrice::<T>::get(netuid);
+            // Adjust liquidity
+            let maybe_token_amounts = position.to_token_amounts(current_sqrt_price);
+            if let Ok((tao, _)) = maybe_token_amounts {
+                return tao.into();
+            }
+        }
+
+        TaoCurrency::ZERO
+    }
+
     fn min_price<C: Currency>() -> C {
         Self::min_price_inner()
     }
