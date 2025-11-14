@@ -40,7 +40,13 @@ interface IProxy {
 
     function pokeDeposit() external;
 
+    struct ProxyInfo {
+        bytes32 delegate;
+        uint256 proxy_type;
+        uint256 delay;
+    }
+
     function getProxies(
         bytes32 account
-    ) external view returns (bytes32[] memory);
+    ) external view returns (ProxyInfo[] memory);
 }

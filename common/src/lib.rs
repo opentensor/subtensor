@@ -189,6 +189,33 @@ impl TryFrom<u8> for ProxyType {
     }
 }
 
+impl TryInto<u8> for ProxyType {
+    type Error = ();
+
+    fn try_into(self) -> Result<u8, Self::Error> {
+        match self {
+            Self::Any => Ok(0),
+            Self::Owner => Ok(1),
+            Self::NonCritical => Ok(2),
+            Self::NonTransfer => Ok(3),
+            Self::Senate => Ok(4),
+            Self::NonFungible => Ok(5),
+            Self::Triumvirate => Ok(6),
+            Self::Governance => Ok(7),
+            Self::Staking => Ok(8),
+            Self::Registration => Ok(9),
+            Self::Transfer => Ok(10),
+            Self::SmallTransfer => Ok(11),
+            Self::RootWeights => Ok(12),
+            Self::ChildKeys => Ok(13),
+            Self::SudoUncheckedSetCode => Ok(14),
+            Self::SwapHotkey => Ok(15),
+            Self::SubnetLeaseBeneficiary => Ok(16),
+            Self::RootClaim => Err(()),
+        }
+    }
+}
+
 impl Default for ProxyType {
     // allow all Calls; required to be most permissive
     fn default() -> Self {

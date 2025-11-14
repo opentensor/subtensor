@@ -156,9 +156,26 @@ export const IProxyABI = [
     "name": "getProxies",
     "outputs": [
       {
-        "internalType": "bytes32[]",
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "delegate",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "proxy_type",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "delay",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IProxy.ProxyInfo[]",
         "name": "",
-        "type": "bytes32[]"
+        "type": "tuple[]"
       }
     ],
     "stateMutability": "view",

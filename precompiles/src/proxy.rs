@@ -9,7 +9,7 @@ use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
 use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
-use sp_core::H256;
+use sp_core::{H256, U256};
 use sp_runtime::{
     codec::DecodeLimit,
     traits::{Dispatchable, StaticLookup},
@@ -246,14 +246,27 @@ where
     pub fn get_proxies(
         _handle: &mut impl PrecompileHandle,
         account_id: H256,
-    ) -> EvmResult<Vec<H256>> {
+    ) -> EvmResult<Vec<(H256, U256, U256)>> {
         let account_id = R::AccountId::from(account_id.0.into());
 
         let proxies = pallet_proxy::pallet::Pallet::<R>::proxies(account_id);
-        let mut result: Vec<H256> = vec![];
+        let mut result: Vec<(H256, U256, U256)> = vec![];
         for proxy in proxies.0 {
             let delegate: [u8; 32] = proxy.delegate.into();
-            result.push(delegate.into());
+            let proxy_type: u8 =
+                proxy
+                    .proxy_type
+                    .try_into()
+                    .map_err(|_| PrecompileFailure::Error {
+                        exit_status: ExitError::Other("Invalid proxy type".into()),
+                    })?;
+            let delay: u32 = proxy
+                .delay
+                .try_into()
+                .map_err(|_| PrecompileFailure::Error {
+                    exit_status: ExitError::Other("Invalid delay".into()),
+                })?;
+            result.push((delegate.into(), proxy_type.into(), delay.into()));
         }
 
         Ok(result)

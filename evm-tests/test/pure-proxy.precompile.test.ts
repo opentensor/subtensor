@@ -145,8 +145,16 @@ describe("Test pure proxy precompile", () => {
         assert.equal(proxiesFromContractAfterAdd.length, proxiesList.length, "proxy length should be equal")
 
         for (let index = 0; index < proxiesFromContractAfterAdd.length; index++) {
-            let proxySs58 = convertPublicKeyToSs58(proxiesFromContractAfterAdd[index])
+            const proxyInfo = proxiesFromContractAfterAdd[index]
+            let proxySs58 = convertPublicKeyToSs58(proxyInfo.delegate)
             assert.ok(proxiesList.includes(proxySs58), "proxy should be set")
+
+            // Verify proxy_type and delay match
+            const matchingProxy = proxiesAfterAdd[0].find(p => p.delegate === proxySs58)
+            if (matchingProxy) {
+                assert.equal(Number(proxyInfo.proxy_type), matchingProxy.proxy_type, "proxy_type should match")
+                assert.equal(Number(proxyInfo.delay), Number(matchingProxy.delay), "delay should match")
+            }
         }
 
         assert.equal(proxiesList.length, proxies[0].length + 1, "proxy should be set")
@@ -190,8 +198,16 @@ describe("Test pure proxy precompile", () => {
         assert.equal(proxiesFromContractAfterAdd.length, proxiesList.length, "proxy length should be equal")
 
         for (let index = 0; index < proxiesFromContractAfterAdd.length; index++) {
-            let proxySs58 = convertPublicKeyToSs58(proxiesFromContractAfterAdd[index])
+            const proxyInfo = proxiesFromContractAfterAdd[index]
+            let proxySs58 = convertPublicKeyToSs58(proxyInfo.delegate)
             assert.ok(proxiesList.includes(proxySs58), "proxy should be set")
+
+            // Verify proxy_type and delay match
+            const matchingProxy = proxiesAfterAdd[0].find(p => p.delegate === proxySs58)
+            if (matchingProxy) {
+                assert.equal(Number(proxyInfo.proxy_type), matchingProxy.proxy_type, "proxy_type should match")
+                assert.equal(Number(proxyInfo.delay), Number(matchingProxy.delay), "delay should match")
+            }
         }
     })
 });
