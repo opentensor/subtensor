@@ -149,6 +149,9 @@ ark-serialize = { workspace = true, features = ["derive"] }
 # Crowdloan
 pallet-crowdloan.workspace = true
 
+# Mev Shield
+pallet-mev-shield.workspace = true
+
 ethereum.workspace = true
 
 [dev-dependencies]

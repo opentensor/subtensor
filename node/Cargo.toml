@@ -114,6 +114,21 @@ fc-aura.workspace = true
 fp-consensus.workspace = true
 num-traits = { workspace = true, features = ["std"] }
 
+# Mev Shield
+pallet-mev-shield.workspace = true
+tokio = { version = "1.38", features = ["time"] }
+x25519-dalek = "2"
+hkdf = "0.12"
+chacha20poly1305 = { version = "0.10", features = ["std"] }
+codec.workspace = true
+rand.workspace = true
+sha2.workspace = true
+anyhow.workspace = true
+pallet-subtensor.workspace = true
+ml-kem.workspace = true
+rand_core = "0.9.3"
+blake2 = "0.10.6"
+
 # Local Dependencies
 node-subtensor-runtime = { workspace = true, features = ["std"] }
 subtensor-runtime-common = { workspace = true, features = ["std"] }

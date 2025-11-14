@@ -139,6 +139,8 @@ if [ $BUILD_ONLY -eq 0 ]; then
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
   (
+    #  env MEV_SHIELD_ANNOUNCE_ACCOUNT_SEED='//Alice' RUST_LOG="${RUST_LOG:-info,mev-shield=debug}" "${alice_start[@]}" 2>&1 &
+    #  env MEV_SHIELD_ANNOUNCE_ACCOUNT_SEED='//Bob'   RUST_LOG="${RUST_LOG:-info,mev-shield=debug}" "${bob_start[@]}"   2>&1
     ("${alice_start[@]}" 2>&1) &
     ("${bob_start[@]}" 2>&1)
     wait

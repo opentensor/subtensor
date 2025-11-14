@@ -28,12 +28,18 @@ use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
+use crate::mev_shield::{author, proposer};
 use crate::cli::Sealing;
 use crate::client::{FullBackend, FullClient, HostFunctions, RuntimeExecutor};
 use crate::ethereum::{
     BackendType, EthConfiguration, FrontierBackend, FrontierPartialComponents, StorageOverride,
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
+use sp_core::twox_128;
+use sc_client_api::StorageKey;
+use node_subtensor_runtime::opaque::BlockId;
+use sc_client_api::HeaderBackend;
+use sc_client_api::StorageProvider;
 
 const LOG_TARGET: &str = "node-service";
 
@@ -533,6 +539,66 @@ where
         pubsub_notification_sinks,
     )
     .await;
+
+    // ==== MEV-SHIELD HOOKS ====
+    if role.is_authority() {
+        // Use the same slot duration the consensus layer reports.
+        let slot_duration_ms: u64 = consensus_mechanism
+            .slot_duration(&client)?
+            .as_millis() as u64;
+
+        // Time windows, runtime constants (7s / 2s grace / last 3s).
+        let timing = author::TimeParams {
+            slot_ms: slot_duration_ms,
+            announce_at_ms: 7_000,
+            decrypt_window_ms: 3_000,
+        };
+
+        // --- imports needed for raw storage read & SCALE decode
+        use codec::Decode; // parity-scale-codec re-export
+        use sp_core::{storage::StorageKey, twox_128};
+
+        // Initialize author‑side epoch from chain storage
+        let initial_epoch: u64 = {
+            // Best block hash (H256). NOTE: this method expects H256 by value (not BlockId).
+            let best = client.info().best_hash;
+
+            // Storage key for pallet "MevShield", item "Epoch":
+            // final key = twox_128(b"MevShield") ++ twox_128(b"Epoch")
+            let mut key_bytes = Vec::with_capacity(32);
+            key_bytes.extend_from_slice(&twox_128(b"MevShield"));
+            key_bytes.extend_from_slice(&twox_128(b"Epoch"));
+            let key = StorageKey(key_bytes);
+
+            // Read raw storage at `best`
+            match client.storage(best, &key) {
+                Ok(Some(raw_bytes)) => {
+                    // `raw_bytes` is sp_core::storage::StorageData(pub Vec<u8>)
+                    // Decode with SCALE: pass a &mut &[u8] over the inner Vec.
+                    u64::decode(&mut &raw_bytes.0[..]).unwrap_or(0)
+                }
+                _ => 0,
+            }
+        };
+
+        // Start author-side tasks with the *actual* epoch.
+        let mev_ctx = author::spawn_author_tasks::<Block, _, _>(
+            &task_manager.spawn_handle(),
+            client.clone(),
+            transaction_pool.clone(),
+            keystore_container.keystore(),
+            initial_epoch,
+            timing.clone(),
+        );
+
+        // Start last-3s revealer (decrypt -> execute_revealed).
+        proposer::spawn_revealer::<Block, _, _>(
+            &task_manager.spawn_handle(),
+            client.clone(),
+            transaction_pool.clone(),
+            mev_ctx.clone(),
+        );
+    }
 
     if role.is_authority() {
         // manual-seal authorship

@@ -6,3 +6,4 @@ pub mod consensus;
 pub mod ethereum;
 pub mod rpc;
 pub mod service;
+pub mod mev_shield;

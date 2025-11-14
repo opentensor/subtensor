@@ -6021,6 +6021,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hybrid-array"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2d35805454dc9f8662a98d6d61886ffe26bd465f5960e0e55345c70d5c0d2a9"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
 name = "hyper"
 version = "0.14.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6764,6 +6773,16 @@ checksum = "3e1b8590eb6148af2ea2d75f38e7d29f5ca970d5a4df456b3ef19b8b415d0264"
 dependencies = [
  "primitive-types 0.13.1",
  "tiny-keccak",
+]
+
+[[package]]
+name = "kem"
+version = "0.3.0-pre.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b8645470337db67b01a7f966decf7d0bafedbae74147d33e641c67a91df239f"
+dependencies = [
+ "rand_core 0.6.4",
+ "zeroize",
 ]
 
 [[package]]
@@ -7788,6 +7807,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ml-kem"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97befee0c869cb56f3118f49d0f9bb68c9e3f380dec23c1100aedc4ec3ba239a"
+dependencies = [
+ "hybrid-array",
+ "kem",
+ "rand_core 0.6.4",
+ "sha3",
+]
+
+[[package]]
 name = "mmr-gadget"
 version = "46.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80#81fa2c54e94f824eba7dabe9dffd063481cb2d80"
@@ -8159,7 +8190,10 @@ checksum = "43794a0ace135be66a25d3ae77d41b91615fb68ae937f904090203e81f755b65"
 name = "node-subtensor"
 version = "4.0.0-dev"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "blake2 0.10.6",
+ "chacha20poly1305",
  "clap",
  "fc-api",
  "fc-aura",
@@ -8179,19 +8213,26 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "futures",
  "hex",
+ "hkdf",
  "jsonrpsee",
  "log",
  "memmap2 0.9.8",
+ "ml-kem",
  "node-subtensor-runtime",
  "num-traits",
  "pallet-commitments",
  "pallet-drand",
+ "pallet-mev-shield",
+ "pallet-subtensor",
  "pallet-subtensor-swap-rpc",
  "pallet-subtensor-swap-runtime-api",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
  "polkadot-sdk",
+ "rand 0.8.5",
+ "rand_core 0.9.3",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-chain-spec-derive",
@@ -8219,6 +8260,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -8244,6 +8286,8 @@ dependencies = [
  "subtensor-custom-rpc",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-runtime-common",
+ "tokio",
+ "x25519-dalek",
 ]
 
 [[package]]
@@ -8292,6 +8336,7 @@ dependencies = [
  "pallet-grandpa",
  "pallet-hotfix-sufficients",
  "pallet-insecure-randomness-collective-flip",
+ "pallet-mev-shield",
  "pallet-multisig",
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
@@ -9954,6 +9999,26 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-mev-shield"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-aura",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-weights",
+ "subtensor-macros",
 ]
 
 [[package]]
