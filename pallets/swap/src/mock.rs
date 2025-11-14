@@ -102,6 +102,8 @@ impl CurrencyReserve<TaoCurrency> for TaoReserve {
 
     fn increase_provided(_: NetUid, _: TaoCurrency) {}
     fn decrease_provided(_: NetUid, _: TaoCurrency) {}
+    fn increase_protocol(_: NetUid, _: TaoCurrency) {}
+    fn decrease_protocol(_: NetUid, _: TaoCurrency) {}
 }
 
 #[derive(Clone)]
@@ -118,6 +120,8 @@ impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
 
     fn increase_provided(_: NetUid, _: AlphaCurrency) {}
     fn decrease_provided(_: NetUid, _: AlphaCurrency) {}
+    fn increase_protocol(_: NetUid, _: AlphaCurrency) {}
+    fn decrease_protocol(_: NetUid, _: AlphaCurrency) {}
 }
 
 pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;

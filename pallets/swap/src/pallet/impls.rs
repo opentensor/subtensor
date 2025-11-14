@@ -1373,6 +1373,9 @@ impl<T: Config> SwapHandler for Pallet<T> {
             // Claim protocol fees and add them to liquidity
             let (tao_fees, alpha_fees) = position.collect_fees();
 
+            T::TaoReserve::decrease_provided(netuid, excess_tao);
+            T::AlphaReserve::decrease_provided(netuid, excess_alpha);
+
             // Add fees and excess tao and alpha to scrap reservoirs
             ScrapReservoirTao::<T>::mutate(netuid, |tao_scrap| {
                 *tao_scrap = tao_scrap
@@ -1393,10 +1396,6 @@ impl<T: Config> SwapHandler for Pallet<T> {
                 CurrentLiquidity128::<T>::mutate(netuid, |current_liquidity| {
                     *current_liquidity = current_liquidity.saturating_add(liquidity_delta as u128);
                 });
-
-                // Update position ticks
-                Self::add_liquidity_at_index(netuid, position.tick_low, liquidity_delta, false);
-                Self::add_liquidity_at_index(netuid, position.tick_high, liquidity_delta, true);
             } else {
                 let liquidity_delta = position.liquidity.saturating_sub(correct_liquidity);
 
@@ -1404,10 +1403,6 @@ impl<T: Config> SwapHandler for Pallet<T> {
                 CurrentLiquidity128::<T>::mutate(netuid, |current_liquidity| {
                     *current_liquidity = current_liquidity.saturating_sub(liquidity_delta as u128);
                 });
-
-                // Update position ticks
-                Self::remove_liquidity_at_index(netuid, position.tick_low, liquidity_delta, false);
-                Self::remove_liquidity_at_index(netuid, position.tick_high, liquidity_delta, true);
             }
 
             // Update position
