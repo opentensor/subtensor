@@ -1434,11 +1434,11 @@ pub mod pallet {
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> deregistration priority flag (true pruned before price-based selection)
-    pub type SubnetDeregistrationPriority<T: Config> =
-        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
+    /// --- FIFO queue of netuids pending deregistration
+    pub type SubnetDeregistrationPriorityQueue<T: Config> =
+        StorageValue<_, sp_std::vec::Vec<NetUid>, ValueQuery>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> scheduled block for enabling deregistration priority
+    /// --- MAP ( netuid ) --> scheduled block for enqueuing deregistration priority
     pub type SubnetDeregistrationPrioritySchedule<T: Config> =
         StorageMap<_, Identity, NetUid, BlockNumberFor<T>, OptionQuery>;
     #[pallet::storage]

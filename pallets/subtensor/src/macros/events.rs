@@ -14,12 +14,14 @@ mod events {
         NetworkAdded(NetUid, u16),
         /// a network is removed.
         NetworkRemoved(NetUid),
-        /// a subnet's deregistration priority flag was scheduled to be set.
+        /// a subnet's deregistration queue entry was scheduled.
         SubnetDeregistrationPriorityScheduled(NetUid, BlockNumberFor<T>),
-        /// a subnet's deregistration priority flag was set.
+        /// a subnet was enqueued for deregistration.
         SubnetDeregistrationPrioritySet(NetUid),
-        /// network deregistration priority flag cleared.
+        /// network deregistration queue entry cleared or canceled.
         SubnetDeregistrationPriorityCleared(NetUid),
+        /// pending deregistration schedule cleared or canceled.
+        SubnetDeregistrationPriorityScheduleCleared(NetUid),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
         StakeAdded(
             T::AccountId,

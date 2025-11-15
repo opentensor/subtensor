@@ -1028,8 +1028,5 @@
 		"outputs": [],
 		"stateMutability": "payable",
 		"type": "function"
-	}, 
-	{
-		"inputs"
 	}
 ]

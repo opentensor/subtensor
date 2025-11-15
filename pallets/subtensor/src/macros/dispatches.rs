@@ -2153,11 +2153,12 @@ mod dispatches {
             Ok(())
         }
 
-        /// Manages the deregistration priority flag for a subnet.
+        /// Manages the deregistration priority queue for a subnet.
         ///
-        /// When `schedule_set` is `true`, the flag is scheduled to be set after approximately
-        /// five days using the scheduler pallet. When `schedule_set` is `false`, any pending
-        /// schedule is cleared. Only the root origin may clear the flag itself.
+        /// When `schedule_set` is `true`, the subnet is scheduled to be appended to the
+        /// deregistration queue after approximately five days using the scheduler pallet.
+        /// When `schedule_set` is `false`, any pending schedule is cleared. Only the root origin
+        /// may remove the subnet from the queue itself.
         ///
         /// Accessible by the subnet owner (for scheduling or canceling a pending schedule) or root
         /// origin (full control).
@@ -2210,15 +2211,22 @@ mod dispatches {
             } else {
                 if maybe_owner.is_some() {
                     if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
-                        Self::deposit_event(Event::SubnetDeregistrationPriorityCleared(netuid));
+                        Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleCleared(
+                            netuid,
+                        ));
                     }
                 } else {
-                    let was_flagged = SubnetDeregistrationPriority::<T>::take(netuid);
+                    let was_queued = Self::remove_subnet_from_deregistration_priority_queue(netuid);
                     let had_schedule =
                         SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some();
 
-                    if was_flagged || had_schedule {
+                    if was_queued {
                         Self::deposit_event(Event::SubnetDeregistrationPriorityCleared(netuid));
+                    }
+                    if had_schedule {
+                        Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleCleared(
+                            netuid,
+                        ));
                     }
                 }
             }
@@ -2226,7 +2234,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// Sets the deregistration priority flag immediately.
+        /// Enqueues the subnet for deregistration immediately.
         ///
         /// This call is intended to be used by the scheduler and requires root origin.
         #[pallet::call_index(122)]
@@ -2248,7 +2256,7 @@ mod dispatches {
                 return Ok(());
             }
 
-            SubnetDeregistrationPriority::<T>::insert(netuid, true);
+            let _ = Self::enqueue_subnet_deregistration_priority(netuid);
             Self::deposit_event(Event::SubnetDeregistrationPrioritySet(netuid));
 
             Ok(())

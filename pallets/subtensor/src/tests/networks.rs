@@ -56,8 +56,8 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(0));
         Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
-        SubnetDeregistrationPriority::<Test>::insert(net, true);
-        assert!(SubnetDeregistrationPriority::<Test>::contains_key(net));
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
+        assert!(SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -66,7 +66,7 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
         // Balance should be unchanged (whatever the network-lock bookkeeping left there)
         assert_eq!(after, before);
         assert!(!SubtensorModule::if_subnet_exist(net));
-        assert!(!SubnetDeregistrationPriority::<Test>::contains_key(net));
+        assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
     });
 }
 
@@ -83,7 +83,7 @@ fn manage_priority_schedule_and_force_set() {
             true
         ));
 
-        assert_eq!(SubnetDeregistrationPriority::<Test>::get(net), false);
+        assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
         let when = SubnetDeregistrationPrioritySchedule::<Test>::get(net).unwrap();
         assert!(when > 0);
 
@@ -92,7 +92,7 @@ fn manage_priority_schedule_and_force_set() {
             net
         ));
 
-        assert!(SubnetDeregistrationPriority::<Test>::get(net));
+        assert!(SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
         assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
             net
         ));
@@ -106,7 +106,7 @@ fn manage_priority_owner_cancels_schedule_only() {
         let owner_hot = U256::from(26);
         let net = add_dynamic_network(&owner_hot, &owner_cold);
 
-        SubnetDeregistrationPriority::<Test>::insert(net, true);
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
         SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 42);
 
         assert_ok!(SubtensorModule::manage_deregistration_priority(
@@ -115,7 +115,7 @@ fn manage_priority_owner_cancels_schedule_only() {
             false
         ));
 
-        assert!(SubnetDeregistrationPriority::<Test>::get(net));
+        assert!(SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
         assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
             net
         ));
@@ -123,13 +123,13 @@ fn manage_priority_owner_cancels_schedule_only() {
 }
 
 #[test]
-fn manage_priority_root_clears_flag() {
+fn manage_priority_root_clears_queue_entry() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(19);
         let owner_hot = U256::from(38);
         let net = add_dynamic_network(&owner_hot, &owner_cold);
 
-        SubnetDeregistrationPriority::<Test>::insert(net, true);
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
         SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 55);
 
         assert_ok!(SubtensorModule::manage_deregistration_priority(
@@ -138,7 +138,7 @@ fn manage_priority_root_clears_flag() {
             false
         ));
 
-        assert!(!SubnetDeregistrationPriority::<Test>::get(net));
+        assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
         assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
             net
         ));
@@ -182,7 +182,7 @@ fn force_set_deregistration_priority_is_noop_without_schedule() {
             net
         ));
 
-        assert_eq!(SubnetDeregistrationPriority::<Test>::get(net), false);
+        assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
     });
 }
 
@@ -197,7 +197,7 @@ fn schedule_swap_coldkey_cancels_priority_schedule() {
         let swap_cost = SubtensorModule::get_key_swap_cost();
         SubtensorModule::add_balance_to_coldkey_account(&owner_cold, swap_cost.to_u64() + 1_000);
 
-        SubnetDeregistrationPriority::<Test>::insert(net, true);
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
         SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 5);
 
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
@@ -205,7 +205,7 @@ fn schedule_swap_coldkey_cancels_priority_schedule() {
             new_cold
         ));
 
-        assert!(SubnetDeregistrationPriority::<Test>::get(net));
+        assert!(SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
         assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
             net
         ));
@@ -1302,8 +1302,10 @@ fn prune_prefers_higher_priority_over_price() {
         SubnetMovingPrice::<Test>::insert(n1, I96F32::from_num(100));
         SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(1));
 
-        SubnetDeregistrationPriority::<Test>::insert(n1, true);
-        SubnetDeregistrationPriority::<Test>::insert(n2, false);
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| {
+            queue.push(n1);
+            queue.push(n2);
+        });
 
         assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
     });

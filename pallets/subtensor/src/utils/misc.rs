@@ -128,9 +128,49 @@ impl<T: Config> Pallet<T> {
 
         for netuid in nets {
             if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
-                Self::deposit_event(Event::SubnetDeregistrationPriorityCleared(netuid));
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleCleared(netuid));
             }
         }
+    }
+
+    pub fn enqueue_subnet_deregistration_priority(netuid: NetUid) -> bool {
+        SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
+            if queue.iter().any(|&existing| existing == netuid) {
+                false
+            } else {
+                queue.push(netuid);
+                true
+            }
+        })
+    }
+
+    pub fn remove_subnet_from_deregistration_priority_queue(netuid: NetUid) -> bool {
+        SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
+            let original_len = queue.len();
+            queue.retain(|&existing| existing != netuid);
+            original_len != queue.len()
+        })
+    }
+
+    pub fn pop_ready_subnet_deregistration_priority() -> Option<NetUid> {
+        SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
+            let mut idx = 0;
+            while idx < queue.len() {
+                let netuid = queue[idx];
+                queue.remove(idx);
+
+                if !Self::if_subnet_exist(netuid) {
+                    continue;
+                }
+
+                if netuid == NetUid::ROOT {
+                    continue;
+                }
+
+                return Some(netuid);
+            }
+            None
+        })
     }
 
     /// If owner is `Some`, record last-blocks for the provided `TransactionType`s.

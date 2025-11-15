@@ -244,7 +244,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
-        SubnetDeregistrationPriority::<T>::remove(netuid);
+        let _ = Self::remove_subnet_from_deregistration_priority_queue(netuid);
 
         // --- 6. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
@@ -593,8 +593,12 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_to_prune() -> Option<NetUid> {
         let current_block: u64 = Self::get_current_block_as_u64();
 
+        if let Some(priority_netuid) = Self::pop_ready_subnet_deregistration_priority(current_block)
+        {
+            return Some(priority_netuid);
+        }
+
         let mut candidate_netuid: Option<NetUid> = None;
-        let mut candidate_priority: bool = false;
         let mut candidate_price: U96F32 = U96F32::saturating_from_num(u128::MAX);
         let mut candidate_timestamp: u64 = u64::MAX;
 
@@ -611,17 +615,12 @@ impl<T: Config> Pallet<T> {
             }
 
             let price: U96F32 = Self::get_moving_alpha_price(netuid);
-            let priority = SubnetDeregistrationPriority::<T>::get(netuid);
 
-            // Prioritize higher deregistration priority, then lowest price, then earliest registration.
             if candidate_netuid.is_none()
-                || (priority && !candidate_priority)
-                || (priority == candidate_priority
-                    && (price < candidate_price
-                        || (price == candidate_price && registered_at < candidate_timestamp)))
+                || price < candidate_price
+                || (price == candidate_price && registered_at < candidate_timestamp)
             {
                 candidate_netuid = Some(netuid);
-                candidate_priority = priority;
                 candidate_price = price;
                 candidate_timestamp = registered_at;
             }
