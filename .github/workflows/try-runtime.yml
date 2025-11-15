@@ -2,6 +2,7 @@ name: Try Runtime
 
 on:
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: try-runtime-${{ github.ref }}

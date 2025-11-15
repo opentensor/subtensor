@@ -6,14 +6,17 @@ on:
       - unlabeled
       - synchronize
       - opened
+  workflow_dispatch:
 
 permissions:
   issues: write
   pull-requests: write
+  contents: write
+  actions: write
 
 jobs:
   comment_on_breaking_change:
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: ubuntu-latest
     steps:
       - name: Check if 'breaking change' label is added
         if: github.event.label.name == 'breaking-change'
@@ -26,3 +29,119 @@ jobs:
               repo: context.repo.repo,
               body: '@opentensor/cerebrum / @opentensor/gyrus / @opentensor/cortex breaking change detected! Please prepare accordingly!'
             })
+
+  bump_spec_version:
+    if: ${{ github.event.action == 'labeled' && github.event.label.name == 'bump-spec-version' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Check out automation helpers from base branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: ci-tools
+          fetch-depth: 1
+
+      - name: Bump spec_version
+        id: bump_spec
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import os
+          import pathlib
+          import re
+
+          path = pathlib.Path("runtime/src/lib.rs")
+          content = path.read_text(encoding="utf-8")
+
+          pattern = re.compile(r"(spec_version:\s*)(\d+)")
+          match = pattern.search(content)
+          if not match:
+              raise SystemExit("spec_version field not found in runtime/src/lib.rs")
+
+          old_value = int(match.group(2))
+          new_value = old_value + 1
+          updated = content[: match.start(2)] + str(new_value) + content[match.end(2) :]
+          path.write_text(updated, encoding="utf-8")
+          print(f"Bumped spec_version from {old_value} to {new_value}")
+
+          output_path = os.environ["GITHUB_OUTPUT"]
+          with open(output_path, "a", encoding="utf-8") as handle:
+              handle.write(f"spec_version={new_value}\n")
+          PY
+
+      - name: Commit spec_version bump
+        id: commit_spec
+        run: |
+          set -euo pipefail
+          echo "changes_made=false" >> "$GITHUB_OUTPUT"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add runtime/src/lib.rs
+
+          if git diff --cached --quiet; then
+            echo "No spec_version updates to commit."
+            exit 0
+          fi
+
+          version="${{ steps.bump_spec.outputs.spec_version }}"
+          version="${version//$'\n'/}"
+          version="${version//$'\r'/}"
+          if [ -z "$version" ]; then
+            version="(unknown)"
+          fi
+
+          git commit -m "chore: bump spec version to ${version}"
+          branch=$(git symbolic-ref --quiet --short HEAD || true)
+          if [ -z "$branch" ]; then
+            echo "Unable to determine branch name for push." >&2
+            exit 1
+          fi
+          git push origin "HEAD:${branch}"
+          head_sha=$(git rev-parse HEAD)
+          echo "changes_made=true" >> "$GITHUB_OUTPUT"
+          echo "head_sha=${head_sha}" >> "$GITHUB_OUTPUT"
+          echo "head_ref=${branch}" >> "$GITHUB_OUTPUT"
+
+      - name: Re-run pull_request workflows (except Validate-Benchmarks)
+        if: steps.commit_spec.outputs.changes_made == 'true'
+        run: |
+          set -euo pipefail
+          script_path="scripts/ci/rerun_pr_workflows.py"
+          if [ ! -f "$script_path" ]; then
+            script_path="ci-tools/scripts/ci/rerun_pr_workflows.py"
+          fi
+          echo "Using rerun helper at $script_path"
+          python3 "$script_path"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ steps.commit_spec.outputs.head_sha }}
+          PR_HEAD_REF: ${{ steps.commit_spec.outputs.head_ref }}
+
+      - name: Remove bump-spec-version label
+        if: ${{ success() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'bump-spec-version'
+              })
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error
+              }
+            }

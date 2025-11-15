@@ -2,6 +2,7 @@ name: Build Docker Image
 
 on:
   pull_request:
+  workflow_dispatch:
     
 concurrency:
   group: check-docker-${{ github.ref }}

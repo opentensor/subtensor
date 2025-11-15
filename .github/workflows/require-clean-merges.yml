@@ -6,21 +6,79 @@ on:
       - devnet-ready
       - devnet
       - testnet
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: "Pull request number to check when running manually"
+        required: true
 
 jobs:
   assert-clean-merges:
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Ensures we get all branches for merging
 
+      - name: Gather PR metadata
+        id: gather-pr
+        env:
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          DISPATCH_PR_NUMBER: ${{ inputs.pr-number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.request
+
+          pr_number = os.environ.get("EVENT_PR_NUMBER") or os.environ.get("DISPATCH_PR_NUMBER") or ""
+          if not pr_number:
+              print("Unable to determine PR number.", file=sys.stderr)
+              sys.exit(1)
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ.get("GITHUB_TOKEN")
+          req = urllib.request.Request(f"https://api.github.com/repos/{repo}/pulls/{pr_number}")
+          req.add_header("Accept", "application/vnd.github+json")
+          if token:
+              req.add_header("Authorization", f"Bearer {token}")
+
+          with urllib.request.urlopen(req, timeout=30) as resp:
+              payload = json.loads(resp.read().decode("utf-8"))
+
+          base_ref = payload["base"]["ref"]
+          head_ref = payload["head"]["ref"]
+          head_repo = payload["head"].get("repo") or {}
+          is_fork = bool(head_repo.get("fork"))
+          clone_url = head_repo.get("clone_url") or ""
+
+          env_path = os.environ["GITHUB_ENV"]
+          with open(env_path, "a", encoding="utf-8") as env_file:
+              env_file.write(f"PR_NUMBER={pr_number}\n")
+              env_file.write(f"PR_BASE_REF={base_ref}\n")
+              env_file.write(f"PR_HEAD_REF={head_ref}\n")
+              env_file.write(f"PR_HEAD_IS_FORK={'true' if is_fork else 'false'}\n")
+              env_file.write(f"PR_HEAD_CLONE_URL={clone_url}\n")
+
+          output_path = os.environ["GITHUB_OUTPUT"]
+          with open(output_path, "a", encoding="utf-8") as out:
+              out.write(f"pr-number={pr_number}\n")
+              out.write(f"base-ref={base_ref}\n")
+              out.write(f"head-ref={head_ref}\n")
+              out.write(f"is-fork={'true' if is_fork else 'false'}\n")
+              out.write(f"fork-clone-url={clone_url}\n")
+          PY
+
       - name: Determine Target Branch and Set Merge List
         id: set-merge-branches
         run: |
-          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
-          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+          TARGET_BRANCH="${{ steps.gather-pr.outputs.base-ref }}"
+          PR_BRANCH="${{ steps.gather-pr.outputs.head-ref }}"
           echo "PR_BRANCH=$PR_BRANCH" >> $GITHUB_ENV
 
           if [[ "$TARGET_BRANCH" == "devnet-ready" ]]; then
@@ -34,23 +92,25 @@ jobs:
           else
             echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
           fi
-          
+
       - name: Add Fork Remote and Fetch PR Branch
-        if: github.event.pull_request.head.repo.fork == true
+        if: steps.gather-pr.outputs.is-fork == 'true'
         run: |
-          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
-          PR_FORK="${{ github.event.pull_request.head.repo.clone_url }}"
-          git remote add fork $PR_FORK
-          git fetch --no-tags --prune fork $PR_BRANCH
+          PR_BRANCH="${{ steps.gather-pr.outputs.head-ref }}"
+          PR_FORK="${{ steps.gather-pr.outputs.fork-clone-url }}"
+          git remote remove fork 2>/dev/null || true
+          git remote add fork "$PR_FORK"
+          git fetch --no-tags --prune fork "$PR_BRANCH"
 
       - name: Check Merge Cleanliness
         run: |
-          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
-          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+          TARGET_BRANCH="${{ steps.gather-pr.outputs.base-ref }}"
+          PR_BRANCH="${{ steps.gather-pr.outputs.head-ref }}"
+          IS_FORK="${{ steps.gather-pr.outputs.is-fork }}"
           echo "Fetching all branches..."
           git fetch --all --prune
 
-          if [[ "${{github.event.pull_request.head.repo.fork}}" == "true" ]]; then
+          if [[ "$IS_FORK" == "true" ]]; then
             PR_BRANCH_REF="fork/$PR_BRANCH"
             echo "Using fork reference: $PR_BRANCH_REF"
           else
