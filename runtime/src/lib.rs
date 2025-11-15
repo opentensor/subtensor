@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_nonce;
 mod migrations;
+mod rate_limiting;
 pub mod transaction_payment_wrapper;
 
 extern crate alloc;
@@ -69,6 +70,10 @@ use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
+
+pub use rate_limiting::{
+    ScopeResolver as RuntimeScopeResolver, UsageResolver as RuntimeUsageResolver,
+};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{

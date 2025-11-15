@@ -1,3 +1,5 @@
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use subtensor_runtime_common::NetUid;
 
 use super::*;

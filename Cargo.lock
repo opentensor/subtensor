@@ -8297,6 +8297,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-preimage",
+ "pallet-rate-limiting",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
@@ -10255,6 +10256,48 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-rate-limiting"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "subtensor-runtime-common",
+]
+
+[[package]]
+name = "pallet-rate-limiting-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-rate-limiting-runtime-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+ "subtensor-runtime-common",
+]
+
+[[package]]
+name = "pallet-rate-limiting-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "pallet-rate-limiting",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-std",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
