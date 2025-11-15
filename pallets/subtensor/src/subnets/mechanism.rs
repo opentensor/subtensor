@@ -95,7 +95,21 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Set the desired valus of sub-subnet count for a subnet identified
+    pub fn check_max_uids_vs_mechanism_count(
+        max_uids: u16,
+        mechanism_count: MechId,
+    ) -> DispatchResult {
+        let max_uids_for_one_mechanism = 256_u16;
+        let max_uids_for_mechanism_count =
+            max_uids_for_one_mechanism.safe_div(u8::from(mechanism_count) as u16);
+        ensure!(
+            max_uids_for_mechanism_count >= max_uids,
+            Error::<T>::TooManyUIDsPerMechanism
+        );
+        Ok(())
+    }
+
+    /// Set the desired value of sub-subnet count for a subnet identified
     /// by netuid
     pub fn do_set_mechanism_count(netuid: NetUid, mechanism_count: MechId) -> DispatchResult {
         // Make sure the subnet exists
@@ -113,6 +127,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidValue
         );
 
+        // Prevent chain bloat: Require max UIDs to be limited
+        let max_uids = MaxAllowedUids::<T>::get(netuid);
+        Self::check_max_uids_vs_mechanism_count(max_uids, mechanism_count)?;
+
         // Make sure we are not allowing numbers that will break the math
         ensure!(
             mechanism_count <= MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET),
@@ -120,6 +138,22 @@ impl<T: Config> Pallet<T> {
         );
 
         Self::update_mechanism_counts_if_needed(netuid, mechanism_count);
+
+        Ok(())
+    }
+
+    /// Set the global maximum number of mechanisms per subnet
+    pub fn do_set_max_mechanism_count(max_mechanism_count: MechId) -> DispatchResult {
+        // Max count cannot be zero
+        ensure!(max_mechanism_count > 0.into(), Error::<T>::InvalidValue);
+
+        // Make sure we are not allowing numbers that will break the math
+        ensure!(
+            max_mechanism_count <= MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET),
+            Error::<T>::InvalidValue
+        );
+
+        MaxMechanismCount::<T>::set(max_mechanism_count);
 
         Ok(())
     }
