@@ -4,6 +4,7 @@ mod children;
 mod claim_root;
 mod coinbase;
 mod consensus;
+mod consensus_mode;
 mod delegate_info;
 mod difficulty;
 mod emission;
