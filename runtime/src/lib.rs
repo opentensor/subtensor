@@ -977,7 +977,7 @@ parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
     pub const SubtensorInitialAlphaSigmoidSteepness: i16 = 1000;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
-    pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
+    pub const SubtensorInitialMaxAllowedUids: u16 = 256;
     pub const SubtensorInitialIssuance: u64 = 0;
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
