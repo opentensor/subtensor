@@ -95,21 +95,18 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn check_max_uids_vs_mechanism_count(
+    pub fn ensure_max_uids_over_all_mechanisms(
         max_uids: u16,
         mechanism_count: MechId,
     ) -> DispatchResult {
-        let max_uids_for_one_mechanism = 256_u16;
-        let max_uids_for_mechanism_count =
-            max_uids_for_one_mechanism.safe_div(u8::from(mechanism_count) as u16);
         ensure!(
-            max_uids_for_mechanism_count >= max_uids,
+            max_uids * u8::from(mechanism_count) as u16 <= 256,
             Error::<T>::TooManyUIDsPerMechanism
         );
         Ok(())
     }
 
-    /// Set the desired value of sub-subnet count for a subnet identified
+    /// Set the desired value of mechanism count for a subnet identified
     /// by netuid
     pub fn do_set_mechanism_count(netuid: NetUid, mechanism_count: MechId) -> DispatchResult {
         // Make sure the subnet exists
@@ -129,7 +126,7 @@ impl<T: Config> Pallet<T> {
 
         // Prevent chain bloat: Require max UIDs to be limited
         let max_uids = MaxAllowedUids::<T>::get(netuid);
-        Self::check_max_uids_vs_mechanism_count(max_uids, mechanism_count)?;
+        Self::ensure_max_uids_over_all_mechanisms(max_uids, mechanism_count)?;
 
         // Make sure we are not allowing numbers that will break the math
         ensure!(
