@@ -71,7 +71,11 @@ fn test_replace_neuron() {
         Bonds::<Test>::insert(NetUidStorageIndex::from(netuid), neuron_uid, vec![(0, 1)]);
 
         Axons::<Test>::insert(netuid, hotkey_account_id, AxonInfoOf::default());
-        NeuronCertificates::<Test>::insert(netuid, hotkey_account_id, NeuronCertificateOf::default());
+        NeuronCertificates::<Test>::insert(
+            netuid,
+            hotkey_account_id,
+            NeuronCertificateOf::default(),
+        );
         Prometheus::<Test>::insert(netuid, hotkey_account_id, PrometheusInfoOf::default());
         AssociatedEvmAddress::<Test>::insert(netuid, neuron_uid, (evm_address, 1));
 
@@ -122,8 +126,14 @@ fn test_replace_neuron() {
 
         // Check axon info is reset.
         assert!(!Axons::<Test>::contains_key(netuid, curr_hotkey.unwrap()));
-        assert!(!NeuronCertificates::<Test>::contains_key(netuid, curr_hotkey.unwrap()));
-        assert!(!Prometheus::<Test>::contains_key(netuid, curr_hotkey.unwrap()));
+        assert!(!NeuronCertificates::<Test>::contains_key(
+            netuid,
+            curr_hotkey.unwrap()
+        ));
+        assert!(!Prometheus::<Test>::contains_key(
+            netuid,
+            curr_hotkey.unwrap()
+        ));
 
         // Check bonds are cleared.
         assert_eq!(
