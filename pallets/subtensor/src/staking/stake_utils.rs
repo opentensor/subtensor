@@ -707,7 +707,7 @@ impl<T: Config> Pallet<T> {
         let protocol_tao_after = Self::get_protocol_tao(netuid);
         // This should decrease as we are removing TAO from the protocol.
         let protocol_tao_delta: TaoCurrency = protocol_tao.saturating_sub(protocol_tao_after);
-        // Clamp the protocol TAO delta to the received TAO
+        // Use max to overstate the TAO flow from the protocol.
         let tao_flow = protocol_tao_delta.max(swap_result.amount_paid_out.into());
 
         // Refund the unused alpha (in case if limit price is hit)
@@ -786,7 +786,7 @@ impl<T: Config> Pallet<T> {
 
         // This should increase as we are adding TAO to the protocol.
         let protocol_tao_delta: TaoCurrency = protocol_tao_after.saturating_sub(protocol_tao);
-        // Clamp the protocol TAO delta to the stated input
+        // Use min to understate the TAO flow into the protocol.
         let tao_flow = protocol_tao_delta.min(tao);
 
         ensure!(
