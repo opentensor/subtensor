@@ -334,10 +334,15 @@ pub mod pallet {
         Swap,
         /// Keep all alpha emission.
         Keep,
+        /// Keep all alpha emission for specified subnets.
+        KeepSubnets {
+            /// Subnets to keep alpha emissions (swap everything else).
+            subnets: BTreeSet<NetUid>,
+        },
     }
 
     /// Contains necessary data to gradually clean root claims on network deregistration.
-    //   #[crate::freeze_struct("5629a5d581979e73")]
+    #[crate::freeze_struct("79089efb758c0258")]
     #[derive(
         Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
     )]
