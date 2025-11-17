@@ -65,11 +65,7 @@ pub fn migrate_remove_unknown_neuron_axon_cert_prom<T: Config>() -> Weight {
         weight.saturating_accrue(T::DbWeight::get().writes(cleaned_prometheus as u64));
 
         log::info!(
-            "Cleaned {} axons, {} neuron certificates, {} prometheus for network {}",
-            cleaned_axons,
-            cleaned_certificates,
-            cleaned_prometheus,
-            network
+            "Cleaned {cleaned_axons} axons, {cleaned_certificates} neuron certificates, {cleaned_prometheus} prometheus for network {network}"
         );
     }
 
@@ -81,7 +77,7 @@ pub fn migrate_remove_unknown_neuron_axon_cert_prom<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
-    log::info!("{:#?} weight", weight);
+    log::info!("{weight:#?} weight");
 
     weight
 }

@@ -2734,12 +2734,12 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
         setup_for(NetUid::from(2), 64, 1231);
         setup_for(NetUid::from(42), 256, 15151);
         setup_for(NetUid::from(99), 1024, 32323);
-        assert_eq!(HasMigrationRun::<Test>::get(MIGRATION_NAME), false);
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME));
 
         let w = migrate_remove_unknown_neuron_axon_cert_prom::<Test>();
         assert!(!w.is_zero(), "Weight must be non-zero");
 
-        assert_eq!(HasMigrationRun::<Test>::get(MIGRATION_NAME), true);
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME));
         assert_for(NetUid::from(2), 64, 1231);
         assert_for(NetUid::from(42), 256, 15151);
         assert_for(NetUid::from(99), 1024, 32323);
