@@ -334,6 +334,11 @@ pub mod pallet {
         Swap,
         /// Keep all alpha emission.
         Keep,
+        /// Keep all alpha emission for specified subnets.
+        KeepSubnets {
+            /// Subnets to keep alpha emissions (swap everything else).
+            subnets: BTreeSet<NetUid>,
+        },
     }
 
     #[pallet::type_value]
