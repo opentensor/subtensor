@@ -2252,7 +2252,7 @@ mod dispatches {
             ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
             if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_none() {
-                // Schedule was cleared, nothing to do.
+                // Schedule was clear already, nothing to do.
                 return Ok(());
             }
 
