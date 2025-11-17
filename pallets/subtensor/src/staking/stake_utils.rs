@@ -708,7 +708,7 @@ impl<T: Config> Pallet<T> {
         // This should decrease as we are removing TAO from the protocol.
         let protocol_tao_delta: TaoCurrency = protocol_tao.saturating_sub(protocol_tao_after);
         // Clamp the protocol TAO delta to the received TAO
-        let tao_flow = protocol_tao_delta.min(swap_result.amount_paid_out.into());
+        let tao_flow = protocol_tao_delta.max(swap_result.amount_paid_out.into());
 
         // Refund the unused alpha (in case if limit price is hit)
         let refund = actual_alpha_decrease.saturating_sub(
