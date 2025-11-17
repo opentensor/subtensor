@@ -100,7 +100,7 @@ impl<T: Config> Pallet<T> {
         mechanism_count: MechId,
     ) -> DispatchResult {
         ensure!(
-            max_uids * u8::from(mechanism_count) as u16 <= 256,
+            max_uids.saturating_mul(u8::from(mechanism_count) as u16) <= 256,
             Error::<T>::TooManyUIDsPerMechanism
         );
         Ok(())
