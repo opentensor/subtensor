@@ -39,7 +39,7 @@ where
             <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(netuid.into());
         let price = current_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
         let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
-        let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price.into())
+        let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
             .map(|amount| amount.into_u256())
             .ok_or(ExitError::InvalidRange)?;
 
@@ -53,7 +53,7 @@ where
             pallet_subtensor::Pallet::<R>::get_moving_alpha_price(netuid.into());
         let price = moving_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
         let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
-        let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price.into())
+        let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
             .map(|amount| amount.into_u256())
             .ok_or(ExitError::InvalidRange)?;
 
