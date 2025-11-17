@@ -707,6 +707,9 @@ impl<T: Config> Pallet<T> {
         let protocol_tao_after = Self::get_protocol_tao(netuid);
         // This should decrease as we are removing TAO from the protocol.
         let protocol_tao_delta: TaoCurrency = protocol_tao.saturating_sub(protocol_tao_after);
+        // Clamp the protocol TAO delta to the received TAO
+        let tao_flow =
+            protocol_tao_delta.clamp(TaoCurrency::ZERO, swap_result.amount_paid_out.into());
 
         // Refund the unused alpha (in case if limit price is hit)
         let refund = actual_alpha_decrease.saturating_sub(
@@ -734,7 +737,7 @@ impl<T: Config> Pallet<T> {
         // }
 
         // Record TAO outflow
-        Self::record_tao_outflow(netuid, protocol_tao_delta);
+        Self::record_tao_outflow(netuid, tao_flow);
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
@@ -784,6 +787,8 @@ impl<T: Config> Pallet<T> {
 
         // This should increase as we are adding TAO to the protocol.
         let protocol_tao_delta: TaoCurrency = protocol_tao_after.saturating_sub(protocol_tao);
+        // Clamp the protocol TAO delta to the stated input
+        let tao_flow = protocol_tao_delta.clamp(TaoCurrency::ZERO, tao);
 
         ensure!(
             !swap_result.amount_paid_out.is_zero(),
@@ -820,7 +825,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Record TAO inflow
-        Self::record_tao_inflow(netuid, protocol_tao_delta);
+        Self::record_tao_inflow(netuid, tao_flow);
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
