@@ -65,7 +65,7 @@ pub fn migrate_remove_unknown_neuron_axon_cert_prom<T: Config>() -> Weight {
         weight.saturating_accrue(T::DbWeight::get().writes(cleaned_prometheus as u64));
 
         log::info!(
-            "Cleaned {} axons, {} neuron Certificates, {} prometheus for network {}",
+            "Cleaned {} axons, {} neuron certificates, {} prometheus for network {}",
             cleaned_axons,
             cleaned_certificates,
             cleaned_prometheus,
