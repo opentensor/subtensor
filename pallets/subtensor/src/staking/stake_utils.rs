@@ -708,8 +708,7 @@ impl<T: Config> Pallet<T> {
         // This should decrease as we are removing TAO from the protocol.
         let protocol_tao_delta: TaoCurrency = protocol_tao.saturating_sub(protocol_tao_after);
         // Clamp the protocol TAO delta to the received TAO
-        let tao_flow =
-            protocol_tao_delta.clamp(TaoCurrency::ZERO, swap_result.amount_paid_out.into());
+        let tao_flow = protocol_tao_delta.min(swap_result.amount_paid_out.into());
 
         // Refund the unused alpha (in case if limit price is hit)
         let refund = actual_alpha_decrease.saturating_sub(
@@ -788,7 +787,7 @@ impl<T: Config> Pallet<T> {
         // This should increase as we are adding TAO to the protocol.
         let protocol_tao_delta: TaoCurrency = protocol_tao_after.saturating_sub(protocol_tao);
         // Clamp the protocol TAO delta to the stated input
-        let tao_flow = protocol_tao_delta.clamp(TaoCurrency::ZERO, tao);
+        let tao_flow = protocol_tao_delta.min(tao);
 
         ensure!(
             !swap_result.amount_paid_out.is_zero(),
