@@ -26,7 +26,7 @@ env:
 
 jobs:
   check-label:
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: ubuntu-latest
     outputs:
       skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests }}
     steps:
@@ -57,7 +57,7 @@ jobs:
   find-btcli-e2e-tests:
     needs: check-label
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: ubuntu-latest
     outputs:
       test-files: ${{ steps.get-btcli-tests.outputs.test-files }}
     steps:
@@ -84,7 +84,7 @@ jobs:
   find-sdk-e2e-tests:
     needs: check-label
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: ubuntu-latest
     outputs:
       test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
     steps:
@@ -111,7 +111,7 @@ jobs:
   build-image-with-current-branch:
     needs: check-label
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -130,17 +130,27 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Move Docker data-root to /mnt/data
+        run: |
+          sudo systemctl stop docker
+          sudo mkdir -p /mnt/data/docker
+          sudo chown -R runner:runner /mnt/data
+          sudo chmod -R 777 /mnt/data
+          echo '{"data-root": "/mnt/data/docker"}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker
+          docker info | grep "Docker Root Dir"
+
       - name: Build Docker Image
         run: docker build -f Dockerfile-localnet -t localnet .
 
       - name: Save Docker Image as Tar
-        run: docker save -o subtensor-localnet.tar localnet
+        run: docker save -o /mnt/data/subtensor-localnet.tar localnet
 
       - name: Upload Docker Image as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: subtensor-localnet
-          path: subtensor-localnet.tar
+          path: /mnt/data/subtensor-localnet.tar
 
   # main btcli job
   run-btcli-e2e-tests:
@@ -149,7 +159,7 @@ jobs:
       - find-btcli-e2e-tests
       - build-image-with-current-branch
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 16
@@ -181,7 +191,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: 'false'
+          enable-cache: "false"
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
@@ -243,7 +253,7 @@ jobs:
       - find-sdk-e2e-tests
       - build-image-with-current-branch
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 16
@@ -275,7 +285,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: 'false'
+          enable-cache: "false"
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}

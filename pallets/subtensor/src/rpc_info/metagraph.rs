@@ -694,7 +694,9 @@ impl<T: Config> Pallet<T> {
             alpha_out_emission: SubnetAlphaOutEmission::<T>::get(netuid).into(), // amount injected in alpha reserves per block
             alpha_in_emission: SubnetAlphaInEmission::<T>::get(netuid).into(), // amount injected outstanding per block
             tao_in_emission: SubnetTaoInEmission::<T>::get(netuid).into(), // amount of tao injected per block
-            pending_alpha_emission: PendingEmission::<T>::get(netuid).into(), // pending alpha to be distributed
+            pending_alpha_emission: PendingValidatorEmission::<T>::get(netuid)
+                .saturating_add(PendingServerEmission::<T>::get(netuid))
+                .into(), // pending alpha to be distributed
             pending_root_emission: TaoCurrency::from(0u64).into(), // panding tao for root divs to be distributed
             subnet_volume: subnet_volume.into(),
             moving_price: SubnetMovingPrice::<T>::get(netuid),
@@ -1000,7 +1002,11 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::PendingAlphaEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                pending_alpha_emission: Some(PendingEmission::<T>::get(netuid).into()),
+                pending_alpha_emission: Some(
+                    PendingValidatorEmission::<T>::get(netuid)
+                        .saturating_add(PendingServerEmission::<T>::get(netuid))
+                        .into(),
+                ),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::PendingRootEmission) => SelectiveMetagraph {

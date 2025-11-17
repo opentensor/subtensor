@@ -9,7 +9,7 @@ use crate::{
     DefaultMinRootClaimAmount, Error, Event, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD,
     NetworksAdded, NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable,
     RootClaimableThreshold, StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn,
-    SubnetMechanism, SubnetTAO, SubtokenEnabled, Tempo, pallet,
+    SubnetMechanism, SubnetMovingPrice, SubnetTAO, SubtokenEnabled, Tempo, pallet,
 };
 use crate::{LastRootClaimCleanupData, RootAlphaDividendsPerSubnet, RootClaimSubnetCleanup};
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
@@ -22,7 +22,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::{BTreeMap, BTreeSet};
-use substrate_fixed::types::{I96F32, U96F32};
+use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -76,8 +76,9 @@ fn test_claim_root_with_drain_emissions() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 1_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -144,8 +145,9 @@ fn test_claim_root_with_drain_emissions() {
 
         // Distribute pending root alpha (round 2)
 
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -245,8 +247,9 @@ fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -346,8 +349,9 @@ fn test_claim_root_adding_stake_disproportionally_for_two_stakers() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -437,8 +441,9 @@ fn test_claim_root_with_changed_stake() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -489,8 +494,9 @@ fn test_claim_root_with_changed_stake() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -542,8 +548,9 @@ fn test_claim_root_with_changed_stake() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -631,8 +638,9 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -675,8 +683,9 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
 
         // Distribute and claim pending root alpha (round 2)
 
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -711,8 +720,9 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         );
         // Distribute and claim pending root alpha (round 3)
 
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -779,6 +789,18 @@ fn test_claim_root_with_run_coinbase() {
             netuid,
             initial_total_hotkey_alpha.into(),
         );
+
+        // Set moving price > 1.0 and price > 1.0
+        // So we turn ON root sell
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
+            netuid,
+            U64F64::saturating_from_num(10.0),
+        );
+
+        // Make sure we are root selling, so we have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
 
         // Distribute pending root alpha
 
@@ -878,6 +900,18 @@ fn test_claim_root_with_block_emissions() {
             root_stake.into(),
         );
         SubtensorModule::maybe_add_coldkey_index(&coldkey);
+
+        // Set moving price > 1.0 and price > 1.0
+        // So we turn ON root sell
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
+            netuid,
+            U64F64::saturating_from_num(10.0),
+        );
+
+        // Make sure we are root selling, so we have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
 
         let initial_total_hotkey_alpha = 10_000_000u64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -992,12 +1026,27 @@ fn test_claim_root_coinbase_distribution() {
         let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
         let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
 
-        // Check total issuance (saved to pending alpha divs)
+        // Set moving price > 1.0 and price > 1.0
+        // So we turn ON root sell
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
+            netuid,
+            U64F64::saturating_from_num(10.0),
+        );
 
+        // Make sure we are root selling, so we have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
+
+        // Check total issuance (saved to pending alpha divs)
         run_to_block(2);
 
         let alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        assert_eq!(initial_alpha_issuance + alpha_emissions, alpha_issuance);
+        // We went two blocks so we should have 2x the alpha emissions
+        assert_eq!(
+            initial_alpha_issuance + alpha_emissions.saturating_mul(2.into()),
+            alpha_issuance
+        );
 
         let root_prop = initial_tao as f64 / (u64::from(alpha_issuance) + initial_tao) as f64;
         let root_validators_share = 0.5f64;
@@ -1097,8 +1146,9 @@ fn test_claim_root_with_swap_coldkey() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 1_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -1187,8 +1237,9 @@ fn test_claim_root_with_swap_hotkey() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 1_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -1303,8 +1354,9 @@ fn test_claim_root_on_network_deregistration() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -1484,8 +1536,9 @@ fn test_claim_root_with_unrelated_subnets() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 1_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -1589,8 +1642,9 @@ fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
         ));
 
         let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -1609,8 +1663,9 @@ fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
             epsilon = 100u64,
         );
 
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -2035,8 +2090,9 @@ fn test_claim_root_with_keep_subnets() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 1_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
@@ -2130,8 +2186,9 @@ fn test_claim_root_keep_subnets_swap_claim_type() {
         // Distribute pending root alpha
 
         let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::drain_pending_emission(
+        SubtensorModule::distribute_emission(
             netuid,
+            AlphaCurrency::ZERO,
             AlphaCurrency::ZERO,
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,

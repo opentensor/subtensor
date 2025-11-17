@@ -467,6 +467,17 @@ mod events {
             /// Claim type
             root_claim_type: RootClaimTypeEnum,
         },
+
+        /// Subnet lease dividends have been distributed.
+        SubnetLeaseDividendsDistributed {
+            /// The lease ID
+            lease_id: LeaseId,
+            /// The contributor
+            contributor: T::AccountId,
+            /// The amount of alpha distributed
+            alpha: AlphaCurrency,
+        },
+
         /// Network was deregistered. We clean root claim data.
         RootClaimCleanupStarted {
             /// Subnet ID

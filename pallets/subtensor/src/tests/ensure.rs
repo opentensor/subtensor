@@ -111,6 +111,7 @@ fn ensure_owner_or_root_with_limits_checks_rl_and_freeze() {
         )
         .expect("should pass");
         assert_eq!(res, Some(owner));
+        assert_ok!(crate::Pallet::<Test>::ensure_admin_window_open(netuid));
 
         // Simulate previous update at current block -> next call should fail due to rate limit
         let now = crate::Pallet::<Test>::get_current_block_as_u64();
@@ -127,11 +128,14 @@ fn ensure_owner_or_root_with_limits_checks_rl_and_freeze() {
 
         // Advance beyond RL and ensure passes again
         run_to_block(now + 3);
+        TransactionType::from(Hyperparameter::Kappa)
+            .set_last_block_on_subnet::<Test>(&owner, netuid, 0);
         assert_ok!(crate::Pallet::<Test>::ensure_sn_owner_or_root_with_limits(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
             &[Hyperparameter::Kappa.into()]
         ));
+        assert_ok!(crate::Pallet::<Test>::ensure_admin_window_open(netuid));
 
         // Now advance into the freeze window; ensure blocks
         // (using loop for clarity, because epoch calculation function uses netuid)
@@ -148,12 +152,13 @@ fn ensure_owner_or_root_with_limits_checks_rl_and_freeze() {
             }
             run_to_block(cur + 1);
         }
+        assert_ok!(crate::Pallet::<Test>::ensure_sn_owner_or_root_with_limits(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            &[Hyperparameter::Kappa.into()]
+        ));
         assert_noop!(
-            crate::Pallet::<Test>::ensure_sn_owner_or_root_with_limits(
-                <<Test as Config>::RuntimeOrigin>::signed(owner),
-                netuid,
-                &[Hyperparameter::Kappa.into()],
-            ),
+            crate::Pallet::<Test>::ensure_admin_window_open(netuid),
             crate::Error::<Test>::AdminActionProhibitedDuringWeightsWindow
         );
     });

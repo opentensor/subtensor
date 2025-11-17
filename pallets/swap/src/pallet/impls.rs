@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // initializes V3 swap for a subnet if needed
-    pub(super) fn maybe_initialize_v3(netuid: NetUid) -> Result<(), Error<T>> {
+    pub fn maybe_initialize_v3(netuid: NetUid) -> Result<(), Error<T>> {
         if SwapV3Initialized::<T>::get(netuid) {
             return Ok(());
         }

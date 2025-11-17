@@ -139,8 +139,8 @@ pub mod pallet {
         Alpha,
         /// Enum for crowdloan precompile
         Crowdloan,
-        /// Pure proxy precompile
-        PureProxy,
+        /// Proxy precompile
+        Proxy,
         /// Leasing precompile
         Leasing,
     }
@@ -236,6 +236,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::ServingRateLimit.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, serving_rate_limit);
             log::debug!("ServingRateLimitSet( serving_rate_limit: {serving_rate_limit:?} ) ");
             pallet_subtensor::Pallet::<T>::record_owner_rl(
@@ -288,6 +289,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MaxDifficulty.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -322,6 +324,7 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::SetWeightsVersionKey],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -413,6 +416,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::AdjustmentAlpha.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -445,6 +449,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::ImmunityPeriod.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -479,6 +484,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MinAllowedWeights.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -513,6 +519,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MaxAllowedUids.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -572,6 +579,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::Rho.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -604,6 +612,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::ActivityCutoff.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -672,6 +681,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::PowRegistrationAllowed.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::set_network_pow_registration_allowed(
                 netuid,
@@ -733,6 +743,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MinBurn.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -773,6 +784,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MaxBurn.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -868,6 +880,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::BondsMovingAverage.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             if maybe_owner.is_some() {
                 ensure!(
                     bonds_moving_average <= 975000,
@@ -908,6 +921,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::BondsPenalty.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1245,6 +1259,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::CommitRevealEnabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1288,6 +1303,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::LiquidAlphaEnabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
             log::debug!("LiquidAlphaEnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
             pallet_subtensor::Pallet::<T>::record_owner_rl(
@@ -1318,6 +1334,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::AlphaValues.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             let res = pallet_subtensor::Pallet::<T>::do_set_alpha_values(
                 origin, netuid, alpha_low, alpha_high,
             );
@@ -1437,6 +1454,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::WeightCommitInterval.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1535,6 +1553,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::TransferEnabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             let res = pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle);
             if res.is_ok() {
                 pallet_subtensor::Pallet::<T>::record_owner_rl(
@@ -1567,6 +1586,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::RecycleOrBurn.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::set_recycle_or_burn(netuid, recycle_or_burn);
             pallet_subtensor::Pallet::<T>::record_owner_rl(
@@ -1734,6 +1754,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::AlphaSigmoidSteepness.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1784,6 +1805,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::Yuma3Enabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_yuma3_enabled(netuid, enabled);
 
             Self::deposit_event(Event::Yuma3EnableToggled { netuid, enabled });
@@ -1823,6 +1845,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::BondsResetEnabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_bonds_reset(netuid, enabled);
 
             Self::deposit_event(Event::BondsResetToggled { netuid, enabled });
@@ -1948,6 +1971,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::ImmuneNeuronLimit.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
@@ -2021,6 +2045,7 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::MechanismCountUpdate],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::do_set_mechanism_count(netuid, mechanism_count)?;
 
@@ -2047,6 +2072,7 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::MechanismEmission],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
 
@@ -2077,6 +2103,7 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::MaxUidsTrimming],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
 
