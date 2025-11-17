@@ -99,8 +99,10 @@ impl<T: Config> Pallet<T> {
         max_uids: u16,
         mechanism_count: MechId,
     ) -> DispatchResult {
+        let max_uids_over_all_mechanisms =
+            max_uids.saturating_mul(u8::from(mechanism_count) as u16);
         ensure!(
-            max_uids.saturating_mul(u8::from(mechanism_count) as u16) <= 256,
+            max_uids_over_all_mechanisms <= T::DefaultMaxAllowedUids::get(),
             Error::<T>::TooManyUIDsPerMechanism
         );
         Ok(())
