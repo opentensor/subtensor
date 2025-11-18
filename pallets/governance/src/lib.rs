@@ -785,7 +785,7 @@ impl<T: Config> Pallet<T> {
             // It will be scheduled on the next block because scheduler already ran for this block.
             DispatchTime::After(Zero::zero()),
         )?;
-        Self::clear_scheduled_proposal(proposal_hash);
+        CollectiveVoting::<T>::remove(&proposal_hash);
         Self::deposit_event(Event::<T>::ScheduledProposalFastTracked { proposal_hash });
         Ok(())
     }
@@ -804,14 +804,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let net_score = voting.nays.len() as i32 - voting.ayes.len() as i32;
 
-        // Delay based on net opposition
-        let additional_delay = if net_score > 0 {
-            let initial_delay = T::InitialSchedulingDelay::get().into().as_u64() as f64;
-            let multiplier = 1.5_f64.powi(net_score as i32);
-            ((initial_delay * multiplier).ceil() as u32).into()
-        } else {
-            Zero::zero()
-        };
+        let additional_delay = Self::compute_additional_delay(net_score);
 
         // No change, no need to reschedule
         if voting.delay == additional_delay {
@@ -822,9 +815,9 @@ impl<T: Config> Pallet<T> {
         let elapsed_time = now.saturating_sub(voting.initial_dispatch_time);
 
         // We are past new delay, fast track
-        // if elapsed_time >= additional_delay {
-        //     return Self::do_fast_track(proposal_hash);
-        // }
+        if elapsed_time > additional_delay {
+            return Self::do_fast_track(proposal_hash);
+        }
 
         let name = Self::task_name_from_hash(proposal_hash)?;
         let dispatch_time = DispatchTime::At(voting.initial_dispatch_time + additional_delay);
@@ -955,5 +948,15 @@ impl<T: Config> Pallet<T> {
             .as_ref()
             .try_into()
             .map_err(|_| Error::<T>::InvalidProposalHashLength)?)
+    }
+
+    fn compute_additional_delay(net_score: i32) -> BlockNumberFor<T> {
+        if net_score > 0 {
+            let initial_delay = T::InitialSchedulingDelay::get().into().as_u64() as f64;
+            let multiplier = 1.5_f64.powi(net_score.abs());
+            ((initial_delay * multiplier).ceil() as u32).into()
+        } else {
+            Zero::zero()
+        }
     }
 }

@@ -250,18 +250,17 @@ impl TestState {
     }
 }
 
-pub(crate) fn last_event() -> RuntimeEvent {
-    System::events().pop().expect("RuntimeEvent expected").event
-}
-
-pub(crate) fn last_n_events(n: usize) -> Vec<RuntimeEvent> {
+pub(crate) fn nth_last_event(n: usize) -> RuntimeEvent {
     System::events()
         .into_iter()
         .rev()
-        .take(n)
-        .rev()
-        .map(|e| e.event)
-        .collect()
+        .nth(n)
+        .expect("RuntimeEvent expected")
+        .event
+}
+
+pub(crate) fn last_event() -> RuntimeEvent {
+    nth_last_event(0)
 }
 
 pub(crate) fn run_to_block(n: BlockNumberFor<Test>) {
