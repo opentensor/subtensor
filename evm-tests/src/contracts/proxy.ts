@@ -144,5 +144,41 @@ export const IProxyABI = [
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "account",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getProxies",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "delegate",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "proxy_type",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "delay",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IProxy.ProxyInfo[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
