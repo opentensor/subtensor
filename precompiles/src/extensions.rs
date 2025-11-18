@@ -98,7 +98,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     where
         R: frame_system::Config + pallet_evm::Config,
     {
-        if post_info.pays_fee(&info) == Pays::Yes {
+        if post_info.pays_fee(info) == Pays::Yes {
             let actual_weight = post_info.actual_weight.unwrap_or(info.call_weight);
             let cost = <R as pallet_evm::Config>::GasWeightMapping::weight_to_gas(actual_weight);
             self.record_cost(cost)?;
