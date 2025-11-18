@@ -40,6 +40,7 @@ use sc_client_api::StorageKey;
 use node_subtensor_runtime::opaque::BlockId;
 use sc_client_api::HeaderBackend;
 use sc_client_api::StorageProvider;
+use codec::Decode;
 
 const LOG_TARGET: &str = "node-service";
 
@@ -540,49 +541,38 @@ where
     )
     .await;
 
-    // ==== MEV-SHIELD HOOKS ====
+      // ==== MEV-SHIELD HOOKS ====
+    let mut mev_timing: Option<crate::mev_shield::author::TimeParams> = None;
+
     if role.is_authority() {
-        // Use the same slot duration the consensus layer reports.
         let slot_duration_ms: u64 = consensus_mechanism
             .slot_duration(&client)?
             .as_millis() as u64;
 
-        // Time windows, runtime constants (7s / 2s grace / last 3s).
-        let timing = author::TimeParams {
+        // Time windows (7s announce / last 3s decrypt).
+        let timing = crate::mev_shield::author::TimeParams {
             slot_ms: slot_duration_ms,
             announce_at_ms: 7_000,
             decrypt_window_ms: 3_000,
         };
-
-        // --- imports needed for raw storage read & SCALE decode
-        use codec::Decode; // parity-scale-codec re-export
-        use sp_core::{storage::StorageKey, twox_128};
+        mev_timing = Some(timing.clone());
 
         // Initialize author‑side epoch from chain storage
         let initial_epoch: u64 = {
-            // Best block hash (H256). NOTE: this method expects H256 by value (not BlockId).
             let best = client.info().best_hash;
-
-            // Storage key for pallet "MevShield", item "Epoch":
-            // final key = twox_128(b"MevShield") ++ twox_128(b"Epoch")
             let mut key_bytes = Vec::with_capacity(32);
             key_bytes.extend_from_slice(&twox_128(b"MevShield"));
             key_bytes.extend_from_slice(&twox_128(b"Epoch"));
             let key = StorageKey(key_bytes);
 
-            // Read raw storage at `best`
             match client.storage(best, &key) {
-                Ok(Some(raw_bytes)) => {
-                    // `raw_bytes` is sp_core::storage::StorageData(pub Vec<u8>)
-                    // Decode with SCALE: pass a &mut &[u8] over the inner Vec.
-                    u64::decode(&mut &raw_bytes.0[..]).unwrap_or(0)
-                }
+                Ok(Some(raw_bytes)) => u64::decode(&mut &raw_bytes.0[..]).unwrap_or(0),
                 _ => 0,
             }
         };
 
-        // Start author-side tasks with the *actual* epoch.
-        let mev_ctx = author::spawn_author_tasks::<Block, _, _>(
+        // Start author-side tasks with the epoch.
+        let mev_ctx = crate::mev_shield::author::spawn_author_tasks::<Block, _, _>(
             &task_manager.spawn_handle(),
             client.clone(),
             transaction_pool.clone(),
@@ -592,7 +582,7 @@ where
         );
 
         // Start last-3s revealer (decrypt -> execute_revealed).
-        proposer::spawn_revealer::<Block, _, _>(
+        crate::mev_shield::proposer::spawn_revealer::<Block, _, _>(
             &task_manager.spawn_handle(),
             client.clone(),
             transaction_pool.clone(),
@@ -614,7 +604,6 @@ where
                 telemetry.as_ref(),
                 commands_stream,
             )?;
-
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
         }
@@ -628,6 +617,25 @@ where
         );
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
+
+        let start_fraction: f32 = {
+            let (slot_ms, decrypt_ms) = mev_timing
+                .as_ref()
+                .map(|t| (t.slot_ms, t.decrypt_window_ms))
+                .unwrap_or((slot_duration.as_millis() as u64, 3_000));
+
+            let guard_ms: u64 = 200; // small cushion so reveals hit the pool first
+            let after_decrypt_ms = slot_ms
+                .saturating_sub(decrypt_ms)
+                .saturating_add(guard_ms);
+
+            // Clamp into (0.5 .. 0.98] to give the proposer enough time
+            let mut f = (after_decrypt_ms as f32) / (slot_ms as f32);
+            if f < 0.50 { f = 0.50; }
+            if f > 0.98 { f = 0.98; }
+            f
+        };
+
         let create_inherent_data_providers =
             move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
@@ -645,7 +653,7 @@ where
                 force_authoring,
                 backoff_authoring_blocks,
                 keystore: keystore_container.keystore(),
-                block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
+                block_proposal_slot_portion: SlotProportion::new(start_fraction),
                 max_block_proposal_slot_portion: None,
                 telemetry: telemetry.as_ref().map(|x| x.handle()),
             },

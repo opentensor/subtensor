@@ -215,7 +215,6 @@ where
                     local_aura_pub.clone(),
                     next_pk.clone(),
                     next_epoch,
-                    timing.announce_at_ms,
                     local_nonce,
                 )
                 .await
@@ -234,7 +233,6 @@ where
                                 local_aura_pub.clone(),
                                 next_pk,
                                 next_epoch,
-                                timing.announce_at_ms,
                                 local_nonce.saturating_add(1),
                             )
                             .await
@@ -287,7 +285,6 @@ pub async fn submit_announce_extrinsic<B, C, Pool>(
     aura_pub: sp_core::sr25519::Public,   // local Aura authority public key
     next_public_key: Vec<u8>,            // full ML‑KEM pubkey bytes (expected 1184B)
     epoch: u64,
-    at_ms: u64,
     nonce: u32,                          // nonce for CheckNonce extension
 ) -> anyhow::Result<()>
 where
@@ -331,7 +328,6 @@ where
         pallet_mev_shield::Call::announce_next_key {
             public_key,
             epoch,
-            at_ms,
         }
     );
 
