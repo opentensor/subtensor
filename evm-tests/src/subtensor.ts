@@ -39,7 +39,7 @@ export async function forceSetBalanceToSs58Address(api: TypedApi<typeof devnet>,
     await waitForTransactionWithRetry(api, tx, alice)
 
     const balanceOnChain = (await api.query.System.Account.getValue(ss58Address)).data.free
-    // check the balance except for sudo account becasue of tx fee
+    // check the balance except for sudo account because of tx fee
     if (ss58Address !== convertPublicKeyToSs58(alice.publicKey)) {
         assert.equal(balance, balanceOnChain)
     }
