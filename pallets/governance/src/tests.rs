@@ -1356,7 +1356,7 @@ fn collective_vote_can_be_updated() {
 }
 
 #[test]
-fn collective_aye_votes_to_threshold_on_scheduled_proposal_fast_tracks() {
+fn collective_aye_votes_above_threshold_on_scheduled_proposal_fast_tracks() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
         let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
@@ -1368,7 +1368,6 @@ fn collective_aye_votes_to_threshold_on_scheduled_proposal_fast_tracks() {
             vote_aye_on_scheduled!(member, proposal_hash, proposal_index);
         }
 
-        assert!(Scheduled::<Test>::get().is_empty());
         assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
         let now = frame_system::Pallet::<Test>::block_number();
         assert_eq!(
@@ -1379,11 +1378,18 @@ fn collective_aye_votes_to_threshold_on_scheduled_proposal_fast_tracks() {
             last_event(),
             RuntimeEvent::Governance(Event::<Test>::ScheduledProposalFastTracked { proposal_hash })
         );
+
+        // Now let run one block to see the proposal executed
+        assert_eq!(sp_io::storage::get(b"Foobar"), None); // Not executed yet
+        run_to_block(now + 1);
+        assert!(get_scheduler_proposal_task(proposal_hash).is_none());
+        let stored_value = 42u32.to_be_bytes().to_vec().into();
+        assert_eq!(sp_io::storage::get(b"Foobar"), Some(stored_value)); // Executed
     });
 }
 
 #[test]
-fn collective_nay_votes_to_threshold_on_scheduled_proposal_cancels() {
+fn collective_nay_votes_above_threshold_on_scheduled_proposal_cancels() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
         let threshold = CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
