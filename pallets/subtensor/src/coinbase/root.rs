@@ -314,7 +314,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 15. Mechanism step / emissions bookkeeping.
         FirstEmissionBlockNumber::<T>::remove(netuid);
-        PendingEmission::<T>::remove(netuid);
+        PendingValidatorEmission::<T>::remove(netuid);
+        PendingServerEmission::<T>::remove(netuid);
         PendingRootAlphaDivs::<T>::remove(netuid);
         PendingOwnerCut::<T>::remove(netuid);
         BlocksSinceLastStep::<T>::remove(netuid);
@@ -348,7 +349,6 @@ impl<T: Config> Pallet<T> {
         RAORecycledForRegistration::<T>::remove(netuid);
         MaxRegistrationsPerBlock::<T>::remove(netuid);
         WeightsVersionKey::<T>::remove(netuid);
-        PendingRootAlphaDivs::<T>::remove(netuid);
 
         // --- 17. Subtoken / feature flags.
         LiquidAlphaOn::<T>::remove(netuid);

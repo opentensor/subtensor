@@ -162,6 +162,33 @@ pub enum ProxyType {
     RootClaim,
 }
 
+impl TryFrom<u8> for ProxyType {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Any),
+            1 => Ok(Self::Owner),
+            2 => Ok(Self::NonCritical),
+            3 => Ok(Self::NonTransfer),
+            4 => Ok(Self::Senate),
+            5 => Ok(Self::NonFungible),
+            6 => Ok(Self::Triumvirate),
+            7 => Ok(Self::Governance),
+            8 => Ok(Self::Staking),
+            9 => Ok(Self::Registration),
+            10 => Ok(Self::Transfer),
+            11 => Ok(Self::SmallTransfer),
+            12 => Ok(Self::RootWeights),
+            13 => Ok(Self::ChildKeys),
+            14 => Ok(Self::SudoUncheckedSetCode),
+            15 => Ok(Self::SwapHotkey),
+            16 => Ok(Self::SubnetLeaseBeneficiary),
+            _ => Err(()),
+        }
+    }
+}
+
 impl Default for ProxyType {
     // allow all Calls; required to be most permissive
     fn default() -> Self {
