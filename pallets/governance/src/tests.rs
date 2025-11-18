@@ -1446,6 +1446,32 @@ fn collective_vote_on_non_scheduled_proposal_fails() {
 }
 
 #[test]
+fn collective_vote_on_fast_tracked_proposal_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
+        let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
+        let combined_collective = EconomicCollective::<Test>::get()
+            .into_iter()
+            .chain(BuildingCollective::<Test>::get().into_iter());
+
+        for member in combined_collective.clone().take(threshold as usize) {
+            vote_aye_on_scheduled!(member, proposal_hash, proposal_index);
+        }
+
+        let voter = combined_collective.skip(threshold as usize).next().unwrap();
+        assert_noop!(
+            Pallet::<Test>::vote_on_scheduled(
+                RuntimeOrigin::signed(voter),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
+            Error::<Test>::ProposalVotingPeriodEnded
+        );
+    });
+}
+
+#[test]
 fn collective_vote_on_proposal_with_wrong_index_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, _proposal_index) = create_scheduled_proposal!();

@@ -699,7 +699,11 @@ impl<T: Config> Pallet<T> {
         approve: bool,
     ) -> Result<CollectiveVotes<T::AccountId, BlockNumberFor<T>>, DispatchError> {
         CollectiveVoting::<T>::try_mutate(proposal_hash, |voting| {
-            let voting = voting.as_mut().ok_or(Error::<T>::ProposalNotScheduled)?;
+            // No voting here but we have proposal in scheduled, proposal
+            // has been fast-tracked.
+            let voting = voting
+                .as_mut()
+                .ok_or(Error::<T>::ProposalVotingPeriodEnded)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
             Self::do_vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
             Ok(voting.clone())
@@ -797,7 +801,8 @@ impl<T: Config> Pallet<T> {
     fn do_cancel_scheduled(proposal_hash: T::Hash) -> DispatchResult {
         let name = Self::task_name_from_hash(proposal_hash)?;
         T::Scheduler::cancel_named(name)?;
-        Self::clear_scheduled_proposal(proposal_hash);
+        Scheduled::<T>::mutate(|scheduled| scheduled.retain(|h| h != &proposal_hash));
+        CollectiveVoting::<T>::remove(&proposal_hash);
         Self::deposit_event(Event::<T>::ScheduledProposalCancelled { proposal_hash });
         Ok(())
     }
@@ -843,13 +848,6 @@ impl<T: Config> Pallet<T> {
         });
         ProposalOf::<T>::remove(&proposal_hash);
         TriumvirateVoting::<T>::remove(&proposal_hash);
-    }
-
-    fn clear_scheduled_proposal(proposal_hash: T::Hash) {
-        Scheduled::<T>::mutate(|scheduled| {
-            scheduled.retain(|h| h != &proposal_hash);
-        });
-        CollectiveVoting::<T>::remove(&proposal_hash);
     }
 
     fn do_rotate_collectives() -> Weight {
