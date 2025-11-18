@@ -3,23 +3,18 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use codec::{Decode, Encode};
 use futures::StreamExt;
 use sc_service::SpawnTaskHandle;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
 use sp_core::H256;
 use sp_runtime::{
     generic::Era,
-    traits::Block as BlockT,
-    MultiAddress,
     MultiSignature,
     OpaqueExtrinsic,
     AccountId32,
 };
 use tokio::time::sleep;
-use node_subtensor_runtime as runtime;
-use runtime::RuntimeCall;
-use super::author::{aead_decrypt, derive_aead_key, MevShieldContext};
+use super::author::MevShieldContext;
 use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
 use ml_kem::kem::{Decapsulate, DecapsulationKey};
 
@@ -239,7 +234,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         "revealer: sleeping {} ms before decrypt window (slot_ms={}, decrypt_window_ms={})",
                         tail, ctx.timing.slot_ms, ctx.timing.decrypt_window_ms
                     );
-                    tokio::time::sleep(Duration::from_millis(tail)).await;
+                    sleep(Duration::from_millis(tail)).await;
 
                     // Snapshot the *current* ML‑KEM secret and epoch.
                     let (curr_sk_bytes, curr_epoch, curr_pk_len, next_pk_len, sk_hash) = {
@@ -512,7 +507,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         }
                     }
 
-                    tokio::time::sleep(Duration::from_millis(ctx.timing.decrypt_window_ms)).await;
+                    sleep(Duration::from_millis(ctx.timing.decrypt_window_ms)).await;
                 }
             },
         );
