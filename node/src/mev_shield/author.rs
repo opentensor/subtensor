@@ -18,9 +18,9 @@ pub struct TimeParams {
 }
 
 /// Holds the current/next ML‑KEM keypairs and their 32‑byte fingerprints.
-#[freeze_struct("e4778f8957165b64")]
+#[freeze_struct("3a83c10877ec1f24")]
 #[derive(Clone)]
-pub struct MevShieldKeys {
+pub struct ShieldKeys {
     pub current_sk: Vec<u8>,   // ML‑KEM secret key bytes (encoded form)
     pub current_pk: Vec<u8>,   // ML‑KEM public  key bytes (encoded form)
     pub current_fp: [u8; 32],  // blake2_256(pk)
@@ -30,7 +30,7 @@ pub struct MevShieldKeys {
     pub epoch: u64,
 }
 
-impl MevShieldKeys {
+impl ShieldKeys {
     pub fn new(epoch: u64) -> Self {
         let (sk, pk) = MlKem768::generate(&mut OsRng);
 
@@ -76,10 +76,10 @@ impl MevShieldKeys {
 }
 
 /// Shared context state.
-#[freeze_struct("d04f0903285c319d")]
+#[freeze_struct("62af7d26cf7c1271")]
 #[derive(Clone)]
-pub struct MevShieldContext {
-    pub keys: Arc<Mutex<MevShieldKeys>>,
+pub struct ShieldContext {
+    pub keys: Arc<Mutex<ShieldKeys>>,
     pub timing: TimeParams,
 }
 
@@ -114,7 +114,7 @@ pub fn spawn_author_tasks<B, C, Pool>(
     keystore: sp_keystore::KeystorePtr,
     initial_epoch: u64,
     timing: TimeParams,
-) -> MevShieldContext
+) -> ShieldContext
 where
     B: sp_runtime::traits::Block,
     C: sc_client_api::HeaderBackend<B>
@@ -125,8 +125,8 @@ where
     Pool: sc_transaction_pool_api::TransactionPool<Block = B> + Send + Sync + 'static,
     B::Extrinsic: From<sp_runtime::OpaqueExtrinsic>,
 {
-    let ctx = MevShieldContext {
-        keys:   std::sync::Arc::new(std::sync::Mutex::new(MevShieldKeys::new(initial_epoch))),
+    let ctx = ShieldContext {
+        keys:   std::sync::Arc::new(std::sync::Mutex::new(ShieldKeys::new(initial_epoch))),
         timing: timing.clone(),
     };
 
@@ -300,7 +300,7 @@ where
 
     // 1) The runtime call carrying public key bytes.
     let call = RuntimeCall::MevShield(
-        pallet_mev_shield::Call::announce_next_key {
+        pallet_shield::Call::announce_next_key {
             public_key,
             epoch,
         }

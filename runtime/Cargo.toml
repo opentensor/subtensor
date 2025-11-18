@@ -150,7 +150,7 @@ ark-serialize = { workspace = true, features = ["derive"] }
 pallet-crowdloan.workspace = true
 
 # Mev Shield
-pallet-mev-shield.workspace = true
+pallet-shield.workspace = true
 
 ethereum.workspace = true
 

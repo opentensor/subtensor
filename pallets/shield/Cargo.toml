@@ -1,5 +1,5 @@
 [package]
-name = "pallet-mev-shield"
+name = "pallet-shield"
 description = "FRAME pallet for opt-in, per-block ephemeral-key encrypted transactions, MEV-shielded."
 authors = ["Subtensor Contributors <https://github.com/opentensor/subtensor>"]
 version = "0.0.1"

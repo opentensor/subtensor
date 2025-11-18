@@ -115,7 +115,7 @@ fp-consensus.workspace = true
 num-traits = { workspace = true, features = ["std"] }
 
 # Mev Shield
-pallet-mev-shield.workspace = true
+pallet-shield.workspace = true
 tokio = { version = "1.38", features = ["time"] }
 x25519-dalek = "2"
 hkdf = "0.12"

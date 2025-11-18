@@ -28,7 +28,7 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
-pub use pallet_mev_shield;
+pub use pallet_shield;
 use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
@@ -120,25 +120,25 @@ impl frame_system::offchain::SigningTypes for Runtime {
     type Signature = Signature;
 }
 
-impl pallet_mev_shield::Config for Runtime {
+impl pallet_shield::Config for Runtime {
     type RuntimeCall = RuntimeCall;
-    type SlotMs = MevShieldSlotMs;
-    type AnnounceAtMs = MevShieldAnnounceAtMs;
-    type GraceMs = MevShieldGraceMs;
-    type DecryptWindowMs = MevShieldDecryptWindowMs;
+    type SlotMs = ShieldSlotMs;
+    type AnnounceAtMs = ShieldAnnounceAtMs;
+    type GraceMs = ShieldGraceMs;
+    type DecryptWindowMs = ShieldDecryptWindowMs;
     type Currency = Balances;
-    type AuthorityOrigin = pallet_mev_shield::EnsureAuraAuthority<Self>;
+    type AuthorityOrigin = pallet_shield::EnsureAuraAuthority<Self>;
 }
 
 parameter_types! {
     /// Milliseconds per slot; use the chain’s configured slot duration.
-    pub const MevShieldSlotMs: u64 = SLOT_DURATION;
+    pub const ShieldSlotMs: u64 = SLOT_DURATION;
     /// Emit the *next* ephemeral public key event at 7s.
-    pub const MevShieldAnnounceAtMs: u64 = 7_000;
+    pub const ShieldAnnounceAtMs: u64 = 7_000;
     /// Old key remains accepted until 9s (2s grace).
-    pub const MevShieldGraceMs: u64 = 2_000;
+    pub const ShieldGraceMs: u64 = 2_000;
     /// Last 3s of the slot reserved for decrypt+execute.
-    pub const MevShieldDecryptWindowMs: u64 = 3_000;
+    pub const ShieldDecryptWindowMs: u64 = 3_000;
 }
 
 impl<C> frame_system::offchain::CreateTransactionBase<C> for Runtime
@@ -1591,7 +1591,7 @@ construct_runtime!(
         Crowdloan: pallet_crowdloan = 27,
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
-        MevShield: pallet_mev_shield = 30,
+        MevShield: pallet_shield = 30,
     }
 );
 

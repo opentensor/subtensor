@@ -14,7 +14,7 @@ use sp_runtime::{
     AccountId32,
 };
 use tokio::time::sleep;
-use super::author::MevShieldContext;
+use super::author::ShieldContext;
 use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
 use ml_kem::kem::{Decapsulate, DecapsulationKey};
 
@@ -97,7 +97,7 @@ pub fn spawn_revealer<B, C, Pool>(
     task_spawner: &SpawnTaskHandle,
     client: Arc<C>,
     pool:   Arc<Pool>,
-    ctx:    MevShieldContext,
+    ctx:    ShieldContext,
 ) where
     B: sp_runtime::traits::Block<Extrinsic = OpaqueExtrinsic>,
     C: sc_client_api::HeaderBackend<B>
@@ -181,7 +181,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 };
 
                                 if let node_subtensor_runtime::RuntimeCall::MevShield(
-                                    pallet_mev_shield::Call::submit_encrypted {
+                                    pallet_shield::Call::submit_encrypted {
                                         key_epoch,
                                         commitment,
                                         ciphertext,
@@ -450,7 +450,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         );
 
                         let reveal = node_subtensor_runtime::RuntimeCall::MevShield(
-                            pallet_mev_shield::Call::execute_revealed {
+                            pallet_shield::Call::execute_revealed {
                                 id,
                                 signer: signer.clone(),
                                 nonce: account_nonce,

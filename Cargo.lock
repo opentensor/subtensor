@@ -8222,7 +8222,7 @@ dependencies = [
  "num-traits",
  "pallet-commitments",
  "pallet-drand",
- "pallet-mev-shield",
+ "pallet-shield",
  "pallet-subtensor",
  "pallet-subtensor-swap-rpc",
  "pallet-subtensor-swap-runtime-api",
@@ -8337,7 +8337,6 @@ dependencies = [
  "pallet-grandpa",
  "pallet-hotfix-sufficients",
  "pallet-insecure-randomness-collective-flip",
- "pallet-mev-shield",
  "pallet-multisig",
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
@@ -8347,6 +8346,7 @@ dependencies = [
  "pallet-safe-mode",
  "pallet-scheduler",
  "pallet-session",
+ "pallet-shield",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
@@ -10003,26 +10003,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-mev-shield"
-version = "0.0.1"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-aura",
- "pallet-timestamp",
- "parity-scale-codec",
- "scale-info",
- "sp-consensus-aura",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "sp-weights",
- "subtensor-macros",
-]
-
-[[package]]
 name = "pallet-migrations"
 version = "11.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=81fa2c54e94f824eba7dabe9dffd063481cb2d80#81fa2c54e94f824eba7dabe9dffd063481cb2d80"
@@ -10585,6 +10565,26 @@ dependencies = [
  "rand 0.8.5",
  "sp-runtime",
  "sp-session",
+]
+
+[[package]]
+name = "pallet-shield"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-aura",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-weights",
+ "subtensor-macros",
 ]
 
 [[package]]
