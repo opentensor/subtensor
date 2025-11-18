@@ -395,6 +395,7 @@ impl<T: Config> Pallet<T> {
     pub fn start_removing_root_claim_data_for_subnet(netuid: NetUid) {
         // TODO: check for empty RootClaimSubnetCleanup and return DispatchResult
         // TODO: prevent double network dissolution
+        // TODO: prevent root claim for this subnet
 
         let root_cleanup_data = RootClaimSubnetCleanup {
             last_root_claimable_hotkey: None,
