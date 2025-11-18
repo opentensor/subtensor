@@ -110,7 +110,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        // /// The overarching call type.
+        /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
             + GetDispatchInfo
@@ -369,6 +369,8 @@ pub mod pallet {
         NotCollectiveMember,
         /// Proposal is not scheduled.
         ProposalNotScheduled,
+        /// Proposal voting period has ended.
+        ProposalVotingPeriodEnded,
     }
 
     #[pallet::hooks]
@@ -683,6 +685,8 @@ impl<T: Config> Pallet<T> {
         TriumvirateVoting::<T>::try_mutate(proposal_hash, |voting| {
             let voting = voting.as_mut().ok_or(Error::<T>::ProposalMissing)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
+            let now = frame_system::Pallet::<T>::block_number();
+            ensure!(voting.end > now, Error::<T>::ProposalVotingPeriodEnded);
             Self::do_vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
             Ok(voting.clone())
         })

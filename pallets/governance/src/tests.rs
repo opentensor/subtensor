@@ -951,6 +951,26 @@ fn triumvirate_vote_on_proposal_with_wrong_index_fails() {
 }
 
 #[test]
+fn triumvirate_vote_on_ended_proposal_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_proposal!();
+
+        let now = frame_system::Pallet::<Test>::block_number();
+        run_to_block(now + MotionDuration::get() + 1);
+
+        assert_noop!(
+            Pallet::<Test>::vote_on_proposed(
+                RuntimeOrigin::signed(U256::from(1001)),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
+            Error::<Test>::ProposalVotingPeriodEnded
+        );
+    });
+}
+
+#[test]
 fn duplicate_triumvirate_vote_on_proposal_already_voted_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
