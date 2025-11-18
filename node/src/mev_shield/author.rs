@@ -131,23 +131,23 @@ where
     };
 
     let aura_keys: Vec<sp_core::sr25519::Public> = keystore.sr25519_public_keys(AURA_KEY_TYPE);
-    let local_aura_pub: Option<sp_core::sr25519::Public> = aura_keys.get(0).cloned();
 
-    if local_aura_pub.is_none() {
-        log::warn!(
-            target: "mev-shield",
-            "spawn_author_tasks: no local Aura sr25519 key in keystore; \
-             this node will NOT announce MEV-Shield keys"
-        );
-        return ctx;
-    }
+    let local_aura_pub = match aura_keys.get(0).cloned() {
+        Some(k) => k,
+        None => {
+            log::warn!(
+                target: "mev-shield",
+                "spawn_author_tasks: no local Aura sr25519 key in keystore; \
+                 this node will NOT announce MEV-Shield keys"
+            );
+            return ctx;
+        }
+    };
 
-    let local_aura_pub = local_aura_pub.expect("checked is_some; qed");
-
-    let ctx_clone       = ctx.clone();
-    let client_clone    = client.clone();
-    let pool_clone      = pool.clone();
-    let keystore_clone  = keystore.clone();
+    let ctx_clone      = ctx.clone();
+    let client_clone   = client.clone();
+    let pool_clone     = pool.clone();
+    let keystore_clone = keystore.clone();
 
     // Slot tick / key-announce loop.
     task_spawner.spawn(
@@ -167,9 +167,16 @@ where
                 }
 
                 // This block is the start of a slot for which we are the author.
-                let (epoch_now, curr_pk_len, next_pk_len) = {
-                    let k = ctx_clone.keys.lock().unwrap();
-                    (k.epoch, k.current_pk.len(), k.next_pk.len())
+                let (epoch_now, curr_pk_len, next_pk_len) = match ctx_clone.keys.lock() {
+                    Ok(k) => (k.epoch, k.current_pk.len(), k.next_pk.len()),
+                    Err(e) => {
+                        log::warn!(
+                            target: "mev-shield",
+                            "spawn_author_tasks: failed to lock ShieldKeys (poisoned?): {:?}",
+                            e
+                        );
+                        continue;
+                    }
                 };
 
                 log::info!(
@@ -182,9 +189,16 @@ where
                 sleep(std::time::Duration::from_millis(timing.announce_at_ms)).await;
 
                 // Read the next key we intend to use for the following epoch.
-                let (next_pk, next_epoch) = {
-                    let k = ctx_clone.keys.lock().unwrap();
-                    (k.next_pk.clone(), k.epoch.saturating_add(1))
+                let (next_pk, next_epoch) = match ctx_clone.keys.lock() {
+                    Ok(k) => (k.next_pk.clone(), k.epoch.saturating_add(1)),
+                    Err(e) => {
+                        log::warn!(
+                            target: "mev-shield",
+                            "spawn_author_tasks: failed to lock ShieldKeys for next_pk: {:?}",
+                            e
+                        );
+                        continue;
+                    }
                 };
 
                 // Submit announce_next_key once, signed with the local Aura authority that authors this block
@@ -239,14 +253,22 @@ where
                 sleep(std::time::Duration::from_millis(tail)).await;
 
                 // Roll keys for the next epoch.
-                {
-                    let mut k = ctx_clone.keys.lock().unwrap();
-                    k.roll_for_next_slot();
-                    log::info!(
-                        target: "mev-shield",
-                        "Rolled ML-KEM key at slot boundary (local author): new epoch={}",
-                        k.epoch
-                    );
+                match ctx_clone.keys.lock() {
+                    Ok(mut k) => {
+                        k.roll_for_next_slot();
+                        log::info!(
+                            target: "mev-shield",
+                            "Rolled ML-KEM key at slot boundary (local author): new epoch={}",
+                            k.epoch
+                        );
+                    }
+                    Err(e) => {
+                        log::warn!(
+                            target: "mev-shield",
+                            "spawn_author_tasks: failed to lock ShieldKeys for roll_for_next_slot: {:?}",
+                            e
+                        );
+                    }
                 }
             }
         }
@@ -288,9 +310,24 @@ where
     fn to_h256<H: AsRef<[u8]>>(h: H) -> H256 {
         let bytes = h.as_ref();
         let mut out = [0u8; 32];
+
+        if bytes.is_empty() {
+            return H256(out);
+        }
+
         let n = bytes.len().min(32);
-        out[32 - n..].copy_from_slice(&bytes[bytes.len() - n..]);
-        H256(out)
+        let src_start = bytes.len().saturating_sub(n);
+        let dst_start = 32usize.saturating_sub(n);
+
+        if let (Some(dst), Some(src)) =
+            (out.get_mut(dst_start..32), bytes.get(src_start..src_start + n))
+        {
+            dst.copy_from_slice(src);
+            H256(out)
+        } else {
+            // Extremely unlikely; fall back to zeroed H256 if indices are somehow invalid.
+            H256([0u8; 32])
+        }
     }
 
     type MaxPk = ConstU32<2048>;
