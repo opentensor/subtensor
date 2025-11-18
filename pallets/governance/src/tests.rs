@@ -951,7 +951,7 @@ fn triumvirate_vote_on_proposal_with_wrong_index_fails() {
 }
 
 #[test]
-fn triumvirate_vote_on_ended_proposal_fails() {
+fn triumvirate_vote_after_voting_period_ended_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
@@ -1407,6 +1407,36 @@ fn collective_nay_votes_above_threshold_on_scheduled_proposal_cancels() {
         assert_eq!(
             last_event(),
             RuntimeEvent::Governance(Event::<Test>::ScheduledProposalCancelled { proposal_hash })
+        );
+    });
+}
+
+#[test]
+fn collective_aye_vote_triggering_fast_track_on_next_block_scheduled_proposal_fails() {
+    TestState::default().build_and_execute(|| {
+        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
+        let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
+        let combined_collective = EconomicCollective::<Test>::get()
+            .into_iter()
+            .chain(BuildingCollective::<Test>::get().into_iter());
+
+        let below_threshold = (threshold - 1) as usize;
+        for member in combined_collective.clone().take(below_threshold) {
+            vote_aye_on_scheduled!(member, proposal_hash, proposal_index);
+        }
+
+        let voting = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
+        run_to_block(voting.initial_dispatch_time - 1);
+
+        let voter = combined_collective.skip(below_threshold).next().unwrap();
+        assert_noop!(
+            Pallet::<Test>::vote_on_scheduled(
+                RuntimeOrigin::signed(voter),
+                proposal_hash,
+                proposal_index,
+                true
+            ),
+            pallet_scheduler::Error::<Test>::RescheduleNoChange
         );
     });
 }
