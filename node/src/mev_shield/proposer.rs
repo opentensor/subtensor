@@ -1,22 +1,17 @@
+use super::author::ShieldContext;
+use futures::StreamExt;
+use ml_kem::kem::{Decapsulate, DecapsulationKey};
+use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
+use sc_service::SpawnTaskHandle;
+use sc_transaction_pool_api::{TransactionPool, TransactionSource};
+use sp_core::H256;
+use sp_runtime::{AccountId32, MultiSignature, OpaqueExtrinsic, generic::Era};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     time::Duration,
 };
-use futures::StreamExt;
-use sc_service::SpawnTaskHandle;
-use sc_transaction_pool_api::{TransactionPool, TransactionSource};
-use sp_core::H256;
-use sp_runtime::{
-    generic::Era,
-    MultiSignature,
-    OpaqueExtrinsic,
-    AccountId32,
-};
 use tokio::time::sleep;
-use super::author::ShieldContext;
-use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
-use ml_kem::kem::{Decapsulate, DecapsulationKey};
 
 /// Buffer of wrappers per-slot.
 #[derive(Default, Clone)]
@@ -24,21 +19,15 @@ struct WrapperBuffer {
     by_id: HashMap<
         H256,
         (
-            Vec<u8>,      // ciphertext blob
-            u64,          // key_epoch
-            AccountId32,  // wrapper author
+            Vec<u8>,     // ciphertext blob
+            u64,         // key_epoch
+            AccountId32, // wrapper author
         ),
     >,
 }
 
 impl WrapperBuffer {
-    fn upsert(
-        &mut self,
-        id: H256,
-        key_epoch: u64,
-        author: AccountId32,
-        ciphertext: Vec<u8>,
-    ) {
+    fn upsert(&mut self, id: H256, key_epoch: u64, author: AccountId32, ciphertext: Vec<u8>) {
         self.by_id.insert(id, (ciphertext, key_epoch, author));
     }
 
@@ -96,8 +85,8 @@ impl WrapperBuffer {
 pub fn spawn_revealer<B, C, Pool>(
     task_spawner: &SpawnTaskHandle,
     client: Arc<C>,
-    pool:   Arc<Pool>,
-    ctx:    ShieldContext,
+    pool: Arc<Pool>,
+    ctx: ShieldContext,
 ) where
     B: sp_runtime::traits::Block<Extrinsic = OpaqueExtrinsic>,
     C: sc_client_api::HeaderBackend<B>
@@ -111,7 +100,7 @@ pub fn spawn_revealer<B, C, Pool>(
     use codec::{Decode, Encode};
     use sp_runtime::traits::SaturatedConversion;
 
-    type Address    = sp_runtime::MultiAddress<sp_runtime::AccountId32, ()>;
+    type Address = sp_runtime::MultiAddress<sp_runtime::AccountId32, ()>;
     type RUnchecked = node_subtensor_runtime::UncheckedExtrinsic;
 
     let buffer: Arc<Mutex<WrapperBuffer>> = Arc::new(Mutex::new(WrapperBuffer::default()));
@@ -249,9 +238,9 @@ pub fn spawn_revealer<B, C, Pool>(
     // ── 2) last-3s revealer ─────────────────────────────────────
     {
         let client = Arc::clone(&client);
-        let pool   = Arc::clone(&pool);
+        let pool = Arc::clone(&pool);
         let buffer = Arc::clone(&buffer);
-        let ctx    = ctx.clone();
+        let ctx = ctx.clone();
 
         task_spawner.spawn(
             "mev-shield-last-3s-revealer",

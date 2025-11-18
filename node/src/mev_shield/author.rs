@@ -1,29 +1,32 @@
-use std::{sync::{Arc, Mutex}};
+use chacha20poly1305::{
+    KeyInit, XChaCha20Poly1305, XNonce,
+    aead::{Aead, Payload},
+};
+use ml_kem::{EncodedSizeUser, KemCore, MlKem768};
+use node_subtensor_runtime as runtime;
+use rand::rngs::OsRng;
 use sp_core::blake2_256;
 use sp_runtime::KeyTypeId;
-use tokio::time::sleep;
-use chacha20poly1305::{XChaCha20Poly1305, KeyInit, aead::{Aead, Payload}, XNonce};
-use node_subtensor_runtime as runtime;
-use ml_kem::{MlKem768, KemCore, EncodedSizeUser};
-use rand::rngs::OsRng;
+use std::sync::{Arc, Mutex};
 use subtensor_macros::freeze_struct;
+use tokio::time::sleep;
 
 /// Parameters controlling time windows inside the slot.
-#[freeze_struct("cb816cf709ea285b")]
+#[freeze_struct("5c7ce101b36950de")]
 #[derive(Clone)]
 pub struct TimeParams {
     pub slot_ms: u64,
     pub announce_at_ms: u64,
-    pub decrypt_window_ms: u64
+    pub decrypt_window_ms: u64,
 }
 
 /// Holds the current/next ML‑KEM keypairs and their 32‑byte fingerprints.
 #[freeze_struct("3a83c10877ec1f24")]
 #[derive(Clone)]
 pub struct ShieldKeys {
-    pub current_sk: Vec<u8>,   // ML‑KEM secret key bytes (encoded form)
-    pub current_pk: Vec<u8>,   // ML‑KEM public  key bytes (encoded form)
-    pub current_fp: [u8; 32],  // blake2_256(pk)
+    pub current_sk: Vec<u8>,  // ML‑KEM secret key bytes (encoded form)
+    pub current_pk: Vec<u8>,  // ML‑KEM public  key bytes (encoded form)
+    pub current_fp: [u8; 32], // blake2_256(pk)
     pub next_sk: Vec<u8>,
     pub next_pk: Vec<u8>,
     pub next_fp: [u8; 32],
@@ -52,7 +55,15 @@ impl ShieldKeys {
         let next_pk = npk_slice.to_vec();
         let next_fp = blake2_256(npk_slice);
 
-        Self { current_sk, current_pk, current_fp, next_sk, next_pk, next_fp, epoch }
+        Self {
+            current_sk,
+            current_pk,
+            current_fp,
+            next_sk,
+            next_pk,
+            next_fp,
+            epoch,
+        }
     }
 
     pub fn roll_for_next_slot(&mut self) {
@@ -99,7 +110,14 @@ pub fn aead_decrypt(
     aad: &[u8],
 ) -> Option<Vec<u8>> {
     let aead = XChaCha20Poly1305::new((&key).into());
-    aead.decrypt(XNonce::from_slice(&nonce24), Payload { msg: ciphertext, aad }).ok()
+    aead.decrypt(
+        XNonce::from_slice(&nonce24),
+        Payload {
+            msg: ciphertext,
+            aad,
+        },
+    )
+    .ok()
 }
 
 const AURA_KEY_TYPE: KeyTypeId = KeyTypeId(*b"aura");
@@ -110,23 +128,19 @@ const AURA_KEY_TYPE: KeyTypeId = KeyTypeId(*b"aura");
 pub fn spawn_author_tasks<B, C, Pool>(
     task_spawner: &sc_service::SpawnTaskHandle,
     client: std::sync::Arc<C>,
-    pool:   std::sync::Arc<Pool>,
+    pool: std::sync::Arc<Pool>,
     keystore: sp_keystore::KeystorePtr,
     initial_epoch: u64,
     timing: TimeParams,
 ) -> ShieldContext
 where
     B: sp_runtime::traits::Block,
-    C: sc_client_api::HeaderBackend<B>
-        + sc_client_api::BlockchainEvents<B>
-        + Send
-        + Sync
-        + 'static,
+    C: sc_client_api::HeaderBackend<B> + sc_client_api::BlockchainEvents<B> + Send + Sync + 'static,
     Pool: sc_transaction_pool_api::TransactionPool<Block = B> + Send + Sync + 'static,
     B::Extrinsic: From<sp_runtime::OpaqueExtrinsic>,
 {
     let ctx = ShieldContext {
-        keys:   std::sync::Arc::new(std::sync::Mutex::new(ShieldKeys::new(initial_epoch))),
+        keys: std::sync::Arc::new(std::sync::Mutex::new(ShieldKeys::new(initial_epoch))),
         timing: timing.clone(),
     };
 
@@ -144,9 +158,9 @@ where
         }
     };
 
-    let ctx_clone      = ctx.clone();
-    let client_clone   = client.clone();
-    let pool_clone     = pool.clone();
+    let ctx_clone = ctx.clone();
+    let client_clone = client.clone();
+    let pool_clone = pool.clone();
     let keystore_clone = keystore.clone();
 
     // Slot tick / key-announce loop.
@@ -277,11 +291,10 @@ where
     ctx
 }
 
-
 /// Build & submit the signed `announce_next_key` extrinsic OFF-CHAIN
 pub async fn submit_announce_extrinsic<B, C, Pool>(
     client: std::sync::Arc<C>,
-    pool:   std::sync::Arc<Pool>,
+    pool: std::sync::Arc<Pool>,
     keystore: sp_keystore::KeystorePtr,
     aura_pub: sp_core::sr25519::Public,
     next_public_key: Vec<u8>,
@@ -296,15 +309,16 @@ where
     B::Hash: AsRef<[u8]>,
 {
     use node_subtensor_runtime as runtime;
-    use runtime::{RuntimeCall, UncheckedExtrinsic, SignedPayload};
+    use runtime::{RuntimeCall, SignedPayload, UncheckedExtrinsic};
 
     use sc_transaction_pool_api::TransactionSource;
     use sp_core::H256;
-    use sp_runtime::{
-        AccountId32, MultiSignature, generic::Era, BoundedVec,
-        traits::{ConstU32, TransactionExtension}
-    };
     use sp_runtime::codec::Encode;
+    use sp_runtime::{
+        AccountId32, BoundedVec, MultiSignature,
+        generic::Era,
+        traits::{ConstU32, TransactionExtension},
+    };
 
     // Helper: map a Block hash to H256
     fn to_h256<H: AsRef<[u8]>>(h: H) -> H256 {
@@ -319,9 +333,10 @@ where
         let src_start = bytes.len().saturating_sub(n);
         let dst_start = 32usize.saturating_sub(n);
 
-        if let (Some(dst), Some(src)) =
-            (out.get_mut(dst_start..32), bytes.get(src_start..src_start + n))
-        {
+        if let (Some(dst), Some(src)) = (
+            out.get_mut(dst_start..32),
+            bytes.get(src_start..src_start + n),
+        ) {
             dst.copy_from_slice(src);
             H256(out)
         } else {
@@ -331,38 +346,37 @@ where
     }
 
     type MaxPk = ConstU32<2048>;
-    let public_key: BoundedVec<u8, MaxPk> =
-        BoundedVec::try_from(next_public_key)
-            .map_err(|_| anyhow::anyhow!("public key too long (>2048 bytes)"))?;
+    let public_key: BoundedVec<u8, MaxPk> = BoundedVec::try_from(next_public_key)
+        .map_err(|_| anyhow::anyhow!("public key too long (>2048 bytes)"))?;
 
     // 1) The runtime call carrying public key bytes.
-    let call = RuntimeCall::MevShield(
-        pallet_shield::Call::announce_next_key {
-            public_key,
-            epoch,
-        }
-    );
+    let call = RuntimeCall::MevShield(pallet_shield::Call::announce_next_key { public_key, epoch });
 
     type Extra = runtime::TransactionExtensions;
-    let extra: Extra = (
-        frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
-        frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
-        frame_system::CheckTxVersion::<runtime::Runtime>::new(),
-        frame_system::CheckGenesis::<runtime::Runtime>::new(),
-        frame_system::CheckEra::<runtime::Runtime>::from(Era::Immortal),
-        node_subtensor_runtime::check_nonce::CheckNonce::<runtime::Runtime>::from(nonce).into(),
-        frame_system::CheckWeight::<runtime::Runtime>::new(),
-        node_subtensor_runtime::transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<runtime::Runtime>::new(
-            pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0u64)
-        ),
-        pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<runtime::Runtime>::new(),
-        pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
-        frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
-    );
+    let extra: Extra =
+        (
+            frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
+            frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
+            frame_system::CheckTxVersion::<runtime::Runtime>::new(),
+            frame_system::CheckGenesis::<runtime::Runtime>::new(),
+            frame_system::CheckEra::<runtime::Runtime>::from(Era::Immortal),
+            node_subtensor_runtime::check_nonce::CheckNonce::<runtime::Runtime>::from(nonce).into(),
+            frame_system::CheckWeight::<runtime::Runtime>::new(),
+            node_subtensor_runtime::transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<
+                runtime::Runtime,
+            >::new(pallet_transaction_payment::ChargeTransactionPayment::<
+                runtime::Runtime,
+            >::from(0u64)),
+            pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<
+                runtime::Runtime,
+            >::new(),
+            pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
+            frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
+        );
 
     type Implicit = <Extra as TransactionExtension<RuntimeCall>>::Implicit;
 
-    let info          = client.info();
+    let info = client.info();
     let genesis_h256: H256 = to_h256(info.genesis_hash);
 
     let implicit: Implicit = (
@@ -380,11 +394,8 @@ where
     );
 
     // Build the exact signable payload.
-    let payload: SignedPayload = SignedPayload::from_raw(
-        call.clone(),
-        extra.clone(),
-        implicit.clone(),
-    );
+    let payload: SignedPayload =
+        SignedPayload::from_raw(call.clone(), extra.clone(), implicit.clone());
 
     let raw_payload = payload.encode();
 
@@ -400,20 +411,16 @@ where
     let who: AccountId32 = aura_pub.into();
     let address = sp_runtime::MultiAddress::Id(who);
 
-    let uxt: UncheckedExtrinsic = UncheckedExtrinsic::new_signed(
-        call,
-        address,
-        signature,
-        extra,
-    );
+    let uxt: UncheckedExtrinsic = UncheckedExtrinsic::new_signed(call, address, signature, extra);
 
     let xt_bytes = uxt.encode();
-    let xt_hash  = sp_core::hashing::blake2_256(&xt_bytes);
+    let xt_hash = sp_core::hashing::blake2_256(&xt_bytes);
 
     let opaque: sp_runtime::OpaqueExtrinsic = uxt.into();
     let xt: <B as sp_runtime::traits::Block>::Extrinsic = opaque.into();
 
-    pool.submit_one(info.best_hash, TransactionSource::Local, xt).await?;
+    pool.submit_one(info.best_hash, TransactionSource::Local, xt)
+        .await?;
 
     log::debug!(
         target: "mev-shield",

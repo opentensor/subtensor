@@ -6,6 +6,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
+    use codec::Encode;
     use frame_support::{
         dispatch::{GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
@@ -13,16 +14,14 @@ pub mod pallet {
         weights::Weight,
     };
     use frame_system::pallet_prelude::*;
+    use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
+    use sp_core::ByteArray;
     use sp_runtime::{
-        AccountId32, MultiSignature, RuntimeDebug,
-        traits::{BadOrigin, Dispatchable, Hash, Verify, Zero, SaturatedConversion},
-        DispatchErrorWithPostInfo,
+        AccountId32, DispatchErrorWithPostInfo, MultiSignature, RuntimeDebug,
+        traits::{BadOrigin, Dispatchable, Hash, SaturatedConversion, Verify, Zero},
     };
     use sp_std::{marker::PhantomData, prelude::*};
     use subtensor_macros::freeze_struct;
-    use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
-    use sp_core::ByteArray;
-    use codec::Encode;
 
     /// Origin helper: ensure the signer is an Aura authority (no session/authorship).
     pub struct EnsureAuraAuthority<T>(PhantomData<T>);
@@ -93,9 +92,8 @@ pub mod pallet {
         type RuntimeCall: Parameter
             + sp_runtime::traits::Dispatchable<
                 RuntimeOrigin = Self::RuntimeOrigin,
-                PostInfo = PostDispatchInfo
-            >
-            + GetDispatchInfo;
+                PostInfo = PostDispatchInfo,
+            > + GetDispatchInfo;
 
         type AuthorityOrigin: AuthorityOriginExt<Self::RuntimeOrigin, AccountId = AccountId32>;
 
@@ -140,11 +138,18 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Encrypted wrapper accepted.
-        EncryptedSubmitted { id: T::Hash, who: T::AccountId, epoch: u64 },
+        EncryptedSubmitted {
+            id: T::Hash,
+            who: T::AccountId,
+            epoch: u64,
+        },
         /// Decrypted call executed.
         DecryptedExecuted { id: T::Hash, signer: T::AccountId },
         /// Decrypted execution rejected.
-        DecryptedRejected { id: T::Hash, reason: DispatchErrorWithPostInfo<PostDispatchInfo> },
+        DecryptedRejected {
+            id: T::Hash,
+            reason: DispatchErrorWithPostInfo<PostDispatchInfo>,
+        },
     }
 
     #[pallet::error]
@@ -191,9 +196,15 @@ pub mod pallet {
             T::AuthorityOrigin::ensure_validator(origin)?;
 
             const MAX_KYBER768_PK_LENGTH: usize = 1184;
-            ensure!(public_key.len() == MAX_KYBER768_PK_LENGTH, Error::<T>::BadPublicKeyLen);
+            ensure!(
+                public_key.len() == MAX_KYBER768_PK_LENGTH,
+                Error::<T>::BadPublicKeyLen
+            );
 
-            NextKey::<T>::put(EphemeralPubKey { public_key: public_key.clone(), epoch });
+            NextKey::<T>::put(EphemeralPubKey {
+                public_key: public_key.clone(),
+                epoch,
+            });
 
             Ok(())
         }
@@ -277,12 +288,8 @@ pub mod pallet {
                 return Err(Error::<T>::MissingSubmission.into());
             };
 
-            let payload_bytes = Self::build_raw_payload_bytes(
-                &signer,
-                nonce,
-                &mortality,
-                call.as_ref(),
-            );
+            let payload_bytes =
+                Self::build_raw_payload_bytes(&signer, nonce, &mortality, call.as_ref());
 
             // 1) Commitment check against on-chain stored commitment.
             let recomputed: T::Hash = T::Hashing::hash(&payload_bytes);
@@ -317,10 +324,7 @@ pub mod pallet {
             match res {
                 Ok(post) => {
                     let actual = post.actual_weight.unwrap_or(required);
-                    Self::deposit_event(Event::DecryptedExecuted {
-                        id,
-                        signer,
-                    });
+                    Self::deposit_event(Event::DecryptedExecuted { id, signer });
                     Ok(PostDispatchInfo {
                         actual_weight: Some(actual),
                         pays_fee: Pays::No,
@@ -336,7 +340,6 @@ pub mod pallet {
             }
         }
     }
-
 
     impl<T: Config> Pallet<T> {
         /// Build the raw payload bytes used for both:
@@ -380,18 +383,15 @@ pub mod pallet {
             _source: sp_runtime::transaction_validity::TransactionSource,
             call: &Self::Call,
         ) -> sp_runtime::transaction_validity::TransactionValidity {
-            use sp_runtime::transaction_validity::{
-                InvalidTransaction,
-                ValidTransaction,
-            };
+            use sp_runtime::transaction_validity::{InvalidTransaction, ValidTransaction};
 
             match call {
                 Call::execute_revealed { id, .. } => {
                     ValidTransaction::with_tag_prefix("mev-shield-exec")
                         .priority(u64::MAX)
-                        .longevity(64)       // High because of propagate(false)
-                        .and_provides(id)    // dedupe by wrapper id
-                        .propagate(false)    // CRITICAL: no gossip, stays on author only
+                        .longevity(64) // High because of propagate(false)
+                        .and_provides(id) // dedupe by wrapper id
+                        .propagate(false) // CRITICAL: no gossip, stays on author only
                         .build()
                 }
 

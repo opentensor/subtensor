@@ -28,18 +28,18 @@ use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
-use crate::mev_shield::{author, proposer};
 use crate::cli::Sealing;
 use crate::client::{FullBackend, FullClient, HostFunctions, RuntimeExecutor};
 use crate::ethereum::{
     BackendType, EthConfiguration, FrontierBackend, FrontierPartialComponents, StorageOverride,
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
-use sp_core::twox_128;
-use sc_client_api::StorageKey;
-use sc_client_api::HeaderBackend;
-use sc_client_api::StorageProvider;
+use crate::mev_shield::{author, proposer};
 use codec::Decode;
+use sc_client_api::HeaderBackend;
+use sc_client_api::StorageKey;
+use sc_client_api::StorageProvider;
+use sp_core::twox_128;
 
 const LOG_TARGET: &str = "node-service";
 
@@ -540,13 +540,11 @@ where
     )
     .await;
 
-      // ==== MEV-SHIELD HOOKS ====
+    // ==== MEV-SHIELD HOOKS ====
     let mut mev_timing: Option<author::TimeParams> = None;
 
     if role.is_authority() {
-        let slot_duration_ms: u64 = consensus_mechanism
-            .slot_duration(&client)?
-            .as_millis() as u64;
+        let slot_duration_ms: u64 = consensus_mechanism.slot_duration(&client)?.as_millis() as u64;
 
         // Time windows (7s announce / last 3s decrypt).
         let timing = author::TimeParams {
@@ -624,14 +622,16 @@ where
                 .unwrap_or((slot_duration.as_millis() as u64, 3_000));
 
             let guard_ms: u64 = 200; // small cushion so reveals hit the pool first
-            let after_decrypt_ms = slot_ms
-                .saturating_sub(decrypt_ms)
-                .saturating_add(guard_ms);
+            let after_decrypt_ms = slot_ms.saturating_sub(decrypt_ms).saturating_add(guard_ms);
 
             // Clamp into (0.5 .. 0.98] to give the proposer enough time
             let mut f = (after_decrypt_ms as f32) / (slot_ms as f32);
-            if f < 0.50 { f = 0.50; }
-            if f > 0.98 { f = 0.98; }
+            if f < 0.50 {
+                f = 0.50;
+            }
+            if f > 0.98 {
+                f = 0.98;
+            }
             f
         };
 

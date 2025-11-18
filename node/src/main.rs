@@ -10,9 +10,9 @@ mod command;
 mod conditional_evm_block_import;
 mod consensus;
 mod ethereum;
+mod mev_shield;
 mod rpc;
 mod service;
-mod mev_shield;
 
 fn main() -> sc_cli::Result<()> {
     command::run()
