@@ -37,7 +37,6 @@ use crate::ethereum::{
 };
 use sp_core::twox_128;
 use sc_client_api::StorageKey;
-use node_subtensor_runtime::opaque::BlockId;
 use sc_client_api::HeaderBackend;
 use sc_client_api::StorageProvider;
 use codec::Decode;
@@ -542,7 +541,7 @@ where
     .await;
 
       // ==== MEV-SHIELD HOOKS ====
-    let mut mev_timing: Option<crate::mev_shield::author::TimeParams> = None;
+    let mut mev_timing: Option<author::TimeParams> = None;
 
     if role.is_authority() {
         let slot_duration_ms: u64 = consensus_mechanism
@@ -550,7 +549,7 @@ where
             .as_millis() as u64;
 
         // Time windows (7s announce / last 3s decrypt).
-        let timing = crate::mev_shield::author::TimeParams {
+        let timing = author::TimeParams {
             slot_ms: slot_duration_ms,
             announce_at_ms: 7_000,
             decrypt_window_ms: 3_000,
@@ -572,7 +571,7 @@ where
         };
 
         // Start author-side tasks with the epoch.
-        let mev_ctx = crate::mev_shield::author::spawn_author_tasks::<Block, _, _>(
+        let mev_ctx = author::spawn_author_tasks::<Block, _, _>(
             &task_manager.spawn_handle(),
             client.clone(),
             transaction_pool.clone(),
@@ -582,7 +581,7 @@ where
         );
 
         // Start last-3s revealer (decrypt -> execute_revealed).
-        crate::mev_shield::proposer::spawn_revealer::<Block, _, _>(
+        proposer::spawn_revealer::<Block, _, _>(
             &task_manager.spawn_handle(),
             client.clone(),
             transaction_pool.clone(),

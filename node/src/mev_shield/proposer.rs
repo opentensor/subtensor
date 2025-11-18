@@ -1,11 +1,8 @@
-//! Last-3s reveal injector: decrypt buffered wrappers and submit unsigned `execute_revealed`.
-
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     time::Duration,
 };
-
 use codec::{Decode, Encode};
 use futures::StreamExt;
 use sc_service::SpawnTaskHandle;
@@ -17,14 +14,12 @@ use sp_runtime::{
     MultiAddress,
     MultiSignature,
     OpaqueExtrinsic,
+    AccountId32,
 };
 use tokio::time::sleep;
-
 use node_subtensor_runtime as runtime;
 use runtime::RuntimeCall;
-
 use super::author::{aead_decrypt, derive_aead_key, MevShieldContext};
-
 use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
 use ml_kem::kem::{Decapsulate, DecapsulationKey};
 
@@ -34,9 +29,9 @@ struct WrapperBuffer {
     by_id: HashMap<
         H256,
         (
-            Vec<u8>,                  // ciphertext blob
-            u64,                      // key_epoch
-            sp_runtime::AccountId32,  // wrapper author (fee payer)
+            Vec<u8>,        // ciphertext blob
+            u64,           // key_epoch
+            AccountId32,  // wrapper author
         ),
     >,
 }
@@ -46,7 +41,7 @@ impl WrapperBuffer {
         &mut self,
         id: H256,
         key_epoch: u64,
-        author: sp_runtime::AccountId32,
+        author: AccountId32,
         ciphertext: Vec<u8>,
     ) {
         self.by_id.insert(id, (ciphertext, key_epoch, author));
@@ -100,11 +95,9 @@ impl WrapperBuffer {
 }
 
 /// Start a background worker that:
-/// Start a background worker that:
 ///   • watches imported blocks and captures `MevShield::submit_encrypted`
 ///   • buffers those wrappers,
 ///   • ~last `decrypt_window_ms` of the slot: decrypt & submit unsigned `execute_revealed`
-///     **only for wrappers whose `key_epoch` equals the current ML‑KEM epoch.**
 pub fn spawn_revealer<B, C, Pool>(
     task_spawner: &SpawnTaskHandle,
     client: Arc<C>,

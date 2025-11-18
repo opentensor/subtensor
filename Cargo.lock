@@ -8285,6 +8285,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "subtensor-custom-rpc",
  "subtensor-custom-rpc-runtime-api",
+ "subtensor-macros",
  "subtensor-runtime-common",
  "tokio",
  "x25519-dalek",
