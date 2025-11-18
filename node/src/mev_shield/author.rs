@@ -170,7 +170,7 @@ where
                 let (epoch_now, curr_pk_len, next_pk_len) = match ctx_clone.keys.lock() {
                     Ok(k) => (k.epoch, k.current_pk.len(), k.next_pk.len()),
                     Err(e) => {
-                        log::warn!(
+                        log::debug!(
                             target: "mev-shield",
                             "spawn_author_tasks: failed to lock ShieldKeys (poisoned?): {:?}",
                             e
@@ -179,7 +179,7 @@ where
                     }
                 };
 
-                log::info!(
+                log::debug!(
                     target: "mev-shield",
                     "Slot start (local author): epoch={} (pk sizes: curr={}B, next={}B)",
                     epoch_now, curr_pk_len, next_pk_len
@@ -192,7 +192,7 @@ where
                 let (next_pk, next_epoch) = match ctx_clone.keys.lock() {
                     Ok(k) => (k.next_pk.clone(), k.epoch.saturating_add(1)),
                     Err(e) => {
-                        log::warn!(
+                        log::debug!(
                             target: "mev-shield",
                             "spawn_author_tasks: failed to lock ShieldKeys for next_pk: {:?}",
                             e
@@ -234,13 +234,13 @@ where
                             {
                                 local_nonce = local_nonce.saturating_add(2);
                             } else {
-                                log::warn!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "announce_next_key retry failed after stale nonce: {e:?}"
                                 );
                             }
                         } else {
-                            log::warn!(
+                            log::debug!(
                                 target: "mev-shield",
                                 "announce_next_key submit error: {e:?}"
                             );
@@ -256,14 +256,14 @@ where
                 match ctx_clone.keys.lock() {
                     Ok(mut k) => {
                         k.roll_for_next_slot();
-                        log::info!(
+                        log::debug!(
                             target: "mev-shield",
                             "Rolled ML-KEM key at slot boundary (local author): new epoch={}",
                             k.epoch
                         );
                     }
                     Err(e) => {
-                        log::warn!(
+                        log::debug!(
                             target: "mev-shield",
                             "spawn_author_tasks: failed to lock ShieldKeys for roll_for_next_slot: {:?}",
                             e
@@ -415,7 +415,7 @@ where
 
     pool.submit_one(info.best_hash, TransactionSource::Local, xt).await?;
 
-    log::info!(
+    log::debug!(
         target: "mev-shield",
         "announce_next_key submitted: xt=0x{}, epoch={}, nonce={}",
         hex::encode(xt_hash),

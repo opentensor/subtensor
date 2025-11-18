@@ -65,7 +65,7 @@ impl WrapperBuffer {
             } else {
                 // key_epoch < epoch => stale / missed reveal window; drop.
                 dropped_past = dropped_past.saturating_add(1);
-                log::info!(
+                log::debug!(
                     target: "mev-shield",
                     "revealer: dropping stale wrapper id=0x{} key_epoch={} < curr_epoch={}",
                     hex::encode(id.as_bytes()),
@@ -76,7 +76,7 @@ impl WrapperBuffer {
             }
         });
 
-        log::info!(
+        log::debug!(
             target: "mev-shield",
             "revealer: drain_for_epoch(epoch={}): ready={}, kept_future={}, dropped_past={}",
             epoch,
@@ -124,13 +124,13 @@ pub fn spawn_revealer<B, C, Pool>(
             "mev-shield-buffer-wrappers",
             None,
             async move {
-                log::info!(target: "mev-shield", "buffer-wrappers task started");
+                log::debug!(target: "mev-shield", "buffer-wrappers task started");
                 let mut import_stream = client.import_notification_stream();
 
                 while let Some(notif) = import_stream.next().await {
                     let at_hash = notif.hash;
 
-                    log::info!(
+                    log::debug!(
                         target: "mev-shield",
                         "imported block hash={:?} origin={:?}",
                         at_hash, notif.origin
@@ -138,7 +138,7 @@ pub fn spawn_revealer<B, C, Pool>(
 
                     match client.block_body(at_hash) {
                         Ok(Some(body)) => {
-                            log::info!(
+                            log::debug!(
                                 target: "mev-shield",
                                 "  block has {} extrinsics",
                                 body.len()
@@ -146,7 +146,7 @@ pub fn spawn_revealer<B, C, Pool>(
 
                             for (idx, opaque_xt) in body.into_iter().enumerate() {
                                 let encoded = opaque_xt.encode();
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "    [xt #{idx}] opaque len={} bytes",
                                     encoded.len()
@@ -155,7 +155,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 let uxt: RUnchecked = match RUnchecked::decode(&mut &encoded[..]) {
                                     Ok(u) => u,
                                     Err(e) => {
-                                        log::info!(
+                                        log::debug!(
                                             target: "mev-shield",
                                             "    [xt #{idx}] failed to decode UncheckedExtrinsic: {:?}",
                                             e
@@ -164,7 +164,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     }
                                 };
 
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "    [xt #{idx}] decoded call: {:?}",
                                     &uxt.0.function
@@ -184,7 +184,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     };
 
                                 let Some(author) = author_opt else {
-                                    log::info!(
+                                    log::debug!(
                                         target: "mev-shield",
                                         "    [xt #{idx}] not a Signed(AccountId32) extrinsic; skipping"
                                     );
@@ -203,7 +203,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     let payload = (author.clone(), *commitment, ciphertext).encode();
                                     let id = H256(sp_core::hashing::blake2_256(&payload));
 
-                                    log::info!(
+                                    log::debug!(
                                         target: "mev-shield",
                                         "    [xt #{idx}] buffered submit_encrypted: id=0x{}, key_epoch={}, author={}, ct_len={}, commitment={:?}",
                                         hex::encode(id.as_bytes()),
@@ -221,7 +221,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                             ciphertext.to_vec(),
                                         );
                                     } else {
-                                        log::warn!(
+                                        log::debug!(
                                             target: "mev-shield",
                                             "    [xt #{idx}] failed to lock WrapperBuffer; dropping wrapper"
                                         );
@@ -229,12 +229,12 @@ pub fn spawn_revealer<B, C, Pool>(
                                 }
                             }
                         }
-                        Ok(None) => log::info!(
+                        Ok(None) => log::debug!(
                             target: "mev-shield",
                             "  block_body returned None for hash={:?}",
                             at_hash
                         ),
-                        Err(e) => log::info!(
+                        Err(e) => log::debug!(
                             target: "mev-shield",
                             "  block_body error for hash={:?}: {:?}",
                             at_hash,
@@ -257,11 +257,11 @@ pub fn spawn_revealer<B, C, Pool>(
             "mev-shield-last-3s-revealer",
             None,
             async move {
-                log::info!(target: "mev-shield", "last-3s-revealer task started");
+                log::debug!(target: "mev-shield", "last-3s-revealer task started");
 
                 loop {
                     let tail = ctx.timing.slot_ms.saturating_sub(ctx.timing.decrypt_window_ms);
-                    log::info!(
+                    log::debug!(
                         target: "mev-shield",
                         "revealer: sleeping {} ms before decrypt window (slot_ms={}, decrypt_window_ms={})",
                         tail,
@@ -284,7 +284,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 ))
                             }
                             Err(e) => {
-                                log::warn!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "revealer: failed to lock ShieldKeys (poisoned?): {:?}",
                                     e
@@ -304,7 +304,7 @@ pub fn spawn_revealer<B, C, Pool>(
                             }
                         };
 
-                    log::info!(
+                    log::debug!(
                         target: "mev-shield",
                         "revealer: decrypt window start. epoch={} sk_len={} sk_hash=0x{} curr_pk_len={} next_pk_len={}",
                         curr_epoch,
@@ -319,7 +319,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         match buffer.lock() {
                             Ok(mut buf) => buf.drain_for_epoch(curr_epoch),
                             Err(e) => {
-                                log::warn!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "revealer: failed to lock WrapperBuffer for drain_for_epoch: {:?}",
                                     e
@@ -329,7 +329,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         }
                     };
 
-                    log::info!(
+                    log::debug!(
                         target: "mev-shield",
                         "revealer: drained {} buffered wrappers for current epoch={}",
                         drained.len(),
@@ -339,7 +339,7 @@ pub fn spawn_revealer<B, C, Pool>(
                     let mut to_submit: Vec<(H256, node_subtensor_runtime::RuntimeCall)> = Vec::new();
 
                     for (id, key_epoch, author, blob) in drained.into_iter() {
-                        log::info!(
+                        log::debug!(
                             target: "mev-shield",
                             "revealer: candidate id=0x{} key_epoch={} (curr_epoch={}) author={} blob_len={}",
                             hex::encode(id.as_bytes()),
@@ -356,7 +356,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         {
                             Some(arr) => u16::from_le_bytes(arr) as usize,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: blob too short or invalid length prefix",
                                     hex::encode(id.as_bytes())
@@ -368,7 +368,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let kem_end = match 2usize.checked_add(kem_len) {
                             Some(v) => v,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: kem_len overflow",
                                     hex::encode(id.as_bytes())
@@ -380,7 +380,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let nonce_end = match kem_end.checked_add(24usize) {
                             Some(v) => v,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: nonce range overflow",
                                     hex::encode(id.as_bytes())
@@ -392,7 +392,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let kem_ct_bytes = match blob.get(2..kem_end) {
                             Some(s) => s,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: blob too short for kem_ct (kem_len={}, total={})",
                                     hex::encode(id.as_bytes()),
@@ -406,7 +406,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let nonce_bytes = match blob.get(kem_end..nonce_end) {
                             Some(s) if s.len() == 24 => s,
                             _ => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: blob too short for 24-byte nonce (kem_len={}, total={})",
                                     hex::encode(id.as_bytes()),
@@ -420,7 +420,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let aead_body = match blob.get(nonce_end..) {
                             Some(s) => s,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: blob has no AEAD body",
                                     hex::encode(id.as_bytes())
@@ -431,7 +431,7 @@ pub fn spawn_revealer<B, C, Pool>(
 
                         let kem_ct_hash = sp_core::hashing::blake2_256(kem_ct_bytes);
                         let aead_body_hash = sp_core::hashing::blake2_256(aead_body);
-                        log::info!(
+                        log::debug!(
                             target: "mev-shield",
                             "  id=0x{}: kem_len={} kem_ct_hash=0x{} nonce=0x{} aead_body_len={} aead_body_hash=0x{}",
                             hex::encode(id.as_bytes()),
@@ -446,7 +446,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let enc_sk = match Encoded::<DecapsulationKey<MlKem768Params>>::try_from(&curr_sk_bytes[..]) {
                             Ok(e) => e,
                             Err(e) => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: DecapsulationKey::try_from(sk_bytes) failed (len={}, err={:?})",
                                     hex::encode(id.as_bytes()),
@@ -461,7 +461,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let ct = match Ciphertext::<MlKem768>::try_from(kem_ct_bytes) {
                             Ok(c) => c,
                             Err(e) => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: Ciphertext::try_from failed: {:?}",
                                     hex::encode(id.as_bytes()),
@@ -474,9 +474,9 @@ pub fn spawn_revealer<B, C, Pool>(
                         let ss = match sk.decapsulate(&ct) {
                             Ok(s) => s,
                             Err(_) => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: ML‑KEM decapsulate() failed",
+                                    "  id=0x{}: ML-KEM decapsulate() failed",
                                     hex::encode(id.as_bytes())
                                 );
                                 continue;
@@ -485,7 +485,7 @@ pub fn spawn_revealer<B, C, Pool>(
 
                         let ss_bytes: &[u8] = ss.as_ref();
                         if ss_bytes.len() != 32 {
-                            log::info!(
+                            log::debug!(
                                 target: "mev-shield",
                                 "  id=0x{}: shared secret len={} != 32; skipping",
                                 hex::encode(id.as_bytes()),
@@ -500,13 +500,13 @@ pub fn spawn_revealer<B, C, Pool>(
                         let aead_key = crate::mev_shield::author::derive_aead_key(&ss32);
                         let key_hash = sp_core::hashing::blake2_256(&aead_key);
 
-                        log::info!(
+                        log::debug!(
                             target: "mev-shield",
                             "  id=0x{}: decapsulated shared_secret_len=32 shared_secret_hash=0x{}",
                             hex::encode(id.as_bytes()),
                             hex::encode(ss_hash)
                         );
-                        log::info!(
+                        log::debug!(
                             target: "mev-shield",
                             "  id=0x{}: derived AEAD key hash=0x{} (direct-from-ss)",
                             hex::encode(id.as_bytes()),
@@ -516,7 +516,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let mut nonce24 = [0u8; 24];
                         nonce24.copy_from_slice(nonce_bytes);
 
-                        log::info!(
+                        log::debug!(
                             target: "mev-shield",
                             "  id=0x{}: attempting AEAD decrypt nonce=0x{} ct_len={}",
                             hex::encode(id.as_bytes()),
@@ -532,7 +532,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         ) {
                             Some(pt) => pt,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: AEAD decrypt FAILED with direct-from-ss key; ct_hash=0x{}",
                                     hex::encode(id.as_bytes()),
@@ -542,7 +542,7 @@ pub fn spawn_revealer<B, C, Pool>(
                             }
                         };
 
-                        log::info!(
+                        log::debug!(
                             target: "mev-shield",
                             "  id=0x{}: AEAD decrypt OK, plaintext_len={}",
                             hex::encode(id.as_bytes()),
@@ -560,7 +560,7 @@ pub fn spawn_revealer<B, C, Pool>(
                             .saturating_add(1)
                             .saturating_add(64);
                         if plaintext.len() < min_plain_len {
-                            log::info!(
+                            log::debug!(
                                 target: "mev-shield",
                                 "  id=0x{}: plaintext too short ({}) for expected layout",
                                 hex::encode(id.as_bytes()),
@@ -572,7 +572,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let signer_raw = match plaintext.get(0..32) {
                             Some(s) => s,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: missing signer bytes",
                                     hex::encode(id.as_bytes())
@@ -584,7 +584,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let nonce_le = match plaintext.get(32..36) {
                             Some(s) => s,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: missing nonce bytes",
                                     hex::encode(id.as_bytes())
@@ -596,7 +596,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let mortality_byte = match plaintext.get(36) {
                             Some(b) => *b,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: missing mortality byte",
                                     hex::encode(id.as_bytes())
@@ -608,7 +608,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let sig_off = match plaintext.len().checked_sub(65) {
                             Some(off) if off >= 37 => off,
                             _ => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: invalid plaintext length for signature split",
                                     hex::encode(id.as_bytes())
@@ -620,7 +620,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let call_bytes = match plaintext.get(37..sig_off) {
                             Some(s) => s,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: missing call bytes",
                                     hex::encode(id.as_bytes())
@@ -632,7 +632,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let sig_kind = match plaintext.get(sig_off) {
                             Some(b) => *b,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: missing signature kind byte",
                                     hex::encode(id.as_bytes())
@@ -644,7 +644,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let sig_start = match sig_off.checked_add(1) {
                             Some(v) => v,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: sig_start overflow",
                                     hex::encode(id.as_bytes())
@@ -656,7 +656,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let sig_raw = match plaintext.get(sig_start..) {
                             Some(s) => s,
                             None => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: missing signature bytes",
                                     hex::encode(id.as_bytes())
@@ -668,7 +668,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let signer_array: [u8; 32] = match signer_raw.try_into() {
                             Ok(a) => a,
                             Err(_) => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: signer_raw not 32 bytes",
                                     hex::encode(id.as_bytes())
@@ -681,7 +681,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         let nonce_array: [u8; 4] = match nonce_le.try_into() {
                             Ok(a) => a,
                             Err(_) => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: nonce bytes not 4 bytes",
                                     hex::encode(id.as_bytes())
@@ -703,7 +703,7 @@ pub fn spawn_revealer<B, C, Pool>(
                             match Decode::decode(&mut &call_bytes[..]) {
                                 Ok(c) => c,
                                 Err(e) => {
-                                    log::info!(
+                                    log::debug!(
                                         target: "mev-shield",
                                         "  id=0x{}: failed to decode RuntimeCall (len={}): {:?}",
                                         hex::encode(id.as_bytes()),
@@ -720,7 +720,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 raw.copy_from_slice(sig_raw);
                                 MultiSignature::from(sp_core::sr25519::Signature::from_raw(raw))
                             } else {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: unsupported signature format kind=0x{:02x}, len={}",
                                     hex::encode(id.as_bytes()),
@@ -730,7 +730,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 continue;
                             };
 
-                        log::info!(
+                        log::debug!(
                             target: "mev-shield",
                             "  id=0x{}: decrypted wrapper: signer={}, nonce={}, call={:?}",
                             hex::encode(id.as_bytes()),
@@ -755,7 +755,7 @@ pub fn spawn_revealer<B, C, Pool>(
 
                     // Submit locally.
                     let at = client.info().best_hash;
-                    log::info!(
+                    log::debug!(
                         target: "mev-shield",
                         "revealer: submitting {} execute_revealed calls at best_hash={:?}",
                         to_submit.len(),
@@ -767,7 +767,7 @@ pub fn spawn_revealer<B, C, Pool>(
                             node_subtensor_runtime::UncheckedExtrinsic::new_bare(call);
                         let xt_bytes = uxt.encode();
 
-                        log::info!(
+                        log::debug!(
                             target: "mev-shield",
                             "  id=0x{}: encoded UncheckedExtrinsic len={}",
                             hex::encode(id.as_bytes()),
@@ -779,7 +779,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 match pool.submit_one(at, TransactionSource::Local, opaque).await {
                                     Ok(_) => {
                                         let xt_hash = sp_core::hashing::blake2_256(&xt_bytes);
-                                        log::info!(
+                                        log::debug!(
                                             target: "mev-shield",
                                             "  id=0x{}: submit_one(execute_revealed) OK, xt_hash=0x{}",
                                             hex::encode(id.as_bytes()),
@@ -787,7 +787,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                         );
                                     }
                                     Err(e) => {
-                                        log::info!(
+                                        log::debug!(
                                             target: "mev-shield",
                                             "  id=0x{}: submit_one(execute_revealed) FAILED: {:?}",
                                             hex::encode(id.as_bytes()),
@@ -797,7 +797,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 }
                             }
                             Err(e) => {
-                                log::info!(
+                                log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: OpaqueExtrinsic::from_bytes failed: {:?}",
                                     hex::encode(id.as_bytes()),
