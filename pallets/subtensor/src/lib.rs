@@ -2502,6 +2502,14 @@ impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
     fn decrease_provided(netuid: NetUid, tao: TaoCurrency) {
         Pallet::<T>::decrease_provided_tao_reserve(netuid, tao);
     }
+
+    fn increase_protocol(netuid: NetUid, tao: TaoCurrency) {
+        Pallet::<T>::increase_protocol_tao_reserve(netuid, tao);
+    }
+
+    fn decrease_protocol(netuid: NetUid, tao: TaoCurrency) {
+        Pallet::<T>::decrease_protocol_tao_reserve(netuid, tao);
+    }
 }
 
 #[derive(Clone)]
@@ -2519,6 +2527,14 @@ impl<T: Config> CurrencyReserve<AlphaCurrency> for AlphaCurrencyReserve<T> {
 
     fn decrease_provided(netuid: NetUid, alpha: AlphaCurrency) {
         Pallet::<T>::decrease_provided_alpha_reserve(netuid, alpha);
+    }
+
+    fn increase_protocol(netuid: NetUid, tao: AlphaCurrency) {
+        Pallet::<T>::increase_protocol_alpha_reserve(netuid, tao);
+    }
+
+    fn decrease_protocol(netuid: NetUid, tao: AlphaCurrency) {
+        Pallet::<T>::decrease_protocol_alpha_reserve(netuid, tao);
     }
 }
 

@@ -210,6 +210,8 @@ pub trait CurrencyReserve<C: Currency> {
     fn reserve(netuid: NetUid) -> C;
     fn increase_provided(netuid: NetUid, amount: C);
     fn decrease_provided(netuid: NetUid, amount: C);
+    fn increase_protocol(netuid: NetUid, amount: C);
+    fn decrease_protocol(netuid: NetUid, amount: C);
 }
 
 pub trait BalanceOps<AccountId> {
