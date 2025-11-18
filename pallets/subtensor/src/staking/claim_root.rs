@@ -45,6 +45,10 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         amount: AlphaCurrency,
     ) {
+        if Self::active_subnet_cleanup(&netuid) {
+           return;
+        }
+
         // Get total stake on this hotkey on root.
         let total: I96F32 =
             I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT));
@@ -134,6 +138,10 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) {
+        if Self::active_subnet_cleanup(&netuid) {
+           return; // no-op
+        }
+
         // Subtract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
@@ -237,7 +245,7 @@ impl<T: Config> Pallet<T> {
                 .map(|subnets| !subnets.contains(netuid))
                 .unwrap_or(false);
 
-            if skip {
+            if skip || Self::active_subnet_cleanup(netuid) {
                 continue;
             }
 
@@ -246,6 +254,10 @@ impl<T: Config> Pallet<T> {
         }
 
         weight
+    }
+
+    pub fn active_subnet_cleanup(netuid: &NetUid) -> bool {
+        LastRootClaimCleanupData::<T>::contains_key(netuid)
     }
 
     pub fn add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
@@ -266,8 +278,10 @@ impl<T: Config> Pallet<T> {
                     .saturating_to_num(),
             );
 
-            // Set the new root claimed value.
-            RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
+            if !Self::active_subnet_cleanup(netuid) {
+                // Set the new root claimed value.
+                RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
+            }
         }
     }
 
@@ -293,8 +307,10 @@ impl<T: Config> Pallet<T> {
                     .saturating_to_num(),
             );
 
-            // Set the new root_claimed value.
-            RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
+            if !Self::active_subnet_cleanup(netuid) {
+                // Set the new root_claimed value.
+                RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
+            }
         }
     }
 
@@ -366,12 +382,14 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) {
-        let old_root_claimed = RootClaimed::<T>::get((netuid, old_hotkey, old_coldkey));
-        RootClaimed::<T>::remove((netuid, old_hotkey, old_coldkey));
+        if !Self::active_subnet_cleanup(&netuid) {
+            let old_root_claimed = RootClaimed::<T>::get((netuid, old_hotkey, old_coldkey));
+            RootClaimed::<T>::remove((netuid, old_hotkey, old_coldkey));
 
-        RootClaimed::<T>::mutate((netuid, new_hotkey, new_coldkey), |new_root_claimed| {
-            *new_root_claimed = old_root_claimed.saturating_add(*new_root_claimed);
-        });
+            RootClaimed::<T>::mutate((netuid, new_hotkey, new_coldkey), |new_root_claimed| {
+                *new_root_claimed = old_root_claimed.saturating_add(*new_root_claimed);
+            });
+        }
     }
     pub fn transfer_root_claimable_for_new_hotkey(
         old_hotkey: &T::AccountId,
@@ -382,20 +400,23 @@ impl<T: Config> Pallet<T> {
         RootClaimable::<T>::remove(old_hotkey);
 
         for (netuid, claimable_rate) in src_root_claimable.into_iter() {
-            dst_root_claimable
-                .entry(netuid)
-                .and_modify(|total| *total = total.saturating_add(claimable_rate))
-                .or_insert(claimable_rate);
+            if !Self::active_subnet_cleanup(&netuid) {
+                dst_root_claimable
+                    .entry(netuid)
+                    .and_modify(|total| *total = total.saturating_add(claimable_rate))
+                    .or_insert(claimable_rate);
+            }
         }
 
         RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
     }
 
     /// Start removing root claimable for the given subnet.
-    pub fn start_removing_root_claim_data_for_subnet(netuid: NetUid) {
-        // TODO: check for empty RootClaimSubnetCleanup and return DispatchResult
-        // TODO: prevent double network dissolution
-        // TODO: prevent root claim for this subnet
+    pub fn start_removing_root_claim_data_for_subnet(netuid: NetUid) -> DispatchResult {
+        ensure!(
+            !LastRootClaimCleanupData::<T>::contains_key(netuid),
+            Error::<T>::ActiveRootClaimSubnetCleanup
+        );
 
         let root_cleanup_data = RootClaimSubnetCleanup {
             last_root_claimable_hotkey: None,
@@ -405,6 +426,8 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::RootClaimCleanupStarted { netuid });
 
         LastRootClaimCleanupData::<T>::insert(netuid, root_cleanup_data);
+
+        Ok(())
     }
 
     pub fn iterate_and_clean_root_claim_data_for_subnet() {

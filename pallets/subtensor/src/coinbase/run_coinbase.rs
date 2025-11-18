@@ -631,16 +631,18 @@ impl<T: Config> Pallet<T> {
                 tou64!(alpha_take).into(),
             );
 
-            Self::increase_root_claimable_for_hotkey_and_subnet(
-                &hotkey,
-                netuid,
-                tou64!(root_alpha).into(),
-            );
+            if !LastRootClaimCleanupData::<T>::contains_key(netuid) {
+                Self::increase_root_claimable_for_hotkey_and_subnet(
+                    &hotkey,
+                    netuid,
+                    tou64!(root_alpha).into(),
+                );
 
-            // Record root alpha dividends for this validator on this subnet.
-            RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
-                *divs = divs.saturating_add(tou64!(root_alpha).into());
-            });
+                // Record root alpha dividends for this validator on this subnet.
+                RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
+                    *divs = divs.saturating_add(tou64!(root_alpha).into());
+                });
+            }
         }
     }
 
