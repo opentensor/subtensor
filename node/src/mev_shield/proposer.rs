@@ -5,7 +5,7 @@ use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
 use sc_service::SpawnTaskHandle;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
 use sp_core::H256;
-use sp_runtime::{AccountId32, MultiSignature, OpaqueExtrinsic, generic::Era};
+use sp_runtime::{AccountId32, MultiSignature, OpaqueExtrinsic};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},

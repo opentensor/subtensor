@@ -22,6 +22,11 @@ pub mod pallet {
     };
     use sp_std::{marker::PhantomData, prelude::*};
     use subtensor_macros::freeze_struct;
+    use sp_runtime::transaction_validity::{
+        InvalidTransaction,
+        TransactionSource,
+        ValidTransaction,
+    };
 
     /// Origin helper: ensure the signer is an Aura authority (no session/authorship).
     pub struct EnsureAuraAuthority<T>(PhantomData<T>);
@@ -357,19 +362,24 @@ pub mod pallet {
         type Call = Call<T>;
 
         fn validate_unsigned(
-            _source: sp_runtime::transaction_validity::TransactionSource,
+            source: TransactionSource,
             call: &Self::Call,
-        ) -> sp_runtime::transaction_validity::TransactionValidity {
-            use sp_runtime::transaction_validity::{InvalidTransaction, ValidTransaction};
+        ) -> TransactionValidity {
 
             match call {
                 Call::execute_revealed { id, .. } => {
-                    ValidTransaction::with_tag_prefix("mev-shield-exec")
-                        .priority(u64::MAX)
-                        .longevity(64) // High because of propagate(false)
-                        .and_provides(id) // dedupe by wrapper id
-                        .propagate(false) // CRITICAL: no gossip, stays on author only
-                        .build()
+                    match source {
+                        // Only allow locally-submitted / already-in-block txs.
+                        TransactionSource::Local | TransactionSource::InBlock => {
+                            ValidTransaction::with_tag_prefix("mev-shield-exec")
+                                .priority(u64::MAX)
+                                .longevity(64)      // long because propagate(false)
+                                .and_provides(id)   // dedupe by wrapper id
+                                .propagate(false)   // CRITICAL: no gossip, stays on author node
+                                .build()
+                        }
+                        _ => InvalidTransaction::Call.into(),
+                    }
                 }
 
                 _ => InvalidTransaction::Call.into(),
