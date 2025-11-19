@@ -2363,7 +2363,7 @@ mod dispatches {
         #[pallet::call_index(122)]
         #[pallet::weight((
             Weight::from_parts(19_420_000, 0)
-            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().reads(2_u64))
             .saturating_add(T::DbWeight::get().writes(4_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -2384,7 +2384,7 @@ mod dispatches {
         #[pallet::call_index(123)]
         #[pallet::weight((
             Weight::from_parts(4_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().reads(0_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
@@ -2406,7 +2406,7 @@ mod dispatches {
         #[pallet::call_index(124)]
         #[pallet::weight((
             Weight::from_parts(5_711_000, 0)
-            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().reads(0_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
