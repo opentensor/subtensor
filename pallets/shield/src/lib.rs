@@ -10,7 +10,7 @@ pub mod pallet {
     use frame_support::{
         dispatch::{GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
-        traits::{ConstU32, Currency},
+        traits::ConstU32,
         weights::Weight,
     };
     use frame_system::pallet_prelude::*;
@@ -60,14 +60,13 @@ pub mod pallet {
     // ----------------- Types -----------------
 
     /// AEAD‑independent commitment over the revealed payload.
-    #[freeze_struct("6c00690caddfeb78")]
+    #[freeze_struct("b307ebc1f8eae75")]
     #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
     pub struct Submission<AccountId, BlockNumber, Moment, Hash> {
         pub author: AccountId,
         pub key_epoch: u64,
         pub commitment: Hash,
         pub ciphertext: BoundedVec<u8, ConstU32<8192>>,
-        pub payload_version: u16,
         pub submitted_in: BlockNumber,
         pub submitted_at: Moment,
         pub max_weight: Weight,
@@ -96,17 +95,6 @@ pub mod pallet {
             > + GetDispatchInfo;
 
         type AuthorityOrigin: AuthorityOriginExt<Self::RuntimeOrigin, AccountId = AccountId32>;
-
-        #[pallet::constant]
-        type SlotMs: Get<u64>;
-        #[pallet::constant]
-        type AnnounceAtMs: Get<u64>;
-        #[pallet::constant]
-        type GraceMs: Get<u64>;
-        #[pallet::constant]
-        type DecryptWindowMs: Get<u64>;
-
-        type Currency: Currency<Self::AccountId>;
     }
 
     #[pallet::pallet]
@@ -215,7 +203,7 @@ pub mod pallet {
         ///
         /// ```text
         /// raw_payload =
-        ///   signer (32B) || nonce (u32 LE) || mortality_byte || SCALE(call)
+        ///   signer (32B) || nonce (u32 LE) || SCALE(call)
         /// commitment = blake2_256(raw_payload)
         /// ```
         ///
@@ -232,7 +220,6 @@ pub mod pallet {
             key_epoch: u64,
             commitment: T::Hash,
             ciphertext: BoundedVec<u8, ConstU32<8192>>,
-            payload_version: u16,
             max_weight: Weight,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
@@ -248,7 +235,6 @@ pub mod pallet {
                 key_epoch,
                 commitment,
                 ciphertext,
-                payload_version,
                 submitted_in: <frame_system::Pallet<T>>::block_number(),
                 submitted_at: now,
                 max_weight,
@@ -278,7 +264,6 @@ pub mod pallet {
             id: T::Hash,
             signer: T::AccountId,
             nonce: T::Nonce,
-            mortality: sp_runtime::generic::Era,
             call: Box<<T as Config>::RuntimeCall>,
             signature: MultiSignature,
         ) -> DispatchResultWithPostInfo {
@@ -289,7 +274,7 @@ pub mod pallet {
             };
 
             let payload_bytes =
-                Self::build_raw_payload_bytes(&signer, nonce, &mortality, call.as_ref());
+                Self::build_raw_payload_bytes(&signer, nonce, call.as_ref());
 
             // 1) Commitment check against on-chain stored commitment.
             let recomputed: T::Hash = T::Hashing::hash(&payload_bytes);
@@ -347,11 +332,10 @@ pub mod pallet {
         ///   - signature message (after domain separation).
         ///
         /// Layout:
-        ///   signer (32B) || nonce (u32 LE) || mortality_byte || SCALE(call)
+        ///   signer (32B) || nonce (u32 LE) || SCALE(call)
         fn build_raw_payload_bytes(
             signer: &T::AccountId,
             nonce: T::Nonce,
-            mortality: &sp_runtime::generic::Era,
             call: &<T as Config>::RuntimeCall,
         ) -> Vec<u8> {
             let mut out = Vec::new();
@@ -360,13 +344,6 @@ pub mod pallet {
             // We canonicalise nonce to u32 LE for the payload.
             let n_u32: u32 = nonce.saturated_into();
             out.extend_from_slice(&n_u32.to_le_bytes());
-
-            // Simple 1-byte mortality code to match the off-chain layout.
-            let m_byte: u8 = match mortality {
-                sp_runtime::generic::Era::Immortal => 0,
-                _ => 1,
-            };
-            out.push(m_byte);
 
             // Append SCALE-encoded call.
             out.extend(call.encode());

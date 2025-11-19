@@ -122,11 +122,6 @@ impl frame_system::offchain::SigningTypes for Runtime {
 
 impl pallet_shield::Config for Runtime {
     type RuntimeCall = RuntimeCall;
-    type SlotMs = ShieldSlotMs;
-    type AnnounceAtMs = ShieldAnnounceAtMs;
-    type GraceMs = ShieldGraceMs;
-    type DecryptWindowMs = ShieldDecryptWindowMs;
-    type Currency = Balances;
     type AuthorityOrigin = pallet_shield::EnsureAuraAuthority<Self>;
 }
 

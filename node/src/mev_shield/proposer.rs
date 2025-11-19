@@ -541,7 +541,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         type RuntimeNonce = <node_subtensor_runtime::Runtime as frame_system::Config>::Nonce;
 
                         // Safely parse plaintext layout without panics.
-                        // Layout: signer (32) || nonce (4) || mortality (1) || call (..)
+                        // Layout: signer (32) || nonce (4) || call (..)
                         //         || sig_kind (1) || sig (64)
                         let min_plain_len: usize = 32usize
                             .saturating_add(4)
@@ -582,20 +582,8 @@ pub fn spawn_revealer<B, C, Pool>(
                             }
                         };
 
-                        let mortality_byte = match plaintext.get(36) {
-                            Some(b) => *b,
-                            None => {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: missing mortality byte",
-                                    hex::encode(id.as_bytes())
-                                );
-                                continue;
-                            }
-                        };
-
                         let sig_off = match plaintext.len().checked_sub(65) {
-                            Some(off) if off >= 37 => off,
+                            Some(off) if off >= 36 => off,
                             _ => {
                                 log::debug!(
                                     target: "mev-shield",
@@ -606,7 +594,7 @@ pub fn spawn_revealer<B, C, Pool>(
                             }
                         };
 
-                        let call_bytes = match plaintext.get(37..sig_off) {
+                        let call_bytes = match plaintext.get(36..sig_off) {
                             Some(s) => s,
                             None => {
                                 log::debug!(
@@ -681,13 +669,6 @@ pub fn spawn_revealer<B, C, Pool>(
                         let raw_nonce_u32 = u32::from_le_bytes(nonce_array);
                         let account_nonce: RuntimeNonce = raw_nonce_u32.saturated_into();
 
-                        // Mortality currently only supports immortal; we still
-                        // parse the byte to keep layout consistent.
-                        let _mortality = match mortality_byte {
-                            0 => Era::Immortal,
-                            _ => Era::Immortal,
-                        };
-
                         let inner_call: node_subtensor_runtime::RuntimeCall =
                             match Decode::decode(&mut &call_bytes[..]) {
                                 Ok(c) => c,
@@ -733,7 +714,6 @@ pub fn spawn_revealer<B, C, Pool>(
                                 id,
                                 signer: signer.clone(),
                                 nonce: account_nonce,
-                                mortality: Era::Immortal,
                                 call: Box::new(inner_call),
                                 signature,
                             }
