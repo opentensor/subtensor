@@ -17,7 +17,9 @@ use sp_std::{marker::PhantomData, result::Result};
 
 use crate::{
     Config, LastSeen, Pallet,
-    types::{RateLimitScopeResolver, RateLimitUsageResolver, TransactionIdentifier},
+    types::{
+        RateLimitScopeResolver, RateLimitTarget, RateLimitUsageResolver, TransactionIdentifier,
+    },
 };
 
 /// Identifier returned in the transaction metadata for the rate limiting extension.
@@ -80,8 +82,14 @@ where
     const IDENTIFIER: &'static str = IDENTIFIER;
 
     type Implicit = ();
-    type Val = Option<(TransactionIdentifier, Option<<T as Config<I>>::UsageKey>)>;
-    type Pre = Option<(TransactionIdentifier, Option<<T as Config<I>>::UsageKey>)>;
+    type Val = Option<(
+        RateLimitTarget<<T as Config<I>>::GroupId>,
+        Option<<T as Config<I>>::UsageKey>,
+    )>;
+    type Pre = Option<(
+        RateLimitTarget<<T as Config<I>>::GroupId>,
+        Option<<T as Config<I>>::UsageKey>,
+    )>;
 
     fn weight(&self, _call: &<T as Config<I>>::RuntimeCall) -> Weight {
         Weight::zero()
@@ -109,7 +117,13 @@ where
         let scope = <T as Config<I>>::LimitScopeResolver::context(&origin, call);
         let usage = <T as Config<I>>::UsageResolver::context(&origin, call);
 
-        let Some(block_span) = Pallet::<T, I>::effective_span(&origin, call, &identifier, &scope)
+        let config_target = Pallet::<T, I>::config_target(&identifier)
+            .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+        let usage_target = Pallet::<T, I>::usage_target(&identifier)
+            .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+
+        let Some(block_span) =
+            Pallet::<T, I>::effective_span(&origin, call, &config_target, &scope)
         else {
             return Ok((ValidTransaction::default(), None, origin));
         };
@@ -118,7 +132,7 @@ where
             return Ok((ValidTransaction::default(), None, origin));
         }
 
-        let within_limit = Pallet::<T, I>::within_span(&identifier, &usage, block_span);
+        let within_limit = Pallet::<T, I>::within_span(&usage_target, &usage, block_span);
 
         if !within_limit {
             return Err(TransactionValidityError::Invalid(
@@ -128,7 +142,7 @@ where
 
         Ok((
             ValidTransaction::default(),
-            Some((identifier, usage)),
+            Some((usage_target, usage)),
             origin,
         ))
     }
@@ -152,9 +166,9 @@ where
         result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         if result.is_ok() {
-            if let Some((identifier, usage)) = pre {
+            if let Some((target, usage)) = pre {
                 let block_number = frame_system::Pallet::<T>::block_number();
-                LastSeen::<T, I>::insert(&identifier, usage, block_number);
+                LastSeen::<T, I>::insert(target, usage, block_number);
             }
         }
         Ok(())
@@ -164,15 +178,18 @@ where
 #[cfg(test)]
 mod tests {
     use codec::Encode;
-    use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+    use frame_support::{
+        assert_ok,
+        dispatch::{GetDispatchInfo, PostDispatchInfo},
+    };
     use sp_runtime::{
         traits::{TransactionExtension, TxBaseImplication},
         transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidityError},
     };
 
     use crate::{
-        LastSeen, Limits,
-        types::{RateLimit, RateLimitKind, TransactionIdentifier},
+        GroupSharing, LastSeen, Limits,
+        types::{RateLimit, RateLimitKind},
     };
 
     use super::*;
@@ -183,19 +200,25 @@ mod tests {
     }
 
     fn bypass_call() -> RuntimeCall {
-        RuntimeCall::RateLimiting(RateLimitingCall::clear_rate_limit {
-            call: Box::new(remark_call()),
+        RuntimeCall::RateLimiting(RateLimitingCall::remove_call_from_group {
+            transaction: TransactionIdentifier::new(0, 0),
         })
     }
 
     fn adjustable_call() -> RuntimeCall {
-        RuntimeCall::RateLimiting(RateLimitingCall::clear_all_rate_limits {
-            call: Box::new(remark_call()),
+        RuntimeCall::RateLimiting(RateLimitingCall::deregister_call {
+            transaction: TransactionIdentifier::new(0, 0),
+            scope: None,
+            clear_usage: false,
         })
     }
 
     fn new_tx_extension() -> RateLimitTransactionExtension<Test> {
         RateLimitTransactionExtension(Default::default())
+    }
+
+    fn target_for_call(call: &RuntimeCall) -> RateLimitTarget<GroupId> {
+        RateLimitTarget::Transaction(identifier_for(call))
     }
 
     fn validate_with_tx_extension(
@@ -204,7 +227,7 @@ mod tests {
     ) -> Result<
         (
             sp_runtime::transaction_validity::ValidTransaction,
-            Option<(TransactionIdentifier, Option<UsageKey>)>,
+            Option<(RateLimitTarget<GroupId>, Option<UsageKey>)>,
             RuntimeOrigin,
         ),
         TransactionValidityError,
@@ -250,11 +273,8 @@ mod tests {
             )
             .expect("post_dispatch succeeds");
 
-            let identifier = identifier_for(&call);
-            assert_eq!(
-                LastSeen::<Test, ()>::get(identifier, None::<UsageKey>),
-                None
-            );
+            let target = target_for_call(&call);
+            assert_eq!(LastSeen::<Test, ()>::get(target, None::<UsageKey>), None);
         });
     }
 
@@ -270,8 +290,9 @@ mod tests {
             assert!(val.is_none());
 
             let identifier = identifier_for(&call);
-            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(3)));
-            LastSeen::<Test, ()>::insert(identifier, None::<UsageKey>, 1);
+            let target = RateLimitTarget::Transaction(identifier);
+            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(3)));
+            LastSeen::<Test, ()>::insert(target, None::<UsageKey>, 1);
 
             let (_valid, post_val, _) =
                 validate_with_tx_extension(&extension, &call).expect("still bypassed");
@@ -285,8 +306,9 @@ mod tests {
             let extension = new_tx_extension();
             let call = adjustable_call();
             let identifier = identifier_for(&call);
-            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(4)));
-            LastSeen::<Test, ()>::insert(identifier, Some(1u16), 10);
+            let target = RateLimitTarget::Transaction(identifier);
+            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(4)));
+            LastSeen::<Test, ()>::insert(target, Some(1u16), 10);
 
             System::set_block_number(14);
 
@@ -308,7 +330,8 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(5)));
+            let target = RateLimitTarget::Transaction(identifier);
+            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(5)));
 
             System::set_block_number(10);
 
@@ -334,7 +357,7 @@ mod tests {
             .expect("post_dispatch succeeds");
 
             assert_eq!(
-                LastSeen::<Test, ()>::get(identifier, None::<UsageKey>),
+                LastSeen::<Test, ()>::get(target, None::<UsageKey>),
                 Some(10)
             );
         });
@@ -346,8 +369,9 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(5)));
-            LastSeen::<Test, ()>::insert(identifier, None::<UsageKey>, 20);
+            let target = RateLimitTarget::Transaction(identifier);
+            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(5)));
+            LastSeen::<Test, ()>::insert(target, None::<UsageKey>, 20);
 
             System::set_block_number(22);
 
@@ -368,7 +392,8 @@ mod tests {
             let extension = new_tx_extension();
             let call = remark_call();
             let identifier = identifier_for(&call);
-            Limits::<Test, ()>::insert(identifier, RateLimit::global(RateLimitKind::Exact(0)));
+            let target = RateLimitTarget::Transaction(identifier);
+            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(0)));
 
             System::set_block_number(30);
 
@@ -393,10 +418,80 @@ mod tests {
             )
             .expect("post_dispatch succeeds");
 
-            assert_eq!(
-                LastSeen::<Test, ()>::get(identifier, None::<UsageKey>),
-                None
-            );
+            assert_eq!(LastSeen::<Test, ()>::get(target, None::<UsageKey>), None);
+        });
+    }
+
+    #[test]
+    fn tx_extension_respects_usage_group_sharing() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            assert_ok!(RateLimiting::create_group(
+                RuntimeOrigin::root(),
+                b"use".to_vec(),
+                GroupSharing::UsageOnly,
+            ));
+            let group = RateLimiting::next_group_id().saturating_sub(1);
+
+            let call = remark_call();
+            let identifier = identifier_for(&call);
+            assert_ok!(RateLimiting::register_call(
+                RuntimeOrigin::root(),
+                Box::new(call.clone()),
+                Some(group),
+            ));
+
+            let tx_target = RateLimitTarget::Transaction(identifier);
+            let usage_target = RateLimitTarget::Group(group);
+            Limits::<Test, ()>::insert(tx_target, RateLimit::global(RateLimitKind::Exact(5)));
+            LastSeen::<Test, ()>::insert(usage_target, None::<UsageKey>, 10);
+            System::set_block_number(12);
+
+            let err = validate_with_tx_extension(&extension, &call)
+                .expect_err("usage grouping should rate limit");
+            match err {
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(code)) => {
+                    assert_eq!(code, RATE_LIMIT_DENIED);
+                }
+                other => panic!("unexpected error: {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn tx_extension_respects_config_group_sharing() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            assert_ok!(RateLimiting::create_group(
+                RuntimeOrigin::root(),
+                b"cfg".to_vec(),
+                GroupSharing::ConfigOnly,
+            ));
+            let group = RateLimiting::next_group_id().saturating_sub(1);
+
+            let call = remark_call();
+            let identifier = identifier_for(&call);
+            assert_ok!(RateLimiting::register_call(
+                RuntimeOrigin::root(),
+                Box::new(call.clone()),
+                Some(group),
+            ));
+
+            let tx_target = RateLimitTarget::Transaction(identifier);
+            let group_target = RateLimitTarget::Group(group);
+            Limits::<Test, ()>::remove(tx_target);
+            Limits::<Test, ()>::insert(group_target, RateLimit::global(RateLimitKind::Exact(5)));
+            LastSeen::<Test, ()>::insert(tx_target, None::<UsageKey>, 10);
+            System::set_block_number(12);
+
+            let err = validate_with_tx_extension(&extension, &call)
+                .expect_err("config grouping should rate limit");
+            match err {
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(code)) => {
+                    assert_eq!(code, RATE_LIMIT_DENIED);
+                }
+                other => panic!("unexpected error: {:?}", other),
+            }
         });
     }
 }

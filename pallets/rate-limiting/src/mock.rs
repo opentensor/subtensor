@@ -57,6 +57,7 @@ impl frame_system::Config for Test {
 
 pub type LimitScope = u16;
 pub type UsageKey = u16;
+pub type GroupId = u32;
 
 pub struct TestScopeResolver;
 pub struct TestUsageResolver;
@@ -77,14 +78,14 @@ impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, Li
     fn should_bypass(_origin: &RuntimeOrigin, call: &RuntimeCall) -> bool {
         matches!(
             call,
-            RuntimeCall::RateLimiting(RateLimitingCall::clear_rate_limit { .. })
+            RuntimeCall::RateLimiting(RateLimitingCall::remove_call_from_group { .. })
         )
     }
 
     fn adjust_span(_origin: &RuntimeOrigin, call: &RuntimeCall, span: u64) -> u64 {
         if matches!(
             call,
-            RuntimeCall::RateLimiting(RateLimitingCall::clear_all_rate_limits { .. })
+            RuntimeCall::RateLimiting(RateLimitingCall::deregister_call { .. })
         ) {
             span.saturating_mul(2)
         } else {
@@ -114,6 +115,9 @@ impl pallet_rate_limiting::Config for Test {
     type UsageKey = UsageKey;
     type UsageResolver = TestUsageResolver;
     type AdminOrigin = EnsureRoot<Self::AccountId>;
+    type GroupId = GroupId;
+    type MaxGroupMembers = ConstU32<32>;
+    type MaxGroupNameLength = ConstU32<64>;
     #[cfg(feature = "runtime-benchmarks")]
     type BenchmarkHelper = BenchHelper;
 }

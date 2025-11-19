@@ -5,26 +5,38 @@
 //! # Overview
 //!
 //! `pallet-rate-limiting` lets a runtime restrict how frequently particular calls can execute.
-//! Limits are stored on-chain, keyed by the call's pallet/variant pair. Each entry can specify an
-//! exact block span or defer to a configured default. The pallet exposes three extrinsics,
-//! restricted by [`Config::AdminOrigin`], to manage this data:
+//! Limits are stored on-chain, keyed by explicit [`RateLimitTarget`] values. A target is either a
+//! single [`TransactionIdentifier`] (the pallet/extrinsic indices) or a named *group* managed by the
+//! admin APIs. Groups provide a way to give multiple calls the same configuration and/or usage
+//! tracking without duplicating storage. Each target entry stores either a global span or a set of
+//! scoped spans resolved at runtime. The pallet exposes a handful of extrinsics, restricted by
+//! [`Config::AdminOrigin`], to manage this data:
 //!
-//! - [`set_rate_limit`](pallet::Pallet::set_rate_limit): assign a limit to an extrinsic by
-//!   supplying a [`RateLimitKind`] span. The pallet infers the *limit scope* (for example a
-//!   `netuid`) using [`Config::LimitScopeResolver`] and stores the configuration for that scope, or
-//!   globally when no scope is resolved.
-//! - [`clear_rate_limit`](pallet::Pallet::clear_rate_limit): remove a stored limit for the scope
-//!   derived from the provided call (or the global entry when no scope resolves).
+//! - [`register_call`](pallet::Pallet::register_call): register a call for rate limiting, seed its
+//!   initial configuration using [`Config::LimitScopeResolver`], and optionally place it into a
+//!   group.
+//! - [`set_rate_limit`](pallet::Pallet::set_rate_limit): assign or override the limit at a specific
+//!   target/scope by supplying a [`RateLimitKind`] span.
+//! - [`assign_call_to_group`](pallet::Pallet::assign_call_to_group) and
+//!   [`remove_call_from_group`](pallet::Pallet::remove_call_from_group): manage group membership for
+//!   registered calls.
+//! - [`deregister_call`](pallet::Pallet::deregister_call): remove scoped configuration or wipe the
+//!   registration entirely.
 //! - [`set_default_rate_limit`](pallet::Pallet::set_default_rate_limit): set the global default
 //!   block span used by `RateLimitKind::Default` entries.
 //!
-//! The pallet also tracks the last block in which a rate-limited call was executed, per optional
-//! *usage key*. A usage key may refine tracking beyond the limit scope (for example combining a
-//! `netuid` with a hyperparameter name), so the two concepts are explicitly separated in the
-//! configuration.
+//! The pallet also tracks the last block in which a target was observed, per optional *usage key*.
+//! A usage key may refine tracking beyond the limit scope (for example combining a `netuid` with a
+//! hyperparameter), so the two concepts are explicitly separated in the configuration. When the
+//! admin puts several calls into a group and marks usage as shared, each dispatch still runs the
+//! resolver: the group only chooses the storage target, while the resolver output (or `None`) picks
+//! the row under that target. Calls that resolve to the same usage key update the same timestamp;
+//! calls that resolve to different keys keep isolated timers even when they share a group. The same
+//! rule applies to limit scopes—grouping funnels configuration into the same target, but the scope
+//! resolver decides whether that entry is global or per-context.
 //!
 //! Each storage map is namespaced by pallet instance; runtimes can deploy multiple independent
-//! instances to manage distinct rate-limiting scopes.
+//! instances to manage distinct rate-limiting scopes (in the global sense).
 //!
 //! # Transaction extension
 //!
@@ -57,7 +69,11 @@
 //!
 //! Each resolver receives the origin and call and may return `Some(identifier)` when scoping is
 //! required, or `None` to use the global entry. Extrinsics such as
-//! [`set_rate_limit`](pallet::Pallet::set_rate_limit) automatically consult these resolvers.
+//! [`set_rate_limit`](pallet::Pallet::set_rate_limit) automatically consult these resolvers. When a
+//! call belongs to a group the pallet still runs the resolver—instead of indexing storage at the
+//! transaction-level target, it indexes at the group target. Resolving to different contexts keeps
+//! independent limit/usage rows even though the calls share a group; resolving to the same context
+//! causes them to share enforcement state.
 //!
 //! ```ignore
 //! pub struct WeightsContextResolver;
@@ -122,7 +138,8 @@ pub use benchmarking::BenchmarkHelper;
 pub use pallet::*;
 pub use tx_extension::RateLimitTransactionExtension;
 pub use types::{
-    RateLimit, RateLimitKind, RateLimitScopeResolver, RateLimitUsageResolver, TransactionIdentifier,
+    GroupSharing, RateLimit, RateLimitGroup, RateLimitKind, RateLimitScopeResolver,
+    RateLimitTarget, RateLimitUsageResolver, TransactionIdentifier,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -140,19 +157,27 @@ mod tests;
 pub mod pallet {
     use codec::Codec;
     use frame_support::{
+        BoundedBTreeSet, BoundedVec,
         pallet_prelude::*,
         traits::{BuildGenesisConfig, EnsureOrigin, GetCallMetadata},
     };
     use frame_system::pallet_prelude::*;
-    use sp_runtime::traits::{DispatchOriginOf, Dispatchable, Saturating, Zero};
+    use sp_runtime::traits::{
+        AtLeast32BitUnsigned, DispatchOriginOf, Dispatchable, Member, One, Saturating, Zero,
+    };
     use sp_std::{boxed::Box, convert::TryFrom, marker::PhantomData, vec::Vec};
 
     #[cfg(feature = "runtime-benchmarks")]
     use crate::benchmarking::BenchmarkHelper as BenchmarkHelperTrait;
     use crate::types::{
-        RateLimit, RateLimitKind, RateLimitScopeResolver, RateLimitUsageResolver,
-        TransactionIdentifier,
+        GroupSharing, RateLimit, RateLimitGroup, RateLimitKind, RateLimitScopeResolver,
+        RateLimitTarget, RateLimitUsageResolver, TransactionIdentifier,
     };
+
+    type GroupNameOf<T, I> = BoundedVec<u8, <T as Config<I>>::MaxGroupNameLength>;
+    type GroupMembersOf<T, I> =
+        BoundedBTreeSet<TransactionIdentifier, <T as Config<I>>::MaxGroupMembers>;
+    type GroupDetailsOf<T, I> = RateLimitGroup<<T as Config<I>>::GroupId, GroupNameOf<T, I>>;
 
     /// Configuration trait for the rate limiting pallet.
     #[pallet::config]
@@ -193,30 +218,45 @@ pub mod pallet {
                 Self::UsageKey,
             >;
 
+        /// Identifier assigned to managed groups.
+        type GroupId: Parameter
+            + Member
+            + Copy
+            + MaybeSerializeDeserialize
+            + MaxEncodedLen
+            + AtLeast32BitUnsigned
+            + Default;
+
+        /// Maximum number of extrinsics that may belong to a single group.
+        #[pallet::constant]
+        type MaxGroupMembers: Get<u32>;
+
+        /// Maximum length (in bytes) of a group name.
+        #[pallet::constant]
+        type MaxGroupNameLength: Get<u32>;
+
         /// Helper used to construct runtime calls for benchmarking.
         #[cfg(feature = "runtime-benchmarks")]
         type BenchmarkHelper: BenchmarkHelperTrait<<Self as Config<I>>::RuntimeCall>;
     }
 
-    /// Storage mapping from transaction identifier to its configured rate limit.
+    /// Storage mapping from rate limit target to its configured rate limit.
     #[pallet::storage]
     #[pallet::getter(fn limits)]
     pub type Limits<T: Config<I>, I: 'static = ()> = StorageMap<
         _,
         Blake2_128Concat,
-        TransactionIdentifier,
+        RateLimitTarget<<T as Config<I>>::GroupId>,
         RateLimit<<T as Config<I>>::LimitScope, BlockNumberFor<T>>,
         OptionQuery,
     >;
 
-    /// Tracks when a transaction was last observed.
-    ///
-    /// The second key is `None` for global tracking and `Some(key)` for scoped usage tracking.
+    /// Tracks when a rate-limited target was last observed per usage key.
     #[pallet::storage]
     pub type LastSeen<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        TransactionIdentifier,
+        RateLimitTarget<<T as Config<I>>::GroupId>,
         Blake2_128Concat,
         Option<<T as Config<I>>::UsageKey>,
         BlockNumberFor<T>,
@@ -229,47 +269,130 @@ pub mod pallet {
     pub type DefaultLimit<T: Config<I>, I: 'static = ()> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
+    /// Maps a transaction identifier to its assigned group.
+    #[pallet::storage]
+    #[pallet::getter(fn call_group)]
+    pub type CallGroups<T: Config<I>, I: 'static = ()> = StorageMap<
+        _,
+        Blake2_128Concat,
+        TransactionIdentifier,
+        <T as Config<I>>::GroupId,
+        OptionQuery,
+    >;
+
+    /// Metadata for each configured group.
+    #[pallet::storage]
+    #[pallet::getter(fn groups)]
+    pub type Groups<T: Config<I>, I: 'static = ()> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as Config<I>>::GroupId,
+        GroupDetailsOf<T, I>,
+        OptionQuery,
+    >;
+
+    /// Tracks membership for each group.
+    #[pallet::storage]
+    #[pallet::getter(fn group_members)]
+    pub type GroupMembers<T: Config<I>, I: 'static = ()> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as Config<I>>::GroupId,
+        GroupMembersOf<T, I>,
+        ValueQuery,
+    >;
+
+    /// Enforces unique group names.
+    #[pallet::storage]
+    #[pallet::getter(fn group_id_by_name)]
+    pub type GroupNameIndex<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Blake2_128Concat, GroupNameOf<T, I>, <T as Config<I>>::GroupId, OptionQuery>;
+
+    /// Identifier used for the next group creation.
+    #[pallet::storage]
+    #[pallet::getter(fn next_group_id)]
+    pub type NextGroupId<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, <T as Config<I>>::GroupId, ValueQuery>;
+
     /// Events emitted by the rate limiting pallet.
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config<I>, I: 'static = ()> {
-        /// A rate limit was set or updated.
-        RateLimitSet {
-            /// Identifier of the affected transaction.
+        /// A call was registered for rate limiting.
+        CallRegistered {
+            /// Identifier of the registered transaction.
             transaction: TransactionIdentifier,
+            /// Scope seeded during registration (if any).
+            scope: Option<<T as Config<I>>::LimitScope>,
+            /// Optional group assignment applied at registration time.
+            group: Option<<T as Config<I>>::GroupId>,
+            /// Pallet name associated with the transaction.
+            pallet: Vec<u8>,
+            /// Extrinsic name associated with the transaction.
+            extrinsic: Vec<u8>,
+        },
+        /// A rate limit was set or updated for the specified target.
+        RateLimitSet {
+            /// Target whose configuration changed.
+            target: RateLimitTarget<<T as Config<I>>::GroupId>,
+            /// Identifier of the transaction when the target represents a call.
+            transaction: Option<TransactionIdentifier>,
             /// Limit scope to which the configuration applies, if any.
             scope: Option<<T as Config<I>>::LimitScope>,
-            /// The rate limit policy applied to the transaction.
+            /// The rate limit policy applied to the target.
             limit: RateLimitKind<BlockNumberFor<T>>,
-            /// Pallet name associated with the transaction.
-            pallet: Vec<u8>,
-            /// Extrinsic name associated with the transaction.
-            extrinsic: Vec<u8>,
+            /// Pallet name associated with the transaction, when available.
+            pallet: Option<Vec<u8>>,
+            /// Extrinsic name associated with the transaction, when available.
+            extrinsic: Option<Vec<u8>>,
         },
-        /// A rate limit was cleared.
-        RateLimitCleared {
-            /// Identifier of the affected transaction.
-            transaction: TransactionIdentifier,
+        /// A rate-limited call was deregistered or had a scoped entry cleared.
+        CallDeregistered {
+            /// Target whose configuration changed.
+            target: RateLimitTarget<<T as Config<I>>::GroupId>,
+            /// Identifier of the transaction when the target represents a call.
+            transaction: Option<TransactionIdentifier>,
             /// Limit scope from which the configuration was cleared, if any.
             scope: Option<<T as Config<I>>::LimitScope>,
-            /// Pallet name associated with the transaction.
-            pallet: Vec<u8>,
-            /// Extrinsic name associated with the transaction.
-            extrinsic: Vec<u8>,
-        },
-        /// All scoped and global rate limits for a call were cleared.
-        AllRateLimitsCleared {
-            /// Identifier of the affected transaction.
-            transaction: TransactionIdentifier,
-            /// Pallet name associated with the transaction.
-            pallet: Vec<u8>,
-            /// Extrinsic name associated with the transaction.
-            extrinsic: Vec<u8>,
+            /// Pallet name associated with the transaction, when available.
+            pallet: Option<Vec<u8>>,
+            /// Extrinsic name associated with the transaction, when available.
+            extrinsic: Option<Vec<u8>>,
         },
         /// The default rate limit was set or updated.
         DefaultRateLimitSet {
             /// The new default limit expressed in blocks.
             block_span: BlockNumberFor<T>,
+        },
+        /// A group was created.
+        GroupCreated {
+            /// Identifier of the new group.
+            group: <T as Config<I>>::GroupId,
+            /// Human readable group name.
+            name: Vec<u8>,
+            /// Sharing policy configured for the group.
+            sharing: GroupSharing,
+        },
+        /// A group's metadata or policy changed.
+        GroupUpdated {
+            /// Identifier of the group.
+            group: <T as Config<I>>::GroupId,
+            /// Human readable name.
+            name: Vec<u8>,
+            /// Updated sharing configuration.
+            sharing: GroupSharing,
+        },
+        /// A group was deleted.
+        GroupDeleted {
+            /// Identifier of the removed group.
+            group: <T as Config<I>>::GroupId,
+        },
+        /// A transaction was assigned to or removed from a group.
+        CallGroupUpdated {
+            /// Identifier of the transaction.
+            transaction: TransactionIdentifier,
+            /// Updated group assignment (None when cleared).
+            group: Option<<T as Config<I>>::GroupId>,
         },
     }
 
@@ -280,6 +403,30 @@ pub mod pallet {
         InvalidRuntimeCall,
         /// Attempted to remove a limit that is not present.
         MissingRateLimit,
+        /// Group metadata was not found.
+        UnknownGroup,
+        /// Attempted to create or rename a group to an existing name.
+        DuplicateGroupName,
+        /// Group name exceeds the configured maximum length.
+        GroupNameTooLong,
+        /// Operation requires the group to have no members.
+        GroupHasMembers,
+        /// Adding a member would exceed the configured limit.
+        GroupMemberLimitExceeded,
+        /// Call already belongs to the requested group.
+        CallAlreadyInGroup,
+        /// Call is not assigned to a group.
+        CallNotInGroup,
+        /// Operation requires the call to be registered first.
+        CallNotRegistered,
+        /// Attempted to register a call that already exists.
+        CallAlreadyRegistered,
+        /// Rate limit for this call must be configured via its group target.
+        MustTargetGroup,
+        /// Resolver failed to supply a required context value.
+        MissingScope,
+        /// Group cannot be removed because configuration or usage entries remain.
+        GroupInUse,
     }
 
     #[pallet::genesis_config]
@@ -306,9 +453,12 @@ pub mod pallet {
     impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
         fn build(&self) {
             DefaultLimit::<T, I>::put(self.default_limit);
+            let initial: <T as Config<I>>::GroupId = Zero::zero();
+            NextGroupId::<T, I>::put(initial);
 
             for (identifier, scope, kind) in &self.limits {
-                Limits::<T, I>::mutate(identifier, |entry| match scope {
+                let target = RateLimitTarget::Transaction(*identifier);
+                Limits::<T, I>::mutate(target, |entry| match scope {
                     None => {
                         *entry = Some(RateLimit::global(*kind));
                     }
@@ -342,18 +492,22 @@ pub mod pallet {
                 return Ok(true);
             }
 
-            let Some(block_span) = Self::effective_span(origin, call, identifier, scope) else {
+            let target = Self::config_target(identifier)?;
+            Self::ensure_scope_available(&target, scope)?;
+
+            let Some(block_span) = Self::effective_span(origin, call, &target, scope) else {
                 return Ok(true);
             };
 
-            Ok(Self::within_span(identifier, usage_key, block_span))
+            let usage_target = Self::usage_target(identifier)?;
+            Ok(Self::within_span(&usage_target, usage_key, block_span))
         }
 
         pub(crate) fn resolved_limit(
-            identifier: &TransactionIdentifier,
+            target: &RateLimitTarget<<T as Config<I>>::GroupId>,
             scope: &Option<<T as Config<I>>::LimitScope>,
         ) -> Option<BlockNumberFor<T>> {
-            let config = Limits::<T, I>::get(identifier)?;
+            let config = Limits::<T, I>::get(target)?;
             let kind = config.kind_for(scope.as_ref())?;
             Some(match *kind {
                 RateLimitKind::Default => DefaultLimit::<T, I>::get(),
@@ -364,17 +518,17 @@ pub mod pallet {
         pub(crate) fn effective_span(
             origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
             call: &<T as Config<I>>::RuntimeCall,
-            identifier: &TransactionIdentifier,
+            target: &RateLimitTarget<<T as Config<I>>::GroupId>,
             scope: &Option<<T as Config<I>>::LimitScope>,
         ) -> Option<BlockNumberFor<T>> {
-            let span = Self::resolved_limit(identifier, scope)?;
+            let span = Self::resolved_limit(target, scope)?;
             Some(<T as Config<I>>::LimitScopeResolver::adjust_span(
                 origin, call, span,
             ))
         }
 
         pub(crate) fn within_span(
-            identifier: &TransactionIdentifier,
+            target: &RateLimitTarget<<T as Config<I>>::GroupId>,
             usage_key: &Option<<T as Config<I>>::UsageKey>,
             block_span: BlockNumberFor<T>,
         ) -> bool {
@@ -382,7 +536,7 @@ pub mod pallet {
                 return true;
             }
 
-            if let Some(last) = LastSeen::<T, I>::get(identifier, usage_key) {
+            if let Some(last) = LastSeen::<T, I>::get(target, usage_key.clone()) {
                 let current = frame_system::Pallet::<T>::block_number();
                 let delta = current.saturating_sub(last);
                 if delta < block_span {
@@ -398,11 +552,11 @@ pub mod pallet {
         /// This is primarily intended for migrations that need to hydrate the new tracking storage
         /// from legacy pallets.
         pub fn record_last_seen(
-            identifier: &TransactionIdentifier,
+            target: RateLimitTarget<<T as Config<I>>::GroupId>,
             usage_key: Option<<T as Config<I>>::UsageKey>,
             block_number: BlockNumberFor<T>,
         ) {
-            LastSeen::<T, I>::insert(identifier, usage_key, block_number);
+            LastSeen::<T, I>::insert(target, usage_key, block_number);
         }
 
         /// Migrates a stored rate limit configuration from one scope to another.
@@ -410,16 +564,16 @@ pub mod pallet {
         /// Returns `true` when an entry was moved. Passing identical `from`/`to` scopes simply
         /// checks that a configuration exists.
         pub fn migrate_limit_scope(
-            identifier: &TransactionIdentifier,
+            target: RateLimitTarget<<T as Config<I>>::GroupId>,
             from: Option<<T as Config<I>>::LimitScope>,
             to: Option<<T as Config<I>>::LimitScope>,
         ) -> bool {
             if from == to {
-                return Limits::<T, I>::contains_key(identifier);
+                return Limits::<T, I>::contains_key(target);
             }
 
             let mut migrated = false;
-            Limits::<T, I>::mutate(identifier, |maybe_config| {
+            Limits::<T, I>::mutate(target, |maybe_config| {
                 if let Some(config) = maybe_config {
                     match (from.as_ref(), to.as_ref()) {
                         (None, Some(target)) => {
@@ -459,19 +613,19 @@ pub mod pallet {
         /// Returns `true` when an entry was moved. Passing identical keys simply checks that an
         /// entry exists.
         pub fn migrate_usage_key(
-            identifier: &TransactionIdentifier,
+            target: RateLimitTarget<<T as Config<I>>::GroupId>,
             from: Option<<T as Config<I>>::UsageKey>,
             to: Option<<T as Config<I>>::UsageKey>,
         ) -> bool {
             if from == to {
-                return LastSeen::<T, I>::contains_key(identifier, &to);
+                return LastSeen::<T, I>::contains_key(target, to);
             }
 
-            let Some(block) = LastSeen::<T, I>::take(identifier, from) else {
+            let Some(block) = LastSeen::<T, I>::take(target, from) else {
                 return false;
             };
 
-            LastSeen::<T, I>::insert(identifier, to, block);
+            LastSeen::<T, I>::insert(target, to, block);
             true
         }
 
@@ -482,8 +636,8 @@ pub mod pallet {
             scope: Option<<T as Config<I>>::LimitScope>,
         ) -> Option<RateLimitKind<BlockNumberFor<T>>> {
             let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
-            Limits::<T, I>::get(&identifier)
-                .and_then(|config| config.kind_for(scope.as_ref()).copied())
+            let target = Self::config_target(&identifier).ok()?;
+            Limits::<T, I>::get(target).and_then(|config| config.kind_for(scope.as_ref()).copied())
         }
 
         /// Returns the resolved block span for the specified pallet/extrinsic names, if any.
@@ -493,7 +647,8 @@ pub mod pallet {
             scope: Option<<T as Config<I>>::LimitScope>,
         ) -> Option<BlockNumberFor<T>> {
             let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
-            Self::resolved_limit(&identifier, &scope)
+            let target = Self::config_target(&identifier).ok()?;
+            Self::resolved_limit(&target, &scope)
         }
 
         fn identifier_for_call_names(
@@ -508,50 +663,259 @@ pub mod pallet {
             let extrinsic_index = u8::try_from(extrinsic_pos).ok()?;
             Some(TransactionIdentifier::new(pallet_index, extrinsic_index))
         }
+
+        fn ensure_call_registered(identifier: &TransactionIdentifier) -> DispatchResult {
+            let target = RateLimitTarget::Transaction(*identifier);
+            ensure!(
+                Limits::<T, I>::contains_key(target),
+                Error::<T, I>::CallNotRegistered
+            );
+            Ok(())
+        }
+
+        fn ensure_call_unregistered(identifier: &TransactionIdentifier) -> DispatchResult {
+            let target = RateLimitTarget::Transaction(*identifier);
+            ensure!(
+                !Limits::<T, I>::contains_key(target),
+                Error::<T, I>::CallAlreadyRegistered
+            );
+            Ok(())
+        }
+
+        fn call_metadata(
+            identifier: &TransactionIdentifier,
+        ) -> Result<(Vec<u8>, Vec<u8>), DispatchError> {
+            let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
+            Ok((
+                Vec::from(pallet_name.as_bytes()),
+                Vec::from(extrinsic_name.as_bytes()),
+            ))
+        }
+
+        pub(crate) fn config_target(
+            identifier: &TransactionIdentifier,
+        ) -> Result<RateLimitTarget<<T as Config<I>>::GroupId>, DispatchError> {
+            Self::target_for(identifier, GroupSharing::config_uses_group)
+        }
+
+        pub(crate) fn usage_target(
+            identifier: &TransactionIdentifier,
+        ) -> Result<RateLimitTarget<<T as Config<I>>::GroupId>, DispatchError> {
+            Self::target_for(identifier, GroupSharing::usage_uses_group)
+        }
+
+        fn target_for(
+            identifier: &TransactionIdentifier,
+            predicate: impl Fn(GroupSharing) -> bool,
+        ) -> Result<RateLimitTarget<<T as Config<I>>::GroupId>, DispatchError> {
+            let group = Self::group_assignment(identifier)?;
+            Ok(Self::target_from_details(
+                identifier,
+                group.as_ref(),
+                predicate,
+            ))
+        }
+
+        fn group_assignment(
+            identifier: &TransactionIdentifier,
+        ) -> Result<Option<GroupDetailsOf<T, I>>, DispatchError> {
+            let Some(group) = CallGroups::<T, I>::get(identifier) else {
+                return Ok(None);
+            };
+            let details = Self::ensure_group_details(group)?;
+            Ok(Some(details))
+        }
+
+        fn target_from_details(
+            identifier: &TransactionIdentifier,
+            details: Option<&GroupDetailsOf<T, I>>,
+            predicate: impl Fn(GroupSharing) -> bool,
+        ) -> RateLimitTarget<<T as Config<I>>::GroupId> {
+            if let Some(details) = details {
+                if predicate(details.sharing) {
+                    return RateLimitTarget::Group(details.id);
+                }
+            }
+            RateLimitTarget::Transaction(*identifier)
+        }
+
+        fn ensure_group_details(
+            group: <T as Config<I>>::GroupId,
+        ) -> Result<GroupDetailsOf<T, I>, DispatchError> {
+            Groups::<T, I>::get(group).ok_or(Error::<T, I>::UnknownGroup.into())
+        }
+
+        fn ensure_scope_available(
+            target: &RateLimitTarget<<T as Config<I>>::GroupId>,
+            scope: &Option<<T as Config<I>>::LimitScope>,
+        ) -> Result<(), DispatchError> {
+            if scope.is_some() {
+                return Ok(());
+            }
+
+            if let Some(RateLimit::Scoped(map)) = Limits::<T, I>::get(target) {
+                if !map.is_empty() {
+                    return Err(Error::<T, I>::MissingScope.into());
+                }
+            }
+
+            Ok(())
+        }
+
+        fn bounded_group_name(name: Vec<u8>) -> Result<GroupNameOf<T, I>, DispatchError> {
+            GroupNameOf::<T, I>::try_from(name).map_err(|_| Error::<T, I>::GroupNameTooLong.into())
+        }
+
+        fn ensure_group_name_available(
+            name: &GroupNameOf<T, I>,
+            current: Option<<T as Config<I>>::GroupId>,
+        ) -> DispatchResult {
+            if let Some(existing) = GroupNameIndex::<T, I>::get(name) {
+                ensure!(Some(existing) == current, Error::<T, I>::DuplicateGroupName);
+            }
+            Ok(())
+        }
+
+        fn ensure_group_deletable(group: <T as Config<I>>::GroupId) -> DispatchResult {
+            ensure!(
+                GroupMembers::<T, I>::get(group).is_empty(),
+                Error::<T, I>::GroupHasMembers
+            );
+            let target = RateLimitTarget::Group(group);
+            ensure!(
+                !Limits::<T, I>::contains_key(target),
+                Error::<T, I>::GroupInUse
+            );
+            ensure!(
+                LastSeen::<T, I>::iter_prefix(target).next().is_none(),
+                Error::<T, I>::GroupInUse
+            );
+            Ok(())
+        }
+
+        fn insert_call_into_group(
+            identifier: &TransactionIdentifier,
+            group: <T as Config<I>>::GroupId,
+        ) -> DispatchResult {
+            GroupMembers::<T, I>::try_mutate(group, |members| -> DispatchResult {
+                match members.try_insert(*identifier) {
+                    Ok(true) => Ok(()),
+                    Ok(false) => Err(Error::<T, I>::CallAlreadyInGroup.into()),
+                    Err(_) => Err(Error::<T, I>::GroupMemberLimitExceeded.into()),
+                }
+            })?;
+            Ok(())
+        }
+
+        fn detach_call_from_group(
+            identifier: &TransactionIdentifier,
+            group: <T as Config<I>>::GroupId,
+        ) -> bool {
+            GroupMembers::<T, I>::mutate(group, |members| members.remove(identifier))
+        }
     }
 
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
-        /// Sets the rate limit configuration for the given call.
-        ///
-        /// The supplied `call` is inspected to derive the pallet/extrinsic indices and passed to
-        /// [`Config::LimitScopeResolver`] to determine the applicable scope. The pallet never
-        /// persists the call arguments directly, but a resolver may read them in order to resolve
-        /// its context. When a scope resolves, the configuration is stored against that scope;
-        /// otherwise the global entry is updated.
+        /// Registers a call for rate limiting and seeds its initial configuration.
         #[pallet::call_index(0)]
-        #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-        pub fn set_rate_limit(
+        #[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+        pub fn register_call(
             origin: OriginFor<T>,
             call: Box<<T as Config<I>>::RuntimeCall>,
-            limit: RateLimitKind<BlockNumberFor<T>>,
+            group: Option<<T as Config<I>>::GroupId>,
         ) -> DispatchResult {
             let resolver_origin: DispatchOriginOf<<T as Config<I>>::RuntimeCall> =
                 Into::<DispatchOriginOf<<T as Config<I>>::RuntimeCall>>::into(origin.clone());
             let scope =
                 <T as Config<I>>::LimitScopeResolver::context(&resolver_origin, call.as_ref());
-            let scope_for_event = scope.clone();
 
             T::AdminOrigin::ensure_origin(origin)?;
 
             let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
+            Self::ensure_call_unregistered(&identifier)?;
+
+            let target = RateLimitTarget::Transaction(identifier);
 
             if let Some(ref sc) = scope {
-                Limits::<T, I>::mutate(&identifier, |slot| match slot {
-                    Some(config) => config.upsert_scope(sc.clone(), limit),
-                    None => *slot = Some(RateLimit::scoped_single(sc.clone(), limit)),
-                });
+                Limits::<T, I>::insert(
+                    target,
+                    RateLimit::scoped_single(sc.clone(), RateLimitKind::Default),
+                );
             } else {
-                Limits::<T, I>::insert(&identifier, RateLimit::global(limit));
+                Limits::<T, I>::insert(target, RateLimit::global(RateLimitKind::Default));
             }
 
-            let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
-            let pallet = Vec::from(pallet_name.as_bytes());
-            let extrinsic = Vec::from(extrinsic_name.as_bytes());
+            let mut assigned_group = None;
+            if let Some(group_id) = group {
+                Self::ensure_group_details(group_id)?;
+                Self::insert_call_into_group(&identifier, group_id)?;
+                CallGroups::<T, I>::insert(&identifier, group_id);
+                assigned_group = Some(group_id);
+            }
+
+            let (pallet, extrinsic) = Self::call_metadata(&identifier)?;
+            Self::deposit_event(Event::CallRegistered {
+                transaction: identifier,
+                scope: scope.clone(),
+                group: assigned_group,
+                pallet: pallet.clone(),
+                extrinsic: extrinsic.clone(),
+            });
+
+            if let Some(group_id) = assigned_group {
+                Self::deposit_event(Event::CallGroupUpdated {
+                    transaction: identifier,
+                    group: Some(group_id),
+                });
+            }
+
+            Ok(())
+        }
+
+        /// Configures a rate limit for either a transaction or group target.
+        #[pallet::call_index(1)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+        pub fn set_rate_limit(
+            origin: OriginFor<T>,
+            target: RateLimitTarget<<T as Config<I>>::GroupId>,
+            scope: Option<<T as Config<I>>::LimitScope>,
+            limit: RateLimitKind<BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            let (transaction, pallet, extrinsic) = match target {
+                RateLimitTarget::Transaction(identifier) => {
+                    Self::ensure_call_registered(&identifier)?;
+                    if let Some(group) = CallGroups::<T, I>::get(&identifier) {
+                        let details = Self::ensure_group_details(group)?;
+                        ensure!(
+                            !details.sharing.config_uses_group(),
+                            Error::<T, I>::MustTargetGroup
+                        );
+                    }
+                    let (pallet, extrinsic) = Self::call_metadata(&identifier)?;
+                    (Some(identifier), Some(pallet), Some(extrinsic))
+                }
+                RateLimitTarget::Group(group) => {
+                    Self::ensure_group_details(group)?;
+                    (None, None, None)
+                }
+            };
+
+            if let Some(ref scoped) = scope {
+                Limits::<T, I>::mutate(target, |slot| match slot {
+                    Some(config) => config.upsert_scope(scoped.clone(), limit),
+                    None => *slot = Some(RateLimit::scoped_single(scoped.clone(), limit)),
+                });
+            } else {
+                Limits::<T, I>::insert(target, RateLimit::global(limit));
+            }
 
             Self::deposit_event(Event::RateLimitSet {
-                transaction: identifier,
-                scope: scope_for_event,
+                target,
+                transaction,
+                scope,
                 limit,
                 pallet,
                 extrinsic,
@@ -559,114 +923,63 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Clears the rate limit for the given call, if present.
-        ///
-        /// The supplied `call` is inspected to derive the pallet/extrinsic indices and passed to
-        /// [`Config::LimitScopeResolver`] when determining which scoped configuration to clear.
-        /// The pallet does not persist the call arguments, but resolvers may read them while
-        /// computing the scope. When no scope resolves, the global entry is cleared.
-        #[pallet::call_index(1)]
-        #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-        pub fn clear_rate_limit(
+        /// Assigns a registered call to the specified group.
+        #[pallet::call_index(2)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+        pub fn assign_call_to_group(
             origin: OriginFor<T>,
-            call: Box<<T as Config<I>>::RuntimeCall>,
+            transaction: TransactionIdentifier,
+            group: <T as Config<I>>::GroupId,
         ) -> DispatchResult {
-            let resolver_origin: DispatchOriginOf<<T as Config<I>>::RuntimeCall> =
-                Into::<DispatchOriginOf<<T as Config<I>>::RuntimeCall>>::into(origin.clone());
-            let scope =
-                <T as Config<I>>::LimitScopeResolver::context(&resolver_origin, call.as_ref());
-            let usage = <T as Config<I>>::UsageResolver::context(&resolver_origin, call.as_ref());
-
             T::AdminOrigin::ensure_origin(origin)?;
 
-            let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
+            Self::ensure_call_registered(&transaction)?;
+            Self::ensure_group_details(group)?;
 
-            let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
-            let pallet = Vec::from(pallet_name.as_bytes());
-            let extrinsic = Vec::from(extrinsic_name.as_bytes());
-
-            let mut removed = false;
-            Limits::<T, I>::mutate_exists(&identifier, |maybe_config| {
-                if let Some(config) = maybe_config {
-                    match (&scope, config) {
-                        (None, _) => {
-                            removed = true;
-                            *maybe_config = None;
-                        }
-                        (Some(sc), RateLimit::Scoped(map)) => {
-                            if map.remove(sc).is_some() {
-                                removed = true;
-                                if map.is_empty() {
-                                    *maybe_config = None;
-                                }
-                            }
-                        }
-                        (Some(_), RateLimit::Global(_)) => {}
-                    }
-                }
-            });
-
-            ensure!(removed, Error::<T, I>::MissingRateLimit);
-
-            if removed {
-                match (scope.as_ref(), usage) {
-                    (None, _) => {
-                        let _ = LastSeen::<T, I>::clear_prefix(&identifier, u32::MAX, None);
-                    }
-                    (_, Some(key)) => {
-                        LastSeen::<T, I>::remove(&identifier, Some(key));
-                    }
-                    (_, None) => {
-                        LastSeen::<T, I>::remove(&identifier, None::<<T as Config<I>>::UsageKey>);
-                    }
-                }
+            let current = CallGroups::<T, I>::get(&transaction);
+            if current == Some(group) {
+                return Err(Error::<T, I>::CallAlreadyInGroup.into());
             }
 
-            Self::deposit_event(Event::RateLimitCleared {
-                transaction: identifier,
-                scope,
-                pallet,
-                extrinsic,
+            Self::insert_call_into_group(&transaction, group)?;
+            if let Some(existing) = current {
+                Self::detach_call_from_group(&transaction, existing);
+            }
+            CallGroups::<T, I>::insert(&transaction, group);
+
+            Self::deposit_event(Event::CallGroupUpdated {
+                transaction,
+                group: Some(group),
             });
 
             Ok(())
         }
 
-        /// Clears every stored rate limit configuration for the given call, including scoped
-        /// entries.
-        ///
-        /// The supplied `call` is inspected to derive the pallet and extrinsic indices. All stored
-        /// scopes for that call, along with any associated usage tracking entries, are removed when
-        /// this extrinsic succeeds.
-        #[pallet::call_index(2)]
-        #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-        pub fn clear_all_rate_limits(
+        /// Removes a registered call from its current group assignment.
+        #[pallet::call_index(3)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+        pub fn remove_call_from_group(
             origin: OriginFor<T>,
-            call: Box<<T as Config<I>>::RuntimeCall>,
+            transaction: TransactionIdentifier,
         ) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
 
-            let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
-            let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
-            let pallet = Vec::from(pallet_name.as_bytes());
-            let extrinsic = Vec::from(extrinsic_name.as_bytes());
+            Self::ensure_call_registered(&transaction)?;
+            let Some(group) = CallGroups::<T, I>::take(&transaction) else {
+                return Err(Error::<T, I>::CallNotInGroup.into());
+            };
+            Self::detach_call_from_group(&transaction, group);
 
-            let removed = Limits::<T, I>::take(&identifier).is_some();
-            ensure!(removed, Error::<T, I>::MissingRateLimit);
-
-            let _ = LastSeen::<T, I>::clear_prefix(&identifier, u32::MAX, None);
-
-            Self::deposit_event(Event::AllRateLimitsCleared {
-                transaction: identifier,
-                pallet,
-                extrinsic,
+            Self::deposit_event(Event::CallGroupUpdated {
+                transaction,
+                group: None,
             });
 
             Ok(())
         }
 
-        /// Sets the default rate limit in blocks applied to calls configured to use it.
-        #[pallet::call_index(3)]
+        /// Sets the default rate limit that applies when an extrinsic uses [`RateLimitKind::Default`].
+        #[pallet::call_index(4)]
         #[pallet::weight(T::DbWeight::get().writes(1))]
         pub fn set_default_rate_limit(
             origin: OriginFor<T>,
@@ -675,8 +988,175 @@ pub mod pallet {
             T::AdminOrigin::ensure_origin(origin)?;
 
             DefaultLimit::<T, I>::put(block_span);
-
             Self::deposit_event(Event::DefaultRateLimitSet { block_span });
+            Ok(())
+        }
+
+        /// Creates a new rate-limiting group with the provided name and sharing configuration.
+        #[pallet::call_index(5)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(1, 3))]
+        pub fn create_group(
+            origin: OriginFor<T>,
+            name: Vec<u8>,
+            sharing: GroupSharing,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            let bounded = Self::bounded_group_name(name)?;
+            Self::ensure_group_name_available(&bounded, None)?;
+
+            let group = NextGroupId::<T, I>::mutate(|current| {
+                let next = current.saturating_add(One::one());
+                sp_std::mem::replace(current, next)
+            });
+
+            Groups::<T, I>::insert(
+                group,
+                RateLimitGroup {
+                    id: group,
+                    name: bounded.clone(),
+                    sharing,
+                },
+            );
+            GroupNameIndex::<T, I>::insert(&bounded, group);
+            GroupMembers::<T, I>::insert(group, GroupMembersOf::<T, I>::new());
+
+            let name_bytes: Vec<u8> = bounded.into();
+            Self::deposit_event(Event::GroupCreated {
+                group,
+                name: name_bytes,
+                sharing,
+            });
+            Ok(())
+        }
+
+        /// Updates the metadata or sharing configuration of an existing group.
+        #[pallet::call_index(6)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+        pub fn update_group(
+            origin: OriginFor<T>,
+            group: <T as Config<I>>::GroupId,
+            name: Option<Vec<u8>>,
+            sharing: Option<GroupSharing>,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            Groups::<T, I>::try_mutate(group, |maybe_details| -> DispatchResult {
+                let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownGroup)?;
+
+                if let Some(new_name) = name {
+                    let bounded = Self::bounded_group_name(new_name)?;
+                    Self::ensure_group_name_available(&bounded, Some(group))?;
+                    GroupNameIndex::<T, I>::remove(&details.name);
+                    GroupNameIndex::<T, I>::insert(&bounded, group);
+                    details.name = bounded;
+                }
+
+                if let Some(new_sharing) = sharing {
+                    details.sharing = new_sharing;
+                }
+
+                Ok(())
+            })?;
+
+            let updated = Self::ensure_group_details(group)?;
+            let name_bytes: Vec<u8> = updated.name.clone().into();
+            Self::deposit_event(Event::GroupUpdated {
+                group,
+                name: name_bytes,
+                sharing: updated.sharing,
+            });
+
+            Ok(())
+        }
+
+        /// Deletes an existing group. The group must be empty and unused.
+        #[pallet::call_index(7)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+        pub fn delete_group(
+            origin: OriginFor<T>,
+            group: <T as Config<I>>::GroupId,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            Self::ensure_group_deletable(group)?;
+
+            let details = Groups::<T, I>::take(group).ok_or(Error::<T, I>::UnknownGroup)?;
+            GroupNameIndex::<T, I>::remove(&details.name);
+            GroupMembers::<T, I>::remove(group);
+
+            Self::deposit_event(Event::GroupDeleted { group });
+
+            Ok(())
+        }
+
+        /// Deregisters a call or removes a scoped entry from its configuration.
+        #[pallet::call_index(8)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(4, 4))]
+        pub fn deregister_call(
+            origin: OriginFor<T>,
+            transaction: TransactionIdentifier,
+            scope: Option<<T as Config<I>>::LimitScope>,
+            clear_usage: bool,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            Self::ensure_call_registered(&transaction)?;
+            let target = Self::config_target(&transaction)?;
+            let tx_target = RateLimitTarget::Transaction(transaction);
+            let usage_target = Self::usage_target(&transaction)?;
+
+            match &scope {
+                Some(sc) => {
+                    let mut removed = false;
+                    Limits::<T, I>::mutate_exists(target, |maybe_config| {
+                        if let Some(RateLimit::Scoped(map)) = maybe_config {
+                            if map.remove(sc).is_some() {
+                                removed = true;
+                                if map.is_empty() {
+                                    *maybe_config = None;
+                                }
+                            }
+                        }
+                    });
+                    ensure!(removed, Error::<T, I>::MissingRateLimit);
+
+                    if let Some(group) = CallGroups::<T, I>::take(&transaction) {
+                        Self::detach_call_from_group(&transaction, group);
+                        Self::deposit_event(Event::CallGroupUpdated {
+                            transaction,
+                            group: None,
+                        });
+                    }
+                }
+                None => {
+                    Limits::<T, I>::remove(target);
+                    if target != tx_target {
+                        Limits::<T, I>::remove(tx_target);
+                    }
+
+                    if let Some(group) = CallGroups::<T, I>::take(&transaction) {
+                        Self::detach_call_from_group(&transaction, group);
+                        Self::deposit_event(Event::CallGroupUpdated {
+                            transaction,
+                            group: None,
+                        });
+                    }
+                }
+            }
+
+            if clear_usage {
+                let _ = LastSeen::<T, I>::clear_prefix(&usage_target, u32::MAX, None);
+            }
+
+            let (pallet, extrinsic) = Self::call_metadata(&transaction)?;
+            Self::deposit_event(Event::CallDeregistered {
+                target,
+                transaction: Some(transaction),
+                scope,
+                pallet: Some(pallet),
+                extrinsic: Some(extrinsic),
+            });
 
             Ok(())
         }

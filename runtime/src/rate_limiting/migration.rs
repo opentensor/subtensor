@@ -14,13 +14,12 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use subtensor_runtime_common::{MechId, NetUid, RateLimitScope, RateLimitUsageKey};
 
 use pallet_subtensor::{
-    self,
+    self, AssociatedEvmAddress, Axons, Config as SubtensorConfig, HasMigrationRun,
+    LastRateLimitedBlock, LastUpdate, MaxUidsTrimmingRateLimit, MechanismCountCurrent,
+    MechanismCountSetRateLimit, MechanismEmissionRateLimit, NetworkRateLimit,
+    OwnerHyperparamRateLimit, Pallet, Prometheus, RateLimitKey, TransactionKeyLastBlock,
+    TxChildkeyTakeRateLimit, TxDelegateTakeRateLimit, TxRateLimit, WeightsVersionKeyRateLimit,
     utils::rate_limiting::{Hyperparameter, TransactionType},
-    AssociatedEvmAddress, Axons, Config as SubtensorConfig, HasMigrationRun, LastRateLimitedBlock,
-    LastUpdate, MaxUidsTrimmingRateLimit, MechanismCountCurrent, MechanismCountSetRateLimit,
-    MechanismEmissionRateLimit, NetworkRateLimit, OwnerHyperparamRateLimit, Pallet, Prometheus,
-    RateLimitKey, TransactionKeyLastBlock, TxChildkeyTakeRateLimit, TxDelegateTakeRateLimit,
-    TxRateLimit, WeightsVersionKeyRateLimit,
 };
 
 /// Pallet index assigned to `pallet_subtensor` in `construct_runtime!`.
@@ -139,12 +138,12 @@ fn gather_simple_limits<T: SubtensorConfig>(limits: &mut LimitEntries<T>) -> u64
         set_global_limit::<T>(limits, subtensor_identifier(70), span);
     }
 
-        reads += 1;
-        if let Some(span) = block_number::<T>(TxDelegateTakeRateLimit::<T>::get()) {
-            // TODO(grouped-rate-limits): `decrease_take` shares the same timestamp but
-            // does not have its own ID here yet.
-            set_global_limit::<T>(limits, subtensor_identifier(66), span);
-        }
+    reads += 1;
+    if let Some(span) = block_number::<T>(TxDelegateTakeRateLimit::<T>::get()) {
+        // TODO(grouped-rate-limits): `decrease_take` shares the same timestamp but
+        // does not have its own ID here yet.
+        set_global_limit::<T>(limits, subtensor_identifier(66), span);
+    }
 
     reads += 1;
     if let Some(span) = block_number::<T>(TxChildkeyTakeRateLimit::<T>::get()) {
@@ -468,11 +467,11 @@ fn write_limits<T: SubtensorConfig>(limits: &LimitEntries<T>) -> u64 {
     if limits.is_empty() {
         return 0;
     }
-    let prefix = storage_prefix("RateLimiting", "Limits");
+    let limits_prefix = storage_prefix("RateLimiting", "Limits");
     let mut writes = 0;
     for (identifier, limit) in limits.iter() {
-        let key = map_storage_key(&prefix, identifier);
-        storage::set(&key, &limit.encode());
+        let limit_key = map_storage_key(&limits_prefix, identifier);
+        storage::set(&limit_key, &limit.encode());
         writes += 1;
     }
     writes

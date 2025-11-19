@@ -39,6 +39,8 @@ pub trait RateLimitUsageResolver<Origin, Call, Usage> {
     Copy,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Encode,
     Decode,
     DecodeWithMemTracking,
@@ -51,6 +53,108 @@ pub struct TransactionIdentifier {
     pub pallet_index: u8,
     /// Call variant index within the pallet.
     pub extrinsic_index: u8,
+}
+
+/// Target identifier for rate limit and usage configuration.
+#[derive(
+    Serialize,
+    Deserialize,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug,
+)]
+pub enum RateLimitTarget<GroupId> {
+    /// Per-transaction configuration keyed by pallet/extrinsic indices.
+    Transaction(TransactionIdentifier),
+    /// Shared configuration for a named group.
+    Group(GroupId),
+}
+
+impl<GroupId> RateLimitTarget<GroupId> {
+    /// Returns the transaction identifier when the target represents a single extrinsic.
+    pub fn as_transaction(&self) -> Option<&TransactionIdentifier> {
+        match self {
+            RateLimitTarget::Transaction(identifier) => Some(identifier),
+            RateLimitTarget::Group(_) => None,
+        }
+    }
+
+    /// Returns the group identifier when the target represents a group configuration.
+    pub fn as_group(&self) -> Option<&GroupId> {
+        match self {
+            RateLimitTarget::Transaction(_) => None,
+            RateLimitTarget::Group(id) => Some(id),
+        }
+    }
+}
+
+/// Sharing mode configured for a group.
+#[derive(
+    Serialize,
+    Deserialize,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug,
+)]
+pub enum GroupSharing {
+    /// Limits remain per transaction; usage is shared by the group.
+    UsageOnly,
+    /// Limits are shared by the group; usage remains per transaction.
+    ConfigOnly,
+    /// Both limits and usage are shared by the group.
+    ConfigAndUsage,
+}
+
+impl GroupSharing {
+    /// Returns `true` when configuration for this group should use the group target key.
+    pub fn config_uses_group(self) -> bool {
+        matches!(
+            self,
+            GroupSharing::ConfigOnly | GroupSharing::ConfigAndUsage
+        )
+    }
+
+    /// Returns `true` when usage tracking for this group should use the group target key.
+    pub fn usage_uses_group(self) -> bool {
+        matches!(self, GroupSharing::UsageOnly | GroupSharing::ConfigAndUsage)
+    }
+}
+
+/// Metadata describing a configured group.
+#[derive(
+    Serialize,
+    Deserialize,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug,
+)]
+pub struct RateLimitGroup<GroupId, Name> {
+    /// Stable identifier assigned to the group.
+    pub id: GroupId,
+    /// Human readable group name.
+    pub name: Name,
+    /// Sharing configuration enforced for the group.
+    pub sharing: GroupSharing,
 }
 
 impl TransactionIdentifier {
@@ -218,8 +322,8 @@ mod tests {
 
         // System is the first pallet in the mock runtime, RateLimiting is second.
         assert_eq!(identifier.pallet_index, 1);
-        // set_default_rate_limit has call_index 2.
-        assert_eq!(identifier.extrinsic_index, 3);
+        // set_default_rate_limit has call_index 4.
+        assert_eq!(identifier.extrinsic_index, 4);
     }
 
     #[test]

@@ -5,7 +5,7 @@
 use codec::Decode;
 use frame_benchmarking::v2::*;
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
-use sp_runtime::traits::DispatchOriginOf;
+use sp_runtime::traits::{One, Saturating};
 
 use super::*;
 
@@ -29,59 +29,144 @@ where
     Box::new(T::BenchmarkHelper::sample_call())
 }
 
+fn seed_group<T: Config>(name: &[u8], sharing: GroupSharing) -> <T as Config>::GroupId {
+    Pallet::<T, ()>::create_group(RawOrigin::Root.into(), name.to_vec(), sharing)
+        .expect("group created");
+    Pallet::<T, ()>::next_group_id().saturating_sub(<T as Config>::GroupId::one())
+}
+
+fn register_call_with_group<T: Config>(
+    group: Option<<T as Config>::GroupId>,
+) -> TransactionIdentifier {
+    let call = sample_call::<T>();
+    let identifier = TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("id");
+    Pallet::<T, ()>::register_call(RawOrigin::Root.into(), call, group).expect("registered");
+    identifier
+}
+
 #[benchmarks]
 mod benchmarks {
     use super::*;
+    use sp_std::vec::Vec;
+
+    #[benchmark]
+    fn register_call() {
+        let call = sample_call::<T>();
+        let identifier = TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("id");
+        let target = RateLimitTarget::Transaction(identifier);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, call, None);
+
+        assert!(Limits::<T, ()>::contains_key(target));
+    }
 
     #[benchmark]
     fn set_rate_limit() {
         let call = sample_call::<T>();
+        let identifier = TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("id");
+        let target = RateLimitTarget::Transaction(identifier);
+        Limits::<T, ()>::insert(target, RateLimit::global(RateLimitKind::Default));
+
         let limit = RateLimitKind::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
-        let origin = T::RuntimeOrigin::from(RawOrigin::Root);
-        let resolver_origin: DispatchOriginOf<<T as Config>::RuntimeCall> =
-            Into::<DispatchOriginOf<<T as Config>::RuntimeCall>>::into(origin.clone());
-        let scope = <T as Config>::LimitScopeResolver::context(&resolver_origin, call.as_ref());
-        let identifier =
-            TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("identifier");
 
         #[extrinsic_call]
-        _(RawOrigin::Root, call, limit.clone());
+        _(RawOrigin::Root, target, None, limit);
 
-        let stored = Limits::<T, ()>::get(&identifier).expect("limit stored");
-        match (scope, &stored) {
-            (Some(ref sc), RateLimit::Scoped(map)) => {
-                assert_eq!(map.get(sc), Some(&limit));
-            }
-            (None, RateLimit::Global(kind)) | (Some(_), RateLimit::Global(kind)) => {
-                assert_eq!(kind, &limit);
-            }
-            (None, RateLimit::Scoped(map)) => {
-                assert!(map.values().any(|k| k == &limit));
-            }
-        }
+        let stored = Limits::<T, ()>::get(target).expect("limit stored");
+        assert!(
+            matches!(stored, RateLimit::Global(RateLimitKind::Exact(span)) if span == BlockNumberFor::<T>::from(10u32))
+        );
     }
 
     #[benchmark]
-    fn clear_rate_limit() {
-        let call = sample_call::<T>();
-        let limit = RateLimitKind::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
-        let origin = T::RuntimeOrigin::from(RawOrigin::Root);
-        let resolver_origin: DispatchOriginOf<<T as Config>::RuntimeCall> =
-            Into::<DispatchOriginOf<<T as Config>::RuntimeCall>>::into(origin.clone());
-        let scope = <T as Config>::LimitScopeResolver::context(&resolver_origin, call.as_ref());
-
-        // Pre-populate limit for benchmark call
-        let identifier =
-            TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("identifier");
-        match scope.clone() {
-            Some(sc) => Limits::<T, ()>::insert(identifier, RateLimit::scoped_single(sc, limit)),
-            None => Limits::<T, ()>::insert(identifier, RateLimit::global(limit)),
-        }
+    fn assign_call_to_group() {
+        let group = seed_group::<T>(b"grp", GroupSharing::UsageOnly);
+        let identifier = register_call_with_group::<T>(None);
 
         #[extrinsic_call]
-        _(RawOrigin::Root, call);
+        _(RawOrigin::Root, identifier, group);
 
-        assert!(Limits::<T, ()>::get(identifier).is_none());
+        assert_eq!(CallGroups::<T, ()>::get(identifier), Some(group));
+        assert!(GroupMembers::<T, ()>::get(group).contains(&identifier));
+    }
+
+    #[benchmark]
+    fn remove_call_from_group() {
+        let group = seed_group::<T>(b"team", GroupSharing::ConfigOnly);
+        let identifier = register_call_with_group::<T>(Some(group));
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, identifier);
+
+        assert!(CallGroups::<T, ()>::get(identifier).is_none());
+        assert!(!GroupMembers::<T, ()>::get(group).contains(&identifier));
+    }
+
+    #[benchmark]
+    fn create_group() {
+        let name = b"bench".to_vec();
+        let sharing = GroupSharing::ConfigAndUsage;
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, name.clone(), sharing);
+
+        let group = Pallet::<T, ()>::next_group_id().saturating_sub(<T as Config>::GroupId::one());
+        let details = Groups::<T, ()>::get(group).expect("group stored");
+        let stored: Vec<u8> = details.name.into();
+        assert_eq!(stored, name);
+        assert_eq!(details.sharing, sharing);
+    }
+
+    #[benchmark]
+    fn update_group() {
+        let group = seed_group::<T>(b"old", GroupSharing::UsageOnly);
+        let new_name = b"new".to_vec();
+        let new_sharing = GroupSharing::ConfigAndUsage;
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Root,
+            group,
+            Some(new_name.clone()),
+            Some(new_sharing),
+        );
+
+        let details = Groups::<T, ()>::get(group).expect("group exists");
+        let stored: Vec<u8> = details.name.into();
+        assert_eq!(stored, new_name);
+        assert_eq!(details.sharing, new_sharing);
+    }
+
+    #[benchmark]
+    fn delete_group() {
+        let group = seed_group::<T>(b"delete", GroupSharing::UsageOnly);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, group);
+
+        assert!(Groups::<T, ()>::get(group).is_none());
+    }
+
+    #[benchmark]
+    fn deregister_call() {
+        let group = seed_group::<T>(b"dreg", GroupSharing::ConfigAndUsage);
+        let identifier = register_call_with_group::<T>(Some(group));
+        let target = RateLimitTarget::Transaction(identifier);
+        let usage_target = Pallet::<T, ()>::usage_target(&identifier).expect("usage target");
+        LastSeen::<T, ()>::insert(
+            usage_target,
+            None::<T::UsageKey>,
+            BlockNumberFor::<T>::from(1u32),
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, identifier, None, true);
+
+        assert!(Limits::<T, ()>::get(target).is_none());
+        assert!(LastSeen::<T, ()>::get(usage_target, None::<T::UsageKey>).is_none());
+        assert!(CallGroups::<T, ()>::get(identifier).is_none());
+        assert!(!GroupMembers::<T, ()>::get(group).contains(&identifier));
     }
 
     #[benchmark]
