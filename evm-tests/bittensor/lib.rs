@@ -126,6 +126,9 @@ pub trait RuntimeReadWrite {
 
     #[ink(function = 14)]
     fn remove_proxy(delegate: <CustomEnvironment as ink::env::Environment>::AccountId);
+
+    #[ink(function = 15)]
+    fn transfer(recipient: <CustomEnvironment as ink::env::Environment>::AccountId, amount: u64);
 }
 
 #[ink::scale_derive(Encode, Decode, TypeInfo)]
@@ -509,6 +512,44 @@ mod bittensor {
                 .extension()
                 .remove_proxy(delegate.into())
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        // #[ink(message)]
+        // pub fn forward_transfer(
+        //     &self,
+        //     hotkey: [u8; 32],
+        //     netuid: u16,
+        //     amount: u64,
+        // ) -> Result<(), ReadWriteErrorCode> {
+        //     self.env()
+        //         .extension()
+        //         .add_stake(hotkey.into(), netuid.into(), amount.into())
+        //         .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        // }
+
+        #[ink(message, payable)]
+        pub fn forward_tokens(&mut self, recipient: [u8; 32]) -> Result<(), ReadWriteErrorCode> {
+            let transferred_value = Self::env().transferred_value(); // Get the value sent in this call
+            // if transferred_value == 0 {
+            //     return Err("No value transferred");
+            // }
+            // if recipient == Self::env().caller()[..] {
+            //     return Err("Cannot forward to self"); // Optional safety check
+            // }
+
+            // Increment counter (example storage update)
+            // self.counter += 1;
+
+            // Transfer the received value to recipient
+
+            self.env()
+                .extension()
+                .transfer(recipient.into(), transferred_value)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+
+            // ink_env::transfer(recipient, transferred_value).maperr(|| "Transfer failed")?;
+
+            // Ok(())
         }
     }
 }
