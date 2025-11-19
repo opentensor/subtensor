@@ -209,12 +209,12 @@ pub mod pallet {
         ///
         /// Ciphertext format: `[u16 kem_len][kem_ct][nonce24][aead_ct]`
         #[pallet::call_index(1)]
-        #[pallet::weight({
+        #[pallet::weight(({
             let w = Weight::from_parts(ciphertext.len() as u64, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64));
             w
-        })]
+        }, DispatchClass::Normal, Pays::Yes))]
         pub fn submit_encrypted(
             origin: OriginFor<T>,
             commitment: T::Hash,
@@ -243,11 +243,9 @@ pub mod pallet {
 
         /// Executed by the block author.
         #[pallet::call_index(2)]
-        #[pallet::weight(
-            Weight::from_parts(10_000, 0)
-                .saturating_add(T::DbWeight::get().reads(3_u64))
-                .saturating_add(T::DbWeight::get().writes(2_u64))
-        )]
+        #[pallet::weight(Weight::from_parts(10_000, 0)
+        .saturating_add(T::DbWeight::get().reads(3_u64))
+        .saturating_add(T::DbWeight::get().writes(2_u64)))]
         pub fn execute_revealed(
             origin: OriginFor<T>,
             id: T::Hash,
