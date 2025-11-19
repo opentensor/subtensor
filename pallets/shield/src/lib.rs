@@ -65,16 +65,14 @@ pub mod pallet {
     // ----------------- Types -----------------
 
     /// AEAD‑independent commitment over the revealed payload.
-    #[freeze_struct("b307ebc1f8eae75")]
+    #[freeze_struct("1eb29aa303f42c46")]
     #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-    pub struct Submission<AccountId, BlockNumber, Moment, Hash> {
+    pub struct Submission<AccountId, BlockNumber, Hash> {
         pub author: AccountId,
         pub key_epoch: u64,
         pub commitment: Hash,
         pub ciphertext: BoundedVec<u8, ConstU32<8192>>,
         pub submitted_in: BlockNumber,
-        pub submitted_at: Moment,
-        pub max_weight: Weight,
     }
 
     /// Ephemeral key fingerprint used by off-chain code to verify the ML‑KEM pubkey.
@@ -121,7 +119,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         T::Hash,
-        Submission<T::AccountId, BlockNumberFor<T>, T::Moment, T::Hash>,
+        Submission<T::AccountId, BlockNumberFor<T>, T::Hash>,
         OptionQuery,
     >;
 
@@ -152,7 +150,6 @@ pub mod pallet {
         MissingSubmission,
         CommitmentMismatch,
         SignatureInvalid,
-        WeightTooHigh,
         NonceMismatch,
         BadPublicKeyLen,
     }
@@ -225,7 +222,6 @@ pub mod pallet {
             key_epoch: u64,
             commitment: T::Hash,
             ciphertext: BoundedVec<u8, ConstU32<8192>>,
-            max_weight: Weight,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(
@@ -233,16 +229,13 @@ pub mod pallet {
                 Error::<T>::BadEpoch
             );
 
-            let now = pallet_timestamp::Pallet::<T>::get();
             let id: T::Hash = T::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
-            let sub = Submission::<T::AccountId, BlockNumberFor<T>, T::Moment, T::Hash> {
+            let sub = Submission::<T::AccountId, BlockNumberFor<T>, T::Hash> {
                 author: who.clone(),
                 key_epoch,
                 commitment,
                 ciphertext,
                 submitted_in: <frame_system::Pallet<T>>::block_number(),
-                submitted_at: now,
-                max_weight,
             };
             ensure!(
                 !Submissions::<T>::contains_key(id),
@@ -300,13 +293,9 @@ pub mod pallet {
             ensure!(acc == nonce, Error::<T>::NonceMismatch);
             frame_system::Pallet::<T>::inc_account_nonce(&signer);
 
-            // 4) Dispatch inner call from signer; enforce max_weight guard.
+            // 4) Dispatch inner call from signer.
             let info = call.get_dispatch_info();
             let required = info.call_weight.saturating_add(info.extension_weight);
-
-            let leq = required.ref_time() <= sub.max_weight.ref_time()
-                && required.proof_size() <= sub.max_weight.proof_size();
-            ensure!(leq, Error::<T>::WeightTooHigh);
 
             let origin_signed = frame_system::RawOrigin::Signed(signer.clone()).into();
             let res = (*call).dispatch(origin_signed);
