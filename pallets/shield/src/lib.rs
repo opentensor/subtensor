@@ -65,11 +65,10 @@ pub mod pallet {
     // ----------------- Types -----------------
 
     /// AEAD‑independent commitment over the revealed payload.
-    #[freeze_struct("1eb29aa303f42c46")]
+    #[freeze_struct("66e393c88124f360")]
     #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
     pub struct Submission<AccountId, BlockNumber, Hash> {
         pub author: AccountId,
-        pub key_epoch: u64,
         pub commitment: Hash,
         pub ciphertext: BoundedVec<u8, ConstU32<8192>>,
         pub submitted_in: BlockNumber,
@@ -132,7 +131,6 @@ pub mod pallet {
         EncryptedSubmitted {
             id: T::Hash,
             who: T::AccountId,
-            epoch: u64,
         },
         /// Decrypted call executed.
         DecryptedExecuted { id: T::Hash, signer: T::AccountId },
@@ -199,7 +197,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Users submit encrypted wrapper paying the normal fee.
+        /// Users submit encrypted wrapper.
         ///
         /// Commitment semantics:
         ///
@@ -219,20 +217,14 @@ pub mod pallet {
         })]
         pub fn submit_encrypted(
             origin: OriginFor<T>,
-            key_epoch: u64,
             commitment: T::Hash,
             ciphertext: BoundedVec<u8, ConstU32<8192>>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(
-                key_epoch == Epoch::<T>::get() || key_epoch + 1 == Epoch::<T>::get(),
-                Error::<T>::BadEpoch
-            );
 
             let id: T::Hash = T::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
             let sub = Submission::<T::AccountId, BlockNumberFor<T>, T::Hash> {
                 author: who.clone(),
-                key_epoch,
                 commitment,
                 ciphertext,
                 submitted_in: <frame_system::Pallet<T>>::block_number(),
@@ -245,7 +237,6 @@ pub mod pallet {
             Self::deposit_event(Event::EncryptedSubmitted {
                 id,
                 who,
-                epoch: key_epoch,
             });
             Ok(())
         }

@@ -109,6 +109,8 @@ pub fn spawn_revealer<B, C, Pool>(
     {
         let client = Arc::clone(&client);
         let buffer = Arc::clone(&buffer);
+        let ctx_for_buffer = ctx.clone();
+
         task_spawner.spawn(
             "mev-shield-buffer-wrappers",
             None,
@@ -161,14 +163,17 @@ pub fn spawn_revealer<B, C, Pool>(
 
                                 let author_opt: Option<sp_runtime::AccountId32> =
                                     match &uxt.0.preamble {
-                                        sp_runtime::generic::Preamble::Signed(addr, _sig, _ext) => {
-                                            match addr.clone() {
-                                                Address::Id(acc) => Some(acc),
-                                                Address::Address32(bytes) =>
-                                                    Some(sp_runtime::AccountId32::new(bytes)),
-                                                _ => None,
+                                        sp_runtime::generic::Preamble::Signed(
+                                            addr,
+                                            _sig,
+                                            _ext,
+                                        ) => match addr.clone() {
+                                            Address::Id(acc) => Some(acc),
+                                            Address::Address32(bytes) => {
+                                                Some(sp_runtime::AccountId32::new(bytes))
                                             }
-                                        }
+                                            _ => None,
+                                        },
                                         _ => None,
                                     };
 
@@ -182,14 +187,35 @@ pub fn spawn_revealer<B, C, Pool>(
 
                                 if let node_subtensor_runtime::RuntimeCall::MevShield(
                                     pallet_shield::Call::submit_encrypted {
-                                        key_epoch,
                                         commitment,
                                         ciphertext,
-                                        ..
-                                    }
+                                    },
                                 ) = &uxt.0.function
                                 {
-                                    let payload = (author.clone(), *commitment, ciphertext).encode();
+                                    // Derive the key_epoch for this wrapper from the current
+                                    // ShieldContext epoch at *buffer* time.
+                                    let key_epoch_opt = match ctx_for_buffer.keys.lock() {
+                                        Ok(k) => Some(k.epoch),
+                                        Err(e) => {
+                                            log::debug!(
+                                                target: "mev-shield",
+                                                "    [xt #{idx}] failed to lock ShieldKeys in buffer task: {:?}",
+                                                e
+                                            );
+                                            None
+                                        }
+                                    };
+
+                                    let Some(key_epoch) = key_epoch_opt else {
+                                        log::debug!(
+                                            target: "mev-shield",
+                                            "    [xt #{idx}] skipping wrapper due to missing epoch snapshot"
+                                        );
+                                        continue;
+                                    };
+
+                                    let payload =
+                                        (author.clone(), *commitment, ciphertext).encode();
                                     let id = H256(sp_core::hashing::blake2_256(&payload));
 
                                     log::debug!(
@@ -205,7 +231,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     if let Ok(mut buf) = buffer.lock() {
                                         buf.upsert(
                                             id,
-                                            *key_epoch,
+                                            key_epoch,
                                             author,
                                             ciphertext.to_vec(),
                                         );
@@ -260,26 +286,24 @@ pub fn spawn_revealer<B, C, Pool>(
                     sleep(Duration::from_millis(tail)).await;
 
                     // Snapshot the current ML‑KEM secret and epoch
-                    let snapshot_opt = {
-                        match ctx.keys.lock() {
-                            Ok(k) => {
-                                let sk_hash = sp_core::hashing::blake2_256(&k.current_sk);
-                                Some((
-                                    k.current_sk.clone(),
-                                    k.epoch,
-                                    k.current_pk.len(),
-                                    k.next_pk.len(),
-                                    sk_hash,
-                                ))
-                            }
-                            Err(e) => {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "revealer: failed to lock ShieldKeys (poisoned?): {:?}",
-                                    e
-                                );
-                                None
-                            }
+                    let snapshot_opt = match ctx.keys.lock() {
+                        Ok(k) => {
+                            let sk_hash = sp_core::hashing::blake2_256(&k.current_sk);
+                            Some((
+                                k.current_sk.clone(),
+                                k.epoch,
+                                k.current_pk.len(),
+                                k.next_pk.len(),
+                                sk_hash,
+                            ))
+                        }
+                        Err(e) => {
+                            log::debug!(
+                                target: "mev-shield",
+                                "revealer: failed to lock ShieldKeys (poisoned?): {:?}",
+                                e
+                            );
+                            None
                         }
                     };
 
@@ -304,7 +328,7 @@ pub fn spawn_revealer<B, C, Pool>(
                     );
 
                     // Only process wrappers whose key_epoch == curr_epoch.
-                    let drained: Vec<(H256, u64, sp_runtime::AccountId32, Vec<u8>)> = {
+                    let drained: Vec<(H256, u64, sp_runtime::AccountId32, Vec<u8>)> =
                         match buffer.lock() {
                             Ok(mut buf) => buf.drain_for_epoch(curr_epoch),
                             Err(e) => {
@@ -315,8 +339,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 );
                                 Vec::new()
                             }
-                        }
-                    };
+                        };
 
                     log::debug!(
                         target: "mev-shield",
@@ -432,19 +455,22 @@ pub fn spawn_revealer<B, C, Pool>(
                         );
 
                         // Rebuild DecapsulationKey and decapsulate.
-                        let enc_sk = match Encoded::<DecapsulationKey<MlKem768Params>>::try_from(&curr_sk_bytes[..]) {
-                            Ok(e) => e,
-                            Err(e) => {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: DecapsulationKey::try_from(sk_bytes) failed (len={}, err={:?})",
-                                    hex::encode(id.as_bytes()),
-                                    curr_sk_bytes.len(),
-                                    e
-                                );
-                                continue;
-                            }
-                        };
+                        let enc_sk =
+                            match Encoded::<DecapsulationKey<MlKem768Params>>::try_from(
+                                &curr_sk_bytes[..],
+                            ) {
+                                Ok(e) => e,
+                                Err(e) => {
+                                    log::debug!(
+                                        target: "mev-shield",
+                                        "  id=0x{}: DecapsulationKey::try_from(sk_bytes) failed (len={}, err={:?})",
+                                        hex::encode(id.as_bytes()),
+                                        curr_sk_bytes.len(),
+                                        e
+                                    );
+                                    continue;
+                                }
+                            };
                         let sk = DecapsulationKey::<MlKem768Params>::from_bytes(&enc_sk);
 
                         let ct = match Ciphertext::<MlKem768>::try_from(kem_ct_bytes) {
@@ -538,7 +564,8 @@ pub fn spawn_revealer<B, C, Pool>(
                             plaintext.len()
                         );
 
-                        type RuntimeNonce = <node_subtensor_runtime::Runtime as frame_system::Config>::Nonce;
+                        type RuntimeNonce =
+                            <node_subtensor_runtime::Runtime as frame_system::Config>::Nonce;
 
                         // Safely parse plaintext layout without panics.
                         // Layout: signer (32) || nonce (4) || call (..)
@@ -716,7 +743,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 nonce: account_nonce,
                                 call: Box::new(inner_call),
                                 signature,
-                            }
+                            },
                         );
 
                         to_submit.push((id, reveal));
@@ -745,9 +772,13 @@ pub fn spawn_revealer<B, C, Pool>(
 
                         match OpaqueExtrinsic::from_bytes(&xt_bytes) {
                             Ok(opaque) => {
-                                match pool.submit_one(at, TransactionSource::Local, opaque).await {
+                                match pool
+                                    .submit_one(at, TransactionSource::Local, opaque)
+                                    .await
+                                {
                                     Ok(_) => {
-                                        let xt_hash = sp_core::hashing::blake2_256(&xt_bytes);
+                                        let xt_hash =
+                                            sp_core::hashing::blake2_256(&xt_bytes);
                                         log::debug!(
                                             target: "mev-shield",
                                             "  id=0x{}: submit_one(execute_revealed) OK, xt_hash=0x{}",
