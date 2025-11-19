@@ -8,6 +8,7 @@ use frame_support::{
     sp_runtime::traits::Dispatchable,
     traits::{
         Bounded, ChangeMembers, IsSubType, QueryPreimage, StorePreimage, fungible,
+        fungible::MutateHold,
         schedule::{
             DispatchTime, Priority,
             v3::{Named as ScheduleNamed, TaskName},
@@ -118,9 +119,11 @@ pub mod pallet {
             + IsSubType<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
+        /// The overarching hold reason.
+        type RuntimeHoldReason: From<HoldReason>;
+
         /// The currency mechanism.
-        type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
-            + fungible::Mutate<Self::AccountId>;
+        type Currency: fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
         /// The preimage provider which will be used to store the call to dispatch.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
@@ -181,6 +184,10 @@ pub mod pallet {
         /// Percent threshold for a proposal to be fast-tracked by a collective vote.
         #[pallet::constant]
         type FastTrackThreshold: Get<Percent>;
+
+        /// Lock cost for a candidate to be eligible.
+        #[pallet::constant]
+        type EligibilityLockCost: Get<BalanceOf<Self>>;
     }
 
     /// Accounts allowed to submit proposals.
@@ -240,6 +247,11 @@ pub mod pallet {
         CollectiveVotes<T::AccountId, BlockNumberFor<T>>,
         OptionQuery,
     >;
+
+    /// Eligible candidates from the collectives for the triumvirate.
+    #[pallet::storage]
+    pub type EligibleCandidates<T: Config> =
+        StorageValue<_, BoundedVec<T::AccountId, ConstU32<TOTAL_COLLECTIVES_SIZE>>, ValueQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -325,6 +337,8 @@ pub mod pallet {
             proposal_hash: T::Hash,
             dispatch_time: DispatchTime<BlockNumberFor<T>>,
         },
+        /// A new eligible candidate has been added.
+        NewEligibleCandidate { account: T::AccountId },
     }
 
     #[pallet::error]
@@ -355,10 +369,10 @@ pub mod pallet {
         WrongProposalIndex,
         /// Duplicate vote not allowed.
         DuplicateVote,
+        /// Unreachable code path.
+        Unreachable,
         /// There can only be a maximum of `MaxScheduled` proposals scheduled for execution.
         TooManyScheduled,
-        /// There can only be a maximum of 3 votes for a proposal.
-        TooManyVotes,
         /// Call is not available in the preimage storage.
         CallUnavailable,
         /// Proposal hash is not 32 bytes.
@@ -370,7 +384,18 @@ pub mod pallet {
         /// Proposal is not scheduled.
         ProposalNotScheduled,
         /// Proposal voting period has ended.
-        ProposalVotingPeriodEnded,
+        VotingPeriodEnded,
+        /// Collective member is already marked as eligible.
+        AlreadyEligible,
+        /// Insufficient funds for eligibility lock.
+        InsufficientFundsForEligibilityLock,
+    }
+
+    /// A reason for the pallet governance placing a hold on funds.
+    #[pallet::composite_enum]
+    pub enum HoldReason {
+        /// The pallet has reserved it for eligibility lock.
+        EligibilityLock,
     }
 
     #[pallet::hooks]
@@ -641,6 +666,29 @@ pub mod pallet {
 
             Ok(())
         }
+
+        #[pallet::call_index(5)]
+        #[pallet::weight(Weight::zero())]
+        pub fn mark_as_eligible(origin: OriginFor<T>) -> DispatchResult {
+            let who = Self::ensure_collective_member(origin)?;
+
+            let candidates = EligibleCandidates::<T>::get();
+            ensure!(!candidates.contains(&who), Error::<T>::AlreadyEligible);
+
+            T::Currency::hold(
+                &HoldReason::EligibilityLock.into(),
+                &who,
+                T::EligibilityLockCost::get(),
+            )
+            .map_err(|_| Error::<T>::InsufficientFundsForEligibilityLock)?;
+
+            EligibleCandidates::<T>::try_append(&who)
+                // Unreachable because nobody can double mark themselves as eligible.
+                .map_err(|_| Error::<T>::Unreachable)?;
+
+            Self::deposit_event(Event::<T>::NewEligibleCandidate { account: who });
+            Ok(())
+        }
     }
 }
 
@@ -686,7 +734,7 @@ impl<T: Config> Pallet<T> {
             let voting = voting.as_mut().ok_or(Error::<T>::ProposalMissing)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
             let now = frame_system::Pallet::<T>::block_number();
-            ensure!(voting.end > now, Error::<T>::ProposalVotingPeriodEnded);
+            ensure!(voting.end > now, Error::<T>::VotingPeriodEnded);
             Self::do_vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
             Ok(voting.clone())
         })
@@ -701,9 +749,7 @@ impl<T: Config> Pallet<T> {
         CollectiveVoting::<T>::try_mutate(proposal_hash, |voting| {
             // No voting here but we have proposal in scheduled, proposal
             // has been fast-tracked.
-            let voting = voting
-                .as_mut()
-                .ok_or(Error::<T>::ProposalVotingPeriodEnded)?;
+            let voting = voting.as_mut().ok_or(Error::<T>::VotingPeriodEnded)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
             Self::do_vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
             Ok(voting.clone())
@@ -723,7 +769,7 @@ impl<T: Config> Pallet<T> {
             if !has_yes_vote {
                 ayes.try_push(who.clone())
                     // Unreachable because nobody can double vote.
-                    .map_err(|_| Error::<T>::TooManyVotes)?;
+                    .map_err(|_| Error::<T>::Unreachable)?;
             } else {
                 return Err(Error::<T>::DuplicateVote.into());
             }
@@ -734,7 +780,7 @@ impl<T: Config> Pallet<T> {
             if !has_no_vote {
                 nays.try_push(who.clone())
                     // Unreachable because nobody can double vote.
-                    .map_err(|_| Error::<T>::TooManyVotes)?;
+                    .map_err(|_| Error::<T>::Unreachable)?;
             } else {
                 return Err(Error::<T>::DuplicateVote.into());
             }
@@ -812,7 +858,6 @@ impl<T: Config> Pallet<T> {
         mut voting: CollectiveVotes<T::AccountId, BlockNumberFor<T>>,
     ) -> DispatchResult {
         let net_score = voting.nays.len() as i32 - voting.ayes.len() as i32;
-
         let additional_delay = Self::compute_additional_delay(net_score);
 
         // No change, no need to reschedule

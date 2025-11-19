@@ -1,7 +1,7 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::*;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use sp_core::U256;
 use std::iter::repeat;
 
@@ -965,7 +965,7 @@ fn triumvirate_vote_after_voting_period_ended_fails() {
                 proposal_index,
                 true
             ),
-            Error::<Test>::ProposalVotingPeriodEnded
+            Error::<Test>::VotingPeriodEnded
         );
     });
 }
@@ -1496,7 +1496,7 @@ fn collective_vote_on_fast_tracked_proposal_fails() {
                 proposal_index,
                 true
             ),
-            Error::<Test>::ProposalVotingPeriodEnded
+            Error::<Test>::VotingPeriodEnded
         );
     });
 }
@@ -1545,6 +1545,61 @@ fn duplicate_collective_vote_on_scheduled_proposal_already_voted_fails() {
                 false
             ),
             Error::<Test>::DuplicateVote
+        );
+    });
+}
+
+#[test]
+fn collective_member_can_mark_himself_as_eligible() {
+    TestState::default()
+        .with_balance(U256::from(2001), 2 * EligibilityLockCost::get())
+        .build_and_execute(|| {
+            let member = U256::from(2001);
+            assert_eq!(EligibleCandidates::<Test>::get(), vec![]);
+            assert_eq!(
+                <Balances as InspectHold<_>>::total_balance_on_hold(&member),
+                0
+            );
+
+            assert_ok!(Pallet::<Test>::mark_as_eligible(RuntimeOrigin::signed(
+                member
+            )));
+
+            assert_eq!(EligibleCandidates::<Test>::get(), vec![member]);
+            assert_eq!(
+                <Balances as InspectHold<_>>::total_balance_on_hold(&member),
+                EligibilityLockCost::get()
+            );
+        });
+}
+
+#[test]
+fn collective_member_cant_mark_himself_as_eligible_if_already_eligible() {
+    TestState::default().build_and_execute(|| {
+        let member = U256::from(2001);
+        EligibleCandidates::<Test>::try_append(&member).unwrap();
+        assert_eq!(EligibleCandidates::<Test>::get(), vec![member]);
+
+        assert_noop!(
+            Pallet::<Test>::mark_as_eligible(RuntimeOrigin::signed(member)),
+            Error::<Test>::AlreadyEligible
+        );
+    });
+}
+
+#[test]
+fn collective_member_cant_mark_himself_as_eligible_if_cant_afford_the_eligibility_lock_cost() {
+    TestState::default().build_and_execute(|| {
+        let member = U256::from(2001);
+        assert_eq!(EligibleCandidates::<Test>::get(), vec![]);
+        assert_eq!(
+            <Balances as InspectHold<_>>::total_balance_on_hold(&member),
+            0
+        );
+
+        assert_noop!(
+            Pallet::<Test>::mark_as_eligible(RuntimeOrigin::signed(member)),
+            Error::<Test>::InsufficientFundsForEligibilityLock
         );
     });
 }

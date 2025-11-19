@@ -130,10 +130,12 @@ parameter_types! {
     pub const CleanupPeriod: BlockNumberFor<Test> = 500;
     pub const FastTrackThreshold: Percent = Percent::from_percent(67); // ~2/3
     pub const CancellationThreshold: Percent = Percent::from_percent(51);
+    pub const EligibilityLockCost: BalanceOf<Test> = 1_000_000_000;
 }
 
 impl pallet_governance::Config for Test {
     type RuntimeCall = RuntimeCall;
+    type RuntimeHoldReason = RuntimeHoldReason;
     type Currency = Balances;
     type Preimages = Preimage;
     type Scheduler = Scheduler;
@@ -150,6 +152,7 @@ impl pallet_governance::Config for Test {
     type CleanupPeriod = CleanupPeriod;
     type CancellationThreshold = CancellationThreshold;
     type FastTrackThreshold = FastTrackThreshold;
+    type EligibilityLockCost = EligibilityLockCost;
 }
 
 #[frame_support::pallet]
@@ -207,6 +210,11 @@ impl Default for TestState {
 }
 
 impl TestState {
+    pub(crate) fn with_balance(mut self, who: AccountOf<Test>, balance: BalanceOf<Test>) -> Self {
+        self.balances.push((who, balance));
+        self
+    }
+
     pub(crate) fn with_allowed_proposers(
         mut self,
         allowed_proposers: Vec<AccountOf<Test>>,
