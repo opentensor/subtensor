@@ -447,19 +447,13 @@ impl<T: Config> Pallet<T> {
         let should_refund_owner: bool = reg_at < start_block;
 
         // 3) Compute owner's received emission in TAO at current price (ONLY if we may refund).
-        //    Emission::<T> is Vec<AlphaCurrency>. We:
-        //      - sum emitted α,
+        // We:
+        //      - get the current alpha issuance,
         //      - apply owner fraction to get owner α,
         //      - price that α using a *simulated* AMM swap.
         let mut owner_emission_tao = TaoCurrency::ZERO;
         if should_refund_owner && !lock_cost.is_zero() {
-            let total_emitted_alpha_u128: u128 =
-                Emission::<T>::get(netuid)
-                    .into_iter()
-                    .fold(0u128, |acc, e_alpha| {
-                        let e_u64: u64 = Into::<u64>::into(e_alpha);
-                        acc.saturating_add(e_u64 as u128)
-                    });
+            let total_emitted_alpha_u128: u128 = Self::get_alpha_issuance(netuid).to_u64() as u128;
 
             if total_emitted_alpha_u128 > 0 {
                 let owner_fraction: U96F32 = Self::get_float_subnet_owner_cut();
@@ -469,22 +463,12 @@ impl<T: Config> Pallet<T> {
                     .saturating_to_num::<u64>();
 
                 owner_emission_tao = if owner_alpha_u64 > 0 {
-                    let order = GetTaoForAlpha::with_amount(owner_alpha_u64);
-                    match T::SwapInterface::sim_swap(netuid.into(), order) {
-                        Ok(sim) => TaoCurrency::from(sim.amount_paid_out),
-                        Err(e) => {
-                            log::debug!(
-                                "destroy_alpha_in_out_stakes: sim_swap owner α→τ failed (netuid={netuid:?}, alpha={owner_alpha_u64}, err={e:?}); falling back to price multiply.",
-                            );
-                            let cur_price: U96F32 =
-                                T::SwapInterface::current_alpha_price(netuid.into());
-                            let val_u64 = U96F32::from_num(owner_alpha_u64)
-                                .saturating_mul(cur_price)
-                                .floor()
-                                .saturating_to_num::<u64>();
-                            TaoCurrency::from(val_u64)
-                        }
-                    }
+                    let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
+                    let val_u64 = U96F32::from_num(owner_alpha_u64)
+                        .saturating_mul(cur_price)
+                        .floor()
+                        .saturating_to_num::<u64>();
+                    TaoCurrency::from(val_u64)
                 } else {
                     TaoCurrency::ZERO
                 };

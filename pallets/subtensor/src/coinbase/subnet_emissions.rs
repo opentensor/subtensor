@@ -1,5 +1,4 @@
 use super::*;
-use crate::alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
 use safe_math::FixedExt;
 use substrate_fixed::transcendental::{exp, ln};
@@ -7,21 +6,29 @@ use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
+    pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
+        // Filter out root subnet.
+        // Filter out subnets with no first emission block number.
+        subnets
+            .iter()
+            .filter(|netuid| !netuid.is_root())
+            .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
+            .filter(|netuid| SubtokenEnabled::<T>::get(*netuid))
+            .filter(|&netuid| {
+                // Only emit TAO if the subnetwork allows registration.
+                Self::get_network_registration_allowed(*netuid)
+                    || Self::get_network_pow_registration_allowed(*netuid)
+            })
+            .copied()
+            .collect()
+    }
+
     pub fn get_subnet_block_emissions(
-        subnets: &[NetUid],
+        subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
-        // Filter out subnets with no first emission block number.
-        let subnets_to_emit_to: Vec<NetUid> = subnets
-            .to_owned()
-            .clone()
-            .into_iter()
-            .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
-            .collect();
-        log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
-
         // Get subnet TAO emissions.
-        let shares = Self::get_shares(&subnets_to_emit_to);
+        let shares = Self::get_shares(subnets_to_emit_to);
         log::debug!("Subnet emission shares = {shares:?}");
 
         shares

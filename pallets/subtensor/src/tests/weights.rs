@@ -5016,7 +5016,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         step_epochs(1, netuid);
 
         // Attempt to reveal commits after the reveal epoch has passed
-        assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
+        assert_ok!(SubtensorModule::reveal_crv3_commits_for_subnet(netuid));
 
         // Verify that the weights for the neuron have not been set
         let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
@@ -5353,7 +5353,7 @@ fn test_reveal_crv3_commits_decryption_failure() {
             },
         );
 
-        assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
+        assert_ok!(SubtensorModule::reveal_crv3_commits_for_subnet(netuid));
 
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
@@ -5973,7 +5973,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         // ---------------------------------------------------------------------
         // Run the reveal pass WITHOUT a pulse – only expiry housekeeping runs.
         // ---------------------------------------------------------------------
-        assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
+        assert_ok!(SubtensorModule::reveal_crv3_commits_for_subnet(netuid));
 
         // past_epoch (< reveal_epoch) must be gone
         assert!(
