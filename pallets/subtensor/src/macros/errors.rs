@@ -266,5 +266,7 @@ mod errors {
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.
         InvalidSubnetNumber,
+        /// Delegates cant set delegated as claim type
+        InvalidRootClaimType,
     }
 }

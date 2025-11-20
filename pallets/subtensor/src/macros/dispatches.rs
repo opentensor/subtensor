@@ -2440,6 +2440,16 @@ mod dispatches {
                 Self::coldkey_owns_hotkey(coldkey.clone(), hotkey.clone()),
                 Error::<T>::NonAssociatedColdKey
             );
+
+            // Ensure the delegate claim type is not Delegated.
+            ensure!(
+                matches!(
+                    new_claim_type,
+                    RootClaimTypeEnum::Swap | RootClaimTypeEnum::Keep
+                ),
+                Error::<T>::InvalidRootClaimType
+            );
+
             DelegateClaimType::<T>::insert((hotkey.clone(), netuid), new_claim_type.clone());
             Self::deposit_event(Event::DelegateClaimTypeSet {
                 hotkey: hotkey.clone(),

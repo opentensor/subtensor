@@ -334,6 +334,8 @@ pub mod pallet {
         Swap,
         /// Keep all alpha emission.
         Keep,
+        /// Delegate choice to subnet.
+        Delegated,
     }
 
     /// Enum for the per-coldkey root claim frequency setting.
@@ -359,7 +361,11 @@ pub mod pallet {
     /// This is set by the user. Either swap to TAO or keep as alpha.
     #[pallet::type_value]
     pub fn DefaultRootClaimType<T: Config>() -> RootClaimTypeEnum {
-        RootClaimTypeEnum::default()
+        RootClaimTypeEnum::Delegated
+    }
+    #[pallet::type_value]
+    pub fn DefaultDelegateClaimType<T: Config>() -> RootClaimTypeEnum {
+        RootClaimTypeEnum::Swap
     }
 
     /// Default number of root claims per claim call.
