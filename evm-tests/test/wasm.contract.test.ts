@@ -133,7 +133,7 @@ describe("Test wasm contract", () => {
         // assert.ok(balanceBefore.data.free > BigInt(0))
 
         const message = inkClient.message("forward_tokens")
-        const amount = tao(1)
+        const amount = tao(123)
         const data = message.encode({
             recipient: Binary.fromBytes(hotkey2.publicKey),
         })

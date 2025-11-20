@@ -508,33 +508,6 @@ where
                     }
                 }
             }
-            FunctionId::TransferV1 => {
-                use pallet_balances::weights::WeightInfo;
-                let weight = <T as pallet_balances::Config>::WeightInfo::transfer_allow_death();
-
-                env.charge_weight(weight)?;
-
-                let (recipient, amount): (T::AccountId, <T as pallet_balances::Config>::Balance) =
-                    env.read_as()
-                        .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-
-                let recipient_lookup =
-                    <<T as frame_system::Config>::Lookup as StaticLookup>::Source::from(recipient);
-
-                let call_result = pallet_balances::Pallet::<T>::transfer_allow_death(
-                    RawOrigin::Signed(env.caller()).into(),
-                    recipient_lookup,
-                    amount,
-                );
-
-                match call_result {
-                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-                    Err(e) => {
-                        let error_code = Output::from(e) as u32;
-                        Ok(RetVal::Converging(error_code))
-                    }
-                }
-            }
         }
     }
 }
