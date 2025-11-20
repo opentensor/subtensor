@@ -433,10 +433,11 @@ pub mod pallet {
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
         pub default_limit: BlockNumberFor<T>,
         pub limits: Vec<(
-            TransactionIdentifier,
+            RateLimitTarget<<T as Config<I>>::GroupId>,
             Option<<T as Config<I>>::LimitScope>,
             RateLimitKind<BlockNumberFor<T>>,
         )>,
+        pub groups: Vec<(<T as Config<I>>::GroupId, Vec<u8>, GroupSharing)>,
     }
 
     #[cfg(feature = "std")]
@@ -445,6 +446,7 @@ pub mod pallet {
             Self {
                 default_limit: Zero::zero(),
                 limits: Vec::new(),
+                groups: Vec::new(),
             }
         }
     }
@@ -453,11 +455,47 @@ pub mod pallet {
     impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
         fn build(&self) {
             DefaultLimit::<T, I>::put(self.default_limit);
-            let initial: <T as Config<I>>::GroupId = Zero::zero();
-            NextGroupId::<T, I>::put(initial);
+
+            // Seed groups first so limit targets can reference them.
+            let mut max_group: <T as Config<I>>::GroupId = Zero::zero();
+            for (group_id, name, sharing) in &self.groups {
+                let bounded = GroupNameOf::<T, I>::try_from(name.clone())
+                    .expect("Genesis group name exceeds MaxGroupNameLength");
+
+                assert!(
+                    !Groups::<T, I>::contains_key(group_id),
+                    "Duplicate group id in genesis config"
+                );
+                assert!(
+                    !GroupNameIndex::<T, I>::contains_key(&bounded),
+                    "Duplicate group name in genesis config"
+                );
+
+                Groups::<T, I>::insert(
+                    group_id,
+                    RateLimitGroup {
+                        id: *group_id,
+                        name: bounded.clone(),
+                        sharing: *sharing,
+                    },
+                );
+                GroupNameIndex::<T, I>::insert(&bounded, *group_id);
+                GroupMembers::<T, I>::insert(*group_id, GroupMembersOf::<T, I>::new());
+                if *group_id > max_group {
+                    max_group = *group_id;
+                }
+            }
+            let next = max_group.saturating_add(One::one());
+            NextGroupId::<T, I>::put(next);
 
             for (identifier, scope, kind) in &self.limits {
-                let target = RateLimitTarget::Transaction(*identifier);
+                if let RateLimitTarget::Group(group) = identifier {
+                    assert!(
+                        Groups::<T, I>::contains_key(group),
+                        "Genesis limit references unknown group"
+                    );
+                }
+                let target = *identifier;
                 Limits::<T, I>::mutate(target, |entry| match scope {
                     None => {
                         *entry = Some(RateLimit::global(*kind));
