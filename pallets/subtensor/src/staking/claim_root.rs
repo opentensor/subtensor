@@ -175,7 +175,6 @@ impl<T: Config> Pallet<T> {
                     Ok(owed_tao) => owed_tao,
                     Err(err) => {
                         log::error!("Error swapping alpha for TAO: {err:?}");
-
                         return;
                     }
                 };
