@@ -2,6 +2,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -16,17 +18,15 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
     use sp_core::ByteArray;
+    use sp_runtime::transaction_validity::{
+        InvalidTransaction, TransactionSource, ValidTransaction,
+    };
     use sp_runtime::{
         AccountId32, DispatchErrorWithPostInfo, MultiSignature, RuntimeDebug,
         traits::{BadOrigin, Dispatchable, Hash, SaturatedConversion, Verify, Zero},
     };
     use sp_std::{marker::PhantomData, prelude::*};
     use subtensor_macros::freeze_struct;
-    use sp_runtime::transaction_validity::{
-        InvalidTransaction,
-        TransactionSource,
-        ValidTransaction,
-    };
 
     /// Origin helper: ensure the signer is an Aura authority (no session/authorship).
     pub struct EnsureAuraAuthority<T>(PhantomData<T>);
@@ -128,10 +128,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Encrypted wrapper accepted.
-        EncryptedSubmitted {
-            id: T::Hash,
-            who: T::AccountId,
-        },
+        EncryptedSubmitted { id: T::Hash, who: T::AccountId },
         /// Decrypted call executed.
         DecryptedExecuted { id: T::Hash, signer: T::AccountId },
         /// Decrypted execution rejected.
@@ -197,17 +194,17 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Users submit encrypted wrapper.
+        /// Users submit an encrypted wrapper.
         ///
-        /// Commitment semantics:
+        /// `commitment` is `blake2_256(raw_payload)`, where:
+        ///   raw_payload = signer || nonce || SCALE(call)
         ///
-        /// ```text
-        /// raw_payload =
-        ///   signer (32B) || nonce (u32 LE) || SCALE(call)
-        /// commitment = blake2_256(raw_payload)
-        /// ```
-        ///
-        /// Ciphertext format: `[u16 kem_len][kem_ct][nonce24][aead_ct]`
+        /// `ciphertext` is constructed as:
+        ///   [u16 kem_len] || kem_ct || nonce24 || aead_ct
+        /// where:
+        ///   - `kem_ct` is the ML‑KEM ciphertext (encapsulated shared secret)
+        ///   - `aead_ct` is XChaCha20‑Poly1305 over:
+        ///       signer || nonce || SCALE(call) || sig_kind || signature
         #[pallet::call_index(1)]
         #[pallet::weight(({
             let w = Weight::from_parts(ciphertext.len() as u64, 0)
@@ -234,10 +231,7 @@ pub mod pallet {
                 Error::<T>::SubmissionAlreadyExists
             );
             Submissions::<T>::insert(id, sub);
-            Self::deposit_event(Event::EncryptedSubmitted {
-                id,
-                who,
-            });
+            Self::deposit_event(Event::EncryptedSubmitted { id, who });
             Ok(())
         }
 
@@ -260,8 +254,7 @@ pub mod pallet {
                 return Err(Error::<T>::MissingSubmission.into());
             };
 
-            let payload_bytes =
-                Self::build_raw_payload_bytes(&signer, nonce, call.as_ref());
+            let payload_bytes = Self::build_raw_payload_bytes(&signer, nonce, call.as_ref());
 
             // 1) Commitment check against on-chain stored commitment.
             let recomputed: T::Hash = T::Hashing::hash(&payload_bytes);
@@ -339,11 +332,7 @@ pub mod pallet {
     impl<T: Config> ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
 
-        fn validate_unsigned(
-            source: TransactionSource,
-            call: &Self::Call,
-        ) -> TransactionValidity {
-
+        fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
                 Call::execute_revealed { id, .. } => {
                     match source {
@@ -351,9 +340,9 @@ pub mod pallet {
                         TransactionSource::Local | TransactionSource::InBlock => {
                             ValidTransaction::with_tag_prefix("mev-shield-exec")
                                 .priority(u64::MAX)
-                                .longevity(64)      // long because propagate(false)
-                                .and_provides(id)   // dedupe by wrapper id
-                                .propagate(false)   // CRITICAL: no gossip, stays on author node
+                                .longevity(64) // long because propagate(false)
+                                .and_provides(id) // dedupe by wrapper id
+                                .propagate(false) // CRITICAL: no gossip, stays on author node
                                 .build()
                         }
                         _ => InvalidTransaction::Call.into(),

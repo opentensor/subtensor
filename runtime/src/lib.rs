@@ -1668,6 +1668,7 @@ mod benches {
         [pallet_drand, Drand]
         [pallet_crowdloan, Crowdloan]
         [pallet_subtensor_swap, Swap]
+        [pallet_shield, MevShield]
     );
 }
 
