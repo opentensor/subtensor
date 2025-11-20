@@ -2167,7 +2167,7 @@ mod dispatches {
         /// * [`Error::SubnetNotExists`] if the subnet does not exist.
         /// * [`Error::SubnetDeregistrationPriorityAlreadyScheduled`] if a set operation is already
         ///   scheduled.
-        #[pallet::call_index(121)]
+        #[pallet::call_index(125)]
         #[pallet::weight((
             Weight::from_parts(40_000_000, 0)
                 .saturating_add(T::DbWeight::get().reads_writes(4, 2)),
@@ -2237,7 +2237,7 @@ mod dispatches {
         /// Enqueues the subnet for deregistration immediately.
         ///
         /// This call is intended to be used by the scheduler and requires root origin.
-        #[pallet::call_index(122)]
+        #[pallet::call_index(126)]
         #[pallet::weight((
             Weight::from_parts(15_000_000, 0)
                 .saturating_add(T::DbWeight::get().reads_writes(3, 2)),

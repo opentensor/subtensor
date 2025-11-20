@@ -5,7 +5,6 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod events {
     use codec::Compact;
-    use frame_system::pallet_prelude::BlockNumberFor;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
