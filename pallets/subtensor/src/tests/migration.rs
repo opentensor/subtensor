@@ -2508,6 +2508,9 @@ fn test_migrate_clear_rank_trust_pruning_maps_removes_entries() {
         assert_eq!(PruningScores::<Test>::get(n0), empty);
         assert_eq!(PruningScores::<Test>::get(n1), empty);
         assert_eq!(PruningScores::<Test>::get(n2), empty);
+
+    });
+}
 fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
     // Register some subnets
     let netuid0 = add_dynamic_network_without_emission_block(&U256::from(0), &U256::from(0));
