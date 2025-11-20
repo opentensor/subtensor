@@ -113,7 +113,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
             // Only register the owner coldkey if it's not already a hotkey on the subnet.
             if !Uids::<T>::contains_key(*netuid, &owner_coldkey) {
                 // Register the owner_coldkey as neuron to the network.
-                let _neuron_uid: u16 = Pallet::<T>::register_neuron(*netuid, &owner_coldkey);
+                //let _neuron_uid: u16 = Pallet::<T>::register_neuron(*netuid, &owner_coldkey);
             }
             // Register the neuron immediately.
             if !IdentitiesV2::<T>::contains_key(owner_coldkey.clone()) {
