@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // If root_claim_type is Delegated, switch to the delegate's actual claim type.
-        if let RootClaimTypeEnum::Delegated = root_claim_type {
+        if (root_claim_type == RootClaimTypeEnum::Delegated) {
             root_claim_type = DelegateClaimType::<T>::get(hotkey, netuid);
         }
 

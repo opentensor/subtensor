@@ -473,7 +473,7 @@ mod events {
         /// (coldkey, u8)
         DelegateClaimTypeSet {
             /// delegate hotkey
-            hotkeu: T::AccountId,
+            hotkey: T::AccountId,
             root_claim_type: RootClaimTypeEnum,
         },
 
