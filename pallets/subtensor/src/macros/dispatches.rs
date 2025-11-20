@@ -2436,7 +2436,10 @@ mod dispatches {
             new_claim_type: RootClaimTypeEnum,
         ) -> DispatchResult {
             let coldkey: T::AccountId = ensure_signed(origin)?;
-            ensure!(Self::coldkey_owns_hotkey(coldkey.clone(), hotkey.clone()), Error::<T>::NonAssociatedColdKey);
+            ensure!(
+                Self::coldkey_owns_hotkey(coldkey.clone(), hotkey.clone()),
+                Error::<T>::NonAssociatedColdKey
+            );
             DelegateClaimType::<T>::insert((hotkey.clone(), netuid), new_claim_type.clone());
             Self::deposit_event(Event::DelegateClaimTypeSet {
                 hotkey: hotkey.clone(),

@@ -181,7 +181,7 @@ impl<T: Config> Pallet<T> {
                 };
 
                 // Importantly measures swap as flow.
-                Self::record_tao_outflow( netuid, owed_tao );
+                Self::record_tao_outflow(netuid, owed_tao);
 
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey,
