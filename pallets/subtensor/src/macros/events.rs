@@ -468,6 +468,15 @@ mod events {
             root_claim_type: RootClaimTypeEnum,
         },
 
+        /// Root claim type for a coldkey has been set.
+        /// Parameters:
+        /// (coldkey, u8)
+        DelegateClaimTypeSet {
+            /// delegate hotkey
+            hotkeu: T::AccountId,
+            root_claim_type: RootClaimTypeEnum,
+        },
+
         /// Subnet lease dividends have been distributed.
         SubnetLeaseDividendsDistributed {
             /// The lease ID

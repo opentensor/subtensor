@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-        root_claim_type: RootClaimTypeEnum,
+        mut root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) {
         // Subtract the root claimed.
@@ -155,6 +155,11 @@ impl<T: Config> Pallet<T> {
                 "root claim on subnet {netuid} is skipped: {owed:?} for h={hotkey:?},c={coldkey:?}"
             );
             return; // no-op
+        }
+
+        // If root_claim_type is Delegated, switch to the delegate's actual claim type.
+        if let RootClaimTypeEnum::Delegated = root_claim_type {
+            root_claim_type = DelegateClaimType::<T>::get(hotkey, netuid);
         }
 
         match root_claim_type {
@@ -189,13 +194,19 @@ impl<T: Config> Pallet<T> {
                 );
             }
             RootClaimTypeEnum::Keep => {
-                // Increase the stake with the alpha owned
+                // Increase the stake with the alpha owed
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey,
                     coldkey,
                     netuid,
                     owed_u64.into(),
                 );
+            }
+            // Add Delegated arm for completeness, but it should never reach here due to switch above.
+            RootClaimTypeEnum::Delegated => {
+                // Should not reach here. Added for completeness.
+                log::error!("Delegated root_claim_type should have been switched. Skipping.");
+                return;
             }
         };
 

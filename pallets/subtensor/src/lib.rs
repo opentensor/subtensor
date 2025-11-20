@@ -2244,6 +2244,17 @@ pub mod pallet {
         ValueQuery,
         DefaultRootClaimType<T>,
     >;
+    #[pallet::storage] // -- MAP ( hotkey, netuid ) --> delegate_claim_type enum
+    pub type DelegateClaimType<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        RootClaimTypeEnum,
+        ValueQuery,
+        DefaultRootClaimType<T>,
+    >;
     #[pallet::storage] // --- MAP ( u64 ) --> coldkey | Maps coldkeys that have stake to an index
     pub type StakingColdkeysByIndex<T: Config> =
         StorageMap<_, Identity, u64, T::AccountId, OptionQuery>;
