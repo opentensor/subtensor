@@ -129,14 +129,11 @@ impl<T: Config> Pallet<T> {
 
     pub fn pop_ready_subnet_deregistration_priority() -> Option<NetUid> {
         SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
-
             let first_valid = queue
                 .iter()
                 .copied()
                 .enumerate()
-                .find(|&(_, netuid)| {
-                    Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT
-                });
+                .find(|&(_, netuid)| Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT);
 
             if let Some((pos, netuid)) = first_valid {
                 queue.drain(..=pos);
