@@ -543,7 +543,7 @@ mod bittensor {
             // Transfer the received value to recipient
 
             self.env()
-                .extension()
+                // .extension()
                 .transfer(recipient.into(), transferred_value)
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
 
