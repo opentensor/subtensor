@@ -110,7 +110,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn enqueue_subnet_deregistration_priority(netuid: NetUid) -> bool {
         SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
-            if queue.iter().any(|&existing| existing == netuid) {
+            if queue.contains(&netuid) {
                 false
             } else {
                 queue.push(netuid);

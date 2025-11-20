@@ -84,7 +84,8 @@ fn manage_priority_schedule_and_force_set() {
         ));
 
         assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
-        let when = SubnetDeregistrationPrioritySchedule::<Test>::get(net).unwrap();
+        let when =
+            SubnetDeregistrationPrioritySchedule::<Test>::get(net).expect("Expected to not panic");
         assert!(when > 0);
 
         assert_ok!(SubtensorModule::force_set_deregistration_priority(
