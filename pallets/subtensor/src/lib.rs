@@ -365,7 +365,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultDelegateClaimType<T: Config>() -> RootClaimTypeEnum {
-        RootClaimTypeEnum::Swap
+        RootClaimTypeEnum::Keep
     }
 
     /// Default number of root claims per claim call.
