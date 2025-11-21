@@ -1214,7 +1214,8 @@ pub mod pallet {
         DefaultZeroAlpha<T>,
     >;
 
-    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last root alpha dividend this hotkey got on tempo.
+    /// --- DMAP ( netuid, hotkey ) --> u64 | Last root alpha dividend this hotkey got on tempo.
+    #[pallet::storage]
     pub type RootAlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
