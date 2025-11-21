@@ -158,8 +158,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // If root_claim_type is Delegated, switch to the delegate's actual claim type.
-        if (root_claim_type == RootClaimTypeEnum::Delegated) {
-            root_claim_type = DelegateClaimType::<T>::get(hotkey, netuid);
+        if root_claim_type == RootClaimTypeEnum::Delegated {
+            root_claim_type = ValidatorClaimType::<T>::get(hotkey, netuid);
         }
 
         match root_claim_type {
@@ -180,7 +180,7 @@ impl<T: Config> Pallet<T> {
                 };
 
                 // Importantly measures swap as flow.
-                Self::record_tao_outflow(netuid, owed_tao);
+                Self::record_tao_outflow(netuid, owed_tao.amount_paid_out.into());
 
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey,

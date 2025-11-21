@@ -9,7 +9,7 @@ use crate::{
     StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
     SubnetTAO, SubtokenEnabled, Tempo, pallet,
 };
-use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
+use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed, ValidatorClaimType};
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
 use frame_support::pallet_prelude::Weight;
@@ -1552,5 +1552,243 @@ fn test_claim_root_with_unrelated_subnets() {
 
         let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
         assert_eq!(u128::from(new_stake), claimed);
+    });
+}
+
+#[test]
+fn test_claim_root_with_delegated_claim_type() {
+    new_test_ext(1).execute_with(|| {
+        // Setup: Create network with validator (hotkey/owner_coldkey) and two stakers
+        let owner_coldkey = U256::from(1001); // Validator's coldkey
+        let other_coldkey = U256::from(10010); // Other staker (not tested)
+        let hotkey = U256::from(1002); // Validator's hotkey
+        let alice_coldkey = U256::from(1003); // Staker who will delegate claim type
+        let bob_coldkey = U256::from(1004); // Staker who will set explicit claim type
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        // Configure TAO weight and subnet mechanism for swap functionality
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubnetMechanism::<Test>::insert(netuid, 1); // Enable subnet mechanism for swaps
+
+        // Setup swap pool with reserves to enable Swap claim type
+        let tao_reserve = TaoCurrency::from(50_000_000_000);
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+        
+        // Verify the alpha-to-TAO exchange rate is 0.5
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                .saturating_to_num::<f64>();
+        assert_eq!(current_price, 0.5f64);
+
+        // Setup root network stakes: Alice and Bob each have 10% of total stake
+        let root_stake = 2_000_000u64;
+        let root_stake_rate = 0.1f64; // Each staker owns 10% of root stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice_coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob_coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+        // Other coldkey has remaining 80% of stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &other_coldkey,
+            NetUid::ROOT,
+            (8 * root_stake).into(),
+        );
+
+        // Setup subnet alpha stake for validator
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        // SCENARIO 1: Validator sets Keep claim type, Alice uses default (Delegated)
+        // Alice should inherit the validator's Keep claim type and receive alpha stake
+        assert_ok!(SubtensorModule::set_validator_claim_type(
+            RuntimeOrigin::signed(owner_coldkey),
+            hotkey,
+            netuid,
+            RootClaimTypeEnum::Keep
+        ),);
+        assert_eq!(ValidatorClaimType::<Test>::get(hotkey, netuid), RootClaimTypeEnum::Keep);
+
+        // Bob explicitly sets Keep claim type (same as validator, but not delegated)
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(bob_coldkey),
+            RootClaimTypeEnum::Keep
+        ),);
+        
+        // Alice has default Delegated claim type (not explicitly set)
+        assert_eq!(RootClaimType::<Test>::get(alice_coldkey), RootClaimTypeEnum::Delegated);
+
+        // Distribute pending root alpha emissions to create claimable rewards
+        let pending_root_alpha = 10_000_000u64;
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        // Alice claims with delegated claim type (should use validator's Keep)
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(alice_coldkey),
+            BTreeSet::from([netuid])
+        ));
+
+        // Bob claims with explicit Keep claim type
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(bob_coldkey),
+            BTreeSet::from([netuid])
+        ));
+
+        // Verify both stakers received alpha stake (Keep claim type behavior)
+        // With Keep, rewards are staked as alpha on the subnet
+        let validator_take_percent = 0.18f64;
+        let expected_stake_per_user =
+            (pending_root_alpha as f64) * (1f64 - validator_take_percent) * root_stake_rate;
+
+        let alice_alpha_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice_coldkey,
+            netuid,
+        )
+        .into();
+
+        let bob_alpha_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob_coldkey,
+            netuid,
+        )
+        .into();
+
+        // Both should have equal alpha stakes since they both used Keep claim type
+        assert_eq!(alice_alpha_stake, bob_alpha_stake);
+        assert_abs_diff_eq!(alice_alpha_stake, expected_stake_per_user as u64, epsilon = 100u64);
+
+        // Verify neither received TAO stake (would happen with Swap claim type)
+        let alice_tao_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice_coldkey,
+            NetUid::ROOT,
+        )
+        .into();
+        let bob_tao_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob_coldkey,
+            NetUid::ROOT,
+        )
+        .into();
+        // TAO stake should remain unchanged at initial amount
+        assert_eq!(alice_tao_stake, root_stake);
+        assert_eq!(bob_tao_stake, root_stake);
+
+        // SCENARIO 2: Validator changes to Swap claim type
+        // Alice (with Delegated) should now use Swap, Bob (explicit Keep) stays with Keep
+        assert_ok!(SubtensorModule::set_validator_claim_type(
+            RuntimeOrigin::signed(owner_coldkey),
+            hotkey,
+            netuid,
+            RootClaimTypeEnum::Swap
+        ),);
+
+        // Distribute more pending root alpha for second round of claims
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        // Both stakers claim again
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(alice_coldkey),
+            BTreeSet::from([netuid])
+        ));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(bob_coldkey),
+            BTreeSet::from([netuid])
+        ));
+
+        // Alice's alpha stake should remain the same (Swap doesn't add alpha stake)
+        let alice_alpha_stake_round2: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &alice_coldkey,
+                netuid,
+            )
+            .into();
+
+        // Bob's alpha stake should increase (Keep adds alpha stake)
+        let bob_alpha_stake_round2: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &bob_coldkey,
+                netuid,
+            )
+            .into();
+
+        // Alice used Swap (delegated from validator), so no new alpha stake
+        assert_abs_diff_eq!(
+            alice_alpha_stake_round2,
+            alice_alpha_stake,
+            epsilon = 100u64
+        );
+
+        // Bob used Keep (explicit), so alpha stake increased
+        assert_abs_diff_eq!(
+            bob_alpha_stake_round2,
+            alice_alpha_stake + expected_stake_per_user as u64,
+            epsilon = 100u64
+        );
+
+        // Alice used Swap, so TAO stake should increase
+        let alice_tao_stake_round2: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &alice_coldkey,
+                NetUid::ROOT,
+            )
+            .into();
+
+        // Bob used Keep, so TAO stake should remain the same
+        let bob_tao_stake_round2: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob_coldkey,
+            NetUid::ROOT,
+        )
+        .into();
+
+        // Alice's TAO stake increased (swapped alpha to TAO and staked on root)
+        let expected_tao_increase = expected_stake_per_user * current_price;
+        assert_abs_diff_eq!(
+            alice_tao_stake_round2,
+            root_stake + expected_tao_increase as u64,
+            epsilon = 10000u64
+        );
+
+        // Bob's TAO stake unchanged (used Keep, not Swap)
+        assert_eq!(bob_tao_stake_round2, root_stake);
+
+        // SUMMARY: This test demonstrates that:
+        // 1. Stakers with Delegated claim type inherit the validator's claim type
+        // 2. Stakers with explicit claim types use their own setting regardless of validator
+        // 3. Keep claim type stakes rewards as alpha on the subnet
+        // 4. Swap claim type converts alpha to TAO and stakes on root network
+        // 5. Changing validator's claim type affects delegated stakers immediately
     });
 }

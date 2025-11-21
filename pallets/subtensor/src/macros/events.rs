@@ -471,9 +471,10 @@ mod events {
         /// Root claim type for a coldkey has been set.
         /// Parameters:
         /// (coldkey, u8)
-        DelegateClaimTypeSet {
+        ValidatorClaimTypeSet {
             /// delegate hotkey
             hotkey: T::AccountId,
+            /// root claim type enum
             root_claim_type: RootClaimTypeEnum,
         },
 

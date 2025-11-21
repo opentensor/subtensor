@@ -363,8 +363,9 @@ pub mod pallet {
     pub fn DefaultRootClaimType<T: Config>() -> RootClaimTypeEnum {
         RootClaimTypeEnum::Delegated
     }
+    /// Default value for delegate claim type storage
     #[pallet::type_value]
-    pub fn DefaultDelegateClaimType<T: Config>() -> RootClaimTypeEnum {
+    pub fn DefaultValidatorClaimType<T: Config>() -> RootClaimTypeEnum {
         RootClaimTypeEnum::Keep
     }
 
@@ -2251,12 +2252,12 @@ pub mod pallet {
         DefaultRootClaimType<T>,
     >;
     #[pallet::storage] // -- MAP ( hotkey, netuid ) --> delegate_claim_type enum
-    pub type DelegateClaimType<T: Config> = StorageMap<
+    pub type ValidatorClaimType<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        u16,
+        NetUid,
         RootClaimTypeEnum,
         ValueQuery,
         DefaultRootClaimType<T>,

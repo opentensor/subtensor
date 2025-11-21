@@ -2429,7 +2429,7 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn set_delegate_claim_type(
+        pub fn set_validator_claim_type(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
@@ -2437,7 +2437,7 @@ mod dispatches {
         ) -> DispatchResult {
             let coldkey: T::AccountId = ensure_signed(origin)?;
             ensure!(
-                Self::coldkey_owns_hotkey(coldkey.clone(), hotkey.clone()),
+                Self::coldkey_owns_hotkey(&coldkey, &hotkey),
                 Error::<T>::NonAssociatedColdKey
             );
 
@@ -2450,8 +2450,8 @@ mod dispatches {
                 Error::<T>::InvalidRootClaimType
             );
 
-            DelegateClaimType::<T>::insert((hotkey.clone(), netuid), new_claim_type.clone());
-            Self::deposit_event(Event::DelegateClaimTypeSet {
+            ValidatorClaimType::<T>::insert(hotkey.clone(), netuid, new_claim_type.clone());
+            Self::deposit_event(Event::ValidatorClaimTypeSet {
                 hotkey: hotkey.clone(),
                 root_claim_type: new_claim_type,
             });
