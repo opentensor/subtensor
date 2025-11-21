@@ -2260,7 +2260,7 @@ pub mod pallet {
         NetUid,
         RootClaimTypeEnum,
         ValueQuery,
-        DefaultRootClaimType<T>,
+        DefaultValidatorClaimType<T>,
     >;
     #[pallet::storage] // --- MAP ( u64 ) --> coldkey | Maps coldkeys that have stake to an index
     pub type StakingColdkeysByIndex<T: Config> =
