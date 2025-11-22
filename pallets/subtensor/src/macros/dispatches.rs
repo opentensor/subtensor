@@ -2211,7 +2211,7 @@ mod dispatches {
             Weight::from_parts(15_000_000, 0)
                 .saturating_add(T::DbWeight::get().reads_writes(3, 2)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn force_set_deregistration_priority(
             origin: OriginFor<T>,
