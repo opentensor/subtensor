@@ -34,6 +34,12 @@ use crate::ethereum::{
     BackendType, EthConfiguration, FrontierBackend, FrontierPartialComponents, StorageOverride,
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
+use crate::mev_shield::{author, proposer};
+use codec::Decode;
+use sc_client_api::HeaderBackend;
+use sc_client_api::StorageKey;
+use sc_client_api::StorageProvider;
+use sp_core::twox_128;
 
 const LOG_TARGET: &str = "node-service";
 
@@ -534,6 +540,53 @@ where
     )
     .await;
 
+    // ==== MEV-SHIELD HOOKS ====
+    let mut mev_timing: Option<author::TimeParams> = None;
+
+    if role.is_authority() {
+        let slot_duration_ms: u64 = consensus_mechanism.slot_duration(&client)?.as_millis() as u64;
+
+        // Time windows (7s announce / last 3s decrypt).
+        let timing = author::TimeParams {
+            slot_ms: slot_duration_ms,
+            announce_at_ms: 7_000,
+            decrypt_window_ms: 3_000,
+        };
+        mev_timing = Some(timing.clone());
+
+        // Initialize author‑side epoch from chain storage
+        let initial_epoch: u64 = {
+            let best = client.info().best_hash;
+            let mut key_bytes = Vec::with_capacity(32);
+            key_bytes.extend_from_slice(&twox_128(b"MevShield"));
+            key_bytes.extend_from_slice(&twox_128(b"Epoch"));
+            let key = StorageKey(key_bytes);
+
+            match client.storage(best, &key) {
+                Ok(Some(raw_bytes)) => u64::decode(&mut &raw_bytes.0[..]).unwrap_or(0),
+                _ => 0,
+            }
+        };
+
+        // Start author-side tasks with the epoch.
+        let mev_ctx = author::spawn_author_tasks::<Block, _, _>(
+            &task_manager.spawn_handle(),
+            client.clone(),
+            transaction_pool.clone(),
+            keystore_container.keystore(),
+            initial_epoch,
+            timing.clone(),
+        );
+
+        // Start last-3s revealer (decrypt -> execute_revealed).
+        proposer::spawn_revealer::<Block, _, _>(
+            &task_manager.spawn_handle(),
+            client.clone(),
+            transaction_pool.clone(),
+            mev_ctx.clone(),
+        );
+    }
+
     if role.is_authority() {
         // manual-seal authorship
         if let Some(sealing) = sealing {
@@ -548,7 +601,6 @@ where
                 telemetry.as_ref(),
                 commands_stream,
             )?;
-
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
         }
@@ -562,6 +614,27 @@ where
         );
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
+
+        let start_fraction: f32 = {
+            let (slot_ms, decrypt_ms) = mev_timing
+                .as_ref()
+                .map(|t| (t.slot_ms, t.decrypt_window_ms))
+                .unwrap_or((slot_duration.as_millis() as u64, 3_000));
+
+            let guard_ms: u64 = 200; // small cushion so reveals hit the pool first
+            let after_decrypt_ms = slot_ms.saturating_sub(decrypt_ms).saturating_add(guard_ms);
+
+            // Clamp into (0.5 .. 0.98] to give the proposer enough time
+            let mut f = (after_decrypt_ms as f32) / (slot_ms as f32);
+            if f < 0.50 {
+                f = 0.50;
+            }
+            if f > 0.98 {
+                f = 0.98;
+            }
+            f
+        };
+
         let create_inherent_data_providers =
             move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
@@ -579,7 +652,7 @@ where
                 force_authoring,
                 backoff_authoring_blocks,
                 keystore: keystore_container.keystore(),
-                block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
+                block_proposal_slot_portion: SlotProportion::new(start_fraction),
                 max_block_proposal_slot_portion: None,
                 telemetry: telemetry.as_ref().map(|x| x.handle()),
             },
