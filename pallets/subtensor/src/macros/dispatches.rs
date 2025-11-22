@@ -2198,7 +2198,9 @@ mod dispatches {
             .map_err(|_| Error::<T>::FailedToSchedule)?;
 
             SubnetDeregistrationPrioritySchedule::<T>::insert(netuid, when);
-            Self::deposit_event(Event::SubnetDeregistrationPriorityScheduled(netuid, when));
+            Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleAdded(
+                netuid, when,
+            ));
 
             Ok(())
         }
@@ -2221,11 +2223,11 @@ mod dispatches {
             ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
             if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
-                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleCleared(netuid));
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleRemoved(netuid));
             }
 
             let _ = Self::enqueue_subnet_deregistration_priority(netuid);
-            Self::deposit_event(Event::SubnetDeregistrationPrioritySet(netuid));
+            Self::deposit_event(Event::SubnetDeregistrationPriorityQueueAdded(netuid));
 
             Ok(())
         }
@@ -2248,7 +2250,7 @@ mod dispatches {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
             if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
-                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleCleared(netuid));
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleRemoved(netuid));
             }
 
             Ok(())
@@ -2275,10 +2277,10 @@ mod dispatches {
             let had_schedule = SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some();
 
             if was_queued {
-                Self::deposit_event(Event::SubnetDeregistrationPriorityCleared(netuid));
+                Self::deposit_event(Event::SubnetDeregistrationPriorityQueueRemoved(netuid));
             }
             if had_schedule {
-                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleCleared(netuid));
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleRemoved(netuid));
             }
 
             Ok(())

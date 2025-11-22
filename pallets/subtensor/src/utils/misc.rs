@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
 
         for netuid in nets {
             if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
-                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleCleared(netuid));
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleRemoved(netuid));
             }
         }
     }
