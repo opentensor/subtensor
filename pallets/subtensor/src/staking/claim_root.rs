@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-        root_claim_type: RootClaimTypeEnum,
+        mut root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) {
         // Subtract the root claimed.
@@ -157,6 +157,11 @@ impl<T: Config> Pallet<T> {
             return; // no-op
         }
 
+        // If root_claim_type is Delegated, switch to the delegate's actual claim type.
+        if root_claim_type == RootClaimTypeEnum::Delegated {
+            root_claim_type = ValidatorClaimType::<T>::get(hotkey, netuid);
+        }
+
         match root_claim_type {
             //  Increase stake on root
             RootClaimTypeEnum::Swap => {
@@ -170,10 +175,12 @@ impl<T: Config> Pallet<T> {
                     Ok(owed_tao) => owed_tao,
                     Err(err) => {
                         log::error!("Error swapping alpha for TAO: {err:?}");
-
                         return;
                     }
                 };
+
+                // Importantly measures swap as flow.
+                Self::record_tao_outflow(netuid, owed_tao.amount_paid_out.into());
 
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey,
@@ -189,13 +196,19 @@ impl<T: Config> Pallet<T> {
                 );
             }
             RootClaimTypeEnum::Keep => {
-                // Increase the stake with the alpha owned
+                // Increase the stake with the alpha owed
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey,
                     coldkey,
                     netuid,
                     owed_u64.into(),
                 );
+            }
+            // Add Delegated arm for completeness, but it should never reach here due to switch above.
+            RootClaimTypeEnum::Delegated => {
+                // Should not reach here. Added for completeness.
+                log::error!("Delegated root_claim_type should have been switched. Skipping.");
+                return;
             }
         };
 
