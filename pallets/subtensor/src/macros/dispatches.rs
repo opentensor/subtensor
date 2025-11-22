@@ -2372,6 +2372,10 @@ mod dispatches {
         ) -> DispatchResult {
             let coldkey: T::AccountId = ensure_signed(origin)?;
 
+            if let RootClaimTypeEnum::KeepSubnets { subnets } = &new_root_claim_type {
+                ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
+            }
+
             Self::maybe_add_coldkey_index(&coldkey);
 
             Self::change_root_claim_type(&coldkey, new_root_claim_type);
