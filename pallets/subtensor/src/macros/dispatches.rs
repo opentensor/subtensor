@@ -2184,7 +2184,7 @@ mod dispatches {
             let delay: BlockNumberFor<T> = ColdkeySwapScheduleDuration::<T>::get();
             let when: BlockNumberFor<T> = current_block.saturating_add(delay);
 
-            let call = Call::<T>::force_set_deregistration_priority { netuid };
+            let call = Call::<T>::enqueue_subnet_deregistration { netuid };
             let bound_call = <T as Config>::Preimages::bound(LocalCallOf::<T>::from(call))
                 .map_err(|_| Error::<T>::FailedToSchedule)?;
 
@@ -2213,7 +2213,7 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn force_set_deregistration_priority(
+        pub fn enqueue_subnet_deregistration(
             origin: OriginFor<T>,
             netuid: NetUid,
         ) -> DispatchResult {

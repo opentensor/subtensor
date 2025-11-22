@@ -87,7 +87,7 @@ fn schedule_priority_and_force_set() {
             SubnetDeregistrationPrioritySchedule::<Test>::get(net).expect("Expected to not panic");
         assert!(when > 0);
 
-        assert_ok!(SubtensorModule::force_set_deregistration_priority(
+        assert_ok!(SubtensorModule::enqueue_subnet_deregistration(
             RuntimeOrigin::root(),
             net
         ));
@@ -164,13 +164,13 @@ fn schedule_priority_requires_owner_or_root() {
 }
 
 #[test]
-fn force_set_deregistration_priority_is_noop_without_schedule() {
+fn enqueue_subnet_deregistration_is_noop_without_schedule() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(17);
         let owner_hot = U256::from(34);
         let net = add_dynamic_network(&owner_hot, &owner_cold);
 
-        assert_ok!(SubtensorModule::force_set_deregistration_priority(
+        assert_ok!(SubtensorModule::enqueue_subnet_deregistration(
             RuntimeOrigin::root(),
             net
         ));
