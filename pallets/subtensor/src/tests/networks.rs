@@ -71,16 +71,15 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
 }
 
 #[test]
-fn manage_priority_schedule_and_force_set() {
+fn schedule_priority_and_force_set() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(11);
         let owner_hot = U256::from(22);
         let net = add_dynamic_network(&owner_hot, &owner_cold);
 
-        assert_ok!(SubtensorModule::manage_deregistration_priority(
+        assert_ok!(SubtensorModule::schedule_deregistration_priority(
             RuntimeOrigin::signed(owner_cold),
-            net,
-            true
+            net
         ));
 
         assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
@@ -101,7 +100,7 @@ fn manage_priority_schedule_and_force_set() {
 }
 
 #[test]
-fn manage_priority_owner_cancels_schedule_only() {
+fn cancel_priority_schedule_only() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(13);
         let owner_hot = U256::from(26);
@@ -110,10 +109,9 @@ fn manage_priority_owner_cancels_schedule_only() {
         SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
         SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 42);
 
-        assert_ok!(SubtensorModule::manage_deregistration_priority(
+        assert_ok!(SubtensorModule::cancel_deregistration_priority_schedule(
             RuntimeOrigin::signed(owner_cold),
-            net,
-            false
+            net
         ));
 
         assert!(SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
@@ -124,7 +122,7 @@ fn manage_priority_owner_cancels_schedule_only() {
 }
 
 #[test]
-fn manage_priority_root_clears_queue_entry() {
+fn clear_priority_requires_root() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(19);
         let owner_hot = U256::from(38);
@@ -133,10 +131,9 @@ fn manage_priority_root_clears_queue_entry() {
         SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
         SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 55);
 
-        assert_ok!(SubtensorModule::manage_deregistration_priority(
+        assert_ok!(SubtensorModule::clear_deregistration_priority(
             RuntimeOrigin::root(),
-            net,
-            false
+            net
         ));
 
         assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
@@ -147,7 +144,7 @@ fn manage_priority_root_clears_queue_entry() {
 }
 
 #[test]
-fn manage_priority_requires_owner_or_root() {
+fn schedule_priority_requires_owner_or_root() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(15);
         let owner_hot = U256::from(30);
@@ -155,18 +152,13 @@ fn manage_priority_requires_owner_or_root() {
         let intruder = U256::from(999);
 
         assert_err!(
-            SubtensorModule::manage_deregistration_priority(
-                RuntimeOrigin::signed(intruder),
-                net,
-                false
-            ),
+            SubtensorModule::schedule_deregistration_priority(RuntimeOrigin::signed(intruder), net),
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::manage_deregistration_priority(
+        assert_ok!(SubtensorModule::schedule_deregistration_priority(
             RuntimeOrigin::root(),
-            net,
-            false
+            net
         ));
     });
 }
