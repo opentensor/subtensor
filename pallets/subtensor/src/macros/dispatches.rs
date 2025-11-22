@@ -2220,9 +2220,8 @@ mod dispatches {
             ensure_root(origin)?;
             ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
-            if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_none() {
-                // Schedule was clear already, nothing to do.
-                return Ok(());
+            if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleCleared(netuid));
             }
 
             let _ = Self::enqueue_subnet_deregistration_priority(netuid);
