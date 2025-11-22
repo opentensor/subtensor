@@ -96,6 +96,55 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::OwnerHyperparamRateLimitSet(epochs));
     }
 
+    pub fn cancel_deregistration_priority_schedule_for_owner(owner: &T::AccountId) {
+        let nets: sp_std::vec::Vec<NetUid> = SubnetOwner::<T>::iter()
+            .filter_map(|(netuid, acct)| if acct == *owner { Some(netuid) } else { None })
+            .collect();
+
+        for netuid in nets {
+            if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleCleared(netuid));
+            }
+        }
+    }
+
+    pub fn enqueue_subnet_deregistration_priority(netuid: NetUid) -> bool {
+        SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
+            if queue.contains(&netuid) {
+                false
+            } else {
+                queue.push(netuid);
+                true
+            }
+        })
+    }
+
+    pub fn remove_subnet_from_deregistration_priority_queue(netuid: NetUid) -> bool {
+        SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
+            let original_len = queue.len();
+            queue.retain(|&existing| existing != netuid);
+            original_len != queue.len()
+        })
+    }
+
+    pub fn pop_ready_subnet_deregistration_priority() -> Option<NetUid> {
+        SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
+            let first_valid = queue
+                .iter()
+                .copied()
+                .enumerate()
+                .find(|&(_, netuid)| Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT);
+
+            if let Some((pos, netuid)) = first_valid {
+                queue.drain(..=pos);
+                Some(netuid)
+            } else {
+                queue.clear();
+                None
+            }
+        })
+    }
+
     /// If owner is `Some`, record last-blocks for the provided `TransactionType`s.
     pub fn record_owner_rl(
         maybe_owner: Option<<T as frame_system::Config>::AccountId>,

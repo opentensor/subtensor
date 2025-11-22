@@ -1605,10 +1605,25 @@ pub mod pallet {
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
 
+    /// --- FIFO queue of netuids pending deregistration
+    #[pallet::storage]
+    pub type SubnetDeregistrationPriorityQueue<T: Config> =
+        StorageValue<_, sp_std::vec::Vec<NetUid>, ValueQuery>;
+
+    /// --- MAP ( netuid ) --> scheduled block for enqueuing deregistration priority
+    #[pallet::storage]
+    pub type SubnetDeregistrationPrioritySchedule<T: Config> =
+        StorageMap<_, Identity, NetUid, BlockNumberFor<T>, OptionQuery>;
+
     /// --- MAP ( netuid ) --> pending_server_emission
     #[pallet::storage]
     pub type PendingServerEmission<T> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// --- MAP ( netuid ) --> pending_emission
+    #[pallet::storage]
+    pub type PendingEmission<T> =
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultPendingEmission<T>>;
 
     /// --- MAP ( netuid ) --> pending_validator_emission
     #[pallet::storage]
