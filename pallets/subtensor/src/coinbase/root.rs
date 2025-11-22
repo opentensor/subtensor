@@ -593,7 +593,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_to_prune() -> Option<NetUid> {
         let current_block: u64 = Self::get_current_block_as_u64();
 
-        if let Some(priority_netuid) = Self::pop_ready_subnet_deregistration_priority() {
+        if let Some(priority_netuid) = Self::pop_ready_subnet_from_deregistration_priority_queue() {
             return Some(priority_netuid);
         }
 

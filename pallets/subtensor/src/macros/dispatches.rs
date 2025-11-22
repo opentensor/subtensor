@@ -2226,7 +2226,7 @@ mod dispatches {
                 Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleRemoved(netuid));
             }
 
-            let _ = Self::enqueue_subnet_deregistration_priority(netuid);
+            Self::enqueue_subnet_to_deregistration_priority_queue(netuid);
             Self::deposit_event(Event::SubnetDeregistrationPriorityQueueAdded(netuid));
 
             Ok(())
@@ -2242,7 +2242,7 @@ mod dispatches {
             DispatchClass::Normal,
             Pays::Yes
         ))]
-        pub fn cancel_deregistration_priority_schedule(
+        pub fn cancel_deregistration_priority_schedules(
             origin: OriginFor<T>,
             netuid: NetUid,
         ) -> DispatchResult {

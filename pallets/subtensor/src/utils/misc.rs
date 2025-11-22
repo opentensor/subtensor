@@ -108,13 +108,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn enqueue_subnet_deregistration_priority(netuid: NetUid) -> bool {
+    pub fn enqueue_subnet_to_deregistration_priority_queue(netuid: NetUid) {
         SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
-            if queue.contains(&netuid) {
-                false
-            } else {
+            if !queue.contains(&netuid) {
                 queue.push(netuid);
-                true
             }
         })
     }
@@ -127,7 +124,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub fn pop_ready_subnet_deregistration_priority() -> Option<NetUid> {
+    pub fn pop_ready_subnet_from_deregistration_priority_queue() -> Option<NetUid> {
         SubnetDeregistrationPriorityQueue::<T>::mutate(|queue| {
             let first_valid = queue
                 .iter()

@@ -109,7 +109,7 @@ fn cancel_priority_schedule_only() {
         SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
         SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 42);
 
-        assert_ok!(SubtensorModule::cancel_deregistration_priority_schedule(
+        assert_ok!(SubtensorModule::cancel_deregistration_priority_schedules(
             RuntimeOrigin::signed(owner_cold),
             net
         ));

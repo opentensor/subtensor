@@ -201,5 +201,4 @@ interface ISubnet {
         uint16 netuid,
         uint64 commitRevealWeightsInterval
     ) external payable;
-
 }
