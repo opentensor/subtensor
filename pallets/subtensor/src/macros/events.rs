@@ -21,6 +21,8 @@ mod events {
         SubnetDeregistrationPriorityCleared(NetUid),
         /// pending deregistration schedule cleared or canceled.
         SubnetDeregistrationPriorityScheduleCleared(NetUid),
+        /// deregistration priority schedule delay updated.
+        DeregistrationPriorityScheduleDelaySet(BlockNumberFor<T>),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
         StakeAdded(
             T::AccountId,

@@ -2181,7 +2181,7 @@ mod dispatches {
             );
 
             let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
-            let delay: BlockNumberFor<T> = ColdkeySwapScheduleDuration::<T>::get();
+            let delay: BlockNumberFor<T> = DeregistrationPriorityScheduleDelay::<T>::get();
             let when: BlockNumberFor<T> = current_block.saturating_add(delay);
 
             let call = Call::<T>::enqueue_subnet_deregistration { netuid };

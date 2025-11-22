@@ -214,6 +214,7 @@ parameter_types! {
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
     // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
+    pub const InitialDeregistrationPriorityScheduleDelay: u64 = 5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialColdkeySwapRescheduleDuration: u64 = 24 * 60 * 60 / 12; // Default as 1 day
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
@@ -285,6 +286,7 @@ impl crate::Config for Test {
     type Yuma3On = InitialYuma3On;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialDeregistrationPriorityScheduleDelay = InitialDeregistrationPriorityScheduleDelay;
     type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;

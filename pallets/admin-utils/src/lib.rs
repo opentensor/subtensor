@@ -1386,6 +1386,26 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Sets the delay for deregistration priority scheduling.
+        #[pallet::call_index(55)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(0_u64))
+		    .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_deregistration_priority_schedule_delay(
+            origin: OriginFor<T>,
+            duration: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_deregistration_priority_schedule_delay(duration);
+            log::trace!("DeregistrationPriorityScheduleDelaySet( duration: {duration:?} )");
+
+            Ok(())
+        }
+
         /// Sets the duration of the dissolve network schedule.
         ///
         /// This extrinsic allows the root account to set the duration for the dissolve network schedule.
@@ -1400,7 +1420,7 @@ pub mod pallet {
         ///
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(55)]
+        #[pallet::call_index(56)]
         #[pallet::weight((
             Weight::from_parts(5_000_000, 0)
                 .saturating_add(T::DbWeight::get().reads(0_u64))

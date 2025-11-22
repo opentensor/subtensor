@@ -894,6 +894,12 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ColdkeySwapScheduleDurationSet(duration));
     }
 
+    /// Set the delay applied when scheduling deregistration priority.
+    pub fn set_deregistration_priority_schedule_delay(duration: BlockNumberFor<T>) {
+        DeregistrationPriorityScheduleDelay::<T>::set(duration);
+        Self::deposit_event(Event::DeregistrationPriorityScheduleDelaySet(duration));
+    }
+
     /// Set the duration for dissolve network
     ///
     /// # Arguments
