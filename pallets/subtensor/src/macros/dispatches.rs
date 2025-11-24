@@ -2447,10 +2447,7 @@ mod dispatches {
 
             // Ensure the delegate claim type is not Delegated.
             ensure!(
-                matches!(
-                    new_claim_type,
-                    RootClaimTypeEnum::Swap | RootClaimTypeEnum::Keep
-                ),
+                !matches!(new_claim_type, RootClaimTypeEnum::Delegated),
                 Error::<T>::InvalidRootClaimType
             );
 
