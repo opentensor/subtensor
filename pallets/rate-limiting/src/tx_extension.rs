@@ -35,6 +35,16 @@ where
     T: Config<I> + Send + Sync + TypeInfo,
     I: 'static + TypeInfo;
 
+impl<T, I> RateLimitTransactionExtension<T, I>
+where
+    T: Config<I> + Send + Sync + TypeInfo,
+    I: 'static + TypeInfo,
+{
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
 impl<T, I> Clone for RateLimitTransactionExtension<T, I>
 where
     T: Config<I> + Send + Sync + TypeInfo,

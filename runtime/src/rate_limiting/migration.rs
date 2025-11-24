@@ -1,9 +1,10 @@
-use core::convert::TryFrom;
+use core::{convert::TryFrom, marker::PhantomData};
 
-use codec::Encode;
-use frame_support::{pallet_prelude::Parameter, traits::Get, weights::Weight};
+use frame_support::{
+    BoundedBTreeSet, BoundedVec, pallet_prelude::Parameter, traits::Get, weights::Weight,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
-use log::info;
+use log::{info, warn};
 use pallet_rate_limiting::{
     GroupSharing, RateLimit, RateLimitGroup, RateLimitKind, RateLimitTarget, TransactionIdentifier,
 };
@@ -15,10 +16,6 @@ use pallet_subtensor::{
     TxChildkeyTakeRateLimit, TxDelegateTakeRateLimit, TxRateLimit, WeightsVersionKeyRateLimit,
     utils::rate_limiting::{Hyperparameter, TransactionType},
 };
-use sp_io::{
-    hashing::{blake2_128, twox_128},
-    storage,
-};
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::{
     collections::{btree_map::BTreeMap, btree_set::BTreeSet},
@@ -27,15 +24,26 @@ use sp_std::{
 };
 use subtensor_runtime_common::{MechId, NetUid, RateLimitScope, RateLimitUsageKey};
 
-type RateLimitConfigOf<T> = RateLimit<RateLimitScope, BlockNumberFor<T>>;
-type RateLimitTargetOf = RateLimitTarget<GroupId>;
-type RateLimitGroupOf = RateLimitGroup<GroupId, Vec<u8>>;
-type LimitEntries<T> = Vec<(RateLimitTargetOf, RateLimitConfigOf<T>)>;
-type LastSeenKey<T> = (
-    RateLimitTargetOf,
-    Option<RateLimitUsageKey<<T as frame_system::Config>::AccountId>>,
-);
-type LastSeenEntries<T> = Vec<(LastSeenKey<T>, BlockNumberFor<T>)>;
+use crate::RateLimitingInstance;
+
+type GroupIdOf<T> = <T as pallet_rate_limiting::Config<RateLimitingInstance>>::GroupId;
+type LimitEntries<T> = Vec<(
+    RateLimitTarget<GroupId>,
+    RateLimit<RateLimitScope, BlockNumberFor<T>>,
+)>;
+type LastSeenEntries<T> = Vec<(
+    (
+        RateLimitTarget<GroupId>,
+        Option<RateLimitUsageKey<<T as frame_system::Config>::AccountId>>,
+    ),
+    BlockNumberFor<T>,
+)>;
+type GroupNameOf<T> =
+    BoundedVec<u8, <T as pallet_rate_limiting::Config<RateLimitingInstance>>::MaxGroupNameLength>;
+type GroupMembersOf<T> = BoundedBTreeSet<
+    TransactionIdentifier,
+    <T as pallet_rate_limiting::Config<RateLimitingInstance>>::MaxGroupMembers,
+>;
 
 /// Pallet index assigned to `pallet_subtensor` in `construct_runtime!`.
 const SUBTENSOR_PALLET_INDEX: u8 = 7;
@@ -162,7 +170,7 @@ struct GroupInfo {
 struct Grouping {
     assignments: BTreeMap<TransactionIdentifier, GroupInfo>,
     members: BTreeMap<GroupId, BTreeSet<TransactionIdentifier>>,
-    details: Vec<RateLimitGroupOf>,
+    details: Vec<RateLimitGroup<GroupId, Vec<u8>>>,
     next_group_id: GroupId,
     max_group_id: Option<GroupId>,
 }
@@ -198,7 +206,7 @@ impl Grouping {
         self.next_group_id = self.max_group_id.map_or(0, |id| id.saturating_add(1));
     }
 
-    fn config_target(&self, identifier: TransactionIdentifier) -> RateLimitTargetOf {
+    fn config_target(&self, identifier: TransactionIdentifier) -> RateLimitTarget<GroupId> {
         if let Some(info) = self.assignments.get(&identifier) {
             if info.sharing.config_uses_group() {
                 return RateLimitTarget::Group(info.id);
@@ -207,7 +215,7 @@ impl Grouping {
         RateLimitTarget::Transaction(identifier)
     }
 
-    fn usage_target(&self, identifier: TransactionIdentifier) -> RateLimitTargetOf {
+    fn usage_target(&self, identifier: TransactionIdentifier) -> RateLimitTarget<GroupId> {
         if let Some(info) = self.assignments.get(&identifier) {
             if info.sharing.usage_uses_group() {
                 return RateLimitTarget::Group(info.id);
@@ -258,7 +266,17 @@ fn build_grouping() -> Grouping {
     grouping
 }
 
-pub fn migrate_rate_limiting<T: SubtensorConfig>() -> Weight {
+pub fn migrate_rate_limiting<T>() -> Weight
+where
+    T: SubtensorConfig
+        + pallet_rate_limiting::Config<
+            RateLimitingInstance,
+            LimitScope = RateLimitScope,
+            GroupId = GroupId,
+        >,
+    RateLimitUsageKey<T::AccountId>:
+        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+{
     let mut weight = T::DbWeight::get().reads(1);
     if HasMigrationRun::<T>::get(MIGRATION_NAME) {
         info!("Rate-limiting migration already executed. Skipping.");
@@ -731,67 +749,120 @@ fn import_evm_entries<T: SubtensorConfig>(
     reads
 }
 
-/// TODO(rate-limiting-storage): Swap these manual writes for
-/// `pallet_rate_limiting::Pallet` APIs once the runtime wires the pallet in.
-fn write_limits<T: SubtensorConfig>(limits: &LimitEntries<T>) -> u64 {
-    if limits.is_empty() {
-        return 0;
+fn convert_target<T>(target: &RateLimitTarget<GroupId>) -> RateLimitTarget<GroupIdOf<T>>
+where
+    T: SubtensorConfig
+        + pallet_rate_limiting::Config<
+            RateLimitingInstance,
+            LimitScope = RateLimitScope,
+            GroupId = GroupId,
+        >,
+    RateLimitUsageKey<T::AccountId>:
+        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+{
+    match target {
+        RateLimitTarget::Transaction(identifier) => RateLimitTarget::Transaction(*identifier),
+        RateLimitTarget::Group(id) => RateLimitTarget::Group((*id).saturated_into()),
     }
-    let limits_prefix = storage_prefix("RateLimiting", "Limits");
-    let mut writes = 0;
+}
+
+fn write_limits<T>(limits: &LimitEntries<T>) -> u64
+where
+    T: SubtensorConfig
+        + pallet_rate_limiting::Config<
+            RateLimitingInstance,
+            LimitScope = RateLimitScope,
+            GroupId = GroupId,
+        >,
+    RateLimitUsageKey<T::AccountId>:
+        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+{
+    let mut writes: u64 = 0;
     for (identifier, limit) in limits.iter() {
-        let limit_key = map_storage_key(&limits_prefix, identifier);
-        storage::set(&limit_key, &limit.encode());
+        let target = convert_target::<T>(identifier);
+        pallet_rate_limiting::Limits::<T, RateLimitingInstance>::insert(target, limit.clone());
         writes += 1;
     }
     writes
 }
 
-fn write_last_seen<T: SubtensorConfig>(entries: &LastSeenEntries<T>) -> u64 {
-    if entries.is_empty() {
-        return 0;
-    }
-    let prefix = storage_prefix("RateLimiting", "LastSeen");
-    let mut writes = 0;
+fn write_last_seen<T>(entries: &LastSeenEntries<T>) -> u64
+where
+    T: SubtensorConfig
+        + pallet_rate_limiting::Config<
+            RateLimitingInstance,
+            LimitScope = RateLimitScope,
+            GroupId = GroupId,
+        >,
+    RateLimitUsageKey<T::AccountId>:
+        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+{
+    let mut writes: u64 = 0;
     for ((identifier, usage), block) in entries.iter() {
-        let key = double_map_storage_key(&prefix, identifier, usage);
-        storage::set(&key, &block.encode());
+        let target = convert_target::<T>(identifier);
+        let usage_key = usage.clone().map(Into::into);
+        pallet_rate_limiting::LastSeen::<T, RateLimitingInstance>::insert(
+            target, usage_key, *block,
+        );
         writes += 1;
     }
     writes
 }
 
-fn write_groups<T: SubtensorConfig>(grouping: &Grouping) -> u64 {
-    let mut writes = 0;
-    let groups_prefix = storage_prefix("RateLimiting", "Groups");
-    let members_prefix = storage_prefix("RateLimiting", "GroupMembers");
-    let name_index_prefix = storage_prefix("RateLimiting", "GroupNameIndex");
-    let call_groups_prefix = storage_prefix("RateLimiting", "CallGroups");
-    let next_group_id_prefix = storage_prefix("RateLimiting", "NextGroupId");
+fn write_groups<T>(grouping: &Grouping) -> u64
+where
+    T: SubtensorConfig
+        + pallet_rate_limiting::Config<
+            RateLimitingInstance,
+            LimitScope = RateLimitScope,
+            GroupId = GroupId,
+        >,
+    RateLimitUsageKey<T::AccountId>:
+        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+{
+    let mut writes: u64 = 0;
 
     for detail in &grouping.details {
-        let group_key = map_storage_key(&groups_prefix, detail.id);
-        storage::set(&group_key, &detail.encode());
-        writes += 1;
+        let Ok(name) = GroupNameOf::<T>::try_from(detail.name.clone()) else {
+            warn!(
+                "rate-limiting migration: group name exceeds bounds, skipping id {}",
+                detail.id
+            );
+            continue;
+        };
+        let group_id = detail.id.saturated_into::<GroupIdOf<T>>();
+        let stored = RateLimitGroup {
+            id: group_id,
+            name: name.clone(),
+            sharing: detail.sharing,
+        };
 
-        let name_key = map_storage_key(&name_index_prefix, detail.name.clone());
-        storage::set(&name_key, &detail.id.encode());
-        writes += 1;
+        pallet_rate_limiting::Groups::<T, RateLimitingInstance>::insert(group_id, stored);
+        pallet_rate_limiting::GroupNameIndex::<T, RateLimitingInstance>::insert(name, group_id);
+        writes += 2;
     }
 
     for (group, members) in &grouping.members {
-        let members_key = map_storage_key(&members_prefix, *group);
-        storage::set(&members_key, &members.encode());
+        let group_id = (*group).saturated_into::<GroupIdOf<T>>();
+        let Ok(bounded) = GroupMembersOf::<T>::try_from(members.clone()) else {
+            warn!(
+                "rate-limiting migration: group {} has too many members, skipping assignment",
+                group
+            );
+            continue;
+        };
+        pallet_rate_limiting::GroupMembers::<T, RateLimitingInstance>::insert(group_id, bounded);
         writes += 1;
     }
 
     for (identifier, info) in &grouping.assignments {
-        let call_key = map_storage_key(&call_groups_prefix, *identifier);
-        storage::set(&call_key, &info.id.encode());
+        let group_id = info.id.saturated_into::<GroupIdOf<T>>();
+        pallet_rate_limiting::CallGroups::<T, RateLimitingInstance>::insert(*identifier, group_id);
         writes += 1;
     }
 
-    storage::set(&next_group_id_prefix, &grouping.next_group_id.encode());
+    let next_group_id = grouping.next_group_id.saturated_into::<GroupIdOf<T>>();
+    pallet_rate_limiting::NextGroupId::<T, RateLimitingInstance>::put(next_group_id);
     writes += 1;
 
     writes
@@ -806,7 +877,7 @@ fn block_number<T: SubtensorConfig>(value: u64) -> Option<BlockNumberFor<T>> {
 
 fn set_global_limit<T: SubtensorConfig>(
     limits: &mut LimitEntries<T>,
-    target: RateLimitTargetOf,
+    target: RateLimitTarget<GroupId>,
     span: BlockNumberFor<T>,
 ) {
     if let Some((_, config)) = limits.iter_mut().find(|(id, _)| *id == target) {
@@ -818,7 +889,7 @@ fn set_global_limit<T: SubtensorConfig>(
 
 fn set_scoped_limit<T: SubtensorConfig>(
     limits: &mut LimitEntries<T>,
-    target: RateLimitTargetOf,
+    target: RateLimitTarget<GroupId>,
     scope: RateLimitScope,
     span: BlockNumberFor<T>,
 ) {
@@ -841,7 +912,7 @@ fn set_scoped_limit<T: SubtensorConfig>(
 
 fn record_last_seen_entry<T: SubtensorConfig>(
     entries: &mut LastSeenEntries<T>,
-    target: RateLimitTargetOf,
+    target: RateLimitTarget<GroupId>,
     usage: Option<RateLimitUsageKey<T::AccountId>>,
     block: u64,
 ) {
@@ -859,31 +930,23 @@ fn record_last_seen_entry<T: SubtensorConfig>(
     }
 }
 
-fn storage_prefix(pallet: &str, storage: &str) -> Vec<u8> {
-    let mut out = Vec::with_capacity(32);
-    out.extend_from_slice(&twox_128(pallet.as_bytes()));
-    out.extend_from_slice(&twox_128(storage.as_bytes()));
-    out
-}
+/// Runtime hook that executes the rate-limiting migration.
+pub struct Migration<T: SubtensorConfig>(PhantomData<T>);
 
-fn map_storage_key(prefix: &[u8], key: impl Encode) -> Vec<u8> {
-    let mut final_key = Vec::with_capacity(prefix.len() + 32);
-    final_key.extend_from_slice(prefix);
-    let encoded = key.encode();
-    let hash = blake2_128(&encoded);
-    final_key.extend_from_slice(&hash);
-    final_key.extend_from_slice(&encoded);
-    final_key
-}
-
-fn double_map_storage_key(prefix: &[u8], key1: impl Encode, key2: impl Encode) -> Vec<u8> {
-    let mut final_key = Vec::with_capacity(prefix.len() + 64);
-    final_key.extend_from_slice(prefix);
-    let first = map_storage_key(&[], key1);
-    final_key.extend_from_slice(&first);
-    let second = map_storage_key(&[], key2);
-    final_key.extend_from_slice(&second);
-    final_key
+impl<T> frame_support::traits::OnRuntimeUpgrade for Migration<T>
+where
+    T: SubtensorConfig
+        + pallet_rate_limiting::Config<
+            RateLimitingInstance,
+            LimitScope = RateLimitScope,
+            GroupId = GroupId,
+        >,
+    RateLimitUsageKey<T::AccountId>:
+        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+{
+    fn on_runtime_upgrade() -> Weight {
+        migrate_rate_limiting::<T>()
+    }
 }
 
 const fn admin_utils_identifier(call_index: u8) -> TransactionIdentifier {
@@ -955,25 +1018,6 @@ pub fn identifier_for_transaction_type(tx: TransactionType) -> Option<Transactio
     Some(identifier)
 }
 
-/// Maps legacy `RateLimitKey` entries to the new usage-key representation.
-pub fn usage_key_from_legacy_key<AccountId>(
-    key: &RateLimitKey<AccountId>,
-) -> Option<RateLimitUsageKey<AccountId>>
-where
-    AccountId: Parameter + Clone,
-{
-    match key {
-        RateLimitKey::SetSNOwnerHotkey(netuid) => Some(RateLimitUsageKey::Subnet(*netuid)),
-        RateLimitKey::OwnerHyperparamUpdate(netuid, _) => Some(RateLimitUsageKey::Subnet(*netuid)),
-        RateLimitKey::NetworkLastRegistered => None,
-        RateLimitKey::LastTxBlock(account)
-        | RateLimitKey::LastTxBlockChildKeyTake(account)
-        | RateLimitKey::LastTxBlockDelegateTake(account) => {
-            Some(RateLimitUsageKey::Account(account.clone()))
-        }
-    }
-}
-
 /// Produces the usage key for a `TransactionType` that was stored in `TransactionKeyLastBlock`.
 pub fn usage_key_from_transaction_type<AccountId>(
     tx: TransactionType,
@@ -1008,6 +1052,23 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{AccountId, BuildStorage, RateLimitingInstance, Runtime};
+    use sp_io::TestExternalities;
+    use sp_runtime::traits::{SaturatedConversion, Zero};
+    use subtensor_runtime_common::RateLimitUsageKey;
+
+    const ACCOUNT: [u8; 32] = [7u8; 32];
+    const DELEGATE_TAKE_GROUP_ID: GroupId = GROUP_DELEGATE_TAKE;
+
+    fn new_test_ext() -> TestExternalities {
+        sp_tracing::try_init_simple();
+        let mut ext: TestExternalities = crate::RuntimeGenesisConfig::default()
+            .build_storage()
+            .expect("runtime storage")
+            .into();
+        ext.execute_with(|| crate::System::set_block_number(1));
+        ext
+    }
 
     #[test]
     fn maps_hyperparameters() {
@@ -1028,11 +1089,88 @@ mod tests {
     }
 
     #[test]
-    fn maps_usage_keys() {
-        let acct = 42u64;
-        assert!(matches!(
-            usage_key_from_legacy_key(&RateLimitKey::LastTxBlock(acct)),
-            Some(RateLimitUsageKey::Account(42))
-        ));
+    fn migration_populates_limits_last_seen_and_groups() {
+        new_test_ext().execute_with(|| {
+            let account: AccountId = ACCOUNT.into();
+            pallet_subtensor::HasMigrationRun::<Runtime>::remove(MIGRATION_NAME);
+
+            pallet_subtensor::TxRateLimit::<Runtime>::put(10);
+            pallet_subtensor::TxDelegateTakeRateLimit::<Runtime>::put(3);
+            pallet_subtensor::LastRateLimitedBlock::<Runtime>::insert(
+                RateLimitKey::LastTxBlock(account.clone()),
+                5,
+            );
+
+            let weight = migrate_rate_limiting::<Runtime>();
+            assert!(!weight.is_zero());
+            assert!(pallet_subtensor::HasMigrationRun::<Runtime>::get(
+                MIGRATION_NAME
+            ));
+
+            let tx_target = RateLimitTarget::Transaction(subtensor_identifier(70));
+            let delegate_group = RateLimitTarget::Group(DELEGATE_TAKE_GROUP_ID);
+
+            assert_eq!(
+                pallet_rate_limiting::Limits::<Runtime, RateLimitingInstance>::get(tx_target),
+                Some(RateLimit::Global(RateLimitKind::Exact(
+                    10u64.saturated_into()
+                )))
+            );
+            assert_eq!(
+                pallet_rate_limiting::Limits::<Runtime, RateLimitingInstance>::get(delegate_group),
+                Some(RateLimit::Global(RateLimitKind::Exact(
+                    3u64.saturated_into()
+                )))
+            );
+
+            let usage_key = RateLimitUsageKey::Account(account.clone());
+            assert_eq!(
+                pallet_rate_limiting::LastSeen::<Runtime, RateLimitingInstance>::get(
+                    tx_target,
+                    Some(usage_key.clone())
+                ),
+                Some(5u64.saturated_into())
+            );
+
+            let group = pallet_rate_limiting::Groups::<Runtime, RateLimitingInstance>::get(
+                DELEGATE_TAKE_GROUP_ID,
+            )
+            .expect("group stored");
+            assert_eq!(group.id, DELEGATE_TAKE_GROUP_ID);
+            assert_eq!(group.name.as_slice(), b"delegate-take");
+            assert_eq!(
+                pallet_rate_limiting::CallGroups::<Runtime, RateLimitingInstance>::get(
+                    subtensor_identifier(66)
+                ),
+                Some(DELEGATE_TAKE_GROUP_ID)
+            );
+            assert_eq!(
+                pallet_rate_limiting::NextGroupId::<Runtime, RateLimitingInstance>::get(),
+                6
+            );
+        });
+    }
+
+    #[test]
+    fn migration_skips_when_already_run() {
+        new_test_ext().execute_with(|| {
+            pallet_subtensor::HasMigrationRun::<Runtime>::insert(MIGRATION_NAME, true);
+            pallet_subtensor::TxRateLimit::<Runtime>::put(99);
+
+            let base_weight = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
+            let weight = migrate_rate_limiting::<Runtime>();
+
+            assert_eq!(weight, base_weight);
+            assert!(
+                pallet_rate_limiting::Limits::<Runtime, RateLimitingInstance>::iter()
+                    .next()
+                    .is_none()
+            );
+            assert!(
+                pallet_rate_limiting::LastSeen::<Runtime, RateLimitingInstance>::iter()
+                    .next()
+                    .is_none()
+            );
+        });
     }
 }

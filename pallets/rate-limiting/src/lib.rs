@@ -440,7 +440,6 @@ pub mod pallet {
         pub groups: Vec<(<T as Config<I>>::GroupId, Vec<u8>, GroupSharing)>,
     }
 
-    #[cfg(feature = "std")]
     impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
         fn default() -> Self {
             Self {
@@ -541,7 +540,9 @@ pub mod pallet {
             Ok(Self::within_span(&usage_target, usage_key, block_span))
         }
 
-        pub(crate) fn resolved_limit(
+        /// Resolves the configured span for the provided target/scope, applying the pallet default
+        /// when the stored value uses [`RateLimitKind::Default`].
+        pub fn resolved_limit(
             target: &RateLimitTarget<<T as Config<I>>::GroupId>,
             scope: &Option<<T as Config<I>>::LimitScope>,
         ) -> Option<BlockNumberFor<T>> {
@@ -689,7 +690,8 @@ pub mod pallet {
             Self::resolved_limit(&target, &scope)
         }
 
-        fn identifier_for_call_names(
+        /// Looks up the transaction identifier for a pallet/extrinsic name pair.
+        pub fn identifier_for_call_names(
             pallet_name: &str,
             extrinsic_name: &str,
         ) -> Option<TransactionIdentifier> {
@@ -730,7 +732,9 @@ pub mod pallet {
             ))
         }
 
-        pub(crate) fn config_target(
+        /// Returns the storage target used to store configuration for the provided identifier,
+        /// respecting any configured group assignment.
+        pub fn config_target(
             identifier: &TransactionIdentifier,
         ) -> Result<RateLimitTarget<<T as Config<I>>::GroupId>, DispatchError> {
             Self::target_for(identifier, GroupSharing::config_uses_group)

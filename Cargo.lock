@@ -8298,6 +8298,7 @@ dependencies = [
  "pallet-offences",
  "pallet-preimage",
  "pallet-rate-limiting",
+ "pallet-rate-limiting-runtime-api",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",

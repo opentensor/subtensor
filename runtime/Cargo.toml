@@ -39,6 +39,7 @@ frame-try-runtime = { workspace = true, optional = true }
 pallet-timestamp.workspace = true
 pallet-transaction-payment.workspace = true
 pallet-rate-limiting.workspace = true
+pallet-rate-limiting-runtime-api.workspace = true
 pallet-subtensor-utility.workspace = true
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
@@ -189,6 +190,7 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-rate-limiting/std",
+	"pallet-rate-limiting-runtime-api/std",
 	"pallet-subtensor-utility/std",
 	"pallet-sudo/std",
 	"pallet-multisig/std",
