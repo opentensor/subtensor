@@ -26,7 +26,7 @@ if ! nc -z localhost 9944; then
     exit 1
 fi
 
-cd evm-tests
+cd contract-tests
 
 cd bittensor
 
