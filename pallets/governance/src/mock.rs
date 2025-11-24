@@ -131,6 +131,7 @@ parameter_types! {
     pub const FastTrackThreshold: Percent = Percent::from_percent(67); // ~2/3
     pub const CancellationThreshold: Percent = Percent::from_percent(51);
     pub const EligibilityLockCost: BalanceOf<Test> = 1_000_000_000;
+    pub const NominationThreshold: Percent = Percent::from_percent(51);
 }
 
 impl pallet_governance::Config for Test {
@@ -153,6 +154,7 @@ impl pallet_governance::Config for Test {
     type CancellationThreshold = CancellationThreshold;
     type FastTrackThreshold = FastTrackThreshold;
     type EligibilityLockCost = EligibilityLockCost;
+    type NominationThreshold = NominationThreshold;
 }
 
 #[frame_support::pallet]

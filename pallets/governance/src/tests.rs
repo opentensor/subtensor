@@ -680,7 +680,7 @@ fn triumirate_vote_aye_as_first_voter_works() {
         assert!(votes.nays.to_vec().is_empty());
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnProposal {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: true,
@@ -709,7 +709,7 @@ fn triumvirate_vote_nay_as_first_voter_works() {
         assert!(votes.ayes.to_vec().is_empty());
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnProposal {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: false,
@@ -732,7 +732,7 @@ fn triumvirate_vote_can_be_updated() {
         assert!(votes.nays.to_vec().is_empty());
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnProposal {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: true,
@@ -748,7 +748,7 @@ fn triumvirate_vote_can_be_updated() {
         assert!(votes.ayes.to_vec().is_empty());
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnProposal {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: false,
@@ -764,7 +764,7 @@ fn triumvirate_vote_can_be_updated() {
         assert!(votes.nays.to_vec().is_empty());
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnProposal {
                 account: U256::from(1001),
                 proposal_hash,
                 voted: true,
@@ -805,7 +805,7 @@ fn two_triumvirate_aye_votes_schedule_proposal() {
         );
         assert_eq!(
             nth_last_event(2),
-            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnProposal {
                 account: U256::from(1003),
                 proposal_hash,
                 voted: true,
@@ -835,7 +835,7 @@ fn two_triumvirate_nay_votes_cancel_proposal() {
         assert!(ProposalOf::<Test>::get(proposal_hash).is_none());
         assert_eq!(
             nth_last_event(1),
-            RuntimeEvent::Governance(Event::<Test>::TriumvirateMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnProposal {
                 account: U256::from(1003),
                 proposal_hash,
                 voted: false,
@@ -1059,7 +1059,7 @@ fn collective_aye_vote_on_scheduled_proposal_works() {
         );
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: economic_member,
                 proposal_hash,
                 voted: true,
@@ -1089,7 +1089,7 @@ fn collective_aye_vote_on_scheduled_proposal_works() {
         );
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: building_member,
                 proposal_hash,
                 voted: true,
@@ -1129,7 +1129,7 @@ fn collective_votes_succession_adjust_delay_and_can_fast_track() {
         );
         assert_eq!(
             nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: U256::from(2001),
                 proposal_hash,
                 voted: false,
@@ -1164,7 +1164,7 @@ fn collective_votes_succession_adjust_delay_and_can_fast_track() {
         );
         assert_eq!(
             nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: U256::from(2002),
                 proposal_hash,
                 voted: false,
@@ -1203,7 +1203,7 @@ fn collective_votes_succession_adjust_delay_and_can_fast_track() {
         );
         assert_eq!(
             nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: U256::from(2003),
                 proposal_hash,
                 voted: false,
@@ -1242,7 +1242,7 @@ fn collective_votes_succession_adjust_delay_and_can_fast_track() {
         );
         assert_eq!(
             nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: U256::from(2004),
                 proposal_hash,
                 voted: true,
@@ -1277,7 +1277,7 @@ fn collective_votes_succession_adjust_delay_and_can_fast_track() {
         assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
         assert_eq!(
             nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: U256::from(2005),
                 proposal_hash,
                 voted: true,
@@ -1312,7 +1312,7 @@ fn collective_vote_can_be_updated() {
         assert!(votes.nays.to_vec().is_empty());
         assert_eq!(
             last_event(),
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: economic_member,
                 proposal_hash,
                 voted: true,
@@ -1328,7 +1328,7 @@ fn collective_vote_can_be_updated() {
         assert_eq!(votes.nays.to_vec(), vec![economic_member]);
         assert_eq!(
             System::events().into_iter().rev().nth(3).unwrap().event,
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: economic_member,
                 proposal_hash,
                 voted: false,
@@ -1344,7 +1344,7 @@ fn collective_vote_can_be_updated() {
         assert!(votes.nays.to_vec().is_empty());
         assert_eq!(
             System::events().into_iter().rev().nth(3).unwrap().event,
-            RuntimeEvent::Governance(Event::<Test>::CollectiveMemberVoted {
+            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
                 account: economic_member,
                 proposal_hash,
                 voted: true,
@@ -1600,6 +1600,283 @@ fn collective_member_cant_mark_himself_as_eligible_if_cant_afford_the_eligibilit
         assert_noop!(
             Pallet::<Test>::mark_as_eligible(RuntimeOrigin::signed(member)),
             Error::<Test>::InsufficientFundsForEligibilityLock
+        );
+    });
+}
+
+#[test]
+fn collective_member_vote_on_seat_replacement_works() {
+    TestState::default().build_and_execute(|| {
+        let member1 = EconomicCollective::<Test>::get()[0];
+        let candidate1 = EconomicCollective::<Test>::get()[1];
+        let member2 = BuildingCollective::<Test>::get()[0];
+        let candidate2 = BuildingCollective::<Test>::get()[1];
+        EligibleCandidates::<Test>::try_append(&candidate1).unwrap();
+        EligibleCandidates::<Test>::try_append(&candidate2).unwrap();
+        assert_eq!(CandidateVotes::<Test>::iter().collect::<Vec<_>>(), vec![]);
+        assert_eq!(MemberVote::<Test>::iter().collect::<Vec<_>>(), vec![]);
+        assert_eq!(
+            NominatedCandidate::<Test>::iter().collect::<Vec<_>>(),
+            vec![]
+        );
+
+        // First vote
+        assert_ok!(Pallet::<Test>::vote_on_seat_replacement(
+            RuntimeOrigin::signed(member1),
+            candidate1
+        ));
+        assert_eq!(
+            CandidateVotes::<Test>::iter().collect::<Vec<_>>(),
+            vec![(candidate1, BoundedVec::truncate_from(vec![member1]))]
+        );
+        assert_eq!(
+            MemberVote::<Test>::iter().collect::<Vec<_>>(),
+            vec![(member1, candidate1)]
+        );
+        assert_eq!(
+            NominatedCandidate::<Test>::iter().collect::<Vec<_>>(),
+            vec![],
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::VotedOnSeatReplacement {
+                account: member1,
+                candidate: candidate1,
+            })
+        );
+
+        // Second vote
+        assert_ok!(Pallet::<Test>::vote_on_seat_replacement(
+            RuntimeOrigin::signed(member2),
+            candidate2
+        ));
+        let mut candidate_votes = CandidateVotes::<Test>::iter().collect::<Vec<_>>();
+        candidate_votes.sort_by_key(|c| c.0);
+        assert_eq!(
+            candidate_votes,
+            vec![
+                (candidate1, BoundedVec::truncate_from(vec![member1])),
+                (candidate2, BoundedVec::truncate_from(vec![member2]))
+            ]
+        );
+        let mut member_vote = MemberVote::<Test>::iter().collect::<Vec<_>>();
+        member_vote.sort_by_key(|c| c.0);
+        assert_eq!(
+            member_vote,
+            vec![(member1, candidate1), (member2, candidate2)]
+        );
+        assert_eq!(
+            NominatedCandidate::<Test>::iter().collect::<Vec<_>>(),
+            vec![],
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::VotedOnSeatReplacement {
+                account: member2,
+                candidate: candidate2,
+            })
+        );
+    });
+}
+
+#[test]
+fn collective_member_votes_on_seat_replacement_above_nomination_threshold_works() {
+    TestState::default().build_and_execute(|| {
+        let threshold = NominationThreshold::get().mul_ceil(ECONOMIC_COLLECTIVE_SIZE);
+        let candidate = EconomicCollective::<Test>::get()[0];
+        EligibleCandidates::<Test>::try_append(&candidate).unwrap();
+        assert_eq!(
+            NominatedCandidate::<Test>::iter().collect::<Vec<_>>(),
+            vec![]
+        );
+
+        for member in EconomicCollective::<Test>::get()
+            .into_iter()
+            .skip(1)
+            .take(threshold as usize)
+        {
+            assert_ok!(Pallet::<Test>::vote_on_seat_replacement(
+                RuntimeOrigin::signed(member),
+                candidate
+            ));
+        }
+
+        let now = frame_system::Pallet::<Test>::block_number();
+        assert_eq!(
+            NominatedCandidate::<Test>::iter().collect::<Vec<_>>(),
+            vec![(CollectiveType::Economic, (candidate, now))],
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::CandidateNominated {
+                collective: CollectiveType::Economic,
+                candidate,
+                votes: threshold
+            })
+        );
+    });
+}
+
+#[test]
+fn collective_member_vote_on_seat_replacement_can_be_updated() {
+    TestState::default().build_and_execute(|| {
+        let member1 = EconomicCollective::<Test>::get()[0];
+        let candidate1 = EconomicCollective::<Test>::get()[1];
+        let candidate2 = EconomicCollective::<Test>::get()[2];
+        let candidate3 = EconomicCollective::<Test>::get()[3];
+        EligibleCandidates::<Test>::try_append(&candidate1).unwrap();
+        EligibleCandidates::<Test>::try_append(&candidate2).unwrap();
+        EligibleCandidates::<Test>::try_append(&candidate3).unwrap();
+        assert_eq!(CandidateVotes::<Test>::iter().collect::<Vec<_>>(), vec![]);
+        assert_eq!(MemberVote::<Test>::iter().collect::<Vec<_>>(), vec![]);
+
+        // First vote
+        assert_ok!(Pallet::<Test>::vote_on_seat_replacement(
+            RuntimeOrigin::signed(member1),
+            candidate1
+        ));
+        assert_eq!(
+            CandidateVotes::<Test>::iter().collect::<Vec<_>>(),
+            vec![(candidate1, BoundedVec::truncate_from(vec![member1]))]
+        );
+        assert_eq!(
+            MemberVote::<Test>::iter().collect::<Vec<_>>(),
+            vec![(member1, candidate1)]
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::VotedOnSeatReplacement {
+                account: member1,
+                candidate: candidate1,
+            })
+        );
+
+        // Second vote
+        assert_ok!(Pallet::<Test>::vote_on_seat_replacement(
+            RuntimeOrigin::signed(member1),
+            candidate2
+        ));
+        assert_eq!(
+            CandidateVotes::<Test>::iter().collect::<Vec<_>>(),
+            vec![(candidate2, BoundedVec::truncate_from(vec![member1])),]
+        );
+        assert_eq!(
+            MemberVote::<Test>::iter().collect::<Vec<_>>(),
+            vec![(member1, candidate2)]
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::VotedOnSeatReplacement {
+                account: member1,
+                candidate: candidate2,
+            })
+        );
+
+        // Third vote
+        assert_ok!(Pallet::<Test>::vote_on_seat_replacement(
+            RuntimeOrigin::signed(member1),
+            candidate3
+        ));
+        assert_eq!(
+            CandidateVotes::<Test>::iter().collect::<Vec<_>>(),
+            vec![(candidate3, BoundedVec::truncate_from(vec![member1]))]
+        );
+        assert_eq!(
+            MemberVote::<Test>::iter().collect::<Vec<_>>(),
+            vec![(member1, candidate3)]
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::Governance(Event::<Test>::VotedOnSeatReplacement {
+                account: member1,
+                candidate: candidate3,
+            })
+        );
+    });
+}
+
+#[test]
+fn collective_member_vote_on_seat_replacement_on_himself_fails() {
+    TestState::default().build_and_execute(|| {
+        let member = EconomicCollective::<Test>::get()[0];
+
+        assert_noop!(
+            Pallet::<Test>::vote_on_seat_replacement(RuntimeOrigin::signed(member), member),
+            Error::<Test>::SelfVoteNotAllowed
+        );
+    });
+}
+
+#[test]
+fn collective_member_vote_on_seat_replacement_if_not_collective_member_fails() {
+    TestState::default().build_and_execute(|| {
+        let member = U256::from(4242);
+
+        assert_noop!(
+            Pallet::<Test>::vote_on_seat_replacement(RuntimeOrigin::signed(member), member),
+            Error::<Test>::NotCollectiveMember
+        );
+    });
+}
+
+#[test]
+fn collective_member_vote_on_seat_replacement_if_candidate_not_eligible_fails() {
+    TestState::default().build_and_execute(|| {
+        let member = EconomicCollective::<Test>::get()[0];
+        let candidate = U256::from(4242);
+
+        assert_noop!(
+            Pallet::<Test>::vote_on_seat_replacement(RuntimeOrigin::signed(member), candidate),
+            Error::<Test>::CandidateNotEligible
+        );
+    });
+}
+
+#[test]
+fn collective_member_vote_on_seat_replacement_if_candidate_and_caller_not_same_collective_fails() {
+    TestState::default().build_and_execute(|| {
+        let member = EconomicCollective::<Test>::get()[0];
+        let candidate = BuildingCollective::<Test>::get()[0];
+        EligibleCandidates::<Test>::try_append(&candidate).unwrap();
+
+        assert_noop!(
+            Pallet::<Test>::vote_on_seat_replacement(RuntimeOrigin::signed(member), candidate),
+            Error::<Test>::CandidateNotSameCollective
+        );
+    });
+}
+
+#[test]
+fn collective_member_vote_on_seat_replacement_if_already_nominee_selected_fails() {
+    TestState::default().build_and_execute(|| {
+        let now = frame_system::Pallet::<Test>::block_number();
+        let member = EconomicCollective::<Test>::get()[0];
+        let nominated = EconomicCollective::<Test>::get()[1];
+        let candidate = EconomicCollective::<Test>::get()[2];
+        NominatedCandidate::<Test>::set(CollectiveType::Economic, Some((nominated, now)));
+        EligibleCandidates::<Test>::try_append(&candidate).unwrap();
+
+        assert_noop!(
+            Pallet::<Test>::vote_on_seat_replacement(RuntimeOrigin::signed(member), candidate),
+            Error::<Test>::NomineeAlreadySelected
+        );
+    });
+}
+
+#[test]
+fn collective_member_vote_on_seat_replacement_with_duplicate_vote_fails() {
+    TestState::default().build_and_execute(|| {
+        let member = EconomicCollective::<Test>::get()[0];
+        let candidate = EconomicCollective::<Test>::get()[1];
+        EligibleCandidates::<Test>::try_append(&candidate).unwrap();
+
+        assert_ok!(Pallet::<Test>::vote_on_seat_replacement(
+            RuntimeOrigin::signed(member),
+            candidate
+        ));
+        assert_noop!(
+            Pallet::<Test>::vote_on_seat_replacement(RuntimeOrigin::signed(member), candidate),
+            Error::<Test>::DuplicateVote
         );
     });
 }

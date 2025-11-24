@@ -78,6 +78,7 @@ pub struct CollectiveVotes<AccountId, BlockNumber> {
     delay: BlockNumber,
 }
 
+/// The type of collective.
 #[derive(
     PartialEq,
     Eq,
@@ -87,11 +88,12 @@ pub struct CollectiveVotes<AccountId, BlockNumber> {
     RuntimeDebug,
     TypeInfo,
     MaxEncodedLen,
+    Copy,
     DecodeWithMemTracking,
 )]
-pub enum CollectiveMember<AccountId> {
-    Economic(AccountId),
-    Building(AccountId),
+pub enum CollectiveType {
+    Economic,
+    Building,
 }
 
 pub trait CollectiveMembersProvider<T: Config> {
@@ -188,6 +190,10 @@ pub mod pallet {
         /// Lock cost for a candidate to be eligible.
         #[pallet::constant]
         type EligibilityLockCost: Get<BalanceOf<Self>>;
+
+        /// Percent threshold for a candidate to be nominated.
+        #[pallet::constant]
+        type NominationThreshold: Get<Percent>;
     }
 
     /// Accounts allowed to submit proposals.
@@ -253,6 +259,30 @@ pub mod pallet {
     pub type EligibleCandidates<T: Config> =
         StorageValue<_, BoundedVec<T::AccountId, ConstU32<TOTAL_COLLECTIVES_SIZE>>, ValueQuery>;
 
+    /// The current rotation index for the triumvirate seats.
+    #[pallet::storage]
+    pub type RotationIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// Votes for a candidate in the current seat replacement period.
+    #[pallet::storage]
+    pub type CandidateVotes<T: Config> = StorageMap<
+        _,
+        Identity,
+        T::AccountId,
+        BoundedVec<T::AccountId, ConstU32<TOTAL_COLLECTIVES_SIZE>>,
+        ValueQuery,
+    >;
+
+    /// The candidate that a member has voted for in the current seat replacement period.
+    #[pallet::storage]
+    pub type MemberVote<T: Config> =
+        StorageMap<_, Identity, T::AccountId, T::AccountId, OptionQuery>;
+
+    /// The nominated candidate for a collective in the current seat replacement period.
+    #[pallet::storage]
+    pub type NominatedCandidate<T: Config> =
+        StorageMap<_, Identity, CollectiveType, (T::AccountId, BlockNumberFor<T>), OptionQuery>;
+
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
@@ -309,15 +339,15 @@ pub mod pallet {
             voting_end: BlockNumberFor<T>,
         },
         /// A triumvirate member has voted on a proposal.
-        TriumvirateMemberVoted {
+        VotedOnProposal {
             account: T::AccountId,
             proposal_hash: T::Hash,
             voted: bool,
             yes: u32,
             no: u32,
         },
-        /// A collective member has voted on a proposal.
-        CollectiveMemberVoted {
+        /// A collective member has voted on a scheduled proposal.
+        VotedOnScheduled {
             account: T::AccountId,
             proposal_hash: T::Hash,
             voted: bool,
@@ -337,8 +367,22 @@ pub mod pallet {
             proposal_hash: T::Hash,
             dispatch_time: DispatchTime<BlockNumberFor<T>>,
         },
-        /// A new eligible candidate has been added.
-        NewEligibleCandidate { account: T::AccountId },
+        /// A new eligible candidate has been added for a collective.
+        NewEligibleCandidate {
+            collective: CollectiveType,
+            account: T::AccountId,
+        },
+        /// A collective member has voted on a candidate to replace a triumvirate seat.
+        VotedOnSeatReplacement {
+            account: T::AccountId,
+            candidate: T::AccountId,
+        },
+        /// A candidate has been nominated by a collective.
+        CandidateNominated {
+            collective: CollectiveType,
+            candidate: T::AccountId,
+            votes: u32,
+        },
     }
 
     #[pallet::error]
@@ -389,6 +433,14 @@ pub mod pallet {
         AlreadyEligible,
         /// Insufficient funds for eligibility lock.
         InsufficientFundsForEligibilityLock,
+        /// Candidate is not eligible for nomination.
+        CandidateNotEligible,
+        /// A nominee has already been selected for this collective.
+        NomineeAlreadySelected,
+        /// Candidate must belong to the same collective as the voter.
+        CandidateNotSameCollective,
+        /// Self voting is not allowed.
+        SelfVoteNotAllowed,
     }
 
     /// A reason for the pallet governance placing a hold on funds.
@@ -604,7 +656,7 @@ pub mod pallet {
             let yes_votes = voting.ayes.len() as u32;
             let no_votes = voting.nays.len() as u32;
 
-            Self::deposit_event(Event::<T>::TriumvirateMemberVoted {
+            Self::deposit_event(Event::<T>::VotedOnProposal {
                 account: who,
                 proposal_hash,
                 voted: approve,
@@ -630,7 +682,7 @@ pub mod pallet {
             #[pallet::compact] proposal_index: ProposalIndex,
             approve: bool,
         ) -> DispatchResult {
-            let who = Self::ensure_collective_member(origin)?;
+            let (who, _) = Self::ensure_collective_member(origin)?;
 
             let scheduled = Scheduled::<T>::get();
             ensure!(
@@ -643,7 +695,7 @@ pub mod pallet {
             let yes_votes = voting.ayes.len() as u32;
             let no_votes = voting.nays.len() as u32;
 
-            Self::deposit_event(Event::<T>::CollectiveMemberVoted {
+            Self::deposit_event(Event::<T>::VotedOnScheduled {
                 account: who,
                 proposal_hash,
                 voted: approve,
@@ -667,11 +719,11 @@ pub mod pallet {
             Ok(())
         }
 
-/// Mark a collective member as eligible to replace a triumvirate seat.
+        /// Mark a collective member as eligible to replace a triumvirate seat.
         #[pallet::call_index(5)]
         #[pallet::weight(Weight::zero())]
         pub fn mark_as_eligible(origin: OriginFor<T>) -> DispatchResult {
-            let who = Self::ensure_collective_member(origin)?;
+            let (who, collective) = Self::ensure_collective_member(origin)?;
 
             let candidates = EligibleCandidates::<T>::get();
             ensure!(!candidates.contains(&who), Error::<T>::AlreadyEligible);
@@ -687,7 +739,94 @@ pub mod pallet {
                 // Unreachable because nobody can double mark themselves as eligible.
                 .map_err(|_| Error::<T>::Unreachable)?;
 
-            Self::deposit_event(Event::<T>::NewEligibleCandidate { account: who });
+            Self::deposit_event(Event::<T>::NewEligibleCandidate {
+                collective,
+                account: who,
+            });
+            Ok(())
+        }
+
+        /// Vote on a candidate to replace a triumvirate seat.
+        #[pallet::call_index(6)]
+        #[pallet::weight(Weight::zero())]
+        pub fn vote_on_seat_replacement(
+            origin: OriginFor<T>,
+            candidate: T::AccountId,
+        ) -> DispatchResult {
+            let (who, caller_collective) = Self::ensure_collective_member(origin)?;
+
+            ensure!(who != candidate, Error::<T>::SelfVoteNotAllowed);
+
+            let candidates = EligibleCandidates::<T>::get();
+            ensure!(
+                candidates.contains(&candidate),
+                Error::<T>::CandidateNotEligible
+            );
+
+            let candidate_collective = Self::get_member_collective(&candidate)
+                // Unreachable because candidates are guaranteed to be collective members.
+                .ok_or(Error::<T>::Unreachable)?;
+            ensure!(
+                caller_collective == candidate_collective,
+                Error::<T>::CandidateNotSameCollective
+            );
+
+            ensure!(
+                !NominatedCandidate::<T>::contains_key(caller_collective),
+                Error::<T>::NomineeAlreadySelected
+            );
+
+            if let Some(old_candidate) = MemberVote::<T>::get(&who) {
+                if old_candidate == candidate {
+                    return Err(Error::<T>::DuplicateVote.into());
+                }
+
+                // Remove old vote
+                let mut should_remove = false;
+                CandidateVotes::<T>::mutate(&old_candidate, |votes| {
+                    if let Some(pos) = votes.iter().position(|x| x == &who) {
+                        votes.swap_remove(pos);
+                    }
+                    should_remove = votes.is_empty();
+                });
+                if should_remove {
+                    CandidateVotes::<T>::remove(&old_candidate);
+                }
+            }
+
+            MemberVote::<T>::insert(&who, &candidate);
+            CandidateVotes::<T>::try_mutate(&candidate, |votes| {
+                votes
+                    .try_push(who.clone())
+                    // Unreachable because this is bounded by total collectives size
+                    // and we prevent double voting.
+                    .map_err(|_| Error::<T>::Unreachable)
+            })?;
+
+            Self::deposit_event(Event::<T>::VotedOnSeatReplacement {
+                account: who,
+                candidate: candidate.clone(),
+            });
+
+            let votes_count = CandidateVotes::<T>::get(&candidate).len() as u32;
+            let collective_size = match caller_collective {
+                CollectiveType::Economic => ECONOMIC_COLLECTIVE_SIZE,
+                CollectiveType::Building => BUILDING_COLLECTIVE_SIZE,
+            };
+            let threshold = T::NominationThreshold::get().mul_ceil(collective_size);
+
+            // Check for nomination
+            if votes_count >= threshold {
+                let now = frame_system::Pallet::<T>::block_number();
+                NominatedCandidate::<T>::insert(caller_collective, (candidate.clone(), now));
+
+                Self::deposit_event(Event::<T>::CandidateNominated {
+                    collective: caller_collective,
+                    candidate,
+                    votes: votes_count,
+                });
+            }
+
             Ok(())
         }
     }
@@ -979,16 +1118,22 @@ impl<T: Config> Pallet<T> {
         Ok(who)
     }
 
-    fn ensure_collective_member(origin: OriginFor<T>) -> Result<T::AccountId, DispatchError> {
+    fn ensure_collective_member(
+        origin: OriginFor<T>,
+    ) -> Result<(T::AccountId, CollectiveType), DispatchError> {
         let who = ensure_signed(origin)?;
-        let economic_collective = EconomicCollective::<T>::get();
-        let building_collective = BuildingCollective::<T>::get();
 
-        if economic_collective.contains(&who) || building_collective.contains(&who) {
-            Ok(who)
-        } else {
-            Err(Error::<T>::NotCollectiveMember.into())
+        let economic_collective = EconomicCollective::<T>::get();
+        if economic_collective.contains(&who) {
+            return Ok((who, CollectiveType::Economic));
         }
+
+        let building_collective = BuildingCollective::<T>::get();
+        if building_collective.contains(&who) {
+            return Ok((who, CollectiveType::Building));
+        }
+
+        Err(Error::<T>::NotCollectiveMember.into())
     }
 
     fn task_name_from_hash(proposal_hash: T::Hash) -> Result<TaskName, DispatchError> {
@@ -1006,5 +1151,19 @@ impl<T: Config> Pallet<T> {
         } else {
             Zero::zero()
         }
+    }
+
+    fn get_member_collective(who: &T::AccountId) -> Option<CollectiveType> {
+        let economic_collective = T::CollectiveMembersProvider::get_economic_collective();
+        if economic_collective.contains(who) {
+            return Some(CollectiveType::Economic);
+        }
+
+        let building_collective = T::CollectiveMembersProvider::get_building_collective();
+        if building_collective.contains(who) {
+            return Some(CollectiveType::Building);
+        }
+
+        None
     }
 }
