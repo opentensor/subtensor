@@ -207,7 +207,7 @@ pub mod pallet {
         ///       signer || nonce || SCALE(call) || sig_kind || signature
         #[pallet::call_index(1)]
         #[pallet::weight(({
-            let w = Weight::from_parts(13_980_000.len() as u64, 0)
+            let w = Weight::from_parts(13_980_000, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64));
             w
