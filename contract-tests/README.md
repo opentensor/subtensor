@@ -1,12 +1,16 @@
 # type-test
 
-The evm-tests folder includes all typescript code to test the basic EVM function
+The contract-tests folder includes all typescript code to test the basic EVM function
 like token transfer, and all precompile contracts in Subtensor. It is
 implemented in typescript, use both ethers and viem lib to interact with
 contracts. The polkadot API is used to call extrinsic, get storage in Subtensor
 . The developers can use it to verify the code change in precompile contracts.
 
-It is also included in the CI process, all test cases are executed for new
+The Ink contract tests also are included in the contract-tests folder.
+There is an Ink project in the bittensor folder, which include all functions defined
+in the runtime extension. The test file for it is wasm.contract.test.ts.
+
+The whole test process is also included in the CI, all test cases are executed for new
 commit. CI flow can get catch any failed test cases. The polkadot API get the
 latest metadata from the runtime, the case also can find out any incompatibility
 between runtime and precompile contracts.
