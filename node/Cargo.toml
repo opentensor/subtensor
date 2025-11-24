@@ -154,6 +154,7 @@ default = ["rocksdb", "sql", "txpool"]
 fast-runtime = [
 	"node-subtensor-runtime/fast-runtime",
 	"subtensor-runtime-common/fast-runtime",
+	"pallet-subtensor/fast-runtime",
 ]
 sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
@@ -170,7 +171,10 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
+	"pallet-subtensor/runtime-benchmarks",
+	"pallet-shield/runtime-benchmarks",
 ]
+
 pow-faucet = []
 
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
@@ -183,6 +187,8 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-drand/try-runtime",
 	"polkadot-sdk/try-runtime",
+	"pallet-shield/try-runtime",
+	"pallet-subtensor/try-runtime",
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]

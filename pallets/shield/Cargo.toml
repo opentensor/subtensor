@@ -43,18 +43,17 @@ default = []
 std = [
 	"codec/std",
 	"scale-info/std",
-
 	"frame-support/std",
 	"frame-system/std",
 	"frame-benchmarking?/std",
-
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-io/std",
 	"sp-std/std",
 	"sp-weights/std",
-
 	"pallet-timestamp/std",
+	"pallet-aura/std",
+	"sp-consensus-aura/std",
 ]
 
 runtime-benchmarks = [
@@ -62,10 +61,13 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 ]
 
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-timestamp/try-runtime",
 ]
