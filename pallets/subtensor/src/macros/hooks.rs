@@ -162,7 +162,9 @@ mod hooks {
                 // Migrate pending emissions
                 .saturating_add(migrations::migrate_pending_emissions::migrate_pending_emissions::<T>())
                 // Reset unactive subnets
-                .saturating_add(migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<T>());
+                .saturating_add(migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<T>())
+                // Fix staking hot keys
+                .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>());
             weight
         }
 

@@ -58,6 +58,7 @@ pub mod migrate_to_v1_separate_emission;
 pub mod migrate_to_v2_fixed_total_stake;
 pub mod migrate_transfer_ownership_to_foundation;
 pub mod migrate_upgrade_revealed_commitments;
+pub mod migrate_fix_staking_hot_keys;
 
 pub(crate) fn migrate_storage<T: Config>(
     migration_name: &'static str,
