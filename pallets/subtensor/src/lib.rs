@@ -2306,8 +2306,8 @@ pub mod pallet {
     pub type NetworkRegistrationStartBlock<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
 
-    #[pallet::storage]
     /// --- MAP ( netuid ) --> minimum required number of non-immortal & non-immune UIDs
+    #[pallet::storage]
     pub type MinNonImmuneUids<T: Config> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMinNonImmuneUids<T>>;
 
