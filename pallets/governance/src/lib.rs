@@ -410,12 +410,12 @@ pub mod pallet {
             let should_cleanup = now % T::CleanupPeriod::get() == Zero::zero();
 
             if is_first_run || should_rotate {
-                weight.saturating_accrue(Self::do_rotate_collectives());
+                weight.saturating_accrue(Self::rotate_collectives());
             }
 
             if should_cleanup {
-                weight.saturating_accrue(Self::do_cleanup_proposals(now));
-                weight.saturating_accrue(Self::do_cleanup_scheduled());
+                weight.saturating_accrue(Self::cleanup_proposals(now));
+                weight.saturating_accrue(Self::cleanup_scheduled());
             }
 
             weight
@@ -613,9 +613,9 @@ pub mod pallet {
             });
 
             if yes_votes >= 2 {
-                Self::do_schedule(proposal_hash, proposal_index)?;
+                Self::schedule(proposal_hash, proposal_index)?;
             } else if no_votes >= 2 {
-                Self::do_cancel(proposal_hash)?;
+                Self::cancel(proposal_hash)?;
             }
 
             Ok(())
@@ -657,16 +657,17 @@ pub mod pallet {
                 no_votes >= T::CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE) as u32;
 
             if should_fast_track {
-                Self::do_fast_track(proposal_hash)?;
+                Self::fast_track(proposal_hash)?;
             } else if should_cancel {
-                Self::do_cancel_scheduled(proposal_hash)?;
+                Self::cancel_scheduled(proposal_hash)?;
             } else {
-                Self::do_adjust_delay(proposal_hash, voting)?;
+                Self::adjust_delay(proposal_hash, voting)?;
             }
 
             Ok(())
         }
 
+/// Mark a collective member as eligible to replace a triumvirate seat.
         #[pallet::call_index(5)]
         #[pallet::weight(Weight::zero())]
         pub fn mark_as_eligible(origin: OriginFor<T>) -> DispatchResult {
@@ -735,7 +736,7 @@ impl<T: Config> Pallet<T> {
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
             let now = frame_system::Pallet::<T>::block_number();
             ensure!(voting.end > now, Error::<T>::VotingPeriodEnded);
-            Self::do_vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
+            Self::vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
             Ok(voting.clone())
         })
     }
@@ -751,12 +752,12 @@ impl<T: Config> Pallet<T> {
             // has been fast-tracked.
             let voting = voting.as_mut().ok_or(Error::<T>::VotingPeriodEnded)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
-            Self::do_vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
+            Self::vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
             Ok(voting.clone())
         })
     }
 
-    fn do_vote_inner<N: Get<u32>>(
+    fn vote_inner<N: Get<u32>>(
         who: &T::AccountId,
         approve: bool,
         ayes: &mut BoundedVec<T::AccountId, N>,
@@ -792,7 +793,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_schedule(proposal_hash: T::Hash, proposal_index: ProposalIndex) -> DispatchResult {
+    fn schedule(proposal_hash: T::Hash, proposal_index: ProposalIndex) -> DispatchResult {
         Scheduled::<T>::try_append(proposal_hash).map_err(|_| Error::<T>::TooManyScheduled)?;
 
         let bounded = ProposalOf::<T>::get(proposal_hash).ok_or(Error::<T>::ProposalMissing)?;
@@ -826,13 +827,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_cancel(proposal_hash: T::Hash) -> DispatchResult {
+    fn cancel(proposal_hash: T::Hash) -> DispatchResult {
         Self::clear_proposal(proposal_hash);
         Self::deposit_event(Event::<T>::ProposalCancelled { proposal_hash });
         Ok(())
     }
 
-    fn do_fast_track(proposal_hash: T::Hash) -> DispatchResult {
+    fn fast_track(proposal_hash: T::Hash) -> DispatchResult {
         let name = Self::task_name_from_hash(proposal_hash)?;
         T::Scheduler::reschedule_named(
             name,
@@ -844,7 +845,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_cancel_scheduled(proposal_hash: T::Hash) -> DispatchResult {
+    fn cancel_scheduled(proposal_hash: T::Hash) -> DispatchResult {
         let name = Self::task_name_from_hash(proposal_hash)?;
         T::Scheduler::cancel_named(name)?;
         Scheduled::<T>::mutate(|scheduled| scheduled.retain(|h| h != &proposal_hash));
@@ -853,7 +854,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_adjust_delay(
+    fn adjust_delay(
         proposal_hash: T::Hash,
         mut voting: CollectiveVotes<T::AccountId, BlockNumberFor<T>>,
     ) -> DispatchResult {
@@ -870,7 +871,7 @@ impl<T: Config> Pallet<T> {
 
         // We are past new delay, fast track
         if elapsed_time > additional_delay {
-            return Self::do_fast_track(proposal_hash);
+            return Self::fast_track(proposal_hash);
         }
 
         let name = Self::task_name_from_hash(proposal_hash)?;
@@ -895,7 +896,7 @@ impl<T: Config> Pallet<T> {
         TriumvirateVoting::<T>::remove(&proposal_hash);
     }
 
-    fn do_rotate_collectives() -> Weight {
+    fn rotate_collectives() -> Weight {
         let mut weight = Weight::zero();
 
         let economic_collective_members = T::CollectiveMembersProvider::get_economic_collective();
@@ -909,7 +910,7 @@ impl<T: Config> Pallet<T> {
         weight
     }
 
-    fn do_cleanup_proposals(now: BlockNumberFor<T>) -> Weight {
+    fn cleanup_proposals(now: BlockNumberFor<T>) -> Weight {
         let mut weight = Weight::zero();
 
         let mut proposals = Proposals::<T>::get();
@@ -936,7 +937,7 @@ impl<T: Config> Pallet<T> {
         weight
     }
 
-    fn do_cleanup_scheduled() -> Weight {
+    fn cleanup_scheduled() -> Weight {
         let mut weight = Weight::zero();
 
         let mut scheduled = Scheduled::<T>::get();
