@@ -3,7 +3,6 @@ use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use sp_core::U256;
-use std::iter::repeat;
 
 #[test]
 fn environment_works() {
