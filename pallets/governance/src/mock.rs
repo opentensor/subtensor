@@ -81,20 +81,16 @@ where
     T::AccountId: From<AccountOf<Test>>,
 {
     fn get_economic_collective() -> BoundedVec<T::AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>> {
-        BoundedVec::truncate_from(ECONOMIC_COLLECTIVE.with(|c| {
-            c.borrow()
-                .iter()
-                .map(|a| T::AccountId::from(*a))
-                .collect()
-        }))
+        BoundedVec::truncate_from(
+            ECONOMIC_COLLECTIVE
+                .with(|c| c.borrow().iter().map(|a| T::AccountId::from(*a)).collect()),
+        )
     }
     fn get_building_collective() -> BoundedVec<T::AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>> {
-        BoundedVec::truncate_from(BUILDING_COLLECTIVE.with(|c| {
-            c.borrow()
-                .iter()
-                .map(|a| T::AccountId::from(*a))
-                .collect()
-        }))
+        BoundedVec::truncate_from(
+            BUILDING_COLLECTIVE
+                .with(|c| c.borrow().iter().map(|a| T::AccountId::from(*a)).collect()),
+        )
     }
 }
 

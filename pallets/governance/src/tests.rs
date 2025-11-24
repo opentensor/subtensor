@@ -207,8 +207,9 @@ fn set_allowed_proposers_with_duplicate_accounts_fails() {
     TestState::default()
         .with_allowed_proposers(vec![])
         .build_and_execute(|| {
-            let allowed_proposers =
-                BoundedVec::truncate_from(std::iter::repeat_n(U256::from(1), 2).collect::<Vec<_>>());
+            let allowed_proposers = BoundedVec::truncate_from(
+                std::iter::repeat_n(U256::from(1), 2).collect::<Vec<_>>(),
+            );
 
             assert_noop!(
                 Pallet::<Test>::set_allowed_proposers(RuntimeOrigin::root(), allowed_proposers),
@@ -355,8 +356,9 @@ fn set_triumvirate_with_duplicate_accounts_fails() {
     TestState::default()
         .with_triumvirate(vec![])
         .build_and_execute(|| {
-            let triumvirate =
-                BoundedVec::truncate_from(std::iter::repeat_n(U256::from(1001), 2).collect::<Vec<_>>());
+            let triumvirate = BoundedVec::truncate_from(
+                std::iter::repeat_n(U256::from(1001), 2).collect::<Vec<_>>(),
+            );
 
             assert_noop!(
                 Pallet::<Test>::set_triumvirate(RuntimeOrigin::root(), triumvirate),
