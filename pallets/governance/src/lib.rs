@@ -1159,7 +1159,7 @@ impl<T: Config> Pallet<T> {
             let initial_delay =
                 FixedU128::from_inner(T::InitialSchedulingDelay::get().unique_saturated_into());
             let multiplier =
-                T::AdditionalDelayFactor::get().saturating_pow(net_score.abs() as usize);
+                T::AdditionalDelayFactor::get().saturating_pow(net_score.unsigned_abs() as usize);
             multiplier
                 .saturating_mul(initial_delay)
                 .into_inner()
