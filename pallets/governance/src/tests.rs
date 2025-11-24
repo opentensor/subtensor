@@ -48,7 +48,7 @@ fn environment_with_duplicate_allowed_proposers_panics() {
 #[should_panic(expected = "Allowed proposers length cannot exceed MaxAllowedProposers.")]
 fn environment_with_too_many_allowed_proposers_panics() {
     let max_allowed_proposers = <Test as pallet::Config>::MaxAllowedProposers::get() as usize;
-    let allowed_proposers = (0..=max_allowed_proposers).map(|i| U256::from(i)).collect();
+    let allowed_proposers = (0..=max_allowed_proposers).map(U256::from).collect();
     TestState::default()
         .with_allowed_proposers(allowed_proposers)
         .build_and_execute(|| {});
@@ -65,7 +65,7 @@ fn environment_with_duplicate_triumvirate_panics() {
 #[test]
 #[should_panic(expected = "Triumvirate length cannot exceed 3.")]
 fn environment_with_too_many_triumvirate_panics() {
-    let triumvirate = (1..=4).map(|i| U256::from(i)).collect();
+    let triumvirate = (1..=4).map(U256::from).collect();
     TestState::default()
         .with_triumvirate(triumvirate)
         .build_and_execute(|| {});
@@ -186,7 +186,7 @@ fn set_allowed_proposers_with_bad_origin_fails() {
         .with_allowed_proposers(vec![])
         .build_and_execute(|| {
             let allowed_proposers =
-                BoundedVec::truncate_from((1..=5).map(|i| U256::from(i)).collect::<Vec<_>>());
+                BoundedVec::truncate_from((1..=5).map(U256::from).collect::<Vec<_>>());
 
             assert_noop!(
                 Pallet::<Test>::set_allowed_proposers(
@@ -209,7 +209,7 @@ fn set_allowed_proposers_with_duplicate_accounts_fails() {
         .with_allowed_proposers(vec![])
         .build_and_execute(|| {
             let allowed_proposers =
-                BoundedVec::truncate_from(repeat(U256::from(1)).take(2).collect::<Vec<_>>());
+                BoundedVec::truncate_from(std::iter::repeat_n(U256::from(1), 2).collect::<Vec<_>>());
 
             assert_noop!(
                 Pallet::<Test>::set_allowed_proposers(RuntimeOrigin::root(), allowed_proposers),
@@ -225,7 +225,7 @@ fn set_allowed_proposers_with_triumvirate_intersection_fails() {
         .with_triumvirate(vec![U256::from(1), U256::from(2), U256::from(3)])
         .build_and_execute(|| {
             let allowed_proposers =
-                BoundedVec::truncate_from((3..=8).map(|i| U256::from(i)).collect::<Vec<_>>());
+                BoundedVec::truncate_from((3..=8).map(U256::from).collect::<Vec<_>>());
 
             assert_noop!(
                 Pallet::<Test>::set_allowed_proposers(RuntimeOrigin::root(), allowed_proposers),
@@ -357,7 +357,7 @@ fn set_triumvirate_with_duplicate_accounts_fails() {
         .with_triumvirate(vec![])
         .build_and_execute(|| {
             let triumvirate =
-                BoundedVec::truncate_from(repeat(U256::from(1001)).take(2).collect::<Vec<_>>());
+                BoundedVec::truncate_from(std::iter::repeat_n(U256::from(1001), 2).collect::<Vec<_>>());
 
             assert_noop!(
                 Pallet::<Test>::set_triumvirate(RuntimeOrigin::root(), triumvirate),
@@ -372,7 +372,7 @@ fn set_triumvirate_with_allowed_proposers_intersection_fails() {
         .with_allowed_proposers(vec![U256::from(1), U256::from(2), U256::from(3)])
         .build_and_execute(|| {
             let triumvirate =
-                BoundedVec::truncate_from((3..=8).map(|i| U256::from(i)).collect::<Vec<_>>());
+                BoundedVec::truncate_from((3..=8).map(U256::from).collect::<Vec<_>>());
 
             assert_noop!(
                 Pallet::<Test>::set_triumvirate(RuntimeOrigin::root(), triumvirate),
@@ -440,7 +440,7 @@ fn propose_works_with_lookup_preimage() {
         let proposal = Box::new(RuntimeCall::System(
             frame_system::Call::<Test>::set_storage {
                 // We deliberately create a large proposal to avoid inlining.
-                items: repeat(key_value).take(50).collect::<Vec<_>>(),
+                items: std::iter::repeat_n(key_value, 50).collect::<Vec<_>>(),
             },
         ));
         let length_bound = proposal.encoded_size() as u32;
@@ -463,7 +463,7 @@ fn propose_works_with_lookup_preimage() {
         assert_eq!(stored_proposals.len(), 1);
         let (stored_hash, bounded_proposal) = &stored_proposals[0];
         assert_eq!(stored_hash, &proposal_hash);
-        assert!(<Test as pallet::Config>::Preimages::have(&bounded_proposal));
+        assert!(<Test as pallet::Config>::Preimages::have(bounded_proposal));
         let now = frame_system::Pallet::<Test>::block_number();
         assert_eq!(
             TriumvirateVoting::<Test>::get(proposal_hash),
@@ -631,7 +631,7 @@ fn propose_with_too_many_proposals_fails() {
                 let proposal = Box::new(RuntimeCall::System(
                     frame_system::Call::<Test>::set_storage {
                         items: vec![(
-                            format!("Foobar{}", i).as_bytes().to_vec(),
+                            format!("Foobar{i}").as_bytes().to_vec(),
                             42u32.to_be_bytes().to_vec(),
                         )],
                     },
@@ -1577,7 +1577,7 @@ fn collective_member_can_mark_himself_as_eligible() {
 fn collective_member_cant_mark_himself_as_eligible_if_already_eligible() {
     TestState::default().build_and_execute(|| {
         let member = U256::from(2001);
-        EligibleCandidates::<Test>::try_append(&member).unwrap();
+        EligibleCandidates::<Test>::try_append(member).unwrap();
         assert_eq!(EligibleCandidates::<Test>::get(), vec![member]);
 
         assert_noop!(
@@ -1611,8 +1611,8 @@ fn collective_member_vote_on_seat_replacement_works() {
         let candidate1 = EconomicCollective::<Test>::get()[1];
         let member2 = BuildingCollective::<Test>::get()[0];
         let candidate2 = BuildingCollective::<Test>::get()[1];
-        EligibleCandidates::<Test>::try_append(&candidate1).unwrap();
-        EligibleCandidates::<Test>::try_append(&candidate2).unwrap();
+        EligibleCandidates::<Test>::try_append(candidate1).unwrap();
+        EligibleCandidates::<Test>::try_append(candidate2).unwrap();
         assert_eq!(CandidateVotes::<Test>::iter().collect::<Vec<_>>(), vec![]);
         assert_eq!(MemberVote::<Test>::iter().collect::<Vec<_>>(), vec![]);
         assert_eq!(
@@ -1684,7 +1684,7 @@ fn collective_member_votes_on_seat_replacement_above_nomination_threshold_works(
     TestState::default().build_and_execute(|| {
         let threshold = NominationThreshold::get().mul_ceil(ECONOMIC_COLLECTIVE_SIZE);
         let candidate = EconomicCollective::<Test>::get()[0];
-        EligibleCandidates::<Test>::try_append(&candidate).unwrap();
+        EligibleCandidates::<Test>::try_append(candidate).unwrap();
         assert_eq!(
             NominatedCandidate::<Test>::iter().collect::<Vec<_>>(),
             vec![]
@@ -1724,9 +1724,9 @@ fn collective_member_vote_on_seat_replacement_can_be_updated() {
         let candidate1 = EconomicCollective::<Test>::get()[1];
         let candidate2 = EconomicCollective::<Test>::get()[2];
         let candidate3 = EconomicCollective::<Test>::get()[3];
-        EligibleCandidates::<Test>::try_append(&candidate1).unwrap();
-        EligibleCandidates::<Test>::try_append(&candidate2).unwrap();
-        EligibleCandidates::<Test>::try_append(&candidate3).unwrap();
+        EligibleCandidates::<Test>::try_append(candidate1).unwrap();
+        EligibleCandidates::<Test>::try_append(candidate2).unwrap();
+        EligibleCandidates::<Test>::try_append(candidate3).unwrap();
         assert_eq!(CandidateVotes::<Test>::iter().collect::<Vec<_>>(), vec![]);
         assert_eq!(MemberVote::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
@@ -1837,7 +1837,7 @@ fn collective_member_vote_on_seat_replacement_if_candidate_and_caller_not_same_c
     TestState::default().build_and_execute(|| {
         let member = EconomicCollective::<Test>::get()[0];
         let candidate = BuildingCollective::<Test>::get()[0];
-        EligibleCandidates::<Test>::try_append(&candidate).unwrap();
+        EligibleCandidates::<Test>::try_append(candidate).unwrap();
 
         assert_noop!(
             Pallet::<Test>::vote_on_seat_replacement(RuntimeOrigin::signed(member), candidate),
@@ -1854,7 +1854,7 @@ fn collective_member_vote_on_seat_replacement_if_already_nominee_selected_fails(
         let nominated = EconomicCollective::<Test>::get()[1];
         let candidate = EconomicCollective::<Test>::get()[2];
         NominatedCandidate::<Test>::set(CollectiveType::Economic, Some((nominated, now)));
-        EligibleCandidates::<Test>::try_append(&candidate).unwrap();
+        EligibleCandidates::<Test>::try_append(candidate).unwrap();
 
         assert_noop!(
             Pallet::<Test>::vote_on_seat_replacement(RuntimeOrigin::signed(member), candidate),
@@ -1868,7 +1868,7 @@ fn collective_member_vote_on_seat_replacement_with_duplicate_vote_fails() {
     TestState::default().build_and_execute(|| {
         let member = EconomicCollective::<Test>::get()[0];
         let candidate = EconomicCollective::<Test>::get()[1];
-        EligibleCandidates::<Test>::try_append(&candidate).unwrap();
+        EligibleCandidates::<Test>::try_append(candidate).unwrap();
 
         assert_ok!(Pallet::<Test>::vote_on_seat_replacement(
             RuntimeOrigin::signed(member),

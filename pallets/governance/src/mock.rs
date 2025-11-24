@@ -84,7 +84,7 @@ where
         BoundedVec::truncate_from(ECONOMIC_COLLECTIVE.with(|c| {
             c.borrow()
                 .iter()
-                .map(|a| T::AccountId::from(a.clone()))
+                .map(|a| T::AccountId::from(*a))
                 .collect()
         }))
     }
@@ -92,7 +92,7 @@ where
         BoundedVec::truncate_from(BUILDING_COLLECTIVE.with(|c| {
             c.borrow()
                 .iter()
-                .map(|a| T::AccountId::from(a.clone()))
+                .map(|a| T::AccountId::from(*a))
                 .collect()
         }))
     }

@@ -501,7 +501,7 @@ pub mod pallet {
             new_allowed_proposers.sort();
             let (incoming, outgoing) =
                 <() as ChangeMembers<T::AccountId>>::compute_members_diff_sorted(
-                    &new_allowed_proposers.to_vec(),
+                    new_allowed_proposers.as_ref(),
                     &allowed_proposers,
                 );
 
@@ -552,7 +552,7 @@ pub mod pallet {
             new_triumvirate.sort();
             let (incoming, outgoing) =
                 <() as ChangeMembers<T::AccountId>>::compute_members_diff_sorted(
-                    &new_triumvirate.to_vec(),
+                    new_triumvirate.as_ref(),
                     &triumvirate,
                 );
 
@@ -704,9 +704,9 @@ pub mod pallet {
             });
 
             let should_fast_track =
-                yes_votes >= T::FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE) as u32;
+                yes_votes >= T::FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
             let should_cancel =
-                no_votes >= T::CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE) as u32;
+                no_votes >= T::CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
 
             if should_fast_track {
                 Self::fast_track(proposal_hash)?;
@@ -875,7 +875,7 @@ impl<T: Config> Pallet<T> {
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
             let now = frame_system::Pallet::<T>::block_number();
             ensure!(voting.end > now, Error::<T>::VotingPeriodEnded);
-            Self::vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
+            Self::vote_inner(who, approve, &mut voting.ayes, &mut voting.nays)?;
             Ok(voting.clone())
         })
     }
@@ -891,7 +891,7 @@ impl<T: Config> Pallet<T> {
             // has been fast-tracked.
             let voting = voting.as_mut().ok_or(Error::<T>::VotingPeriodEnded)?;
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
-            Self::vote_inner(&who, approve, &mut voting.ayes, &mut voting.nays)?;
+            Self::vote_inner(who, approve, &mut voting.ayes, &mut voting.nays)?;
             Ok(voting.clone())
         })
     }
@@ -979,7 +979,7 @@ impl<T: Config> Pallet<T> {
             // It will be scheduled on the next block because scheduler already ran for this block.
             DispatchTime::After(Zero::zero()),
         )?;
-        CollectiveVoting::<T>::remove(&proposal_hash);
+        CollectiveVoting::<T>::remove(proposal_hash);
         Self::deposit_event(Event::<T>::ScheduledProposalFastTracked { proposal_hash });
         Ok(())
     }
@@ -988,7 +988,7 @@ impl<T: Config> Pallet<T> {
         let name = Self::task_name_from_hash(proposal_hash)?;
         T::Scheduler::cancel_named(name)?;
         Scheduled::<T>::mutate(|scheduled| scheduled.retain(|h| h != &proposal_hash));
-        CollectiveVoting::<T>::remove(&proposal_hash);
+        CollectiveVoting::<T>::remove(proposal_hash);
         Self::deposit_event(Event::<T>::ScheduledProposalCancelled { proposal_hash });
         Ok(())
     }
@@ -1031,8 +1031,8 @@ impl<T: Config> Pallet<T> {
         Proposals::<T>::mutate(|proposals| {
             proposals.retain(|(_, h)| h != &proposal_hash);
         });
-        ProposalOf::<T>::remove(&proposal_hash);
-        TriumvirateVoting::<T>::remove(&proposal_hash);
+        ProposalOf::<T>::remove(proposal_hash);
+        TriumvirateVoting::<T>::remove(proposal_hash);
     }
 
     fn rotate_collectives() -> Weight {
