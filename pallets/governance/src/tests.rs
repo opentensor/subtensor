@@ -1035,7 +1035,7 @@ fn triumvirate_aye_vote_on_proposal_with_too_many_scheduled_fails() {
 }
 
 #[test]
-fn collective_aye_vote_on_scheduled_proposal_works() {
+fn collective_member_aye_vote_on_scheduled_proposal_works() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
 
@@ -1102,7 +1102,7 @@ fn collective_aye_vote_on_scheduled_proposal_works() {
 }
 
 #[test]
-fn collective_votes_succession_adjust_delay_and_can_fast_track() {
+fn collective_member_votes_succession_on_scheduled_proposal_adjust_delay_and_can_fast_track() {
     TestState::default().build_and_execute(|| {
         let now = frame_system::Pallet::<Test>::block_number();
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
@@ -1301,7 +1301,7 @@ fn collective_votes_succession_adjust_delay_and_can_fast_track() {
 }
 
 #[test]
-fn collective_vote_can_be_updated() {
+fn collective_member_vote_on_scheduled_proposal_can_be_updated() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
         let economic_member = U256::from(2001);
@@ -1357,7 +1357,7 @@ fn collective_vote_can_be_updated() {
 }
 
 #[test]
-fn collective_aye_votes_above_threshold_on_scheduled_proposal_fast_tracks() {
+fn collective_member_aye_votes_above_threshold_on_scheduled_proposal_fast_tracks() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
         let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
@@ -1390,7 +1390,7 @@ fn collective_aye_votes_above_threshold_on_scheduled_proposal_fast_tracks() {
 }
 
 #[test]
-fn collective_nay_votes_above_threshold_on_scheduled_proposal_cancels() {
+fn collective_member_nay_votes_above_threshold_on_scheduled_proposal_cancels() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
         let threshold = CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
@@ -1413,7 +1413,7 @@ fn collective_nay_votes_above_threshold_on_scheduled_proposal_cancels() {
 }
 
 #[test]
-fn collective_aye_vote_triggering_fast_track_on_next_block_scheduled_proposal_fails() {
+fn collective_member_aye_vote_triggering_fast_track_on_next_block_scheduled_proposal_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
         let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
@@ -1443,7 +1443,7 @@ fn collective_aye_vote_triggering_fast_track_on_next_block_scheduled_proposal_fa
 }
 
 #[test]
-fn collective_vote_from_non_collective_member_fails() {
+fn collective_member_vote_on_scheduled_proposal_from_non_collective_member_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
 
@@ -1460,7 +1460,7 @@ fn collective_vote_from_non_collective_member_fails() {
 }
 
 #[test]
-fn collective_vote_on_non_scheduled_proposal_fails() {
+fn collective_member_vote_on_non_scheduled_proposal_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_proposal!();
 
@@ -1477,7 +1477,7 @@ fn collective_vote_on_non_scheduled_proposal_fails() {
 }
 
 #[test]
-fn collective_vote_on_fast_tracked_proposal_fails() {
+fn collective_member_vote_on_fast_tracked_scheduled_proposal_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
         let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
@@ -1503,7 +1503,7 @@ fn collective_vote_on_fast_tracked_proposal_fails() {
 }
 
 #[test]
-fn collective_vote_on_proposal_with_wrong_index_fails() {
+fn collective_member_vote_on_scheduled_proposal_with_wrong_index_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, _proposal_index) = create_scheduled_proposal!();
 
@@ -1520,7 +1520,7 @@ fn collective_vote_on_proposal_with_wrong_index_fails() {
 }
 
 #[test]
-fn duplicate_collective_vote_on_scheduled_proposal_already_voted_fails() {
+fn duplicate_collective_member_vote_on_scheduled_proposal_already_voted_fails() {
     TestState::default().build_and_execute(|| {
         let (proposal_hash, proposal_index) = create_scheduled_proposal!();
 
