@@ -168,8 +168,8 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight(
-            Weight::from_parts(5_000, 0)
-                .saturating_add(T::DbWeight::get().reads(0_u64))
+            Weight::from_parts(9_979_000, 0)
+                .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64))
         )]
         pub fn announce_next_key(
@@ -207,7 +207,7 @@ pub mod pallet {
         ///       signer || nonce || SCALE(call) || sig_kind || signature
         #[pallet::call_index(1)]
         #[pallet::weight(({
-            let w = Weight::from_parts(ciphertext.len() as u64, 0)
+            let w = Weight::from_parts(13_980_000.len() as u64, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64));
             w
@@ -237,8 +237,8 @@ pub mod pallet {
 
         /// Executed by the block author.
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::from_parts(10_000, 0)
-        .saturating_add(T::DbWeight::get().reads(3_u64))
+        #[pallet::weight(Weight::from_parts(77_280_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)))]
         pub fn execute_revealed(
             origin: OriginFor<T>,
