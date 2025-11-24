@@ -16,7 +16,10 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
-use sp_runtime::{Percent, Saturating, traits::Hash};
+use sp_runtime::{
+    FixedU128, Percent, Saturating,
+    traits::{Hash, SaturatedConversion, UniqueSaturatedInto},
+};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 use subtensor_macros::freeze_struct;
 
@@ -170,6 +173,10 @@ pub mod pallet {
         /// Initial scheduling delay for proposal execution.
         #[pallet::constant]
         type InitialSchedulingDelay: Get<BlockNumberFor<Self>>;
+
+        /// The factor to be used to compute the additional delay for a proposal.
+        #[pallet::constant]
+        type AdditionalDelayFactor: Get<FixedU128>;
 
         /// Period of time between collective rotations.
         #[pallet::constant]
@@ -940,7 +947,7 @@ impl<T: Config> Pallet<T> {
 
         let now = frame_system::Pallet::<T>::block_number();
         let name = Self::task_name_from_hash(proposal_hash)?;
-        let dispatch_time = now + T::InitialSchedulingDelay::get();
+        let dispatch_time = now.saturating_add(T::InitialSchedulingDelay::get());
         T::Scheduler::schedule_named(
             name,
             DispatchTime::At(dispatch_time),
@@ -997,7 +1004,7 @@ impl<T: Config> Pallet<T> {
         proposal_hash: T::Hash,
         mut voting: CollectiveVotes<T::AccountId, BlockNumberFor<T>>,
     ) -> DispatchResult {
-        let net_score = voting.nays.len() as i32 - voting.ayes.len() as i32;
+        let net_score = (voting.nays.len() as i32).saturating_sub(voting.ayes.len() as i32);
         let additional_delay = Self::compute_additional_delay(net_score);
 
         // No change, no need to reschedule
@@ -1014,7 +1021,11 @@ impl<T: Config> Pallet<T> {
         }
 
         let name = Self::task_name_from_hash(proposal_hash)?;
-        let dispatch_time = DispatchTime::At(voting.initial_dispatch_time + additional_delay);
+        let dispatch_time = DispatchTime::At(
+            voting
+                .initial_dispatch_time
+                .saturating_add(additional_delay),
+        );
         T::Scheduler::reschedule_named(name, dispatch_time)?;
 
         voting.delay = additional_delay;
@@ -1145,9 +1156,14 @@ impl<T: Config> Pallet<T> {
 
     fn compute_additional_delay(net_score: i32) -> BlockNumberFor<T> {
         if net_score > 0 {
-            let initial_delay = T::InitialSchedulingDelay::get().into().as_u64() as f64;
-            let multiplier = 1.5_f64.powi(net_score.abs());
-            ((initial_delay * multiplier).ceil() as u32).into()
+            let initial_delay =
+                FixedU128::from_inner(T::InitialSchedulingDelay::get().unique_saturated_into());
+            let multiplier =
+                T::AdditionalDelayFactor::get().saturating_pow(net_score.abs() as usize);
+            multiplier
+                .saturating_mul(initial_delay)
+                .into_inner()
+                .saturated_into()
         } else {
             Zero::zero()
         }

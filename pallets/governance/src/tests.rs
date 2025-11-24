@@ -1183,7 +1183,7 @@ fn collective_votes_succession_adjust_delay_and_can_fast_track() {
 
         // Adding a third nay vote increases the delay
         vote_nay_on_scheduled!(U256::from(2003), proposal_hash, proposal_index);
-        let delay = (initial_delay * 1.5_f64.powi(3)).ceil() as u64;
+        let delay = (initial_delay * 1.5_f64.powi(3)) as u64;
         assert_eq!(
             CollectiveVoting::<Test>::get(proposal_hash),
             Some(CollectiveVotes {

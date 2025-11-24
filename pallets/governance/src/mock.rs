@@ -7,7 +7,7 @@
 use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::EqualPrivilegeOnly};
 use frame_system::{EnsureRoot, limits, pallet_prelude::*};
 use sp_core::U256;
-use sp_runtime::{BuildStorage, Perbill, Percent, traits::IdentityLookup};
+use sp_runtime::{BuildStorage, FixedU128, Perbill, Percent, traits::IdentityLookup};
 use sp_std::cell::RefCell;
 use std::marker::PhantomData;
 
@@ -122,6 +122,7 @@ parameter_types! {
     pub const MaxScheduled: u32 = 10;
     pub const MotionDuration: BlockNumberFor<Test> = 20;
     pub const InitialSchedulingDelay: BlockNumberFor<Test> = 20;
+    pub const AdditionalDelayFactor: FixedU128 = FixedU128::from_rational(3, 2); // 1.5
     pub const CollectiveRotationPeriod: BlockNumberFor<Test> = 100;
     pub const CleanupPeriod: BlockNumberFor<Test> = 500;
     pub const FastTrackThreshold: Percent = Percent::from_percent(67); // ~2/3
@@ -145,6 +146,7 @@ impl pallet_governance::Config for Test {
     type MaxScheduled = MaxScheduled;
     type MotionDuration = MotionDuration;
     type InitialSchedulingDelay = InitialSchedulingDelay;
+    type AdditionalDelayFactor = AdditionalDelayFactor;
     type CollectiveRotationPeriod = CollectiveRotationPeriod;
     type CleanupPeriod = CleanupPeriod;
     type CancellationThreshold = CancellationThreshold;
