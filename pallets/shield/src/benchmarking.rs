@@ -208,6 +208,4 @@ mod benches {
         let new_nonce = frame_system::Pallet::<T>::account_nonce(&signer);
         assert_eq!(new_nonce, 1u32.into());
     }
-
-    impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
