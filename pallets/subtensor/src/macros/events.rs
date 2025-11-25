@@ -449,6 +449,8 @@ mod events {
             hotkey: T::AccountId,
         },
 
+        /// The minimum allowed non-Immune UIDs has been set.
+        MinNonImmuneUidsSet(NetUid, u16),
         /// Root emissions have been claimed for a coldkey on all subnets and hotkeys.
         /// Parameters:
         /// (coldkey)
