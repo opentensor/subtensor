@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_nonce;
 mod migrations;
+mod rate_limiting;
 pub mod transaction_payment_wrapper;
 
 extern crate alloc;
@@ -23,7 +24,9 @@ use frame_support::{
     dispatch::DispatchResult,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
+    traits::{
+        Contains, GetCallMetadata, InsideBoth, LinearStoragePrice, fungible::HoldConsideration,
+    },
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
@@ -69,6 +72,12 @@ use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
+
+pub use rate_limiting::{
+    ScopeResolver as RuntimeScopeResolver, UsageResolver as RuntimeUsageResolver,
+};
+pub type RateLimitingInstance = ();
+pub type RateLimitGroupId = u32;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -153,6 +162,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             frame_system::CheckEra::<Runtime>::from(Era::Immortal),
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
+            pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new(),
             ChargeTransactionPaymentWrapper::new(
                 pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
             ),
@@ -223,7 +233,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_version: 349,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 1,
+    transaction_version: 2,
     system_version: 1,
 };
 
@@ -1117,6 +1127,25 @@ impl pallet_subtensor::Config for Runtime {
 }
 
 parameter_types! {
+    pub const RateLimitingMaxGroupMembers: u32 = 64;
+    pub const RateLimitingMaxGroupNameLength: u32 = 64;
+}
+
+impl pallet_rate_limiting::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+    type AdminOrigin = EnsureRoot<AccountId>;
+    type LimitScope = RateLimitScope;
+    type LimitScopeResolver = RuntimeScopeResolver;
+    type UsageKey = RateLimitUsageKey<AccountId>;
+    type UsageResolver = RuntimeUsageResolver;
+    type GroupId = u32;
+    type MaxGroupMembers = RateLimitingMaxGroupMembers;
+    type MaxGroupNameLength = RateLimitingMaxGroupNameLength;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
+}
+
+parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
     pub const SwapMaxPositions: u32 = 100;
@@ -1569,6 +1598,7 @@ construct_runtime!(
         Crowdloan: pallet_crowdloan = 27,
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
+        RateLimiting: pallet_rate_limiting = 30,
     }
 );
 
@@ -1587,6 +1617,7 @@ pub type TransactionExtensions = (
     frame_system::CheckEra<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
+    pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
     ChargeTransactionPaymentWrapper<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
@@ -1605,6 +1636,7 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
+    rate_limiting::migration::Migration<Runtime>,
     // Remove storage from removed governance pallets
     frame_support::migrations::RemovePallet<TriumviratePalletStr, RocksDbWeight>,
     frame_support::migrations::RemovePallet<TriumvirateMembersPalletStr, RocksDbWeight>,
@@ -2154,6 +2186,50 @@ impl_runtime_apis! {
             UncheckedExtrinsic::new_bare(
                 pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
             )
+        }
+    }
+
+    impl pallet_rate_limiting_runtime_api::RateLimitingRuntimeApi<Block> for Runtime {
+        fn get_rate_limit(
+            pallet: Vec<u8>,
+            extrinsic: Vec<u8>,
+        ) -> Option<pallet_rate_limiting_runtime_api::RateLimitRpcResponse> {
+            use pallet_rate_limiting::{Pallet as RateLimiting, RateLimit};
+            use pallet_rate_limiting_runtime_api::RateLimitRpcResponse;
+
+            let pallet_name = sp_std::str::from_utf8(&pallet).ok()?;
+            let extrinsic_name = sp_std::str::from_utf8(&extrinsic).ok()?;
+
+            let identifier = RateLimiting::<Runtime, RateLimitingInstance>::identifier_for_call_names(
+                pallet_name,
+                extrinsic_name,
+            )?;
+            let target =
+                RateLimiting::<Runtime, RateLimitingInstance>::config_target(&identifier).ok()?;
+            let limits =
+                pallet_rate_limiting::Limits::<Runtime, RateLimitingInstance>::get(target)?;
+            let default_limit =
+                pallet_rate_limiting::DefaultLimit::<Runtime, RateLimitingInstance>::get();
+            let resolved =
+                RateLimiting::<Runtime, RateLimitingInstance>::resolved_limit(&target, &None);
+
+            let (global, contextual) = match limits {
+                RateLimit::Global(kind) => (Some(kind), sp_std::vec::Vec::new()),
+                RateLimit::Scoped(entries) => (
+                    None,
+                    entries
+                        .into_iter()
+                        .map(|(scope, kind)| (scope.encode(), kind))
+                        .collect(),
+                ),
+            };
+
+            Some(RateLimitRpcResponse {
+                global,
+                contextual,
+                default_limit,
+                resolved,
+            })
         }
     }
 
