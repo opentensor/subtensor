@@ -15,10 +15,8 @@ use sp_runtime::{
 use subtensor_macros::freeze_struct;
 
 pub use currency::*;
-pub use rate_limiting::{RateLimitScope, RateLimitUsageKey};
 
 mod currency;
-mod rate_limiting;
 
 /// Balance of an account.
 pub type Balance = u64;

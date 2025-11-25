@@ -43,6 +43,7 @@ pallet-rate-limiting-runtime-api.workspace = true
 pallet-subtensor-utility.workspace = true
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
+serde.workspace = true
 sp-api.workspace = true
 sp-block-builder.workspace = true
 sp-consensus-aura.workspace = true
@@ -199,6 +200,7 @@ std = [
 	"pallet-preimage/std",
 	"pallet-commitments/std",
 	"precompile-utils/std",
+	"serde/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-core/std",

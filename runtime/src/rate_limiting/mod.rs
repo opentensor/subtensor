@@ -1,12 +1,76 @@
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::pallet_prelude::Parameter;
 use frame_system::RawOrigin;
 use pallet_admin_utils::Call as AdminUtilsCall;
 use pallet_rate_limiting::{RateLimitScopeResolver, RateLimitUsageResolver};
 use pallet_subtensor::{Call as SubtensorCall, Tempo};
-use subtensor_runtime_common::{BlockNumber, NetUid, RateLimitScope, RateLimitUsageKey};
+use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
+use subtensor_runtime_common::{BlockNumber, MechId, NetUid};
 
 use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
 
 pub(crate) mod migration;
+
+#[derive(
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    TypeInfo,
+    MaxEncodedLen,
+)]
+pub enum RateLimitScope {
+    Subnet(NetUid),
+    SubnetMechanism { netuid: NetUid, mecid: MechId },
+}
+
+#[derive(
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    TypeInfo,
+    MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(AccountId))]
+pub enum RateLimitUsageKey<AccountId: Parameter> {
+    Account(AccountId),
+    Subnet(NetUid),
+    AccountSubnet {
+        account: AccountId,
+        netuid: NetUid,
+    },
+    ColdkeyHotkeySubnet {
+        coldkey: AccountId,
+        hotkey: AccountId,
+        netuid: NetUid,
+    },
+    SubnetNeuron {
+        netuid: NetUid,
+        uid: u16,
+    },
+    SubnetMechanismNeuron {
+        netuid: NetUid,
+        mecid: MechId,
+        uid: u16,
+    },
+}
 
 fn signed_origin(origin: &RuntimeOrigin) -> Option<AccountId> {
     match origin.clone().into() {
@@ -53,7 +117,6 @@ fn owner_hparam_netuid(call: &AdminUtilsCall<Runtime>) -> Option<NetUid> {
         | AdminUtilsCall::sudo_set_recycle_or_burn { netuid, .. }
         | AdminUtilsCall::sudo_set_rho { netuid, .. }
         | AdminUtilsCall::sudo_set_serving_rate_limit { netuid, .. }
-        | AdminUtilsCall::sudo_set_sn_owner_hotkey { netuid, .. }
         | AdminUtilsCall::sudo_set_toggle_transfer { netuid, .. }
         | AdminUtilsCall::sudo_set_weights_version_key { netuid, .. }
         | AdminUtilsCall::sudo_set_yuma3_enabled { netuid, .. } => Some(*netuid),
@@ -65,6 +128,7 @@ fn admin_scope_netuid(call: &AdminUtilsCall<Runtime>) -> Option<NetUid> {
     owner_hparam_netuid(call).or_else(|| match call {
         AdminUtilsCall::sudo_set_mechanism_count { netuid, .. }
         | AdminUtilsCall::sudo_set_mechanism_emission_split { netuid, .. }
+        | AdminUtilsCall::sudo_set_sn_owner_hotkey { netuid, .. }
         | AdminUtilsCall::sudo_trim_to_max_allowed_uids { netuid, .. } => Some(*netuid),
         _ => None,
     })
@@ -83,9 +147,7 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     signed_origin(origin).map(RateLimitUsageKey::<AccountId>::Account)
                 }
                 SubtensorCall::register_network { .. }
-                | SubtensorCall::register_network_with_identity { .. } => {
-                    signed_origin(origin).map(RateLimitUsageKey::<AccountId>::Account)
-                }
+                | SubtensorCall::register_network_with_identity { .. } => None,
                 SubtensorCall::increase_take { hotkey, .. } => {
                     Some(RateLimitUsageKey::<AccountId>::Account(hotkey.clone()))
                 }
@@ -181,6 +243,9 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     Some(RateLimitUsageKey::<AccountId>::Subnet(netuid))
                 } else {
                     match inner {
+                        AdminUtilsCall::sudo_set_sn_owner_hotkey { netuid, .. } => {
+                            Some(RateLimitUsageKey::<AccountId>::Subnet(*netuid))
+                        }
                         AdminUtilsCall::sudo_set_mechanism_count { netuid, .. }
                         | AdminUtilsCall::sudo_set_mechanism_emission_split { netuid, .. }
                         | AdminUtilsCall::sudo_trim_to_max_allowed_uids { netuid, .. } => {

@@ -8,6 +8,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use core::marker::PhantomData;
 use core::num::NonZeroU64;
 
 pub mod check_nonce;
@@ -24,9 +25,7 @@ use frame_support::{
     dispatch::DispatchResult,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{
-        Contains, GetCallMetadata, InsideBoth, LinearStoragePrice, fungible::HoldConsideration,
-    },
+    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
@@ -46,6 +45,7 @@ use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::SimSwapResult;
 use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
+use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_babe::BabeConfiguration;
@@ -72,12 +72,13 @@ use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
-
-pub use rate_limiting::{
-    ScopeResolver as RuntimeScopeResolver, UsageResolver as RuntimeUsageResolver,
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+// Frontier
+use fp_rpc::TransactionStatus;
+use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
+use pallet_evm::{
+    Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
 };
-pub type RateLimitingInstance = ();
-pub type RateLimitGroupId = u32;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -99,21 +100,13 @@ pub use pallet_balances::Call as BalancesCall;
 use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+pub use rate_limiting::{
+    RateLimitScope, RateLimitUsageKey, ScopeResolver as RuntimeScopeResolver,
+    UsageResolver as RuntimeUsageResolver,
+};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
-
-use core::marker::PhantomData;
-
-use scale_info::TypeInfo;
-
-// Frontier
-use fp_rpc::TransactionStatus;
-use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
-use pallet_evm::{
-    Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
-};
 
 // Drand
 impl pallet_drand::Config for Runtime {
@@ -2200,18 +2193,18 @@ impl_runtime_apis! {
             let pallet_name = sp_std::str::from_utf8(&pallet).ok()?;
             let extrinsic_name = sp_std::str::from_utf8(&extrinsic).ok()?;
 
-            let identifier = RateLimiting::<Runtime, RateLimitingInstance>::identifier_for_call_names(
+            let identifier = RateLimiting::<Runtime>::identifier_for_call_names(
                 pallet_name,
                 extrinsic_name,
             )?;
             let target =
-                RateLimiting::<Runtime, RateLimitingInstance>::config_target(&identifier).ok()?;
+                RateLimiting::<Runtime>::config_target(&identifier).ok()?;
             let limits =
-                pallet_rate_limiting::Limits::<Runtime, RateLimitingInstance>::get(target)?;
+                pallet_rate_limiting::Limits::<Runtime>::get(target)?;
             let default_limit =
-                pallet_rate_limiting::DefaultLimit::<Runtime, RateLimitingInstance>::get();
+                pallet_rate_limiting::DefaultLimit::<Runtime>::get();
             let resolved =
-                RateLimiting::<Runtime, RateLimitingInstance>::resolved_limit(&target, &None);
+                RateLimiting::<Runtime>::resolved_limit(&target, &None);
 
             let (global, contextual) = match limits {
                 RateLimit::Global(kind) => (Some(kind), sp_std::vec::Vec::new()),

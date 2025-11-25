@@ -22,11 +22,11 @@ use sp_std::{
     vec,
     vec::Vec,
 };
-use subtensor_runtime_common::{MechId, NetUid, RateLimitScope, RateLimitUsageKey};
+use subtensor_runtime_common::{MechId, NetUid};
 
-use crate::RateLimitingInstance;
+use super::{RateLimitScope, RateLimitUsageKey};
 
-type GroupIdOf<T> = <T as pallet_rate_limiting::Config<RateLimitingInstance>>::GroupId;
+type GroupIdOf<T> = <T as pallet_rate_limiting::Config>::GroupId;
 type LimitEntries<T> = Vec<(
     RateLimitTarget<GroupId>,
     RateLimit<RateLimitScope, BlockNumberFor<T>>,
@@ -38,12 +38,9 @@ type LastSeenEntries<T> = Vec<(
     ),
     BlockNumberFor<T>,
 )>;
-type GroupNameOf<T> =
-    BoundedVec<u8, <T as pallet_rate_limiting::Config<RateLimitingInstance>>::MaxGroupNameLength>;
-type GroupMembersOf<T> = BoundedBTreeSet<
-    TransactionIdentifier,
-    <T as pallet_rate_limiting::Config<RateLimitingInstance>>::MaxGroupMembers,
->;
+type GroupNameOf<T> = BoundedVec<u8, <T as pallet_rate_limiting::Config>::MaxGroupNameLength>;
+type GroupMembersOf<T> =
+    BoundedBTreeSet<TransactionIdentifier, <T as pallet_rate_limiting::Config>::MaxGroupMembers>;
 
 /// Pallet index assigned to `pallet_subtensor` in `construct_runtime!`.
 const SUBTENSOR_PALLET_INDEX: u8 = 7;
@@ -269,13 +266,8 @@ fn build_grouping() -> Grouping {
 pub fn migrate_rate_limiting<T>() -> Weight
 where
     T: SubtensorConfig
-        + pallet_rate_limiting::Config<
-            RateLimitingInstance,
-            LimitScope = RateLimitScope,
-            GroupId = GroupId,
-        >,
-    RateLimitUsageKey<T::AccountId>:
-        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     let mut weight = T::DbWeight::get().reads(1);
     if HasMigrationRun::<T>::get(MIGRATION_NAME) {
@@ -752,13 +744,8 @@ fn import_evm_entries<T: SubtensorConfig>(
 fn convert_target<T>(target: &RateLimitTarget<GroupId>) -> RateLimitTarget<GroupIdOf<T>>
 where
     T: SubtensorConfig
-        + pallet_rate_limiting::Config<
-            RateLimitingInstance,
-            LimitScope = RateLimitScope,
-            GroupId = GroupId,
-        >,
-    RateLimitUsageKey<T::AccountId>:
-        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     match target {
         RateLimitTarget::Transaction(identifier) => RateLimitTarget::Transaction(*identifier),
@@ -769,18 +756,13 @@ where
 fn write_limits<T>(limits: &LimitEntries<T>) -> u64
 where
     T: SubtensorConfig
-        + pallet_rate_limiting::Config<
-            RateLimitingInstance,
-            LimitScope = RateLimitScope,
-            GroupId = GroupId,
-        >,
-    RateLimitUsageKey<T::AccountId>:
-        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     let mut writes: u64 = 0;
     for (identifier, limit) in limits.iter() {
         let target = convert_target::<T>(identifier);
-        pallet_rate_limiting::Limits::<T, RateLimitingInstance>::insert(target, limit.clone());
+        pallet_rate_limiting::Limits::<T>::insert(target, limit.clone());
         writes += 1;
     }
     writes
@@ -789,21 +771,14 @@ where
 fn write_last_seen<T>(entries: &LastSeenEntries<T>) -> u64
 where
     T: SubtensorConfig
-        + pallet_rate_limiting::Config<
-            RateLimitingInstance,
-            LimitScope = RateLimitScope,
-            GroupId = GroupId,
-        >,
-    RateLimitUsageKey<T::AccountId>:
-        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     let mut writes: u64 = 0;
     for ((identifier, usage), block) in entries.iter() {
         let target = convert_target::<T>(identifier);
         let usage_key = usage.clone().map(Into::into);
-        pallet_rate_limiting::LastSeen::<T, RateLimitingInstance>::insert(
-            target, usage_key, *block,
-        );
+        pallet_rate_limiting::LastSeen::<T>::insert(target, usage_key, *block);
         writes += 1;
     }
     writes
@@ -812,13 +787,8 @@ where
 fn write_groups<T>(grouping: &Grouping) -> u64
 where
     T: SubtensorConfig
-        + pallet_rate_limiting::Config<
-            RateLimitingInstance,
-            LimitScope = RateLimitScope,
-            GroupId = GroupId,
-        >,
-    RateLimitUsageKey<T::AccountId>:
-        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     let mut writes: u64 = 0;
 
@@ -837,8 +807,8 @@ where
             sharing: detail.sharing,
         };
 
-        pallet_rate_limiting::Groups::<T, RateLimitingInstance>::insert(group_id, stored);
-        pallet_rate_limiting::GroupNameIndex::<T, RateLimitingInstance>::insert(name, group_id);
+        pallet_rate_limiting::Groups::<T>::insert(group_id, stored);
+        pallet_rate_limiting::GroupNameIndex::<T>::insert(name, group_id);
         writes += 2;
     }
 
@@ -851,18 +821,18 @@ where
             );
             continue;
         };
-        pallet_rate_limiting::GroupMembers::<T, RateLimitingInstance>::insert(group_id, bounded);
+        pallet_rate_limiting::GroupMembers::<T>::insert(group_id, bounded);
         writes += 1;
     }
 
     for (identifier, info) in &grouping.assignments {
         let group_id = info.id.saturated_into::<GroupIdOf<T>>();
-        pallet_rate_limiting::CallGroups::<T, RateLimitingInstance>::insert(*identifier, group_id);
+        pallet_rate_limiting::CallGroups::<T>::insert(*identifier, group_id);
         writes += 1;
     }
 
     let next_group_id = grouping.next_group_id.saturated_into::<GroupIdOf<T>>();
-    pallet_rate_limiting::NextGroupId::<T, RateLimitingInstance>::put(next_group_id);
+    pallet_rate_limiting::NextGroupId::<T>::put(next_group_id);
     writes += 1;
 
     writes
@@ -936,13 +906,8 @@ pub struct Migration<T: SubtensorConfig>(PhantomData<T>);
 impl<T> frame_support::traits::OnRuntimeUpgrade for Migration<T>
 where
     T: SubtensorConfig
-        + pallet_rate_limiting::Config<
-            RateLimitingInstance,
-            LimitScope = RateLimitScope,
-            GroupId = GroupId,
-        >,
-    RateLimitUsageKey<T::AccountId>:
-        Into<<T as pallet_rate_limiting::Config<RateLimitingInstance>>::UsageKey>,
+        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     fn on_runtime_upgrade() -> Weight {
         migrate_rate_limiting::<T>()
@@ -1051,11 +1016,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{AccountId, BuildStorage, RateLimitingInstance, Runtime};
     use sp_io::TestExternalities;
     use sp_runtime::traits::{SaturatedConversion, Zero};
-    use subtensor_runtime_common::RateLimitUsageKey;
+
+    use super::*;
+    use crate::{AccountId, BuildStorage, Runtime};
 
     const ACCOUNT: [u8; 32] = [7u8; 32];
     const DELEGATE_TAKE_GROUP_ID: GroupId = GROUP_DELEGATE_TAKE;
@@ -1111,13 +1076,13 @@ mod tests {
             let delegate_group = RateLimitTarget::Group(DELEGATE_TAKE_GROUP_ID);
 
             assert_eq!(
-                pallet_rate_limiting::Limits::<Runtime, RateLimitingInstance>::get(tx_target),
+                pallet_rate_limiting::Limits::<Runtime>::get(tx_target),
                 Some(RateLimit::Global(RateLimitKind::Exact(
                     10u64.saturated_into()
                 )))
             );
             assert_eq!(
-                pallet_rate_limiting::Limits::<Runtime, RateLimitingInstance>::get(delegate_group),
+                pallet_rate_limiting::Limits::<Runtime>::get(delegate_group),
                 Some(RateLimit::Global(RateLimitKind::Exact(
                     3u64.saturated_into()
                 )))
@@ -1125,29 +1090,19 @@ mod tests {
 
             let usage_key = RateLimitUsageKey::Account(account.clone());
             assert_eq!(
-                pallet_rate_limiting::LastSeen::<Runtime, RateLimitingInstance>::get(
-                    tx_target,
-                    Some(usage_key.clone())
-                ),
+                pallet_rate_limiting::LastSeen::<Runtime>::get(tx_target, Some(usage_key.clone())),
                 Some(5u64.saturated_into())
             );
 
-            let group = pallet_rate_limiting::Groups::<Runtime, RateLimitingInstance>::get(
-                DELEGATE_TAKE_GROUP_ID,
-            )
-            .expect("group stored");
+            let group = pallet_rate_limiting::Groups::<Runtime>::get(DELEGATE_TAKE_GROUP_ID)
+                .expect("group stored");
             assert_eq!(group.id, DELEGATE_TAKE_GROUP_ID);
             assert_eq!(group.name.as_slice(), b"delegate-take");
             assert_eq!(
-                pallet_rate_limiting::CallGroups::<Runtime, RateLimitingInstance>::get(
-                    subtensor_identifier(66)
-                ),
+                pallet_rate_limiting::CallGroups::<Runtime>::get(subtensor_identifier(66)),
                 Some(DELEGATE_TAKE_GROUP_ID)
             );
-            assert_eq!(
-                pallet_rate_limiting::NextGroupId::<Runtime, RateLimitingInstance>::get(),
-                6
-            );
+            assert_eq!(pallet_rate_limiting::NextGroupId::<Runtime>::get(), 6);
         });
     }
 
@@ -1162,12 +1117,12 @@ mod tests {
 
             assert_eq!(weight, base_weight);
             assert!(
-                pallet_rate_limiting::Limits::<Runtime, RateLimitingInstance>::iter()
+                pallet_rate_limiting::Limits::<Runtime>::iter()
                     .next()
                     .is_none()
             );
             assert!(
-                pallet_rate_limiting::LastSeen::<Runtime, RateLimitingInstance>::iter()
+                pallet_rate_limiting::LastSeen::<Runtime>::iter()
                     .next()
                     .is_none()
             );
