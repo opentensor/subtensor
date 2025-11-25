@@ -554,27 +554,12 @@ where
         };
         mev_timing = Some(timing.clone());
 
-        // Initialize author‑side epoch from chain storage
-        let initial_epoch: u64 = {
-            let best = client.info().best_hash;
-            let mut key_bytes = Vec::with_capacity(32);
-            key_bytes.extend_from_slice(&twox_128(b"MevShield"));
-            key_bytes.extend_from_slice(&twox_128(b"Epoch"));
-            let key = StorageKey(key_bytes);
-
-            match client.storage(best, &key) {
-                Ok(Some(raw_bytes)) => u64::decode(&mut &raw_bytes.0[..]).unwrap_or(0),
-                _ => 0,
-            }
-        };
-
         // Start author-side tasks with the epoch.
         let mev_ctx = author::spawn_author_tasks::<Block, _, _>(
             &task_manager.spawn_handle(),
             client.clone(),
             transaction_pool.clone(),
             keystore_container.keystore(),
-            initial_epoch,
             timing.clone(),
         );
 

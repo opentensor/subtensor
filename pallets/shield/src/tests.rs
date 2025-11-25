@@ -18,7 +18,6 @@ use sp_core::Pair;
 use pallet_mev_shield::{
     Call as MevShieldCall,
     CurrentKey,
-    Epoch,
     Event as MevShieldEvent,
     NextKey,
     Submissions,
@@ -54,7 +53,6 @@ fn build_raw_payload_bytes_for_test(
 #[test]
 fn authority_can_announce_next_key_and_on_initialize_rolls_it() {
     new_test_ext().execute_with(|| {
-        let epoch: u64 = 42;
         const KYBER_PK_LEN: usize = 1184;
         let pk_bytes = vec![7u8; KYBER_PK_LEN];
         let bounded_pk: BoundedVec<u8, FrameConstU32<2048>> =
@@ -73,7 +71,6 @@ fn authority_can_announce_next_key_and_on_initialize_rolls_it() {
         > = BoundedVec::truncate_from(vec![validator_aura_id.clone()]);
         pallet_aura::Authorities::<Test>::put(authorities);
 
-        assert_eq!(Epoch::<Test>::get(), 0);
         assert!(CurrentKey::<Test>::get().is_none());
         assert!(NextKey::<Test>::get().is_none());
 
@@ -81,22 +78,18 @@ fn authority_can_announce_next_key_and_on_initialize_rolls_it() {
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::signed(validator_account.clone()),
             bounded_pk.clone(),
-            epoch
         ));
 
         // NextKey storage updated
         let next = NextKey::<Test>::get().expect("NextKey should be set");
-        assert_eq!(next.epoch, epoch);
-        assert_eq!(next.public_key.to_vec(), pk_bytes);
+        assert_eq!(next, pk_bytes);
 
         // Roll on new block
         MevShield::on_initialize(2);
 
         let curr = CurrentKey::<Test>::get().expect("CurrentKey should be set");
-        assert_eq!(curr.epoch, epoch);
-        assert_eq!(curr.public_key.to_vec(), pk_bytes);
+        assert_eq!(curr, pk_bytes);
 
-        assert_eq!(Epoch::<Test>::get(), epoch);
         assert!(NextKey::<Test>::get().is_none());
     });
 }
@@ -106,7 +99,6 @@ fn authority_can_announce_next_key_and_on_initialize_rolls_it() {
 fn announce_next_key_rejects_non_validator_origins() {
     new_test_ext().execute_with(|| {
         const KYBER_PK_LEN: usize = 1184;
-        let epoch: u64 = 7;
 
         // Validator account: bytes match the Aura authority we put into storage.
         let validator_pair = test_sr25519_pair();
@@ -134,7 +126,6 @@ fn announce_next_key_rejects_non_validator_origins() {
             MevShield::announce_next_key(
                 RuntimeOrigin::signed(non_validator.clone()),
                 bounded_pk.clone(),
-                epoch,
             ),
             sp_runtime::DispatchError::BadOrigin
         );
@@ -144,7 +135,6 @@ fn announce_next_key_rejects_non_validator_origins() {
             MevShield::announce_next_key(
                 RuntimeOrigin::none(),
                 bounded_pk.clone(),
-                epoch,
             ),
             sp_runtime::DispatchError::BadOrigin
         );
@@ -153,12 +143,10 @@ fn announce_next_key_rejects_non_validator_origins() {
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::signed(validator_account.clone()),
             bounded_pk.clone(),
-            epoch
         ));
 
         let next = NextKey::<Test>::get().expect("NextKey must be set by validator");
-        assert_eq!(next.epoch, epoch);
-        assert_eq!(next.public_key.to_vec(), pk_bytes);
+        assert_eq!(next, pk_bytes);
     });
 }
 

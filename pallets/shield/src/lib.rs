@@ -80,14 +80,6 @@ pub mod pallet {
         pub submitted_in: BlockNumber,
     }
 
-    /// Ephemeral key fingerprint used by off-chain code to verify the ML‑KEM pubkey.
-    #[freeze_struct("4e13d24516013712")]
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-    pub struct EphemeralPubKey {
-        pub public_key: BoundedVec<u8, ConstU32<2048>>,
-        pub epoch: u64,
-    }
-
     // ----------------- Config -----------------
 
     #[pallet::config]
@@ -111,13 +103,10 @@ pub mod pallet {
     // ----------------- Storage -----------------
 
     #[pallet::storage]
-    pub type CurrentKey<T> = StorageValue<_, EphemeralPubKey, OptionQuery>;
+    pub type CurrentKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<2048>>, OptionQuery>;
 
     #[pallet::storage]
-    pub type NextKey<T> = StorageValue<_, EphemeralPubKey, OptionQuery>;
-
-    #[pallet::storage]
-    pub type Epoch<T> = StorageValue<_, u64, ValueQuery>;
+    pub type NextKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<2048>>, OptionQuery>;
 
     #[pallet::storage]
     pub type Submissions<T: Config> = StorageMap<
@@ -146,7 +135,6 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        BadEpoch,
         SubmissionAlreadyExists,
         MissingSubmission,
         CommitmentMismatch,
@@ -162,7 +150,6 @@ pub mod pallet {
         fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
             if let Some(next) = <NextKey<T>>::take() {
                 <CurrentKey<T>>::put(&next);
-                <Epoch<T>>::mutate(|e| *e = next.epoch);
             }
             T::DbWeight::get().reads_writes(1, 2)
         }
@@ -181,7 +168,6 @@ pub mod pallet {
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: BoundedVec<u8, ConstU32<2048>>,
-            epoch: u64,
         ) -> DispatchResult {
             // Only a current Aura validator may call this (signed account ∈ Aura authorities)
             T::AuthorityOrigin::ensure_validator(origin)?;
@@ -192,10 +178,7 @@ pub mod pallet {
                 Error::<T>::BadPublicKeyLen
             );
 
-            NextKey::<T>::put(EphemeralPubKey {
-                public_key: public_key.clone(),
-                epoch,
-            });
+            NextKey::<T>::put(public_key.clone());
 
             Ok(())
         }

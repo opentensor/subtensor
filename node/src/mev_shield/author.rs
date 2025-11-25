@@ -21,7 +21,7 @@ pub struct TimeParams {
 }
 
 /// Holds the current/next ML‑KEM keypairs and their 32‑byte fingerprints.
-#[freeze_struct("3a83c10877ec1f24")]
+#[freeze_struct("5e3c8209248282c3")]
 #[derive(Clone)]
 pub struct ShieldKeys {
     pub current_sk: Vec<u8>,  // ML‑KEM secret key bytes (encoded form)
@@ -30,11 +30,10 @@ pub struct ShieldKeys {
     pub next_sk: Vec<u8>,
     pub next_pk: Vec<u8>,
     pub next_fp: [u8; 32],
-    pub epoch: u64,
 }
 
 impl ShieldKeys {
-    pub fn new(epoch: u64) -> Self {
+    pub fn new() -> Self {
         let (sk, pk) = MlKem768::generate(&mut OsRng);
 
         let sk_bytes = sk.as_bytes();
@@ -62,7 +61,6 @@ impl ShieldKeys {
             next_sk,
             next_pk,
             next_fp,
-            epoch,
         }
     }
 
@@ -81,8 +79,6 @@ impl ShieldKeys {
         self.next_sk = nsk_slice.to_vec();
         self.next_pk = npk_slice.to_vec();
         self.next_fp = blake2_256(npk_slice);
-
-        self.epoch = self.epoch.saturating_add(1);
     }
 }
 
@@ -130,7 +126,6 @@ pub fn spawn_author_tasks<B, C, Pool>(
     client: std::sync::Arc<C>,
     pool: std::sync::Arc<Pool>,
     keystore: sp_keystore::KeystorePtr,
-    initial_epoch: u64,
     timing: TimeParams,
 ) -> ShieldContext
 where
@@ -140,7 +135,7 @@ where
     B::Extrinsic: From<sp_runtime::OpaqueExtrinsic>,
 {
     let ctx = ShieldContext {
-        keys: std::sync::Arc::new(std::sync::Mutex::new(ShieldKeys::new(initial_epoch))),
+        keys: std::sync::Arc::new(std::sync::Mutex::new(ShieldKeys::new())),
         timing: timing.clone(),
     };
 
@@ -181,8 +176,8 @@ where
                 }
 
                 // This block is the start of a slot for which we are the author.
-                let (epoch_now, curr_pk_len, next_pk_len) = match ctx_clone.keys.lock() {
-                    Ok(k) => (k.epoch, k.current_pk.len(), k.next_pk.len()),
+                let (curr_pk_len, next_pk_len) = match ctx_clone.keys.lock() {
+                    Ok(k) => (k.current_pk.len(), k.next_pk.len()),
                     Err(e) => {
                         log::debug!(
                             target: "mev-shield",
@@ -195,16 +190,16 @@ where
 
                 log::debug!(
                     target: "mev-shield",
-                    "Slot start (local author): epoch={} (pk sizes: curr={}B, next={}B)",
-                    epoch_now, curr_pk_len, next_pk_len
+                    "Slot start (local author): (pk sizes: curr={}B, next={}B)",
+                    curr_pk_len, next_pk_len
                 );
 
                 // Wait until the announce window in this slot.
                 sleep(std::time::Duration::from_millis(timing.announce_at_ms)).await;
 
-                // Read the next key we intend to use for the following epoch.
-                let (next_pk, next_epoch) = match ctx_clone.keys.lock() {
-                    Ok(k) => (k.next_pk.clone(), k.epoch.saturating_add(1)),
+                // Read the next key we intend to use for the following block.
+                let next_pk = match ctx_clone.keys.lock() {
+                    Ok(k) => k.next_pk.clone(),
                     Err(e) => {
                         log::debug!(
                             target: "mev-shield",
@@ -222,7 +217,6 @@ where
                     keystore_clone.clone(),
                     local_aura_pub.clone(),
                     next_pk.clone(),
-                    next_epoch,
                     local_nonce,
                 )
                 .await
@@ -240,7 +234,6 @@ where
                                 keystore_clone.clone(),
                                 local_aura_pub.clone(),
                                 next_pk,
-                                next_epoch,
                                 local_nonce.saturating_add(1),
                             )
                             .await
@@ -266,14 +259,13 @@ where
                 let tail = timing.slot_ms.saturating_sub(timing.announce_at_ms);
                 sleep(std::time::Duration::from_millis(tail)).await;
 
-                // Roll keys for the next epoch.
+                // Roll keys for the next block.
                 match ctx_clone.keys.lock() {
                     Ok(mut k) => {
                         k.roll_for_next_slot();
                         log::debug!(
                             target: "mev-shield",
-                            "Rolled ML-KEM key at slot boundary (local author): new epoch={}",
-                            k.epoch
+                            "Rolled ML-KEM key at slot boundary",
                         );
                     }
                     Err(e) => {
@@ -298,7 +290,6 @@ pub async fn submit_announce_extrinsic<B, C, Pool>(
     keystore: sp_keystore::KeystorePtr,
     aura_pub: sp_core::sr25519::Public,
     next_public_key: Vec<u8>,
-    epoch: u64,
     nonce: u32,
 ) -> anyhow::Result<()>
 where
@@ -350,7 +341,7 @@ where
         .map_err(|_| anyhow::anyhow!("public key too long (>2048 bytes)"))?;
 
     // 1) The runtime call carrying public key bytes.
-    let call = RuntimeCall::MevShield(pallet_shield::Call::announce_next_key { public_key, epoch });
+    let call = RuntimeCall::MevShield(pallet_shield::Call::announce_next_key { public_key });
 
     type Extra = runtime::TransactionExtensions;
     let extra: Extra =
@@ -424,9 +415,8 @@ where
 
     log::debug!(
         target: "mev-shield",
-        "announce_next_key submitted: xt=0x{}, epoch={}, nonce={}",
+        "announce_next_key submitted: xt=0x{}, nonce={}",
         hex::encode(xt_hash),
-        epoch,
         nonce
     );
 

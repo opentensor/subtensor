@@ -6,6 +6,7 @@ use sc_service::SpawnTaskHandle;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
 use sp_core::H256;
 use sp_runtime::{AccountId32, MultiSignature, OpaqueExtrinsic};
+use sp_runtime::traits::Header;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -13,53 +14,53 @@ use std::{
 };
 use tokio::time::sleep;
 
-/// Buffer of wrappers per-slot.
+/// Buffer of wrappers keyed by the block number in which they were included.
 #[derive(Default, Clone)]
 struct WrapperBuffer {
     by_id: HashMap<
         H256,
         (
             Vec<u8>,     // ciphertext blob
-            u64,         // key_epoch
+            u64,         // originating block number
             AccountId32, // wrapper author
         ),
     >,
 }
 
 impl WrapperBuffer {
-    fn upsert(&mut self, id: H256, key_epoch: u64, author: AccountId32, ciphertext: Vec<u8>) {
-        self.by_id.insert(id, (ciphertext, key_epoch, author));
+    fn upsert(&mut self, id: H256, block_number: u64, author: AccountId32, ciphertext: Vec<u8>) {
+        self.by_id.insert(id, (ciphertext, block_number, author));
     }
 
-    /// Drain only wrappers whose `key_epoch` matches the given `epoch`.
-    ///   - Wrappers with `key_epoch > epoch` are kept for future decrypt windows.
-    ///   - Wrappers with `key_epoch < epoch` are considered stale and dropped.
-    fn drain_for_epoch(
+    /// Drain only wrappers whose `block_number` matches the given `block`.
+    ///   - Wrappers with `block_number > block` are kept for future decrypt windows.
+    ///   - Wrappers with `block_number < block` are considered stale and dropped.
+    fn drain_for_block(
         &mut self,
-        epoch: u64,
+        block: u64,
     ) -> Vec<(H256, u64, sp_runtime::AccountId32, Vec<u8>)> {
         let mut ready = Vec::new();
         let mut kept_future: usize = 0;
         let mut dropped_past: usize = 0;
 
-        self.by_id.retain(|id, (ct, key_epoch, who)| {
-            if *key_epoch == epoch {
+        self.by_id.retain(|id, (ct, block_number, who)| {
+            if *block_number == block {
                 // Ready to process now; remove from buffer.
-                ready.push((*id, *key_epoch, who.clone(), ct.clone()));
+                ready.push((*id, *block_number, who.clone(), ct.clone()));
                 false
-            } else if *key_epoch > epoch {
-                // Not yet reveal time; keep for future epochs.
+            } else if *block_number > block {
+                // Not yet reveal time; keep for future blocks.
                 kept_future = kept_future.saturating_add(1);
                 true
             } else {
-                // key_epoch < epoch => stale / missed reveal window; drop.
+                // block_number < block => stale / missed reveal window; drop.
                 dropped_past = dropped_past.saturating_add(1);
                 log::debug!(
                     target: "mev-shield",
-                    "revealer: dropping stale wrapper id=0x{} key_epoch={} < curr_epoch={}",
+                    "revealer: dropping stale wrapper id=0x{} block_number={} < curr_block={}",
                     hex::encode(id.as_bytes()),
-                    *key_epoch,
-                    epoch
+                    *block_number,
+                    block
                 );
                 false
             }
@@ -67,8 +68,8 @@ impl WrapperBuffer {
 
         log::debug!(
             target: "mev-shield",
-            "revealer: drain_for_epoch(epoch={}): ready={}, kept_future={}, dropped_past={}",
-            epoch,
+            "revealer: drain_for_block(block={}): ready={}, kept_future={}, dropped_past={}",
+            block,
             ready.len(),
             kept_future,
             dropped_past
@@ -80,7 +81,7 @@ impl WrapperBuffer {
 
 /// Start a background worker that:
 ///   • watches imported blocks and captures `MevShield::submit_encrypted`
-///   • buffers those wrappers,
+///   • buffers those wrappers per originating block,
 ///   • ~last `decrypt_window_ms` of the slot: decrypt & submit unsigned `execute_revealed`
 pub fn spawn_revealer<B, C, Pool>(
     task_spawner: &SpawnTaskHandle,
@@ -109,7 +110,6 @@ pub fn spawn_revealer<B, C, Pool>(
     {
         let client = Arc::clone(&client);
         let buffer = Arc::clone(&buffer);
-        let ctx_for_buffer = ctx.clone();
 
         task_spawner.spawn(
             "mev-shield-buffer-wrappers",
@@ -120,11 +120,16 @@ pub fn spawn_revealer<B, C, Pool>(
 
                 while let Some(notif) = import_stream.next().await {
                     let at_hash = notif.hash;
+                    // FIX: dereference the number before saturated_into()
+                    let block_number_u64: u64 =
+                        (*notif.header.number()).saturated_into();
 
                     log::debug!(
                         target: "mev-shield",
-                        "imported block hash={:?} origin={:?}",
-                        at_hash, notif.origin
+                        "imported block hash={:?} number={} origin={:?}",
+                        at_hash,
+                        block_number_u64,
+                        notif.origin
                     );
 
                     match client.block_body(at_hash) {
@@ -192,37 +197,15 @@ pub fn spawn_revealer<B, C, Pool>(
                                     },
                                 ) = &uxt.0.function
                                 {
-                                    // Derive the key_epoch for this wrapper from the current
-                                    // ShieldContext epoch at *buffer* time.
-                                    let key_epoch_opt = match ctx_for_buffer.keys.lock() {
-                                        Ok(k) => Some(k.epoch),
-                                        Err(e) => {
-                                            log::debug!(
-                                                target: "mev-shield",
-                                                "    [xt #{idx}] failed to lock ShieldKeys in buffer task: {:?}",
-                                                e
-                                            );
-                                            None
-                                        }
-                                    };
-
-                                    let Some(key_epoch) = key_epoch_opt else {
-                                        log::debug!(
-                                            target: "mev-shield",
-                                            "    [xt #{idx}] skipping wrapper due to missing epoch snapshot"
-                                        );
-                                        continue;
-                                    };
-
                                     let payload =
                                         (author.clone(), *commitment, ciphertext).encode();
                                     let id = H256(sp_core::hashing::blake2_256(&payload));
 
                                     log::debug!(
                                         target: "mev-shield",
-                                        "    [xt #{idx}] buffered submit_encrypted: id=0x{}, key_epoch={}, author={}, ct_len={}, commitment={:?}",
+                                        "    [xt #{idx}] buffered submit_encrypted: id=0x{}, block_number={}, author={}, ct_len={}, commitment={:?}",
                                         hex::encode(id.as_bytes()),
-                                        key_epoch,
+                                        block_number_u64,
                                         author,
                                         ciphertext.len(),
                                         commitment
@@ -231,7 +214,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     if let Ok(mut buf) = buffer.lock() {
                                         buf.upsert(
                                             id,
-                                            key_epoch,
+                                            block_number_u64,
                                             author,
                                             ciphertext.to_vec(),
                                         );
@@ -285,13 +268,12 @@ pub fn spawn_revealer<B, C, Pool>(
                     );
                     sleep(Duration::from_millis(tail)).await;
 
-                    // Snapshot the current ML‑KEM secret and epoch
+                    // Snapshot the current ML‑KEM secret (but *not* any epoch).
                     let snapshot_opt = match ctx.keys.lock() {
                         Ok(k) => {
                             let sk_hash = sp_core::hashing::blake2_256(&k.current_sk);
                             Some((
                                 k.current_sk.clone(),
-                                k.epoch,
                                 k.current_pk.len(),
                                 k.next_pk.len(),
                                 sk_hash,
@@ -307,7 +289,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         }
                     };
 
-                    let (curr_sk_bytes, curr_epoch, curr_pk_len, next_pk_len, sk_hash) =
+                    let (curr_sk_bytes, curr_pk_len, next_pk_len, sk_hash) =
                         match snapshot_opt {
                             Some(v) => v,
                             None => {
@@ -317,24 +299,27 @@ pub fn spawn_revealer<B, C, Pool>(
                             }
                         };
 
+                    // Use best block number as the “epoch” for which we reveal.
+                    let curr_block: u64 = client.info().best_number.saturated_into();
+
                     log::debug!(
                         target: "mev-shield",
-                        "revealer: decrypt window start. epoch={} sk_len={} sk_hash=0x{} curr_pk_len={} next_pk_len={}",
-                        curr_epoch,
+                        "revealer: decrypt window start. block={} sk_len={} sk_hash=0x{} curr_pk_len={} next_pk_len={}",
+                        curr_block,
                         curr_sk_bytes.len(),
                         hex::encode(sk_hash),
                         curr_pk_len,
                         next_pk_len
                     );
 
-                    // Only process wrappers whose key_epoch == curr_epoch.
+                    // Only process wrappers whose originating block matches the current block.
                     let drained: Vec<(H256, u64, sp_runtime::AccountId32, Vec<u8>)> =
                         match buffer.lock() {
-                            Ok(mut buf) => buf.drain_for_epoch(curr_epoch),
+                            Ok(mut buf) => buf.drain_for_block(curr_block),
                             Err(e) => {
                                 log::debug!(
                                     target: "mev-shield",
-                                    "revealer: failed to lock WrapperBuffer for drain_for_epoch: {:?}",
+                                    "revealer: failed to lock WrapperBuffer for drain_for_block: {:?}",
                                     e
                                 );
                                 Vec::new()
@@ -343,20 +328,20 @@ pub fn spawn_revealer<B, C, Pool>(
 
                     log::debug!(
                         target: "mev-shield",
-                        "revealer: drained {} buffered wrappers for current epoch={}",
+                        "revealer: drained {} buffered wrappers for current block={}",
                         drained.len(),
-                        curr_epoch
+                        curr_block
                     );
 
                     let mut to_submit: Vec<(H256, node_subtensor_runtime::RuntimeCall)> = Vec::new();
 
-                    for (id, key_epoch, author, blob) in drained.into_iter() {
+                    for (id, block_number, author, blob) in drained.into_iter() {
                         log::debug!(
                             target: "mev-shield",
-                            "revealer: candidate id=0x{} key_epoch={} (curr_epoch={}) author={} blob_len={}",
+                            "revealer: candidate id=0x{} block_number={} (curr_block={}) author={} blob_len={}",
                             hex::encode(id.as_bytes()),
-                            key_epoch,
-                            curr_epoch,
+                            block_number,
+                            curr_block,
                             author,
                             blob.len()
                         );
