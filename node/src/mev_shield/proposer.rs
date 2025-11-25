@@ -82,7 +82,7 @@ impl WrapperBuffer {
 /// Start a background worker that:
 ///   • watches imported blocks and captures `MevShield::submit_encrypted`
 ///   • buffers those wrappers per originating block,
-///   • ~last `decrypt_window_ms` of the slot: decrypt & submit unsigned `execute_revealed`
+///   • during the last `decrypt_window_ms` of the slot: decrypt & submit unsigned `execute_revealed`
 pub fn spawn_revealer<B, C, Pool>(
     task_spawner: &SpawnTaskHandle,
     client: Arc<C>,
@@ -120,9 +120,7 @@ pub fn spawn_revealer<B, C, Pool>(
 
                 while let Some(notif) = import_stream.next().await {
                     let at_hash = notif.hash;
-                    // FIX: dereference the number before saturated_into()
-                    let block_number_u64: u64 =
-                        (*notif.header.number()).saturated_into();
+                    let block_number_u64: u64 = (*notif.header.number()).saturated_into();
 
                     log::debug!(
                         target: "mev-shield",
@@ -244,7 +242,7 @@ pub fn spawn_revealer<B, C, Pool>(
         );
     }
 
-    // ── 2) last-3s revealer ─────────────────────────────────────
+    // ── 2) decrypt window revealer ──────────────────────────────
     {
         let client = Arc::clone(&client);
         let pool = Arc::clone(&pool);
@@ -252,21 +250,48 @@ pub fn spawn_revealer<B, C, Pool>(
         let ctx = ctx.clone();
 
         task_spawner.spawn(
-            "mev-shield-last-3s-revealer",
+            "mev-shield-last-window-revealer",
             None,
             async move {
-                log::debug!(target: "mev-shield", "last-3s-revealer task started");
+                log::debug!(target: "mev-shield", "last-window-revealer task started");
+
+                // Respect the configured slot_ms, but clamp the decrypt window so it never
+                // exceeds the slot length (important for fast runtimes).
+                let slot_ms = ctx.timing.slot_ms;
+                let mut decrypt_window_ms = ctx.timing.decrypt_window_ms;
+
+                if decrypt_window_ms > slot_ms {
+                    log::warn!(
+                        target: "mev-shield",
+                        "spawn_revealer: decrypt_window_ms ({}) > slot_ms ({}); clamping to slot_ms",
+                        decrypt_window_ms,
+                        slot_ms
+                    );
+                    decrypt_window_ms = slot_ms;
+                }
+
+                let tail_ms = slot_ms.saturating_sub(decrypt_window_ms);
+
+                log::debug!(
+                    target: "mev-shield",
+                    "revealer timing: slot_ms={} decrypt_window_ms={} (effective) tail_ms={}",
+                    slot_ms,
+                    decrypt_window_ms,
+                    tail_ms
+                );
 
                 loop {
-                    let tail = ctx.timing.slot_ms.saturating_sub(ctx.timing.decrypt_window_ms);
                     log::debug!(
                         target: "mev-shield",
                         "revealer: sleeping {} ms before decrypt window (slot_ms={}, decrypt_window_ms={})",
-                        tail,
-                        ctx.timing.slot_ms,
-                        ctx.timing.decrypt_window_ms
+                        tail_ms,
+                        slot_ms,
+                        decrypt_window_ms
                     );
-                    sleep(Duration::from_millis(tail)).await;
+
+                    if tail_ms > 0 {
+                        sleep(Duration::from_millis(tail_ms)).await;
+                    }
 
                     // Snapshot the current ML‑KEM secret (but *not* any epoch).
                     let snapshot_opt = match ctx.keys.lock() {
@@ -294,7 +319,9 @@ pub fn spawn_revealer<B, C, Pool>(
                             Some(v) => v,
                             None => {
                                 // Skip this decrypt window entirely, without holding any guard.
-                                sleep(Duration::from_millis(ctx.timing.decrypt_window_ms)).await;
+                                if decrypt_window_ms > 0 {
+                                    sleep(Duration::from_millis(decrypt_window_ms)).await;
+                                }
                                 continue;
                             }
                         };
@@ -793,7 +820,9 @@ pub fn spawn_revealer<B, C, Pool>(
                     }
 
                     // Let the decrypt window elapse.
-                    sleep(Duration::from_millis(ctx.timing.decrypt_window_ms)).await;
+                    if decrypt_window_ms > 0 {
+                        sleep(Duration::from_millis(decrypt_window_ms)).await;
+                    }
                 }
             },
         );

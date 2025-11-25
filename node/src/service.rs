@@ -35,11 +35,6 @@ use crate::ethereum::{
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
 use crate::mev_shield::{author, proposer};
-use codec::Decode;
-use sc_client_api::HeaderBackend;
-use sc_client_api::StorageKey;
-use sc_client_api::StorageProvider;
-use sp_core::twox_128;
 
 const LOG_TARGET: &str = "node-service";
 

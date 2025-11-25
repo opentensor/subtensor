@@ -166,6 +166,29 @@ where
             use futures::StreamExt;
             use sp_consensus::BlockOrigin;
 
+            let slot_ms = timing.slot_ms;
+
+            // Clamp announce_at_ms so it never exceeds slot_ms.
+            let mut announce_at_ms = timing.announce_at_ms;
+            if announce_at_ms > slot_ms {
+                log::warn!(
+                    target: "mev-shield",
+                    "spawn_author_tasks: announce_at_ms ({}) > slot_ms ({}); clamping to slot_ms",
+                    announce_at_ms,
+                    slot_ms,
+                );
+                announce_at_ms = slot_ms;
+            }
+            let tail_ms = slot_ms.saturating_sub(announce_at_ms);
+
+            log::debug!(
+                target: "mev-shield",
+                "author timing: slot_ms={} announce_at_ms={} (effective) tail_ms={}",
+                slot_ms,
+                announce_at_ms,
+                tail_ms
+            );
+
             let mut import_stream = client_clone.import_notification_stream();
             let mut local_nonce: u32 = 0;
 
@@ -195,7 +218,9 @@ where
                 );
 
                 // Wait until the announce window in this slot.
-                sleep(std::time::Duration::from_millis(timing.announce_at_ms)).await;
+                if announce_at_ms > 0 {
+                    sleep(std::time::Duration::from_millis(announce_at_ms)).await;
+                }
 
                 // Read the next key we intend to use for the following block.
                 let next_pk = match ctx_clone.keys.lock() {
@@ -255,9 +280,10 @@ where
                     }
                 }
 
-                // Sleep the remainder of the slot.
-                let tail = timing.slot_ms.saturating_sub(timing.announce_at_ms);
-                sleep(std::time::Duration::from_millis(tail)).await;
+                // Sleep the remainder of the slot (if any).
+                if tail_ms > 0 {
+                    sleep(std::time::Duration::from_millis(tail_ms)).await;
+                }
 
                 // Roll keys for the next block.
                 match ctx_clone.keys.lock() {
