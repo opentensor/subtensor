@@ -92,20 +92,17 @@ mod benches {
         // Valid Kyber768 public key length per pallet check.
         const KYBER768_PK_LEN: usize = 1184;
         let public_key: BoundedVec<u8, ConstU32<2048>> = bounded_pk::<2048>(KYBER768_PK_LEN);
-        let epoch: u64 = 42;
 
         // Measure: dispatch the extrinsic.
         #[extrinsic_call]
         announce_next_key(
             RawOrigin::Signed(alice_acc.clone()),
             public_key.clone(),
-            epoch,
         );
 
         // Assert: NextKey should be set exactly.
         let stored = NextKey::<T>::get().expect("must be set by announce_next_key");
-        assert_eq!(stored.epoch, epoch);
-        assert_eq!(stored.public_key.as_slice(), public_key.as_slice());
+        assert_eq!(stored, public_key.as_slice());
     }
 
     /// Benchmark `submit_encrypted`.
