@@ -1,6 +1,3 @@
-//! Benchmarking for pallet-mev-shield.
-#![cfg(feature = "runtime-benchmarks")]
-
 use super::*;
 
 use codec::Encode;
@@ -99,7 +96,7 @@ mod benches {
 
         // Assert: NextKey should be set exactly.
         let stored = NextKey::<T>::get().expect("must be set by announce_next_key");
-        assert_eq!(stored, public_key.as_slice());
+        assert_eq!(stored, public_key);
     }
 
     /// Benchmark `submit_encrypted`.

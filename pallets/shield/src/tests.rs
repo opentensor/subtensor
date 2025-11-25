@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use crate as pallet_mev_shield;
 use crate::mock::*;
 

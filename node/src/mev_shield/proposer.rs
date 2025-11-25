@@ -151,8 +151,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     Err(e) => {
                                         log::debug!(
                                             target: "mev-shield",
-                                            "    [xt #{idx}] failed to decode UncheckedExtrinsic: {:?}",
-                                            e
+                                            "    [xt #{idx}] failed to decode UncheckedExtrinsic: {e:?}",
                                         );
                                         continue;
                                     }
@@ -227,14 +226,11 @@ pub fn spawn_revealer<B, C, Pool>(
                         }
                         Ok(None) => log::debug!(
                             target: "mev-shield",
-                            "  block_body returned None for hash={:?}",
-                            at_hash
+                            "  block_body returned None for hash={at_hash:?}",
                         ),
                         Err(e) => log::debug!(
                             target: "mev-shield",
-                            "  block_body error for hash={:?}: {:?}",
-                            at_hash,
-                            e
+                            "  block_body error for hash={at_hash:?}: {e:?}",
                         ),
                     }
                 }
@@ -263,9 +259,7 @@ pub fn spawn_revealer<B, C, Pool>(
                 if decrypt_window_ms > slot_ms {
                     log::warn!(
                         target: "mev-shield",
-                        "spawn_revealer: decrypt_window_ms ({}) > slot_ms ({}); clamping to slot_ms",
-                        decrypt_window_ms,
-                        slot_ms
+                        "spawn_revealer: decrypt_window_ms ({decrypt_window_ms}) > slot_ms ({slot_ms}); clamping to slot_ms",
                     );
                     decrypt_window_ms = slot_ms;
                 }
@@ -274,19 +268,13 @@ pub fn spawn_revealer<B, C, Pool>(
 
                 log::debug!(
                     target: "mev-shield",
-                    "revealer timing: slot_ms={} decrypt_window_ms={} (effective) tail_ms={}",
-                    slot_ms,
-                    decrypt_window_ms,
-                    tail_ms
+                    "revealer timing: slot_ms={slot_ms} decrypt_window_ms={decrypt_window_ms} (effective) tail_ms={tail_ms}",
                 );
 
                 loop {
                     log::debug!(
                         target: "mev-shield",
-                        "revealer: sleeping {} ms before decrypt window (slot_ms={}, decrypt_window_ms={})",
-                        tail_ms,
-                        slot_ms,
-                        decrypt_window_ms
+                        "revealer: sleeping {tail_ms} ms before decrypt window (slot_ms={slot_ms}, decrypt_window_ms={decrypt_window_ms})",
                     );
 
                     if tail_ms > 0 {
@@ -307,8 +295,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         Err(e) => {
                             log::debug!(
                                 target: "mev-shield",
-                                "revealer: failed to lock ShieldKeys (poisoned?): {:?}",
-                                e
+                                "revealer: failed to lock ShieldKeys (poisoned?): {e:?}",
                             );
                             None
                         }
@@ -346,8 +333,7 @@ pub fn spawn_revealer<B, C, Pool>(
                             Err(e) => {
                                 log::debug!(
                                     target: "mev-shield",
-                                    "revealer: failed to lock WrapperBuffer for drain_for_block: {:?}",
-                                    e
+                                    "revealer: failed to lock WrapperBuffer for drain_for_block: {e:?}",
                                 );
                                 Vec::new()
                             }

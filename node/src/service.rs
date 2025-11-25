@@ -540,18 +540,13 @@ where
 
     if role.is_authority() {
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
-        let slot_duration_ms: u64 =
-            u64::try_from(slot_duration.as_millis()).unwrap_or(u64::MAX);
+        let slot_duration_ms: u64 = u64::try_from(slot_duration.as_millis()).unwrap_or(u64::MAX);
 
         // For 12s blocks: announce ≈ 7s, decrypt window ≈ 3s.
         // For 250ms blocks: announce ≈ 145ms, decrypt window ≈ 62ms, etc.
-        let announce_at_ms_raw = slot_duration_ms
-            .saturating_mul(7)
-            .saturating_div(12);
+        let announce_at_ms_raw = slot_duration_ms.saturating_mul(7).saturating_div(12);
 
-        let decrypt_window_ms = slot_duration_ms
-            .saturating_mul(3)
-            .saturating_div(12);
+        let decrypt_window_ms = slot_duration_ms.saturating_mul(3).saturating_div(12);
 
         // Ensure announce_at_ms + decrypt_window_ms never exceeds slot_ms.
         let max_announce = slot_duration_ms.saturating_sub(decrypt_window_ms);
@@ -614,20 +609,19 @@ where
             let (slot_ms, decrypt_ms) = mev_timing
                 .as_ref()
                 .map(|t| (t.slot_ms, t.decrypt_window_ms))
-                .unwrap_or((slot_duration.as_millis() as u64, 3_000));
+                .unwrap_or((slot_duration.as_millis(), 3_000));
 
             let guard_ms: u64 = 200; // small cushion so reveals hit the pool first
             let after_decrypt_ms = slot_ms.saturating_sub(decrypt_ms).saturating_add(guard_ms);
 
-            // Clamp into (0.5 .. 0.98] to give the proposer enough time
-            let mut f = (after_decrypt_ms as f32) / (slot_ms as f32);
-            if f < 0.50 {
-                f = 0.50;
-            }
-            if f > 0.98 {
-                f = 0.98;
-            }
-            f
+            let f_raw = if slot_ms > 0 {
+                (after_decrypt_ms as f32) / (slot_ms as f32)
+            } else {
+                // Extremely defensive fallback; should never happen in practice.
+                0.75
+            };
+
+            f_raw.clamp(0.50, 0.98)
         };
 
         let create_inherent_data_providers =

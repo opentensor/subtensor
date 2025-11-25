@@ -82,6 +82,12 @@ impl ShieldKeys {
     }
 }
 
+impl Default for ShieldKeys {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Shared context state.
 #[freeze_struct("62af7d26cf7c1271")]
 #[derive(Clone)]
@@ -94,7 +100,10 @@ pub struct ShieldContext {
 pub fn derive_aead_key(ss: &[u8]) -> [u8; 32] {
     let mut key = [0u8; 32];
     let n = ss.len().min(32);
-    key[..n].copy_from_slice(&ss[..n]);
+
+    if let (Some(dst), Some(src)) = (key.get_mut(..n), ss.get(..n)) {
+        dst.copy_from_slice(src);
+    }
     key
 }
 
@@ -123,8 +132,8 @@ const AURA_KEY_TYPE: KeyTypeId = KeyTypeId(*b"aura");
 ///  - at ~announce_at_ms announce the next key bytes on chain,
 pub fn spawn_author_tasks<B, C, Pool>(
     task_spawner: &sc_service::SpawnTaskHandle,
-    client: std::sync::Arc<C>,
-    pool: std::sync::Arc<Pool>,
+    client: Arc<C>,
+    pool: Arc<Pool>,
     keystore: sp_keystore::KeystorePtr,
     timing: TimeParams,
 ) -> ShieldContext
@@ -135,13 +144,13 @@ where
     B::Extrinsic: From<sp_runtime::OpaqueExtrinsic>,
 {
     let ctx = ShieldContext {
-        keys: std::sync::Arc::new(std::sync::Mutex::new(ShieldKeys::new())),
+        keys: Arc::new(Mutex::new(ShieldKeys::new())),
         timing: timing.clone(),
     };
 
     let aura_keys: Vec<sp_core::sr25519::Public> = keystore.sr25519_public_keys(AURA_KEY_TYPE);
 
-    let local_aura_pub = match aura_keys.get(0).cloned() {
+    let local_aura_pub = match aura_keys.first().copied() {
         Some(k) => k,
         None => {
             log::warn!(
@@ -173,9 +182,7 @@ where
             if announce_at_ms > slot_ms {
                 log::warn!(
                     target: "mev-shield",
-                    "spawn_author_tasks: announce_at_ms ({}) > slot_ms ({}); clamping to slot_ms",
-                    announce_at_ms,
-                    slot_ms,
+                    "spawn_author_tasks: announce_at_ms ({announce_at_ms}) > slot_ms ({slot_ms}); clamping to slot_ms",
                 );
                 announce_at_ms = slot_ms;
             }
@@ -183,10 +190,7 @@ where
 
             log::debug!(
                 target: "mev-shield",
-                "author timing: slot_ms={} announce_at_ms={} (effective) tail_ms={}",
-                slot_ms,
-                announce_at_ms,
-                tail_ms
+                "author timing: slot_ms={slot_ms} announce_at_ms={announce_at_ms} (effective) tail_ms={tail_ms}",
             );
 
             let mut import_stream = client_clone.import_notification_stream();
@@ -204,8 +208,7 @@ where
                     Err(e) => {
                         log::debug!(
                             target: "mev-shield",
-                            "spawn_author_tasks: failed to lock ShieldKeys (poisoned?): {:?}",
-                            e
+                            "spawn_author_tasks: failed to lock ShieldKeys (poisoned?): {e:?}",
                         );
                         continue;
                     }
@@ -213,8 +216,7 @@ where
 
                 log::debug!(
                     target: "mev-shield",
-                    "Slot start (local author): (pk sizes: curr={}B, next={}B)",
-                    curr_pk_len, next_pk_len
+                    "Slot start (local author): (pk sizes: curr={curr_pk_len}B, next={next_pk_len}B)",
                 );
 
                 // Wait until the announce window in this slot.
@@ -228,8 +230,7 @@ where
                     Err(e) => {
                         log::debug!(
                             target: "mev-shield",
-                            "spawn_author_tasks: failed to lock ShieldKeys for next_pk: {:?}",
-                            e
+                            "spawn_author_tasks: failed to lock ShieldKeys for next_pk: {e:?}",
                         );
                         continue;
                     }
@@ -240,7 +241,7 @@ where
                     client_clone.clone(),
                     pool_clone.clone(),
                     keystore_clone.clone(),
-                    local_aura_pub.clone(),
+                    local_aura_pub,
                     next_pk.clone(),
                     local_nonce,
                 )
@@ -257,7 +258,7 @@ where
                                 client_clone.clone(),
                                 pool_clone.clone(),
                                 keystore_clone.clone(),
-                                local_aura_pub.clone(),
+                                local_aura_pub,
                                 next_pk,
                                 local_nonce.saturating_add(1),
                             )
@@ -297,13 +298,12 @@ where
                     Err(e) => {
                         log::debug!(
                             target: "mev-shield",
-                            "spawn_author_tasks: failed to lock ShieldKeys for roll_for_next_slot: {:?}",
-                            e
+                            "spawn_author_tasks: failed to lock ShieldKeys for roll_for_next_slot: {e:?}",
                         );
                     }
                 }
             }
-        }
+        },
     );
 
     ctx
@@ -311,8 +311,8 @@ where
 
 /// Build & submit the signed `announce_next_key` extrinsic OFF-CHAIN
 pub async fn submit_announce_extrinsic<B, C, Pool>(
-    client: std::sync::Arc<C>,
-    pool: std::sync::Arc<Pool>,
+    client: Arc<C>,
+    pool: Arc<Pool>,
     keystore: sp_keystore::KeystorePtr,
     aura_pub: sp_core::sr25519::Public,
     next_public_key: Vec<u8>,
@@ -350,10 +350,9 @@ where
         let src_start = bytes.len().saturating_sub(n);
         let dst_start = 32usize.saturating_sub(n);
 
-        if let (Some(dst), Some(src)) = (
-            out.get_mut(dst_start..32),
-            bytes.get(src_start..src_start + n),
-        ) {
+        let src_slice = bytes.get(src_start..).and_then(|s| s.get(..n));
+
+        if let (Some(dst), Some(src)) = (out.get_mut(dst_start..32), src_slice) {
             dst.copy_from_slice(src);
             H256(out)
         } else {
@@ -411,8 +410,7 @@ where
     );
 
     // Build the exact signable payload.
-    let payload: SignedPayload =
-        SignedPayload::from_raw(call.clone(), extra.clone(), implicit.clone());
+    let payload: SignedPayload = SignedPayload::from_raw(call.clone(), extra.clone(), implicit);
 
     let raw_payload = payload.encode();
 
@@ -432,6 +430,7 @@ where
 
     let xt_bytes = uxt.encode();
     let xt_hash = sp_core::hashing::blake2_256(&xt_bytes);
+    let xt_hash_hex = hex::encode(xt_hash);
 
     let opaque: sp_runtime::OpaqueExtrinsic = uxt.into();
     let xt: <B as sp_runtime::traits::Block>::Extrinsic = opaque.into();
@@ -441,9 +440,7 @@ where
 
     log::debug!(
         target: "mev-shield",
-        "announce_next_key submitted: xt=0x{}, nonce={}",
-        hex::encode(xt_hash),
-        nonce
+        "announce_next_key submitted: xt=0x{xt_hash_hex}, nonce={nonce}",
     );
 
     Ok(())

@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use crate as pallet_mev_shield;
 
 use frame_support::{construct_runtime, derive_impl, parameter_types, traits::Everything};

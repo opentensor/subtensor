@@ -195,12 +195,13 @@ pub mod pallet {
         ///   - `aead_ct` is XChaCha20‑Poly1305 over:
         ///       signer || nonce || SCALE(call) || sig_kind || signature
         #[pallet::call_index(1)]
-        #[pallet::weight(({
-            let w = Weight::from_parts(13_980_000, 0)
+        #[pallet::weight((
+            Weight::from_parts(13_980_000, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64));
-            w
-        }, DispatchClass::Normal, Pays::Yes))]
+                .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Normal,
+            Pays::Yes,
+        ))]
         pub fn submit_encrypted(
             origin: OriginFor<T>,
             commitment: T::Hash,
@@ -229,6 +230,7 @@ pub mod pallet {
         #[pallet::weight(Weight::from_parts(77_280_000, 0)
         .saturating_add(T::DbWeight::get().reads(4_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)))]
+        #[allow(clippy::useless_conversion)]
         pub fn execute_revealed(
             origin: OriginFor<T>,
             id: T::Hash,
