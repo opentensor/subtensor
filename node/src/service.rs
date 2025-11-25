@@ -539,17 +539,32 @@ where
     let mut mev_timing: Option<author::TimeParams> = None;
 
     if role.is_authority() {
-        let slot_duration_ms: u64 = consensus_mechanism.slot_duration(&client)?.as_millis() as u64;
+        let slot_duration = consensus_mechanism.slot_duration(&client)?;
+        let slot_duration_ms: u64 =
+            u64::try_from(slot_duration.as_millis()).unwrap_or(u64::MAX);
 
-        // Time windows (7s announce / last 3s decrypt).
+        // For 12s blocks: announce ≈ 7s, decrypt window ≈ 3s.
+        // For 250ms blocks: announce ≈ 145ms, decrypt window ≈ 62ms, etc.
+        let announce_at_ms_raw = slot_duration_ms
+            .saturating_mul(7)
+            .saturating_div(12);
+
+        let decrypt_window_ms = slot_duration_ms
+            .saturating_mul(3)
+            .saturating_div(12);
+
+        // Ensure announce_at_ms + decrypt_window_ms never exceeds slot_ms.
+        let max_announce = slot_duration_ms.saturating_sub(decrypt_window_ms);
+        let announce_at_ms = announce_at_ms_raw.min(max_announce);
+
         let timing = author::TimeParams {
             slot_ms: slot_duration_ms,
-            announce_at_ms: 7_000,
-            decrypt_window_ms: 3_000,
+            announce_at_ms,
+            decrypt_window_ms,
         };
         mev_timing = Some(timing.clone());
 
-        // Start author-side tasks with the epoch.
+        // Start author-side tasks with dynamic timing.
         let mev_ctx = author::spawn_author_tasks::<Block, _, _>(
             &task_manager.spawn_handle(),
             client.clone(),
@@ -558,7 +573,7 @@ where
             timing.clone(),
         );
 
-        // Start last-3s revealer (decrypt -> execute_revealed).
+        // Start last-portion-of-slot revealer (decrypt -> execute_revealed).
         proposer::spawn_revealer::<Block, _, _>(
             &task_manager.spawn_handle(),
             client.clone(),
