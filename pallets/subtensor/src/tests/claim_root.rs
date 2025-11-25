@@ -8,7 +8,7 @@ use crate::{
     DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
     NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
     StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
-    SubnetTAO, SubtokenEnabled, Tempo, pallet,
+    SubnetTAO, SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed, ValidatorClaimType};
 use approx::assert_abs_diff_eq;
@@ -1034,6 +1034,9 @@ fn test_claim_root_coinbase_distribution() {
         // Make sure we are root selling, so we have root alpha divs.
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
         assert!(root_sell_flag, "Root sell flag should be true");
+
+        // Set TAOFlow > 0
+        SubnetTaoFlow::<Test>::insert(netuid, 2222_i64);
 
         // Check total issuance (saved to pending alpha divs)
         run_to_block(2);
