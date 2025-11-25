@@ -13,7 +13,7 @@ use core::num::NonZeroU64;
 
 pub mod check_nonce;
 mod migrations;
-mod rate_limiting;
+pub mod rate_limiting;
 pub mod transaction_payment_wrapper;
 
 extern crate alloc;

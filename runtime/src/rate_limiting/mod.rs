@@ -10,7 +10,7 @@ use subtensor_runtime_common::{BlockNumber, MechId, NetUid};
 
 use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
 
-pub(crate) mod migration;
+pub mod migration;
 
 #[derive(
     Serialize,
