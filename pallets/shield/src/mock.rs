@@ -2,21 +2,16 @@
 
 use crate as pallet_mev_shield;
 
-use frame_support::{
-    construct_runtime,
-    derive_impl,
-    parameter_types,
-    traits::Everything,
-};
+use frame_support::{construct_runtime, derive_impl, parameter_types, traits::Everything};
 use frame_system as system;
 
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstU32, H256};
-use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup},
-    AccountId32, BuildStorage,
-};
 use sp_runtime::traits::BadOrigin;
+use sp_runtime::{
+    AccountId32, BuildStorage,
+    traits::{BlakeTwo256, IdentityLookup},
+};
 
 // -----------------------------------------------------------------------------
 // Mock runtime
@@ -129,7 +124,6 @@ impl pallet_mev_shield::AuthorityOriginExt<RuntimeOrigin> for TestAuthorityOrigi
         }
     }
 }
-
 
 // -----------------------------------------------------------------------------
 // MevShield Config

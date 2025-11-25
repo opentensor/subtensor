@@ -4,25 +4,21 @@ use crate as pallet_mev_shield;
 use crate::mock::*;
 
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, BoundedVec};
+use frame_support::pallet_prelude::ValidateUnsigned;
 use frame_support::traits::ConstU32 as FrameConstU32;
+use frame_support::traits::Hooks;
+use frame_support::{BoundedVec, assert_noop, assert_ok};
+use pallet_mev_shield::{
+    Call as MevShieldCall, CurrentKey, Event as MevShieldEvent, NextKey, Submissions,
+};
+use sp_core::Pair;
 use sp_core::sr25519;
+use sp_runtime::traits::Hash;
 use sp_runtime::{
+    AccountId32, MultiSignature,
     traits::{SaturatedConversion, Zero},
     transaction_validity::TransactionSource,
-    AccountId32, MultiSignature,
 };
-use frame_support::pallet_prelude::ValidateUnsigned;
-use sp_runtime::traits::Hash;
-use sp_core::Pair;
-use pallet_mev_shield::{
-    Call as MevShieldCall,
-    CurrentKey,
-    Event as MevShieldEvent,
-    NextKey,
-    Submissions,
-};
-use frame_support::traits::Hooks;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -94,7 +90,6 @@ fn authority_can_announce_next_key_and_on_initialize_rolls_it() {
     });
 }
 
-
 #[test]
 fn announce_next_key_rejects_non_validator_origins() {
     new_test_ext().execute_with(|| {
@@ -132,10 +127,7 @@ fn announce_next_key_rejects_non_validator_origins() {
 
         // 2) Unsigned origin must also fail with BadOrigin.
         assert_noop!(
-            MevShield::announce_next_key(
-                RuntimeOrigin::none(),
-                bounded_pk.clone(),
-            ),
+            MevShield::announce_next_key(RuntimeOrigin::none(), bounded_pk.clone(),),
             sp_runtime::DispatchError::BadOrigin
         );
 
@@ -214,8 +206,7 @@ fn execute_revealed_happy_path_verifies_and_executes_inner_call() {
 
         let payload_bytes = build_raw_payload_bytes_for_test(&signer, nonce, &inner_call);
 
-        let commitment =
-            <Test as frame_system::Config>::Hashing::hash(payload_bytes.as_ref());
+        let commitment = <Test as frame_system::Config>::Hashing::hash(payload_bytes.as_ref());
 
         let ciphertext_bytes = vec![9u8, 9, 9, 9];
         let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
@@ -265,7 +256,11 @@ fn execute_revealed_happy_path_verifies_and_executes_inner_call() {
 
         // Last event is DecryptedExecuted
         let events = System::events();
-        let last = events.last().expect("an event should be emitted").event.clone();
+        let last = events
+            .last()
+            .expect("an event should be emitted")
+            .event
+            .clone();
 
         assert!(
             matches!(
@@ -292,8 +287,7 @@ fn validate_unsigned_accepts_local_source_for_execute_revealed() {
         });
 
         let id = <Test as frame_system::Config>::Hashing::hash(b"mevshield-id-local");
-        let signature: MultiSignature =
-            sr25519::Signature::from_raw([0u8; 64]).into();
+        let signature: MultiSignature = sr25519::Signature::from_raw([0u8; 64]).into();
 
         let call = MevShieldCall::<Test>::execute_revealed {
             id,
@@ -320,8 +314,7 @@ fn validate_unsigned_accepts_inblock_source_for_execute_revealed() {
         });
 
         let id = <Test as frame_system::Config>::Hashing::hash(b"mevshield-id-inblock");
-        let signature: MultiSignature =
-            sr25519::Signature::from_raw([1u8; 64]).into();
+        let signature: MultiSignature = sr25519::Signature::from_raw([1u8; 64]).into();
 
         let call = MevShieldCall::<Test>::execute_revealed {
             id,

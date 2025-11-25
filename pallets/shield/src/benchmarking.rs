@@ -95,10 +95,7 @@ mod benches {
 
         // Measure: dispatch the extrinsic.
         #[extrinsic_call]
-        announce_next_key(
-            RawOrigin::Signed(alice_acc.clone()),
-            public_key.clone(),
-        );
+        announce_next_key(RawOrigin::Signed(alice_acc.clone()), public_key.clone());
 
         // Assert: NextKey should be set exactly.
         let stored = NextKey::<T>::get().expect("must be set by announce_next_key");
