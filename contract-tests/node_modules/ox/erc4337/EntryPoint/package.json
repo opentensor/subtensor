@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../../_types/erc4337/EntryPoint.d.ts",
+  "main": "../../_cjs/erc4337/EntryPoint.js",
+  "module": "../../_esm/erc4337/EntryPoint.js"
+}

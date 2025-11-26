@@ -1,0 +1,9 @@
+{
+  "name": "@polkadot-api/known-chains-paseo_coretime",
+  "types": "../dist/specs/paseo_coretime.d.ts",
+  "module": "../dist/specs/paseo_coretime.mjs",
+  "import": "../dist/specs/paseo_coretime.mjs",
+  "browser": "../dist/specs/paseo_coretime.mjs",
+  "require": "../dist/specs/paseo_coretime.js",
+  "default": "../dist/specs/paseo_coretime.js"
+}

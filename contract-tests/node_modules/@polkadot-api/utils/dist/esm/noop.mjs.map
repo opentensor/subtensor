@@ -1,0 +1,1 @@
+{"version":3,"file":"noop.mjs","sources":["../../src/noop.ts"],"sourcesContent":["export const noop: () => void = Function.prototype as any\n"],"names":[],"mappings":"AAAO,MAAM,OAAmB,QAAS,CAAA;;;;"}

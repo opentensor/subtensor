@@ -1,0 +1,1 @@
+{"version":3,"file":"struct.js","sourceRoot":"","sources":["../../../../src/human-readable/errors/struct.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,SAAS,EAAE,MAAM,iBAAiB,CAAA;AAE3C,MAAM,OAAO,sBAAuB,SAAQ,SAAS;IAGnD,YAAY,EAAE,IAAI,EAAoB;QACpC,KAAK,CAAC,8BAA8B,EAAE;YACpC,YAAY,EAAE,CAAC,WAAW,IAAI,4BAA4B,CAAC;SAC5D,CAAC,CAAA;QALK;;;;mBAAO,wBAAwB;WAAA;IAMxC,CAAC;CACF"}

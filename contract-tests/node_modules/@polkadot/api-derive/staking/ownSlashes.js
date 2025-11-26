@@ -1,0 +1,47 @@
+import { combineLatest, map, of } from 'rxjs';
+import { firstMemo, memo } from '../util/index.js';
+import { erasHistoricApplyAccount } from './util.js';
+export function _ownSlashes(instanceId, api) {
+    return memo(instanceId, (accountId, eras, _withActive) => eras.length
+        ? combineLatest([
+            combineLatest(eras.map((e) => api.query.staking.validatorSlashInEra(e, accountId))),
+            combineLatest(eras.map((e) => api.query.staking.nominatorSlashInEra(e, accountId)))
+        ]).pipe(map(([vals, noms]) => eras.map((era, index) => ({
+            era,
+            total: vals[index].isSome
+                ? vals[index].unwrap()[1]
+                : noms[index].unwrapOrDefault()
+        }))))
+        : of([]));
+}
+/**
+ * @name ownSlash
+ * @description Retrieves the slashes applied to a specific account in a given era.
+ * @param { Uint8Array | string } accountId The validator stash account.
+ * @param {EraIndex} era The staking era to query.
+ * @example
+ * ```javascript
+ * const era = api.createType("EraIndex", 1000);
+ * const slashedAmount = await api.derive.staking.ownSlash(
+ *   ALICE,
+ *   era
+ * );
+ * console.log(`Era: ${slashedAmount.era}, total ${slashedAmount.total}`);
+ * ```
+ */
+export const ownSlash = /*#__PURE__*/ firstMemo((api, accountId, era) => api.derive.staking._ownSlashes(accountId, [era], true));
+/**
+ * @name ownSlashes
+ * @description Retrieves the slashes for a specific account across all historic eras.
+ * @param { Uint8Array | string } accountId The validator stash account.
+ * @param { boolean } withActive Whether to include the active era.
+ * @example
+ * ```javascript
+ * const slashes = await api.derive.staking.ownSlashes(
+ *   ALICE,
+ *   true
+ * );
+ * console.log(slashes);
+ * ```
+ */
+export const ownSlashes = /*#__PURE__*/ erasHistoricApplyAccount('_ownSlashes');

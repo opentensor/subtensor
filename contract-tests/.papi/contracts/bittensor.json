@@ -1,0 +1,1055 @@
+{
+  "source": {
+    "hash": "0x8086fb0a630e872bf7d855cf0cc1b0c4302eef786dad56e08251fe8769aac0f2",
+    "language": "ink! 5.1.1",
+    "compiler": "rustc 1.88.0",
+    "build_info": {
+      "build_mode": "Release",
+      "cargo_contract_version": "5.0.3",
+      "rust_toolchain": "stable-x86_64-unknown-linux-gnu",
+      "wasm_opt_settings": {
+        "keep_debug_symbols": false,
+        "optimization_passes": "Z"
+      }
+    }
+  },
+  "contract": {
+    "name": "bittensor",
+    "version": "0.1.0",
+    "authors": [
+      "[your_name] <[your_email]>"
+    ]
+  },
+  "image": null,
+  "spec": {
+    "constructors": [
+      {
+        "args": [],
+        "default": false,
+        "docs": [
+          "Constructor"
+        ],
+        "label": "new",
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink_primitives",
+            "ConstructorResult"
+          ],
+          "type": 1
+        },
+        "selector": "0x9bae9d5e"
+      },
+      {
+        "args": [],
+        "default": false,
+        "docs": [
+          "Constructor"
+        ],
+        "label": "default",
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink_primitives",
+            "ConstructorResult"
+          ],
+          "type": 1
+        },
+        "selector": "0xed4b9d1b"
+      }
+    ],
+    "docs": [],
+    "environment": {
+      "accountId": {
+        "displayName": [
+          "AccountId"
+        ],
+        "type": 12
+      },
+      "balance": {
+        "displayName": [
+          "Balance"
+        ],
+        "type": 7
+      },
+      "blockNumber": {
+        "displayName": [
+          "BlockNumber"
+        ],
+        "type": 14
+      },
+      "chainExtension": {
+        "displayName": [
+          "ChainExtension"
+        ],
+        "type": 15
+      },
+      "hash": {
+        "displayName": [
+          "Hash"
+        ],
+        "type": 13
+      },
+      "maxEventTopics": 4,
+      "staticBufferSize": 16384,
+      "timestamp": {
+        "displayName": [
+          "Timestamp"
+        ],
+        "type": 7
+      }
+    },
+    "events": [],
+    "lang_error": {
+      "displayName": [
+        "ink",
+        "LangError"
+      ],
+      "type": 3
+    },
+    "messages": [
+      {
+        "args": [
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "add_stake",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x3a656e31"
+      },
+      {
+        "args": [
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "remove_stake",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x7758d434"
+      },
+      {
+        "args": [
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "unstake_all",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x3f525cc7"
+      },
+      {
+        "args": [
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "unstake_all_alpha",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0xab74c422"
+      },
+      {
+        "args": [
+          {
+            "label": "origin_hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "destination_hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "origin_netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "destination_netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "move_stake",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0xa06b0c55"
+      },
+      {
+        "args": [
+          {
+            "label": "destination_coldkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "origin_netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "destination_netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "transfer_stake",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x3528ef5e"
+      },
+      {
+        "args": [
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "origin_netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "destination_netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "swap_stake",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x04f7ca30"
+      },
+      {
+        "args": [
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          },
+          {
+            "label": "limit_price",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          },
+          {
+            "label": "allow_partial",
+            "type": {
+              "displayName": [
+                "bool"
+              ],
+              "type": 11
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "add_stake_limit",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x30013b98"
+      },
+      {
+        "args": [
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          },
+          {
+            "label": "limit_price",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          },
+          {
+            "label": "allow_partial",
+            "type": {
+              "displayName": [
+                "bool"
+              ],
+              "type": 11
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "remove_stake_limit",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0xc3ce39c8"
+      },
+      {
+        "args": [
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "origin_netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "destination_netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          },
+          {
+            "label": "limit_price",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          },
+          {
+            "label": "allow_partial",
+            "type": {
+              "displayName": [
+                "bool"
+              ],
+              "type": 11
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "swap_stake_limit",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x212ef7ad"
+      },
+      {
+        "args": [
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          },
+          {
+            "label": "netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "limit_price",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 7
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "remove_stake_full_limit",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0xa6d6ea64"
+      },
+      {
+        "args": [
+          {
+            "label": "netuid",
+            "type": {
+              "displayName": [
+                "u16"
+              ],
+              "type": 6
+            }
+          },
+          {
+            "label": "hotkey",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "set_coldkey_auto_stake_hotkey",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0xe24f0d8a"
+      },
+      {
+        "args": [
+          {
+            "label": "delegate",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "add_proxy",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x528b6757"
+      },
+      {
+        "args": [
+          {
+            "label": "delegate",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "remove_proxy",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x129d4f75"
+      },
+      {
+        "args": [
+          {
+            "label": "recipient",
+            "type": {
+              "displayName": [],
+              "type": 4
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "forward_tokens",
+        "mutates": true,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 8
+        },
+        "selector": "0x4d9b80af"
+      }
+    ]
+  },
+  "storage": {
+    "root": {
+      "layout": {
+        "struct": {
+          "fields": [],
+          "name": "Bittensor"
+        }
+      },
+      "root_key": "0x00000000",
+      "ty": 0
+    }
+  },
+  "types": [
+    {
+      "id": 0,
+      "type": {
+        "def": {
+          "composite": {}
+        },
+        "path": [
+          "bittensor",
+          "bittensor",
+          "Bittensor"
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 3
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 2
+          },
+          {
+            "name": "E",
+            "type": 3
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "type": {
+        "def": {
+          "tuple": []
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 1,
+                "name": "CouldNotReadInput"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "LangError"
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "type": {
+        "def": {
+          "array": {
+            "len": 32,
+            "type": 5
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": {
+        "def": {
+          "primitive": "u8"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": {
+        "def": {
+          "primitive": "u16"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": {
+        "def": {
+          "primitive": "u64"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 9
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 3
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 9
+          },
+          {
+            "name": "E",
+            "type": 3
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 10
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 2
+          },
+          {
+            "name": "E",
+            "type": 10
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "ReadFailed"
+              },
+              {
+                "index": 1,
+                "name": "WriteFailed"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bittensor",
+          "ReadWriteErrorCode"
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "type": {
+        "def": {
+          "primitive": "bool"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 4,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "types",
+          "AccountId"
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 4,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "types",
+          "Hash"
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "type": {
+        "def": {
+          "primitive": "u32"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": {
+        "def": {
+          "variant": {}
+        },
+        "path": [
+          "bittensor",
+          "RuntimeReadWrite"
+        ]
+      }
+    }
+  ],
+  "version": 5
+}

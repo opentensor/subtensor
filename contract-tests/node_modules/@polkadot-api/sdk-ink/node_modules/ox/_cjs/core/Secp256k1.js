@@ -1,0 +1,80 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.noble = void 0;
+exports.createKeyPair = createKeyPair;
+exports.getPublicKey = getPublicKey;
+exports.getSharedSecret = getSharedSecret;
+exports.randomPrivateKey = randomPrivateKey;
+exports.recoverAddress = recoverAddress;
+exports.recoverPublicKey = recoverPublicKey;
+exports.sign = sign;
+exports.verify = verify;
+const secp256k1_1 = require("@noble/curves/secp256k1");
+const Address = require("./Address.js");
+const Bytes = require("./Bytes.js");
+const Hex = require("./Hex.js");
+const Entropy = require("./internal/entropy.js");
+const PublicKey = require("./PublicKey.js");
+exports.noble = secp256k1_1.secp256k1;
+function createKeyPair(options = {}) {
+    const { as = 'Hex' } = options;
+    const privateKey = randomPrivateKey({ as });
+    const publicKey = getPublicKey({ privateKey });
+    return {
+        privateKey: privateKey,
+        publicKey,
+    };
+}
+function getPublicKey(options) {
+    const { privateKey } = options;
+    const point = secp256k1_1.secp256k1.ProjectivePoint.fromPrivateKey(Hex.from(privateKey).slice(2));
+    return PublicKey.from(point);
+}
+function getSharedSecret(options) {
+    const { as = 'Hex', privateKey, publicKey } = options;
+    const point = secp256k1_1.secp256k1.ProjectivePoint.fromHex(PublicKey.toHex(publicKey).slice(2));
+    const sharedPoint = point.multiply(secp256k1_1.secp256k1.utils.normPrivateKeyToScalar(Hex.from(privateKey).slice(2)));
+    const sharedSecret = sharedPoint.toRawBytes(true);
+    if (as === 'Hex')
+        return Hex.fromBytes(sharedSecret);
+    return sharedSecret;
+}
+function randomPrivateKey(options = {}) {
+    const { as = 'Hex' } = options;
+    const bytes = secp256k1_1.secp256k1.utils.randomPrivateKey();
+    if (as === 'Hex')
+        return Hex.fromBytes(bytes);
+    return bytes;
+}
+function recoverAddress(options) {
+    return Address.fromPublicKey(recoverPublicKey(options));
+}
+function recoverPublicKey(options) {
+    const { payload, signature } = options;
+    const { r, s, yParity } = signature;
+    const signature_ = new secp256k1_1.secp256k1.Signature(BigInt(r), BigInt(s)).addRecoveryBit(yParity);
+    const point = signature_.recoverPublicKey(Hex.from(payload).substring(2));
+    return PublicKey.from(point);
+}
+function sign(options) {
+    const { extraEntropy = Entropy.extraEntropy, hash, payload, privateKey, } = options;
+    const { r, s, recovery } = secp256k1_1.secp256k1.sign(Bytes.from(payload), Bytes.from(privateKey), {
+        extraEntropy: typeof extraEntropy === 'boolean'
+            ? extraEntropy
+            : Hex.from(extraEntropy).slice(2),
+        lowS: true,
+        ...(hash ? { prehash: true } : {}),
+    });
+    return {
+        r,
+        s,
+        yParity: recovery,
+    };
+}
+function verify(options) {
+    const { address, hash, payload, publicKey, signature } = options;
+    if (address)
+        return Address.isEqual(address, recoverAddress({ payload, signature }));
+    return secp256k1_1.secp256k1.verify(signature, Bytes.from(payload), PublicKey.toBytes(publicKey), ...(hash ? [{ prehash: true, lowS: true }] : []));
+}
+//# sourceMappingURL=Secp256k1.js.map

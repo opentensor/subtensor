@@ -1,0 +1,49 @@
+{
+	"name": "sort-keys",
+	"version": "5.1.0",
+	"description": "Sort the keys of an object",
+	"license": "MIT",
+	"repository": "sindresorhus/sort-keys",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"type": "module",
+	"exports": "./index.js",
+	"types": "./index.d.ts",
+	"sideEffects": false,
+	"engines": {
+		"node": ">=12"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"sort",
+		"object",
+		"keys",
+		"key",
+		"stable",
+		"deterministic",
+		"deep",
+		"recursive",
+		"recursively",
+		"array",
+		"sorted",
+		"sorting"
+	],
+	"dependencies": {
+		"is-plain-obj": "^4.0.0"
+	},
+	"devDependencies": {
+		"ava": "^6.1.3",
+		"tsd": "^0.31.2",
+		"xo": "^0.59.3"
+	}
+}

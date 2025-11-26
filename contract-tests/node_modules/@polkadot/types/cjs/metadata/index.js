@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PortableRegistry = exports.Metadata = exports.expandMetadata = exports.decorateStorage = exports.decorateExtrinsics = exports.decorateConstants = void 0;
+var index_js_1 = require("./decorate/index.js");
+Object.defineProperty(exports, "decorateConstants", { enumerable: true, get: function () { return index_js_1.decorateConstants; } });
+Object.defineProperty(exports, "decorateExtrinsics", { enumerable: true, get: function () { return index_js_1.decorateExtrinsics; } });
+Object.defineProperty(exports, "decorateStorage", { enumerable: true, get: function () { return index_js_1.decorateStorage; } });
+Object.defineProperty(exports, "expandMetadata", { enumerable: true, get: function () { return index_js_1.expandMetadata; } });
+var Metadata_js_1 = require("./Metadata.js");
+Object.defineProperty(exports, "Metadata", { enumerable: true, get: function () { return Metadata_js_1.Metadata; } });
+var index_js_2 = require("./PortableRegistry/index.js");
+Object.defineProperty(exports, "PortableRegistry", { enumerable: true, get: function () { return index_js_2.PortableRegistry; } });

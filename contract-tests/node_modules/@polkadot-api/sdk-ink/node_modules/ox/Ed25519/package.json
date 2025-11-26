@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../_types/core/Ed25519.d.ts",
+  "main": "../_cjs/core/Ed25519.js",
+  "module": "../_esm/core/Ed25519.js"
+}

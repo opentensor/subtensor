@@ -1,0 +1,3 @@
+export const KNOWN_VERSIONS = [16, 15, 14, 13, 12, 11, 10, 9];
+export const LATEST_VERSION = KNOWN_VERSIONS[0];
+export const TO_CALLS_VERSION = 14; // LATEST_VERSION;

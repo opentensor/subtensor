@@ -1,0 +1,9 @@
+{
+  "name": "polkadot-api_chains_rococo_v2_2_people",
+  "types": "../../dist/reexports/chains_rococo_v2_2_people.d.ts",
+  "module": "../../dist/esm/reexports/chains_rococo_v2_2_people.mjs",
+  "import": "../../dist/esm/reexports/chains_rococo_v2_2_people.mjs",
+  "browser": "../../dist/esm/reexports/chains_rococo_v2_2_people.mjs",
+  "require": "../../dist/reexports/chains_rococo_v2_2_people.js",
+  "default": "../../dist/reexports/chains_rococo_v2_2_people.js"
+}

@@ -1,0 +1,1 @@
+{"version":3,"file":"AbortError.mjs","sources":["../../src/AbortError.ts"],"sourcesContent":["export class AbortError extends Error {\n  constructor() {\n    super(\"Abort Error\")\n    this.name = \"AbortError\"\n  }\n}\n"],"names":[],"mappings":"AAAO,MAAM,mBAAmB,KAAM,CAAA;AAAA,EACpC,WAAc,GAAA;AACZ,IAAA,KAAA,CAAM,aAAa,CAAA;AACnB,IAAA,IAAA,CAAK,IAAO,GAAA,YAAA;AAAA;AAEhB;;;;"}

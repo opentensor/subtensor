@@ -1,0 +1,9 @@
+{
+  "name": "polkadot-api_chains_ksmcc3_encointer",
+  "types": "../../dist/reexports/chains_ksmcc3_encointer.d.ts",
+  "module": "../../dist/esm/reexports/chains_ksmcc3_encointer.mjs",
+  "import": "../../dist/esm/reexports/chains_ksmcc3_encointer.mjs",
+  "browser": "../../dist/esm/reexports/chains_ksmcc3_encointer.mjs",
+  "require": "../../dist/reexports/chains_ksmcc3_encointer.js",
+  "default": "../../dist/reexports/chains_ksmcc3_encointer.js"
+}

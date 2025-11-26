@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.GeneralExtrinsic = exports.GenericExtrinsicSignatureV5 = exports.GenericExtrinsicPayloadV5 = exports.GenericExtrinsicV5 = void 0;
+var Extrinsic_js_1 = require("./Extrinsic.js");
+Object.defineProperty(exports, "GenericExtrinsicV5", { enumerable: true, get: function () { return Extrinsic_js_1.GenericExtrinsicV5; } });
+var ExtrinsicPayload_js_1 = require("./ExtrinsicPayload.js");
+Object.defineProperty(exports, "GenericExtrinsicPayloadV5", { enumerable: true, get: function () { return ExtrinsicPayload_js_1.GenericExtrinsicPayloadV5; } });
+var ExtrinsicSignature_js_1 = require("./ExtrinsicSignature.js");
+Object.defineProperty(exports, "GenericExtrinsicSignatureV5", { enumerable: true, get: function () { return ExtrinsicSignature_js_1.GenericExtrinsicSignatureV5; } });
+var GeneralExtrinsic_js_1 = require("./GeneralExtrinsic.js");
+Object.defineProperty(exports, "GeneralExtrinsic", { enumerable: true, get: function () { return GeneralExtrinsic_js_1.GeneralExtrinsic; } });

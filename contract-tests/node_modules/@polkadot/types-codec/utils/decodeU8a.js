@@ -1,0 +1,100 @@
+import { u8aToHex } from '@polkadot/util';
+const MAX_DEPTH = 1024;
+/** @internal */
+function isComplexType(Type) {
+    const typeName = Type.name?.toLowerCase() || '';
+    return ['enum', 'hashmap', 'linkage', 'null', 'option', 'range', 'rangeinclusive', 'result', 'struct', 'tuple', 'vec', 'vecfixed'].includes(typeName);
+}
+/** @internal */
+function formatFailure(registry, fn, _result, { message }, u8a, i, count, Type, key) {
+    let type = '';
+    try {
+        type = `: ${new Type(registry).toRawType()}`;
+    }
+    catch {
+        // ignore
+    }
+    // This is extra debugging info (we most-probably want this in in some way, shape or form,
+    // but at this point not quite sure how to include and format it (it can be quite massive)
+    // console.error(JSON.stringify(result, null, 2));
+    return `${fn}: failed at ${u8aToHex(u8a.subarray(0, 16))}…${key ? ` on ${key}` : ''} (index ${i + 1}/${count})${type}:: ${message}`;
+}
+/**
+ * @internal
+ *
+ * Given an u8a, and an array of Type constructors, decode the u8a against the
+ * types, and return an array of decoded values.
+ *
+ * @param u8a - The u8a to decode.
+ * @param result - The result array (will be returned with values pushed)
+ * @param types - The array of CodecClass to decode the U8a against.
+ */
+export function decodeU8a(registry, result, u8a, [Types, keys]) {
+    const count = result.length;
+    let offset = 0;
+    let i = 0;
+    try {
+        while (i < count) {
+            const value = new Types[i](registry, u8a.subarray(offset));
+            offset += value.initialU8aLength || value.encodedLength;
+            result[i] = value;
+            i++;
+        }
+    }
+    catch (error) {
+        throw new Error(formatFailure(registry, 'decodeU8a', result, error, u8a.subarray(offset), i, count, Types[i], keys[i]));
+    }
+    return [result, offset];
+}
+/**
+ * @internal
+ *
+ * Split from decodeU8a since this is specialized to zip returns ... while we duplicate, this
+ * is all on the hot-path, so it is not great, however there is (some) method behind the madness
+ */
+export function decodeU8aStruct(registry, result, u8a, [Types, keys]) {
+    const count = result.length;
+    let offset = 0;
+    let i = 0;
+    if (count > MAX_DEPTH && isComplexType(Types[i])) {
+        throw new Error(`decodeU8aStruct: Maximum depth exceeded, received ${count} elements, limit ${MAX_DEPTH}`);
+    }
+    try {
+        while (i < count) {
+            const value = new Types[i](registry, u8a.subarray(offset));
+            offset += value.initialU8aLength || value.encodedLength;
+            result[i] = [keys[i], value];
+            i++;
+        }
+    }
+    catch (error) {
+        throw new Error(formatFailure(registry, 'decodeU8aStruct', result, error, u8a.subarray(offset), i, count, Types[i], keys[i]));
+    }
+    return [result, offset];
+}
+/**
+ * @internal
+ *
+ * Split from decodeU8a since this is specialized to 1 instance ... while we duplicate, this
+ * is all on the hot-path, so it is not great, however there is (some) method behind the madness
+ */
+export function decodeU8aVec(registry, result, u8a, startAt, Type) {
+    const count = result.length;
+    if (count > MAX_DEPTH && isComplexType(Type)) {
+        throw new Error(`decodeU8aVec: Maximum depth exceeded, received ${count} elements, limit ${MAX_DEPTH}`);
+    }
+    let offset = startAt;
+    let i = 0;
+    try {
+        while (i < count) {
+            const value = new Type(registry, u8a.subarray(offset));
+            offset += value.initialU8aLength || value.encodedLength;
+            result[i] = value;
+            i++;
+        }
+    }
+    catch (error) {
+        throw new Error(formatFailure(registry, 'decodeU8aVec', result, error, u8a.subarray(offset), i, count, Type));
+    }
+    return [offset, offset - startAt];
+}

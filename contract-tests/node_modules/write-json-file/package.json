@@ -1,0 +1,55 @@
+{
+	"name": "write-json-file",
+	"version": "6.0.0",
+	"description": "Stringify and write JSON to a file atomically",
+	"license": "MIT",
+	"repository": "sindresorhus/write-json-file",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"type": "module",
+	"exports": {
+		"types": "./index.d.ts",
+		"default": "./index.js"
+	},
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"write",
+		"json",
+		"stringify",
+		"file",
+		"fs",
+		"graceful",
+		"stable",
+		"sort",
+		"newline",
+		"indent",
+		"atomic",
+		"atomically"
+	],
+	"dependencies": {
+		"detect-indent": "^7.0.1",
+		"is-plain-obj": "^4.1.0",
+		"sort-keys": "^5.0.0",
+		"write-file-atomic": "^5.0.1"
+	},
+	"devDependencies": {
+		"ava": "^6.1.3",
+		"tempy": "^2.0.0",
+		"tsd": "^0.31.1",
+		"xo": "^0.59.2"
+	}
+}

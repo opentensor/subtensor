@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../_types/erc8010/index.d.ts",
+  "main": "../_cjs/erc8010/index.js",
+  "module": "../_esm/erc8010/index.js"
+}

@@ -1,0 +1,16 @@
+import * as RpcRequest from '../RpcRequest.js';
+import * as RpcResponse from '../RpcResponse.js';
+/** @internal */
+export function create(transport, options_root) {
+    const requestStore = RpcRequest.createStore();
+    return {
+        request: async ({ method, params }, options = {}) => {
+            const body = requestStore.prepare({ method, params });
+            const data = await transport.request(body, options);
+            return RpcResponse.parse(data, {
+                raw: options.raw ?? options_root?.raw,
+            });
+        },
+    };
+}
+//# sourceMappingURL=rpcTransport.js.map

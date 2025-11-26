@@ -1,0 +1,1 @@
+{"version":3,"file":"identity.mjs","sources":["../../../src/hashes/identity.ts"],"sourcesContent":["export const Identity = (encoded: Uint8Array): Uint8Array => encoded\n"],"names":[],"mappings":"AAAO,MAAM,QAAA,GAAW,CAAC,OAAA,KAAoC;;;;"}

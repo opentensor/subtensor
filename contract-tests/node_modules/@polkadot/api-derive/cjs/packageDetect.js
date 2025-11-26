@@ -1,0 +1,5 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const util_1 = require("@polkadot/util");
+const packageInfo_js_1 = require("./packageInfo.js");
+(0, util_1.detectPackage)(packageInfo_js_1.packageInfo, null, []);

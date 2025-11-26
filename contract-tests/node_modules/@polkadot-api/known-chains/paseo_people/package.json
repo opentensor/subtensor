@@ -1,0 +1,9 @@
+{
+  "name": "@polkadot-api/known-chains-paseo_people",
+  "types": "../dist/specs/paseo_people.d.ts",
+  "module": "../dist/specs/paseo_people.mjs",
+  "import": "../dist/specs/paseo_people.mjs",
+  "browser": "../dist/specs/paseo_people.mjs",
+  "require": "../dist/specs/paseo_people.js",
+  "default": "../dist/specs/paseo_people.js"
+}

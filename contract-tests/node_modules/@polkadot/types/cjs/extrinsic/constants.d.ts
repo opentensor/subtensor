@@ -1,0 +1,12 @@
+export declare const BIT_SIGNED = 128;
+export declare const BIT_UNSIGNED = 0;
+export declare const EMPTY_U8A: Uint8Array;
+export declare const IMMORTAL_ERA: Uint8Array;
+export declare const UNMASK_VERSION = 127;
+export declare const DEFAULT_PREAMBLE = "bare";
+export declare const LATEST_EXTRINSIC_VERSION = 4;
+export declare const VERSION_MASK = 63;
+export declare const TYPE_MASK = 192;
+export declare const BARE_EXTRINSIC = 0;
+export declare const GENERAL_EXTRINSIC = 64;
+export declare const LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION = 4;

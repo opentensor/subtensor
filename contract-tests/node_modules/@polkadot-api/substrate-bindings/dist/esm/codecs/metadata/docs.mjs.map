@@ -1,0 +1,1 @@
+{"version":3,"file":"docs.mjs","sources":["../../../../src/codecs/metadata/docs.ts"],"sourcesContent":["import { Vector, str } from \"scale-ts\"\n\nexport const docs = Vector(str)\n"],"names":[],"mappings":";;AAEO,MAAM,IAAA,GAAO,OAAO,GAAG;;;;"}

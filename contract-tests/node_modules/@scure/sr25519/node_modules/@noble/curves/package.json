@@ -1,0 +1,98 @@
+{
+  "name": "@noble/curves",
+  "version": "2.0.1",
+  "description": "Audited & minimal JS implementation of elliptic curve cryptography",
+  "files": [
+    "*.js",
+    "*.js.map",
+    "*.d.ts",
+    "*.d.ts.map",
+    "abstract",
+    "src"
+  ],
+  "dependencies": {
+    "@noble/hashes": "2.0.1"
+  },
+  "devDependencies": {
+    "@paulmillr/jsbt": "0.4.4",
+    "@types/node": "24.2.1",
+    "fast-check": "4.2.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.2"
+  },
+  "scripts": {
+    "bench": "cd test/benchmark; node secp256k1.ts; node curves.ts; node utils.ts; node bls.ts",
+    "bench:install": "cd test/benchmark; npm install; npm install ../.. --install-links",
+    "build": "tsc",
+    "build:release": "npx --no @paulmillr/jsbt esbuild test/build",
+    "build:clean": "rm {.,abstract}/*.{js,d.ts,d.ts.map,js.map} 2> /dev/null",
+    "format": "prettier --write 'src/**/*.{js,ts}' 'test/*.{js,ts}'",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning test/index.ts",
+    "test:bun": "bun test/index.ts",
+    "test:deno": "deno --allow-env --allow-read test/index.ts",
+    "test:node20": "cd test; npx tsc; node compiled/test/index.js",
+    "test:coverage": "npm install --no-save c8@10.1.2 && npx c8 npm test"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./abstract/bls.js": "./abstract/bls.js",
+    "./abstract/curve.js": "./abstract/curve.js",
+    "./abstract/edwards.js": "./abstract/edwards.js",
+    "./abstract/fft.js": "./abstract/fft.js",
+    "./abstract/hash-to-curve.js": "./abstract/hash-to-curve.js",
+    "./abstract/modular.js": "./abstract/modular.js",
+    "./abstract/montgomery.js": "./abstract/montgomery.js",
+    "./abstract/oprf.js": "./abstract/oprf.js",
+    "./abstract/poseidon.js": "./abstract/poseidon.js",
+    "./abstract/tower.js": "./abstract/tower.js",
+    "./abstract/weierstrass.js": "./abstract/weierstrass.js",
+    "./bls12-381.js": "./bls12-381.js",
+    "./bn254.js": "./bn254.js",
+    "./ed448.js": "./ed448.js",
+    "./ed25519.js": "./ed25519.js",
+    "./misc.js": "./misc.js",
+    "./nist.js": "./nist.js",
+    "./secp256k1.js": "./secp256k1.js",
+    "./utils.js": "./utils.js",
+    "./webcrypto.js": "./webcrypto.js"
+  },
+  "engines": {
+    "node": ">= 20.19.0"
+  },
+  "keywords": [
+    "cryptography",
+    "secp256k1",
+    "ed25519",
+    "p256",
+    "p384",
+    "p521",
+    "secp256r1",
+    "ed448",
+    "x25519",
+    "ed25519",
+    "bls12-381",
+    "bn254",
+    "alt_bn128",
+    "bls",
+    "noble",
+    "ecc",
+    "ecdsa",
+    "eddsa",
+    "oprf",
+    "schnorr",
+    "fft"
+  ],
+  "homepage": "https://paulmillr.com/noble/",
+  "funding": "https://paulmillr.com/funding/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paulmillr/noble-curves.git"
+  },
+  "type": "module",
+  "main": "index.js",
+  "module": "index.js",
+  "types": "index.d.ts",
+  "sideEffects": false,
+  "author": "Paul Miller (https://paulmillr.com)",
+  "license": "MIT"
+}

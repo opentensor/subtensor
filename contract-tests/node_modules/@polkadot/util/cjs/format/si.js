@@ -1,0 +1,45 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SI = exports.SI_MID = void 0;
+exports.findSi = findSi;
+exports.calcSi = calcSi;
+/** @internal */
+exports.SI_MID = 8;
+/** @internal */
+exports.SI = [
+    { power: -24, text: 'yocto', value: 'y' },
+    { power: -21, text: 'zepto', value: 'z' },
+    { power: -18, text: 'atto', value: 'a' },
+    { power: -15, text: 'femto', value: 'f' },
+    { power: -12, text: 'pico', value: 'p' },
+    { power: -9, text: 'nano', value: 'n' },
+    { power: -6, text: 'micro', value: 'µ' },
+    { power: -3, text: 'milli', value: 'm' },
+    { power: 0, text: 'Unit', value: '-' }, // position 8
+    { power: 3, text: 'Kilo', value: 'k' },
+    { power: 6, text: 'Mill', value: 'M' }, // Mega, M
+    { power: 9, text: 'Bill', value: 'B' }, // Giga, G
+    { power: 12, text: 'Tril', value: 'T' }, // Tera, T
+    { power: 15, text: 'Peta', value: 'P' },
+    { power: 18, text: 'Exa', value: 'E' },
+    { power: 21, text: 'Zeta', value: 'Z' },
+    { power: 24, text: 'Yotta', value: 'Y' }
+];
+/** @internal */
+function findSi(type) {
+    // use a loop here, better RN support (which doesn't have [].find)
+    for (let i = 0, count = exports.SI.length; i < count; i++) {
+        if (exports.SI[i].value === type) {
+            return exports.SI[i];
+        }
+    }
+    return exports.SI[exports.SI_MID];
+}
+/** @internal */
+function calcSi(text, decimals, forceUnit) {
+    if (forceUnit) {
+        return findSi(forceUnit);
+    }
+    const siDefIndex = (exports.SI_MID - 1) + Math.ceil((text.length - decimals) / 3);
+    return exports.SI[siDefIndex] || exports.SI[siDefIndex < 0 ? 0 : exports.SI.length - 1];
+}

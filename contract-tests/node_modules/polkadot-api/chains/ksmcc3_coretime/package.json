@@ -1,0 +1,9 @@
+{
+  "name": "polkadot-api_chains_ksmcc3_coretime",
+  "types": "../../dist/reexports/chains_ksmcc3_coretime.d.ts",
+  "module": "../../dist/esm/reexports/chains_ksmcc3_coretime.mjs",
+  "import": "../../dist/esm/reexports/chains_ksmcc3_coretime.mjs",
+  "browser": "../../dist/esm/reexports/chains_ksmcc3_coretime.mjs",
+  "require": "../../dist/reexports/chains_ksmcc3_coretime.js",
+  "default": "../../dist/reexports/chains_ksmcc3_coretime.js"
+}

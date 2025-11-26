@@ -1,0 +1,110 @@
+{
+  "author": "Jaco Greeff <jacogr@gmail.com>",
+  "bugs": "https://github.com/polkadot-js/wasm/issues",
+  "description": "Wasm content for wasm-crypto",
+  "engines": {
+    "node": ">=18"
+  },
+  "homepage": "https://github.com/polkadot-js/wasm/tree/master/packages/wasm-crypto-wasm#readme",
+  "license": "Apache-2.0",
+  "name": "@polkadot/wasm-crypto-wasm",
+  "repository": {
+    "directory": "packages/wasm-crypto-wasm",
+    "type": "git",
+    "url": "https://github.com/polkadot-js/wasm.git"
+  },
+  "sideEffects": [
+    "./packageDetect.js",
+    "./cjs/packageDetect.js"
+  ],
+  "type": "module",
+  "version": "7.5.1",
+  "main": "./cjs/index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    "./cjs/package.json": "./cjs/package.json",
+    "./cjs/*": "./cjs/*.js",
+    ".": {
+      "module": {
+        "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "require": {
+        "types": "./cjs/index.d.ts",
+        "default": "./cjs/index.js"
+      },
+      "default": {
+        "types": "./index.d.ts",
+        "default": "./index.js"
+      }
+    },
+    "./bundle": {
+      "module": {
+        "types": "./bundle.d.ts",
+        "default": "./bundle.js"
+      },
+      "require": {
+        "types": "./cjs/bundle.d.ts",
+        "default": "./cjs/bundle.js"
+      },
+      "default": {
+        "types": "./bundle.d.ts",
+        "default": "./bundle.js"
+      }
+    },
+    "./package.json": {
+      "require": "./cjs/package.json",
+      "default": "./package.json"
+    },
+    "./packageDetect": {
+      "module": {
+        "types": "./packageDetect.d.ts",
+        "default": "./packageDetect.js"
+      },
+      "require": {
+        "types": "./cjs/packageDetect.d.ts",
+        "default": "./cjs/packageDetect.js"
+      },
+      "default": {
+        "types": "./packageDetect.d.ts",
+        "default": "./packageDetect.js"
+      }
+    },
+    "./packageInfo.js": {
+      "module": {
+        "types": "./packageInfo.d.ts",
+        "default": "./packageInfo.js"
+      },
+      "require": {
+        "types": "./cjs/packageInfo.d.ts",
+        "default": "./cjs/packageInfo.js"
+      },
+      "default": {
+        "types": "./packageInfo.d.ts",
+        "default": "./packageInfo.js"
+      }
+    },
+    "./packageInfo": {
+      "module": {
+        "types": "./packageInfo.d.ts",
+        "default": "./packageInfo.js"
+      },
+      "require": {
+        "types": "./cjs/packageInfo.d.ts",
+        "default": "./cjs/packageInfo.js"
+      },
+      "default": {
+        "types": "./packageInfo.d.ts",
+        "default": "./packageInfo.js"
+      }
+    }
+  },
+  "dependencies": {
+    "@polkadot/wasm-util": "7.5.1",
+    "tslib": "^2.7.0"
+  },
+  "peerDependencies": {
+    "@polkadot/util": "*"
+  }
+}

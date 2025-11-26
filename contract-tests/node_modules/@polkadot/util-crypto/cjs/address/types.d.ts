@@ -1,0 +1,1 @@
+export type Prefix = number;

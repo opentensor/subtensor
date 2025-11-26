@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../_types/core/Keystore.d.ts",
+  "main": "../_cjs/core/Keystore.js",
+  "module": "../_esm/core/Keystore.js"
+}

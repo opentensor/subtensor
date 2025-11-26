@@ -1,0 +1,1 @@
+# @polkadot-api/substrate-bindings

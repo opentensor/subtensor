@@ -1,0 +1,9 @@
+{
+  "name": "polkadot-api_chains_ksmcc3_people",
+  "types": "../../dist/reexports/chains_ksmcc3_people.d.ts",
+  "module": "../../dist/esm/reexports/chains_ksmcc3_people.mjs",
+  "import": "../../dist/esm/reexports/chains_ksmcc3_people.mjs",
+  "browser": "../../dist/esm/reexports/chains_ksmcc3_people.mjs",
+  "require": "../../dist/reexports/chains_ksmcc3_people.js",
+  "default": "../../dist/reexports/chains_ksmcc3_people.js"
+}

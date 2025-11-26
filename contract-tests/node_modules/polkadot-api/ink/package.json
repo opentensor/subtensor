@@ -1,0 +1,9 @@
+{
+  "name": "polkadot-api_ink",
+  "types": "../dist/reexports/ink.d.ts",
+  "module": "../dist/esm/reexports/ink.mjs",
+  "import": "../dist/esm/reexports/ink.mjs",
+  "browser": "../dist/esm/reexports/ink.mjs",
+  "require": "../dist/reexports/ink.js",
+  "default": "../dist/reexports/ink.js"
+}

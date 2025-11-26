@@ -1,0 +1,193 @@
+{
+  "author": "Jaco Greeff <jacogr@gmail.com>",
+  "bugs": "https://github.com/polkadot-js/wasm/issues",
+  "description": "A wasm interface layer for use by @polkadot/util-crypto",
+  "engines": {
+    "node": ">=18"
+  },
+  "homepage": "https://github.com/polkadot-js/wasm/tree/master/packages/wasm-crypto#readme",
+  "license": "Apache-2.0",
+  "name": "@polkadot/wasm-crypto",
+  "repository": {
+    "directory": "packages/wasm-crypto",
+    "type": "git",
+    "url": "https://github.com/polkadot-js/wasm.git"
+  },
+  "sideEffects": [
+    "./initNone.js",
+    "./cjs/initNone.js",
+    "./initOnlyAsm.js",
+    "./cjs/initOnlyAsm.js",
+    "./initOnlyWasm.js",
+    "./cjs/initOnlyWasm.js",
+    "./initWasmAsm.js",
+    "./cjs/initWasmAsm.js",
+    "./packageDetect.js",
+    "./cjs/packageDetect.js"
+  ],
+  "type": "module",
+  "version": "7.5.1",
+  "main": "./cjs/index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    "./cjs/package.json": "./cjs/package.json",
+    "./cjs/*": "./cjs/*.js",
+    ".": {
+      "module": {
+        "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "require": {
+        "types": "./cjs/index.d.ts",
+        "default": "./cjs/index.js"
+      },
+      "default": {
+        "types": "./index.d.ts",
+        "default": "./index.js"
+      }
+    },
+    "./bundle": {
+      "module": {
+        "types": "./bundle.d.ts",
+        "default": "./bundle.js"
+      },
+      "require": {
+        "types": "./cjs/bundle.d.ts",
+        "default": "./cjs/bundle.js"
+      },
+      "default": {
+        "types": "./bundle.d.ts",
+        "default": "./bundle.js"
+      }
+    },
+    "./init": {
+      "module": {
+        "types": "./init.d.ts",
+        "default": "./init.js"
+      },
+      "require": {
+        "types": "./cjs/init.d.ts",
+        "default": "./cjs/init.js"
+      },
+      "default": {
+        "types": "./init.d.ts",
+        "default": "./init.js"
+      }
+    },
+    "./initNone": {
+      "module": {
+        "types": "./initNone.d.ts",
+        "default": "./initNone.js"
+      },
+      "require": {
+        "types": "./cjs/initNone.d.ts",
+        "default": "./cjs/initNone.js"
+      },
+      "default": {
+        "types": "./initNone.d.ts",
+        "default": "./initNone.js"
+      }
+    },
+    "./initOnlyAsm": {
+      "module": {
+        "types": "./initOnlyAsm.d.ts",
+        "default": "./initOnlyAsm.js"
+      },
+      "require": {
+        "types": "./cjs/initOnlyAsm.d.ts",
+        "default": "./cjs/initOnlyAsm.js"
+      },
+      "default": {
+        "types": "./initOnlyAsm.d.ts",
+        "default": "./initOnlyAsm.js"
+      }
+    },
+    "./initOnlyWasm": {
+      "module": {
+        "types": "./initOnlyWasm.d.ts",
+        "default": "./initOnlyWasm.js"
+      },
+      "require": {
+        "types": "./cjs/initOnlyWasm.d.ts",
+        "default": "./cjs/initOnlyWasm.js"
+      },
+      "default": {
+        "types": "./initOnlyWasm.d.ts",
+        "default": "./initOnlyWasm.js"
+      }
+    },
+    "./initWasmAsm": {
+      "module": {
+        "types": "./initWasmAsm.d.ts",
+        "default": "./initWasmAsm.js"
+      },
+      "require": {
+        "types": "./cjs/initWasmAsm.d.ts",
+        "default": "./cjs/initWasmAsm.js"
+      },
+      "default": {
+        "types": "./initWasmAsm.d.ts",
+        "default": "./initWasmAsm.js"
+      }
+    },
+    "./package.json": {
+      "require": "./cjs/package.json",
+      "default": "./package.json"
+    },
+    "./packageDetect": {
+      "module": {
+        "types": "./packageDetect.d.ts",
+        "default": "./packageDetect.js"
+      },
+      "require": {
+        "types": "./cjs/packageDetect.d.ts",
+        "default": "./cjs/packageDetect.js"
+      },
+      "default": {
+        "types": "./packageDetect.d.ts",
+        "default": "./packageDetect.js"
+      }
+    },
+    "./packageInfo.js": {
+      "module": {
+        "types": "./packageInfo.d.ts",
+        "default": "./packageInfo.js"
+      },
+      "require": {
+        "types": "./cjs/packageInfo.d.ts",
+        "default": "./cjs/packageInfo.js"
+      },
+      "default": {
+        "types": "./packageInfo.d.ts",
+        "default": "./packageInfo.js"
+      }
+    },
+    "./packageInfo": {
+      "module": {
+        "types": "./packageInfo.d.ts",
+        "default": "./packageInfo.js"
+      },
+      "require": {
+        "types": "./cjs/packageInfo.d.ts",
+        "default": "./cjs/packageInfo.js"
+      },
+      "default": {
+        "types": "./packageInfo.d.ts",
+        "default": "./packageInfo.js"
+      }
+    }
+  },
+  "dependencies": {
+    "@polkadot/wasm-bridge": "7.5.1",
+    "@polkadot/wasm-crypto-asmjs": "7.5.1",
+    "@polkadot/wasm-crypto-init": "7.5.1",
+    "@polkadot/wasm-crypto-wasm": "7.5.1",
+    "@polkadot/wasm-util": "7.5.1",
+    "tslib": "^2.7.0"
+  },
+  "peerDependencies": {
+    "@polkadot/util": "*",
+    "@polkadot/x-randomvalues": "*"
+  }
+}

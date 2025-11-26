@@ -1,0 +1,33 @@
+import '@polkadot/types/types/registry';
+import type { FrameSupportTokensMiscIdAmount, KusamaRuntimeConstantsProxyProxyType, StagingKusamaRuntimeBurnDestinationAccount, StagingKusamaRuntimeDynamicParamsInflationFalloff, StagingKusamaRuntimeDynamicParamsInflationIdealStake, StagingKusamaRuntimeDynamicParamsInflationMaxInflation, StagingKusamaRuntimeDynamicParamsInflationMinInflation, StagingKusamaRuntimeDynamicParamsInflationParameters, StagingKusamaRuntimeDynamicParamsInflationParametersKey, StagingKusamaRuntimeDynamicParamsInflationParametersValue, StagingKusamaRuntimeDynamicParamsInflationUseAuctionSlots, StagingKusamaRuntimeDynamicParamsTreasuryBurnDestination, StagingKusamaRuntimeDynamicParamsTreasuryBurnPortion, StagingKusamaRuntimeDynamicParamsTreasuryParameters, StagingKusamaRuntimeDynamicParamsTreasuryParametersKey, StagingKusamaRuntimeDynamicParamsTreasuryParametersValue, StagingKusamaRuntimeGovernanceOriginsPalletCustomOriginsOrigin, StagingKusamaRuntimeNposCompactSolution24, StagingKusamaRuntimeOriginCaller, StagingKusamaRuntimeRuntime, StagingKusamaRuntimeRuntimeError, StagingKusamaRuntimeRuntimeFreezeReason, StagingKusamaRuntimeRuntimeHoldReason, StagingKusamaRuntimeRuntimeParameters, StagingKusamaRuntimeRuntimeParametersKey, StagingKusamaRuntimeRuntimeParametersValue, StagingKusamaRuntimeSessionKeys } from '@polkadot/types/lookup';
+declare module '@polkadot/types/types/registry' {
+    interface InterfaceTypes {
+        FrameSupportTokensMiscIdAmount: FrameSupportTokensMiscIdAmount;
+        KusamaRuntimeConstantsProxyProxyType: KusamaRuntimeConstantsProxyProxyType;
+        StagingKusamaRuntimeBurnDestinationAccount: StagingKusamaRuntimeBurnDestinationAccount;
+        StagingKusamaRuntimeDynamicParamsInflationFalloff: StagingKusamaRuntimeDynamicParamsInflationFalloff;
+        StagingKusamaRuntimeDynamicParamsInflationIdealStake: StagingKusamaRuntimeDynamicParamsInflationIdealStake;
+        StagingKusamaRuntimeDynamicParamsInflationMaxInflation: StagingKusamaRuntimeDynamicParamsInflationMaxInflation;
+        StagingKusamaRuntimeDynamicParamsInflationMinInflation: StagingKusamaRuntimeDynamicParamsInflationMinInflation;
+        StagingKusamaRuntimeDynamicParamsInflationParameters: StagingKusamaRuntimeDynamicParamsInflationParameters;
+        StagingKusamaRuntimeDynamicParamsInflationParametersKey: StagingKusamaRuntimeDynamicParamsInflationParametersKey;
+        StagingKusamaRuntimeDynamicParamsInflationParametersValue: StagingKusamaRuntimeDynamicParamsInflationParametersValue;
+        StagingKusamaRuntimeDynamicParamsInflationUseAuctionSlots: StagingKusamaRuntimeDynamicParamsInflationUseAuctionSlots;
+        StagingKusamaRuntimeDynamicParamsTreasuryBurnDestination: StagingKusamaRuntimeDynamicParamsTreasuryBurnDestination;
+        StagingKusamaRuntimeDynamicParamsTreasuryBurnPortion: StagingKusamaRuntimeDynamicParamsTreasuryBurnPortion;
+        StagingKusamaRuntimeDynamicParamsTreasuryParameters: StagingKusamaRuntimeDynamicParamsTreasuryParameters;
+        StagingKusamaRuntimeDynamicParamsTreasuryParametersKey: StagingKusamaRuntimeDynamicParamsTreasuryParametersKey;
+        StagingKusamaRuntimeDynamicParamsTreasuryParametersValue: StagingKusamaRuntimeDynamicParamsTreasuryParametersValue;
+        StagingKusamaRuntimeGovernanceOriginsPalletCustomOriginsOrigin: StagingKusamaRuntimeGovernanceOriginsPalletCustomOriginsOrigin;
+        StagingKusamaRuntimeNposCompactSolution24: StagingKusamaRuntimeNposCompactSolution24;
+        StagingKusamaRuntimeOriginCaller: StagingKusamaRuntimeOriginCaller;
+        StagingKusamaRuntimeRuntime: StagingKusamaRuntimeRuntime;
+        StagingKusamaRuntimeRuntimeError: StagingKusamaRuntimeRuntimeError;
+        StagingKusamaRuntimeRuntimeFreezeReason: StagingKusamaRuntimeRuntimeFreezeReason;
+        StagingKusamaRuntimeRuntimeHoldReason: StagingKusamaRuntimeRuntimeHoldReason;
+        StagingKusamaRuntimeRuntimeParameters: StagingKusamaRuntimeRuntimeParameters;
+        StagingKusamaRuntimeRuntimeParametersKey: StagingKusamaRuntimeRuntimeParametersKey;
+        StagingKusamaRuntimeRuntimeParametersValue: StagingKusamaRuntimeRuntimeParametersValue;
+        StagingKusamaRuntimeSessionKeys: StagingKusamaRuntimeSessionKeys;
+    }
+}

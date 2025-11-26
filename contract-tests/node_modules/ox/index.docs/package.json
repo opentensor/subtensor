@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../_types/undefined/index.docs.d.ts",
+  "main": "../_cjs/undefined/index.docs.js",
+  "module": "../_esm/undefined/index.docs.js"
+}

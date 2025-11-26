@@ -1,0 +1,9 @@
+{
+  "name": "@polkadot-api/known-chains-ksmcc3_encointer",
+  "types": "../dist/specs/ksmcc3_encointer.d.ts",
+  "module": "../dist/specs/ksmcc3_encointer.mjs",
+  "import": "../dist/specs/ksmcc3_encointer.mjs",
+  "browser": "../dist/specs/ksmcc3_encointer.mjs",
+  "require": "../dist/specs/ksmcc3_encointer.js",
+  "default": "../dist/specs/ksmcc3_encointer.js"
+}

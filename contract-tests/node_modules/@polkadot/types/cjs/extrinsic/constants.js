@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION = exports.GENERAL_EXTRINSIC = exports.BARE_EXTRINSIC = exports.TYPE_MASK = exports.VERSION_MASK = exports.LATEST_EXTRINSIC_VERSION = exports.DEFAULT_PREAMBLE = exports.UNMASK_VERSION = exports.IMMORTAL_ERA = exports.EMPTY_U8A = exports.BIT_UNSIGNED = exports.BIT_SIGNED = void 0;
+exports.BIT_SIGNED = 0b10000000;
+exports.BIT_UNSIGNED = 0;
+exports.EMPTY_U8A = new Uint8Array();
+exports.IMMORTAL_ERA = new Uint8Array([0]);
+exports.UNMASK_VERSION = 0b01111111;
+exports.DEFAULT_PREAMBLE = 'bare';
+exports.LATEST_EXTRINSIC_VERSION = 4;
+exports.VERSION_MASK = 0b00111111;
+exports.TYPE_MASK = 0b11000000;
+exports.BARE_EXTRINSIC = 0b00000000;
+exports.GENERAL_EXTRINSIC = 0b01000000;
+exports.LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION = 4;

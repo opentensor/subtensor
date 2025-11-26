@@ -1,0 +1,71 @@
+{
+  "name": "@scure/bip32",
+  "version": "1.6.2",
+  "description": "Secure, audited & minimal implementation of BIP32 hierarchical deterministic (HD) wallets over secp256k1",
+  "files": [
+    "index.ts",
+    "./lib"
+  ],
+  "main": "./lib/index.js",
+  "module": "./lib/esm/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./lib/esm/index.js",
+      "require": "./lib/index.js"
+    }
+  },
+  "dependencies": {
+    "@noble/curves": "~1.8.1",
+    "@noble/hashes": "~1.7.1",
+    "@scure/base": "~1.2.2"
+  },
+  "devDependencies": {
+    "@paulmillr/jsbt": "0.3.1",
+    "micro-should": "0.5.1",
+    "prettier": "3.3.2",
+    "typescript": "5.5.2"
+  },
+  "sideEffects": false,
+  "author": "Paul Miller (https://paulmillr.com)",
+  "homepage": "https://paulmillr.com/noble/#scure",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paulmillr/scure-bip32.git"
+  },
+  "contributors": [
+    {
+      "name": "Patricio Palladino",
+      "email": "patricio@nomiclabs.io"
+    },
+    {
+      "name": "Paul Miller",
+      "url": "https://paulmillr.com"
+    }
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc && tsc -p tsconfig.cjs.json",
+    "build:release": "npx jsbt esbuild test/build",
+    "lint": "prettier --check 'index.ts' 'test/*.test.ts'",
+    "format": "prettier --write 'index.ts' 'test/*.test.ts'",
+    "test": "node test/index.js",
+    "test:bun": "bun test/index.js",
+    "test:deno": "deno --allow-env --allow-read test/index.js"
+  },
+  "keywords": [
+    "bip32",
+    "hierarchical",
+    "deterministic",
+    "hd key",
+    "bip0032",
+    "bip-32",
+    "bip39",
+    "micro",
+    "scure",
+    "mnemonic",
+    "phrase",
+    "code"
+  ],
+  "funding": "https://paulmillr.com/funding/"
+}

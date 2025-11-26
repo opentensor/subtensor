@@ -1,0 +1,45 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deriveCache = void 0;
+exports.setDeriveCache = setDeriveCache;
+const cacheImpl_js_1 = require("./cacheImpl.js");
+const CACHE_EXPIRY = 7 * (24 * 60) * (60 * 1000);
+let deriveCache;
+function wrapCache(keyStart, cache) {
+    return {
+        del: (partial) => cache.del(`${keyStart}${partial}`),
+        forEach: cache.forEach,
+        get: (partial) => {
+            const key = `${keyStart}${partial}`;
+            const cached = cache.get(key);
+            if (cached) {
+                cached.x = Date.now();
+                cache.set(key, cached);
+                return cached.v;
+            }
+            return undefined;
+        },
+        set: (partial, v) => {
+            cache.set(`${keyStart}${partial}`, { v, x: Date.now() });
+        }
+    };
+}
+function clearCache(cache) {
+    // clear all expired values
+    const now = Date.now();
+    const all = [];
+    cache.forEach((key, { x }) => {
+        ((now - x) > CACHE_EXPIRY) && all.push(key);
+    });
+    // don't do delete inside loop, just in-case
+    all.forEach((key) => cache.del(key));
+}
+function setDeriveCache(prefix = '', cache) {
+    exports.deriveCache = deriveCache = cache
+        ? wrapCache(`derive:${prefix}:`, cache)
+        : cacheImpl_js_1.deriveNoopCache;
+    if (cache) {
+        clearCache(cache);
+    }
+}
+setDeriveCache();
