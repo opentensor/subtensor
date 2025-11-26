@@ -87,26 +87,26 @@ echo "*** Building chainspec..."
 echo "*** Chainspec built and output to file"
 
 # Generate node keys
-"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/charlie
-"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/dave
+"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/one
+"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/two
 
 if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
 else
   echo "*** Purging previous state..."
-  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/dave --chain="$FULL_PATH" >/dev/null 2>&1
-  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/charlie --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/two --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/one --chain="$FULL_PATH" >/dev/null 2>&1
   echo "*** Previous chainstate purged"
 fi
 
 if [ $BUILD_ONLY -eq 0 ]; then
   echo "*** Starting localnet nodes..."
 
-  charlie_start=(
+  one_start=(
     "$BUILD_DIR/release/node-subtensor"
-    --base-path /tmp/charlie
+    --base-path /tmp/one
     --chain="$FULL_PATH"
-    --charlie
+    --one
     --port 30334
     --rpc-port 9944
     --validator
@@ -116,11 +116,11 @@ if [ $BUILD_ONLY -eq 0 ]; then
     --unsafe-force-node-key-generation
   )
 
-  dave_start=(
+  two_start=(
     "$BUILD_DIR/release/node-subtensor"
-    --base-path /tmp/dave
+    --base-path /tmp/two
     --chain="$FULL_PATH"
-    --dave
+    --two
     --port 30335
     --rpc-port 9945
     --validator
@@ -132,15 +132,15 @@ if [ $BUILD_ONLY -eq 0 ]; then
 
   # Provide RUN_IN_DOCKER local environment variable if run script in the docker image
   if [ "${RUN_IN_DOCKER}" == "1" ]; then
-    charlie_start+=(--unsafe-rpc-external)
-    dave_start+=(--unsafe-rpc-external)
+    one_start+=(--unsafe-rpc-external)
+    two_start+=(--unsafe-rpc-external)
   fi
 
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
   (
-    ("${charlie_start[@]}" 2>&1) &
-    ("${dave_start[@]}" 2>&1)
+    ("${one_start[@]}" 2>&1) &
+    ("${two_start[@]}" 2>&1)
     wait
   )
 fi
