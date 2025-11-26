@@ -114,6 +114,21 @@ fc-aura.workspace = true
 fp-consensus.workspace = true
 num-traits = { workspace = true, features = ["std"] }
 
+# Mev Shield
+pallet-shield.workspace = true
+tokio = { version = "1.38", features = ["time"] }
+x25519-dalek = "2"
+hkdf = "0.12"
+chacha20poly1305 = { version = "0.10", features = ["std"] }
+codec.workspace = true
+rand.workspace = true
+sha2.workspace = true
+anyhow.workspace = true
+pallet-subtensor.workspace = true
+ml-kem.workspace = true
+rand_core = "0.9.3"
+blake2 = "0.10.6"
+
 # Local Dependencies
 node-subtensor-runtime = { workspace = true, features = ["std"] }
 subtensor-runtime-common = { workspace = true, features = ["std"] }
@@ -121,6 +136,7 @@ subtensor-custom-rpc = { workspace = true, features = ["std"] }
 subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-rpc = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
+subtensor-macros.workspace = true
 
 [build-dependencies]
 substrate-build-script-utils.workspace = true
@@ -138,6 +154,7 @@ default = ["rocksdb", "sql", "txpool"]
 fast-runtime = [
 	"node-subtensor-runtime/fast-runtime",
 	"subtensor-runtime-common/fast-runtime",
+	"pallet-subtensor/fast-runtime",
 ]
 sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
@@ -154,7 +171,10 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
+	"pallet-subtensor/runtime-benchmarks",
+	"pallet-shield/runtime-benchmarks",
 ]
+
 pow-faucet = []
 
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
@@ -167,6 +187,8 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-drand/try-runtime",
 	"polkadot-sdk/try-runtime",
+	"pallet-shield/try-runtime",
+	"pallet-subtensor/try-runtime",
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]
