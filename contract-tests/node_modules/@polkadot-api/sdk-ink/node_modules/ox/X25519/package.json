@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "types": "../_types/core/X25519.d.ts",
-  "main": "../_cjs/core/X25519.js",
-  "module": "../_esm/core/X25519.js"
-}

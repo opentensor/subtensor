@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "types": "../_types/core/StateOverrides.d.ts",
-  "main": "../_cjs/core/StateOverrides.js",
-  "module": "../_esm/core/StateOverrides.js"
-}

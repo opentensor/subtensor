@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "types": "../_types/core/BlockOverrides.d.ts",
-  "main": "../_cjs/core/BlockOverrides.js",
-  "module": "../_esm/core/BlockOverrides.js"
-}

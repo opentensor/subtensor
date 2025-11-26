@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "types": "../_types/erc4337/index.d.ts",
-  "main": "../_cjs/erc4337/index.js",
-  "module": "../_esm/erc4337/index.js"
-}

@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "types": "../_types/core/BinaryStateTree.d.ts",
-  "main": "../_cjs/core/BinaryStateTree.js",
-  "module": "../_esm/core/BinaryStateTree.js"
-}

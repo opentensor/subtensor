@@ -1,1 +1,0 @@
-{"version":3,"file":"getGasPerPubdata.js","sourceRoot":"","sources":["../../../zksync/actions/getGasPerPubdata.ts"],"names":[],"mappings":";;AASA,4CAgBC;AAtBD,gEAA6D;AAMtD,KAAK,UAAU,gBAAgB,CAIpC,MAAgE;IAEhE,MAAM,MAAM,GAAG,MAAM,MAAM,CAAC,OAAO,CACjC;QACE,MAAM,EAAE,mBAAmB;KAC5B,EACD;QACE,MAAM,EAAE,IAAI;KACb,CACF,CAAA;IAED,OAAO,IAAA,wBAAW,EAAC,MAAM,CAAC,CAAA;AAC5B,CAAC"}

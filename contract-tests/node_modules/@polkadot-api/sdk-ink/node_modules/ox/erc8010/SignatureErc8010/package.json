@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "types": "../../_types/erc8010/SignatureErc8010.d.ts",
-  "main": "../../_cjs/erc8010/SignatureErc8010.js",
-  "module": "../../_esm/erc8010/SignatureErc8010.js"
-}

@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "types": "../../_types/erc6492/WrappedSignature.d.ts",
-  "main": "../../_cjs/erc6492/WrappedSignature.js",
-  "module": "../../_esm/erc6492/WrappedSignature.js"
-}

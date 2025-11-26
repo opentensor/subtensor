@@ -1,1 +1,0 @@
-{"version":3,"file":"walletL2.js","sourceRoot":"","sources":["../../../zksync/decorators/walletL2.ts"],"names":[],"mappings":";;AAoFA,0CAUC;AA3FD,wDAI+B;AA6E/B,SAAgB,eAAe;IAC7B,OAAO,CAKL,MAAyC,EACR,EAAE,CAAC,CAAC;QACrC,QAAQ,EAAE,CAAC,IAAI,EAAE,EAAE,CAAC,IAAA,sBAAQ,EAAC,MAAM,EAAE,IAAI,CAAC;KAC3C,CAAC,CAAA;AACJ,CAAC"}
