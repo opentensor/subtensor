@@ -3,7 +3,6 @@ use alloc::collections::BTreeMap;
 use safe_math::FixedExt;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
-use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
@@ -64,32 +63,24 @@ impl<T: Config> Pallet<T> {
 
         // Calculate net ema flow for the next block
         let block_flow = I64F64::saturating_from_num(SubnetTaoFlow::<T>::get(netuid));
-        if let Some((last_block, last_block_ema)) = SubnetEmaTaoFlow::<T>::get(netuid) {
-            // EMA flow already initialized
-            if last_block != current_block {
-                let flow_alpha = I64F64::saturating_from_num(FlowEmaSmoothingFactor::<T>::get())
-                    .safe_div(I64F64::saturating_from_num(i64::MAX));
-                let one = I64F64::saturating_from_num(1);
-                let ema_flow = (one.saturating_sub(flow_alpha))
-                    .saturating_mul(last_block_ema)
-                    .saturating_add(flow_alpha.saturating_mul(block_flow));
-                SubnetEmaTaoFlow::<T>::insert(netuid, (current_block, ema_flow));
+        let (last_block, last_block_ema) =
+            SubnetEmaTaoFlow::<T>::get(netuid).unwrap_or((0, I64F64::saturating_from_num(0)));
 
-                // Drop the accumulated flow in the last block
-                Self::reset_tao_outflow(netuid);
-                ema_flow
-            } else {
-                last_block_ema
-            }
-        } else {
-            // Initialize EMA flow, set S(current_block) = min(price, ema_price) * init_factor
-            let init_factor = I64F64::saturating_from_num(1_000_000_000);
-            let moving_price = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
-            let current_price =
-                I64F64::saturating_from_num(T::SwapInterface::current_alpha_price(netuid));
-            let ema_flow = init_factor.saturating_mul(moving_price.min(current_price));
+        // EMA flow already initialized
+        if last_block != current_block {
+            let flow_alpha = I64F64::saturating_from_num(FlowEmaSmoothingFactor::<T>::get())
+                .safe_div(I64F64::saturating_from_num(i64::MAX));
+            let one = I64F64::saturating_from_num(1);
+            let ema_flow = (one.saturating_sub(flow_alpha))
+                .saturating_mul(last_block_ema)
+                .saturating_add(flow_alpha.saturating_mul(block_flow));
             SubnetEmaTaoFlow::<T>::insert(netuid, (current_block, ema_flow));
+
+            // Drop the accumulated flow in the last block
+            Self::reset_tao_outflow(netuid);
             ema_flow
+        } else {
+            last_block_ema
         }
     }
 
