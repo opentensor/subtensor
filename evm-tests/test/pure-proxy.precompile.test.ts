@@ -142,7 +142,7 @@ describe("Test pure proxy precompile", () => {
         const tx = await contract.addProxy(convertH160ToPublicKey(evmWallet3.address), type, delay)
         await tx.wait()
 
-        const proxiesAfterAdd = await await api.query.Proxy.Proxies.getValue(convertH160ToSS58(evmWallet2.address))
+        const proxiesAfterAdd = await api.query.Proxy.Proxies.getValue(convertH160ToSS58(evmWallet2.address))
         const proxiesList = proxiesAfterAdd[0].map(proxy => proxy.delegate)
 
         const proxiesFromContractAfterAdd = await contract.getProxies(convertH160ToPublicKey(evmWallet2.address))
