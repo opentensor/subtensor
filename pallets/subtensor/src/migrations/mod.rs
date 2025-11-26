@@ -37,6 +37,7 @@ pub mod migrate_remove_network_modality;
 pub mod migrate_remove_stake_map;
 pub mod migrate_remove_tao_dividends;
 pub mod migrate_remove_total_hotkey_coldkey_stakes_this_interval;
+pub mod migrate_remove_unknown_neuron_axon_cert_prom;
 pub mod migrate_remove_unused_maps_and_values;
 pub mod migrate_remove_zero_total_hotkey_alpha;
 pub mod migrate_reset_bonds_moving_average;

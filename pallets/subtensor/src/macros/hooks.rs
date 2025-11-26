@@ -162,7 +162,9 @@ mod hooks {
                 // Migrate pending emissions
                 .saturating_add(migrations::migrate_pending_emissions::migrate_pending_emissions::<T>())
                 // Reset unactive subnets
-                .saturating_add(migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<T>());
+                .saturating_add(migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<T>())
+                // Remove unknown neuron axon, certificate prom
+                .saturating_add(migrations::migrate_remove_unknown_neuron_axon_cert_prom::migrate_remove_unknown_neuron_axon_cert_prom::<T>());
             weight
         }
 
