@@ -2751,6 +2751,9 @@ fn test_migrate_remove_old_identity_maps() {
         migration,
         100,
     );
+}
+
+#[test]
 fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
     use crate::migrations::migrate_remove_unknown_neuron_axon_cert_prom::*;
     const MIGRATION_NAME: &[u8] = b"migrate_remove_neuron_axon_cert_prom";

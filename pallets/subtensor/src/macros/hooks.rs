@@ -158,7 +158,7 @@ mod hooks {
                 // Reset unactive subnets
                 .saturating_add(migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<T>())
                 // Remove old identity map entries(Identities, SubnetIdentities, SubnetIdentitiesV2)
-                .saturating_add(migrations::migrate_remove_old_identity_maps::migrate_remove_old_identity_maps::<T>());
+                .saturating_add(migrations::migrate_remove_old_identity_maps::migrate_remove_old_identity_maps::<T>())
                 // Remove unknown neuron axon, certificate prom
                 .saturating_add(migrations::migrate_remove_unknown_neuron_axon_cert_prom::migrate_remove_unknown_neuron_axon_cert_prom::<T>());
             weight
