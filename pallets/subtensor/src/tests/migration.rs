@@ -2727,19 +2727,14 @@ fn test_migrate_reset_unactive_sn_idempotence() {
 
 #[test]
 fn test_migrate_remove_old_identity_maps() {
-    let migration = crate::migrations::migrate_remove_old_identity_maps::migrate_remove_old_identity_maps::<Test>;
+    let migration =
+        crate::migrations::migrate_remove_old_identity_maps::migrate_remove_old_identity_maps::<Test>;
 
     const MIGRATION_NAME: &str = "migrate_remove_old_identity_maps";
 
     let pallet_name = "SubtensorModule";
 
-    test_remove_storage_item(
-        MIGRATION_NAME,
-        pallet_name,
-        "Identities",
-        migration,
-        100,
-    );
+    test_remove_storage_item(MIGRATION_NAME, pallet_name, "Identities", migration, 100);
 
     test_remove_storage_item(
         MIGRATION_NAME,
