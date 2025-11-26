@@ -15,7 +15,7 @@ pub fn migrate_remove_old_identity_maps<T: Config>() -> Weight {
         return weight;
     }
 
-    log::info(
+    log::info!(
         "Running migration '{}'",
         String::from_utf8_lossy(&migration_name),
     );
