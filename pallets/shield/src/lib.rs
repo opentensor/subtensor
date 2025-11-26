@@ -160,11 +160,13 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(
+        #[pallet::weight((
             Weight::from_parts(9_979_000, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64))
-        )]
+                .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: BoundedVec<u8, ConstU32<2048>>,
@@ -227,9 +229,13 @@ pub mod pallet {
 
         /// Executed by the block author.
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::from_parts(77_280_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4_u64))
-        .saturating_add(T::DbWeight::get().writes(2_u64)))]
+        #[pallet::weight((
+            Weight::from_parts(77_280_000, 0)
+                .saturating_add(T::DbWeight::get().reads(4_u64))
+                .saturating_add(T::DbWeight::get().writes(2_u64)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
         #[allow(clippy::useless_conversion)]
         pub fn execute_revealed(
             origin: OriginFor<T>,
