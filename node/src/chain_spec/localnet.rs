@@ -34,11 +34,11 @@ pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
         // aura | grandpa
         if single_authority {
             // single authority allows you to run the network using a single node
-            vec![authority_keys_from_seed("Alice")]
+            vec![authority_keys_from_seed("Charlie")]
         } else {
             vec![
-                authority_keys_from_seed("Alice"),
-                authority_keys_from_seed("Bob"),
+                authority_keys_from_seed("Charlie"),
+                authority_keys_from_seed("Dave"),
             ]
         },
         // Pre-funded accounts
