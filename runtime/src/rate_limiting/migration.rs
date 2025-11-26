@@ -10,10 +10,10 @@ use pallet_rate_limiting::{
 };
 use pallet_subtensor::{
     self, AssociatedEvmAddress, Axons, Config as SubtensorConfig, HasMigrationRun,
-    LastRateLimitedBlock, LastUpdate, MaxUidsTrimmingRateLimit, MechanismCountCurrent,
-    MechanismCountSetRateLimit, MechanismEmissionRateLimit, NetworkRateLimit,
-    OwnerHyperparamRateLimit, Pallet, Prometheus, RateLimitKey, TransactionKeyLastBlock,
-    TxChildkeyTakeRateLimit, TxDelegateTakeRateLimit, TxRateLimit, WeightsVersionKeyRateLimit,
+    LastRateLimitedBlock, LastUpdate, MaxUidsTrimmingRateLimit, MechanismCountSetRateLimit,
+    MechanismEmissionRateLimit, NetworkRateLimit, OwnerHyperparamRateLimit, Pallet, Prometheus,
+    RateLimitKey, TransactionKeyLastBlock, TxChildkeyTakeRateLimit, TxDelegateTakeRateLimit,
+    TxRateLimit, WeightsVersionKeyRateLimit,
     utils::rate_limiting::{Hyperparameter, TransactionType},
 };
 use sp_runtime::traits::SaturatedConversion;
@@ -22,14 +22,14 @@ use sp_std::{
     vec,
     vec::Vec,
 };
-use subtensor_runtime_common::{MechId, NetUid};
+use subtensor_runtime_common::NetUid;
 
-use super::{RateLimitScope, RateLimitUsageKey};
+use super::RateLimitUsageKey;
 
 type GroupIdOf<T> = <T as pallet_rate_limiting::Config>::GroupId;
 type LimitEntries<T> = Vec<(
     RateLimitTarget<GroupId>,
-    RateLimit<RateLimitScope, BlockNumberFor<T>>,
+    RateLimit<NetUid, BlockNumberFor<T>>,
 )>;
 type LastSeenEntries<T> = Vec<(
     (
@@ -240,13 +240,6 @@ fn weight_calls_subnet(grouping: &Grouping) -> Vec<TransactionIdentifier> {
         .unwrap_or_default()
 }
 
-fn weight_calls_mechanism(grouping: &Grouping) -> Vec<TransactionIdentifier> {
-    grouping
-        .members(GROUP_WEIGHTS_MECHANISM)
-        .map(|m| m.iter().copied().collect())
-        .unwrap_or_default()
-}
-
 fn build_grouping() -> Grouping {
     let mut grouping = Grouping::default();
 
@@ -265,8 +258,7 @@ fn build_grouping() -> Grouping {
 
 pub fn migrate_rate_limiting<T>() -> Weight
 where
-    T: SubtensorConfig
-        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    T: SubtensorConfig + pallet_rate_limiting::Config<LimitScope = NetUid, GroupId = GroupId>,
     RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     let mut weight = T::DbWeight::get().reads(1);
@@ -449,12 +441,7 @@ fn gather_serving_limits<T: SubtensorConfig>(
         reads += 1;
         if let Some(span) = block_number::<T>(Pallet::<T>::get_serving_rate_limit(netuid)) {
             for call in serve_calls(grouping) {
-                set_scoped_limit::<T>(
-                    limits,
-                    grouping.config_target(call),
-                    RateLimitScope::Subnet(netuid),
-                    span,
-                );
+                set_scoped_limit::<T>(limits, grouping.config_target(call), netuid, span);
             }
         }
     }
@@ -469,40 +456,12 @@ fn gather_weight_limits<T: SubtensorConfig>(
     let mut reads: u64 = 0;
     let netuids = Pallet::<T>::get_all_subnet_netuids();
 
-    let mut subnet_limits = BTreeMap::<NetUid, BlockNumberFor<T>>::new();
     let subnet_calls = weight_calls_subnet(grouping);
-    let mechanism_calls = weight_calls_mechanism(grouping);
     for netuid in &netuids {
         reads += 1;
         if let Some(span) = block_number::<T>(Pallet::<T>::get_weights_set_rate_limit(*netuid)) {
-            subnet_limits.insert(*netuid, span);
             for call in &subnet_calls {
-                set_scoped_limit::<T>(
-                    limits,
-                    grouping.config_target(*call),
-                    RateLimitScope::Subnet(*netuid),
-                    span,
-                );
-            }
-        }
-    }
-
-    for netuid in &netuids {
-        reads += 1;
-        let mech_count: u8 = MechanismCountCurrent::<T>::get(*netuid).into();
-        if mech_count <= 1 {
-            continue;
-        }
-        let Some(span) = subnet_limits.get(netuid).copied() else {
-            continue;
-        };
-        for mecid in 1..mech_count {
-            let scope = RateLimitScope::SubnetMechanism {
-                netuid: *netuid,
-                mecid: MechId::from(mecid),
-            };
-            for call in &mechanism_calls {
-                set_scoped_limit::<T>(limits, grouping.config_target(*call), scope.clone(), span);
+                set_scoped_limit::<T>(limits, grouping.config_target(*call), *netuid, span);
             }
         }
     }
@@ -621,18 +580,9 @@ fn import_last_update_entries<T: SubtensorConfig>(
 ) -> u64 {
     let mut reads: u64 = 0;
     let subnet_calls = weight_calls_subnet(grouping);
-    let mechanism_calls = weight_calls_mechanism(grouping);
     for (index, blocks) in LastUpdate::<T>::iter() {
         reads += 1;
         let netuid = Pallet::<T>::get_netuid(index);
-        let sub_id = u16::from(index)
-            .checked_div(pallet_subtensor::subnets::mechanism::GLOBAL_MAX_SUBNET_COUNT)
-            .unwrap_or_default();
-        let is_mechanism = sub_id != 0;
-        let Ok(sub_id) = u8::try_from(sub_id) else {
-            continue;
-        };
-        let mecid = MechId::from(sub_id);
 
         for (uid, last_block) in blocks.into_iter().enumerate() {
             if last_block == 0 {
@@ -641,26 +591,12 @@ fn import_last_update_entries<T: SubtensorConfig>(
             let Ok(uid_u16) = u16::try_from(uid) else {
                 continue;
             };
-            let usage = if is_mechanism {
-                RateLimitUsageKey::SubnetMechanismNeuron {
-                    netuid,
-                    mecid,
-                    uid: uid_u16,
-                }
-            } else {
-                RateLimitUsageKey::SubnetNeuron {
-                    netuid,
-                    uid: uid_u16,
-                }
+            let usage = RateLimitUsageKey::SubnetNeuron {
+                netuid,
+                uid: uid_u16,
             };
 
-            let call_set: &[TransactionIdentifier] = if is_mechanism {
-                mechanism_calls.as_slice()
-            } else {
-                subnet_calls.as_slice()
-            };
-
-            for call in call_set {
+            for call in &subnet_calls {
                 record_last_seen_entry::<T>(
                     entries,
                     grouping.usage_target(*call),
@@ -743,8 +679,7 @@ fn import_evm_entries<T: SubtensorConfig>(
 
 fn convert_target<T>(target: &RateLimitTarget<GroupId>) -> RateLimitTarget<GroupIdOf<T>>
 where
-    T: SubtensorConfig
-        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    T: SubtensorConfig + pallet_rate_limiting::Config<LimitScope = NetUid, GroupId = GroupId>,
     RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     match target {
@@ -755,8 +690,7 @@ where
 
 fn write_limits<T>(limits: &LimitEntries<T>) -> u64
 where
-    T: SubtensorConfig
-        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    T: SubtensorConfig + pallet_rate_limiting::Config<LimitScope = NetUid, GroupId = GroupId>,
     RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     let mut writes: u64 = 0;
@@ -770,8 +704,7 @@ where
 
 fn write_last_seen<T>(entries: &LastSeenEntries<T>) -> u64
 where
-    T: SubtensorConfig
-        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    T: SubtensorConfig + pallet_rate_limiting::Config<LimitScope = NetUid, GroupId = GroupId>,
     RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     let mut writes: u64 = 0;
@@ -786,8 +719,7 @@ where
 
 fn write_groups<T>(grouping: &Grouping) -> u64
 where
-    T: SubtensorConfig
-        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    T: SubtensorConfig + pallet_rate_limiting::Config<LimitScope = NetUid, GroupId = GroupId>,
     RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     let mut writes: u64 = 0;
@@ -860,7 +792,7 @@ fn set_global_limit<T: SubtensorConfig>(
 fn set_scoped_limit<T: SubtensorConfig>(
     limits: &mut LimitEntries<T>,
     target: RateLimitTarget<GroupId>,
-    scope: RateLimitScope,
+    scope: NetUid,
     span: BlockNumberFor<T>,
 ) {
     if let Some((_, config)) = limits.iter_mut().find(|(id, _)| *id == target) {
@@ -905,8 +837,7 @@ pub struct Migration<T: SubtensorConfig>(PhantomData<T>);
 
 impl<T> frame_support::traits::OnRuntimeUpgrade for Migration<T>
 where
-    T: SubtensorConfig
-        + pallet_rate_limiting::Config<LimitScope = RateLimitScope, GroupId = GroupId>,
+    T: SubtensorConfig + pallet_rate_limiting::Config<LimitScope = NetUid, GroupId = GroupId>,
     RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     fn on_runtime_upgrade() -> Weight {

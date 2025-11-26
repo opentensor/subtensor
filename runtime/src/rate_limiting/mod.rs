@@ -19,27 +19,6 @@ pub mod migration;
     Decode,
     DecodeWithMemTracking,
     Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Debug,
-    TypeInfo,
-    MaxEncodedLen,
-)]
-pub enum RateLimitScope {
-    Subnet(NetUid),
-    SubnetMechanism { netuid: NetUid, mecid: MechId },
-}
-
-#[derive(
-    Serialize,
-    Deserialize,
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    Clone,
     PartialEq,
     Eq,
     PartialOrd,
@@ -72,66 +51,54 @@ pub enum RateLimitUsageKey<AccountId: Parameter> {
     },
 }
 
-fn signed_origin(origin: &RuntimeOrigin) -> Option<AccountId> {
-    match origin.clone().into() {
-        Ok(RawOrigin::Signed(who)) => Some(who),
-        _ => None,
+#[derive(Default)]
+pub struct ScopeResolver;
+
+impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for ScopeResolver {
+    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<NetUid> {
+        match call {
+            RuntimeCall::SubtensorModule(inner) => match inner {
+                SubtensorCall::serve_axon { netuid, .. }
+                | SubtensorCall::serve_axon_tls { netuid, .. }
+                | SubtensorCall::serve_prometheus { netuid, .. }
+                | SubtensorCall::set_weights { netuid, .. }
+                | SubtensorCall::commit_weights { netuid, .. }
+                | SubtensorCall::reveal_weights { netuid, .. }
+                | SubtensorCall::batch_reveal_weights { netuid, .. }
+                | SubtensorCall::commit_timelocked_weights { netuid, .. }
+                | SubtensorCall::set_mechanism_weights { netuid, .. }
+                | SubtensorCall::commit_mechanism_weights { netuid, .. }
+                | SubtensorCall::reveal_mechanism_weights { netuid, .. }
+                | SubtensorCall::commit_crv3_mechanism_weights { netuid, .. }
+                | SubtensorCall::commit_timelocked_mechanism_weights { netuid, .. } => {
+                    Some(*netuid)
+                }
+                _ => None,
+            },
+            _ => None,
+        }
     }
-}
 
-fn tempo_scaled(netuid: NetUid, span: BlockNumber) -> BlockNumber {
-    if span == 0 {
-        return span;
+    fn should_bypass(origin: &RuntimeOrigin, _call: &RuntimeCall) -> bool {
+        matches!(origin.clone().into(), Ok(RawOrigin::Root))
     }
-    let tempo = BlockNumber::from(Tempo::<Runtime>::get(netuid) as u32);
-    span.saturating_mul(tempo)
-}
 
-fn neuron_identity(origin: &RuntimeOrigin, netuid: NetUid) -> Option<(AccountId, u16)> {
-    let hotkey = signed_origin(origin)?;
-    let uid =
-        pallet_subtensor::Pallet::<Runtime>::get_uid_for_net_and_hotkey(netuid, &hotkey).ok()?;
-    Some((hotkey, uid))
-}
-
-fn owner_hparam_netuid(call: &AdminUtilsCall<Runtime>) -> Option<NetUid> {
-    match call {
-        AdminUtilsCall::sudo_set_activity_cutoff { netuid, .. }
-        | AdminUtilsCall::sudo_set_adjustment_alpha { netuid, .. }
-        | AdminUtilsCall::sudo_set_alpha_sigmoid_steepness { netuid, .. }
-        | AdminUtilsCall::sudo_set_alpha_values { netuid, .. }
-        | AdminUtilsCall::sudo_set_bonds_moving_average { netuid, .. }
-        | AdminUtilsCall::sudo_set_bonds_penalty { netuid, .. }
-        | AdminUtilsCall::sudo_set_bonds_reset_enabled { netuid, .. }
-        | AdminUtilsCall::sudo_set_commit_reveal_weights_enabled { netuid, .. }
-        | AdminUtilsCall::sudo_set_commit_reveal_weights_interval { netuid, .. }
-        | AdminUtilsCall::sudo_set_immunity_period { netuid, .. }
-        | AdminUtilsCall::sudo_set_liquid_alpha_enabled { netuid, .. }
-        | AdminUtilsCall::sudo_set_max_allowed_uids { netuid, .. }
-        | AdminUtilsCall::sudo_set_max_burn { netuid, .. }
-        | AdminUtilsCall::sudo_set_max_difficulty { netuid, .. }
-        | AdminUtilsCall::sudo_set_min_allowed_weights { netuid, .. }
-        | AdminUtilsCall::sudo_set_min_burn { netuid, .. }
-        | AdminUtilsCall::sudo_set_network_pow_registration_allowed { netuid, .. }
-        | AdminUtilsCall::sudo_set_owner_immune_neuron_limit { netuid, .. }
-        | AdminUtilsCall::sudo_set_recycle_or_burn { netuid, .. }
-        | AdminUtilsCall::sudo_set_rho { netuid, .. }
-        | AdminUtilsCall::sudo_set_serving_rate_limit { netuid, .. }
-        | AdminUtilsCall::sudo_set_toggle_transfer { netuid, .. }
-        | AdminUtilsCall::sudo_set_weights_version_key { netuid, .. }
-        | AdminUtilsCall::sudo_set_yuma3_enabled { netuid, .. } => Some(*netuid),
-        _ => None,
+    fn adjust_span(_origin: &RuntimeOrigin, call: &RuntimeCall, span: BlockNumber) -> BlockNumber {
+        match call {
+            RuntimeCall::AdminUtils(inner) => {
+                if let Some(netuid) = owner_hparam_netuid(inner) {
+                    if span == 0 {
+                        return span;
+                    }
+                    let tempo = BlockNumber::from(Tempo::<Runtime>::get(netuid) as u32);
+                    span.saturating_mul(tempo)
+                } else {
+                    span
+                }
+            }
+            _ => span,
+        }
     }
-}
-
-fn admin_scope_netuid(call: &AdminUtilsCall<Runtime>) -> Option<NetUid> {
-    owner_hparam_netuid(call).or_else(|| match call {
-        AdminUtilsCall::sudo_set_mechanism_count { netuid, .. }
-        | AdminUtilsCall::sudo_set_mechanism_emission_split { netuid, .. }
-        | AdminUtilsCall::sudo_set_sn_owner_hotkey { netuid, .. }
-        | AdminUtilsCall::sudo_trim_to_max_allowed_uids { netuid, .. } => Some(*netuid),
-        _ => None,
-    })
 }
 
 #[derive(Default)]
@@ -264,63 +231,46 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
     }
 }
 
-#[derive(Default)]
-pub struct ScopeResolver;
+fn neuron_identity(origin: &RuntimeOrigin, netuid: NetUid) -> Option<(AccountId, u16)> {
+    let hotkey = signed_origin(origin)?;
+    let uid =
+        pallet_subtensor::Pallet::<Runtime>::get_uid_for_net_and_hotkey(netuid, &hotkey).ok()?;
+    Some((hotkey, uid))
+}
 
-impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, RateLimitScope, BlockNumber>
-    for ScopeResolver
-{
-    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<RateLimitScope> {
-        match call {
-            RuntimeCall::SubtensorModule(inner) => match inner {
-                SubtensorCall::serve_axon { netuid, .. }
-                | SubtensorCall::serve_axon_tls { netuid, .. }
-                | SubtensorCall::serve_prometheus { netuid, .. }
-                | SubtensorCall::set_weights { netuid, .. }
-                | SubtensorCall::commit_weights { netuid, .. }
-                | SubtensorCall::reveal_weights { netuid, .. }
-                | SubtensorCall::batch_reveal_weights { netuid, .. }
-                | SubtensorCall::commit_timelocked_weights { netuid, .. } => {
-                    Some(RateLimitScope::Subnet(*netuid))
-                }
-                SubtensorCall::set_mechanism_weights { netuid, mecid, .. }
-                | SubtensorCall::commit_mechanism_weights { netuid, mecid, .. }
-                | SubtensorCall::reveal_mechanism_weights { netuid, mecid, .. }
-                | SubtensorCall::commit_crv3_mechanism_weights { netuid, mecid, .. }
-                | SubtensorCall::commit_timelocked_mechanism_weights { netuid, mecid, .. } => {
-                    Some(RateLimitScope::SubnetMechanism {
-                        netuid: *netuid,
-                        mecid: *mecid,
-                    })
-                }
-                _ => None,
-            },
-            RuntimeCall::AdminUtils(inner) => {
-                if owner_hparam_netuid(inner).is_some() {
-                    // Hyperparameter setters share a global limit span; usage is tracked per subnet.
-                    None
-                } else {
-                    admin_scope_netuid(inner).map(RateLimitScope::Subnet)
-                }
-            }
-            _ => None,
-        }
+fn signed_origin(origin: &RuntimeOrigin) -> Option<AccountId> {
+    match origin.clone().into() {
+        Ok(RawOrigin::Signed(who)) => Some(who),
+        _ => None,
     }
+}
 
-    fn should_bypass(origin: &RuntimeOrigin, _call: &RuntimeCall) -> bool {
-        matches!(origin.clone().into(), Ok(RawOrigin::Root))
-    }
-
-    fn adjust_span(_origin: &RuntimeOrigin, call: &RuntimeCall, span: BlockNumber) -> BlockNumber {
-        match call {
-            RuntimeCall::AdminUtils(inner) => {
-                if let Some(netuid) = owner_hparam_netuid(inner) {
-                    tempo_scaled(netuid, span)
-                } else {
-                    span
-                }
-            }
-            _ => span,
-        }
+fn owner_hparam_netuid(call: &AdminUtilsCall<Runtime>) -> Option<NetUid> {
+    match call {
+        AdminUtilsCall::sudo_set_activity_cutoff { netuid, .. }
+        | AdminUtilsCall::sudo_set_adjustment_alpha { netuid, .. }
+        | AdminUtilsCall::sudo_set_alpha_sigmoid_steepness { netuid, .. }
+        | AdminUtilsCall::sudo_set_alpha_values { netuid, .. }
+        | AdminUtilsCall::sudo_set_bonds_moving_average { netuid, .. }
+        | AdminUtilsCall::sudo_set_bonds_penalty { netuid, .. }
+        | AdminUtilsCall::sudo_set_bonds_reset_enabled { netuid, .. }
+        | AdminUtilsCall::sudo_set_commit_reveal_weights_enabled { netuid, .. }
+        | AdminUtilsCall::sudo_set_commit_reveal_weights_interval { netuid, .. }
+        | AdminUtilsCall::sudo_set_immunity_period { netuid, .. }
+        | AdminUtilsCall::sudo_set_liquid_alpha_enabled { netuid, .. }
+        | AdminUtilsCall::sudo_set_max_allowed_uids { netuid, .. }
+        | AdminUtilsCall::sudo_set_max_burn { netuid, .. }
+        | AdminUtilsCall::sudo_set_max_difficulty { netuid, .. }
+        | AdminUtilsCall::sudo_set_min_allowed_weights { netuid, .. }
+        | AdminUtilsCall::sudo_set_min_burn { netuid, .. }
+        | AdminUtilsCall::sudo_set_network_pow_registration_allowed { netuid, .. }
+        | AdminUtilsCall::sudo_set_owner_immune_neuron_limit { netuid, .. }
+        | AdminUtilsCall::sudo_set_recycle_or_burn { netuid, .. }
+        | AdminUtilsCall::sudo_set_rho { netuid, .. }
+        | AdminUtilsCall::sudo_set_serving_rate_limit { netuid, .. }
+        | AdminUtilsCall::sudo_set_toggle_transfer { netuid, .. }
+        | AdminUtilsCall::sudo_set_weights_version_key { netuid, .. }
+        | AdminUtilsCall::sudo_set_yuma3_enabled { netuid, .. } => Some(*netuid),
+        _ => None,
     }
 }

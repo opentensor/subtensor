@@ -101,8 +101,7 @@ use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 pub use rate_limiting::{
-    RateLimitScope, RateLimitUsageKey, ScopeResolver as RuntimeScopeResolver,
-    UsageResolver as RuntimeUsageResolver,
+    RateLimitUsageKey, ScopeResolver as RuntimeScopeResolver, UsageResolver as RuntimeUsageResolver,
 };
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -1127,7 +1126,7 @@ parameter_types! {
 impl pallet_rate_limiting::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type AdminOrigin = EnsureRoot<AccountId>;
-    type LimitScope = RateLimitScope;
+    type LimitScope = NetUid;
     type LimitScopeResolver = RuntimeScopeResolver;
     type UsageKey = RateLimitUsageKey<AccountId>;
     type UsageResolver = RuntimeUsageResolver;
