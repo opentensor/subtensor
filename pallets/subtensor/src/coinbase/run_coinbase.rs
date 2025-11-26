@@ -615,6 +615,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Distribute root alpha divs.
+        let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (hotkey, mut root_alpha) in root_alpha_dividends {
             // Get take prop
             let alpha_take: U96F32 =
@@ -637,7 +638,7 @@ impl<T: Config> Pallet<T> {
             );
 
             // Record root alpha dividends for this validator on this subnet.
-            AlphaDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
+            RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
                 *divs = divs.saturating_add(tou64!(root_alpha).into());
             });
         }

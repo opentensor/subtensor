@@ -157,47 +157,51 @@ impl<T: Config> Pallet<T> {
             return; // no-op
         }
 
-        match root_claim_type {
-            //  Increase stake on root
-            RootClaimTypeEnum::Swap => {
-                // Swap the alpha owed to TAO
-                let owed_tao = match Self::swap_alpha_for_tao(
-                    netuid,
-                    owed_u64.into(),
-                    T::SwapInterface::min_price::<TaoCurrency>(),
-                    true,
-                ) {
-                    Ok(owed_tao) => owed_tao,
-                    Err(err) => {
-                        log::error!("Error swapping alpha for TAO: {err:?}");
-
-                        return;
-                    }
-                };
-
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey,
-                    coldkey,
-                    NetUid::ROOT,
-                    owed_tao.amount_paid_out.to_u64().into(),
-                );
-
-                Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
-                    hotkey,
-                    coldkey,
-                    owed_tao.amount_paid_out.into(),
-                );
-            }
-            RootClaimTypeEnum::Keep => {
-                // Increase the stake with the alpha owned
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey,
-                    coldkey,
-                    netuid,
-                    owed_u64.into(),
-                );
-            }
+        let swap = match root_claim_type {
+            RootClaimTypeEnum::Swap => true,
+            RootClaimTypeEnum::Keep => false,
+            RootClaimTypeEnum::KeepSubnets { subnets } => !subnets.contains(&netuid),
         };
+
+        if swap {
+            // Increase stake on root. Swap the alpha owed to TAO
+            let owed_tao = match Self::swap_alpha_for_tao(
+                netuid,
+                owed_u64.into(),
+                T::SwapInterface::min_price::<TaoCurrency>(),
+                true,
+            ) {
+                Ok(owed_tao) => owed_tao,
+                Err(err) => {
+                    log::error!("Error swapping alpha for TAO: {err:?}");
+
+                    return;
+                }
+            };
+
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey,
+                coldkey,
+                NetUid::ROOT,
+                owed_tao.amount_paid_out.to_u64().into(),
+            );
+
+            Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+                hotkey,
+                coldkey,
+                owed_tao.amount_paid_out.into(),
+            );
+        } else
+        /* Keep */
+        {
+            // Increase the stake with the alpha owned
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey,
+                coldkey,
+                netuid,
+                owed_u64.into(),
+            );
+        }
 
         // Increase root claimed by owed amount.
         RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {

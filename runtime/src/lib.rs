@@ -29,6 +29,7 @@ use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
+pub use pallet_shield;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     dynamic_info::DynamicInfo,
@@ -117,6 +118,22 @@ impl pallet_drand::Config for Runtime {
 impl frame_system::offchain::SigningTypes for Runtime {
     type Public = <Signature as Verify>::Signer;
     type Signature = Signature;
+}
+
+impl pallet_shield::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+    type AuthorityOrigin = pallet_shield::EnsureAuraAuthority<Self>;
+}
+
+parameter_types! {
+    /// Milliseconds per slot; use the chain’s configured slot duration.
+    pub const ShieldSlotMs: u64 = SLOT_DURATION;
+    /// Emit the *next* ephemeral public key event at 7s.
+    pub const ShieldAnnounceAtMs: u64 = 7_000;
+    /// Old key remains accepted until 9s (2s grace).
+    pub const ShieldGraceMs: u64 = 2_000;
+    /// Last 3s of the slot reserved for decrypt+execute.
+    pub const ShieldDecryptWindowMs: u64 = 3_000;
 }
 
 impl<C> frame_system::offchain::CreateTransactionBase<C> for Runtime
@@ -220,7 +237,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 347,
+    spec_version: 351,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -726,6 +743,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::RootClaim => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::set_root_claim_type { .. }
+                    )
             ),
         }
     }
@@ -1569,6 +1589,7 @@ construct_runtime!(
         Crowdloan: pallet_crowdloan = 27,
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
+        MevShield: pallet_shield = 30,
     }
 );
 
@@ -1640,6 +1661,7 @@ mod benches {
         [pallet_drand, Drand]
         [pallet_crowdloan, Crowdloan]
         [pallet_subtensor_swap, Swap]
+        [pallet_shield, MevShield]
     );
 }
 
