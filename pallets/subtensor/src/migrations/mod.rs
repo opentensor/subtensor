@@ -34,6 +34,7 @@ pub mod migrate_rate_limit_keys;
 pub mod migrate_rate_limiting_last_blocks;
 pub mod migrate_remove_commitments_rate_limit;
 pub mod migrate_remove_network_modality;
+pub mod migrate_remove_old_identity_maps;
 pub mod migrate_remove_stake_map;
 pub mod migrate_remove_tao_dividends;
 pub mod migrate_remove_total_hotkey_coldkey_stakes_this_interval;
