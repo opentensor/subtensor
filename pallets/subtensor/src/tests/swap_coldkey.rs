@@ -13,7 +13,6 @@ use frame_support::error::BadOrigin;
 use frame_support::traits::OnInitialize;
 use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::schedule::v3::Named as ScheduleNamed;
-use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::{Get, H256, U256};
@@ -28,36 +27,6 @@ use super::mock::*;
 use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
 use crate::{Call, ColdkeySwapScheduleDuration, Error};
-// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
-// #[test]
-// fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
-//     new_test_ext(1).execute_with(|| {
-//         let old_coldkey = U256::from(1);
-//         let new_coldkey = U256::from(2);
-//         let hotkey = U256::from(3);
-//         let stake = 100;
-//         let block = 42;
-
-//         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
-//         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey, old_coldkey, (stake, block));
-
-//         let mut weight = Weight::zero();
-//         assert_ok!(SubtensorModule::perform_swap_coldkey(
-//             &old_coldkey,
-//             &new_coldkey,
-//             &mut weight
-//         ));
-
-//         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-//             hotkey,
-//             old_coldkey
-//         ));
-//         assert_eq!(
-//             TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey, new_coldkey),
-//             (stake, block)
-//         );
-//     });
-// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_subnet_owner --exact --nocapture
 #[test]
@@ -70,11 +39,9 @@ fn test_swap_subnet_owner() {
         add_network(netuid, 1, 0);
         SubnetOwner::<Test>::insert(netuid, old_coldkey);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), new_coldkey);
@@ -115,11 +82,9 @@ fn test_swap_total_coldkey_stake() {
         ));
         let total_stake_before_swap = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(
@@ -143,11 +108,9 @@ fn test_swap_staking_hotkeys() {
 
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert!(StakingHotkeys::<Test>::get(old_coldkey).is_empty());
@@ -166,11 +129,9 @@ fn test_swap_hotkey_owners() {
         Owner::<Test>::insert(hotkey, old_coldkey);
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(Owner::<Test>::get(hotkey), new_coldkey);
@@ -188,11 +149,9 @@ fn test_transfer_remaining_balance() {
 
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, balance);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(SubtensorModule::get_coldkey_balance(&old_coldkey), 0);
@@ -207,11 +166,9 @@ fn test_swap_with_no_stake() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(
@@ -236,11 +193,9 @@ fn test_swap_with_multiple_hotkeys() {
 
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert!(OwnedHotkeys::<Test>::get(old_coldkey).is_empty());
@@ -265,11 +220,9 @@ fn test_swap_with_multiple_subnets() {
         SubnetOwner::<Test>::insert(netuid1, old_coldkey);
         SubnetOwner::<Test>::insert(netuid2, old_coldkey);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(SubnetOwner::<Test>::get(netuid1), new_coldkey);
@@ -284,11 +237,9 @@ fn test_swap_with_zero_balance() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(Balances::free_balance(old_coldkey), 0);
@@ -324,16 +275,13 @@ fn test_swap_idempotency() {
         // Get stake before swap
         let stake_before_swap = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(
@@ -405,16 +353,13 @@ fn test_swap_with_max_values() {
             netuid2,
         );
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey2,
             &new_coldkey2,
-            &mut weight
         ));
 
         assert_eq!(
@@ -469,11 +414,9 @@ fn test_swap_with_non_existent_new_coldkey() {
             netuid,
         );
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(
@@ -505,11 +448,9 @@ fn test_swap_with_max_hotkeys() {
 
         OwnedHotkeys::<Test>::insert(old_coldkey, hotkeys.clone());
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert!(OwnedHotkeys::<Test>::get(old_coldkey).is_empty());
@@ -552,11 +493,9 @@ fn test_swap_effect_on_delegated_stake() {
         let coldkey_stake_before = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
         let delegator_stake_before = SubtensorModule::get_total_stake_for_coldkey(&delegator);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_abs_diff_eq!(
@@ -630,11 +569,9 @@ fn test_swap_concurrent_modifications() {
             netuid,
         );
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         assert_eq!(
@@ -663,11 +600,9 @@ fn test_swap_with_invalid_subnet_ownership() {
         // Simulate an invalid state where the subnet owner doesn't match the old_coldkey
         SubnetOwner::<Test>::insert(netuid, U256::from(3));
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         // The swap should not affect the mismatched subnet ownership
@@ -865,7 +800,6 @@ fn test_swap_stake_for_coldkey() {
         let stake_amount1 = DefaultMinStake::<Test>::get().to_u64() * 10;
         let stake_amount2 = DefaultMinStake::<Test>::get().to_u64() * 20;
         let stake_amount3 = DefaultMinStake::<Test>::get().to_u64() * 30;
-        let mut weight = Weight::zero();
 
         // Setup initial state
         // Add a network
@@ -936,7 +870,7 @@ fn test_swap_stake_for_coldkey() {
         let initial_total_hotkey2_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey2);
 
         // Perform the swap
-        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
+        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey);
 
         // Verify stake is additive, not replaced
         assert_abs_diff_eq!(
@@ -1021,7 +955,6 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         let hotkey2 = U256::from(5);
         let stake_amount1 = DefaultMinStake::<Test>::get().to_u64() * 10;
         let stake_amount2 = DefaultMinStake::<Test>::get().to_u64() * 20;
-        let mut weight = Weight::zero();
 
         // Setup initial state
         // Add a network
@@ -1064,7 +997,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         );
 
         // Perform the swap
-        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
+        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey);
 
         // Verify StakingHotkeys transfer
         assert_eq!(
@@ -1086,7 +1019,6 @@ fn test_swap_delegated_stake_for_coldkey() {
         let hotkey2 = U256::from(5);
         let stake_amount1 = DefaultMinStake::<Test>::get().to_u64() * 10;
         let stake_amount2 = DefaultMinStake::<Test>::get().to_u64() * 20;
-        let mut weight = Weight::zero();
         let netuid = NetUid::from(1);
 
         // Setup initial state
@@ -1150,7 +1082,7 @@ fn test_swap_delegated_stake_for_coldkey() {
         let total_hotkey2_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey2);
 
         // Perform the swap
-        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
+        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey);
 
         // Verify stake transfer
         assert_eq!(
@@ -1228,7 +1160,6 @@ fn test_swap_subnet_owner_for_coldkey() {
         let new_coldkey = U256::from(2);
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
-        let mut weight = Weight::zero();
 
         // Initialize SubnetOwner for old_coldkey
         add_network(netuid1, 13, 0);
@@ -1240,7 +1171,7 @@ fn test_swap_subnet_owner_for_coldkey() {
         TotalNetworks::<Test>::put(3);
 
         // Perform the swap
-        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
+        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey);
 
         // Verify the swap
         assert_eq!(SubnetOwner::<Test>::get(netuid1), new_coldkey);
@@ -1523,11 +1454,9 @@ fn test_coldkey_swap_total() {
             SubtensorModule::get_total_stake_for_coldkey(&coldkey),
             ck_stake
         );
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &coldkey,
             &new_coldkey,
-            &mut weight
         ));
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
@@ -1664,11 +1593,9 @@ fn test_coldkey_delegations() {
         ));
 
         // Perform the swap
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         // Verify stake was moved for the delegate
@@ -2594,11 +2521,9 @@ fn test_swap_auto_stake_destination_coldkeys() {
         AutoStakeDestinationColdkeys::<Test>::insert(hotkey, netuid, coldkeys.clone());
         AutoStakeDestination::<Test>::insert(old_coldkey, netuid, hotkey);
 
-        let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
             &new_coldkey,
-            &mut weight
         ));
 
         let new_coldkeys = AutoStakeDestinationColdkeys::<Test>::get(hotkey, netuid);

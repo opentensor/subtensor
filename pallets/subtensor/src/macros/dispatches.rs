@@ -1090,7 +1090,7 @@ mod dispatches {
             old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
             swap_cost: TaoCurrency,
-        ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResult {
             // Ensure it's called with root privileges (scheduler has root privileges)
             ensure_root(origin)?;
             log::debug!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
