@@ -30,7 +30,7 @@ where
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("input must contain 128 bytes".into()),
             });
-        }
+        };
         let mut buf = [0u8; 32];
 
         let msg = parse_slice(input, 4, 36)?;
@@ -49,6 +49,7 @@ where
         if valid {
             buf[31] = 1u8;
         }
+
         Ok((ExitSucceed::Returned, buf.to_vec()))
     }
 }
