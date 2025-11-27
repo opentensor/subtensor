@@ -22,16 +22,15 @@ impl<A> LinearCostPrecompile for Sr25519Verify<A>
 where
     A: From<[u8; 32]>,
 {
-    const BASE: u64 = 15;
-    const WORD: u64 = 3;
+    const BASE: u64 = 6000;
+    const WORD: u64 = 0;
 
     fn execute(input: &[u8], _: u64) -> Result<(ExitSucceed, Vec<u8>), PrecompileFailure> {
         if input.len() < 132 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("input must contain 128 bytes".into()),
             });
-        };
-
+        }
         let mut buf = [0u8; 32];
 
         let msg = parse_slice(input, 4, 36)?;
@@ -50,7 +49,6 @@ where
         if valid {
             buf[31] = 1u8;
         }
-
         Ok((ExitSucceed::Returned, buf.to_vec()))
     }
 }
