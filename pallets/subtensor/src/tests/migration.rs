@@ -2726,6 +2726,34 @@ fn test_migrate_reset_unactive_sn_idempotence() {
 }
 
 #[test]
+fn test_migrate_remove_old_identity_maps() {
+    let migration =
+        crate::migrations::migrate_remove_old_identity_maps::migrate_remove_old_identity_maps::<Test>;
+
+    const MIGRATION_NAME: &str = "migrate_remove_old_identity_maps";
+
+    let pallet_name = "SubtensorModule";
+
+    test_remove_storage_item(MIGRATION_NAME, pallet_name, "Identities", migration, 100);
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        "SubnetIdentities",
+        migration,
+        100,
+    );
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        "SubnetIdentitiesV2",
+        migration,
+        100,
+    );
+}
+
+#[test]
 fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
     use crate::migrations::migrate_remove_unknown_neuron_axon_cert_prom::*;
     const MIGRATION_NAME: &[u8] = b"migrate_remove_neuron_axon_cert_prom";
