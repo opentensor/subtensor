@@ -71,6 +71,10 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
+
+        let balance = Self::get_coldkey_balance(&coldkey);
+        log::error!("============= {} {}", file!(), line!());
+        log::error!("balance: {}", balance);
         log::debug!("do_registration( coldkey:{coldkey:?} netuid:{netuid:?} hotkey:{hotkey:?} )");
 
         // --- 2. Ensure the passed network is valid.
@@ -132,6 +136,9 @@ impl<T: Config> Pallet<T> {
         let actual_burn_amount =
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost.into())?;
 
+        log::error!("============= {} {}", file!(), line!());
+        log::error!("actual_burn_amount: {}", actual_burn_amount);
+
         // Tokens are swapped and then burned.
         let burned_alpha = Self::swap_tao_for_alpha(
             netuid,
@@ -156,7 +163,7 @@ impl<T: Config> Pallet<T> {
         // --- 15. Deposit successful event.
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
-
+        log::error!("============= {} {}", file!(), line!());
         // --- 16. Ok and done.
         Ok(())
     }

@@ -106,6 +106,7 @@ where
         hotkey: H256,
     ) -> EvmResult<()> {
         let coldkey = handle.caller_account_id::<R>();
+
         let hotkey = R::AccountId::from(hotkey.0);
         let call = pallet_subtensor::Call::<R>::burned_register {
             netuid: netuid.into(),
