@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [devnet, devnet-ready]
     types: [labeled, unlabeled, synchronize, opened]
+  workflow_dispatch:
     
 concurrency:
   group: check-devnet-${{ github.ref }}

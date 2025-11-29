@@ -4,11 +4,12 @@ name: Apply-Benchmark-Patch
 on:
   pull_request:
     types: [labeled]
+  workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
-  actions: read  # required to list & download artifacts across workflows
+  actions: write  # re-trigger downstream workflows after applying the patch
 
 jobs:
   apply:
@@ -22,6 +23,14 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
+
+      - name: Check out automation helpers from base branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: ci-tools
+          fetch-depth: 1
 
       - name: Install GitHub CLI
         run: |
@@ -56,8 +65,10 @@ jobs:
           ls -la .bench_patch || true
 
       - name: Apply and commit patch
+        id: apply_patch
         run: |
           set -euo pipefail
+          echo "changes_applied=false" >> "$GITHUB_OUTPUT"
 
           if [ ! -d ".bench_patch" ]; then
             echo "No .bench_patch directory found after extraction."
@@ -101,6 +112,19 @@ jobs:
 
           git commit -m "auto-update benchmark weights"
           git push origin "HEAD:${branch}"
+          new_sha=$(git rev-parse HEAD)
+          echo "changes_applied=true" >> "$GITHUB_OUTPUT"
+          echo "head_sha=${new_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Re-run pull_request workflows (except Validate-Benchmarks)
+        if: steps.apply_patch.outputs.changes_applied == 'true'
+        run: python3 ci-tools/scripts/ci/rerun_pr_workflows.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ steps.apply_patch.outputs.head_sha }}
+          EXTRA_SKIP_WORKFLOWS: Apply-Benchmark-Patch
 
       - name: Remove apply-benchmark-patch label
         if: ${{ success() }}

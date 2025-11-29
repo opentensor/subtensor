@@ -3,6 +3,7 @@ name: Handle Hotfix PRs
 on:
   pull_request:
     types: [opened]
+  workflow_dispatch:
 
 permissions:
   pull-requests: write
@@ -10,7 +11,7 @@ permissions:
 
 jobs:
   handle-hotfix-pr:
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: ubuntu-latest
     steps:
       - name: Check if PR is a hotfix into `main`
         if: >
