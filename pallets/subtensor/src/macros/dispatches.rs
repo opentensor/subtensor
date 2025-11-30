@@ -2375,7 +2375,7 @@ mod dispatches {
         /// Performs a coldkey swap iff an announcement has been made.
         #[pallet::call_index(127)]
         #[pallet::weight(Weight::zero())]
-        pub fn coldkey_swap_announced(origin: OriginFor<T>) -> DispatchResult {
+        pub fn swap_coldkey_announced(origin: OriginFor<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
             let (when, new_coldkey) = ColdkeySwapAnnouncements::<T>::take(who.clone())
