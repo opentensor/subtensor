@@ -170,6 +170,20 @@ mod events {
         MaxDelegateTakeSet(u16),
         /// minimum delegate take is set by sudo/admin transaction
         MinDelegateTakeSet(u16),
+        /// A coldkey swap announcement has been made.
+        ColdkeySwapAnnounced {
+            /// The account ID of the coldkey that made the announcement.
+            who: T::AccountId,
+            /// The account ID of the new coldkey.
+            new_coldkey: T::AccountId,
+            /// The block number the announcement was made.
+            block_number: BlockNumberFor<T>,
+        },
+        /// A coldkey swap announcement has been removed.
+        ColdkeySwapAnnouncementRemoved {
+            /// The account ID of the coldkey that made the announcement.
+            who: T::AccountId,
+        },
         /// A coldkey has been swapped
         ColdkeySwapped {
             /// the account ID of old coldkey
@@ -189,17 +203,6 @@ mod events {
             total_balance: <<T as Config>::Currency as fungible::Inspect<
                 <T as frame_system::Config>::AccountId,
             >>::Balance,
-        },
-        /// A coldkey swap has been scheduled
-        ColdkeySwapScheduled {
-            /// The account ID of the old coldkey
-            old_coldkey: T::AccountId,
-            /// The account ID of the new coldkey
-            new_coldkey: T::AccountId,
-            /// The arbitration block for the coldkey swap
-            execution_block: BlockNumberFor<T>,
-            /// The swap cost
-            swap_cost: TaoCurrency,
         },
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {
