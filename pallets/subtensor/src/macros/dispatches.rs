@@ -6,11 +6,10 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod dispatches {
     use crate::subnets::leasing::SubnetLeasingWeightInfo;
-    use frame_support::traits::schedule::DispatchTime;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
-    use sp_runtime::{Percent, traits::Saturating};
+    use sp_runtime::Percent;
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     use crate::MAX_NUM_ROOT_CLAIMS;
@@ -1068,34 +1067,17 @@ mod dispatches {
 
         /// The extrinsic for user to change the coldkey associated with their account.
         ///
-        /// # Arguments
-        ///
-        /// * `origin` - The origin of the call, must be signed by the old coldkey.
-        /// * `old_coldkey` - The current coldkey associated with the account.
-        /// * `new_coldkey` - The new coldkey to be associated with the account.
-        ///
-        /// # Returns
-        ///
-        /// Returns a `DispatchResultWithPostInfo` indicating success or failure of the operation.
-        ///
-        /// # Weight
-        ///
-        /// Weight is calculated based on the number of database reads and writes.
+        /// WARNING: This is deprecated in favor of `announce_coldkey_swap`/`coldkey_swap`
         #[pallet::call_index(71)]
-        #[pallet::weight((Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(16_u64))
-        .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::Yes))]
+        #[pallet::weight(Weight::zero())]
+        #[deprecated(note = "Deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`")]
         pub fn swap_coldkey(
-            origin: OriginFor<T>,
-            old_coldkey: T::AccountId,
-            new_coldkey: T::AccountId,
-            swap_cost: TaoCurrency,
+            _origin: OriginFor<T>,
+            _old_coldkey: T::AccountId,
+            _new_coldkey: T::AccountId,
+            _swap_cost: TaoCurrency,
         ) -> DispatchResult {
-            // Ensure it's called with root privileges (scheduler has root privileges)
-            ensure_root(origin)?;
-            log::debug!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
-
-            Self::do_swap_coldkey(&old_coldkey, &new_coldkey, swap_cost)
+            Err(Error::<T>::Deprecated.into())
         }
 
         /// Sets the childkey take for a given hotkey.
@@ -1332,94 +1314,15 @@ mod dispatches {
 
         /// Schedules a coldkey swap operation to be executed at a future block.
         ///
-        /// This function allows a user to schedule the swapping of their coldkey to a new one
-        /// at a specified future block. The swap is not executed immediately but is scheduled
-        /// to occur at the specified block number.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - The origin of the call, which should be signed by the current coldkey owner.
-        /// * `new_coldkey` - The account ID of the new coldkey that will replace the current one.
-        /// * `when` - The block number at which the coldkey swap should be executed.
-        ///
-        /// # Returns
-        ///
-        /// Returns a `DispatchResultWithPostInfo` indicating whether the scheduling was successful.
-        ///
-        /// # Errors
-        ///
-        /// This function may return an error if:
-        /// * The origin is not signed.
-        /// * The scheduling fails due to conflicts or system constraints.
-        ///
-        /// # Notes
-        ///
-        /// - The actual swap is not performed by this function. It merely schedules the swap operation.
-        /// - The weight of this call is set to a fixed value and may need adjustment based on benchmarking.
-        ///
-        /// # TODO
-        ///
-        /// - Implement proper weight calculation based on the complexity of the operation.
-        /// - Consider adding checks to prevent scheduling too far into the future.
-        /// TODO: Benchmark this call
+        /// WARNING: This function is deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`
         #[pallet::call_index(73)]
-        #[pallet::weight((Weight::from_parts(37_830_000, 0)
-		.saturating_add(T::DbWeight::get().reads(4))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(Weight::zero())]
+        #[deprecated(note = "Deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`")]
         pub fn schedule_swap_coldkey(
-            origin: OriginFor<T>,
-            new_coldkey: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-            let current_block = <frame_system::Pallet<T>>::block_number();
-
-            // If the coldkey has a scheduled swap, check if we can reschedule it
-            if ColdkeySwapScheduled::<T>::contains_key(&who) {
-                let (scheduled_block, _scheduled_coldkey) = ColdkeySwapScheduled::<T>::get(&who);
-                let reschedule_duration = ColdkeySwapRescheduleDuration::<T>::get();
-                let redo_when = scheduled_block.saturating_add(reschedule_duration);
-                ensure!(redo_when <= current_block, Error::<T>::SwapAlreadyScheduled);
-            }
-
-            // Calculate the swap cost and ensure sufficient balance
-            let swap_cost = Self::get_key_swap_cost();
-            ensure!(
-                Self::can_remove_balance_from_coldkey_account(&who, swap_cost.into()),
-                Error::<T>::NotEnoughBalanceToPaySwapColdKey
-            );
-
-            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
-            let duration: BlockNumberFor<T> = ColdkeySwapScheduleDuration::<T>::get();
-            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
-
-            let call = Call::<T>::swap_coldkey {
-                old_coldkey: who.clone(),
-                new_coldkey: new_coldkey.clone(),
-                swap_cost,
-            };
-
-            let bound_call = <T as Config>::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
-                .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            T::Scheduler::schedule(
-                DispatchTime::At(when),
-                None,
-                63,
-                frame_system::RawOrigin::Root.into(),
-                bound_call,
-            )
-            .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            ColdkeySwapScheduled::<T>::insert(&who, (when, new_coldkey.clone()));
-            // Emit the SwapScheduled event
-            Self::deposit_event(Event::ColdkeySwapScheduled {
-                old_coldkey: who.clone(),
-                new_coldkey: new_coldkey.clone(),
-                execution_block: when,
-                swap_cost,
-            });
-
-            Ok(().into())
+            _origin: OriginFor<T>,
+            _new_coldkey: T::AccountId,
+        ) -> DispatchResult {
+            Err(Error::<T>::Deprecated.into())
         }
 
         /// ---- Set prometheus information for the neuron.
