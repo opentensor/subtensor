@@ -28,7 +28,100 @@ use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
 use crate::{Call, ColdkeySwapScheduleDuration, Error};
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_subnet_owner --exact --nocapture
+#[test]
+fn test_announce_coldkey_swap_works() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(1);
+
+        assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who.clone()),
+            new_coldkey,
+        ));
+
+        let now = System::block_number();
+        assert_eq!(
+            ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
+            vec![(who.clone(), (now, new_coldkey))]
+        );
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::SubtensorModule(Event::ColdkeySwapAnnounced {
+                who,
+                new_coldkey,
+                block_number: now,
+            })
+        );
+    });
+}
+
+#[test]
+fn test_announce_coldkey_swap_bad_origin_fails() {
+    new_test_ext(1).execute_with(|| {
+        let new_coldkey = U256::from(1);
+
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::none(), new_coldkey),
+            BadOrigin
+        );
+
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::root(), new_coldkey),
+            BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_remove_coldkey_swap_announcement_works() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let now = System::block_number();
+        ColdkeySwapAnnouncements::<Test>::insert(who.clone(), (now, new_coldkey));
+
+        assert_ok!(SubtensorModule::remove_coldkey_swap_announcement(
+            RuntimeOrigin::signed(who.clone()),
+        ));
+
+        assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
+        assert_eq!(
+            last_event(),
+            RuntimeEvent::SubtensorModule(Event::ColdkeySwapAnnouncementRemoved { who })
+        );
+    });
+}
+
+#[test]
+fn test_remove_coldkey_swap_announcement_fails_if_no_announcement_exists() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+
+        assert_noop!(
+            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::signed(who.clone())),
+            Error::<Test>::ColdkeySwapAnnouncementNotFound
+        );
+    });
+}
+
+#[test]
+fn test_remove_coldkey_swap_announcement_bad_origin_fails() {
+    new_test_ext(1).execute_with(|| {
+        assert_noop!(
+            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::none()),
+            BadOrigin
+        );
+
+        assert_noop!(
+            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::root()),
+            BadOrigin
+        );
+    });
+}
+
 #[test]
 fn test_swap_subnet_owner() {
     new_test_ext(1).execute_with(|| {
@@ -2536,6 +2629,42 @@ fn test_swap_auto_stake_destination_coldkeys() {
         assert_eq!(
             AutoStakeDestination::<Test>::try_get(new_coldkey, netuid),
             Ok(hotkey)
+        );
+    });
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_swap_coldkey_deprecated() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+
+        assert_noop!(
+            SubtensorModule::swap_coldkey(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                old_coldkey,
+                new_coldkey,
+                TaoCurrency::MAX
+            ),
+            Error::<Test>::Deprecated
+        );
+    });
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_schedule_swap_coldkey_deprecated() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+
+        assert_noop!(
+            SubtensorModule::schedule_swap_coldkey(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                new_coldkey,
+            ),
+            Error::<Test>::Deprecated
         );
     });
 }
