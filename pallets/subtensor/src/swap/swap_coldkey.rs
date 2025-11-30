@@ -2,72 +2,57 @@ use super::*;
 use substrate_fixed::types::U64F64;
 
 impl<T: Config> Pallet<T> {
-    /// Logic for the coldkey swap operation. Checks for collisions, balances, and cooldowns
-    /// before executing the swap.
+    /// Transfer all assets, stakes, subnet ownerships, and hotkey associations from `old_coldkey` to
+    /// to `new_coldkey`.
     pub fn do_swap_coldkey(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
-        swap_cost: TaoCurrency,
     ) -> DispatchResult {
         ensure!(
-            StakingHotkeys::<T>::get(new_coldkey).is_empty(),
+            StakingHotkeys::<T>::get(&new_coldkey).is_empty(),
             Error::<T>::ColdKeyAlreadyAssociated
         );
         ensure!(
-            !Self::hotkey_account_exists(new_coldkey),
+            !Self::hotkey_account_exists(&new_coldkey),
             Error::<T>::NewColdKeyIsHotkey
         );
+
+        // Remove and recycle the swap cost from the old coldkey's account
+        let swap_cost = Self::get_key_swap_cost();
         ensure!(
             Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost.into()),
             Error::<T>::NotEnoughBalanceToPaySwapColdKey
         );
-
-        // Swap the identity if the old coldkey has one
-        if let Some(identity) = IdentitiesV2::<T>::take(old_coldkey) {
-            IdentitiesV2::<T>::insert(new_coldkey, identity);
-        }
-
-        // Remove and recycle the swap cost from the old coldkey's account
         let burn_amount = Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost.into())?;
         Self::recycle_tao(burn_amount);
 
-        Self::perform_swap_coldkey(old_coldkey, new_coldkey)?;
+        // Swap the identity if the old coldkey has one
+        if let Some(identity) = IdentitiesV2::<T>::take(old_coldkey) {
+            IdentitiesV2::<T>::insert(new_coldkey.clone(), identity);
+        }
 
-        Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
+        for netuid in Self::get_all_subnet_netuids() {
+            Self::transfer_subnet_ownership(netuid, old_coldkey, &new_coldkey);
+            Self::transfer_coldkey_stake(netuid, old_coldkey, &new_coldkey);
+        }
+        Self::transfer_staking_hotkeys(old_coldkey, &new_coldkey);
+        Self::transfer_hotkeys_ownership(old_coldkey, &new_coldkey);
 
-        ColdkeySwapScheduled::<T>::remove(old_coldkey);
+        // Transfer any remaining balance from old_coldkey to new_coldkey
+        let remaining_balance = Self::get_coldkey_balance(old_coldkey);
+        if remaining_balance > 0 {
+            Self::kill_coldkey_account(old_coldkey, remaining_balance)?;
+            Self::add_balance_to_coldkey_account(&new_coldkey, remaining_balance);
+        }
+
+        Self::set_last_tx_block(&new_coldkey, Self::get_current_block_as_u64());
+        ColdkeySwapAnnouncements::<T>::remove(old_coldkey);
 
         Self::deposit_event(Event::ColdkeySwapped {
             old_coldkey: old_coldkey.clone(),
             new_coldkey: new_coldkey.clone(),
             swap_cost,
         });
-        Ok(())
-    }
-
-    /// Transfer all assets, stakes, subnet ownerships, and hotkey associations from `old_coldkey` to `new_coldkey`.
-    ///
-    /// # Warning
-    /// This function performs NO validation checks. It assumes the caller has done all the checks before calling it.
-    pub fn perform_swap_coldkey(
-        old_coldkey: &T::AccountId,
-        new_coldkey: &T::AccountId,
-    ) -> DispatchResult {
-        for netuid in Self::get_all_subnet_netuids() {
-            Self::transfer_subnet_ownership(netuid, old_coldkey, new_coldkey);
-            Self::transfer_coldkey_stake(netuid, old_coldkey, new_coldkey);
-        }
-
-        Self::transfer_staking_hotkeys(old_coldkey, new_coldkey);
-        Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey);
-
-        // Transfer any remaining balance from old_coldkey to new_coldkey
-        let remaining_balance = Self::get_coldkey_balance(old_coldkey);
-        if remaining_balance > 0 {
-            Self::kill_coldkey_account(old_coldkey, remaining_balance)?;
-            Self::add_balance_to_coldkey_account(new_coldkey, remaining_balance);
-        }
-
         Ok(())
     }
 
