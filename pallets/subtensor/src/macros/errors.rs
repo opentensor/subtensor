@@ -150,10 +150,10 @@ mod errors {
         TooManyChildren,
         /// Default transaction rate limit exceeded.
         TxRateLimitExceeded,
-        /// Swap already scheduled.
-        SwapAlreadyScheduled,
-        /// failed to swap coldkey
-        FailedToSchedule,
+        /// Coldkey swap announcement not found
+        ColdkeySwapAnnouncementNotFound,
+        /// Coldkey swap too early.
+        ColdkeySwapTooEarly,
         /// New coldkey is hotkey
         NewColdKeyIsHotkey,
         /// Childkey take is invalid.
@@ -266,5 +266,7 @@ mod errors {
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.
         InvalidSubnetNumber,
+        /// Deprecated call.
+        Deprecated,
     }
 }
