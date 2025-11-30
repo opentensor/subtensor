@@ -46,7 +46,6 @@ impl<T: Config> Pallet<T> {
         }
 
         Self::set_last_tx_block(&new_coldkey, Self::get_current_block_as_u64());
-        ColdkeySwapAnnouncements::<T>::remove(old_coldkey);
 
         Self::deposit_event(Event::ColdkeySwapped {
             old_coldkey: old_coldkey.clone(),
