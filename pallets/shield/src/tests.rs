@@ -6,17 +6,19 @@ use frame_support::pallet_prelude::ValidateUnsigned;
 use frame_support::traits::ConstU32 as FrameConstU32;
 use frame_support::traits::Hooks;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_mev_shield::{
-    Call as MevShieldCall, CurrentKey, Event as MevShieldEvent, NextKey, Submissions,
+    Call as MevShieldCall, CurrentKey, Event as MevShieldEvent, KeyHashByBlock, NextKey,
+    Submissions,
 };
 use sp_core::Pair;
 use sp_core::sr25519;
-use sp_runtime::traits::Hash;
-use sp_runtime::{
-    AccountId32, MultiSignature,
-    traits::{SaturatedConversion, Zero},
-    transaction_validity::TransactionSource,
-};
+use sp_runtime::traits::{Hash, SaturatedConversion};
+use sp_runtime::{AccountId32, MultiSignature, transaction_validity::TransactionSource};
+
+// Type aliases for convenience in tests.
+type TestHash = <Test as frame_system::Config>::Hash;
+type TestBlockNumber = BlockNumberFor<Test>;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -28,24 +30,25 @@ fn test_sr25519_pair() -> sr25519::Pair {
 }
 
 /// Reproduce the pallet's raw payload layout:
-///   signer (32B) || nonce (u32 LE) || SCALE(call)
+///   signer (32B) || key_hash (Hash bytes) || SCALE(call)
 fn build_raw_payload_bytes_for_test(
     signer: &AccountId32,
-    nonce: TestNonce,
+    key_hash: &TestHash,
     call: &RuntimeCall,
 ) -> Vec<u8> {
     let mut out = Vec::new();
     out.extend_from_slice(signer.as_ref());
-
-    let n_u32: u32 = nonce.saturated_into();
-    out.extend_from_slice(&n_u32.to_le_bytes());
-
+    out.extend_from_slice(key_hash.as_ref());
     out.extend(call.encode());
     out
 }
 
+// -----------------------------------------------------------------------------
+// Tests
+// -----------------------------------------------------------------------------
+
 #[test]
-fn authority_can_announce_next_key_and_on_initialize_rolls_it() {
+fn authority_can_announce_next_key_and_on_initialize_rolls_it_and_records_epoch_hash() {
     new_test_ext().execute_with(|| {
         const KYBER_PK_LEN: usize = 1184;
         let pk_bytes = vec![7u8; KYBER_PK_LEN];
@@ -78,13 +81,22 @@ fn authority_can_announce_next_key_and_on_initialize_rolls_it() {
         let next = NextKey::<Test>::get().expect("NextKey should be set");
         assert_eq!(next, pk_bytes);
 
-        // Roll on new block
-        MevShield::on_initialize(2);
+        // Simulate beginning of block #2.
+        let block_two: TestBlockNumber = 2u64.saturated_into();
+        MevShield::on_initialize(block_two);
 
+        // CurrentKey should now equal the previously announced NextKey.
         let curr = CurrentKey::<Test>::get().expect("CurrentKey should be set");
         assert_eq!(curr, pk_bytes);
 
+        // And NextKey cleared.
         assert!(NextKey::<Test>::get().is_none());
+
+        // Key hash for this block should be recorded and equal hash(CurrentKey_bytes).
+        let expected_hash: TestHash = <Test as frame_system::Config>::Hashing::hash(curr.as_ref());
+        let recorded =
+            KeyHashByBlock::<Test>::get(block_two).expect("epoch key hash must be recorded");
+        assert_eq!(recorded, expected_hash);
     });
 }
 
@@ -199,18 +211,22 @@ fn execute_revealed_happy_path_verifies_and_executes_inner_call() {
             remark: b"hello-mevshield".to_vec(),
         });
 
-        let nonce: TestNonce = Zero::zero();
-        assert_eq!(System::account_nonce(&signer), nonce);
+        // Choose a deterministic epoch key hash and wire it up for block #1.
+        let key_hash: TestHash = <Test as frame_system::Config>::Hashing::hash(b"epoch-key");
+        let payload_bytes = build_raw_payload_bytes_for_test(&signer, &key_hash, &inner_call);
 
-        let payload_bytes = build_raw_payload_bytes_for_test(&signer, nonce, &inner_call);
-
-        let commitment = <Test as frame_system::Config>::Hashing::hash(payload_bytes.as_ref());
+        let commitment: TestHash =
+            <Test as frame_system::Config>::Hashing::hash(payload_bytes.as_ref());
 
         let ciphertext_bytes = vec![9u8, 9, 9, 9];
         let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
             BoundedVec::truncate_from(ciphertext_bytes.clone());
 
+        // All submissions in this test happen at block #1.
         System::set_block_number(1);
+        let submitted_in = System::block_number();
+        // Record epoch hash for that block, as on_initialize would do.
+        KeyHashByBlock::<Test>::insert(submitted_in, key_hash);
 
         // Wrapper author == signer for simplest path
         assert_ok!(MevShield::submit_encrypted(
@@ -219,7 +235,7 @@ fn execute_revealed_happy_path_verifies_and_executes_inner_call() {
             ciphertext.clone(),
         ));
 
-        let id = <Test as frame_system::Config>::Hashing::hash_of(&(
+        let id: TestHash = <Test as frame_system::Config>::Hashing::hash_of(&(
             signer.clone(),
             commitment,
             &ciphertext,
@@ -238,7 +254,7 @@ fn execute_revealed_happy_path_verifies_and_executes_inner_call() {
             RuntimeOrigin::none(),
             id,
             signer.clone(),
-            nonce,
+            key_hash,
             Box::new(inner_call.clone()),
             signature,
         );
@@ -247,10 +263,6 @@ fn execute_revealed_happy_path_verifies_and_executes_inner_call() {
 
         // Submission consumed
         assert!(Submissions::<Test>::get(id).is_none());
-
-        // Nonce bumped once
-        let expected_nonce: TestNonce = (1u32).saturated_into();
-        assert_eq!(System::account_nonce(&signer), expected_nonce);
 
         // Last event is DecryptedExecuted
         let events = System::events();
@@ -274,23 +286,210 @@ fn execute_revealed_happy_path_verifies_and_executes_inner_call() {
 }
 
 #[test]
+fn execute_revealed_fails_on_key_hash_mismatch() {
+    new_test_ext().execute_with(|| {
+        let pair = test_sr25519_pair();
+        let signer: AccountId32 = pair.public().into();
+
+        let inner_call = RuntimeCall::System(frame_system::Call::<Test>::remark {
+            remark: b"bad-key-hash".to_vec(),
+        });
+
+        System::set_block_number(5);
+        let submitted_in = System::block_number();
+
+        // Epoch hash recorded for this block:
+        let correct_key_hash: TestHash =
+            <Test as frame_system::Config>::Hashing::hash(b"correct-epoch");
+        KeyHashByBlock::<Test>::insert(submitted_in, correct_key_hash);
+
+        // But we build payload & commitment with a *different* key_hash.
+        let wrong_key_hash: TestHash =
+            <Test as frame_system::Config>::Hashing::hash(b"wrong-epoch");
+
+        let payload_bytes = build_raw_payload_bytes_for_test(&signer, &wrong_key_hash, &inner_call);
+        let commitment: TestHash =
+            <Test as frame_system::Config>::Hashing::hash(payload_bytes.as_ref());
+
+        let ciphertext_bytes = vec![0u8; 4];
+        let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
+            BoundedVec::truncate_from(ciphertext_bytes);
+
+        assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(signer.clone()),
+            commitment,
+            ciphertext.clone(),
+        ));
+
+        let id: TestHash = <Test as frame_system::Config>::Hashing::hash_of(&(
+            signer.clone(),
+            commitment,
+            &ciphertext,
+        ));
+
+        let genesis = System::block_hash(0);
+        let mut msg = b"mev-shield:v1".to_vec();
+        msg.extend_from_slice(genesis.as_ref());
+        msg.extend_from_slice(&payload_bytes);
+
+        let sig_sr25519 = pair.sign(&msg);
+        let signature: MultiSignature = sig_sr25519.into();
+
+        // execute_revealed should fail with KeyHashMismatch.
+        let res = MevShield::execute_revealed(
+            RuntimeOrigin::none(),
+            id,
+            signer.clone(),
+            wrong_key_hash,
+            Box::new(inner_call.clone()),
+            signature,
+        );
+        assert_noop!(res, pallet_mev_shield::Error::<Test>::KeyHashMismatch);
+    });
+}
+
+#[test]
+fn execute_revealed_rejects_replay_for_same_wrapper_id() {
+    new_test_ext().execute_with(|| {
+        let pair = test_sr25519_pair();
+        let signer: AccountId32 = pair.public().into();
+
+        let inner_call = RuntimeCall::System(frame_system::Call::<Test>::remark {
+            remark: b"replay-test".to_vec(),
+        });
+
+        System::set_block_number(10);
+        let submitted_in = System::block_number();
+
+        let key_hash: TestHash = <Test as frame_system::Config>::Hashing::hash(b"replay-epoch");
+        KeyHashByBlock::<Test>::insert(submitted_in, key_hash);
+
+        let payload_bytes = build_raw_payload_bytes_for_test(&signer, &key_hash, &inner_call);
+        let commitment: TestHash =
+            <Test as frame_system::Config>::Hashing::hash(payload_bytes.as_ref());
+
+        let ciphertext_bytes = vec![7u8; 16];
+        let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
+            BoundedVec::truncate_from(ciphertext_bytes.clone());
+
+        assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(signer.clone()),
+            commitment,
+            ciphertext.clone(),
+        ));
+
+        let id: TestHash = <Test as frame_system::Config>::Hashing::hash_of(&(
+            signer.clone(),
+            commitment,
+            &ciphertext,
+        ));
+
+        let genesis = System::block_hash(0);
+        let mut msg = b"mev-shield:v1".to_vec();
+        msg.extend_from_slice(genesis.as_ref());
+        msg.extend_from_slice(&payload_bytes);
+
+        let sig_sr25519 = pair.sign(&msg);
+        let signature: MultiSignature = sig_sr25519.into();
+
+        // First execution succeeds.
+        assert_ok!(MevShield::execute_revealed(
+            RuntimeOrigin::none(),
+            id,
+            signer.clone(),
+            key_hash,
+            Box::new(inner_call.clone()),
+            signature.clone(),
+        ));
+
+        // Second execution with the same id must fail with MissingSubmission.
+        let res = MevShield::execute_revealed(
+            RuntimeOrigin::none(),
+            id,
+            signer.clone(),
+            key_hash,
+            Box::new(inner_call.clone()),
+            signature,
+        );
+        assert_noop!(res, pallet_mev_shield::Error::<Test>::MissingSubmission);
+    });
+}
+
+#[test]
+fn key_hash_by_block_prunes_old_entries() {
+    new_test_ext().execute_with(|| {
+        // This must match the constant configured in the pallet.
+        const KEEP: u64 = 100;
+        const TOTAL: u64 = KEEP + 5;
+
+        // For each block n, set a CurrentKey and call on_initialize(n),
+        // which will record KeyHashByBlock[n] and prune old entries.
+        for n in 1..=TOTAL {
+            let key_bytes = vec![n as u8; 32];
+            let bounded: BoundedVec<u8, FrameConstU32<2048>> =
+                BoundedVec::truncate_from(key_bytes.clone());
+
+            CurrentKey::<Test>::put(bounded.clone());
+
+            let bn: TestBlockNumber = n.saturated_into();
+            MevShield::on_initialize(bn);
+        }
+
+        // The oldest block that should still be kept after TOTAL blocks.
+        let oldest_kept: u64 = if TOTAL > KEEP { TOTAL - KEEP + 1 } else { 1 };
+
+        // Blocks strictly before oldest_kept must be pruned.
+        for old in 0..oldest_kept {
+            let bn: TestBlockNumber = old.saturated_into();
+            assert!(
+                KeyHashByBlock::<Test>::get(bn).is_none(),
+                "block {bn:?} should have been pruned"
+            );
+        }
+
+        // Blocks from oldest_kept..=TOTAL must still have entries.
+        for recent in oldest_kept..=TOTAL {
+            let bn: TestBlockNumber = recent.saturated_into();
+            assert!(
+                KeyHashByBlock::<Test>::get(bn).is_some(),
+                "block {bn:?} should be retained"
+            );
+        }
+
+        // Additionally, assert we never exceed the configured cap.
+        let mut count: u64 = 0;
+        for bn in 0..=TOTAL {
+            let bn_t: TestBlockNumber = bn.saturated_into();
+            if KeyHashByBlock::<Test>::get(bn_t).is_some() {
+                count += 1;
+            }
+        }
+        let expected = KEEP.min(TOTAL);
+        assert_eq!(
+            count, expected,
+            "expected at most {expected} entries in KeyHashByBlock after pruning, got {count}"
+        );
+    });
+}
+
+#[test]
 fn validate_unsigned_accepts_local_source_for_execute_revealed() {
     new_test_ext().execute_with(|| {
         let pair = test_sr25519_pair();
         let signer: AccountId32 = pair.public().into();
-        let nonce: TestNonce = Zero::zero();
 
         let inner_call = RuntimeCall::System(frame_system::Call::<Test>::remark {
             remark: b"noop-local".to_vec(),
         });
 
-        let id = <Test as frame_system::Config>::Hashing::hash(b"mevshield-id-local");
+        let id: TestHash = <Test as frame_system::Config>::Hashing::hash(b"mevshield-id-local");
+        let key_hash: TestHash = <Test as frame_system::Config>::Hashing::hash(b"epoch-for-local");
         let signature: MultiSignature = sr25519::Signature::from_raw([0u8; 64]).into();
 
         let call = MevShieldCall::<Test>::execute_revealed {
             id,
             signer,
-            nonce,
+            key_hash,
             call: Box::new(inner_call),
             signature,
         };
@@ -305,19 +504,20 @@ fn validate_unsigned_accepts_inblock_source_for_execute_revealed() {
     new_test_ext().execute_with(|| {
         let pair = test_sr25519_pair();
         let signer: AccountId32 = pair.public().into();
-        let nonce: TestNonce = Zero::zero();
 
         let inner_call = RuntimeCall::System(frame_system::Call::<Test>::remark {
             remark: b"noop-inblock".to_vec(),
         });
 
-        let id = <Test as frame_system::Config>::Hashing::hash(b"mevshield-id-inblock");
+        let id: TestHash = <Test as frame_system::Config>::Hashing::hash(b"mevshield-id-inblock");
+        let key_hash: TestHash =
+            <Test as frame_system::Config>::Hashing::hash(b"epoch-for-inblock");
         let signature: MultiSignature = sr25519::Signature::from_raw([1u8; 64]).into();
 
         let call = MevShieldCall::<Test>::execute_revealed {
             id,
             signer,
-            nonce,
+            key_hash,
             call: Box::new(inner_call),
             signature,
         };
