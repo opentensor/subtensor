@@ -2387,8 +2387,6 @@ mod dispatches {
 
             Self::do_swap_coldkey(&who, &new_coldkey)?;
 
-            ColdkeySwapAnnouncements::<T>::remove(who.clone());
-
             Ok(())
         }
     }
