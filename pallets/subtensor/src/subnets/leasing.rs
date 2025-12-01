@@ -24,8 +24,7 @@ use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 pub type LeaseId = u32;
 
@@ -129,6 +128,9 @@ impl<T: Config> Pallet<T> {
             },
         );
         SubnetUidToLeaseId::<T>::insert(netuid, lease_id);
+
+        // The lease take should be 0% to allow all contributors to receive dividends entirely.
+        Self::delegate_hotkey(&lease_hotkey, 0);
 
         // Get all the contributions to the crowdloan except for the beneficiary
         // because its share will be computed as the dividends are distributed
@@ -249,9 +251,8 @@ impl<T: Config> Pallet<T> {
 
     /// Hook used when the subnet owner's cut is distributed to split the amount into dividends
     /// for the contributors and the beneficiary in shares relative to their initial contributions.
-    ///
-    /// It will ensure the subnet has enough alpha in its liquidity pool before swapping it to tao to be distributed,
-    /// and if not enough liquidity is available, it will accumulate the dividends for later distribution.
+    /// It accumulates dividends to be distributed later when the interval for distribution is reached.
+    /// Distribution is made in alpha and stake to the contributor coldkey and lease hotkey.
     pub fn distribute_leased_network_dividends(lease_id: LeaseId, owner_cut_alpha: AlphaCurrency) {
         // Ensure the lease exists
         let Some(lease) = SubnetLeases::<T>::get(lease_id) else {
@@ -290,55 +291,60 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // Ensure there is enough liquidity to unstake the contributors cut
-        if let Err(err) = Self::validate_remove_stake(
-            &lease.coldkey,
-            &lease.hotkey,
-            lease.netuid,
-            total_contributors_cut_alpha,
-            total_contributors_cut_alpha,
-            false,
-        ) {
+        // We use a storage layer to ensure the distribution is atomic.
+        if let Err(err) = frame_support::storage::with_storage_layer(|| {
+            let mut alpha_distributed = AlphaCurrency::ZERO;
+
+            // Distribute the contributors cut to the contributors and accumulate the alpha
+            // distributed so far to obtain how much alpha is left to distribute to the beneficiary
+            for (contributor, share) in SubnetLeaseShares::<T>::iter_prefix(lease_id) {
+                let alpha_for_contributor = share
+                    .saturating_mul(U64F64::from(total_contributors_cut_alpha.to_u64()))
+                    .ceil()
+                    .saturating_to_num::<u64>();
+
+                Self::transfer_stake_within_subnet(
+                    &lease.coldkey,
+                    &lease.hotkey,
+                    &contributor,
+                    &lease.hotkey,
+                    lease.netuid,
+                    alpha_for_contributor.into(),
+                )?;
+                alpha_distributed = alpha_distributed.saturating_add(alpha_for_contributor.into());
+
+                Self::deposit_event(Event::SubnetLeaseDividendsDistributed {
+                    lease_id,
+                    contributor,
+                    alpha: alpha_for_contributor.into(),
+                });
+            }
+
+            // Distribute the leftover alpha to the beneficiary
+            let beneficiary_cut_alpha =
+                total_contributors_cut_alpha.saturating_sub(alpha_distributed);
+            Self::transfer_stake_within_subnet(
+                &lease.coldkey,
+                &lease.hotkey,
+                &lease.beneficiary,
+                &lease.hotkey,
+                lease.netuid,
+                beneficiary_cut_alpha.into(),
+            )?;
+            Self::deposit_event(Event::SubnetLeaseDividendsDistributed {
+                lease_id,
+                contributor: lease.beneficiary.clone(),
+                alpha: beneficiary_cut_alpha.into(),
+            });
+
+            // Reset the accumulated dividends
+            AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaCurrency::ZERO);
+
+            Ok::<(), DispatchError>(())
+        }) {
             log::debug!("Couldn't distributing dividends for lease {lease_id}: {err:?}");
             AccumulatedLeaseDividends::<T>::set(lease_id, total_contributors_cut_alpha);
-            return;
-        }
-
-        // Unstake the contributors cut from the subnet as tao to the lease coldkey
-        let tao_unstaked = match Self::unstake_from_subnet(
-            &lease.hotkey,
-            &lease.coldkey,
-            lease.netuid,
-            total_contributors_cut_alpha,
-            T::SwapInterface::min_price(),
-            false,
-        ) {
-            Ok(tao_unstaked) => tao_unstaked,
-            Err(err) => {
-                log::debug!("Couldn't distributing dividends for lease {lease_id}: {err:?}");
-                AccumulatedLeaseDividends::<T>::set(lease_id, total_contributors_cut_alpha);
-                return;
-            }
         };
-
-        // Distribute the contributors cut to the contributors and accumulate the tao
-        // distributed so far to obtain how much tao is left to distribute to the beneficiary
-        let mut tao_distributed = TaoCurrency::ZERO;
-        for (contributor, share) in SubnetLeaseShares::<T>::iter_prefix(lease_id) {
-            let tao_for_contributor = share
-                .saturating_mul(U64F64::from(tao_unstaked.to_u64()))
-                .floor()
-                .saturating_to_num::<u64>();
-            Self::add_balance_to_coldkey_account(&contributor, tao_for_contributor);
-            tao_distributed = tao_distributed.saturating_add(tao_for_contributor.into());
-        }
-
-        // Distribute the leftover tao to the beneficiary
-        let beneficiary_cut_tao = tao_unstaked.saturating_sub(tao_distributed);
-        Self::add_balance_to_coldkey_account(&lease.beneficiary, beneficiary_cut_tao.into());
-
-        // Reset the accumulated dividends
-        AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaCurrency::ZERO);
     }
 
     fn lease_coldkey(lease_id: LeaseId) -> Result<T::AccountId, DispatchError> {

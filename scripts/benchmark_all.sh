@@ -6,6 +6,7 @@ pallets=(
   "pallet_commitments"
   "pallet_drand"
   "pallet_admin_utils"
+  "pallet_shield"
 )
 
 RUNTIME_WASM=./target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
