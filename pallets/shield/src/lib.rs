@@ -205,8 +205,26 @@ pub mod pallet {
             // 4) Prune old epoch hashes with a sliding window of size KEY_EPOCH_HISTORY.
             let depth: BlockNumberFor<T> = KEY_EPOCH_HISTORY.into();
             if n >= depth {
-                let prune_before = n.saturating_sub(depth);
-                KeyHashByBlock::<T>::remove(prune_before);
+                let prune_bn = n.saturating_sub(depth);
+                KeyHashByBlock::<T>::remove(prune_bn);
+                writes = writes.saturating_add(1);
+            }
+
+            // 5) TTL-based pruning of stale submissions.
+            let ttl: BlockNumberFor<T> = KEY_EPOCH_HISTORY.into();
+            let threshold: BlockNumberFor<T> = n.saturating_sub(ttl);
+
+            let mut to_remove: Vec<T::Hash> = Vec::new();
+
+            for (id, sub) in Submissions::<T>::iter() {
+                reads = reads.saturating_add(1);
+                if sub.submitted_in < threshold {
+                    to_remove.push(id);
+                }
+            }
+
+            for id in to_remove {
+                Submissions::<T>::remove(id);
                 writes = writes.saturating_add(1);
             }
 

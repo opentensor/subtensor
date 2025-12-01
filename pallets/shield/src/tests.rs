@@ -473,6 +473,68 @@ fn key_hash_by_block_prunes_old_entries() {
 }
 
 #[test]
+fn submissions_pruned_after_ttl_window() {
+    new_test_ext().execute_with(|| {
+        // This must match KEY_EPOCH_HISTORY in the pallet.
+        const KEEP: u64 = 100;
+        const TOTAL: u64 = KEEP + 5;
+
+        let pair = test_sr25519_pair();
+        let who: AccountId32 = pair.public().into();
+
+        // Helper: create a submission at a specific block with a tagged commitment.
+        let make_submission = |block: u64, tag: &[u8]| -> TestHash {
+            System::set_block_number(block);
+            let commitment: TestHash = <Test as frame_system::Config>::Hashing::hash(tag);
+            let ciphertext_bytes = vec![block as u8; 4];
+            let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
+                BoundedVec::truncate_from(ciphertext_bytes);
+
+            assert_ok!(MevShield::submit_encrypted(
+                RuntimeOrigin::signed(who.clone()),
+                commitment,
+                ciphertext.clone(),
+            ));
+
+            <Test as frame_system::Config>::Hashing::hash_of(&(
+                who.clone(),
+                commitment,
+                &ciphertext,
+            ))
+        };
+
+        // With n = TOTAL and depth = KEEP, prune_before = n - KEEP = 5.
+        let stale_block1: u64 = 1; // < 5, should be pruned
+        let stale_block2: u64 = 4; // < 5, should be pruned
+        let keep_block1: u64 = 5; // == prune_before, should be kept
+        let keep_block2: u64 = TOTAL; // latest, should be kept
+
+        let id_stale1 = make_submission(stale_block1, b"stale-1");
+        let id_stale2 = make_submission(stale_block2, b"stale-2");
+        let id_keep1 = make_submission(keep_block1, b"keep-1");
+        let id_keep2 = make_submission(keep_block2, b"keep-2");
+
+        // Sanity: all are present before pruning.
+        assert!(Submissions::<Test>::get(id_stale1).is_some());
+        assert!(Submissions::<Test>::get(id_stale2).is_some());
+        assert!(Submissions::<Test>::get(id_keep1).is_some());
+        assert!(Submissions::<Test>::get(id_keep2).is_some());
+
+        // Run on_initialize at block TOTAL, triggering TTL pruning over Submissions.
+        let n_final: TestBlockNumber = TOTAL.saturated_into();
+        MevShield::on_initialize(n_final);
+
+        // Submissions with submitted_in < prune_before (5) should be gone.
+        assert!(Submissions::<Test>::get(id_stale1).is_none());
+        assert!(Submissions::<Test>::get(id_stale2).is_none());
+
+        // Submissions at or after prune_before should remain.
+        assert!(Submissions::<Test>::get(id_keep1).is_some());
+        assert!(Submissions::<Test>::get(id_keep2).is_some());
+    });
+}
+
+#[test]
 fn validate_unsigned_accepts_local_source_for_execute_revealed() {
     new_test_ext().execute_with(|| {
         let pair = test_sr25519_pair();
