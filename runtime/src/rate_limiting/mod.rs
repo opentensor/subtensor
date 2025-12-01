@@ -113,8 +113,6 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                 SubtensorCall::swap_hotkey { .. } => {
                     signed_origin(origin).map(RateLimitUsageKey::<AccountId>::Account)
                 }
-                SubtensorCall::register_network { .. }
-                | SubtensorCall::register_network_with_identity { .. } => None,
                 SubtensorCall::increase_take { hotkey, .. } => {
                     Some(RateLimitUsageKey::<AccountId>::Account(hotkey.clone()))
                 }
@@ -136,6 +134,8 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                         uid,
                     })
                 }
+                // legacy implementation still used netuid only, but it was recalculating it using
+                // mecid, so switching to netuid AND mecid is logical here
                 SubtensorCall::set_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::commit_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::reveal_mechanism_weights { netuid, mecid, .. }
