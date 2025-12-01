@@ -81,7 +81,7 @@ pub use frame_support::{
         IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
         WeightToFeePolynomial,
         constants::{
-            BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
+            BlockExecutionWeight, ExtrinsicBaseWeight, ParityDbWeight, WEIGHT_REF_TIME_PER_SECOND,
         },
     },
 };
@@ -305,7 +305,7 @@ impl frame_system::Config for Runtime {
     // Maximum number of block number to block hash mappings to keep (oldest pruned first).
     type BlockHashCount = BlockHashCount;
     // The weight of database operations that the runtime can invoke.
-    type DbWeight = RocksDbWeight;
+    type DbWeight = ParityDbWeight;
     // Version of the runtime.
     type Version = Version;
     // Converts a module to the index of the module in `construct_runtime!`.
@@ -1606,9 +1606,9 @@ type Migrations = (
         Runtime,
     >,
     // Remove storage from removed governance pallets
-    frame_support::migrations::RemovePallet<TriumviratePalletStr, RocksDbWeight>,
-    frame_support::migrations::RemovePallet<TriumvirateMembersPalletStr, RocksDbWeight>,
-    frame_support::migrations::RemovePallet<SenateMembersPalletStr, RocksDbWeight>,
+    frame_support::migrations::RemovePallet<TriumviratePalletStr, ParityDbWeight>,
+    frame_support::migrations::RemovePallet<TriumvirateMembersPalletStr, ParityDbWeight>,
+    frame_support::migrations::RemovePallet<SenateMembersPalletStr, ParityDbWeight>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.

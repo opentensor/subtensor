@@ -275,7 +275,7 @@ impl WeightInfo for () {
 		Weight::from_parts(25_084_085, 4706)
 			// Standard Error: 2_569
 			.saturating_add(Weight::from_parts(33_574, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(ParityDbWeight::get().reads(3_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:0)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -299,8 +299,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(171_107, 0).saturating_mul(a.into()))
 			// Standard Error: 3_834
 			.saturating_add(Weight::from_parts(34_523, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(5_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Announcements` (r:1 w:1)
 	/// Proof: `Proxy::Announcements` (`max_values`: None, `max_size`: Some(2233), added: 4708, mode: `MaxEncodedLen`)
@@ -318,8 +318,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(158_572, 0).saturating_mul(a.into()))
 			// Standard Error: 1_881
 			.saturating_add(Weight::from_parts(8_433, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Announcements` (r:1 w:1)
 	/// Proof: `Proxy::Announcements` (`max_values`: None, `max_size`: Some(2233), added: 4708, mode: `MaxEncodedLen`)
@@ -337,8 +337,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(176_827, 0).saturating_mul(a.into()))
 			// Standard Error: 1_901
 			.saturating_add(Weight::from_parts(9_607, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:0)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -358,8 +358,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(157_335, 0).saturating_mul(a.into()))
 			// Standard Error: 2_730
 			.saturating_add(Weight::from_parts(28_872, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(3_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -372,8 +372,8 @@ impl WeightInfo for () {
 		Weight::from_parts(28_296_216, 4706)
 			// Standard Error: 1_643
 			.saturating_add(Weight::from_parts(50_271, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -386,8 +386,8 @@ impl WeightInfo for () {
 		Weight::from_parts(28_379_566, 4706)
 			// Standard Error: 1_547
 			.saturating_add(Weight::from_parts(45_784, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -400,8 +400,8 @@ impl WeightInfo for () {
 		Weight::from_parts(25_821_878, 4706)
 			// Standard Error: 2_300
 			.saturating_add(Weight::from_parts(33_972, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -414,8 +414,8 @@ impl WeightInfo for () {
 		Weight::from_parts(29_662_728, 4706)
 			// Standard Error: 1_851
 			.saturating_add(Weight::from_parts(29_928, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -428,8 +428,8 @@ impl WeightInfo for () {
 		Weight::from_parts(26_780_627, 4706)
 			// Standard Error: 1_581
 			.saturating_add(Weight::from_parts(33_085, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -443,7 +443,7 @@ impl WeightInfo for () {
 		//  Estimated: `5698`
 		// Minimum execution time: 46_733_000 picoseconds.
 		Weight::from_parts(47_972_000, 5698)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(ParityDbWeight::get().reads(3_u64))
+			.saturating_add(ParityDbWeight::get().writes(3_u64))
 	}
 }

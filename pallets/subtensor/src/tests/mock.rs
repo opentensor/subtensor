@@ -10,7 +10,7 @@ use crate::utils::rate_limiting::TransactionType;
 use crate::*;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
-use frame_support::weights::constants::RocksDbWeight;
+use frame_support::weights::constants::ParityDbWeight;
 use frame_support::{PalletId, derive_impl};
 use frame_support::{
     assert_ok, parameter_types,
@@ -121,7 +121,7 @@ impl system::Config for Test {
     type BaseCallFilter = InsideBoth<Everything, NoNestingCallFilter>;
     type BlockWeights = BlockWeights;
     type BlockLength = ();
-    type DbWeight = RocksDbWeight;
+    type DbWeight = ParityDbWeight;
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
