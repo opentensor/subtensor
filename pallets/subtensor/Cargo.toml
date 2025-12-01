@@ -55,6 +55,7 @@ sha2.workspace = true
 rand_chacha.workspace = true
 pallet-crowdloan.workspace = true
 pallet-subtensor-proxy.workspace = true
+pallet-sudo.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -117,6 +118,7 @@ std = [
 	"pallet-subtensor-swap/std",
 	"subtensor-swap-interface/std",
 	"pallet-subtensor-utility/std",
+	"pallet-sudo/std",
 	"safe-math/std",
 	"share-pool/std",
 	"ark-serialize/std",

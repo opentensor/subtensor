@@ -13,7 +13,9 @@ use sp_runtime::traits::{
 };
 use sp_runtime::transaction_validity::{
     TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+    InvalidTransaction
 };
+use pallet_sudo::Call as SudoCall;
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
@@ -85,7 +87,7 @@ where
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config>
+impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config + pallet_sudo::Config>
     TransactionExtension<<T as frame_system::Config>::RuntimeCall>
     for SubtensorTransactionExtension<T>
 where
@@ -94,6 +96,7 @@ where
     <T as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<SudoCall<T>>,
 {
     const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
 
@@ -120,6 +123,21 @@ where
         let Some(who) = origin.as_system_origin_signer() else {
             return Ok((Default::default(), None, origin));
         };
+
+        // Check validity of the signer for sudo call
+        if let Some(_sudo_call) = IsSubType::<pallet_sudo::Call<T>>::is_sub_type(call) {
+            let sudo_key = pallet_sudo::pallet::Key::<T>::get();
+
+            // No sudo key configured → reject
+            let Some(expected_who) = sudo_key else {
+                return Err(InvalidTransaction::BadSigner.into());
+            };
+
+            // Signer does not match the sudo key → reject
+            if *who != expected_who {
+                return Err(InvalidTransaction::BadSigner.into());
+            }
+        }
 
         // Verify ColdkeySwapScheduled map for coldkey
         match call.is_sub_type() {

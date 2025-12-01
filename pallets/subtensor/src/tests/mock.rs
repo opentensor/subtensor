@@ -47,6 +47,7 @@ frame_support::construct_runtime!(
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
         Proxy: pallet_subtensor_proxy = 14,
+        Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>} = 15,
     }
 );
 
@@ -469,6 +470,12 @@ impl InstanceFilter<RuntimeCall> for subtensor_runtime_common::ProxyType {
             _ => false,
         }
     }
+}
+
+impl pallet_sudo::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type WeightInfo = pallet_sudo::weights::SubstrateWeight<Test>;
 }
 
 mod test_crypto {
