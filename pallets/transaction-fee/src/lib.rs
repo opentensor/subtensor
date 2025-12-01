@@ -308,7 +308,7 @@ where
 
     fn withdraw_fee(
         who: &AccountIdOf<T>,
-        call: &CallOf<T>,
+        _call: &CallOf<T>,
         _dispatch_info: &DispatchInfoOf<CallOf<T>>,
         fee: Self::Balance,
         _tip: Self::Balance,
@@ -340,7 +340,7 @@ where
 
     fn can_withdraw_fee(
         who: &AccountIdOf<T>,
-        call: &CallOf<T>,
+        _call: &CallOf<T>,
         _dispatch_info: &DispatchInfoOf<CallOf<T>>,
         fee: Self::Balance,
         _tip: Self::Balance,
