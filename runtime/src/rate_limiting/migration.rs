@@ -70,6 +70,7 @@ const GROUP_WEIGHTS_SUBNET: GroupId = 2;
 const GROUP_WEIGHTS_MECHANISM: GroupId = 3;
 const GROUP_REGISTER_NETWORK: GroupId = 4;
 const GROUP_OWNER_HPARAMS: GroupId = 5;
+const GROUP_STAKING_OPS: GroupId = 6;
 
 fn hyperparameter_identifiers() -> Vec<TransactionIdentifier> {
     HYPERPARAMETERS
@@ -126,6 +127,22 @@ fn group_definitions() -> Vec<GroupDefinition> {
             sharing: GroupSharing::ConfigOnly,
             members: hyperparameter_identifiers(),
         },
+        GroupDefinition {
+            id: GROUP_STAKING_OPS,
+            name: b"staking-ops",
+            sharing: GroupSharing::ConfigAndUsage,
+            members: vec![
+                subtensor_identifier(2),   // add_stake
+                subtensor_identifier(88),  // add_stake_limit
+                subtensor_identifier(3),   // remove_stake
+                subtensor_identifier(89),  // remove_stake_limit
+                subtensor_identifier(103), // remove_stake_full_limit
+                subtensor_identifier(85),  // move_stake
+                subtensor_identifier(86),  // transfer_stake
+                subtensor_identifier(87),  // swap_stake
+                subtensor_identifier(90),  // swap_stake_limit
+            ],
+        },
     ]
 }
 
@@ -166,6 +183,7 @@ struct GroupInfo {
 #[derive(Default)]
 struct Grouping {
     assignments: BTreeMap<TransactionIdentifier, GroupInfo>,
+    read_only: BTreeMap<TransactionIdentifier, bool>,
     members: BTreeMap<GroupId, BTreeSet<TransactionIdentifier>>,
     details: Vec<RateLimitGroup<GroupId, Vec<u8>>>,
     next_group_id: GroupId,
@@ -175,6 +193,10 @@ struct Grouping {
 impl Grouping {
     fn members(&self, id: GroupId) -> Option<&BTreeSet<TransactionIdentifier>> {
         self.members.get(&id)
+    }
+
+    fn set_read_only(&mut self, id: TransactionIdentifier, read_only: bool) {
+        self.read_only.insert(id, read_only);
     }
 
     fn insert_group(
@@ -188,6 +210,7 @@ impl Grouping {
         for member in members {
             self.assignments.insert(*member, GroupInfo { id, sharing });
             entry.insert(*member);
+            self.read_only.entry(*member).or_insert(false);
         }
 
         self.details.push(RateLimitGroup {
@@ -250,6 +273,15 @@ fn build_grouping() -> Grouping {
             definition.sharing,
             &definition.members,
         );
+    }
+
+    // Mark staking operations that should not update usage after enforcement.
+    for readonly in [
+        subtensor_identifier(3),
+        subtensor_identifier(89),
+        subtensor_identifier(103),
+    ] {
+        grouping.set_read_only(readonly, true);
     }
 
     grouping.finalize_next_id();
@@ -408,6 +440,13 @@ fn gather_simple_limits<T: SubtensorConfig>(
             span,
         );
     }
+
+    // Staking operations use a 1-block lock shared by the group.
+    set_global_limit::<T>(
+        limits,
+        grouping.config_target(subtensor_identifier(2)),
+        BlockNumberFor::<T>::from(1u32),
+    );
 
     reads
 }
@@ -761,6 +800,11 @@ where
         let group_id = info.id.saturated_into::<GroupIdOf<T>>();
         pallet_rate_limiting::CallGroups::<T>::insert(*identifier, group_id);
         writes += 1;
+
+        if grouping.read_only.get(identifier).copied().unwrap_or(false) {
+            pallet_rate_limiting::CallReadOnly::<T>::insert(*identifier, true);
+            writes += 1;
+        }
     }
 
     let next_group_id = grouping.next_group_id.saturated_into::<GroupIdOf<T>>();
@@ -1033,7 +1077,7 @@ mod tests {
                 pallet_rate_limiting::CallGroups::<Runtime>::get(subtensor_identifier(66)),
                 Some(DELEGATE_TAKE_GROUP_ID)
             );
-            assert_eq!(pallet_rate_limiting::NextGroupId::<Runtime>::get(), 6);
+            assert_eq!(pallet_rate_limiting::NextGroupId::<Runtime>::get(), 7);
         });
     }
 

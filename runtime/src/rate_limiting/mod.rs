@@ -168,6 +168,8 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                         uid,
                     })
                 }
+                // Staking calls share a group lock; only add_* write usage, the rest are read-only.
+                // Keep the usage key granular so the lock applies per (coldkey, hotkey, netuid).
                 SubtensorCall::add_stake { hotkey, netuid, .. }
                 | SubtensorCall::add_stake_limit { hotkey, netuid, .. }
                 | SubtensorCall::remove_stake { hotkey, netuid, .. }
@@ -192,9 +194,7 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     origin_hotkey: hotkey,
                     origin_netuid: netuid,
                     ..
-                }
-                | SubtensorCall::recycle_alpha { hotkey, netuid, .. }
-                | SubtensorCall::burn_alpha { hotkey, netuid, .. } => {
+                } => {
                     let coldkey = signed_origin(origin)?;
                     Some(RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
                         coldkey,
