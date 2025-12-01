@@ -20,6 +20,8 @@
 //! - [`assign_call_to_group`](pallet::Pallet::assign_call_to_group) and
 //!   [`remove_call_from_group`](pallet::Pallet::remove_call_from_group): manage group membership for
 //!   registered calls.
+//! - [`set_call_read_only`](pallet::Pallet::set_call_read_only): for grouped calls, choose whether
+//!   successful dispatches should update the shared usage row (`false` by default).
 //! - [`deregister_call`](pallet::Pallet::deregister_call): remove scoped configuration or wipe the
 //!   registration entirely.
 //! - [`set_default_rate_limit`](pallet::Pallet::set_default_rate_limit): set the global default
@@ -280,6 +282,12 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// Tracks whether a grouped call should skip writing usage metadata on success.
+    #[pallet::storage]
+    #[pallet::getter(fn call_read_only)]
+    pub type CallReadOnly<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Blake2_128Concat, TransactionIdentifier, bool, OptionQuery>;
+
     /// Metadata for each configured group.
     #[pallet::storage]
     #[pallet::getter(fn groups)]
@@ -393,6 +401,15 @@ pub mod pallet {
             transaction: TransactionIdentifier,
             /// Updated group assignment (None when cleared).
             group: Option<<T as Config<I>>::GroupId>,
+        },
+        /// A grouped call toggled whether it writes usage after enforcement.
+        CallReadOnlyUpdated {
+            /// Identifier of the transaction.
+            transaction: TransactionIdentifier,
+            /// Group to which the call belongs.
+            group: <T as Config<I>>::GroupId,
+            /// Current read-only flag.
+            read_only: bool,
         },
     }
 
@@ -584,6 +601,18 @@ pub mod pallet {
             }
 
             true
+        }
+
+        pub(crate) fn should_record_usage(
+            identifier: &TransactionIdentifier,
+            usage_target: &RateLimitTarget<<T as Config<I>>::GroupId>,
+        ) -> bool {
+            match usage_target {
+                RateLimitTarget::Group(_) => {
+                    !CallReadOnly::<T, I>::get(identifier).unwrap_or(false)
+                }
+                RateLimitTarget::Transaction(_) => true,
+            }
         }
 
         /// Inserts or updates the cached usage timestamp for a rate-limited call.
@@ -893,6 +922,7 @@ pub mod pallet {
                 Self::ensure_group_details(group_id)?;
                 Self::insert_call_into_group(&identifier, group_id)?;
                 CallGroups::<T, I>::insert(&identifier, group_id);
+                CallReadOnly::<T, I>::insert(&identifier, false);
                 assigned_group = Some(group_id);
             }
 
@@ -909,6 +939,11 @@ pub mod pallet {
                 Self::deposit_event(Event::CallGroupUpdated {
                     transaction: identifier,
                     group: Some(group_id),
+                });
+                Self::deposit_event(Event::CallReadOnlyUpdated {
+                    transaction: identifier,
+                    group: group_id,
+                    read_only: false,
                 });
             }
 
@@ -965,13 +1000,15 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Assigns a registered call to the specified group.
+        /// Assigns a registered call to the specified group and optionally marks it as read-only
+        /// for usage tracking.
         #[pallet::call_index(2)]
         #[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
         pub fn assign_call_to_group(
             origin: OriginFor<T>,
             transaction: TransactionIdentifier,
             group: <T as Config<I>>::GroupId,
+            read_only: bool,
         ) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
 
@@ -979,19 +1016,19 @@ pub mod pallet {
             Self::ensure_group_details(group)?;
 
             let current = CallGroups::<T, I>::get(&transaction);
-            if current == Some(group) {
-                return Err(Error::<T, I>::CallAlreadyInGroup.into());
-            }
-
+            ensure!(current.is_none(), Error::<T, I>::CallAlreadyInGroup);
             Self::insert_call_into_group(&transaction, group)?;
-            if let Some(existing) = current {
-                Self::detach_call_from_group(&transaction, existing);
-            }
             CallGroups::<T, I>::insert(&transaction, group);
+            CallReadOnly::<T, I>::insert(&transaction, read_only);
 
             Self::deposit_event(Event::CallGroupUpdated {
                 transaction,
                 group: Some(group),
+            });
+            Self::deposit_event(Event::CallReadOnlyUpdated {
+                transaction,
+                group,
+                read_only,
             });
 
             Ok(())
@@ -1010,6 +1047,7 @@ pub mod pallet {
             let Some(group) = CallGroups::<T, I>::take(&transaction) else {
                 return Err(Error::<T, I>::CallNotInGroup.into());
             };
+            CallReadOnly::<T, I>::remove(&transaction);
             Self::detach_call_from_group(&transaction, group);
 
             Self::deposit_event(Event::CallGroupUpdated {
@@ -1164,6 +1202,7 @@ pub mod pallet {
                     ensure!(removed, Error::<T, I>::MissingRateLimit);
 
                     if let Some(group) = CallGroups::<T, I>::take(&transaction) {
+                        CallReadOnly::<T, I>::remove(&transaction);
                         Self::detach_call_from_group(&transaction, group);
                         Self::deposit_event(Event::CallGroupUpdated {
                             transaction,
@@ -1178,6 +1217,7 @@ pub mod pallet {
                     }
 
                     if let Some(group) = CallGroups::<T, I>::take(&transaction) {
+                        CallReadOnly::<T, I>::remove(&transaction);
                         Self::detach_call_from_group(&transaction, group);
                         Self::deposit_event(Event::CallGroupUpdated {
                             transaction,
@@ -1198,6 +1238,32 @@ pub mod pallet {
                 scope,
                 pallet: Some(pallet),
                 extrinsic: Some(extrinsic),
+            });
+
+            Ok(())
+        }
+
+        /// Updates whether a grouped call should skip writing usage metadata after enforcement.
+        ///
+        /// The call must already be assigned to a group.
+        #[pallet::call_index(9)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+        pub fn set_call_read_only(
+            origin: OriginFor<T>,
+            transaction: TransactionIdentifier,
+            read_only: bool,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            Self::ensure_call_registered(&transaction)?;
+            let group =
+                CallGroups::<T, I>::get(&transaction).ok_or(Error::<T, I>::CallNotInGroup)?;
+            CallReadOnly::<T, I>::insert(&transaction, read_only);
+
+            Self::deposit_event(Event::CallReadOnlyUpdated {
+                transaction,
+                group,
+                read_only,
             });
 
             Ok(())

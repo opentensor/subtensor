@@ -8,6 +8,7 @@ use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 use sp_runtime::traits::{One, Saturating};
 
 use super::*;
+use crate::CallReadOnly;
 
 pub trait BenchmarkHelper<Call> {
     fn sample_call() -> Call;
@@ -85,9 +86,10 @@ mod benchmarks {
         let identifier = register_call_with_group::<T>(None);
 
         #[extrinsic_call]
-        _(RawOrigin::Root, identifier, group);
+        _(RawOrigin::Root, identifier, group, false);
 
         assert_eq!(CallGroups::<T, ()>::get(identifier), Some(group));
+        assert_eq!(CallReadOnly::<T, ()>::get(identifier), Some(false));
         assert!(GroupMembers::<T, ()>::get(group).contains(&identifier));
     }
 

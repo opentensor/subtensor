@@ -95,10 +95,12 @@ where
     type Val = Option<(
         RateLimitTarget<<T as Config<I>>::GroupId>,
         Option<<T as Config<I>>::UsageKey>,
+        bool,
     )>;
     type Pre = Option<(
         RateLimitTarget<<T as Config<I>>::GroupId>,
         Option<<T as Config<I>>::UsageKey>,
+        bool,
     )>;
 
     fn weight(&self, _call: &<T as Config<I>>::RuntimeCall) -> Weight {
@@ -131,6 +133,7 @@ where
             .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
         let usage_target = Pallet::<T, I>::usage_target(&identifier)
             .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+        let should_record = Pallet::<T, I>::should_record_usage(&identifier, &usage_target);
 
         let Some(block_span) =
             Pallet::<T, I>::effective_span(&origin, call, &config_target, &scope)
@@ -152,7 +155,7 @@ where
 
         Ok((
             ValidTransaction::default(),
-            Some((usage_target, usage)),
+            Some((usage_target, usage, should_record)),
             origin,
         ))
     }
@@ -176,7 +179,10 @@ where
         result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         if result.is_ok() {
-            if let Some((target, usage)) = pre {
+            if let Some((target, usage, should_record)) = pre {
+                if !should_record {
+                    return Ok(());
+                }
                 let block_number = frame_system::Pallet::<T>::block_number();
                 LastSeen::<T, I>::insert(target, usage, block_number);
             }
@@ -237,7 +243,7 @@ mod tests {
     ) -> Result<
         (
             sp_runtime::transaction_validity::ValidTransaction,
-            Option<(RateLimitTarget<GroupId>, Option<UsageKey>)>,
+            Option<(RateLimitTarget<GroupId>, Option<UsageKey>, bool)>,
             RuntimeOrigin,
         ),
         TransactionValidityError,
@@ -429,6 +435,61 @@ mod tests {
             .expect("post_dispatch succeeds");
 
             assert_eq!(LastSeen::<Test, ()>::get(target, None::<UsageKey>), None);
+        });
+    }
+
+    #[test]
+    fn tx_extension_skips_write_for_read_only_group_member() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            assert_ok!(RateLimiting::create_group(
+                RuntimeOrigin::root(),
+                b"use-ro".to_vec(),
+                GroupSharing::UsageOnly,
+            ));
+            let group = RateLimiting::next_group_id().saturating_sub(1);
+
+            let call = remark_call();
+            let identifier = identifier_for(&call);
+            assert_ok!(RateLimiting::register_call(
+                RuntimeOrigin::root(),
+                Box::new(call.clone()),
+                Some(group),
+            ));
+            assert_ok!(RateLimiting::set_call_read_only(
+                RuntimeOrigin::root(),
+                identifier,
+                true
+            ));
+
+            let tx_target = RateLimitTarget::Transaction(identifier);
+            let usage_target = RateLimitTarget::Group(group);
+            Limits::<Test, ()>::insert(tx_target, RateLimit::global(RateLimitKind::Exact(2)));
+            LastSeen::<Test, ()>::insert(usage_target, Some(1u16), 2);
+
+            System::set_block_number(5);
+
+            let (_valid, val, _) = validate_with_tx_extension(&extension, &call).expect("valid");
+            let info = call.get_dispatch_info();
+            let len = call.encode().len();
+            let origin_for_prepare = RuntimeOrigin::signed(42);
+            let pre = extension
+                .clone()
+                .prepare(val.clone(), &origin_for_prepare, &call, &info, len)
+                .expect("prepare succeeds");
+
+            let mut post = PostDispatchInfo::default();
+            RateLimitTransactionExtension::<Test>::post_dispatch(
+                pre,
+                &info,
+                &mut post,
+                len,
+                &Ok(()),
+            )
+            .expect("post_dispatch succeeds");
+
+            // Usage key should remain untouched because the call is read-only.
+            assert_eq!(LastSeen::<Test, ()>::get(usage_target, Some(1u16)), Some(2));
         });
     }
 

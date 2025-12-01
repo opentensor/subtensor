@@ -2,8 +2,8 @@ use frame_support::{assert_noop, assert_ok};
 use sp_std::vec::Vec;
 
 use crate::{
-    CallGroups, Config, GroupMembers, GroupSharing, LastSeen, Limits, RateLimit, RateLimitKind,
-    RateLimitTarget, TransactionIdentifier, mock::*, pallet::Error,
+    CallGroups, CallReadOnly, Config, GroupMembers, GroupSharing, LastSeen, Limits, RateLimit,
+    RateLimitKind, RateLimitTarget, TransactionIdentifier, mock::*, pallet::Error,
 };
 use frame_support::traits::Get;
 
@@ -132,6 +132,7 @@ fn set_rate_limit_requires_registration_and_group_targeting() {
             RuntimeOrigin::root(),
             identifier,
             group,
+            false,
         ));
         assert_noop!(
             RateLimiting::set_rate_limit(
@@ -150,11 +151,42 @@ fn set_rate_limit_respects_group_config_sharing() {
     new_test_ext().execute_with(|| {
         let identifier = register(remark_call(), None);
         let group = create_group(b"test", GroupSharing::ConfigAndUsage);
+        // Consume group creation event to keep ordering predictable.
+        let created = last_event();
+        assert!(matches!(
+            created,
+            RuntimeEvent::RateLimiting(crate::Event::GroupCreated { group: g, .. }) if g == group
+        ));
         assert_ok!(RateLimiting::assign_call_to_group(
             RuntimeOrigin::root(),
             identifier,
             group,
+            false,
         ));
+        let events: Vec<_> = System::events()
+            .into_iter()
+            .map(|e| e.event)
+            .filter(|evt| matches!(evt, RuntimeEvent::RateLimiting(_)))
+            .collect();
+        assert!(events.iter().any(|evt| {
+            matches!(
+                evt,
+                RuntimeEvent::RateLimiting(crate::Event::CallReadOnlyUpdated {
+                    transaction,
+                    group: g,
+                    read_only: false,
+                }) if *transaction == identifier && *g == group
+            )
+        }));
+        assert!(events.iter().any(|evt| {
+            matches!(
+                evt,
+                RuntimeEvent::RateLimiting(crate::Event::CallGroupUpdated {
+                    transaction,
+                    group: Some(g),
+                }) if *transaction == identifier && *g == group
+            )
+        }));
         assert_noop!(
             RateLimiting::set_rate_limit(
                 RuntimeOrigin::root(),
@@ -164,15 +196,6 @@ fn set_rate_limit_respects_group_config_sharing() {
             ),
             Error::<Test>::MustTargetGroup
         );
-
-        let event = last_event();
-        assert!(matches!(
-            event,
-            RuntimeEvent::RateLimiting(crate::Event::CallGroupUpdated {
-                transaction,
-                group: Some(g),
-            }) if transaction == identifier && g == group
-        ));
     });
 }
 
@@ -185,8 +208,10 @@ fn assign_and_remove_group_membership() {
             RuntimeOrigin::root(),
             identifier,
             group,
+            false,
         ));
         assert_eq!(CallGroups::<Test, ()>::get(identifier), Some(group));
+        assert_eq!(CallReadOnly::<Test, ()>::get(identifier), Some(false));
         assert!(GroupMembers::<Test, ()>::get(group).contains(&identifier));
         assert_ok!(RateLimiting::remove_call_from_group(
             RuntimeOrigin::root(),
@@ -395,7 +420,7 @@ fn group_member_limit_and_removal_errors() {
         // Next insert should fail.
         let extra = register(remark_call(), None);
         assert_noop!(
-            RateLimiting::assign_call_to_group(RuntimeOrigin::root(), extra, group),
+            RateLimiting::assign_call_to_group(RuntimeOrigin::root(), extra, group, false),
             Error::<Test>::GroupMemberLimitExceeded
         );
 
@@ -404,6 +429,50 @@ fn group_member_limit_and_removal_errors() {
             RateLimiting::remove_call_from_group(RuntimeOrigin::root(), extra),
             Error::<Test>::CallNotInGroup
         );
+    });
+}
+
+#[test]
+fn set_call_read_only_requires_group() {
+    new_test_ext().execute_with(|| {
+        let identifier = register(remark_call(), None);
+        assert_noop!(
+            RateLimiting::set_call_read_only(RuntimeOrigin::root(), identifier, true),
+            Error::<Test>::CallNotInGroup
+        );
+    });
+}
+
+#[test]
+fn set_call_read_only_updates_assignment_and_emits_event() {
+    new_test_ext().execute_with(|| {
+        let group = create_group(b"ro", GroupSharing::UsageOnly);
+        let identifier = register(remark_call(), None);
+        assert_ok!(RateLimiting::assign_call_to_group(
+            RuntimeOrigin::root(),
+            identifier,
+            group,
+            false,
+        ));
+
+        assert_ok!(RateLimiting::set_call_read_only(
+            RuntimeOrigin::root(),
+            identifier,
+            true
+        ));
+
+        assert_eq!(CallGroups::<Test, ()>::get(identifier), Some(group));
+        assert_eq!(CallReadOnly::<Test, ()>::get(identifier), Some(true));
+
+        let event = last_event();
+        assert!(matches!(
+            event,
+            RuntimeEvent::RateLimiting(crate::Event::CallReadOnlyUpdated {
+                transaction,
+                group: g,
+                read_only: true,
+            }) if transaction == identifier && g == group
+        ));
     });
 }
 
