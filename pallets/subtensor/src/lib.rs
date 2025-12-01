@@ -1890,8 +1890,55 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
-    /// Default value for burn keys limit
+    // =======================================
+    // ==== VotingPower Storage  ====
+    // =======================================
+
     #[pallet::type_value]
+    /// Default VotingPower EMA alpha value (0.1 represented as u64 with 18 decimals)
+    /// alpha = 0.1 means slow response, 10% weight to new values per epoch
+    pub fn DefaultVotingPowerEmaAlpha<T: Config>() -> u64 {
+        100_000_000_000_000_000 // 0.1 * 10^18
+    }
+
+    #[pallet::storage]
+    /// --- DMAP ( netuid, hotkey ) --> voting_power | EMA of stake for voting
+    /// This tracks stake EMA updated every epoch when VotingPowerTrackingEnabled is true.
+    /// Used by smart contracts to determine validator voting power for subnet governance.
+    pub type VotingPower<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> bool | Whether voting power tracking is enabled for this subnet.
+    /// When enabled, VotingPower EMA is updated every epoch. Default is false.
+    /// When disabled with disable_at_block set, tracking continues until that block.
+    pub type VotingPowerTrackingEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> block_number | Block at which voting power tracking will be disabled.
+    /// When set (non-zero), tracking continues until this block, then automatically disables
+    /// and clears VotingPower entries for the subnet. Provides a 14-day grace period.
+    pub type VotingPowerDisableAtBlock<T: Config> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery>;
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> u64 | EMA alpha value for voting power calculation.
+    /// Higher alpha = faster response to stake changes.
+    /// Stored as u64 with 18 decimal precision (1.0 = 10^18).
+    /// Only settable by sudo/root.
+    pub type VotingPowerEmaAlpha<T: Config> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultVotingPowerEmaAlpha<T>>;
+
+    #[pallet::type_value]
+    /// Default value for burn keys limit
     pub fn DefaultImmuneOwnerUidsLimit<T: Config>() -> u16 {
         1
     }

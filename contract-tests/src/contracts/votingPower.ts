@@ -1,0 +1,85 @@
+export const IVOTING_POWER_ADDRESS = "0x0000000000000000000000000000000000000806";
+
+export const IVotingPowerABI = [
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "netuid",
+        "type": "uint16"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "hotkey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getVotingPower",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "netuid",
+        "type": "uint16"
+      }
+    ],
+    "name": "isVotingPowerTrackingEnabled",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "netuid",
+        "type": "uint16"
+      }
+    ],
+    "name": "getVotingPowerDisableAtBlock",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "netuid",
+        "type": "uint16"
+      }
+    ],
+    "name": "getVotingPowerEmaAlpha",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

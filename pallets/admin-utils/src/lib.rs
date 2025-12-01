@@ -143,6 +143,8 @@ pub mod pallet {
         Proxy,
         /// Leasing precompile
         Leasing,
+        /// Voting power precompile
+        VotingPower,
     }
 
     #[pallet::type_value]
