@@ -636,7 +636,8 @@ pub mod pallet {
 }
 
 /// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
-#[freeze_struct("7e600c53ace0630a")]
+#[allow(unused)]
+#[freeze_struct("8b0fb6b91f673972")]
 #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode)]
 struct IndexedUtilityPalletId(u16);
 
