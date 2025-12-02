@@ -50,10 +50,7 @@ impl<T: Config> Pallet<T> {
         // Emit event
         Self::deposit_event(Event::VotingPowerTrackingEnabled { netuid });
 
-        log::info!(
-            "VotingPower tracking enabled for netuid {:?}",
-            netuid
-        );
+        log::info!("VotingPower tracking enabled for netuid {netuid:?}");
 
         Ok(())
     }
@@ -69,7 +66,8 @@ impl<T: Config> Pallet<T> {
 
         // Calculate the block at which tracking will be disabled
         let current_block = Self::get_current_block_as_u64();
-        let disable_at_block = current_block.saturating_add(VOTING_POWER_DISABLE_GRACE_PERIOD_BLOCKS);
+        let disable_at_block =
+            current_block.saturating_add(VOTING_POWER_DISABLE_GRACE_PERIOD_BLOCKS);
 
         // Schedule disable
         VotingPowerDisableAtBlock::<T>::insert(netuid, disable_at_block);
@@ -81,9 +79,7 @@ impl<T: Config> Pallet<T> {
         });
 
         log::info!(
-            "VotingPower tracking scheduled to disable at block {:?} for netuid {:?}",
-            disable_at_block,
-            netuid
+            "VotingPower tracking scheduled to disable at block {disable_at_block:?} for netuid {netuid:?}"
         );
 
         Ok(())
@@ -103,11 +99,7 @@ impl<T: Config> Pallet<T> {
         // Emit event
         Self::deposit_event(Event::VotingPowerEmaAlphaSet { netuid, alpha });
 
-        log::info!(
-            "VotingPower EMA alpha set to {:?} for netuid {:?}",
-            alpha,
-            netuid
-        );
+        log::info!("VotingPower EMA alpha set to {alpha:?} for netuid {netuid:?}");
 
         Ok(())
     }
@@ -159,10 +151,7 @@ impl<T: Config> Pallet<T> {
         // Remove voting power for any hotkeys that are no longer registered on this subnet
         Self::clear_voting_power_for_deregistered_hotkeys(netuid);
 
-        log::trace!(
-            "VotingPower updated for validators on netuid {:?}",
-            netuid
-        );
+        log::trace!("VotingPower updated for validators on netuid {netuid:?}");
     }
 
     /// Clear voting power for hotkeys that are no longer registered on the subnet.
@@ -183,9 +172,7 @@ impl<T: Config> Pallet<T> {
         for hotkey in hotkeys_to_remove {
             VotingPower::<T>::remove(netuid, &hotkey);
             log::trace!(
-                "VotingPower removed for deregistered hotkey {:?} on netuid {:?}",
-                hotkey,
-                netuid
+                "VotingPower removed for deregistered hotkey {hotkey:?} on netuid {netuid:?}"
             );
         }
     }
@@ -219,21 +206,13 @@ impl<T: Config> Pallet<T> {
             // Was above threshold, now decayed below - remove
             VotingPower::<T>::remove(netuid, hotkey);
             log::trace!(
-                "VotingPower removed for hotkey {:?} on netuid {:?} (decayed below threshold: {:?} < {:?})",
-                hotkey,
-                netuid,
-                new_ema,
-                min_stake
+                "VotingPower removed for hotkey {hotkey:?} on netuid {netuid:?} (decayed below threshold: {new_ema:?} < {min_stake:?})"
             );
         } else if new_ema > 0 {
             // Update voting power (building up or maintaining)
             VotingPower::<T>::insert(netuid, hotkey, new_ema);
             log::trace!(
-                "VotingPower updated for hotkey {:?} on netuid {:?}: {:?} -> {:?}",
-                hotkey,
-                netuid,
-                previous_ema,
-                new_ema
+                "VotingPower updated for hotkey {hotkey:?} on netuid {netuid:?}: {previous_ema:?} -> {new_ema:?}"
             );
         }
         // If new_ema == 0 do nothing
@@ -245,7 +224,7 @@ impl<T: Config> Pallet<T> {
     fn calculate_voting_power_ema(current_stake: u64, previous_ema: u64, alpha: u64) -> u64 {
         // Use u128 for intermediate calculations to avoid overflow
         let alpha_128 = alpha as u128;
-        let one_minus_alpha = MAX_VOTING_POWER_EMA_ALPHA as u128 - alpha_128;
+        let one_minus_alpha = (MAX_VOTING_POWER_EMA_ALPHA as u128).saturating_sub(alpha_128);
         let current_128 = current_stake as u128;
         let previous_128 = previous_ema as u128;
 
@@ -277,10 +256,7 @@ impl<T: Config> Pallet<T> {
         // Emit event
         Self::deposit_event(Event::VotingPowerTrackingDisabled { netuid });
 
-        log::info!(
-            "VotingPower tracking disabled and entries cleared for netuid {:?}",
-            netuid
-        );
+        log::info!("VotingPower tracking disabled and entries cleared for netuid {netuid:?}");
     }
 
     // ========================
@@ -303,11 +279,7 @@ impl<T: Config> Pallet<T> {
             VotingPower::<T>::insert(netuid, new_hotkey, voting_power.saturating_add(existing));
 
             log::trace!(
-                "VotingPower transferred from {:?} to {:?} on netuid {:?}: {:?}",
-                old_hotkey,
-                new_hotkey,
-                netuid,
-                voting_power
+                "VotingPower transferred from {old_hotkey:?} to {new_hotkey:?} on netuid {netuid:?}: {voting_power:?}"
             );
         }
     }

@@ -25,7 +25,7 @@ where
 impl<R> VotingPowerPrecompile<R>
 where
     R: frame_system::Config + pallet_subtensor::Config,
-    R::AccountId: From<[u8; 32]> + ByteArray,
+    R::AccountId: From<[u8; 32]>,
 {
     /// Get voting power for a hotkey on a subnet.
     ///

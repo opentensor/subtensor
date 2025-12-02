@@ -1905,15 +1905,8 @@ pub mod pallet {
     /// --- DMAP ( netuid, hotkey ) --> voting_power | EMA of stake for voting
     /// This tracks stake EMA updated every epoch when VotingPowerTrackingEnabled is true.
     /// Used by smart contracts to determine validator voting power for subnet governance.
-    pub type VotingPower<T: Config> = StorageDoubleMap<
-        _,
-        Identity,
-        NetUid,
-        Blake2_128Concat,
-        T::AccountId,
-        u64,
-        ValueQuery,
-    >;
+    pub type VotingPower<T: Config> =
+        StorageDoubleMap<_, Identity, NetUid, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
     #[pallet::storage]
     /// --- MAP ( netuid ) --> bool | Whether voting power tracking is enabled for this subnet.
