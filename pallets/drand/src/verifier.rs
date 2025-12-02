@@ -27,7 +27,7 @@ use ark_ec::{AffineRepr, hashing::HashToCurve};
 use ark_serialize::CanonicalSerialize;
 use codec::Decode;
 use sha2::{Digest, Sha256};
-use sp_ark_bls12_381::{G1Affine as G1AffineOpt, G2Affine as G2AffineOpt};
+use sp_crypto_ec_utils::bls12_381::{G1Affine as G1AffineOpt, G2Affine as G2AffineOpt};
 use tle::curves::drand::TinyBLS381;
 use w3f_bls::engine::EngineBLS;
 

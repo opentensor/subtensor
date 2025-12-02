@@ -16,7 +16,7 @@
 
 use ark_ec::pairing::Pairing;
 use ark_std::{Zero, ops::Neg};
-use sp_ark_bls12_381::{
+use sp_crypto_ec_utils::bls12_381::{
     Bls12_381 as Bls12_381Opt, G1Affine as G1AffineOpt, G2Affine as G2AffineOpt,
 };
 
