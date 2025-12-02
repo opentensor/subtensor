@@ -8,7 +8,9 @@ use subtensor_runtime_common::NetUid;
 
 use super::mock;
 use super::mock::*;
-use crate::utils::voting_power::{MAX_VOTING_POWER_EMA_ALPHA, VOTING_POWER_DISABLE_GRACE_PERIOD_BLOCKS};
+use crate::utils::voting_power::{
+    MAX_VOTING_POWER_EMA_ALPHA, VOTING_POWER_DISABLE_GRACE_PERIOD_BLOCKS,
+};
 use crate::*;
 
 // ============================================
@@ -30,7 +32,11 @@ impl VotingPowerTestFixture {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
         let netuid = add_dynamic_network(&hotkey, &coldkey);
-        Self { hotkey, coldkey, netuid }
+        Self {
+            hotkey,
+            coldkey,
+            netuid,
+        }
     }
 
     /// Setup reserves and add balance to coldkey for staking
@@ -99,14 +105,19 @@ fn test_enable_voting_power_tracking() {
         let f = VotingPowerTestFixture::new();
 
         // Initially disabled
-        assert!(!SubtensorModule::get_voting_power_tracking_enabled(f.netuid));
+        assert!(!SubtensorModule::get_voting_power_tracking_enabled(
+            f.netuid
+        ));
 
         // Enable tracking (subnet owner can do this)
         f.enable_tracking();
 
         // Now enabled
         assert!(SubtensorModule::get_voting_power_tracking_enabled(f.netuid));
-        assert_eq!(SubtensorModule::get_voting_power_disable_at_block(f.netuid), 0);
+        assert_eq!(
+            SubtensorModule::get_voting_power_disable_at_block(f.netuid),
+            0
+        );
     });
 }
 
@@ -144,7 +155,10 @@ fn test_disable_voting_power_tracking_schedules_disable() {
         // Still enabled, but scheduled for disable
         assert!(SubtensorModule::get_voting_power_tracking_enabled(f.netuid));
         let disable_at = SubtensorModule::get_voting_power_disable_at_block(f.netuid);
-        assert_eq!(disable_at, current_block + VOTING_POWER_DISABLE_GRACE_PERIOD_BLOCKS);
+        assert_eq!(
+            disable_at,
+            current_block + VOTING_POWER_DISABLE_GRACE_PERIOD_BLOCKS
+        );
     });
 }
 
@@ -182,7 +196,9 @@ fn test_enable_voting_power_tracking_non_owner_fails() {
         );
 
         // Should still be disabled
-        assert!(!SubtensorModule::get_voting_power_tracking_enabled(f.netuid));
+        assert!(!SubtensorModule::get_voting_power_tracking_enabled(
+            f.netuid
+        ));
     });
 }
 
@@ -205,7 +221,10 @@ fn test_disable_voting_power_tracking_non_owner_fails() {
 
         // Should still be enabled with no disable scheduled
         assert!(SubtensorModule::get_voting_power_tracking_enabled(f.netuid));
-        assert_eq!(SubtensorModule::get_voting_power_disable_at_block(f.netuid), 0);
+        assert_eq!(
+            SubtensorModule::get_voting_power_disable_at_block(f.netuid),
+            0
+        );
     });
 }
 
@@ -231,7 +250,10 @@ fn test_set_voting_power_ema_alpha() {
             new_alpha
         ));
 
-        assert_eq!(SubtensorModule::get_voting_power_ema_alpha(f.netuid), new_alpha);
+        assert_eq!(
+            SubtensorModule::get_voting_power_ema_alpha(f.netuid),
+            new_alpha
+        );
     });
 }
 
@@ -322,8 +344,10 @@ fn test_voting_power_cleared_when_deregistered() {
 
         // Should be removed from storage immediately when deregistered
         assert_eq!(f.get_voting_power(), 0);
-        assert!(!VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
-            "Entry should be removed when hotkey is deregistered");
+        assert!(
+            !VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
+            "Entry should be removed when hotkey is deregistered"
+        );
     });
 }
 
@@ -341,7 +365,11 @@ fn test_only_validators_get_voting_power() {
 
         let netuid = add_dynamic_network(&validator_hotkey, &coldkey);
 
-        mock::setup_reserves(netuid, (DEFAULT_STAKE_AMOUNT * 100).into(), (DEFAULT_STAKE_AMOUNT * 100).into());
+        mock::setup_reserves(
+            netuid,
+            (DEFAULT_STAKE_AMOUNT * 100).into(),
+            (DEFAULT_STAKE_AMOUNT * 100).into(),
+        );
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, DEFAULT_STAKE_AMOUNT * 20);
 
         // Register miner
@@ -426,7 +454,10 @@ fn test_voting_power_transfers_on_hotkey_swap() {
 
         // Old hotkey should have 0, new hotkey should have the voting power
         assert_eq!(f.get_voting_power(), 0);
-        assert_eq!(SubtensorModule::get_voting_power(f.netuid, &new_hotkey), voting_power_value);
+        assert_eq!(
+            SubtensorModule::get_voting_power(f.netuid, &new_hotkey),
+            voting_power_value
+        );
     });
 }
 
@@ -482,9 +513,14 @@ fn test_voting_power_not_removed_if_never_above_threshold() {
         // Key assertion: Entry should NOT be removed because previous_ema was below threshold
         // The removal rule only triggers when previous_ema >= threshold and new_ema < threshold
         let voting_power = f.get_voting_power();
-        assert!(voting_power > 0, "Voting power should still exist - it was never above threshold");
-        assert!(VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
-            "Entry should exist - it was never above threshold so shouldn't be removed");
+        assert!(
+            voting_power > 0,
+            "Voting power should still exist - it was never above threshold"
+        );
+        assert!(
+            VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
+            "Entry should exist - it was never above threshold so shouldn't be removed"
+        );
     });
 }
 
@@ -533,7 +569,10 @@ fn test_reenable_voting_power_clears_disable_schedule() {
         f.enable_tracking();
 
         assert!(SubtensorModule::get_voting_power_tracking_enabled(f.netuid));
-        assert_eq!(SubtensorModule::get_voting_power_disable_at_block(f.netuid), 0);
+        assert_eq!(
+            SubtensorModule::get_voting_power_disable_at_block(f.netuid),
+            0
+        );
     });
 }
 
@@ -569,8 +608,13 @@ fn test_voting_power_finalized_after_grace_period() {
         f.run_epochs(1);
 
         // Tracking should be disabled and all entries cleared
-        assert!(!SubtensorModule::get_voting_power_tracking_enabled(f.netuid));
-        assert_eq!(SubtensorModule::get_voting_power_disable_at_block(f.netuid), 0);
+        assert!(!SubtensorModule::get_voting_power_tracking_enabled(
+            f.netuid
+        ));
+        assert_eq!(
+            SubtensorModule::get_voting_power_disable_at_block(f.netuid),
+            0
+        );
         assert_eq!(f.get_voting_power(), 0);
     });
 }
