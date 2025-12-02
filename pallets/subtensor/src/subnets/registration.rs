@@ -425,16 +425,14 @@ impl<T: Config> Pallet<T> {
 
         // Insert subnet owner hotkey in the beginning of the list if valid and not
         // already present
-        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-            if let Some(owner_uid) = Uids::<T>::get(netuid, &owner_hk) {
-                if !immune_tuples.contains(&(owner_uid, owner_hk.clone())) {
+        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid)
+            && let Some(owner_uid) = Uids::<T>::get(netuid, &owner_hk)
+                && !immune_tuples.contains(&(owner_uid, owner_hk.clone())) {
                     immune_tuples.insert(0, (owner_uid, owner_hk.clone()));
                     if immune_tuples.len() > limit {
                         immune_tuples.truncate(limit);
                     }
                 }
-            }
-        }
 
         immune_tuples
     }
@@ -467,11 +465,10 @@ impl<T: Config> Pallet<T> {
         let immortal_hotkeys = Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey);
         for neuron_uid in 0..neurons_n {
             // Do not deregister the owner's owned hotkeys
-            if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-                if immortal_hotkeys.contains(&hotkey) {
+            if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid)
+                && immortal_hotkeys.contains(&hotkey) {
                     continue;
                 }
-            }
 
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid);
             let block_at_registration: u64 =

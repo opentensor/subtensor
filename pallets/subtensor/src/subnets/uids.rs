@@ -64,15 +64,14 @@ impl<T: Config> Pallet<T> {
         let old_hotkey: T::AccountId = Keys::<T>::get(netuid, uid_to_replace);
 
         // Do not replace owner hotkey from `SubnetOwnerHotkey`
-        if let Ok(sn_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-            if sn_owner_hotkey == old_hotkey.clone() {
+        if let Ok(sn_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid)
+            && sn_owner_hotkey == old_hotkey.clone() {
                 log::warn!(
                     "replace_neuron: Skipped replacement because neuron is the subnet owner hotkey. \
                     netuid: {netuid:?}, uid_to_replace: {uid_to_replace:?}, new_hotkey: {new_hotkey:?}, owner_hotkey: {sn_owner_hotkey:?}"
                 );
                 return;
             }
-        }
 
         // 2. Remove previous set memberships.
         Uids::<T>::remove(netuid, old_hotkey.clone());

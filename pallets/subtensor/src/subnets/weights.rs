@@ -1109,8 +1109,8 @@ impl<T: Config> Pallet<T> {
         current_block: u64,
     ) -> bool {
         let maybe_netuid_and_subid = Self::get_netuid_and_subid(netuid_index);
-        if let Ok((netuid, _)) = maybe_netuid_and_subid {
-            if Self::is_uid_exist_on_network(netuid, neuron_uid) {
+        if let Ok((netuid, _)) = maybe_netuid_and_subid
+            && Self::is_uid_exist_on_network(netuid, neuron_uid) {
                 // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
                 let last_set_weights: u64 = Self::get_last_update_for_uid(netuid_index, neuron_uid);
                 if last_set_weights == 0 {
@@ -1119,7 +1119,6 @@ impl<T: Config> Pallet<T> {
                 return current_block.saturating_sub(last_set_weights)
                     >= Self::get_weights_set_rate_limit(netuid);
             }
-        }
 
         // --- 3. Non registered peers cant pass. Neither can non-existing mecid
         false
