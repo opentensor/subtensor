@@ -337,7 +337,6 @@ where
         traits::{ConstU32, TransactionExtension},
     };
 
-    // Helper: map a Block hash to H256
     fn to_h256<H: AsRef<[u8]>>(h: H) -> H256 {
         let bytes = h.as_ref();
         let mut out = [0u8; 32];
@@ -356,7 +355,7 @@ where
             dst.copy_from_slice(src);
             H256(out)
         } else {
-            // Extremely unlikely; fall back to zeroed H256 if indices are somehow invalid.
+            // Extremely defensive fallback.
             H256([0u8; 32])
         }
     }
@@ -365,9 +364,10 @@ where
     let public_key: BoundedVec<u8, MaxPk> = BoundedVec::try_from(next_public_key)
         .map_err(|_| anyhow::anyhow!("public key too long (>2048 bytes)"))?;
 
-    // 1) The runtime call carrying public key bytes.
+    // 1) Runtime call carrying the public key bytes.
     let call = RuntimeCall::MevShield(pallet_shield::Call::announce_next_key { public_key });
 
+    // 2) Build the transaction extensions exactly like the runtime.
     type Extra = runtime::TransactionExtensions;
     let extra: Extra =
         (
@@ -390,6 +390,7 @@ where
             frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
         );
 
+    // 3) Manually construct the `Implicit` tuple that the runtime will also derive.
     type Implicit = <Extra as TransactionExtension<RuntimeCall>>::Implicit;
 
     let info = client.info();
@@ -397,35 +398,36 @@ where
 
     let implicit: Implicit = (
         (),                                   // CheckNonZeroSender
-        runtime::VERSION.spec_version,        // CheckSpecVersion
-        runtime::VERSION.transaction_version, // CheckTxVersion
-        genesis_h256,                         // CheckGenesis
-        genesis_h256,                         // CheckEra (Immortal)
-        (),                                   // CheckNonce (additional part)
-        (),                                   // CheckWeight
-        (),                                   // ChargeTransactionPaymentWrapper (additional part)
-        (),                                   // SubtensorTransactionExtension (additional part)
-        (),                                   // DrandPriority
-        None,                                 // CheckMetadataHash (disabled)
+        runtime::VERSION.spec_version,        // CheckSpecVersion::Implicit = u32
+        runtime::VERSION.transaction_version, // CheckTxVersion::Implicit = u32
+        genesis_h256,                         // CheckGenesis::Implicit = Hash
+        genesis_h256,                         // CheckEra::Implicit (Immortal => genesis hash)
+        (),                                   // CheckNonce::Implicit = ()
+        (),                                   // CheckWeight::Implicit = ()
+        (),                                   // ChargeTransactionPaymentWrapper::Implicit = ()
+        (),                                   // SubtensorTransactionExtension::Implicit = ()
+        (),                                   // DrandPriority::Implicit = ()
+        None,                                 // CheckMetadataHash::Implicit = Option<[u8; 32]>
     );
 
-    // Build the exact signable payload.
+    // 4) Build the exact signable payload from call + extra + implicit.
     let payload: SignedPayload = SignedPayload::from_raw(call.clone(), extra.clone(), implicit);
 
-    let raw_payload = payload.encode();
-
-    // Sign with the local Aura key.
-    let sig_opt = keystore
-        .sr25519_sign(AURA_KEY_TYPE, &aura_pub, &raw_payload)
+    // 5) Sign with the local Aura key using the same SCALE bytes the runtime expects.
+    let sig_opt = payload
+        .using_encoded(|bytes| keystore.sr25519_sign(AURA_KEY_TYPE, &aura_pub, bytes))
         .map_err(|e| anyhow::anyhow!("keystore sr25519_sign error: {e:?}"))?;
+
     let sig = sig_opt
         .ok_or_else(|| anyhow::anyhow!("keystore sr25519_sign returned None for Aura key"))?;
 
     let signature: MultiSignature = sig.into();
 
+    // 6) Sender address = AccountId32 derived from the Aura sr25519 public key.
     let who: AccountId32 = aura_pub.into();
     let address = sp_runtime::MultiAddress::Id(who);
 
+    // 7) Assemble the signed extrinsic and submit it to the pool.
     let uxt: UncheckedExtrinsic = UncheckedExtrinsic::new_signed(call, address, signature, extra);
 
     let xt_bytes = uxt.encode();

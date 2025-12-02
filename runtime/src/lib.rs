@@ -237,7 +237,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 351,
+    spec_version: 353,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1614,22 +1614,12 @@ pub type TransactionExtensions = (
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-parameter_types! {
-    pub const TriumviratePalletStr: &'static str = "Triumvirate";
-    pub const TriumvirateMembersPalletStr: &'static str = "TriumvirateMembers";
-    pub const SenateMembersPalletStr: &'static str = "SenateMembers";
-}
-
 type Migrations = (
     // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
     // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    // Remove storage from removed governance pallets
-    frame_support::migrations::RemovePallet<TriumviratePalletStr, RocksDbWeight>,
-    frame_support::migrations::RemovePallet<TriumvirateMembersPalletStr, RocksDbWeight>,
-    frame_support::migrations::RemovePallet<SenateMembersPalletStr, RocksDbWeight>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
