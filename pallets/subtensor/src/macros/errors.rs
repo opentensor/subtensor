@@ -154,6 +154,8 @@ mod errors {
         ColdkeySwapAnnouncementNotFound,
         /// Coldkey swap too early.
         ColdkeySwapTooEarly,
+        /// Coldkey swap reannounced too early.
+        ColdkeySwapReannouncedTooEarly,
         /// New coldkey is hotkey
         NewColdKeyIsHotkey,
         /// Childkey take is invalid.

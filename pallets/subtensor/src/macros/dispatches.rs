@@ -2345,6 +2345,15 @@ mod dispatches {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
 
+            if let Some(existing) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
+                let delay = ColdkeySwapScheduleDuration::<T>::get();
+                let when = existing.0;
+                ensure!(
+                    now > when + delay,
+                    Error::<T>::ColdkeySwapReannouncedTooEarly
+                );
+            }
+
             ColdkeySwapAnnouncements::<T>::insert(who.clone(), (now, new_coldkey.clone()));
 
             Self::deposit_event(Event::ColdkeySwapAnnounced {
@@ -2355,25 +2364,8 @@ mod dispatches {
             Ok(())
         }
 
-        /// Removes a coldkey swap announcement.
-        #[pallet::call_index(126)]
-        #[pallet::weight(Weight::zero())]
-        pub fn remove_coldkey_swap_announcement(origin: OriginFor<T>) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-
-            ensure!(
-                ColdkeySwapAnnouncements::<T>::contains_key(who.clone()),
-                Error::<T>::ColdkeySwapAnnouncementNotFound
-            );
-
-            ColdkeySwapAnnouncements::<T>::remove(who.clone());
-
-            Self::deposit_event(Event::ColdkeySwapAnnouncementRemoved { who: who.clone() });
-            Ok(())
-        }
-
         /// Performs a coldkey swap iff an announcement has been made.
-        #[pallet::call_index(127)]
+        #[pallet::call_index(126)]
         #[pallet::weight(Weight::zero())]
         pub fn swap_coldkey_announced(origin: OriginFor<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
@@ -2382,8 +2374,8 @@ mod dispatches {
                 .ok_or(Error::<T>::ColdkeySwapAnnouncementNotFound)?;
 
             let now = <frame_system::Pallet<T>>::block_number();
-            let delay = when + ColdkeySwapScheduleDuration::<T>::get();
-            ensure!(now >= delay, Error::<T>::ColdkeySwapTooEarly);
+            let delay = ColdkeySwapScheduleDuration::<T>::get();
+            ensure!(now > when + delay, Error::<T>::ColdkeySwapTooEarly);
 
             Self::do_swap_coldkey(&who, &new_coldkey)?;
 

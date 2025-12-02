@@ -29,10 +29,10 @@ use crate::*;
 use crate::{Call, ColdkeySwapScheduleDuration, Error};
 
 #[test]
-fn test_announce_coldkey_swap_works() {
+fn test_announce_coldkey_swap_with_no_announcement_works() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
-        let new_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
 
         assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
 
@@ -58,7 +58,76 @@ fn test_announce_coldkey_swap_works() {
 }
 
 #[test]
-fn test_announce_coldkey_swap_bad_origin_fails() {
+fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_2 = U256::from(3);
+
+        assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who.clone()),
+            new_coldkey,
+        ));
+
+        let now = System::block_number();
+        assert_eq!(
+            ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
+            vec![(who.clone(), (now, new_coldkey))]
+        );
+
+        let delay = ColdkeySwapScheduleDuration::<Test>::get() + 1;
+        System::run_to_block::<AllPalletsWithSystem>(now + delay);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who.clone()),
+            new_coldkey_2,
+        ));
+
+        let now = System::block_number();
+        assert_eq!(
+            ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
+            vec![(who.clone(), (now, new_coldkey_2))]
+        );
+    });
+}
+
+#[test]
+fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_2 = U256::from(3);
+
+        assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who.clone()),
+            new_coldkey,
+        ));
+
+        let now = System::block_number();
+        assert_eq!(
+            ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
+            vec![(who.clone(), (now, new_coldkey))]
+        );
+
+        let unmet_delay = ColdkeySwapScheduleDuration::<Test>::get();
+        System::run_to_block::<AllPalletsWithSystem>(now + unmet_delay);
+
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap(
+                RuntimeOrigin::signed(who.clone()),
+                new_coldkey_2,
+            ),
+            Error::<Test>::ColdkeySwapReannouncedTooEarly
+        );
+    });
+}
+
+#[test]
+fn test_announce_coldkey_swap_with_bad_origin_fails() {
     new_test_ext(1).execute_with(|| {
         let new_coldkey = U256::from(1);
 
@@ -69,54 +138,6 @@ fn test_announce_coldkey_swap_bad_origin_fails() {
 
         assert_noop!(
             SubtensorModule::announce_coldkey_swap(RuntimeOrigin::root(), new_coldkey),
-            BadOrigin
-        );
-    });
-}
-
-#[test]
-fn test_remove_coldkey_swap_announcement_works() {
-    new_test_ext(1).execute_with(|| {
-        let who = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let now = System::block_number();
-        ColdkeySwapAnnouncements::<Test>::insert(who.clone(), (now, new_coldkey));
-
-        assert_ok!(SubtensorModule::remove_coldkey_swap_announcement(
-            RuntimeOrigin::signed(who.clone()),
-        ));
-
-        assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::SubtensorModule(Event::ColdkeySwapAnnouncementRemoved { who })
-        );
-    });
-}
-
-#[test]
-fn test_remove_coldkey_swap_announcement_fails_if_no_announcement_exists() {
-    new_test_ext(1).execute_with(|| {
-        let who = U256::from(1);
-        let new_coldkey = U256::from(2);
-
-        assert_noop!(
-            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::signed(who.clone())),
-            Error::<Test>::ColdkeySwapAnnouncementNotFound
-        );
-    });
-}
-
-#[test]
-fn test_remove_coldkey_swap_announcement_bad_origin_fails() {
-    new_test_ext(1).execute_with(|| {
-        assert_noop!(
-            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::none()),
-            BadOrigin
-        );
-
-        assert_noop!(
-            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::root()),
             BadOrigin
         );
     });
