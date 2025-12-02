@@ -255,7 +255,7 @@ where
         for proxy in proxies.0 {
             let delegate: [u8; 32] = proxy.delegate.into();
 
-            let proxy_type: ProxyType = proxy.proxy_type;
+            // let proxy_type: ProxyType = proxy.proxy_type;
 
             let proxy_type_u8: u8 =
                 proxy
