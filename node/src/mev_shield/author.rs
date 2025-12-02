@@ -273,8 +273,7 @@ where
                 {
                     log::debug!(
                         target: "mev-shield",
-                        "announce_next_key submit error (nonce={:?}): {e:?}",
-                        nonce
+                        "announce_next_key submit error (nonce={nonce:?}): {e:?}"
                     );
                 }
 
