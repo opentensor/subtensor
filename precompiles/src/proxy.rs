@@ -255,12 +255,13 @@ where
         for proxy in proxies.0 {
             let delegate: [u8; 32] = proxy.delegate.into();
 
-            let proxy_type: u8 = proxy
-                .proxy_type
-                .into()
-                .map_err(|_| PrecompileFailure::Error {
-                    exit_status: ExitError::Other("Invalid proxy type".into()),
-                })?;
+            let proxy_type: u8 =
+                proxy
+                    .proxy_type
+                    .try_into()
+                    .map_err(|_| PrecompileFailure::Error {
+                        exit_status: ExitError::Other("Invalid proxy type".into()),
+                    })?;
             let delay: u32 = proxy
                 .delay
                 .try_into()
