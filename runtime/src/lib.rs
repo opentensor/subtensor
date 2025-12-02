@@ -1619,11 +1619,7 @@ type Migrations = (
     // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
-    >,
-    // Remove storage from removed governance pallets
-    frame_support::migrations::RemovePallet<TriumviratePalletStr, ParityDbWeight>,
-    frame_support::migrations::RemovePallet<TriumvirateMembersPalletStr, ParityDbWeight>,
-    frame_support::migrations::RemovePallet<SenateMembersPalletStr, ParityDbWeight>,
+    >
 );
 
 // Unchecked extrinsic type as expected by this runtime.
