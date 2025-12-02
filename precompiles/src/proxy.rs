@@ -258,7 +258,8 @@ where
             let proxy_type: ProxyType = proxy.proxy_type;
 
             let proxy_type_u8: u8 =
-                proxy_type
+                proxy
+                    .proxy_type
                     .try_into()
                     .map_err(|_| PrecompileFailure::Error {
                         exit_status: ExitError::Other("Invalid proxy type".into()),

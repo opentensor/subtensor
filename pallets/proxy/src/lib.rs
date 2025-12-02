@@ -145,8 +145,7 @@ pub mod pallet {
             + PartialOrd
             + frame::traits::InstanceFilter<<Self as Config>::RuntimeCall>
             + Default
-            + MaxEncodedLen
-            + TryFrom<u8>;
+            + MaxEncodedLen;
 
         /// The base amount of currency needed to reserve for creating a proxy.
         ///
