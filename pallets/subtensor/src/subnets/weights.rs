@@ -1,6 +1,6 @@
 use super::*;
 use crate::epoch::math::*;
-use crate::{Error, MAX_COMMIT_REVEAL_PEROIDS, MIN_COMMIT_REVEAL_PEROIDS};
+use crate::{Error, MAX_COMMIT_REVEAL_PERIODS, MIN_COMMIT_REVEAL_PERIODS};
 use codec::Compact;
 use frame_support::dispatch::DispatchResult;
 use safe_math::*;
@@ -1288,12 +1288,12 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_reveal_period(netuid: NetUid, reveal_period: u64) -> DispatchResult {
         ensure!(
-            reveal_period <= MAX_COMMIT_REVEAL_PEROIDS,
+            reveal_period <= MAX_COMMIT_REVEAL_PERIODS,
             Error::<T>::RevealPeriodTooLarge
         );
 
         ensure!(
-            reveal_period >= MIN_COMMIT_REVEAL_PEROIDS,
+            reveal_period >= MIN_COMMIT_REVEAL_PERIODS,
             Error::<T>::RevealPeriodTooSmall
         );
 
