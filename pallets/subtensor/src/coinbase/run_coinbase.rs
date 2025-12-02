@@ -499,9 +499,11 @@ impl<T: Config> Pallet<T> {
         // Insert subnet owner hotkey in the beginning of the list if valid and not
         // already present
         if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid)
-            && Uids::<T>::get(netuid, &owner_hk).is_some() && !owner_hotkeys.contains(&owner_hk) {
-                owner_hotkeys.insert(0, owner_hk);
-            }
+            && Uids::<T>::get(netuid, &owner_hk).is_some()
+            && !owner_hotkeys.contains(&owner_hk)
+        {
+            owner_hotkeys.insert(0, owner_hk);
+        }
 
         owner_hotkeys
     }
@@ -515,22 +517,23 @@ impl<T: Config> Pallet<T> {
     ) {
         // Distribute the owner cut.
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid)
-            && let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                // Increase stake for owner hotkey and coldkey.
-                log::debug!(
-                    "owner_hotkey: {owner_hotkey:?} owner_coldkey: {owner_coldkey:?}, owner_cut: {owner_cut:?}"
-                );
-                let real_owner_cut = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    &owner_hotkey,
-                    &owner_coldkey,
-                    netuid,
-                    owner_cut,
-                );
-                // If the subnet is leased, notify the lease logic that owner cut has been distributed.
-                if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
-                    Self::distribute_leased_network_dividends(lease_id, real_owner_cut);
-                }
+            && let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid)
+        {
+            // Increase stake for owner hotkey and coldkey.
+            log::debug!(
+                "owner_hotkey: {owner_hotkey:?} owner_coldkey: {owner_coldkey:?}, owner_cut: {owner_cut:?}"
+            );
+            let real_owner_cut = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &owner_hotkey,
+                &owner_coldkey,
+                netuid,
+                owner_cut,
+            );
+            // If the subnet is leased, notify the lease logic that owner cut has been distributed.
+            if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
+                Self::distribute_leased_network_dividends(lease_id, real_owner_cut);
             }
+        }
 
         // Distribute mining incentives.
         let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);

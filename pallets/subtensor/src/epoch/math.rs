@@ -336,9 +336,10 @@ pub fn inplace_row_normalize_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>]) {
 // Sum across each row (dim=0) of a matrix.
 pub fn row_sum(x: &[Vec<I32F32>]) -> Vec<I32F32> {
     if let Some(first_row) = x.first()
-        && first_row.is_empty() {
-            return vec![];
-        }
+        && first_row.is_empty()
+    {
+        return vec![];
+    }
     x.iter().map(|row| row.iter().sum()).collect()
 }
 
@@ -424,9 +425,10 @@ pub fn inplace_col_max_upscale_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>], 
     for sparse_row in sparse_matrix.iter() {
         for (j, value) in sparse_row.iter() {
             if let Some(m) = col_max.get_mut(*j as usize)
-                && *m < *value {
-                    *m = *value;
-                }
+                && *m < *value
+            {
+                *m = *value;
+            }
         }
     }
 
@@ -1146,9 +1148,10 @@ pub fn weighted_median_col_sparse(
         if s > zero {
             for &(c, val) in sparse_row.iter() {
                 if let Some(col_vec) = use_score.get_mut(c as usize)
-                    && let Some(cell) = col_vec.get_mut(k) {
-                        *cell = val;
-                    }
+                    && let Some(cell) = col_vec.get_mut(k)
+                {
+                    *cell = val;
+                }
             }
             k = k.saturating_add(1);
         }
@@ -1287,9 +1290,10 @@ pub fn interpolate_sparse(
             let v2 = row2.get(j).unwrap_or(&zero);
             let interp = v1.saturating_add(ratio.saturating_mul(v2.saturating_sub(*v1)));
             if zero < interp
-                && let Some(res) = result.get_mut(i) {
-                    res.push((j as u16, interp));
-                }
+                && let Some(res) = result.get_mut(i)
+            {
+                res.push((j as u16, interp));
+            }
         }
     }
     result
@@ -1335,9 +1339,10 @@ pub fn mat_vec_mul_sparse(
             if let Some(vector_value) = vector.get(*j as usize) {
                 let new_value = value.saturating_mul(*vector_value);
                 if new_value != I32F32::saturating_from_num(0.0)
-                    && let Some(result_row) = result.get_mut(i) {
-                        result_row.push((*j, new_value));
-                    }
+                    && let Some(result_row) = result.get_mut(i)
+                {
+                    result_row.push((*j, new_value));
+                }
             }
         }
     }

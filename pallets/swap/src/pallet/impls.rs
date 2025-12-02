@@ -262,11 +262,12 @@ impl<T: Config> Pallet<T> {
 
                 // Check if reserves are overused
                 if let Ok(ref swap_result) = result
-                    && reserve < swap_result.amount_paid_out {
-                        return TransactionOutcome::Commit(Err(
-                            Error::<T>::InsufficientLiquidity.into()
-                        ));
-                    }
+                    && reserve < swap_result.amount_paid_out
+                {
+                    return TransactionOutcome::Commit(Err(
+                        Error::<T>::InsufficientLiquidity.into()
+                    ));
+                }
 
                 TransactionOutcome::Commit(result)
             }

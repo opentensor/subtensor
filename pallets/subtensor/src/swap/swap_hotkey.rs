@@ -370,20 +370,20 @@ impl<T: Config> Pallet<T> {
         // 3.3 Swap Prometheus.
         // Prometheus( netuid, hotkey ) -> prometheus -- the prometheus data that a hotkey has in the network.
         if is_network_member
-            && let Ok(old_prometheus_info) = Prometheus::<T>::try_get(netuid, old_hotkey) {
-                Prometheus::<T>::remove(netuid, old_hotkey);
-                Prometheus::<T>::insert(netuid, new_hotkey, old_prometheus_info);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-            }
+            && let Ok(old_prometheus_info) = Prometheus::<T>::try_get(netuid, old_hotkey)
+        {
+            Prometheus::<T>::remove(netuid, old_hotkey);
+            Prometheus::<T>::insert(netuid, new_hotkey, old_prometheus_info);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        }
 
         // 3.4. Swap axons.
         // Axons( netuid, hotkey ) -> axon -- the axon that the hotkey has.
-        if is_network_member
-            && let Ok(old_axon_info) = Axons::<T>::try_get(netuid, old_hotkey) {
-                Axons::<T>::remove(netuid, old_hotkey);
-                Axons::<T>::insert(netuid, new_hotkey, old_axon_info);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-            }
+        if is_network_member && let Ok(old_axon_info) = Axons::<T>::try_get(netuid, old_hotkey) {
+            Axons::<T>::remove(netuid, old_hotkey);
+            Axons::<T>::insert(netuid, new_hotkey, old_axon_info);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        }
 
         // 3.5 Swap WeightCommits
         // WeightCommits( hotkey ) --> Vec<u64> -- the weight commits for the hotkey.
@@ -402,28 +402,28 @@ impl<T: Config> Pallet<T> {
 
         // 3.6. Swap the subnet loaded emission.
         // LoadedEmission( netuid ) --> Vec<(hotkey, u64)> -- the loaded emission for the subnet.
-        if is_network_member
-            && let Some(mut old_loaded_emission) = LoadedEmission::<T>::get(netuid) {
-                for emission in old_loaded_emission.iter_mut() {
-                    if emission.0 == *old_hotkey {
-                        emission.0 = new_hotkey.clone();
-                    }
+        if is_network_member && let Some(mut old_loaded_emission) = LoadedEmission::<T>::get(netuid)
+        {
+            for emission in old_loaded_emission.iter_mut() {
+                if emission.0 == *old_hotkey {
+                    emission.0 = new_hotkey.clone();
                 }
-                LoadedEmission::<T>::remove(netuid);
-                LoadedEmission::<T>::insert(netuid, old_loaded_emission);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
             }
+            LoadedEmission::<T>::remove(netuid);
+            LoadedEmission::<T>::insert(netuid, old_loaded_emission);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        }
 
         // 3.7. Swap neuron TLS certificates.
         // NeuronCertificates( netuid, hotkey ) -> Vec<u8> -- the neuron certificate for the hotkey.
         if is_network_member
             && let Ok(old_neuron_certificates) =
                 NeuronCertificates::<T>::try_get(netuid, old_hotkey)
-            {
-                NeuronCertificates::<T>::remove(netuid, old_hotkey);
-                NeuronCertificates::<T>::insert(netuid, new_hotkey, old_neuron_certificates);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-            }
+        {
+            NeuronCertificates::<T>::remove(netuid, old_hotkey);
+            NeuronCertificates::<T>::insert(netuid, new_hotkey, old_neuron_certificates);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        }
         // 4. Swap ChildKeys.
         // 5. Swap ParentKeys.
         // 6. Swap PendingChildKeys.

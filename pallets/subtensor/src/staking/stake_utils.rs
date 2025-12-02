@@ -563,10 +563,10 @@ impl<T: Config> Pallet<T> {
         // We expect a negative value here
         let mut actual_alpha = 0;
         if let Ok(value) = alpha_share_pool.try_get_value(coldkey)
-            && value >= amount {
-                actual_alpha =
-                    alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
-            }
+            && value >= amount
+        {
+            actual_alpha = alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+        }
 
         // Get the negation of the removed alpha, and clamp at 0.
         // This ensures we return a positive value, but only if
@@ -1200,9 +1200,10 @@ impl<T: Config> Pallet<T> {
             // Ensure that if partial execution is not allowed, the amount will not cause
             // slippage over desired
             if let Some(allow_partial) = maybe_allow_partial
-                && !allow_partial {
-                    ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
-                }
+                && !allow_partial
+            {
+                ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
+            }
         }
 
         if check_transfer_toggle {

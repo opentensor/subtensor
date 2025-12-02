@@ -55,13 +55,14 @@ fn is_freeze_struct(attr: &Attribute) -> bool {
 
 fn is_derive_encode_or_decode(attr: &Attribute) -> bool {
     if let Meta::List(MetaList { path, tokens, .. }) = &attr.meta
-        && path.is_ident("derive") {
-            let nested: Punctuated<Path, Token![,]> = parse_quote!(#tokens);
-            return nested.iter().any(|nested| {
-                nested.segments.iter().any(|seg| seg.ident == "Encode")
-                    || nested.segments.iter().any(|seg| seg.ident == "Decode")
-            });
-        }
+        && path.is_ident("derive")
+    {
+        let nested: Punctuated<Path, Token![,]> = parse_quote!(#tokens);
+        return nested.iter().any(|nested| {
+            nested.segments.iter().any(|seg| seg.ident == "Encode")
+                || nested.segments.iter().any(|seg| seg.ident == "Decode")
+        });
+    }
     false
 }
 

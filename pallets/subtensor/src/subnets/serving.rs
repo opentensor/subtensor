@@ -85,9 +85,10 @@ impl<T: Config> Pallet<T> {
 
         // Check+insert certificate
         if let Some(certificate) = certificate
-            && let Ok(certificate) = NeuronCertificateOf::try_from(certificate) {
-                NeuronCertificates::<T>::insert(netuid, hotkey_id.clone(), certificate)
-            }
+            && let Ok(certificate) = NeuronCertificateOf::try_from(certificate)
+        {
+            NeuronCertificates::<T>::insert(netuid, hotkey_id.clone(), certificate)
+        }
 
         // We insert the axon meta.
         let mut prev_axon = Self::get_axon_info(netuid, &hotkey_id);
