@@ -15,6 +15,7 @@ use sp_runtime::{
     traits::{Dispatchable, StaticLookup},
 };
 use sp_std::boxed::Box;
+use sp_std::convert::{TryFrom, TryInto};
 use sp_std::vec;
 use sp_std::vec::Vec;
 use subtensor_runtime_common::ProxyType;
@@ -253,9 +254,11 @@ where
         let mut result: Vec<(H256, U256, U256)> = vec![];
         for proxy in proxies.0 {
             let delegate: [u8; 32] = proxy.delegate.into();
-            let proxy_type: u8 =
-                proxy
-                    .proxy_type
+
+            let proxy_type: ProxyType = proxy.proxy_type;
+
+            let proxy_type_u8: u8 =
+                proxy_type
                     .try_into()
                     .map_err(|_| PrecompileFailure::Error {
                         exit_status: ExitError::Other("Invalid proxy type".into()),
@@ -266,7 +269,7 @@ where
                 .map_err(|_| PrecompileFailure::Error {
                     exit_status: ExitError::Other("Invalid delay".into()),
                 })?;
-            result.push((delegate.into(), proxy_type.into(), delay.into()));
+            result.push((delegate.into(), proxy_type_u8.into(), delay.into()));
         }
 
         Ok(result)
