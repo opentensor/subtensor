@@ -255,9 +255,7 @@ where
         for proxy in proxies.0 {
             let delegate: [u8; 32] = proxy.delegate.into();
 
-            // let proxy_type: ProxyType = proxy.proxy_type;
-
-            let proxy_type_u8: u8 =
+            let proxy_type: u8 =
                 proxy
                     .proxy_type
                     .try_into()
@@ -270,7 +268,7 @@ where
                 .map_err(|_| PrecompileFailure::Error {
                     exit_status: ExitError::Other("Invalid delay".into()),
                 })?;
-            result.push((delegate.into(), proxy_type_u8.into(), delay.into()));
+            result.push((delegate.into(), proxy_type.into(), delay.into()));
         }
 
         Ok(result)
