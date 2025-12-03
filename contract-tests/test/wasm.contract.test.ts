@@ -1,28 +1,16 @@
 import { getDevnetApi, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { devnet, MultiAddress } from "@polkadot-api/descriptors";
-import { Binary, PolkadotSigner, TypedApi } from "polkadot-api";
+import { Binary, TypedApi } from "polkadot-api";
 import * as assert from "assert";
 import { contracts } from "../.papi/descriptors";
-
-import { ETH_LOCAL_URL } from "../src/config";
-import { ISTAKING_ADDRESS, ISTAKING_V2_ADDRESS, IStakingABI, IStakingV2ABI } from "../src/contracts/staking"
 import { getInkClient, InkClient, } from "@polkadot-api/ink-contracts"
 import fs from "fs"
 import { convertPublicKeyToSs58 } from "../src/address-utils";
-import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address, sendWasmContractExtrinsic, startCall } from "../src/subtensor";
+import { addNewSubnetwork, sendWasmContractExtrinsic } from "../src/subtensor";
 import { tao } from "../src/balance-math";
 
 const bittensorWasmPath = "./bittensor/target/ink/bittensor.wasm"
 const bittensorBytecode = fs.readFileSync(bittensorWasmPath)
-
-/*
-The test file is to verify all the functions in the wasm contract are working correctly.
-The test call each function defined in the contract extension.
-
-Current issue:
-Can't generate the descriptor for the wasm contract if we add the function to return a complicate struct.
-https://github.com/polkadot-api/polkadot-api/issues/1207
-*/
 
 describe("Test wasm contract", () => {
 
@@ -35,7 +23,6 @@ describe("Test wasm contract", () => {
 
     // set initial netuid to 0 to avoid warning
     let netuid: number = 0;
-    // let inkClient: InkClient<typeof contracts.bittensor>;
     let contractAddress: string;
     let inkClient: InkClient<typeof contracts.bittensor>;
 
@@ -83,11 +70,7 @@ describe("Test wasm contract", () => {
         netuid = await addNewSubnetwork(api, hotkey, coldkey)
         await startCall(api, netuid, coldkey)
         console.log("test the case on subnet ", netuid)
-        await burnedRegister(api, netuid, convertPublicKeyToSs58(hotkey.publicKey), coldkey)
         await burnedRegister(api, netuid, convertPublicKeyToSs58(hotkey2.publicKey), coldkey2)
-
-        await addNewSubnetwork(api, hotkey, coldkey)
-        await startCall(api, netuid + 1, coldkey)
     })
 
     it("Can instantiate contract", async () => {
@@ -123,30 +106,39 @@ describe("Test wasm contract", () => {
     })
 
 
-    // it("Can query stake info from contract", async () => {
-    //     // const signer = getSignerFromKeypair(coldkey);
-    //     const inkClient = getInkClient(contracts.bittensor)
-    //     const queryMessage = inkClient.message("get_stake_info_for_hotkey_coldkey_netuid")
-    //     const data = queryMessage.encode({
-    //         hotkey: Binary.fromBytes(hotkey.publicKey),
-    //         coldkey: Binary.fromBytes(coldkey.publicKey),
-    //         netuid: netuid,
-    //     })
+    it("Can query stake info from contract", async () => {
+        const queryMessage = inkClient.message("get_stake_info_for_hotkey_coldkey_netuid")
 
-    //     const response = await api.tx.Contracts.call({
-    //         dest: MultiAddress.Id(contractAddress),
-    //         data: Binary.fromBytes(data.asBytes()),
-    //         value: BigInt(0),
-    //         gas_limit: {
-    //             ref_time: BigInt(1000000000),
-    //             proof_size: BigInt(10000000),
-    //         },
-    //         storage_deposit_limit: BigInt(10000000),
-    //     })
+        const data = queryMessage.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            coldkey: Binary.fromBytes(coldkey.publicKey),
+            netuid: netuid,
+        })
 
-    //     console.log("===== response", response)
+        const response = await api.apis.ContractsApi.call(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            BigInt(0),
+            undefined,
+            undefined,
+            Binary.fromBytes(data.asBytes()),
+        )
 
-    // })
+        assert.ok(response.result.success)
+        const result = queryMessage.decode(response.result.value).value.value
+
+        if (typeof result === "object" && "hotkey" in result && "coldkey" in result && "netuid" in result && "stake" in result && "locked" in result && "emission" in result && "tao_emission" in result && "drain" in result && "is_registered" in result) {
+            assert.equal(result.hotkey, convertPublicKeyToSs58(hotkey.publicKey))
+            assert.equal(result.coldkey, convertPublicKeyToSs58(coldkey.publicKey))
+            assert.equal(result.netuid, netuid)
+            assert.ok(result.stake > 0)
+
+            assert.equal(result.is_registered, true)
+        } else {
+            throw new Error("result is not an object")
+        }
+
+    })
 
     it("Can add stake to contract", async () => {
         await addStakeWhenWithoutStake()
