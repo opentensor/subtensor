@@ -702,10 +702,6 @@ pub fn spawn_revealer<B, C, Pool>(
                                     error_message,
                                     hex::encode(aead_body_hash),
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
                                 continue;
                             }
                         };
