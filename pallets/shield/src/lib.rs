@@ -246,6 +246,7 @@ pub mod pallet {
             DispatchClass::Operational,
             Pays::Yes
         ))]
+        #[allow(clippy::useless_conversion)]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: BoundedVec<u8, ConstU32<2048>>,
