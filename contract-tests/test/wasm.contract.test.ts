@@ -4,6 +4,7 @@ import { Binary, TypedApi } from "polkadot-api";
 import * as assert from "assert";
 import { contracts } from "../.papi/descriptors";
 import { getInkClient, InkClient, } from "@polkadot-api/ink-contracts"
+import { forceSetBalanceToSs58Address, startCall, burnedRegister } from "../src/subtensor";
 import fs from "fs"
 import { convertPublicKeyToSs58 } from "../src/address-utils";
 import { addNewSubnetwork, sendWasmContractExtrinsic } from "../src/subtensor";
