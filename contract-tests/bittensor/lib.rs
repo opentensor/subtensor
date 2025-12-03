@@ -203,11 +203,7 @@ mod bittensor {
         ) -> Result<Option<StakeInfo<ink::primitives::AccountId>>, ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .get_stake_info_for_hotkey_coldkey_netuid(
-                    hotkey.into(),
-                    coldkey.into(),
-                    netuid.into(),
-                )
+                .get_stake_info_for_hotkey_coldkey_netuid(hotkey.into(), coldkey.into(), netuid)
                 .map_err(|_e| ReadWriteErrorCode::ReadFailed)
         }
 

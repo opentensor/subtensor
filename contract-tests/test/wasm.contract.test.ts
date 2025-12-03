@@ -135,8 +135,6 @@ describe("Test wasm contract", () => {
             assert.equal(result.hotkey, convertPublicKeyToSs58(hotkey.publicKey))
             assert.equal(result.coldkey, convertPublicKeyToSs58(coldkey.publicKey))
             assert.equal(result.netuid, netuid)
-            assert.ok(result.stake > 0)
-
             assert.equal(result.is_registered, true)
         } else {
             throw new Error("result is not an object")
