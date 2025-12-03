@@ -357,10 +357,8 @@ pub fn spawn_revealer<B, C, Pool>(
                         use sp_runtime::BoundedVec;
                         let reason_bytes = reason.as_bytes();
                         let reason_bounded = BoundedVec::try_from(reason_bytes.to_vec())
-                            .unwrap_or_else(|_| {
-                                // Fallback if the reason is too long
-                                BoundedVec::try_from(b"Decryption failed".to_vec())
-                                    .expect("Fallback reason should fit")
+                            .unwrap_or_else(|_| { // Fallback if the reason is too long
+                                BoundedVec::try_from(b"Decryption failed".to_vec()).unwrap_or_default()
                             });
 
                         node_subtensor_runtime::RuntimeCall::MevShield(
