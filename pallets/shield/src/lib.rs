@@ -244,12 +244,12 @@ pub mod pallet {
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: BoundedVec<u8, ConstU32<2048>>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             // Only a current Aura validator may call this (signed account ∈ Aura authorities)
             T::AuthorityOrigin::ensure_validator(origin)?;
 
@@ -259,9 +259,13 @@ pub mod pallet {
                 Error::<T>::BadPublicKeyLen
             );
 
-            NextKey::<T>::put(public_key.clone());
+            NextKey::<T>::put(public_key);
 
-            Ok(())
+            // Refund the fee on success by setting pays_fee = Pays::No
+            Ok(PostDispatchInfo {
+                actual_weight: None,
+                pays_fee: Pays::No,
+            })
         }
 
         /// Users submit an encrypted wrapper.
