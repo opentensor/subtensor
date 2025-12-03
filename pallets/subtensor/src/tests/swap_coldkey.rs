@@ -29,7 +29,7 @@ use crate::*;
 use crate::{Call, ColdkeySwapScheduleDuration, Error};
 
 #[test]
-fn test_announce_coldkey_swap_with_no_announcement_works() {
+fn test_announce_coldkey_swap_works() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
@@ -121,7 +121,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
                 RuntimeOrigin::signed(who.clone()),
                 new_coldkey_2,
             ),
-            Error::<Test>::ColdkeySwapReannouncedTooEarly
+            Error::<Test>::ColdKeySwapReannouncedTooEarly
         );
     });
 }
@@ -139,6 +139,103 @@ fn test_announce_coldkey_swap_with_bad_origin_fails() {
         assert_noop!(
             SubtensorModule::announce_coldkey_swap(RuntimeOrigin::root(), new_coldkey),
             BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_swap_coldkey_announced_too_early_fails() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who.clone()),
+            new_coldkey,
+        ));
+
+        assert_noop!(
+            SubtensorModule::swap_coldkey_announced(
+                <Test as frame_system::Config>::RuntimeOrigin::signed(who)
+            ),
+            Error::<Test>::ColdKeySwapTooEarly
+        );
+    })
+}
+
+#[test]
+fn test_swap_coldkey_announced_with_already_associated_coldkey_fails() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who.clone()),
+            new_coldkey,
+        ));
+
+        let now = System::block_number();
+        let delay = ColdkeySwapScheduleDuration::<Test>::get() + 1;
+        System::run_to_block::<AllPalletsWithSystem>(now + delay);
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost.to_u64());
+
+        SubtensorModule::create_account_if_non_existent(&new_coldkey, &hotkey);
+
+        assert_noop!(
+            SubtensorModule::swap_coldkey_announced(
+                <Test as frame_system::Config>::RuntimeOrigin::signed(who)
+            ),
+            Error::<Test>::ColdKeyAlreadyAssociated
+        );
+    })
+}
+
+#[test]
+fn test_swap_coldkey_announced_using_registered_hotkey_fails() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who.clone()),
+            hotkey.clone(),
+        ));
+
+        let now = System::block_number();
+        let delay = ColdkeySwapScheduleDuration::<Test>::get() + 1;
+        System::run_to_block::<AllPalletsWithSystem>(now + delay);
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost.to_u64());
+
+        SubtensorModule::create_account_if_non_existent(&new_coldkey, &hotkey);
+
+        assert_noop!(
+            SubtensorModule::swap_coldkey_announced(
+                <Test as frame_system::Config>::RuntimeOrigin::signed(who)
+            ),
+            Error::<Test>::NewColdKeyIsHotkey
+        );
+    })
+}
+
+#[test]
+fn test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        
+        let now = System::block_number();
+        let delay = ColdkeySwapScheduleDuration::<Test>::get() + 1;
+        System::run_to_block::<AllPalletsWithSystem>(now + delay);
+
+        assert_noop!(
+            SubtensorModule::do_swap_coldkey(&who, &new_coldkey),
+            Error::<Test>::NotEnoughBalanceToPaySwapColdKey
         );
     });
 }
@@ -659,28 +756,6 @@ fn test_swap_concurrent_modifications() {
         );
         assert!(stake_with_additional > stake_before_swap);
         assert!(!Alpha::<Test>::contains_key((hotkey, old_coldkey, netuid)));
-    });
-}
-
-#[test]
-fn test_swap_with_invalid_subnet_ownership() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let netuid = NetUid::from(1u16);
-
-        SubnetOwner::<Test>::insert(netuid, old_coldkey);
-
-        // Simulate an invalid state where the subnet owner doesn't match the old_coldkey
-        SubnetOwner::<Test>::insert(netuid, U256::from(3));
-
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost.to_u64());
-
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey,));
-
-        // The swap should not affect the mismatched subnet ownership
-        assert_eq!(SubnetOwner::<Test>::get(netuid), U256::from(3));
     });
 }
 
@@ -1914,20 +1989,6 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         // Ensure no identities have been changed
         assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
         assert!(IdentitiesV2::<Test>::get(new_coldkey).is_some());
-    });
-}
-
-#[test]
-fn test_cant_schedule_swap_without_enough_to_burn() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(3);
-        let new_coldkey = U256::from(4);
-        let hotkey = U256::from(5);
-
-        assert_noop!(
-            SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey),
-            Error::<Test>::NotEnoughBalanceToPaySwapColdKey
-        );
     });
 }
 

@@ -2350,7 +2350,7 @@ mod dispatches {
                 let when = existing.0;
                 ensure!(
                     now > when + delay,
-                    Error::<T>::ColdkeySwapReannouncedTooEarly
+                    Error::<T>::ColdKeySwapReannouncedTooEarly
                 );
             }
 
@@ -2371,11 +2371,11 @@ mod dispatches {
             let who = ensure_signed(origin)?;
 
             let (when, new_coldkey) = ColdkeySwapAnnouncements::<T>::take(who.clone())
-                .ok_or(Error::<T>::ColdkeySwapAnnouncementNotFound)?;
+                .ok_or(Error::<T>::ColdKeySwapAnnouncementNotFound)?;
 
             let now = <frame_system::Pallet<T>>::block_number();
             let delay = ColdkeySwapScheduleDuration::<T>::get();
-            ensure!(now > when + delay, Error::<T>::ColdkeySwapTooEarly);
+            ensure!(now > when + delay, Error::<T>::ColdKeySwapTooEarly);
 
             Self::do_swap_coldkey(&who, &new_coldkey)?;
 

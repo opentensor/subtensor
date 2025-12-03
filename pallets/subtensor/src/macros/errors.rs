@@ -138,8 +138,6 @@ mod errors {
         ColdKeyAlreadyAssociated,
         /// The coldkey balance is not enough to pay for the swap
         NotEnoughBalanceToPaySwapColdKey,
-        /// The coldkey is in arbitration
-        ColdkeyIsInArbitration,
         /// Attempting to set an invalid child for a hotkey on a network.
         InvalidChild,
         /// Duplicate child when setting children.
@@ -151,11 +149,11 @@ mod errors {
         /// Default transaction rate limit exceeded.
         TxRateLimitExceeded,
         /// Coldkey swap announcement not found
-        ColdkeySwapAnnouncementNotFound,
+        ColdKeySwapAnnouncementNotFound,
         /// Coldkey swap too early.
-        ColdkeySwapTooEarly,
+        ColdKeySwapTooEarly,
         /// Coldkey swap reannounced too early.
-        ColdkeySwapReannouncedTooEarly,
+        ColdKeySwapReannouncedTooEarly,
         /// New coldkey is hotkey
         NewColdKeyIsHotkey,
         /// Childkey take is invalid.
