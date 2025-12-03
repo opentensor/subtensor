@@ -76,9 +76,9 @@ export function getRandomSubstrateKeypair() {
     return hdkdKeyPair
 }
 
-export async function getBalance(api: TypedApi<typeof devnet>) {
-    const value = await api.query.Balances.Account.getValue("")
-    return value
+export async function getBalance(api: TypedApi<typeof devnet>, ss58Address: string) {
+    const value = await api.query.System.Account.getValue(ss58Address)
+    return value.data.free
 }
 
 export async function getNonce(api: TypedApi<typeof devnet>, ss58Address: string): Promise<number> {

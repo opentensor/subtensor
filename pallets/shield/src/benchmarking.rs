@@ -1,21 +1,11 @@
 use super::*;
 
-use codec::Encode;
 use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
-
 use frame_support::{BoundedVec, pallet_prelude::ConstU32};
-use frame_system::pallet_prelude::BlockNumberFor;
-
-use sp_core::crypto::KeyTypeId;
-use sp_core::sr25519;
-use sp_io::crypto::{sr25519_generate, sr25519_sign};
-
-use sp_runtime::{
-    AccountId32, MultiSignature,
-    traits::{Hash as HashT, SaturatedConversion, Zero},
-};
-
+use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
+use sp_core::{crypto::KeyTypeId, sr25519};
+use sp_io::crypto::sr25519_generate;
+use sp_runtime::{AccountId32, MultiSignature, traits::Hash as HashT};
 use sp_std::{boxed::Box, vec, vec::Vec};
 
 /// Helper to build bounded bytes (public key) of a given length.
@@ -28,25 +18,6 @@ fn bounded_pk<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
 fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
     let v = vec![0u8; len];
     BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
-}
-
-/// Build the raw payload bytes used by `commitment` & signature verification in the pallet.
-/// Layout: signer (32B) || nonce (u32 LE) || SCALE(call)
-fn build_payload_bytes<T: pallet::Config>(
-    signer: &T::AccountId,
-    nonce: <T as frame_system::Config>::Nonce,
-    call: &<T as pallet::Config>::RuntimeCall,
-) -> Vec<u8> {
-    let mut out = Vec::new();
-    out.extend_from_slice(signer.as_ref());
-
-    // canonicalize nonce to u32 LE
-    let n_u32: u32 = nonce.saturated_into();
-    out.extend_from_slice(&n_u32.to_le_bytes());
-
-    // append SCALE-encoded call
-    out.extend(call.encode());
-    out
 }
 
 /// Seed Aura authorities so `EnsureAuraAuthority` passes for a given sr25519 pubkey.
@@ -135,68 +106,87 @@ mod benches {
     /// Benchmark `execute_revealed`.
     #[benchmark]
     fn execute_revealed() {
-        // Generate a dev sr25519 key in the host keystore and derive the account.
+        use codec::Encode;
+        use frame_support::BoundedVec;
+        use sp_core::{crypto::KeyTypeId, sr25519};
+        use sp_io::crypto::{sr25519_generate, sr25519_sign};
+        use sp_runtime::traits::Zero;
+
+        // 1) Generate a dev sr25519 key in the host keystore and derive the account.
         const KT: KeyTypeId = KeyTypeId(*b"benc");
         let signer_pub: sr25519::Public = sr25519_generate(KT, Some("//Alice".as_bytes().to_vec()));
         let signer: AccountId32 = signer_pub.into();
 
-        // Inner call that will be executed as the signer (cheap & always available).
+        // 2) Inner call that will be executed as the signer (cheap & always available).
         let inner_call: <T as pallet::Config>::RuntimeCall = frame_system::Call::<T>::remark {
             remark: vec![1, 2, 3],
         }
         .into();
 
-        // Nonce must match current system nonce (fresh account => 0).
-        let nonce: <T as frame_system::Config>::Nonce = 0u32.into();
+        // 3) Simulate the MEV‑Shield key epoch at the current block.
+        //
+        // In the real system, KeyHashByBlock[submitted_in] is filled by on_initialize
+        // as hash(CurrentKey). For the benchmark we just use a dummy value and
+        // insert it directly.
+        let submitted_in: BlockNumberFor<T> = frame_system::Pallet::<T>::block_number();
+        let dummy_epoch_bytes: &[u8] = b"benchmark-epoch-key";
+        let key_hash: <T as frame_system::Config>::Hash =
+            <T as frame_system::Config>::Hashing::hash(dummy_epoch_bytes);
+        KeyHashByBlock::<T>::insert(submitted_in, key_hash);
 
-        // Build payload and commitment exactly how the pallet expects.
-        let payload_bytes = super::build_payload_bytes::<T>(&signer, nonce, &inner_call);
+        // 4) Build payload and commitment exactly how the pallet expects:
+        //    payload = signer (32B) || key_hash (T::Hash bytes) || SCALE(call)
+        let mut payload_bytes = Vec::new();
+        payload_bytes.extend_from_slice(signer.as_ref());
+        payload_bytes.extend_from_slice(key_hash.as_ref());
+        payload_bytes.extend(inner_call.encode());
+
         let commitment: <T as frame_system::Config>::Hash =
             <T as frame_system::Config>::Hashing::hash(payload_bytes.as_slice());
 
-        // Ciphertext is stored in the submission but not used by `execute_revealed`; keep small.
+        // 5) Ciphertext is stored in the submission but not used by `execute_revealed`;
+        //    keep it small and arbitrary.
         const CT_DEFAULT_LEN: usize = 64;
-        let ciphertext: BoundedVec<u8, ConstU32<8192>> = super::bounded_ct::<8192>(CT_DEFAULT_LEN);
+        let ciphertext: BoundedVec<u8, ConstU32<8192>> =
+            BoundedVec::truncate_from(vec![0u8; CT_DEFAULT_LEN]);
 
         // The submission `id` must match pallet's hashing scheme in submit_encrypted.
         let id: <T as frame_system::Config>::Hash = <T as frame_system::Config>::Hashing::hash_of(
             &(signer.clone(), commitment, &ciphertext),
         );
 
-        // Seed the Submissions map with the expected entry.
+        // 6) Seed the Submissions map with the expected entry.
         let sub = Submission::<T::AccountId, BlockNumberFor<T>, <T as frame_system::Config>::Hash> {
             author: signer.clone(),
             commitment,
             ciphertext: ciphertext.clone(),
-            submitted_in: frame_system::Pallet::<T>::block_number(),
+            submitted_in,
         };
         Submissions::<T>::insert(id, sub);
 
-        // Domain-separated signing as in pallet: "mev-shield:v1" || genesis_hash || payload
+        // 7) Domain-separated signing as in pallet:
+        //    "mev-shield:v1" || genesis_hash || payload
         let zero: BlockNumberFor<T> = Zero::zero();
         let genesis = frame_system::Pallet::<T>::block_hash(zero);
         let mut msg = b"mev-shield:v1".to_vec();
         msg.extend_from_slice(genesis.as_ref());
         msg.extend_from_slice(&payload_bytes);
 
-        // Sign using the host keystore and wrap into MultiSignature.
         let sig = sr25519_sign(KT, &signer_pub, &msg).expect("signing should succeed in benches");
         let signature: MultiSignature = sig.into();
 
-        // Measure: dispatch the unsigned extrinsic (RawOrigin::None) with a valid wrapper.
+        // 8) Measure: dispatch the unsigned extrinsic (RawOrigin::None) with a valid wrapper.
         #[extrinsic_call]
         execute_revealed(
             RawOrigin::None,
             id,
             signer.clone(),
-            nonce,
+            key_hash,
             Box::new(inner_call.clone()),
             signature.clone(),
         );
 
-        // Assert: submission consumed, signer nonce bumped to 1.
+        // 9) Assert: submission consumed.
         assert!(Submissions::<T>::get(id).is_none());
-        let new_nonce = frame_system::Pallet::<T>::account_nonce(&signer);
-        assert_eq!(new_nonce, 1u32.into());
     }
 }
