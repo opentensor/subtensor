@@ -72,6 +72,9 @@ describe("Test wasm contract", () => {
         await startCall(api, netuid, coldkey)
         console.log("test the case on subnet ", netuid)
         await burnedRegister(api, netuid, convertPublicKeyToSs58(hotkey2.publicKey), coldkey2)
+
+        await addNewSubnetwork(api, hotkey, coldkey)
+        await startCall(api, netuid + 1, coldkey)
     })
 
     it("Can instantiate contract", async () => {
