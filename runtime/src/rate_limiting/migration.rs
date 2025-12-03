@@ -968,23 +968,18 @@ where
     AccountId: Parameter + Clone,
 {
     match tx {
-        TransactionType::SetChildren | TransactionType::SetChildkeyTake => {
-            Some(RateLimitUsageKey::AccountSubnet {
-                account: account.clone(),
-                netuid,
-            })
-        }
-        TransactionType::SetWeightsVersionKey => Some(RateLimitUsageKey::Subnet(netuid)),
         TransactionType::MechanismCountUpdate
+        | TransactionType::MaxUidsTrimming
         | TransactionType::MechanismEmission
-        | TransactionType::MaxUidsTrimming => Some(RateLimitUsageKey::AccountSubnet {
+        | TransactionType::SetChildkeyTake
+        | TransactionType::SetChildren
+        | TransactionType::SetWeightsVersionKey => Some(RateLimitUsageKey::AccountSubnet {
             account: account.clone(),
             netuid,
         }),
-        TransactionType::OwnerHyperparamUpdate(_) => Some(RateLimitUsageKey::Subnet(netuid)),
-        TransactionType::RegisterNetwork => None,
-        TransactionType::SetSNOwnerHotkey => Some(RateLimitUsageKey::Subnet(netuid)),
-        TransactionType::Unknown => None,
+        TransactionType::SetSNOwnerHotkey | TransactionType::OwnerHyperparamUpdate(_) => {
+            Some(RateLimitUsageKey::Subnet(netuid))
+        }
         _ => None,
     }
 }

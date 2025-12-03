@@ -92,10 +92,24 @@ impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for
                     }
                     let tempo = BlockNumber::from(Tempo::<Runtime>::get(netuid) as u32);
                     span.saturating_mul(tempo)
+                } else if let AdminUtilsCall::sudo_set_weights_version_key { netuid, .. } = inner {
+                    if span == 0 {
+                        return span;
+                    }
+                    let tempo = BlockNumber::from(Tempo::<Runtime>::get(netuid) as u32);
+                    span.saturating_mul(tempo)
                 } else {
                     span
                 }
             }
+            RuntimeCall::SubtensorModule(inner) => match inner {
+                // Marker-only staking ops: allow but still record usage.
+                pallet_subtensor::Call::add_stake { .. }
+                | pallet_subtensor::Call::add_stake_limit { .. } => BlockNumber::from(0u32),
+                // Decrease take is marker-only; increase uses configured span.
+                pallet_subtensor::Call::decrease_take { .. } => BlockNumber::from(0u32),
+                _ => span,
+            },
             _ => span,
         }
     }
@@ -206,14 +220,14 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
             },
             RuntimeCall::AdminUtils(inner) => {
                 if let Some(netuid) = owner_hparam_netuid(inner) {
-                    // Hyperparameter setters share a global span but are tracked per subnet.
                     Some(RateLimitUsageKey::<AccountId>::Subnet(netuid))
                 } else {
                     match inner {
                         AdminUtilsCall::sudo_set_sn_owner_hotkey { netuid, .. } => {
                             Some(RateLimitUsageKey::<AccountId>::Subnet(*netuid))
                         }
-                        AdminUtilsCall::sudo_set_mechanism_count { netuid, .. }
+                        AdminUtilsCall::sudo_set_weights_version_key { netuid, .. }
+                        | AdminUtilsCall::sudo_set_mechanism_count { netuid, .. }
                         | AdminUtilsCall::sudo_set_mechanism_emission_split { netuid, .. }
                         | AdminUtilsCall::sudo_trim_to_max_allowed_uids { netuid, .. } => {
                             let who = signed_origin(origin)?;
@@ -269,7 +283,6 @@ fn owner_hparam_netuid(call: &AdminUtilsCall<Runtime>) -> Option<NetUid> {
         | AdminUtilsCall::sudo_set_rho { netuid, .. }
         | AdminUtilsCall::sudo_set_serving_rate_limit { netuid, .. }
         | AdminUtilsCall::sudo_set_toggle_transfer { netuid, .. }
-        | AdminUtilsCall::sudo_set_weights_version_key { netuid, .. }
         | AdminUtilsCall::sudo_set_yuma3_enabled { netuid, .. } => Some(*netuid),
         _ => None,
     }
