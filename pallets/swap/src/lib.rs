@@ -12,6 +12,7 @@ pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+mod migrations;
 #[cfg(test)]
 pub(crate) mod mock;
 

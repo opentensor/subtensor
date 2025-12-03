@@ -16,17 +16,22 @@ use crate::{
 
 pub use pallet::*;
 
+mod hooks;
 mod impls;
 mod swap_step;
 #[cfg(test)]
 mod tests;
 
+use crate::migrations;
+
+#[import_section(hooks::hooks)]
 #[allow(clippy::module_inception)]
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
 mod pallet {
     use super::*;
     use frame_system::{ensure_root, ensure_signed};
+    use sp_std::vec::Vec;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -77,6 +82,11 @@ mod pallet {
     pub fn DefaultFeeRate() -> u16 {
         33 // ~0.05 %
     }
+
+    /// Storage for migration run status
+    #[pallet::storage]
+    #[pallet::unbounded]
+    pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
     #[pallet::storage]

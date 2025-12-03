@@ -4,6 +4,7 @@ use core::num::NonZeroU64;
 
 use frame_support::construct_runtime;
 use frame_support::pallet_prelude::*;
+use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
     PalletId, parameter_types,
     traits::{ConstU32, Everything},
@@ -50,7 +51,7 @@ impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
-    type DbWeight = ();
+    type DbWeight = RocksDbWeight;
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;

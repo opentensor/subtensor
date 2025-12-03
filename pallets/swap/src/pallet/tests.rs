@@ -14,6 +14,7 @@ use subtensor_runtime_common::NetUid;
 use subtensor_swap_interface::Order as OrderT;
 
 use super::*;
+use crate::migrations::fee_rate_migration::MAX_FEE_RATE;
 use crate::pallet::swap_step::*;
 use crate::{SqrtPrice, mock::*};
 
@@ -2911,5 +2912,47 @@ fn adjust_protocol_liquidity_uses_and_sets_scrap_reservoirs() {
             ScrapReservoirAlpha::<Test>::get(netuid),
             AlphaCurrency::from(0u64)
         );
+    });
+}
+
+#[test]
+fn test_migrate_fee_rate() {
+    new_test_ext().execute_with(|| {
+        let migration_name = b"migrate_fee_rate".to_vec();
+
+        assert!(
+            !HasMigrationRun::<Test>::get(migration_name.clone()),
+            "HasMigrationRun should be false before migration"
+        );
+
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let value1 = 1000u16;
+        let value2 = 2000u16;
+
+        FeeRate::<Test>::insert(netuid1, value1);
+        FeeRate::<Test>::insert(netuid2, value2);
+
+        // run migration
+        let weight = migrations::fee_rate_migration::migrate_fee_rate::<Test>();
+        assert!(!weight.is_zero(), "migration weight should be > 0");
+
+        // check results
+
+        assert_eq!(FeeRate::<Test>::get(netuid1), value1);
+        assert_eq!(FeeRate::<Test>::get(netuid2), MAX_FEE_RATE);
+
+        // running the migration again should do nothing
+        FeeRate::<Test>::insert(netuid1, value1);
+        FeeRate::<Test>::insert(netuid2, value2);
+
+        let _weight2 = migrations::fee_rate_migration::migrate_fee_rate::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(migration_name.clone()),
+            "HasMigrationRun remains true on second run"
+        );
+        assert_eq!(FeeRate::<Test>::get(netuid1), value1);
+        assert_eq!(FeeRate::<Test>::get(netuid2), value2);
     });
 }
