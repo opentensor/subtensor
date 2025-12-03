@@ -153,6 +153,9 @@ ark-serialize = { workspace = true, features = ["derive"] }
 # Crowdloan
 pallet-crowdloan.workspace = true
 
+# Mev Shield
+pallet-shield.workspace = true
+
 ethereum.workspace = true
 
 [dev-dependencies]
@@ -277,6 +280,7 @@ std = [
 	"pallet-contracts/std",
 	"subtensor-chain-extensions/std",
 	"ethereum/std",
+	"pallet-shield/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -321,6 +325,7 @@ runtime-benchmarks = [
 
 	# Smart Tx fees pallet
 	"subtensor-transaction-fee/runtime-benchmarks",
+	"pallet-shield/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -369,5 +374,6 @@ try-runtime = [
 	"pallet-drand/try-runtime",
 	"runtime-common/try-runtime",
 	"pallet-aura/try-runtime",
+	"pallet-shield/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

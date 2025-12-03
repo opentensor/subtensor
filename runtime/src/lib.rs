@@ -31,6 +31,7 @@ use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
+pub use pallet_shield;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     dynamic_info::DynamicInfo,
@@ -118,6 +119,22 @@ impl pallet_drand::Config for Runtime {
 impl frame_system::offchain::SigningTypes for Runtime {
     type Public = <Signature as Verify>::Signer;
     type Signature = Signature;
+}
+
+impl pallet_shield::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+    type AuthorityOrigin = pallet_shield::EnsureAuraAuthority<Self>;
+}
+
+parameter_types! {
+    /// Milliseconds per slot; use the chain’s configured slot duration.
+    pub const ShieldSlotMs: u64 = SLOT_DURATION;
+    /// Emit the *next* ephemeral public key event at 7s.
+    pub const ShieldAnnounceAtMs: u64 = 7_000;
+    /// Old key remains accepted until 9s (2s grace).
+    pub const ShieldGraceMs: u64 = 2_000;
+    /// Last 3s of the slot reserved for decrypt+execute.
+    pub const ShieldDecryptWindowMs: u64 = 3_000;
 }
 
 impl<C> frame_system::offchain::CreateTransactionBase<C> for Runtime
@@ -222,7 +239,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 349,
+    spec_version: 354,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -728,6 +745,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::RootClaim => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::set_root_claim_type { .. }
+                    )
             ),
         }
     }
@@ -1590,7 +1610,8 @@ construct_runtime!(
         Crowdloan: pallet_crowdloan = 27,
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
-        RateLimiting: pallet_rate_limiting = 30,
+        MevShield: pallet_shield = 30,
+        RateLimiting: pallet_rate_limiting = 31,
     }
 );
 
@@ -1616,12 +1637,6 @@ pub type TransactionExtensions = (
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-parameter_types! {
-    pub const TriumviratePalletStr: &'static str = "Triumvirate";
-    pub const TriumvirateMembersPalletStr: &'static str = "TriumvirateMembers";
-    pub const SenateMembersPalletStr: &'static str = "SenateMembers";
-}
-
 type Migrations = (
     // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
     // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
@@ -1629,10 +1644,6 @@ type Migrations = (
         Runtime,
     >,
     rate_limiting::migration::Migration<Runtime>,
-    // Remove storage from removed governance pallets
-    frame_support::migrations::RemovePallet<TriumviratePalletStr, RocksDbWeight>,
-    frame_support::migrations::RemovePallet<TriumvirateMembersPalletStr, RocksDbWeight>,
-    frame_support::migrations::RemovePallet<SenateMembersPalletStr, RocksDbWeight>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -1674,6 +1685,7 @@ mod benches {
         [pallet_drand, Drand]
         [pallet_crowdloan, Crowdloan]
         [pallet_subtensor_swap, Swap]
+        [pallet_shield, MevShield]
     );
 }
 
