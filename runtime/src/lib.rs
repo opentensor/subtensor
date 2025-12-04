@@ -653,6 +653,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_full_limit { .. }
                     )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::set_root_claim_type { .. }
+                    )
             ),
             ProxyType::Registration => matches!(
                 c,
