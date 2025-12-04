@@ -653,6 +653,8 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Swap);
 
+        assert_eq!(SubnetTaoFlow::<Test>::get(netuid), 0);
+
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(coldkey),
             BTreeSet::from([netuid])
@@ -676,6 +678,14 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             new_stake,
             root_stake + estimated_stake_increment as u64,
             epsilon = 10000u64,
+        );
+
+        // Check tao flow
+
+        assert_abs_diff_eq!(
+            SubnetTaoFlow::<Test>::get(netuid),
+            -estimated_stake_increment as i64,
+            epsilon = 10i64,
         );
 
         // Distribute and claim pending root alpha (round 2)
