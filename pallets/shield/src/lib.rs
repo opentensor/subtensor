@@ -249,12 +249,13 @@ pub mod pallet {
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
+        #[allow(clippy::useless_conversion)]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: BoundedVec<u8, ConstU32<2048>>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             // Only a current Aura validator may call this (signed account ∈ Aura authorities)
             T::AuthorityOrigin::ensure_validator(origin)?;
 
@@ -264,9 +265,13 @@ pub mod pallet {
                 Error::<T>::BadPublicKeyLen
             );
 
-            NextKey::<T>::put(public_key.clone());
+            NextKey::<T>::put(public_key);
 
-            Ok(())
+            // Refund the fee on success by setting pays_fee = Pays::No
+            Ok(PostDispatchInfo {
+                actual_weight: None,
+                pays_fee: Pays::No,
+            })
         }
 
         /// Users submit an encrypted wrapper.
@@ -340,7 +345,7 @@ pub mod pallet {
             Weight::from_parts(77_280_000, 0)
                 .saturating_add(T::DbWeight::get().reads(4_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::No
         ))]
         #[allow(clippy::useless_conversion)]
@@ -425,7 +430,7 @@ pub mod pallet {
             Weight::from_parts(13_260_000, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::No
         ))]
         pub fn mark_decryption_failed(
@@ -481,7 +486,7 @@ pub mod pallet {
                         // Only allow locally-submitted / already-in-block txs.
                         TransactionSource::Local | TransactionSource::InBlock => {
                             ValidTransaction::with_tag_prefix("mev-shield-exec")
-                                .priority(u64::MAX)
+                                .priority(1u64)
                                 .longevity(64) // long because propagate(false)
                                 .and_provides(id) // dedupe by wrapper id
                                 .propagate(false) // CRITICAL: no gossip, stays on author node
@@ -494,7 +499,7 @@ pub mod pallet {
                     match source {
                         TransactionSource::Local | TransactionSource::InBlock => {
                             ValidTransaction::with_tag_prefix("mev-shield-failed")
-                                .priority(u64::MAX)
+                                .priority(1u64)
                                 .longevity(64) // long because propagate(false)
                                 .and_provides(id) // dedupe by wrapper id
                                 .propagate(false) // CRITICAL: no gossip, stays on author node
