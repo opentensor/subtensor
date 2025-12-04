@@ -422,7 +422,7 @@ pub mod pallet {
         /// * `reason` - Human-readable reason for the decryption failure (e.g., "ML-KEM decapsulate failed")
         #[pallet::call_index(3)]
         #[pallet::weight((
-            Weight::from_parts(10_000_000, 0)
+            Weight::from_parts(13_260_000, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
