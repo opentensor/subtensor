@@ -87,8 +87,14 @@ fn parity_check<F>(
         .or_else(|| RuntimeUsageResolver::context(&origin, &call).map(Into::into));
     let target = resolve_target(identifier);
 
-    let span = pallet_rate_limiting::Pallet::<Runtime>::resolved_limit(&target, &scope)
-        .unwrap_or_default();
+    // Use the runtime-adjusted span (handles tempo scaling for admin-utils).
+    let span = pallet_rate_limiting::Pallet::<Runtime>::effective_span(
+        &origin.clone().into(),
+        &call,
+        &target,
+        &scope,
+    )
+    .unwrap_or_default();
     let span_u64: u64 = span.saturated_into();
 
     let within = pallet_rate_limiting::Pallet::<Runtime>::is_within_limit(

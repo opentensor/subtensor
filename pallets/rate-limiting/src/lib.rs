@@ -571,7 +571,9 @@ pub mod pallet {
             })
         }
 
-        pub(crate) fn effective_span(
+        /// Resolves the span for a target/scope and applies the configured span adjustment
+        /// (e.g., tempo scaling) using the pallet's scope resolver.
+        pub fn effective_span(
             origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
             call: &<T as Config<I>>::RuntimeCall,
             target: &RateLimitTarget<<T as Config<I>>::GroupId>,

@@ -12,8 +12,8 @@ use pallet_subtensor::{
     self, AssociatedEvmAddress, Axons, Config as SubtensorConfig, HasMigrationRun,
     LastRateLimitedBlock, LastUpdate, MaxUidsTrimmingRateLimit, MechanismCountSetRateLimit,
     MechanismEmissionRateLimit, NetworkRateLimit, OwnerHyperparamRateLimit, Pallet, Prometheus,
-    RateLimitKey, TransactionKeyLastBlock, TxChildkeyTakeRateLimit, TxDelegateTakeRateLimit,
-    TxRateLimit, WeightsVersionKeyRateLimit,
+    RateLimitKey, ServingRateLimit, TransactionKeyLastBlock, TxChildkeyTakeRateLimit,
+    TxDelegateTakeRateLimit, TxRateLimit, WeightsVersionKeyRateLimit,
     utils::rate_limiting::{Hyperparameter, TransactionType},
 };
 use sp_runtime::traits::SaturatedConversion;
@@ -24,9 +24,9 @@ use sp_std::{
 };
 use subtensor_runtime_common::NetUid;
 
-use super::RateLimitUsageKey;
+use super::{RateLimitUsageKey, Runtime};
 
-type GroupIdOf<T> = <T as pallet_rate_limiting::Config>::GroupId;
+type GroupId = <Runtime as pallet_rate_limiting::Config>::GroupId;
 type LimitEntries<T> = Vec<(
     RateLimitTarget<GroupId>,
     RateLimit<NetUid, BlockNumberFor<T>>,
@@ -47,22 +47,13 @@ const SUBTENSOR_PALLET_INDEX: u8 = 7;
 /// Pallet index assigned to `pallet_admin_utils` in `construct_runtime!`.
 const ADMIN_UTILS_PALLET_INDEX: u8 = 19;
 
-/// Marker stored in `HasMigrationRun` once the migration finishes.
+const SERVE_PROM_IDENTIFIER: TransactionIdentifier = subtensor_identifier(5);
+
+/// Marker stored in `pallet_subtensor::HasMigrationRun` once the migration finishes.
 const MIGRATION_NAME: &[u8] = b"migrate_rate_limiting";
 
-/// `set_children` is rate-limited to once every 150 blocks.
+/// `set_children` is rate-limited to once every 150 blocks, it's hard-coded in the legacy code.
 const SET_CHILDREN_RATE_LIMIT: u64 = 150;
-/// `set_sn_owner_hotkey` default interval (blocks).
-const DEFAULT_SET_SN_OWNER_HOTKEY_LIMIT: u64 = 50_400;
-
-type GroupId = u32;
-
-struct GroupDefinition {
-    id: GroupId,
-    name: &'static [u8],
-    sharing: GroupSharing,
-    members: Vec<TransactionIdentifier>,
-}
 
 const GROUP_SERVE_AXON: GroupId = 0;
 const GROUP_DELEGATE_TAKE: GroupId = 1;
@@ -71,80 +62,6 @@ const GROUP_WEIGHTS_MECHANISM: GroupId = 3;
 const GROUP_REGISTER_NETWORK: GroupId = 4;
 const GROUP_OWNER_HPARAMS: GroupId = 5;
 const GROUP_STAKING_OPS: GroupId = 6;
-
-fn hyperparameter_identifiers() -> Vec<TransactionIdentifier> {
-    HYPERPARAMETERS
-        .iter()
-        .filter_map(|h| identifier_for_hyperparameter(*h))
-        .collect()
-}
-
-fn group_definitions() -> Vec<GroupDefinition> {
-    vec![
-        GroupDefinition {
-            id: GROUP_SERVE_AXON,
-            name: b"serve-axon",
-            sharing: GroupSharing::ConfigAndUsage,
-            members: vec![subtensor_identifier(4), subtensor_identifier(40)],
-        },
-        GroupDefinition {
-            id: GROUP_DELEGATE_TAKE,
-            name: b"delegate-take",
-            sharing: GroupSharing::ConfigAndUsage,
-            members: vec![subtensor_identifier(66), subtensor_identifier(65)],
-        },
-        GroupDefinition {
-            id: GROUP_WEIGHTS_SUBNET,
-            name: b"weights-subnet",
-            sharing: GroupSharing::ConfigAndUsage,
-            members: vec![
-                subtensor_identifier(0),
-                subtensor_identifier(96),
-                subtensor_identifier(100),
-                subtensor_identifier(113),
-            ],
-        },
-        GroupDefinition {
-            id: GROUP_WEIGHTS_MECHANISM,
-            name: b"weights-mechanism",
-            sharing: GroupSharing::ConfigAndUsage,
-            members: vec![
-                subtensor_identifier(119),
-                subtensor_identifier(115),
-                subtensor_identifier(117),
-                subtensor_identifier(118),
-            ],
-        },
-        GroupDefinition {
-            id: GROUP_REGISTER_NETWORK,
-            name: b"register-network",
-            sharing: GroupSharing::ConfigAndUsage,
-            members: vec![subtensor_identifier(59), subtensor_identifier(79)],
-        },
-        GroupDefinition {
-            id: GROUP_OWNER_HPARAMS,
-            name: b"owner-hparams",
-            sharing: GroupSharing::ConfigOnly,
-            members: hyperparameter_identifiers(),
-        },
-        GroupDefinition {
-            id: GROUP_STAKING_OPS,
-            name: b"staking-ops",
-            sharing: GroupSharing::ConfigAndUsage,
-            members: vec![
-                subtensor_identifier(2),   // add_stake
-                subtensor_identifier(88),  // add_stake_limit
-                subtensor_identifier(3),   // remove_stake
-                subtensor_identifier(89),  // remove_stake_limit
-                subtensor_identifier(103), // remove_stake_full_limit
-                subtensor_identifier(85),  // move_stake
-                subtensor_identifier(86),  // transfer_stake
-                subtensor_identifier(87),  // swap_stake
-                subtensor_identifier(90),  // swap_stake_limit
-            ],
-        },
-    ]
-}
 
 /// Hyperparameter extrinsics routed through owner-or-root rate limiting.
 const HYPERPARAMETERS: &[Hyperparameter] = &[
@@ -173,6 +90,60 @@ const HYPERPARAMETERS: &[Hyperparameter] = &[
     Hyperparameter::ImmuneNeuronLimit,
     Hyperparameter::RecycleOrBurn,
 ];
+
+/// Identifies whether a rate-limited entry applies to a single call or a named group.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TargetKind {
+    Standalone(TransactionIdentifier),
+    Group {
+        id: GroupId,
+        name: Vec<u8>,
+        sharing: GroupSharing,
+        members: Vec<TransactionIdentifier>,
+    },
+}
+
+/// Describes how a limit is scoped in storage.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LimitScopeKind {
+    Global,
+    Netuid,
+}
+
+/// Describes the shape of the usage key recorded after a call executes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UsageKind {
+    None,
+    Account,
+    Subnet,
+    AccountSubnet,
+    ColdkeyHotkeySubnet,
+    SubnetNeuron,
+    SubnetMechanismNeuron,
+}
+
+/// Human-friendly description of a rate-limited call or group.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RateLimitedCall {
+    pub target: TargetKind,
+    pub scope: LimitScopeKind,
+    pub usage: UsageKind,
+    /// Calls that should not record usage when dispatched (only relevant for groups).
+    pub read_only: Vec<TransactionIdentifier>,
+    /// Legacy storage sources used by the migration.
+    pub legacy: LegacySources,
+}
+
+/// Summarizes where legacy limits and last-seen data are sourced from.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LegacySources {
+    pub limits: &'static [&'static str],
+    pub last_seen: &'static [&'static str],
+}
+
+fn sources(limits: &'static [&'static str], last_seen: &'static [&'static str]) -> LegacySources {
+    LegacySources { limits, last_seen }
+}
 
 #[derive(Clone, Copy)]
 struct GroupInfo {
@@ -245,8 +216,6 @@ impl Grouping {
     }
 }
 
-const SERVE_PROM_IDENTIFIER: TransactionIdentifier = subtensor_identifier(5);
-
 fn serve_calls(grouping: &Grouping) -> Vec<TransactionIdentifier> {
     let mut calls = Vec::new();
     if let Some(members) = grouping.members(GROUP_SERVE_AXON) {
@@ -263,29 +232,274 @@ fn weight_calls_subnet(grouping: &Grouping) -> Vec<TransactionIdentifier> {
         .unwrap_or_default()
 }
 
+fn weight_calls_mechanism(grouping: &Grouping) -> Vec<TransactionIdentifier> {
+    grouping
+        .members(GROUP_WEIGHTS_MECHANISM)
+        .map(|m| m.iter().copied().collect())
+        .unwrap_or_default()
+}
+
 fn build_grouping() -> Grouping {
     let mut grouping = Grouping::default();
 
-    for definition in group_definitions() {
-        grouping.insert_group(
-            definition.id,
-            definition.name,
-            definition.sharing,
-            &definition.members,
-        );
-    }
-
-    // Mark staking operations that should not update usage after enforcement.
-    for readonly in [
-        subtensor_identifier(3),
-        subtensor_identifier(89),
-        subtensor_identifier(103),
-    ] {
-        grouping.set_read_only(readonly, true);
+    for entry in rate_limited_calls() {
+        match entry.target {
+            TargetKind::Group {
+                id,
+                name,
+                sharing,
+                members,
+            } => {
+                grouping.insert_group(id, &name, sharing, &members);
+                for member in members {
+                    if entry.read_only.contains(&member) {
+                        grouping.set_read_only(member, true);
+                    }
+                }
+            }
+            TargetKind::Standalone(call) => {
+                if entry.read_only.contains(&call) {
+                    grouping.set_read_only(call, true);
+                }
+            }
+        }
     }
 
     grouping.finalize_next_id();
     grouping
+}
+
+/// Returns a readable listing of all calls covered by the migration.
+/// Each entry captures how the call is grouped, scoped, and which legacy
+/// storage sources feed its limits and last-seen values.
+pub fn rate_limited_calls() -> Vec<RateLimitedCall> {
+    vec![
+        RateLimitedCall {
+            target: TargetKind::Group {
+                id: GROUP_SERVE_AXON,
+                name: b"serve-axon".to_vec(),
+                sharing: GroupSharing::ConfigAndUsage,
+                members: vec![
+                    subtensor_identifier(4),  // serve_axon
+                    subtensor_identifier(40), // serve_axon_tls
+                ],
+            },
+            scope: LimitScopeKind::Netuid,
+            usage: UsageKind::AccountSubnet,
+            read_only: Vec::new(),
+            legacy: sources(&["ServingRateLimit (per netuid)"], &["Axons"]),
+        },
+        RateLimitedCall {
+            target: TargetKind::Standalone(SERVE_PROM_IDENTIFIER), // serve_prometheus
+            scope: LimitScopeKind::Netuid,
+            usage: UsageKind::AccountSubnet,
+            read_only: Vec::new(),
+            legacy: sources(&["ServingRateLimit (per netuid)"], &["Prometheus"]),
+        },
+        RateLimitedCall {
+            target: TargetKind::Group {
+                id: GROUP_DELEGATE_TAKE,
+                name: b"delegate-take".to_vec(),
+                sharing: GroupSharing::ConfigAndUsage,
+                members: vec![
+                    subtensor_identifier(66), // increase_take
+                    subtensor_identifier(65), // decrease_take
+                ],
+            },
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::Account,
+            read_only: Vec::new(),
+            legacy: sources(&["TxDelegateTakeRateLimit"], &["LastTxBlockDelegateTake"]),
+        },
+        RateLimitedCall {
+            target: TargetKind::Group {
+                id: GROUP_WEIGHTS_SUBNET,
+                name: b"weights-subnet".to_vec(),
+                sharing: GroupSharing::ConfigAndUsage,
+                members: vec![
+                    subtensor_identifier(0),   // set_weights
+                    subtensor_identifier(96),  // commit_weights
+                    subtensor_identifier(100), // batch_commit_weights
+                    subtensor_identifier(113), // commit_timelocked_weights
+                    subtensor_identifier(97),  // reveal_weights
+                    subtensor_identifier(98),  // batch_reveal_weights
+                ],
+            },
+            scope: LimitScopeKind::Netuid,
+            usage: UsageKind::SubnetNeuron,
+            read_only: Vec::new(),
+            legacy: sources(&["SubnetWeightsSetRateLimit"], &["LastUpdate (subnet)"]),
+        },
+        RateLimitedCall {
+            target: TargetKind::Group {
+                id: GROUP_WEIGHTS_MECHANISM,
+                name: b"weights-mechanism".to_vec(),
+                sharing: GroupSharing::ConfigAndUsage,
+                members: vec![
+                    subtensor_identifier(119), // set_mechanism_weights
+                    subtensor_identifier(115), // commit_mechanism_weights
+                    subtensor_identifier(117), // commit_crv3_mechanism_weights
+                    subtensor_identifier(118), // commit_timelocked_mechanism_weights
+                    subtensor_identifier(116), // reveal_mechanism_weights
+                ],
+            },
+            scope: LimitScopeKind::Netuid,
+            usage: UsageKind::SubnetMechanismNeuron,
+            read_only: Vec::new(),
+            legacy: sources(&["SubnetWeightsSetRateLimit"], &["LastUpdate (mechanism)"]),
+        },
+        RateLimitedCall {
+            target: TargetKind::Group {
+                id: GROUP_REGISTER_NETWORK,
+                name: b"register-network".to_vec(),
+                sharing: GroupSharing::ConfigAndUsage,
+                members: vec![
+                    subtensor_identifier(59), // register_network
+                    subtensor_identifier(79), // register_network_with_identity
+                ],
+            },
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::None,
+            read_only: Vec::new(),
+            legacy: sources(&["NetworkRateLimit"], &["NetworkLastRegistered"]),
+        },
+        RateLimitedCall {
+            target: TargetKind::Group {
+                id: GROUP_OWNER_HPARAMS,
+                name: b"owner-hparams".to_vec(),
+                sharing: GroupSharing::ConfigOnly,
+                members: HYPERPARAMETERS
+                    .iter()
+                    .filter_map(|h| identifier_for_hyperparameter(*h))
+                    .collect(),
+            },
+            scope: LimitScopeKind::Netuid,
+            usage: UsageKind::Subnet,
+            read_only: Vec::new(),
+            legacy: sources(
+                &["OwnerHyperparamRateLimit * tempo"],
+                &["LastRateLimitedBlock::OwnerHyperparamUpdate"],
+            ),
+        },
+        RateLimitedCall {
+            target: TargetKind::Group {
+                id: GROUP_STAKING_OPS,
+                name: b"staking-ops".to_vec(),
+                sharing: GroupSharing::ConfigAndUsage,
+                members: vec![
+                    subtensor_identifier(2),   // add_stake
+                    subtensor_identifier(88),  // add_stake_limit
+                    subtensor_identifier(3),   // remove_stake
+                    subtensor_identifier(89),  // remove_stake_limit
+                    subtensor_identifier(103), // remove_stake_full_limit
+                    subtensor_identifier(85),  // move_stake
+                    subtensor_identifier(86),  // transfer_stake
+                    subtensor_identifier(87),  // swap_stake
+                    subtensor_identifier(90),  // swap_stake_limit
+                ],
+            },
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::ColdkeyHotkeySubnet,
+            read_only: vec![
+                subtensor_identifier(3),   // remove_stake
+                subtensor_identifier(89),  // remove_stake_limit
+                subtensor_identifier(103), // remove_stake_full_limit
+                subtensor_identifier(86),  // transfer_stake
+                subtensor_identifier(85),  // move_stake
+                subtensor_identifier(87),  // swap_stake
+                subtensor_identifier(90),  // swap_stake_limit
+            ],
+            legacy: sources(&["TxRateLimit"], &[]),
+        },
+        RateLimitedCall {
+            target: TargetKind::Standalone(subtensor_identifier(70)), // swap_hotkey
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::Account,
+            read_only: Vec::new(),
+            legacy: sources(&["TxRateLimit"], &["LastRateLimitedBlock::LastTxBlock"]),
+        },
+        RateLimitedCall {
+            target: TargetKind::Standalone(subtensor_identifier(75)), // set_childkey_take
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::AccountSubnet,
+            read_only: Vec::new(),
+            legacy: sources(&["TxChildkeyTakeRateLimit"], &["TransactionKeyLastBlock::SetChildkeyTake"]),
+        },
+        RateLimitedCall {
+            target: TargetKind::Standalone(subtensor_identifier(67)), // set_children
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::AccountSubnet,
+            read_only: Vec::new(),
+            legacy: sources(
+                &["SET_CHILDREN_RATE_LIMIT (constant 150)"],
+                &["TransactionKeyLastBlock::SetChildren"],
+            ),
+        },
+        RateLimitedCall {
+            // sudo_set_weights_version_key
+            target: TargetKind::Standalone(admin_utils_identifier(6)),
+            scope: LimitScopeKind::Netuid,
+            usage: UsageKind::AccountSubnet,
+            read_only: Vec::new(),
+            legacy: sources(
+                &["WeightsVersionKeyRateLimit * tempo"],
+                &["TransactionKeyLastBlock::SetWeightsVersionKey"],
+            ),
+        },
+        RateLimitedCall {
+            // sudo_set_sn_owner_hotkey
+            target: TargetKind::Standalone(admin_utils_identifier(67)),
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::Subnet,
+            read_only: Vec::new(),
+            legacy: sources(
+                &["DefaultSetSNOwnerHotkeyRateLimit"],
+                &["LastRateLimitedBlock::SetSNOwnerHotkey"],
+            ),
+        },
+        RateLimitedCall {
+            target: TargetKind::Standalone(subtensor_identifier(93)), // associate_evm_key
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::SubnetNeuron,
+            read_only: Vec::new(),
+            legacy: sources(
+                &["EvmKeyAssociateRateLimit"],
+                &["AssociatedEvmAddress"],
+            ),
+        },
+        RateLimitedCall {
+            target: TargetKind::Standalone(admin_utils_identifier(76)), // sudo_set_mechanism_count
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::AccountSubnet,
+            read_only: Vec::new(),
+            legacy: sources(
+                &["MechanismCountSetRateLimit"],
+                &["TransactionKeyLastBlock::MechanismCountUpdate"],
+            ),
+        },
+        RateLimitedCall {
+            // sudo_set_mechanism_emission_split
+            target: TargetKind::Standalone(admin_utils_identifier(77)),
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::AccountSubnet,
+            read_only: Vec::new(),
+            legacy: sources(
+                &["MechanismEmissionRateLimit"],
+                &["TransactionKeyLastBlock::MechanismEmission"],
+            ),
+        },
+        RateLimitedCall {
+            // sudo_trim_to_max_allowed_uids
+            target: TargetKind::Standalone(admin_utils_identifier(78)),
+            scope: LimitScopeKind::Global,
+            usage: UsageKind::AccountSubnet,
+            read_only: Vec::new(),
+            legacy: sources(
+                &["MaxUidsTrimmingRateLimit"],
+                &["TransactionKeyLastBlock::MaxUidsTrimming"],
+            ),
+        },
+    ]
 }
 
 pub fn migrate_rate_limiting<T>() -> Weight
@@ -330,21 +544,31 @@ where
     weight
 }
 
+type LimitImporter<T> = fn(&Grouping, &mut LimitEntries<T>) -> u64;
+
+fn limit_importers<T: SubtensorConfig>() -> [LimitImporter<T>; 4] {
+    [
+        import_simple_limits::<T>,      // Tx/childkey/delegate/staking lock, register, sudo, evm, children
+        import_owner_hparam_limits::<T>, // Owner hyperparams
+        import_serving_limits::<T>,     // Axon/prometheus serving rate limit per subnet
+        import_weight_limits::<T>,      // Weight/commit/reveal per subnet and mechanism
+    ]
+}
+
 fn build_limits<T: SubtensorConfig>(grouping: &Grouping) -> (LimitEntries<T>, u64) {
     let mut limits = LimitEntries::<T>::new();
     let mut reads: u64 = 0;
 
-    reads += gather_simple_limits::<T>(&mut limits, grouping);
-    reads += gather_owner_hparam_limits::<T>(&mut limits, grouping);
-    reads += gather_serving_limits::<T>(&mut limits, grouping);
-    reads += gather_weight_limits::<T>(&mut limits, grouping);
+    for importer in limit_importers::<T>() {
+        reads += importer(grouping, &mut limits);
+    }
 
     (limits, reads)
 }
 
-fn gather_simple_limits<T: SubtensorConfig>(
-    limits: &mut LimitEntries<T>,
+fn import_simple_limits<T: SubtensorConfig>(
     grouping: &Grouping,
+    limits: &mut LimitEntries<T>,
 ) -> u64 {
     let mut reads: u64 = 0;
 
@@ -357,13 +581,22 @@ fn gather_simple_limits<T: SubtensorConfig>(
         );
     }
 
-    reads += 1;
-    if let Some(span) = block_number::<T>(TxDelegateTakeRateLimit::<T>::get()) {
-        if let Some(members) = grouping.members(GROUP_DELEGATE_TAKE) {
+    // Share the TxRateLimit span across staking operations; add_* are marker-only via span tweaks.
+    if let Some(span) = block_number::<T>(TxRateLimit::<T>::get()) {
+        if let Some(members) = grouping.members(GROUP_STAKING_OPS) {
             for call in members {
                 set_global_limit::<T>(limits, grouping.config_target(*call), span);
             }
         }
+    }
+
+    reads += 1;
+    if let Some(span) = block_number::<T>(TxDelegateTakeRateLimit::<T>::get()) {
+        set_global_limit::<T>(
+            limits,
+            grouping.config_target(subtensor_identifier(66)),
+            span,
+        );
     }
 
     reads += 1;
@@ -384,7 +617,6 @@ fn gather_simple_limits<T: SubtensorConfig>(
         }
     }
 
-    reads += 1;
     if let Some(span) = block_number::<T>(WeightsVersionKeyRateLimit::<T>::get()) {
         set_global_limit::<T>(
             limits,
@@ -393,7 +625,9 @@ fn gather_simple_limits<T: SubtensorConfig>(
         );
     }
 
-    if let Some(span) = block_number::<T>(DEFAULT_SET_SN_OWNER_HOTKEY_LIMIT) {
+    if let Some(span) =
+        block_number::<T>(pallet_subtensor::pallet::DefaultSetSNOwnerHotkeyRateLimit::<T>::get())
+    {
         set_global_limit::<T>(
             limits,
             grouping.config_target(admin_utils_identifier(67)),
@@ -441,19 +675,12 @@ fn gather_simple_limits<T: SubtensorConfig>(
         );
     }
 
-    // Staking operations use a 1-block lock shared by the group.
-    set_global_limit::<T>(
-        limits,
-        grouping.config_target(subtensor_identifier(2)),
-        BlockNumberFor::<T>::from(1u32),
-    );
-
     reads
 }
 
-fn gather_owner_hparam_limits<T: SubtensorConfig>(
-    limits: &mut LimitEntries<T>,
+fn import_owner_hparam_limits<T: SubtensorConfig>(
     grouping: &Grouping,
+    limits: &mut LimitEntries<T>,
 ) -> u64 {
     let mut reads: u64 = 0;
 
@@ -469,12 +696,17 @@ fn gather_owner_hparam_limits<T: SubtensorConfig>(
     reads
 }
 
-fn gather_serving_limits<T: SubtensorConfig>(
-    limits: &mut LimitEntries<T>,
+fn import_serving_limits<T: SubtensorConfig>(
     grouping: &Grouping,
+    limits: &mut LimitEntries<T>,
 ) -> u64 {
     let mut reads: u64 = 0;
-    let netuids = Pallet::<T>::get_all_subnet_netuids();
+    let mut netuids = Pallet::<T>::get_all_subnet_netuids();
+    for (netuid, _) in ServingRateLimit::<T>::iter() {
+        if !netuids.contains(&netuid) {
+            netuids.push(netuid);
+        }
+    }
 
     for netuid in netuids {
         reads += 1;
@@ -488,18 +720,22 @@ fn gather_serving_limits<T: SubtensorConfig>(
     reads
 }
 
-fn gather_weight_limits<T: SubtensorConfig>(
-    limits: &mut LimitEntries<T>,
+fn import_weight_limits<T: SubtensorConfig>(
     grouping: &Grouping,
+    limits: &mut LimitEntries<T>,
 ) -> u64 {
     let mut reads: u64 = 0;
     let netuids = Pallet::<T>::get_all_subnet_netuids();
 
     let subnet_calls = weight_calls_subnet(grouping);
+    let mechanism_calls = weight_calls_mechanism(grouping);
     for netuid in &netuids {
         reads += 1;
         if let Some(span) = block_number::<T>(Pallet::<T>::get_weights_set_rate_limit(*netuid)) {
             for call in &subnet_calls {
+                set_scoped_limit::<T>(limits, grouping.config_target(*call), *netuid, span);
+            }
+            for call in &mechanism_calls {
                 set_scoped_limit::<T>(limits, grouping.config_target(*call), *netuid, span);
             }
         }
@@ -512,18 +748,28 @@ fn build_last_seen<T: SubtensorConfig>(grouping: &Grouping) -> (LastSeenEntries<
     let mut last_seen = LastSeenEntries::<T>::new();
     let mut reads: u64 = 0;
 
-    reads += import_last_rate_limited_blocks::<T>(&mut last_seen, grouping);
-    reads += import_transaction_key_last_blocks::<T>(&mut last_seen, grouping);
-    reads += import_last_update_entries::<T>(&mut last_seen, grouping);
-    reads += import_serving_entries::<T>(&mut last_seen, grouping);
-    reads += import_evm_entries::<T>(&mut last_seen, grouping);
+    for importer in last_seen_importers::<T>() {
+        reads += importer(grouping, &mut last_seen);
+    }
 
     (last_seen, reads)
 }
 
+type LastSeenImporter<T> = fn(&Grouping, &mut LastSeenEntries<T>) -> u64;
+
+fn last_seen_importers<T: SubtensorConfig>() -> [LastSeenImporter<T>; 5] {
+    [
+        import_last_rate_limited_blocks::<T>, // LastRateLimitedBlock (tx, delegate, owner hyperparams, sn owner)
+        import_transaction_key_last_blocks::<T>, // TransactionKeyLastBlock (children, version key, mechanisms)
+        import_last_update_entries::<T>, // LastUpdate (weights/mechanism weights)
+        import_serving_entries::<T>,     // Axons/Prometheus
+        import_evm_entries::<T>,         // AssociatedEvmAddress
+    ]
+}
+
 fn import_last_rate_limited_blocks<T: SubtensorConfig>(
-    entries: &mut LastSeenEntries<T>,
     grouping: &Grouping,
+    entries: &mut LastSeenEntries<T>,
 ) -> u64 {
     let mut reads: u64 = 0;
     for (key, block) in LastRateLimitedBlock::<T>::iter() {
@@ -587,8 +833,8 @@ fn import_last_rate_limited_blocks<T: SubtensorConfig>(
 }
 
 fn import_transaction_key_last_blocks<T: SubtensorConfig>(
-    entries: &mut LastSeenEntries<T>,
     grouping: &Grouping,
+    entries: &mut LastSeenEntries<T>,
 ) -> u64 {
     let mut reads: u64 = 0;
     for ((account, netuid, tx_kind), block) in TransactionKeyLastBlock::<T>::iter() {
@@ -614,14 +860,19 @@ fn import_transaction_key_last_blocks<T: SubtensorConfig>(
 }
 
 fn import_last_update_entries<T: SubtensorConfig>(
-    entries: &mut LastSeenEntries<T>,
     grouping: &Grouping,
+    entries: &mut LastSeenEntries<T>,
 ) -> u64 {
     let mut reads: u64 = 0;
-    let subnet_calls = weight_calls_subnet(grouping);
     for (index, blocks) in LastUpdate::<T>::iter() {
         reads += 1;
-        let netuid = Pallet::<T>::get_netuid(index);
+        let (netuid, mecid) = Pallet::<T>::get_netuid_and_subid(index)
+            .unwrap_or((NetUid::ROOT, 0.into()));
+        let subnet_calls = if mecid == 0.into() {
+            weight_calls_subnet(grouping)
+        } else {
+            weight_calls_mechanism(grouping)
+        };
 
         for (uid, last_block) in blocks.into_iter().enumerate() {
             if last_block == 0 {
@@ -630,9 +881,14 @@ fn import_last_update_entries<T: SubtensorConfig>(
             let Ok(uid_u16) = u16::try_from(uid) else {
                 continue;
             };
-            let usage = RateLimitUsageKey::SubnetNeuron {
-                netuid,
-                uid: uid_u16,
+            let usage = if mecid == 0.into() {
+                RateLimitUsageKey::SubnetNeuron { netuid, uid: uid_u16 }
+            } else {
+                RateLimitUsageKey::SubnetMechanismNeuron {
+                    netuid,
+                    mecid,
+                    uid: uid_u16,
+                }
             };
 
             for call in &subnet_calls {
@@ -649,8 +905,8 @@ fn import_last_update_entries<T: SubtensorConfig>(
 }
 
 fn import_serving_entries<T: SubtensorConfig>(
-    entries: &mut LastSeenEntries<T>,
     grouping: &Grouping,
+    entries: &mut LastSeenEntries<T>,
 ) -> u64 {
     let mut reads: u64 = 0;
     for (netuid, hotkey, axon) in Axons::<T>::iter() {
@@ -697,8 +953,8 @@ fn import_serving_entries<T: SubtensorConfig>(
 }
 
 fn import_evm_entries<T: SubtensorConfig>(
-    entries: &mut LastSeenEntries<T>,
     grouping: &Grouping,
+    entries: &mut LastSeenEntries<T>,
 ) -> u64 {
     let mut reads: u64 = 0;
     for (netuid, uid, (_, block)) in AssociatedEvmAddress::<T>::iter() {
@@ -716,7 +972,7 @@ fn import_evm_entries<T: SubtensorConfig>(
     reads
 }
 
-fn convert_target<T>(target: &RateLimitTarget<GroupId>) -> RateLimitTarget<GroupIdOf<T>>
+fn convert_target<T>(target: &RateLimitTarget<GroupId>) -> RateLimitTarget<GroupId>
 where
     T: SubtensorConfig + pallet_rate_limiting::Config<LimitScope = NetUid, GroupId = GroupId>,
     RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
@@ -771,7 +1027,7 @@ where
             );
             continue;
         };
-        let group_id = detail.id.saturated_into::<GroupIdOf<T>>();
+        let group_id = detail.id.saturated_into::<GroupId>();
         let stored = RateLimitGroup {
             id: group_id,
             name: name.clone(),
@@ -784,7 +1040,7 @@ where
     }
 
     for (group, members) in &grouping.members {
-        let group_id = (*group).saturated_into::<GroupIdOf<T>>();
+        let group_id = (*group).saturated_into::<GroupId>();
         let Ok(bounded) = GroupMembersOf::<T>::try_from(members.clone()) else {
             warn!(
                 "rate-limiting migration: group {} has too many members, skipping assignment",
@@ -797,7 +1053,7 @@ where
     }
 
     for (identifier, info) in &grouping.assignments {
-        let group_id = info.id.saturated_into::<GroupIdOf<T>>();
+        let group_id = info.id.saturated_into::<GroupId>();
         pallet_rate_limiting::CallGroups::<T>::insert(*identifier, group_id);
         writes += 1;
 
@@ -807,7 +1063,7 @@ where
         }
     }
 
-    let next_group_id = grouping.next_group_id.saturated_into::<GroupIdOf<T>>();
+    let next_group_id = grouping.next_group_id.saturated_into::<GroupId>();
     pallet_rate_limiting::NextGroupId::<T>::put(next_group_id);
     writes += 1;
 
@@ -905,7 +1161,6 @@ pub fn identifier_for_hyperparameter(hparam: Hyperparameter) -> Option<Transacti
     use Hyperparameter::*;
 
     let identifier = match hparam {
-        Unknown | MaxWeightLimit => return None,
         ServingRateLimit => admin_utils_identifier(3),
         MaxDifficulty => admin_utils_identifier(5),
         AdjustmentAlpha => admin_utils_identifier(9),
