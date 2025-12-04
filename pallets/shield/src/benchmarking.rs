@@ -189,4 +189,43 @@ mod benches {
         // 9) Assert: submission consumed.
         assert!(Submissions::<T>::get(id).is_none());
     }
+
+    /// Benchmark `mark_decryption_failed`.
+    #[benchmark]
+    fn mark_decryption_failed() {
+        // Any account can be the author of the submission.
+        let who: T::AccountId = whitelisted_caller();
+        let submitted_in: BlockNumberFor<T> = frame_system::Pallet::<T>::block_number();
+
+        // Build a dummy commitment and ciphertext.
+        let commitment: T::Hash =
+            <T as frame_system::Config>::Hashing::hash(b"bench-mark-decryption-failed");
+        const CT_DEFAULT_LEN: usize = 32;
+        let ciphertext: BoundedVec<u8, ConstU32<8192>> =
+            BoundedVec::truncate_from(vec![0u8; CT_DEFAULT_LEN]);
+
+        // Compute the submission id exactly like `submit_encrypted` does.
+        let id: T::Hash =
+            <T as frame_system::Config>::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
+
+        // Seed Submissions with an entry for this id.
+        let sub = Submission::<T::AccountId, BlockNumberFor<T>, <T as frame_system::Config>::Hash> {
+            author: who,
+            commitment,
+            ciphertext: ciphertext.clone(),
+            submitted_in,
+        };
+        Submissions::<T>::insert(id, sub);
+
+        // Reason for failure.
+        let reason: BoundedVec<u8, ConstU32<256>> =
+            BoundedVec::truncate_from(b"benchmark-decryption-failed".to_vec());
+
+        // Measure: dispatch the unsigned extrinsic.
+        #[extrinsic_call]
+        mark_decryption_failed(RawOrigin::None, id, reason);
+
+        // Assert: submission is removed.
+        assert!(Submissions::<T>::get(id).is_none());
+    }
 }
