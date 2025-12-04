@@ -26,13 +26,16 @@ impl<T: Config> Pallet<T> {
         let burn_amount = Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost.into())?;
         Self::recycle_tao(burn_amount);
 
-        // Swap the identity if the old coldkey has one
-        if let Some(identity) = IdentitiesV2::<T>::take(old_coldkey) {
+        // Swap the identity if the old coldkey has one and the new coldkey doesn't
+        if IdentitiesV2::<T>::get(new_coldkey).is_none()
+            && let Some(identity) = IdentitiesV2::<T>::take(old_coldkey)
+        {
             IdentitiesV2::<T>::insert(new_coldkey.clone(), identity);
         }
 
         for netuid in Self::get_all_subnet_netuids() {
             Self::transfer_subnet_ownership(netuid, old_coldkey, &new_coldkey);
+            Self::transfer_auto_stake_destination(netuid, old_coldkey, &new_coldkey);
             Self::transfer_coldkey_stake(netuid, old_coldkey, &new_coldkey);
         }
         Self::transfer_staking_hotkeys(old_coldkey, &new_coldkey);
@@ -65,7 +68,14 @@ impl<T: Config> Pallet<T> {
         if subnet_owner == *old_coldkey {
             SubnetOwner::<T>::insert(netuid, new_coldkey.clone());
         }
+    }
 
+    /// Transfer the auto stake destination from the old coldkey to the new coldkey if it is set.
+    fn transfer_auto_stake_destination(
+        netuid: NetUid,
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) {
         if let Some(old_auto_stake_hotkey) = AutoStakeDestination::<T>::get(old_coldkey, netuid) {
             AutoStakeDestination::<T>::remove(old_coldkey, netuid);
             AutoStakeDestination::<T>::insert(new_coldkey, netuid, old_auto_stake_hotkey.clone());
