@@ -345,7 +345,7 @@ pub mod pallet {
             Weight::from_parts(77_280_000, 0)
                 .saturating_add(T::DbWeight::get().reads(4_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::No
         ))]
         #[allow(clippy::useless_conversion)]
@@ -430,7 +430,7 @@ pub mod pallet {
             Weight::from_parts(13_260_000, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::No
         ))]
         pub fn mark_decryption_failed(
@@ -486,7 +486,7 @@ pub mod pallet {
                         // Only allow locally-submitted / already-in-block txs.
                         TransactionSource::Local | TransactionSource::InBlock => {
                             ValidTransaction::with_tag_prefix("mev-shield-exec")
-                                .priority(u64::MAX)
+                                .priority(1u64)
                                 .longevity(64) // long because propagate(false)
                                 .and_provides(id) // dedupe by wrapper id
                                 .propagate(false) // CRITICAL: no gossip, stays on author node
@@ -499,7 +499,7 @@ pub mod pallet {
                     match source {
                         TransactionSource::Local | TransactionSource::InBlock => {
                             ValidTransaction::with_tag_prefix("mev-shield-failed")
-                                .priority(u64::MAX)
+                                .priority(1u64)
                                 .longevity(64) // long because propagate(false)
                                 .and_provides(id) // dedupe by wrapper id
                                 .propagate(false) // CRITICAL: no gossip, stays on author node
