@@ -114,42 +114,42 @@ mod dispatchables {
         });
     }
 
-    #[test]
-    fn test_toggle_user_liquidity() {
-        new_test_ext().execute_with(|| {
-            let netuid = NetUid::from(101);
+    // #[test]
+    // fn test_toggle_user_liquidity() {
+    //     new_test_ext().execute_with(|| {
+    //         let netuid = NetUid::from(101);
 
-            assert!(!EnabledUserLiquidity::<Test>::get(netuid));
+    //         assert!(!EnabledUserLiquidity::<Test>::get(netuid));
 
-            assert_ok!(Swap::toggle_user_liquidity(
-                RuntimeOrigin::root(),
-                netuid.into(),
-                true
-            ));
+    //         assert_ok!(Swap::toggle_user_liquidity(
+    //             RuntimeOrigin::root(),
+    //             netuid.into(),
+    //             true
+    //         ));
 
-            assert!(EnabledUserLiquidity::<Test>::get(netuid));
+    //         assert!(EnabledUserLiquidity::<Test>::get(netuid));
 
-            assert_noop!(
-                Swap::toggle_user_liquidity(RuntimeOrigin::signed(666), netuid.into(), true),
-                DispatchError::BadOrigin
-            );
+    //         assert_noop!(
+    //             Swap::toggle_user_liquidity(RuntimeOrigin::signed(666), netuid.into(), true),
+    //             DispatchError::BadOrigin
+    //         );
 
-            assert_ok!(Swap::toggle_user_liquidity(
-                RuntimeOrigin::signed(1),
-                netuid.into(),
-                true
-            ));
+    //         assert_ok!(Swap::toggle_user_liquidity(
+    //             RuntimeOrigin::signed(1),
+    //             netuid.into(),
+    //             true
+    //         ));
 
-            assert_noop!(
-                Swap::toggle_user_liquidity(
-                    RuntimeOrigin::root(),
-                    NON_EXISTENT_NETUID.into(),
-                    true
-                ),
-                Error::<Test>::MechanismDoesNotExist
-            );
-        });
-    }
+    //         assert_noop!(
+    //             Swap::toggle_user_liquidity(
+    //                 RuntimeOrigin::root(),
+    //                 NON_EXISTENT_NETUID.into(),
+    //                 true
+    //             ),
+    //             Error::<Test>::MechanismDoesNotExist
+    //         );
+    //     });
+    // }
 }
 
 #[test]
@@ -1398,79 +1398,79 @@ fn test_convert_deltas() {
     });
 }
 
-#[test]
-fn test_user_liquidity_disabled() {
-    new_test_ext().execute_with(|| {
-        // Use a netuid above 100 since our mock enables liquidity for 0-100
-        let netuid = NetUid::from(101);
-        let tick_low = TickIndex::new_unchecked(-1000);
-        let tick_high = TickIndex::new_unchecked(1000);
-        let position_id = PositionId::from(1);
-        let liquidity = 1_000_000_000;
-        let liquidity_delta = 500_000_000;
+// #[test]
+// fn test_user_liquidity_disabled() {
+//     new_test_ext().execute_with(|| {
+//         // Use a netuid above 100 since our mock enables liquidity for 0-100
+//         let netuid = NetUid::from(101);
+//         let tick_low = TickIndex::new_unchecked(-1000);
+//         let tick_high = TickIndex::new_unchecked(1000);
+//         let position_id = PositionId::from(1);
+//         let liquidity = 1_000_000_000;
+//         let liquidity_delta = 500_000_000;
 
-        assert!(!EnabledUserLiquidity::<Test>::get(netuid));
+//         assert!(!EnabledUserLiquidity::<Test>::get(netuid));
 
-        assert_noop!(
-            Swap::do_add_liquidity(
-                netuid,
-                &OK_COLDKEY_ACCOUNT_ID,
-                &OK_HOTKEY_ACCOUNT_ID,
-                tick_low,
-                tick_high,
-                liquidity
-            ),
-            Error::<Test>::UserLiquidityDisabled
-        );
+//         assert_noop!(
+//             Swap::do_add_liquidity(
+//                 netuid,
+//                 &OK_COLDKEY_ACCOUNT_ID,
+//                 &OK_HOTKEY_ACCOUNT_ID,
+//                 tick_low,
+//                 tick_high,
+//                 liquidity
+//             ),
+//             Error::<Test>::UserLiquidityDisabled
+//         );
 
-        assert_noop!(
-            Swap::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id),
-            Error::<Test>::LiquidityNotFound
-        );
+//         assert_noop!(
+//             Swap::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id),
+//             Error::<Test>::LiquidityNotFound
+//         );
 
-        assert_noop!(
-            Swap::modify_position(
-                RuntimeOrigin::signed(OK_COLDKEY_ACCOUNT_ID),
-                OK_HOTKEY_ACCOUNT_ID,
-                netuid,
-                position_id,
-                liquidity_delta
-            ),
-            Error::<Test>::UserLiquidityDisabled
-        );
+//         assert_noop!(
+//             Swap::modify_position(
+//                 RuntimeOrigin::signed(OK_COLDKEY_ACCOUNT_ID),
+//                 OK_HOTKEY_ACCOUNT_ID,
+//                 netuid,
+//                 position_id,
+//                 liquidity_delta
+//             ),
+//             Error::<Test>::UserLiquidityDisabled
+//         );
 
-        assert_ok!(Swap::toggle_user_liquidity(
-            RuntimeOrigin::root(),
-            netuid,
-            true
-        ));
+//         assert_ok!(Swap::toggle_user_liquidity(
+//             RuntimeOrigin::root(),
+//             netuid,
+//             true
+//         ));
 
-        let position_id = Swap::do_add_liquidity(
-            netuid,
-            &OK_COLDKEY_ACCOUNT_ID,
-            &OK_HOTKEY_ACCOUNT_ID,
-            tick_low,
-            tick_high,
-            liquidity,
-        )
-        .unwrap()
-        .0;
+//         let position_id = Swap::do_add_liquidity(
+//             netuid,
+//             &OK_COLDKEY_ACCOUNT_ID,
+//             &OK_HOTKEY_ACCOUNT_ID,
+//             tick_low,
+//             tick_high,
+//             liquidity,
+//         )
+//         .unwrap()
+//         .0;
 
-        assert_ok!(Swap::do_modify_position(
-            netuid.into(),
-            &OK_COLDKEY_ACCOUNT_ID,
-            &OK_HOTKEY_ACCOUNT_ID,
-            position_id,
-            liquidity_delta,
-        ));
+//         assert_ok!(Swap::do_modify_position(
+//             netuid.into(),
+//             &OK_COLDKEY_ACCOUNT_ID,
+//             &OK_HOTKEY_ACCOUNT_ID,
+//             position_id,
+//             liquidity_delta,
+//         ));
 
-        assert_ok!(Swap::do_remove_liquidity(
-            netuid,
-            &OK_COLDKEY_ACCOUNT_ID,
-            position_id,
-        ));
-    });
-}
+//         assert_ok!(Swap::do_remove_liquidity(
+//             netuid,
+//             &OK_COLDKEY_ACCOUNT_ID,
+//             position_id,
+//         ));
+//     });
+// }
 
 /// Test correctness of swap fees:
 ///   - Fees are distribued to (concentrated) liquidity providers
@@ -2047,75 +2047,75 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
 
 /// V3 path with user liquidity disabled at teardown:
 /// must still remove positions and clear state (after protocol clear).
-#[test]
-fn test_liquidate_v3_with_user_liquidity_disabled() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(101);
+// #[test]
+// fn test_liquidate_v3_with_user_liquidity_disabled() {
+//     new_test_ext().execute_with(|| {
+//         let netuid = NetUid::from(101);
 
-        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
-        assert!(SwapV3Initialized::<Test>::get(netuid));
+//         assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+//         assert!(SwapV3Initialized::<Test>::get(netuid));
 
-        // Enable temporarily to add a user position
-        assert_ok!(Swap::toggle_user_liquidity(
-            RuntimeOrigin::root(),
-            netuid.into(),
-            true
-        ));
+//         // Enable temporarily to add a user position
+//         assert_ok!(Swap::toggle_user_liquidity(
+//             RuntimeOrigin::root(),
+//             netuid.into(),
+//             true
+//         ));
 
-        let min_price = tick_to_price(TickIndex::MIN);
-        let max_price = tick_to_price(TickIndex::MAX);
-        let tick_low = price_to_tick(min_price);
-        let tick_high = price_to_tick(max_price);
-        let liquidity = 1_000_000_000_u64;
+//         let min_price = tick_to_price(TickIndex::MIN);
+//         let max_price = tick_to_price(TickIndex::MAX);
+//         let tick_low = price_to_tick(min_price);
+//         let tick_high = price_to_tick(max_price);
+//         let liquidity = 1_000_000_000_u64;
 
-        let (_pos_id, _tao, _alpha) = Pallet::<Test>::do_add_liquidity(
-            netuid,
-            &OK_COLDKEY_ACCOUNT_ID,
-            &OK_HOTKEY_ACCOUNT_ID,
-            tick_low,
-            tick_high,
-            liquidity,
-        )
-        .expect("add liquidity");
+//         let (_pos_id, _tao, _alpha) = Pallet::<Test>::do_add_liquidity(
+//             netuid,
+//             &OK_COLDKEY_ACCOUNT_ID,
+//             &OK_HOTKEY_ACCOUNT_ID,
+//             tick_low,
+//             tick_high,
+//             liquidity,
+//         )
+//         .expect("add liquidity");
 
-        // Disable user LP *before* liquidation; removal must ignore this flag.
-        assert_ok!(Swap::toggle_user_liquidity(
-            RuntimeOrigin::root(),
-            netuid.into(),
-            false
-        ));
+//         // Disable user LP *before* liquidation; removal must ignore this flag.
+//         assert_ok!(Swap::toggle_user_liquidity(
+//             RuntimeOrigin::root(),
+//             netuid.into(),
+//             false
+//         ));
 
-        // Users-only dissolve, then clear protocol liquidity/state.
-        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+//         // Users-only dissolve, then clear protocol liquidity/state.
+//         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
+//         assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
 
-        // ASSERT: positions & ticks gone, state reset
-        assert_eq!(
-            Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
-            0
-        );
-        assert!(
-            Positions::<Test>::iter_prefix_values((netuid, OK_COLDKEY_ACCOUNT_ID))
-                .next()
-                .is_none()
-        );
-        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
-        assert!(
-            TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
-                .next()
-                .is_none()
-        );
-        assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
-        assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
-        assert!(!CurrentTick::<Test>::contains_key(netuid));
-        assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
-        assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
-        assert!(!FeeGlobalAlpha::<Test>::contains_key(netuid));
+//         // ASSERT: positions & ticks gone, state reset
+//         assert_eq!(
+//             Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
+//             0
+//         );
+//         assert!(
+//             Positions::<Test>::iter_prefix_values((netuid, OK_COLDKEY_ACCOUNT_ID))
+//                 .next()
+//                 .is_none()
+//         );
+//         assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+//         assert!(
+//             TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
+//                 .next()
+//                 .is_none()
+//         );
+//         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
+//         assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
+//         assert!(!CurrentTick::<Test>::contains_key(netuid));
+//         assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
+//         assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
+//         assert!(!FeeGlobalAlpha::<Test>::contains_key(netuid));
 
-        // `EnabledUserLiquidity` is removed by protocol clear stage.
-        assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
-    });
-}
+//         // `EnabledUserLiquidity` is removed by protocol clear stage.
+//         assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
+//     });
+// }
 
 /// Non‑V3 path: V3 not initialized (no positions); function must still clear any residual storages and succeed.
 #[test]

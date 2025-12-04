@@ -617,6 +617,9 @@ mod pallet {
                         netuid,
                         enable: false,
                     });
+
+                    // Remove provided liquidity
+                    // Self::do_dissolve_all_liquidity_providers(netuid)?;
                 }
             }
 
