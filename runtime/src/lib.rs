@@ -743,9 +743,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::RootClaim => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::set_root_claim_type { .. }
-                    )
             ),
         }
     }
