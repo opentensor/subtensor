@@ -404,10 +404,6 @@ pub fn rate_limited_calls() -> Vec<RateLimitedCall> {
                 subtensor_identifier(3),   // remove_stake
                 subtensor_identifier(89),  // remove_stake_limit
                 subtensor_identifier(103), // remove_stake_full_limit
-                subtensor_identifier(86),  // transfer_stake
-                subtensor_identifier(85),  // move_stake
-                subtensor_identifier(87),  // swap_stake
-                subtensor_identifier(90),  // swap_stake_limit
             ],
             legacy: sources(&["TxRateLimit"], &[]),
         },
@@ -423,7 +419,10 @@ pub fn rate_limited_calls() -> Vec<RateLimitedCall> {
             scope: LimitScopeKind::Global,
             usage: UsageKind::AccountSubnet,
             read_only: Vec::new(),
-            legacy: sources(&["TxChildkeyTakeRateLimit"], &["TransactionKeyLastBlock::SetChildkeyTake"]),
+            legacy: sources(
+                &["TxChildkeyTakeRateLimit"],
+                &["TransactionKeyLastBlock::SetChildkeyTake"],
+            ),
         },
         RateLimitedCall {
             target: TargetKind::Standalone(subtensor_identifier(67)), // set_children
@@ -462,10 +461,7 @@ pub fn rate_limited_calls() -> Vec<RateLimitedCall> {
             scope: LimitScopeKind::Global,
             usage: UsageKind::SubnetNeuron,
             read_only: Vec::new(),
-            legacy: sources(
-                &["EvmKeyAssociateRateLimit"],
-                &["AssociatedEvmAddress"],
-            ),
+            legacy: sources(&["EvmKeyAssociateRateLimit"], &["AssociatedEvmAddress"]),
         },
         RateLimitedCall {
             target: TargetKind::Standalone(admin_utils_identifier(76)), // sudo_set_mechanism_count
@@ -548,10 +544,10 @@ type LimitImporter<T> = fn(&Grouping, &mut LimitEntries<T>) -> u64;
 
 fn limit_importers<T: SubtensorConfig>() -> [LimitImporter<T>; 4] {
     [
-        import_simple_limits::<T>,      // Tx/childkey/delegate/staking lock, register, sudo, evm, children
+        import_simple_limits::<T>, // Tx/childkey/delegate/staking lock, register, sudo, evm, children
         import_owner_hparam_limits::<T>, // Owner hyperparams
-        import_serving_limits::<T>,     // Axon/prometheus serving rate limit per subnet
-        import_weight_limits::<T>,      // Weight/commit/reveal per subnet and mechanism
+        import_serving_limits::<T>, // Axon/prometheus serving rate limit per subnet
+        import_weight_limits::<T>, // Weight/commit/reveal per subnet and mechanism
     ]
 }
 
@@ -581,9 +577,9 @@ fn import_simple_limits<T: SubtensorConfig>(
         );
     }
 
-    // Share the TxRateLimit span across staking operations; add_* are marker-only via span tweaks.
-    if let Some(span) = block_number::<T>(TxRateLimit::<T>::get()) {
-        if let Some(members) = grouping.members(GROUP_STAKING_OPS) {
+    // Staking ops are gated to one operation per block in legacy (marker cleared each block).
+    if let Some(members) = grouping.members(GROUP_STAKING_OPS) {
+        if let Some(span) = block_number::<T>(1) {
             for call in members {
                 set_global_limit::<T>(limits, grouping.config_target(*call), span);
             }
@@ -761,9 +757,9 @@ fn last_seen_importers<T: SubtensorConfig>() -> [LastSeenImporter<T>; 5] {
     [
         import_last_rate_limited_blocks::<T>, // LastRateLimitedBlock (tx, delegate, owner hyperparams, sn owner)
         import_transaction_key_last_blocks::<T>, // TransactionKeyLastBlock (children, version key, mechanisms)
-        import_last_update_entries::<T>, // LastUpdate (weights/mechanism weights)
-        import_serving_entries::<T>,     // Axons/Prometheus
-        import_evm_entries::<T>,         // AssociatedEvmAddress
+        import_last_update_entries::<T>,         // LastUpdate (weights/mechanism weights)
+        import_serving_entries::<T>,             // Axons/Prometheus
+        import_evm_entries::<T>,                 // AssociatedEvmAddress
     ]
 }
 
@@ -866,8 +862,8 @@ fn import_last_update_entries<T: SubtensorConfig>(
     let mut reads: u64 = 0;
     for (index, blocks) in LastUpdate::<T>::iter() {
         reads += 1;
-        let (netuid, mecid) = Pallet::<T>::get_netuid_and_subid(index)
-            .unwrap_or((NetUid::ROOT, 0.into()));
+        let (netuid, mecid) =
+            Pallet::<T>::get_netuid_and_subid(index).unwrap_or((NetUid::ROOT, 0.into()));
         let subnet_calls = if mecid == 0.into() {
             weight_calls_subnet(grouping)
         } else {
@@ -882,7 +878,10 @@ fn import_last_update_entries<T: SubtensorConfig>(
                 continue;
             };
             let usage = if mecid == 0.into() {
-                RateLimitUsageKey::SubnetNeuron { netuid, uid: uid_u16 }
+                RateLimitUsageKey::SubnetNeuron {
+                    netuid,
+                    uid: uid_u16,
+                }
             } else {
                 RateLimitUsageKey::SubnetMechanismNeuron {
                     netuid,

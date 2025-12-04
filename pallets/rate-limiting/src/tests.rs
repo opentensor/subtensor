@@ -16,7 +16,11 @@ fn remark_call() -> RuntimeCall {
 }
 
 fn scoped_call() -> RuntimeCall {
-    RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span: 1 })
+    RuntimeCall::RateLimiting(RateLimitingCall::set_rate_limit {
+        target: RateLimitTarget::Transaction(TransactionIdentifier::new(0, 0)),
+        scope: Some(1),
+        limit: RateLimitKind::Default,
+    })
 }
 
 fn register(call: RuntimeCall, group: Option<GroupId>) -> TransactionIdentifier {
@@ -577,7 +581,7 @@ fn is_within_limit_detects_rate_limited_scope() {
         let tx_target = target(identifier);
         Limits::<Test, ()>::insert(
             tx_target,
-            RateLimit::scoped_single(7u16, RateLimitKind::Exact(3)),
+            RateLimit::scoped_single(1u16, RateLimitKind::Exact(3)),
         );
         LastSeen::<Test, ()>::insert(tx_target, Some(1u16), 9);
         System::set_block_number(11);
@@ -585,7 +589,7 @@ fn is_within_limit_detects_rate_limited_scope() {
             &RuntimeOrigin::signed(1),
             &call,
             &identifier,
-            &Some(7u16),
+            &Some(1u16),
             &Some(1u16),
         )
         .expect("ok");
@@ -714,12 +718,9 @@ fn limit_for_call_names_prefers_scoped_value() {
             target(identifier),
             RateLimit::scoped_single(9u16, RateLimitKind::Exact(8)),
         );
-        let fetched = RateLimiting::limit_for_call_names(
-            "RateLimiting",
-            "set_default_rate_limit",
-            Some(9u16),
-        )
-        .expect("limit");
+        let fetched =
+            RateLimiting::limit_for_call_names("RateLimiting", "set_rate_limit", Some(9u16))
+                .expect("limit");
         assert_eq!(fetched, RateLimitKind::Exact(8));
     });
 }

@@ -2,6 +2,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::Parameter;
 use frame_system::RawOrigin;
 use pallet_admin_utils::Call as AdminUtilsCall;
+use pallet_rate_limiting::BypassDecision;
 use pallet_rate_limiting::{RateLimitScopeResolver, RateLimitUsageResolver};
 use pallet_subtensor::{Call as SubtensorCall, Tempo};
 use scale_info::TypeInfo;
@@ -79,8 +80,37 @@ impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for
         }
     }
 
-    fn should_bypass(origin: &RuntimeOrigin, _call: &RuntimeCall) -> bool {
-        matches!(origin.clone().into(), Ok(RawOrigin::Root))
+    fn should_bypass(origin: &RuntimeOrigin, call: &RuntimeCall) -> BypassDecision {
+        if matches!(origin.clone().into(), Ok(RawOrigin::Root)) {
+            return BypassDecision::bypass_and_skip();
+        }
+
+        if let RuntimeCall::SubtensorModule(inner) = call {
+            match inner {
+                SubtensorCall::set_childkey_take {
+                    hotkey,
+                    netuid,
+                    take,
+                    ..
+                } => {
+                    let current =
+                        pallet_subtensor::Pallet::<Runtime>::get_childkey_take(hotkey, *netuid);
+                    return if *take <= current {
+                        BypassDecision::bypass_and_record()
+                    } else {
+                        BypassDecision::enforce_and_record()
+                    };
+                }
+                SubtensorCall::add_stake { .. }
+                | SubtensorCall::add_stake_limit { .. }
+                | SubtensorCall::decrease_take { .. } => {
+                    return BypassDecision::bypass_and_record();
+                }
+                _ => {}
+            }
+        }
+
+        BypassDecision::enforce_and_record()
     }
 
     fn adjust_span(_origin: &RuntimeOrigin, call: &RuntimeCall, span: BlockNumber) -> BlockNumber {
@@ -102,14 +132,6 @@ impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for
                     span
                 }
             }
-            RuntimeCall::SubtensorModule(inner) => match inner {
-                // Marker-only staking ops: allow but still record usage.
-                pallet_subtensor::Call::add_stake { .. }
-                | pallet_subtensor::Call::add_stake_limit { .. } => BlockNumber::from(0u32),
-                // Decrease take is marker-only; increase uses configured span.
-                pallet_subtensor::Call::decrease_take { .. } => BlockNumber::from(0u32),
-                _ => span,
-            },
             _ => span,
         }
     }

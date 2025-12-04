@@ -75,11 +75,19 @@ impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, Li
         }
     }
 
-    fn should_bypass(_origin: &RuntimeOrigin, call: &RuntimeCall) -> bool {
-        matches!(
-            call,
-            RuntimeCall::RateLimiting(RateLimitingCall::remove_call_from_group { .. })
-        )
+    fn should_bypass(
+        _origin: &RuntimeOrigin,
+        call: &RuntimeCall,
+    ) -> pallet_rate_limiting::types::BypassDecision {
+        match call {
+            RuntimeCall::RateLimiting(RateLimitingCall::remove_call_from_group { .. }) => {
+                pallet_rate_limiting::types::BypassDecision::bypass_and_skip()
+            }
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { .. }) => {
+                pallet_rate_limiting::types::BypassDecision::bypass_and_record()
+            }
+            _ => pallet_rate_limiting::types::BypassDecision::enforce_and_record(),
+        }
     }
 
     fn adjust_span(_origin: &RuntimeOrigin, call: &RuntimeCall, span: u64) -> u64 {

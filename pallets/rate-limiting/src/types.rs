@@ -11,16 +11,43 @@ pub trait RateLimitScopeResolver<Origin, Call, Scope, Span> {
     /// limits.
     fn context(origin: &Origin, call: &Call) -> Option<Scope>;
 
-    /// Returns `true` when the rate limit should be bypassed for the provided origin/call pair.
-    /// Defaults to `false`.
-    fn should_bypass(_origin: &Origin, _call: &Call) -> bool {
-        false
+    /// Returns how the call should interact with enforcement and usage tracking.
+    fn should_bypass(_origin: &Origin, _call: &Call) -> BypassDecision {
+        BypassDecision::enforce_and_record()
     }
 
     /// Optionally adjusts the effective span used during enforcement. Defaults to the original
     /// `span`.
     fn adjust_span(_origin: &Origin, _call: &Call, span: Span) -> Span {
         span
+    }
+}
+
+/// Controls whether enforcement should run and whether usage should be recorded for a call.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BypassDecision {
+    pub bypass_enforcement: bool,
+    pub record_usage: bool,
+}
+
+impl BypassDecision {
+    pub const fn new(bypass_enforcement: bool, record_usage: bool) -> Self {
+        Self {
+            bypass_enforcement,
+            record_usage,
+        }
+    }
+
+    pub const fn enforce_and_record() -> Self {
+        Self::new(false, true)
+    }
+
+    pub const fn bypass_and_record() -> Self {
+        Self::new(true, true)
+    }
+
+    pub const fn bypass_and_skip() -> Self {
+        Self::new(true, false)
     }
 }
 

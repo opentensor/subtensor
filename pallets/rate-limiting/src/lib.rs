@@ -97,8 +97,12 @@
 //!         }
 //!     }
 //!
-//!     fn should_bypass(origin: &RuntimeOrigin, _call: &RuntimeCall) -> bool {
-//!         matches!(origin, RuntimeOrigin::Root)
+//!     fn should_bypass(origin: &RuntimeOrigin, _call: &RuntimeCall) -> BypassDecision {
+//!         if matches!(origin, RuntimeOrigin::Root) {
+//!             BypassDecision::bypass_and_skip()
+//!         } else {
+//!             BypassDecision::enforce_and_record()
+//!         }
 //!     }
 //!
 //!     fn adjust_span(_origin: &RuntimeOrigin, _call: &RuntimeCall, span: BlockNumber) -> BlockNumber {
@@ -140,7 +144,7 @@ pub use benchmarking::BenchmarkHelper;
 pub use pallet::*;
 pub use tx_extension::RateLimitTransactionExtension;
 pub use types::{
-    GroupSharing, RateLimit, RateLimitGroup, RateLimitKind, RateLimitScopeResolver,
+    BypassDecision, GroupSharing, RateLimit, RateLimitGroup, RateLimitKind, RateLimitScopeResolver,
     RateLimitTarget, RateLimitUsageResolver, TransactionIdentifier,
 };
 
@@ -172,8 +176,8 @@ pub mod pallet {
     #[cfg(feature = "runtime-benchmarks")]
     use crate::benchmarking::BenchmarkHelper as BenchmarkHelperTrait;
     use crate::types::{
-        GroupSharing, RateLimit, RateLimitGroup, RateLimitKind, RateLimitScopeResolver,
-        RateLimitTarget, RateLimitUsageResolver, TransactionIdentifier,
+        BypassDecision, GroupSharing, RateLimit, RateLimitGroup, RateLimitKind,
+        RateLimitScopeResolver, RateLimitTarget, RateLimitUsageResolver, TransactionIdentifier,
     };
 
     type GroupNameOf<T, I> = BoundedVec<u8, <T as Config<I>>::MaxGroupNameLength>;
@@ -542,7 +546,9 @@ pub mod pallet {
             scope: &Option<<T as Config<I>>::LimitScope>,
             usage_key: &Option<<T as Config<I>>::UsageKey>,
         ) -> Result<bool, DispatchError> {
-            if <T as Config<I>>::LimitScopeResolver::should_bypass(origin, call) {
+            let bypass: BypassDecision =
+                <T as Config<I>>::LimitScopeResolver::should_bypass(origin, call);
+            if bypass.bypass_enforcement {
                 return Ok(true);
             }
 
@@ -571,8 +577,8 @@ pub mod pallet {
             })
         }
 
-        /// Resolves the span for a target/scope and applies the configured span adjustment
-        /// (e.g., tempo scaling) using the pallet's scope resolver.
+        /// Resolves the span for a target/scope and applies the configured span adjustment (e.g.,
+        /// tempo scaling) using the pallet's scope resolver.
         pub fn effective_span(
             origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
             call: &<T as Config<I>>::RuntimeCall,
@@ -594,7 +600,7 @@ pub mod pallet {
                 return true;
             }
 
-            if let Some(last) = LastSeen::<T, I>::get(target, usage_key.clone()) {
+            if let Some(last) = LastSeen::<T, I>::get(target, usage_key) {
                 let current = frame_system::Pallet::<T>::block_number();
                 let delta = current.saturating_sub(last);
                 if delta < block_span {
@@ -751,6 +757,12 @@ pub mod pallet {
                 Error::<T, I>::CallAlreadyRegistered
             );
             Ok(())
+        }
+
+        /// Returns true when the call has been registered (either directly or via a group).
+        pub fn is_registered(identifier: &TransactionIdentifier) -> bool {
+            let tx_target = RateLimitTarget::Transaction(*identifier);
+            Limits::<T, I>::contains_key(tx_target) || CallGroups::<T, I>::contains_key(identifier)
         }
 
         fn call_metadata(

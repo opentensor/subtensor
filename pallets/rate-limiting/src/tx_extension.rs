@@ -117,14 +117,14 @@ where
         _inherited_implication: &impl Implication,
         _source: TransactionSource,
     ) -> ValidateResult<Self::Val, <T as Config<I>>::RuntimeCall> {
-        if <T as Config<I>>::LimitScopeResolver::should_bypass(&origin, call) {
-            return Ok((ValidTransaction::default(), None, origin));
-        }
-
         let identifier = match TransactionIdentifier::from_call::<T, I>(call) {
             Ok(identifier) => identifier,
             Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
         };
+
+        if !Pallet::<T, I>::is_registered(&identifier) {
+            return Ok((ValidTransaction::default(), None, origin));
+        }
 
         let scope = <T as Config<I>>::LimitScopeResolver::context(&origin, call);
         let usage = <T as Config<I>>::UsageResolver::context(&origin, call);
@@ -133,13 +133,23 @@ where
             .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
         let usage_target = Pallet::<T, I>::usage_target(&identifier)
             .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
-        let should_record = Pallet::<T, I>::should_record_usage(&identifier, &usage_target);
+        let bypass = <T as Config<I>>::LimitScopeResolver::should_bypass(&origin, call);
+        let should_record =
+            bypass.record_usage && Pallet::<T, I>::should_record_usage(&identifier, &usage_target);
 
         let Some(block_span) =
             Pallet::<T, I>::effective_span(&origin, call, &config_target, &scope)
         else {
             return Ok((ValidTransaction::default(), None, origin));
         };
+
+        if bypass.bypass_enforcement {
+            return Ok((
+                ValidTransaction::default(),
+                should_record.then_some((usage_target, usage, true)),
+                origin,
+            ));
+        }
 
         if block_span.is_zero() {
             return Ok((ValidTransaction::default(), None, origin));
@@ -337,6 +347,52 @@ mod tests {
                 }
                 other => panic!("unexpected error: {:?}", other),
             }
+        });
+    }
+
+    #[test]
+    fn tx_extension_records_usage_on_bypass() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit {
+                block_span: 2,
+            });
+            let identifier = identifier_for(&call);
+            let target = RateLimitTarget::Transaction(identifier);
+
+            assert_ok!(RateLimiting::register_call(
+                RuntimeOrigin::root(),
+                Box::new(call.clone()),
+                None,
+            ));
+
+            System::set_block_number(5);
+
+            let (_valid, val, origin) =
+                validate_with_tx_extension(&extension, &call).expect("bypass should succeed");
+            assert!(val.is_some(), "bypass decision should still record usage");
+
+            let info = call.get_dispatch_info();
+            let len = call.encode().len();
+            let pre = extension
+                .clone()
+                .prepare(val.clone(), &origin, &call, &info, len)
+                .expect("prepare succeeds");
+
+            let mut post = PostDispatchInfo::default();
+            RateLimitTransactionExtension::<Test>::post_dispatch(
+                pre,
+                &info,
+                &mut post,
+                len,
+                &Ok(()),
+            )
+            .expect("post_dispatch succeeds");
+
+            assert_eq!(
+                LastSeen::<Test, ()>::get(target, Some(2u16)),
+                Some(5u64.into())
+            );
         });
     }
 
