@@ -437,7 +437,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             id: T::Hash,
             reason: BoundedVec<u8, ConstU32<256>>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             // Unsigned: only the author node may inject this via ValidateUnsigned.
             ensure_none(origin)?;
 
@@ -449,7 +449,7 @@ pub mod pallet {
             // Emit event to notify clients
             Self::deposit_event(Event::DecryptionFailed { id, reason });
 
-            Ok(())
+            Ok(().into())
         }
     }
 
