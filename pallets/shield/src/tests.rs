@@ -660,3 +660,72 @@ fn mark_decryption_failed_removes_submission_and_emits_event() {
         assert_noop!(res, pallet_mev_shield::Error::<Test>::MissingSubmission);
     });
 }
+
+#[test]
+fn announce_next_key_charges_then_refunds_fee() {
+    new_test_ext().execute_with(|| {
+        const KYBER_PK_LEN: usize = 1184;
+
+        // ---------------------------------------------------------------------
+        // 1. Seed Aura authorities with a single validator and derive account.
+        // ---------------------------------------------------------------------
+        let validator_pair = test_sr25519_pair();
+        let validator_account: AccountId32 = validator_pair.public().into();
+        let validator_aura_id: <Test as pallet_aura::Config>::AuthorityId =
+            validator_pair.public().into();
+
+        let authorities: BoundedVec<
+            <Test as pallet_aura::Config>::AuthorityId,
+            <Test as pallet_aura::Config>::MaxAuthorities,
+        > = BoundedVec::truncate_from(vec![validator_aura_id]);
+        pallet_aura::Authorities::<Test>::put(authorities);
+
+        // ---------------------------------------------------------------------
+        // 2. Build a valid Kyber public key and the corresponding RuntimeCall.
+        // ---------------------------------------------------------------------
+        let pk_bytes = vec![42u8; KYBER_PK_LEN];
+        let bounded_pk: BoundedVec<u8, FrameConstU32<2048>> =
+            BoundedVec::truncate_from(pk_bytes.clone());
+
+        let runtime_call = RuntimeCall::MevShield(MevShieldCall::<Test>::announce_next_key {
+            public_key: bounded_pk.clone(),
+        });
+
+        // ---------------------------------------------------------------------
+        // 3. Pre-dispatch: DispatchInfo must say Pays::Yes.
+        // ---------------------------------------------------------------------
+        let pre_info = <RuntimeCall as frame_support::dispatch::GetDispatchInfo>::get_dispatch_info(
+            &runtime_call,
+        );
+
+        assert_eq!(
+            pre_info.pays_fee,
+            frame_support::dispatch::Pays::Yes,
+            "announce_next_key must be declared as fee-paying at pre-dispatch"
+        );
+
+        // ---------------------------------------------------------------------
+        // 4. Dispatch via the pallet function.
+        // ---------------------------------------------------------------------
+        let post = MevShield::announce_next_key(
+            RuntimeOrigin::signed(validator_account.clone()),
+            bounded_pk.clone(),
+        )
+        .expect("announce_next_key should succeed for an Aura validator");
+
+        // Post-dispatch info should switch pays_fee from Yes -> No (refund).
+        assert_eq!(
+            post.pays_fee,
+            frame_support::dispatch::Pays::No,
+            "announce_next_key must refund the previously chargeable fee"
+        );
+
+        // And we don't override the actual weight (None => use pre-dispatch weight).
+        assert!(
+            post.actual_weight.is_none(),
+            "announce_next_key should not override actual_weight in PostDispatchInfo"
+        );
+        let next = NextKey::<Test>::get().expect("NextKey should be set by announce_next_key");
+        assert_eq!(next, pk_bytes);
+    });
+}
