@@ -2431,5 +2431,39 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// --- Sets delegate claim type for a hotkey on a subnet.
+        #[pallet::call_index(125)]
+        #[pallet::weight((
+            Weight::from_parts(5_711_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn set_validator_claim_type(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            new_claim_type: RootClaimTypeEnum,
+        ) -> DispatchResult {
+            let coldkey: T::AccountId = ensure_signed(origin)?;
+            ensure!(
+                Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+                Error::<T>::NonAssociatedColdKey
+            );
+
+            // Ensure the delegate claim type is not Delegated.
+            ensure!(
+                !matches!(new_claim_type, RootClaimTypeEnum::Delegated),
+                Error::<T>::InvalidRootClaimType
+            );
+
+            ValidatorClaimType::<T>::insert(hotkey.clone(), netuid, new_claim_type.clone());
+            Self::deposit_event(Event::ValidatorClaimTypeSet {
+                hotkey: hotkey.clone(),
+                root_claim_type: new_claim_type,
+                netuid,
+            });
+            Ok(())
+        }
     }
 }
