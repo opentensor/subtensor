@@ -609,7 +609,7 @@ mod pallet {
         pub fn disable_lp(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
 
-            for netuid in 1..128 {
+            for netuid in 1..=128 {
                 let netuid = NetUid::from(netuid as u16);
                 if EnabledUserLiquidity::<T>::get(netuid) {
                     EnabledUserLiquidity::<T>::insert(netuid, false);
@@ -617,10 +617,11 @@ mod pallet {
                         netuid,
                         enable: false,
                     });
-
-                    // Remove provided liquidity
-                    // Self::do_dissolve_all_liquidity_providers(netuid)?;
                 }
+
+                // Remove provided liquidity unconditionally because the network may have 
+                // user liquidity previously disabled
+                Self::do_dissolve_all_liquidity_providers(netuid)?;
             }
 
             Ok(())
