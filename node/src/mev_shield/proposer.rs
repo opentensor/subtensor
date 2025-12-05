@@ -4,17 +4,15 @@ use ml_kem::kem::{Decapsulate, DecapsulationKey};
 use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
 use sc_service::SpawnTaskHandle;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
-use sp_core::{H256, sr25519};
+use sp_core::H256;
 use sp_runtime::traits::{Header, SaturatedConversion};
-use sp_runtime::{AccountId32, MultiSignature, OpaqueExtrinsic};
+use sp_runtime::{AccountId32, OpaqueExtrinsic};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::time::sleep;
-
-const KEY_FP_LEN: usize = 32;
 
 /// Buffer of wrappers keyed by the block number in which they were included.
 #[derive(Default, Clone)]
@@ -347,7 +345,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         curr_block
                     );
 
-                    let mut to_submit: Vec<(H256, node_subtensor_runtime::RuntimeCall)> =
+                    let mut to_submit: Vec<(H256, node_subtensor_runtime::UncheckedExtrinsic)> =
                         Vec::new();
                     let mut failed_calls: Vec<(H256, node_subtensor_runtime::RuntimeCall)> =
                         Vec::new();
@@ -714,19 +712,8 @@ pub fn spawn_revealer<B, C, Pool>(
                         );
 
                         // Safely parse plaintext layout without panics.
-                        //
-                        // Layout:
-                        //   signer   (32)
-                        //   key_hash (32)  == Hashing::hash(NextKey_bytes) at submit time
-                        //   call     (..)
-                        //   sig_kind (1)
-                        //   sig      (64)
-                        let min_plain_len: usize = 32usize
-                            .saturating_add(KEY_FP_LEN)
-                            .saturating_add(1usize)
-                            .saturating_add(64usize);
 
-                        if plaintext.len() < min_plain_len {
+                        if plaintext.is_empty() {
                             let error_message = "plaintext too short";
                             log::debug!(
                                 target: "mev-shield",
@@ -734,7 +721,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 hex::encode(id.as_bytes()),
                                 error_message,
                                 plaintext.len(),
-                                min_plain_len
+                                1
                             );
                             failed_calls.push((
                                 id,
@@ -743,71 +730,10 @@ pub fn spawn_revealer<B, C, Pool>(
                             continue;
                         }
 
-                        let signer_raw = match plaintext.get(0..32) {
-                            Some(s) => s,
-                            None => {
-                                let error_message = "missing signer bytes";
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: {}",
-                                    hex::encode(id.as_bytes()),
-                                    error_message
-                                );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
-                                continue;
-                            }
-                        };
-
-                        let key_hash_raw = match plaintext.get(32..32usize.saturating_add(KEY_FP_LEN))
-                        {
-                            Some(s) if s.len() == KEY_FP_LEN => s,
-                            _ => {
-                                let error_message = "missing or malformed key_hash bytes";
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: {}",
-                                    hex::encode(id.as_bytes()),
-                                    error_message
-                                );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
-                                continue;
-                            }
-                        };
-
-                        // sig_off = len - 65 (sig_kind + 64-byte sig)
-                        let sig_min_offset: usize =
-                            32usize.saturating_add(KEY_FP_LEN);
-
-                        let sig_off = match plaintext.len().checked_sub(65usize) {
-                            Some(off) if off >= sig_min_offset => off,
-                            _ => {
-                                let error_message = "invalid plaintext length for signature split";
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: {} (len={})",
-                                    hex::encode(id.as_bytes()),
-                                    error_message,
-                                    plaintext.len()
-                                );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
-                                continue;
-                            }
-                        };
-
-                        let call_start: usize = sig_min_offset;
-                        let call_bytes = match plaintext.get(call_start..sig_off) {
+                        let signed_extrinsic_bytes = match plaintext.get(0..plaintext.len()) {
                             Some(s) if !s.is_empty() => s,
                             _ => {
-                                let error_message = "missing call bytes";
+                                let error_message = "missing signed extrinsic bytes";
                                 log::debug!(
                                     target: "mev-shield",
                                     "  id=0x{}: {}",
@@ -822,77 +748,18 @@ pub fn spawn_revealer<B, C, Pool>(
                             }
                         };
 
-                        let sig_kind = match plaintext.get(sig_off) {
-                            Some(b) => *b,
-                            None => {
-                                let error_message = "missing signature kind byte";
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: {}",
-                                    hex::encode(id.as_bytes()),
-                                    error_message
-                                );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
-                                continue;
-                            }
-                        };
 
-                        let sig_bytes_start = sig_off.saturating_add(1usize);
-                        let sig_bytes = match plaintext.get(sig_bytes_start..) {
-                            Some(s) if s.len() == 64 => s,
-                            _ => {
-                                let error_message = "signature bytes not 64 bytes";
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: {}",
-                                    hex::encode(id.as_bytes()),
-                                    error_message
-                                );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
-                                continue;
-                            }
-                        };
-
-                        let signer_array: [u8; 32] = match signer_raw.try_into() {
-                            Ok(a) => a,
-                            Err(_) => {
-                                let error_message = "signer_raw not 32 bytes";
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: {}",
-                                    hex::encode(id.as_bytes()),
-                                    error_message
-                                );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
-                                continue;
-                            }
-                        };
-                        let signer = sp_runtime::AccountId32::new(signer_array);
-
-                        let mut fp_array = [0u8; KEY_FP_LEN];
-                        fp_array.copy_from_slice(key_hash_raw);
-                        let key_hash_h256 = H256(fp_array);
-
-                        let inner_call: node_subtensor_runtime::RuntimeCall =
-                            match Decode::decode(&mut &call_bytes[..]) {
+                        let signed_extrinsic: node_subtensor_runtime::UncheckedExtrinsic =
+                            match Decode::decode(&mut &signed_extrinsic_bytes[..]) {
                                 Ok(c) => c,
                                 Err(e) => {
-                                    let error_message = "failed to decode RuntimeCall";
+                                    let error_message = "failed to decode UncheckedExtrinsic";
                                     log::debug!(
                                         target: "mev-shield",
                                         "  id=0x{}: {} (len={}): {:?}",
                                         hex::encode(id.as_bytes()),
                                         error_message,
-                                        call_bytes.len(),
+                                        signed_extrinsic_bytes.len(),
                                         e
                                     );
                                     failed_calls.push((
@@ -903,48 +770,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 }
                             };
 
-                        let signature: MultiSignature =
-                            if sig_kind == 0x01 {
-                                let mut raw_sig = [0u8; 64];
-                                raw_sig.copy_from_slice(sig_bytes);
-                                MultiSignature::from(sr25519::Signature::from_raw(raw_sig))
-                            } else {
-                                let error_message = "unsupported signature format";
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: {} (kind=0x{:02x}, len={})",
-                                    hex::encode(id.as_bytes()),
-                                    error_message,
-                                    sig_kind,
-                                    sig_bytes.len()
-                                );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
-                                continue;
-                            };
-
-                        log::debug!(
-                            target: "mev-shield",
-                            "  id=0x{}: decrypted wrapper: signer={}, key_hash=0x{}, call={:?}",
-                            hex::encode(id.as_bytes()),
-                            signer,
-                            hex::encode(key_hash_h256.as_bytes()),
-                            inner_call
-                        );
-
-                        let reveal = node_subtensor_runtime::RuntimeCall::MevShield(
-                            pallet_shield::Call::execute_revealed {
-                                id,
-                                signer: signer.clone(),
-                                key_hash: key_hash_h256.into(),
-                                call: Box::new(inner_call),
-                                signature,
-                            },
-                        );
-
-                        to_submit.push((id, reveal));
+                        to_submit.push((id, signed_extrinsic));
                     }
 
                     // Submit locally.
@@ -956,9 +782,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         at
                     );
 
-                    for (id, call) in to_submit.into_iter() {
-                        let uxt: node_subtensor_runtime::UncheckedExtrinsic =
-                            node_subtensor_runtime::UncheckedExtrinsic::new_bare(call);
+                    for (id, uxt) in to_submit.into_iter() {
                         let xt_bytes = uxt.encode();
 
                         log::debug!(
@@ -971,7 +795,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         match OpaqueExtrinsic::from_bytes(&xt_bytes) {
                             Ok(opaque) => {
                                 match pool
-                                    .submit_one(at, TransactionSource::Local, opaque)
+                                    .submit_one(at, TransactionSource::External, opaque)
                                     .await
                                 {
                                     Ok(_) => {
