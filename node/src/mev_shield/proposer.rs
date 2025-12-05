@@ -82,7 +82,7 @@ impl WrapperBuffer {
 /// Start a background worker that:
 ///   • watches imported blocks and captures `MevShield::submit_encrypted`
 ///   • buffers those wrappers per originating block,
-///   • during the last `decrypt_window_ms` of the slot: decrypt & submit unsigned `execute_revealed`
+///   • during the last `decrypt_window_ms` of the slot: decrypt & submit `submit_one`
 pub fn spawn_revealer<B, C, Pool>(
     task_spawner: &SpawnTaskHandle,
     client: Arc<C>,
@@ -773,11 +773,11 @@ pub fn spawn_revealer<B, C, Pool>(
                         to_submit.push((id, signed_extrinsic));
                     }
 
-                    // Submit locally.
+                    // Submit as external the signed extrinsics.
                     let at = client.info().best_hash;
                     log::debug!(
                         target: "mev-shield",
-                        "revealer: submitting {} execute_revealed calls at best_hash={:?}",
+                        "revealer: submitting {} extrinsics to pool at best_hash={:?}",
                         to_submit.len(),
                         at
                     );
@@ -803,7 +803,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                             sp_core::hashing::blake2_256(&xt_bytes);
                                         log::debug!(
                                             target: "mev-shield",
-                                            "  id=0x{}: submit_one(execute_revealed) OK, xt_hash=0x{}",
+                                            "  id=0x{}: submit_one(...) OK, xt_hash=0x{}",
                                             hex::encode(id.as_bytes()),
                                             hex::encode(xt_hash)
                                         );
@@ -811,7 +811,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     Err(e) => {
                                         log::debug!(
                                             target: "mev-shield",
-                                            "  id=0x{}: submit_one(execute_revealed) FAILED: {:?}",
+                                            "  id=0x{}: submit_one(...) FAILED: {:?}",
                                             hex::encode(id.as_bytes()),
                                             e
                                         );
