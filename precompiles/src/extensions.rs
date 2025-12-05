@@ -2,7 +2,7 @@ extern crate alloc;
 
 use alloc::format;
 
-use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
+use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_admin_utils::{PrecompileEnable, PrecompileEnum};
 use pallet_evm::{
@@ -71,33 +71,16 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
 
         match call.dispatch(R::RuntimeOrigin::from(origin)) {
             Ok(post_info) => {
-                if post_info.pays_fee(&info) == Pays::Yes {
-                    let actual_weight = post_info.actual_weight.unwrap_or(info.call_weight);
-                    let cost =
-                        <R as pallet_evm::Config>::GasWeightMapping::weight_to_gas(actual_weight);
-                    self.record_cost(cost)?;
-
-                    self.refund_external_cost(
-                        Some(
-                            info.call_weight
-                                .ref_time()
-                                .saturating_sub(actual_weight.ref_time()),
-                        ),
-                        Some(
-                            info.call_weight
-                                .proof_size()
-                                .saturating_sub(actual_weight.proof_size()),
-                        ),
-                    );
-                }
-
                 log::debug!("Dispatch succeeded. Post info: {post_info:?}");
+                self.charge_and_refund_after_dispatch::<R, Call>(&info, &post_info)?;
 
                 Ok(())
             }
             Err(e) => {
                 log::error!("Dispatch failed. Error: {e:?}");
                 log::warn!("Returning error PrecompileFailure::Error");
+                self.charge_and_refund_after_dispatch::<R, Call>(&info, &e.post_info)?;
+
                 Err(PrecompileFailure::Error {
                     exit_status: ExitError::Other(
                         format!("dispatch execution failed: {}", <&'static str>::from(e)).into(),
@@ -105,6 +88,36 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                 })
             }
         }
+    }
+
+    fn charge_and_refund_after_dispatch<R, Call>(
+        &mut self,
+        info: &DispatchInfo,
+        post_info: &PostDispatchInfo,
+    ) -> EvmResult<()>
+    where
+        R: frame_system::Config + pallet_evm::Config,
+    {
+        if post_info.pays_fee(info) == Pays::Yes {
+            let actual_weight = post_info.actual_weight.unwrap_or(info.call_weight);
+            let cost = <R as pallet_evm::Config>::GasWeightMapping::weight_to_gas(actual_weight);
+            self.record_cost(cost)?;
+
+            self.refund_external_cost(
+                Some(
+                    info.call_weight
+                        .ref_time()
+                        .saturating_sub(actual_weight.ref_time()),
+                ),
+                Some(
+                    info.call_weight
+                        .proof_size()
+                        .saturating_sub(actual_weight.proof_size()),
+                ),
+            );
+        }
+
+        Ok(())
     }
 }
 

@@ -74,7 +74,7 @@ describe("Test neuron precompile reward", () => {
 
         let index = 0;
         while (index < 60) {
-            const pending = await api.query.SubtensorModule.ValidatorEmission.getValue(netuid);
+            const pending = await api.query.SubtensorModule.PendingValidatorEmission.getValue(netuid);
             if (pending > 0) {
                 console.log("pending amount is ", pending);
                 break;

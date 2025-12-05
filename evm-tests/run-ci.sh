@@ -19,7 +19,7 @@ if [ "$i" -eq 1000 ]; then
     exit 1
 fi
 
-sleep 5
+sleep 10
 
 if ! nc -z localhost 9944; then
     echo "node subtensor exit, port not available"

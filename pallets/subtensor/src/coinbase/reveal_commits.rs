@@ -36,7 +36,7 @@ pub struct LegacyWeightsTlockPayload {
 
 impl<T: Config> Pallet<T> {
     /// The `reveal_crv3_commits` function is run at the very beginning of epoch `n`,
-    pub fn reveal_crv3_commits(netuid: NetUid) -> dispatch::DispatchResult {
+    pub fn reveal_crv3_commits_for_subnet(netuid: NetUid) -> dispatch::DispatchResult {
         let reveal_period = Self::get_reveal_period(netuid);
         let cur_block = Self::get_current_block_as_u64();
         let cur_epoch = Self::get_epoch_index(netuid, cur_block);

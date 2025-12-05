@@ -21,8 +21,12 @@ impl<A> LinearCostPrecompile for Ed25519Verify<A>
 where
     A: From<[u8; 32]>,
 {
-    const BASE: u64 = 15;
-    const WORD: u64 = 3;
+    // https://eips.ethereum.org/EIPS/eip-665#gas-costs
+    // According to the EIP, the base cost should be 2000 gas, less than ECDSA/secp256k1 which is 3000.
+    // Reality: Ed25519 verification is ~2.3x more computationally expensive than ECDSA/secp256k1
+    // So we set the base cost to 6000 gas, which is 3x of the EIP's base cost.
+    const BASE: u64 = 6000;
+    const WORD: u64 = 0;
 
     fn execute(input: &[u8], _: u64) -> Result<(ExitSucceed, Vec<u8>), PrecompileFailure> {
         if input.len() < 132 {

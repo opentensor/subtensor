@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PALLET_LIST=(subtensor admin_utils commitments drand)
+PALLET_LIST=(subtensor admin_utils commitments drand shield)
 
 declare -A DISPATCH_PATHS=(
   [subtensor]="../pallets/subtensor/src/macros/dispatches.rs"
   [admin_utils]="../pallets/admin-utils/src/lib.rs"
   [commitments]="../pallets/commitments/src/lib.rs"
   [drand]="../pallets/drand/src/lib.rs"
+  [shield]="../pallets/shield/src/lib.rs"
   [swap]="../pallets/swap/src/pallet/mod.rs"
 )
 

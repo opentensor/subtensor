@@ -32,7 +32,6 @@ fn test_replace_neuron() {
 
         let new_hotkey_account_id = U256::from(2);
         let _new_colkey_account_id = U256::from(12345);
-        let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
         let evm_address = H160::from_slice(&[1_u8; 20]);
         //add network
         add_network(netuid, tempo, 0);
@@ -71,28 +70,15 @@ fn test_replace_neuron() {
         });
         Bonds::<Test>::insert(NetUidStorageIndex::from(netuid), neuron_uid, vec![(0, 1)]);
 
-        // serve axon mock address
-        let ip: u128 = 1676056785;
-        let port: u16 = 9999;
-        let ip_type: u8 = 4;
-        assert!(
-            SubtensorModule::serve_axon(
-                <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
-                netuid,
-                0,
-                ip,
-                port,
-                ip_type,
-                0,
-                0,
-                0
-            )
-            .is_ok()
+        Axons::<Test>::insert(netuid, hotkey_account_id, AxonInfoOf::default());
+        NeuronCertificates::<Test>::insert(
+            netuid,
+            hotkey_account_id,
+            NeuronCertificateOf::default(),
         );
-
-        // Set a neuron certificate for it
-        NeuronCertificates::<Test>::insert(netuid, hotkey_account_id, certificate);
+        Prometheus::<Test>::insert(netuid, hotkey_account_id, PrometheusInfoOf::default());
         AssociatedEvmAddress::<Test>::insert(netuid, neuron_uid, (evm_address, 1));
+
         // Replace the neuron.
         SubtensorModule::replace_neuron(netuid, neuron_uid, &new_hotkey_account_id, block_number);
 
@@ -139,10 +125,15 @@ fn test_replace_neuron() {
         );
 
         // Check axon info is reset.
-        let axon_info = SubtensorModule::get_axon_info(netuid, &curr_hotkey.unwrap());
-        assert_eq!(axon_info.ip, 0);
-        assert_eq!(axon_info.port, 0);
-        assert_eq!(axon_info.ip_type, 0);
+        assert!(!Axons::<Test>::contains_key(netuid, curr_hotkey.unwrap()));
+        assert!(!NeuronCertificates::<Test>::contains_key(
+            netuid,
+            curr_hotkey.unwrap()
+        ));
+        assert!(!Prometheus::<Test>::contains_key(
+            netuid,
+            curr_hotkey.unwrap()
+        ));
 
         // Check bonds are cleared.
         assert_eq!(
