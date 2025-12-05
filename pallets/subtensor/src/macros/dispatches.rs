@@ -9,7 +9,7 @@ mod dispatches {
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
-    use sp_runtime::Percent;
+    use sp_runtime::{Percent, traits::Hash};
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     use crate::MAX_NUM_ROOT_CLAIMS;
@@ -2335,12 +2335,13 @@ mod dispatches {
             Ok(())
         }
 
-        /// Announces a coldkey swap. This is required before the coldkey swap can be performed after the delay period.
+        /// Announces a coldkey swap using coldkey hash.
+        /// This is required before the coldkey swap can be performed after the delay period.
         #[pallet::call_index(125)]
         #[pallet::weight(Weight::zero())]
         pub fn announce_coldkey_swap(
             origin: OriginFor<T>,
-            new_coldkey: T::AccountId,
+            new_coldkey_hash: T::Hash,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
@@ -2354,24 +2355,33 @@ mod dispatches {
                 );
             }
 
-            ColdkeySwapAnnouncements::<T>::insert(who.clone(), (now, new_coldkey.clone()));
+            ColdkeySwapAnnouncements::<T>::insert(who.clone(), (now, new_coldkey_hash.clone()));
 
             Self::deposit_event(Event::ColdkeySwapAnnounced {
                 who: who.clone(),
-                new_coldkey: new_coldkey.clone(),
+                new_coldkey_hash: new_coldkey_hash.clone(),
                 block_number: now,
             });
             Ok(())
         }
 
         /// Performs a coldkey swap iff an announcement has been made.
+        /// The provided new coldkey must match the announced coldkey hash.
         #[pallet::call_index(126)]
         #[pallet::weight(Weight::zero())]
-        pub fn swap_coldkey_announced(origin: OriginFor<T>) -> DispatchResult {
+        pub fn swap_coldkey_announced(
+            origin: OriginFor<T>,
+            new_coldkey: T::AccountId,
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
-            let (when, new_coldkey) = ColdkeySwapAnnouncements::<T>::take(who.clone())
+            let (when, new_coldkey_hash) = ColdkeySwapAnnouncements::<T>::take(who.clone())
                 .ok_or(Error::<T>::ColdKeySwapAnnouncementNotFound)?;
+
+            ensure!(
+                new_coldkey_hash == T::Hashing::hash_of(&new_coldkey),
+                Error::<T>::AnnouncedColdkeyHashDoesNotMatch
+            );
 
             let now = <frame_system::Pallet<T>>::block_number();
             let delay = ColdkeySwapScheduleDuration::<T>::get();

@@ -174,8 +174,8 @@ mod events {
         ColdkeySwapAnnounced {
             /// The account ID of the coldkey that made the announcement.
             who: T::AccountId,
-            /// The account ID of the new coldkey.
-            new_coldkey: T::AccountId,
+            /// The hash of the new coldkey.
+            new_coldkey_hash: T::Hash,
             /// The block number the announcement was made.
             block_number: BlockNumberFor<T>,
         },
