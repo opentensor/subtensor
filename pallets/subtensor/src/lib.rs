@@ -2064,25 +2064,10 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// --- MAP ( coldkey ) --> identity. (DEPRECATED for V2)
-    #[pallet::storage]
-    pub type Identities<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
-
     /// --- MAP ( coldkey ) --> identity
     #[pallet::storage]
     pub type IdentitiesV2<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOfV2, OptionQuery>;
-
-    /// --- MAP ( netuid ) --> identity. (DEPRECATED for V2)
-    #[pallet::storage]
-    pub type SubnetIdentities<T: Config> =
-        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOf, OptionQuery>;
-
-    /// --- MAP ( netuid ) --> identityV2 (DEPRECATED for V3)
-    #[pallet::storage]
-    pub type SubnetIdentitiesV2<T: Config> =
-        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV2, OptionQuery>;
 
     /// --- MAP ( netuid ) --> SubnetIdentityOfV3
     #[pallet::storage]

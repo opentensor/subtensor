@@ -308,7 +308,7 @@ where
 
     fn withdraw_fee(
         who: &AccountIdOf<T>,
-        call: &CallOf<T>,
+        _call: &CallOf<T>,
         _dispatch_info: &DispatchInfoOf<CallOf<T>>,
         fee: Self::Balance,
         _tip: Self::Balance,
@@ -327,12 +327,12 @@ where
         ) {
             Ok(imbalance) => Ok(Some(WithdrawnFee::Tao(imbalance))),
             Err(_) => {
-                let alpha_vec = Self::fees_in_alpha::<T>(who, call);
-                if !alpha_vec.is_empty() {
-                    let fee_u64: u64 = fee.into();
-                    OU::withdraw_in_alpha(who, &alpha_vec, fee_u64);
-                    return Ok(Some(WithdrawnFee::Alpha));
-                }
+                // let alpha_vec = Self::fees_in_alpha::<T>(who, call);
+                // if !alpha_vec.is_empty() {
+                //     let fee_u64: u64 = fee.into();
+                //     OU::withdraw_in_alpha(who, &alpha_vec, fee_u64);
+                //     return Ok(Some(WithdrawnFee::Alpha));
+                // }
                 Err(InvalidTransaction::Payment.into())
             }
         }
@@ -340,7 +340,7 @@ where
 
     fn can_withdraw_fee(
         who: &AccountIdOf<T>,
-        call: &CallOf<T>,
+        _call: &CallOf<T>,
         _dispatch_info: &DispatchInfoOf<CallOf<T>>,
         fee: Self::Balance,
         _tip: Self::Balance,
@@ -353,14 +353,14 @@ where
         match F::can_withdraw(who, fee) {
             WithdrawConsequence::Success => Ok(()),
             _ => {
-                // Fallback to fees in Alpha if possible
-                let alpha_vec = Self::fees_in_alpha::<T>(who, call);
-                if !alpha_vec.is_empty() {
-                    let fee_u64: u64 = fee.into();
-                    if OU::can_withdraw_in_alpha(who, &alpha_vec, fee_u64) {
-                        return Ok(());
-                    }
-                }
+                // // Fallback to fees in Alpha if possible
+                // let alpha_vec = Self::fees_in_alpha::<T>(who, call);
+                // if !alpha_vec.is_empty() {
+                //     let fee_u64: u64 = fee.into();
+                //     if OU::can_withdraw_in_alpha(who, &alpha_vec, fee_u64) {
+                //         return Ok(());
+                //     }
+                // }
                 Err(InvalidTransaction::Payment.into())
             }
         }

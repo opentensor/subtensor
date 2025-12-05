@@ -28,8 +28,8 @@ pub mod pallet {
         InvalidTransaction, TransactionSource, ValidTransaction,
     };
     use sp_runtime::{
-        AccountId32, DispatchErrorWithPostInfo, MultiSignature, RuntimeDebug,
-        traits::{BadOrigin, Dispatchable, Hash, SaturatedConversion, Verify, Zero},
+        AccountId32, DispatchErrorWithPostInfo, MultiSignature, RuntimeDebug, Saturating,
+        traits::{BadOrigin, Dispatchable, Hash, Verify},
     };
     use sp_std::{marker::PhantomData, prelude::*};
     use subtensor_macros::freeze_struct;
@@ -102,12 +102,15 @@ pub mod pallet {
 
     // ----------------- Storage -----------------
 
+    /// Current ML‑KEM‑768 public key bytes (encoded form).
     #[pallet::storage]
     pub type CurrentKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<2048>>, OptionQuery>;
 
+    /// Next ML‑KEM‑768 public key bytes, announced by the block author.
     #[pallet::storage]
     pub type NextKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<2048>>, OptionQuery>;
 
+    /// Buffered encrypted submissions, indexed by wrapper id.
     #[pallet::storage]
     pub type Submissions<T: Config> = StorageMap<
         _,
@@ -116,6 +119,14 @@ pub mod pallet {
         Submission<T::AccountId, BlockNumberFor<T>, T::Hash>,
         OptionQuery,
     >;
+
+    /// Hash(CurrentKey) per block, used to bind `key_hash` to the epoch at submit time.
+    #[pallet::storage]
+    pub type KeyHashByBlock<T: Config> =
+        StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, T::Hash, OptionQuery>;
+
+    /// How many recent blocks of key-epoch hashes we retain.
+    const KEY_EPOCH_HISTORY: u32 = 100;
 
     // ----------------- Events & Errors -----------------
 
@@ -131,27 +142,98 @@ pub mod pallet {
             id: T::Hash,
             reason: DispatchErrorWithPostInfo<PostDispatchInfo>,
         },
+        /// Decryption failed - validator could not decrypt the submission.
+        DecryptionFailed {
+            id: T::Hash,
+            reason: BoundedVec<u8, ConstU32<256>>,
+        },
     }
 
     #[pallet::error]
     pub enum Error<T> {
+        /// A submission with the same id already exists in `Submissions`.
         SubmissionAlreadyExists,
+        /// The referenced submission id does not exist in `Submissions`.
         MissingSubmission,
+        /// The recomputed commitment does not match the stored commitment.
         CommitmentMismatch,
+        /// The provided signature over the payload is invalid.
         SignatureInvalid,
-        NonceMismatch,
+        /// The announced ML‑KEM public key length is invalid.
         BadPublicKeyLen,
+        /// The MEV‑Shield key epoch for this submission has expired and is no longer accepted.
+        KeyExpired,
+        /// The provided `key_hash` does not match the expected epoch key hash.
+        KeyHashMismatch,
     }
 
     // ----------------- Hooks -----------------
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-            if let Some(next) = <NextKey<T>>::take() {
-                <CurrentKey<T>>::put(&next);
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+            let db_weight = T::DbWeight::get();
+            let mut reads: u64 = 0;
+            let mut writes: u64 = 0;
+
+            // 1) Roll NextKey -> CurrentKey if a next key is present.
+            reads = reads.saturating_add(1);
+            writes = writes.saturating_add(1);
+            let mut current_opt: Option<BoundedVec<u8, ConstU32<2048>>> =
+                if let Some(next) = NextKey::<T>::take() {
+                    CurrentKey::<T>::put(&next);
+                    writes = writes.saturating_add(1);
+                    Some(next)
+                } else {
+                    None
+                };
+
+            // 2) If we didn't roll, read the existing CurrentKey exactly once.
+            if current_opt.is_none() {
+                reads = reads.saturating_add(1);
+                current_opt = CurrentKey::<T>::get();
             }
-            T::DbWeight::get().reads_writes(1, 2)
+
+            // 3) Maintain KeyHashByBlock entry for this block:
+            match current_opt {
+                Some(current) => {
+                    let epoch_hash: T::Hash = T::Hashing::hash(current.as_ref());
+                    KeyHashByBlock::<T>::insert(n, epoch_hash);
+                    writes = writes.saturating_add(1);
+                }
+                None => {
+                    KeyHashByBlock::<T>::remove(n);
+                    writes = writes.saturating_add(1);
+                }
+            }
+
+            // 4) Prune old epoch hashes with a sliding window of size KEY_EPOCH_HISTORY.
+            let depth: BlockNumberFor<T> = KEY_EPOCH_HISTORY.into();
+            if n >= depth {
+                let prune_bn = n.saturating_sub(depth);
+                KeyHashByBlock::<T>::remove(prune_bn);
+                writes = writes.saturating_add(1);
+            }
+
+            // 5) TTL-based pruning of stale submissions.
+            let ttl: BlockNumberFor<T> = KEY_EPOCH_HISTORY.into();
+            let threshold: BlockNumberFor<T> = n.saturating_sub(ttl);
+
+            let mut to_remove: Vec<T::Hash> = Vec::new();
+
+            for (id, sub) in Submissions::<T>::iter() {
+                reads = reads.saturating_add(1);
+                if sub.submitted_in < threshold {
+                    to_remove.push(id);
+                }
+            }
+
+            for id in to_remove {
+                Submissions::<T>::remove(id);
+                writes = writes.saturating_add(1);
+            }
+
+            db_weight.reads_writes(reads, writes)
         }
     }
 
@@ -159,18 +241,21 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Announce the ML‑KEM public key that will become `CurrentKey` in
+        /// the following block.
         #[pallet::call_index(0)]
         #[pallet::weight((
             Weight::from_parts(9_979_000, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
+        #[allow(clippy::useless_conversion)]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: BoundedVec<u8, ConstU32<2048>>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             // Only a current Aura validator may call this (signed account ∈ Aura authorities)
             T::AuthorityOrigin::ensure_validator(origin)?;
 
@@ -180,22 +265,40 @@ pub mod pallet {
                 Error::<T>::BadPublicKeyLen
             );
 
-            NextKey::<T>::put(public_key.clone());
+            NextKey::<T>::put(public_key);
 
-            Ok(())
+            // Refund the fee on success by setting pays_fee = Pays::No
+            Ok(PostDispatchInfo {
+                actual_weight: None,
+                pays_fee: Pays::No,
+            })
         }
 
         /// Users submit an encrypted wrapper.
         ///
-        /// `commitment` is `blake2_256(raw_payload)`, where:
-        ///   raw_payload = signer || nonce || SCALE(call)
+        /// Client‑side:
         ///
-        /// `ciphertext` is constructed as:
-        ///   [u16 kem_len] || kem_ct || nonce24 || aead_ct
-        /// where:
-        ///   - `kem_ct` is the ML‑KEM ciphertext (encapsulated shared secret)
-        ///   - `aead_ct` is XChaCha20‑Poly1305 over:
-        ///       signer || nonce || SCALE(call) || sig_kind || signature
+        ///   1. Read `NextKey` (ML‑KEM public key bytes) from storage.
+        ///   2. Compute `key_hash = Hashing::hash(NextKey_bytes)`.
+        ///   3. Build:
+        ///
+        ///        raw_payload = signer (32B AccountId)
+        ///                    || key_hash (32B Hash)
+        ///                    || SCALE(call)
+        ///
+        ///   4. `commitment = Hashing::hash(raw_payload)`.
+        ///   5. Signature message:
+        ///
+        ///        "mev-shield:v1" || genesis_hash || raw_payload
+        ///
+        ///   6. Encrypt:
+        ///
+        ///        plaintext = raw_payload || sig_kind || signature(64B)
+        ///
+        ///      with ML‑KEM‑768 + XChaCha20‑Poly1305, producing
+        ///
+        ///        ciphertext = [u16 kem_len] || kem_ct || nonce24 || aead_ct
+        ///
         #[pallet::call_index(1)]
         #[pallet::weight((
             Weight::from_parts(13_980_000, 0)
@@ -227,13 +330,22 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Executed by the block author.
+        /// Executed by the block author after decrypting a batch of wrappers.
+        ///
+        /// The author passes in:
+        ///
+        ///   * `id`       – wrapper id (hash of (author, commitment, ciphertext))
+        ///   * `signer`   – account that should be treated as the origin of `call`
+        ///   * `key_hash` – 32‑byte hash the client embedded (and signed) in the payload
+        ///   * `call`     – inner RuntimeCall to execute on behalf of `signer`
+        ///   * `signature` – MultiSignature over the domain‑separated payload
+        ///
         #[pallet::call_index(2)]
         #[pallet::weight((
             Weight::from_parts(77_280_000, 0)
                 .saturating_add(T::DbWeight::get().reads(4_u64))
-                .saturating_add(T::DbWeight::get().writes(2_u64)),
-            DispatchClass::Operational,
+                .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Normal,
             Pays::No
         ))]
         #[allow(clippy::useless_conversion)]
@@ -241,38 +353,43 @@ pub mod pallet {
             origin: OriginFor<T>,
             id: T::Hash,
             signer: T::AccountId,
-            nonce: T::Nonce,
+            key_hash: T::Hash,
             call: Box<<T as Config>::RuntimeCall>,
             signature: MultiSignature,
         ) -> DispatchResultWithPostInfo {
+            // Unsigned: only the author node may inject this via ValidateUnsigned.
             ensure_none(origin)?;
 
+            // 1) Load and consume the submission.
             let Some(sub) = Submissions::<T>::take(id) else {
                 return Err(Error::<T>::MissingSubmission.into());
             };
 
-            let payload_bytes = Self::build_raw_payload_bytes(&signer, nonce, call.as_ref());
+            // 2) Bind to the MEV‑Shield key epoch at submit time.
+            let expected_key_hash =
+                KeyHashByBlock::<T>::get(sub.submitted_in).ok_or(Error::<T>::KeyExpired)?;
 
-            // 1) Commitment check against on-chain stored commitment.
+            ensure!(key_hash == expected_key_hash, Error::<T>::KeyHashMismatch);
+
+            // 3) Rebuild the same payload bytes the client used for both
+            //    commitment and signature.
+            let payload_bytes = Self::build_raw_payload_bytes(&signer, &key_hash, call.as_ref());
+
+            // 4) Commitment check against on-chain stored commitment.
             let recomputed: T::Hash = T::Hashing::hash(&payload_bytes);
             ensure!(sub.commitment == recomputed, Error::<T>::CommitmentMismatch);
 
-            // 2) Signature check over the same payload.
+            // 5) Signature check over the same payload, with domain separation
+            //    and genesis hash to make signatures chain‑bound.
             let genesis = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
             let mut msg = b"mev-shield:v1".to_vec();
             msg.extend_from_slice(genesis.as_ref());
             msg.extend_from_slice(&payload_bytes);
-            ensure!(
-                signature.verify(msg.as_slice(), &signer),
-                Error::<T>::SignatureInvalid
-            );
 
-            // 3) Nonce check & bump.
-            let acc = frame_system::Pallet::<T>::account_nonce(&signer);
-            ensure!(acc == nonce, Error::<T>::NonceMismatch);
-            frame_system::Pallet::<T>::inc_account_nonce(&signer);
+            let sig_ok = signature.verify(msg.as_slice(), &signer);
+            ensure!(sig_ok, Error::<T>::SignatureInvalid);
 
-            // 4) Dispatch inner call from signer.
+            // 6) Dispatch inner call from signer.
             let info = call.get_dispatch_info();
             let required = info.call_weight.saturating_add(info.extension_weight);
 
@@ -297,30 +414,63 @@ pub mod pallet {
                 }
             }
         }
+
+        /// Marks a submission as failed to decrypt and removes it from storage.
+        ///
+        /// Called by the block author when decryption fails at any stage (e.g., ML-KEM decapsulate
+        /// failed, AEAD decrypt failed, invalid ciphertext format, etc.). This allows clients to be
+        /// notified of decryption failures through on-chain events.
+        ///
+        /// # Arguments
+        ///
+        /// * `id` - The wrapper id (hash of (author, commitment, ciphertext))
+        /// * `reason` - Human-readable reason for the decryption failure (e.g., "ML-KEM decapsulate failed")
+        #[pallet::call_index(3)]
+        #[pallet::weight((
+            Weight::from_parts(13_260_000, 0)
+                .saturating_add(T::DbWeight::get().reads(1_u64))
+                .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Normal,
+            Pays::No
+        ))]
+        pub fn mark_decryption_failed(
+            origin: OriginFor<T>,
+            id: T::Hash,
+            reason: BoundedVec<u8, ConstU32<256>>,
+        ) -> DispatchResult {
+            // Unsigned: only the author node may inject this via ValidateUnsigned.
+            ensure_none(origin)?;
+
+            // Load and consume the submission.
+            let Some(_sub) = Submissions::<T>::take(id) else {
+                return Err(Error::<T>::MissingSubmission.into());
+            };
+
+            // Emit event to notify clients
+            Self::deposit_event(Event::DecryptionFailed { id, reason });
+
+            Ok(())
+        }
     }
 
     impl<T: Config> Pallet<T> {
         /// Build the raw payload bytes used for both:
-        ///   - `commitment = blake2_256(raw_payload)`
-        ///   - signature message (after domain separation).
+        ///
+        ///   * `commitment = T::Hashing::hash(raw_payload)`
+        ///   * signature message (after domain separation)
         ///
         /// Layout:
-        ///   signer (32B) || nonce (u32 LE) || SCALE(call)
+        ///
+        ///   signer (32B) || key_hash (T::Hash bytes) || SCALE(call)
         fn build_raw_payload_bytes(
             signer: &T::AccountId,
-            nonce: T::Nonce,
+            key_hash: &T::Hash,
             call: &<T as Config>::RuntimeCall,
         ) -> Vec<u8> {
             let mut out = Vec::new();
             out.extend_from_slice(signer.as_ref());
-
-            // We canonicalise nonce to u32 LE for the payload.
-            let n_u32: u32 = nonce.saturated_into();
-            out.extend_from_slice(&n_u32.to_le_bytes());
-
-            // Append SCALE-encoded call.
+            out.extend_from_slice(key_hash.as_ref());
             out.extend(call.encode());
-
             out
         }
     }
@@ -336,7 +486,7 @@ pub mod pallet {
                         // Only allow locally-submitted / already-in-block txs.
                         TransactionSource::Local | TransactionSource::InBlock => {
                             ValidTransaction::with_tag_prefix("mev-shield-exec")
-                                .priority(u64::MAX)
+                                .priority(1u64)
                                 .longevity(64) // long because propagate(false)
                                 .and_provides(id) // dedupe by wrapper id
                                 .propagate(false) // CRITICAL: no gossip, stays on author node
@@ -345,7 +495,19 @@ pub mod pallet {
                         _ => InvalidTransaction::Call.into(),
                     }
                 }
-
+                Call::mark_decryption_failed { id, .. } => {
+                    match source {
+                        TransactionSource::Local | TransactionSource::InBlock => {
+                            ValidTransaction::with_tag_prefix("mev-shield-failed")
+                                .priority(1u64)
+                                .longevity(64) // long because propagate(false)
+                                .and_provides(id) // dedupe by wrapper id
+                                .propagate(false) // CRITICAL: no gossip, stays on author node
+                                .build()
+                        }
+                        _ => InvalidTransaction::Call.into(),
+                    }
+                }
                 _ => InvalidTransaction::Call.into(),
             }
         }
