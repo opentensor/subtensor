@@ -221,9 +221,6 @@ mod config {
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
-        /// Coldkey swap reschedule duration.
-        #[pallet::constant]
-        type InitialColdkeySwapRescheduleDuration: Get<BlockNumberFor<Self>>;
         /// Dissolve network schedule duration
         #[pallet::constant]
         type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;

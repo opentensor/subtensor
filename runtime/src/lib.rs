@@ -1039,7 +1039,6 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialKeySwapCost: u64 = 100_000_000; // 0.1 TAO
@@ -1047,14 +1046,11 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
-    // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const InitialColdkeySwapRescheduleDuration: BlockNumber = 24 * 60 * 60 / 12; // 1 day
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    // 7 * 24 * 60 * 60 / 12 = 7 days
-    pub const DurationOfStartCall: u64 = prod_or_fast!(7 * 24 * 60 * 60 / 12, 10);
+    pub const DurationOfStartCall: u64 = prod_or_fast!(7 * 24 * 60 * 60 / 12, 10); //  7 days
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
@@ -1121,7 +1117,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
