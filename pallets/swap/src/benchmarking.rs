@@ -12,7 +12,7 @@ use subtensor_runtime_common::NetUid;
 
 use crate::{
     pallet::{
-        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet,
+        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, Pallet,
         Positions, SwapV3Initialized,
     },
     position::{Position, PositionId},
