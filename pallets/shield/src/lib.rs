@@ -249,15 +249,14 @@ pub mod pallet {
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
-            Pays::Yes
+            Pays::No
         ))]
         #[allow(clippy::useless_conversion)]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: BoundedVec<u8, ConstU32<2048>>,
-        ) -> DispatchResultWithPostInfo {
-            // Only a current Aura validator may call this (signed account ∈ Aura authorities)
-            T::AuthorityOrigin::ensure_validator(origin)?;
+        ) -> DispatchResult {
+            ensure_none(origin)?;
 
             const MAX_KYBER768_PK_LENGTH: usize = 1184;
             ensure!(
@@ -267,11 +266,7 @@ pub mod pallet {
 
             NextKey::<T>::put(public_key);
 
-            // Refund the fee on success by setting pays_fee = Pays::No
-            Ok(PostDispatchInfo {
-                actual_weight: None,
-                pays_fee: Pays::No,
-            })
+            Ok(())
         }
 
         /// Users submit an encrypted wrapper.
@@ -352,7 +347,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             id: T::Hash,
             reason: BoundedVec<u8, ConstU32<256>>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             // Unsigned: only the author node may inject this via ValidateUnsigned.
             ensure_none(origin)?;
 
@@ -364,7 +359,7 @@ pub mod pallet {
             // Emit event to notify clients
             Self::deposit_event(Event::DecryptionFailed { id, reason });
 
-            Ok(())
+            Ok(().into())
         }
     }
 
@@ -382,6 +377,19 @@ pub mod pallet {
                                 .longevity(64) // long because propagate(false)
                                 .and_provides(id) // dedupe by wrapper id
                                 .propagate(false) // CRITICAL: no gossip, stays on author node
+                                .build()
+                        }
+                        _ => InvalidTransaction::Call.into(),
+                    }
+                }
+                Call::announce_next_key { public_key, .. } => {
+                    match source {
+                        TransactionSource::Local | TransactionSource::InBlock => {
+                            ValidTransaction::with_tag_prefix("mev-shield-failed")
+                                .priority(10_000u64)
+                                .longevity(4)
+                                .and_provides(public_key) // dedupe by public_key
+                                .propagate(true)
                                 .build()
                         }
                         _ => InvalidTransaction::Call.into(),

@@ -7,8 +7,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_mev_shield::{
-    Call as MevShieldCall, CurrentKey, Event as MevShieldEvent, KeyHashByBlock, NextKey,
-    Submissions,
+    CurrentKey, Event as MevShieldEvent, KeyHashByBlock, NextKey, Submissions,
 };
 use sp_core::{Pair, sr25519};
 use sp_runtime::{
@@ -41,25 +40,13 @@ fn authority_can_announce_next_key_and_on_initialize_rolls_it_and_records_epoch_
         let bounded_pk: BoundedVec<u8, FrameConstU32<2048>> =
             BoundedVec::truncate_from(pk_bytes.clone());
 
-        // Seed Aura authorities with a single validator and derive the matching account.
-        let validator_pair = test_sr25519_pair();
-        let validator_account: AccountId32 = validator_pair.public().into();
-        let validator_aura_id: <Test as pallet_aura::Config>::AuthorityId =
-            validator_pair.public().into();
-
-        // Authorities storage expects a BoundedVec<AuthorityId, MaxAuthorities>.
-        let authorities: BoundedVec<
-            <Test as pallet_aura::Config>::AuthorityId,
-            <Test as pallet_aura::Config>::MaxAuthorities,
-        > = BoundedVec::truncate_from(vec![validator_aura_id.clone()]);
-        pallet_aura::Authorities::<Test>::put(authorities);
-
+        // Initially there is no current or next key.
         assert!(CurrentKey::<Test>::get().is_none());
         assert!(NextKey::<Test>::get().is_none());
 
-        // Signed by an Aura validator -> passes TestAuthorityOrigin::ensure_validator.
+        // The call is now UNSIGNED-ONLY: origin must be `RuntimeOrigin::none()`.
         assert_ok!(MevShield::announce_next_key(
-            RuntimeOrigin::signed(validator_account.clone()),
+            RuntimeOrigin::none(),
             bounded_pk.clone(),
         ));
 
@@ -91,22 +78,12 @@ fn announce_next_key_rejects_non_validator_origins() {
     new_test_ext().execute_with(|| {
         const KYBER_PK_LEN: usize = 1184;
 
-        // Validator account: bytes match the Aura authority we put into storage.
+        // Two arbitrary accounts (one we used to think of as "validator", one as "non‑validator").
         let validator_pair = test_sr25519_pair();
         let validator_account: AccountId32 = validator_pair.public().into();
-        let validator_aura_id: <Test as pallet_aura::Config>::AuthorityId =
-            validator_pair.public().into();
 
-        // Non‑validator is some other key (not in Aura::Authorities<Test>).
         let non_validator_pair = sr25519::Pair::from_seed(&[2u8; 32]);
         let non_validator: AccountId32 = non_validator_pair.public().into();
-
-        // Only the validator is in the Aura validator set.
-        let authorities: BoundedVec<
-            <Test as pallet_aura::Config>::AuthorityId,
-            <Test as pallet_aura::Config>::MaxAuthorities,
-        > = BoundedVec::truncate_from(vec![validator_aura_id.clone()]);
-        pallet_aura::Authorities::<Test>::put(authorities);
 
         let pk_bytes = vec![9u8; KYBER_PK_LEN];
         let bounded_pk: BoundedVec<u8, FrameConstU32<2048>> =
@@ -121,19 +98,22 @@ fn announce_next_key_rejects_non_validator_origins() {
             sp_runtime::DispatchError::BadOrigin
         );
 
-        // 2) Unsigned origin must also fail with BadOrigin.
+        // 2) Signed validator origin ALSO fails with BadOrigin: this call is unsigned-only now.
         assert_noop!(
-            MevShield::announce_next_key(RuntimeOrigin::none(), bounded_pk.clone(),),
+            MevShield::announce_next_key(
+                RuntimeOrigin::signed(validator_account.clone()),
+                bounded_pk.clone(),
+            ),
             sp_runtime::DispatchError::BadOrigin
         );
 
-        // 3) Signed validator origin succeeds (sanity check).
+        // 3) Unsigned origin (RuntimeOrigin::none()) succeeds.
         assert_ok!(MevShield::announce_next_key(
-            RuntimeOrigin::signed(validator_account.clone()),
+            RuntimeOrigin::none(),
             bounded_pk.clone(),
         ));
 
-        let next = NextKey::<Test>::get().expect("NextKey must be set by validator");
+        let next = NextKey::<Test>::get().expect("NextKey must be set by unsigned origin");
         assert_eq!(next, pk_bytes);
     });
 }
@@ -370,74 +350,5 @@ fn mark_decryption_failed_removes_submission_and_emits_event() {
         // A second call with the same id should now fail with MissingSubmission.
         let res = MevShield::mark_decryption_failed(RuntimeOrigin::none(), id, reason);
         assert_noop!(res, pallet_mev_shield::Error::<Test>::MissingSubmission);
-    });
-}
-
-#[test]
-fn announce_next_key_charges_then_refunds_fee() {
-    new_test_ext().execute_with(|| {
-        const KYBER_PK_LEN: usize = 1184;
-
-        // ---------------------------------------------------------------------
-        // 1. Seed Aura authorities with a single validator and derive account.
-        // ---------------------------------------------------------------------
-        let validator_pair = test_sr25519_pair();
-        let validator_account: AccountId32 = validator_pair.public().into();
-        let validator_aura_id: <Test as pallet_aura::Config>::AuthorityId =
-            validator_pair.public().into();
-
-        let authorities: BoundedVec<
-            <Test as pallet_aura::Config>::AuthorityId,
-            <Test as pallet_aura::Config>::MaxAuthorities,
-        > = BoundedVec::truncate_from(vec![validator_aura_id]);
-        pallet_aura::Authorities::<Test>::put(authorities);
-
-        // ---------------------------------------------------------------------
-        // 2. Build a valid Kyber public key and the corresponding RuntimeCall.
-        // ---------------------------------------------------------------------
-        let pk_bytes = vec![42u8; KYBER_PK_LEN];
-        let bounded_pk: BoundedVec<u8, FrameConstU32<2048>> =
-            BoundedVec::truncate_from(pk_bytes.clone());
-
-        let runtime_call = RuntimeCall::MevShield(MevShieldCall::<Test>::announce_next_key {
-            public_key: bounded_pk.clone(),
-        });
-
-        // ---------------------------------------------------------------------
-        // 3. Pre-dispatch: DispatchInfo must say Pays::Yes.
-        // ---------------------------------------------------------------------
-        let pre_info = <RuntimeCall as frame_support::dispatch::GetDispatchInfo>::get_dispatch_info(
-            &runtime_call,
-        );
-
-        assert_eq!(
-            pre_info.pays_fee,
-            frame_support::dispatch::Pays::Yes,
-            "announce_next_key must be declared as fee-paying at pre-dispatch"
-        );
-
-        // ---------------------------------------------------------------------
-        // 4. Dispatch via the pallet function.
-        // ---------------------------------------------------------------------
-        let post = MevShield::announce_next_key(
-            RuntimeOrigin::signed(validator_account.clone()),
-            bounded_pk.clone(),
-        )
-        .expect("announce_next_key should succeed for an Aura validator");
-
-        // Post-dispatch info should switch pays_fee from Yes -> No (refund).
-        assert_eq!(
-            post.pays_fee,
-            frame_support::dispatch::Pays::No,
-            "announce_next_key must refund the previously chargeable fee"
-        );
-
-        // And we don't override the actual weight (None => use pre-dispatch weight).
-        assert!(
-            post.actual_weight.is_none(),
-            "announce_next_key should not override actual_weight in PostDispatchInfo"
-        );
-        let next = NextKey::<Test>::get().expect("NextKey should be set by announce_next_key");
-        assert_eq!(next, pk_bytes);
     });
 }
