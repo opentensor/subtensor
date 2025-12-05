@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use crate::MIN_COMMIT_REVEAL_PEROIDS;
+use crate::MIN_COMMIT_REVEAL_PERIODS;
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 use subtensor_runtime_common::NetUid;
@@ -45,7 +45,7 @@ pub fn migrate_commit_reveal_settings<T: Config>() -> Weight {
         }
 
         if RevealPeriodEpochs::<T>::get(*netuid) == 0 {
-            RevealPeriodEpochs::<T>::insert(*netuid, MIN_COMMIT_REVEAL_PEROIDS);
+            RevealPeriodEpochs::<T>::insert(*netuid, MIN_COMMIT_REVEAL_PERIODS);
             weight = weight.saturating_add(T::DbWeight::get().writes(1));
         }
     }

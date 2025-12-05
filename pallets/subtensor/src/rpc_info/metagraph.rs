@@ -90,7 +90,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     coldkeys: Vec<AccountId>,                   // coldkey per UID
     identities: Vec<Option<ChainIdentityOfV2>>, // coldkeys identities
     axons: Vec<AxonInfo>,                       // UID axons
-    active: Vec<bool>,                          // Avtive per UID
+    active: Vec<bool>,                          // Active per UID
     validator_permit: Vec<bool>,                // Val permit per UID
     pruning_score: Vec<Compact<u16>>,           // Pruning per UID
     last_update: Vec<Compact<u64>>,             // Last update per UID
@@ -141,7 +141,7 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     alpha_in_emission: Option<Compact<AlphaCurrency>>,  // amount injected outstanding per block
     tao_in_emission: Option<Compact<TaoCurrency>>,      // amount of tao injected per block
     pending_alpha_emission: Option<Compact<AlphaCurrency>>, // pending alpha to be distributed
-    pending_root_emission: Option<Compact<TaoCurrency>>, // panding tao for root divs to be distributed
+    pending_root_emission: Option<Compact<TaoCurrency>>, // pending tao for root divs to be distributed
     subnet_volume: Option<Compact<u128>>,                // volume of the subnet in TAO
     moving_price: Option<I96F32>,                        // subnet moving price.
 
@@ -190,7 +190,7 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     coldkeys: Option<Vec<AccountId>>, // coldkey per UID
     identities: Option<Vec<Option<ChainIdentityOfV2>>>, // coldkeys identities
     axons: Option<Vec<AxonInfo>>,     // UID axons.
-    active: Option<Vec<bool>>,        // Avtive per UID
+    active: Option<Vec<bool>>,        // Active per UID
     validator_permit: Option<Vec<bool>>, // Val permit per UID
     pruning_score: Option<Vec<Compact<u16>>>, // Pruning per UID
     last_update: Option<Vec<Compact<u64>>>, // Last update per UID
@@ -697,7 +697,7 @@ impl<T: Config> Pallet<T> {
             pending_alpha_emission: PendingValidatorEmission::<T>::get(netuid)
                 .saturating_add(PendingServerEmission::<T>::get(netuid))
                 .into(), // pending alpha to be distributed
-            pending_root_emission: TaoCurrency::from(0u64).into(), // panding tao for root divs to be distributed
+            pending_root_emission: TaoCurrency::from(0u64).into(), // pending tao for root divs to be distributed
             subnet_volume: subnet_volume.into(),
             moving_price: SubnetMovingPrice::<T>::get(netuid),
 
@@ -1650,13 +1650,13 @@ fn test_selective_metagraph() {
     metagraph.merge_value(&metagraph_name, name_index);
     assert!(metagraph.name.is_some());
 
-    let alph_low_index: usize = 50;
+    let alpha_low_index: usize = 50;
     let metagraph_alpha_low = SelectiveMetagraph::<u32> {
         netuid: NetUid::ROOT.into(),
         alpha_low: Some(0_u16.into()),
         ..Default::default()
     };
     assert!(metagraph.alpha_low.is_none());
-    metagraph.merge_value(&metagraph_alpha_low, alph_low_index);
+    metagraph.merge_value(&metagraph_alpha_low, alpha_low_index);
     assert!(metagraph.alpha_low.is_some());
 }
