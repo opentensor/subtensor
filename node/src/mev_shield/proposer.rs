@@ -4,17 +4,15 @@ use ml_kem::kem::{Decapsulate, DecapsulationKey};
 use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
 use sc_service::SpawnTaskHandle;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
-use sp_core::{H256, sr25519};
+use sp_core::H256;
 use sp_runtime::traits::{Header, SaturatedConversion};
-use sp_runtime::{AccountId32, MultiSignature, OpaqueExtrinsic};
+use sp_runtime::{AccountId32, OpaqueExtrinsic};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::time::sleep;
-
-const KEY_FP_LEN: usize = 32;
 
 /// Buffer of wrappers keyed by the block number in which they were included.
 #[derive(Default, Clone)]
@@ -84,7 +82,7 @@ impl WrapperBuffer {
 /// Start a background worker that:
 ///   • watches imported blocks and captures `MevShield::submit_encrypted`
 ///   • buffers those wrappers per originating block,
-///   • during the last `decrypt_window_ms` of the slot: decrypt & submit unsigned `execute_revealed`
+///   • during the last `decrypt_window_ms` of the slot: decrypt & submit `submit_one`
 pub fn spawn_revealer<B, C, Pool>(
     task_spawner: &SpawnTaskHandle,
     client: Arc<C>,
@@ -347,8 +345,27 @@ pub fn spawn_revealer<B, C, Pool>(
                         curr_block
                     );
 
-                    let mut to_submit: Vec<(H256, node_subtensor_runtime::RuntimeCall)> =
+                    let mut to_submit: Vec<(H256, node_subtensor_runtime::UncheckedExtrinsic)> =
                         Vec::new();
+                    let mut failed_calls: Vec<(H256, node_subtensor_runtime::RuntimeCall)> =
+                        Vec::new();
+
+                    // Helper to create mark_decryption_failed call
+                    let create_failed_call = |id: H256, reason: &str| -> node_subtensor_runtime::RuntimeCall {
+                        use sp_runtime::BoundedVec;
+                        let reason_bytes = reason.as_bytes();
+                        let reason_bounded = BoundedVec::try_from(reason_bytes.to_vec())
+                            .unwrap_or_else(|_| { // Fallback if the reason is too long
+                                BoundedVec::try_from(b"Decryption failed".to_vec()).unwrap_or_default()
+                            });
+
+                        node_subtensor_runtime::RuntimeCall::MevShield(
+                            pallet_shield::Call::mark_decryption_failed {
+                                id,
+                                reason: reason_bounded,
+                            },
+                        )
+                    };
 
                     for (id, block_number, author, blob) in drained.into_iter() {
                         log::debug!(
@@ -363,11 +380,17 @@ pub fn spawn_revealer<B, C, Pool>(
 
                         // Safely parse blob: [u16 kem_len][kem_ct][nonce24][aead_ct]
                         if blob.len() < 2 {
+                            let error_message = "blob too short to contain kem_len";
                             log::debug!(
                                 target: "mev-shield",
-                                "  id=0x{}: blob too short to contain kem_len",
-                                hex::encode(id.as_bytes())
+                                "  id=0x{}: {}",
+                                hex::encode(id.as_bytes()),
+                                error_message
                             );
+                            failed_calls.push((
+                                id,
+                                create_failed_call(id, error_message),
+                            ));
                             continue;
                         }
 
@@ -377,11 +400,17 @@ pub fn spawn_revealer<B, C, Pool>(
                         let kem_len_end = match cursor.checked_add(2usize) {
                             Some(e) => e,
                             None => {
+                                let error_message = "kem_len range overflow";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: kem_len range overflow",
-                                    hex::encode(id.as_bytes())
+                                    "  id=0x{}: {}",
+                                    hex::encode(id.as_bytes()),
+                                    error_message
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
@@ -389,13 +418,19 @@ pub fn spawn_revealer<B, C, Pool>(
                         let kem_len_slice = match blob.get(cursor..kem_len_end) {
                             Some(s) => s,
                             None => {
+                                let error_message = "blob too short for kem_len bytes";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: blob too short for kem_len bytes (cursor={} end={})",
+                                    "  id=0x{}: {} (cursor={} end={})",
                                     hex::encode(id.as_bytes()),
+                                    error_message,
                                     cursor,
                                     kem_len_end
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
@@ -403,11 +438,17 @@ pub fn spawn_revealer<B, C, Pool>(
                         let kem_len_bytes: [u8; 2] = match kem_len_slice.try_into() {
                             Ok(arr) => arr,
                             Err(_) => {
+                                let error_message = "kem_len slice not 2 bytes";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: kem_len slice not 2 bytes",
-                                    hex::encode(id.as_bytes())
+                                    "  id=0x{}: {}",
+                                    hex::encode(id.as_bytes()),
+                                    error_message
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
@@ -419,13 +460,19 @@ pub fn spawn_revealer<B, C, Pool>(
                         let kem_ct_end = match cursor.checked_add(kem_len) {
                             Some(e) => e,
                             None => {
+                                let error_message = "kem_ct range overflow";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: kem_ct range overflow (cursor={} kem_len={})",
+                                    "  id=0x{}: {} (cursor={} kem_len={})",
                                     hex::encode(id.as_bytes()),
+                                    error_message,
                                     cursor,
                                     kem_len
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
@@ -433,13 +480,19 @@ pub fn spawn_revealer<B, C, Pool>(
                         let kem_ct_bytes = match blob.get(cursor..kem_ct_end) {
                             Some(s) => s,
                             None => {
+                                let error_message = "blob too short for kem_ct";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: blob too short for kem_ct (cursor={} end={})",
+                                    "  id=0x{}: {} (cursor={} end={})",
                                     hex::encode(id.as_bytes()),
+                                    error_message,
                                     cursor,
                                     kem_ct_end
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
@@ -450,12 +503,18 @@ pub fn spawn_revealer<B, C, Pool>(
                         let nonce_end = match cursor.checked_add(NONCE_LEN) {
                             Some(e) => e,
                             None => {
+                                let error_message = "nonce range overflow";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: nonce range overflow (cursor={})",
+                                    "  id=0x{}: {} (cursor={})",
                                     hex::encode(id.as_bytes()),
+                                    error_message,
                                     cursor
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
@@ -463,13 +522,19 @@ pub fn spawn_revealer<B, C, Pool>(
                         let nonce_bytes = match blob.get(cursor..nonce_end) {
                             Some(s) => s,
                             None => {
+                                let error_message = "blob too short for nonce24";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: blob too short for nonce24 (cursor={} end={})",
+                                    "  id=0x{}: {} (cursor={} end={})",
                                     hex::encode(id.as_bytes()),
+                                    error_message,
                                     cursor,
                                     nonce_end
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
@@ -479,12 +544,18 @@ pub fn spawn_revealer<B, C, Pool>(
                         let aead_body = match blob.get(cursor..) {
                             Some(s) => s,
                             None => {
+                                let error_message = "blob too short for aead_body";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: blob too short for aead_body (cursor={})",
+                                    "  id=0x{}: {} (cursor={})",
                                     hex::encode(id.as_bytes()),
+                                    error_message,
                                     cursor
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
@@ -510,13 +581,19 @@ pub fn spawn_revealer<B, C, Pool>(
                             ) {
                                 Ok(e) => e,
                                 Err(e) => {
+                                    let error_message = "DecapsulationKey::try_from failed";
                                     log::debug!(
                                         target: "mev-shield",
-                                        "  id=0x{}: DecapsulationKey::try_from(sk_bytes) failed (len={}, err={:?})",
+                                        "  id=0x{}: {} (len={}, err={:?})",
                                         hex::encode(id.as_bytes()),
+                                        error_message,
                                         curr_sk_bytes.len(),
                                         e
                                     );
+                                    failed_calls.push((
+                                        id,
+                                        create_failed_call(id, error_message),
+                                    ));
                                     continue;
                                 }
                             };
@@ -525,12 +602,18 @@ pub fn spawn_revealer<B, C, Pool>(
                         let ct = match Ciphertext::<MlKem768>::try_from(kem_ct_bytes) {
                             Ok(c) => c,
                             Err(e) => {
+                                let error_message = "Ciphertext::try_from failed";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: Ciphertext::try_from failed: {:?}",
+                                    "  id=0x{}: {}: {:?}",
                                     hex::encode(id.as_bytes()),
+                                    error_message,
                                     e
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
@@ -538,23 +621,35 @@ pub fn spawn_revealer<B, C, Pool>(
                         let ss = match sk.decapsulate(&ct) {
                             Ok(s) => s,
                             Err(_) => {
+                                let error_message = "ML-KEM decapsulate failed";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: ML-KEM decapsulate() failed",
-                                    hex::encode(id.as_bytes())
+                                    "  id=0x{}: {}",
+                                    hex::encode(id.as_bytes()),
+                                    error_message
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
 
                         let ss_bytes: &[u8] = ss.as_ref();
                         if ss_bytes.len() != 32 {
+                            let error_message = "shared secret length != 32";
                             log::debug!(
                                 target: "mev-shield",
-                                "  id=0x{}: shared secret len={} != 32; skipping",
+                                "  id=0x{}: {} (len={})",
                                 hex::encode(id.as_bytes()),
+                                error_message,
                                 ss_bytes.len()
                             );
+                            failed_calls.push((
+                                id,
+                                create_failed_call(id, error_message),
+                            ));
                             continue;
                         }
                         let mut ss32 = [0u8; 32];
@@ -597,10 +692,12 @@ pub fn spawn_revealer<B, C, Pool>(
                         ) {
                             Some(pt) => pt,
                             None => {
+                                let error_message = "AEAD decrypt failed";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: AEAD decrypt FAILED; ct_hash=0x{}",
+                                    "  id=0x{}: {}; ct_hash=0x{}",
                                     hex::encode(id.as_bytes()),
+                                    error_message,
                                     hex::encode(aead_body_hash),
                                 );
                                 continue;
@@ -615,191 +712,77 @@ pub fn spawn_revealer<B, C, Pool>(
                         );
 
                         // Safely parse plaintext layout without panics.
-                        //
-                        // Layout:
-                        //   signer   (32)
-                        //   key_hash (32)  == Hashing::hash(NextKey_bytes) at submit time
-                        //   call     (..)
-                        //   sig_kind (1)
-                        //   sig      (64)
-                        let min_plain_len: usize = 32usize
-                            .saturating_add(KEY_FP_LEN)
-                            .saturating_add(1usize)
-                            .saturating_add(64usize);
 
-                        if plaintext.len() < min_plain_len {
+                        if plaintext.is_empty() {
+                            let error_message = "plaintext too short";
                             log::debug!(
                                 target: "mev-shield",
-                                "  id=0x{}: plaintext too short ({}) for expected layout (min={})",
+                                "  id=0x{}: {} (len={}, min={})",
                                 hex::encode(id.as_bytes()),
+                                error_message,
                                 plaintext.len(),
-                                min_plain_len
+                                1
                             );
+                            failed_calls.push((
+                                id,
+                                create_failed_call(id, error_message),
+                            ));
                             continue;
                         }
 
-                        let signer_raw = match plaintext.get(0..32) {
-                            Some(s) => s,
-                            None => {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: missing signer bytes",
-                                    hex::encode(id.as_bytes())
-                                );
-                                continue;
-                            }
-                        };
-
-                        let key_hash_raw = match plaintext.get(32..32usize.saturating_add(KEY_FP_LEN))
-                        {
-                            Some(s) if s.len() == KEY_FP_LEN => s,
-                            _ => {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: missing or malformed key_hash bytes",
-                                    hex::encode(id.as_bytes())
-                                );
-                                continue;
-                            }
-                        };
-
-                        // sig_off = len - 65 (sig_kind + 64-byte sig)
-                        let sig_min_offset: usize =
-                            32usize.saturating_add(KEY_FP_LEN);
-
-                        let sig_off = match plaintext.len().checked_sub(65usize) {
-                            Some(off) if off >= sig_min_offset => off,
-                            _ => {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: invalid plaintext length for signature split (len={})",
-                                    hex::encode(id.as_bytes()),
-                                    plaintext.len()
-                                );
-                                continue;
-                            }
-                        };
-
-                        let call_start: usize = sig_min_offset;
-                        let call_bytes = match plaintext.get(call_start..sig_off) {
+                        let signed_extrinsic_bytes = match plaintext.get(0..plaintext.len()) {
                             Some(s) if !s.is_empty() => s,
                             _ => {
+                                let error_message = "missing signed extrinsic bytes";
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: missing call bytes",
-                                    hex::encode(id.as_bytes())
+                                    "  id=0x{}: {}",
+                                    hex::encode(id.as_bytes()),
+                                    error_message
                                 );
+                                failed_calls.push((
+                                    id,
+                                    create_failed_call(id, error_message),
+                                ));
                                 continue;
                             }
                         };
 
-                        let sig_kind = match plaintext.get(sig_off) {
-                            Some(b) => *b,
-                            None => {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: missing signature kind byte",
-                                    hex::encode(id.as_bytes())
-                                );
-                                continue;
-                            }
-                        };
 
-                        let sig_bytes_start = sig_off.saturating_add(1usize);
-                        let sig_bytes = match plaintext.get(sig_bytes_start..) {
-                            Some(s) if s.len() == 64 => s,
-                            _ => {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: signature bytes not 64 bytes",
-                                    hex::encode(id.as_bytes())
-                                );
-                                continue;
-                            }
-                        };
-
-                        let signer_array: [u8; 32] = match signer_raw.try_into() {
-                            Ok(a) => a,
-                            Err(_) => {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: signer_raw not 32 bytes",
-                                    hex::encode(id.as_bytes())
-                                );
-                                continue;
-                            }
-                        };
-                        let signer = sp_runtime::AccountId32::new(signer_array);
-
-                        let mut fp_array = [0u8; KEY_FP_LEN];
-                        fp_array.copy_from_slice(key_hash_raw);
-                        let key_hash_h256 = H256(fp_array);
-
-                        let inner_call: node_subtensor_runtime::RuntimeCall =
-                            match Decode::decode(&mut &call_bytes[..]) {
+                        let signed_extrinsic: node_subtensor_runtime::UncheckedExtrinsic =
+                            match Decode::decode(&mut &signed_extrinsic_bytes[..]) {
                                 Ok(c) => c,
                                 Err(e) => {
+                                    let error_message = "failed to decode UncheckedExtrinsic";
                                     log::debug!(
                                         target: "mev-shield",
-                                        "  id=0x{}: failed to decode RuntimeCall (len={}): {:?}",
+                                        "  id=0x{}: {} (len={}): {:?}",
                                         hex::encode(id.as_bytes()),
-                                        call_bytes.len(),
+                                        error_message,
+                                        signed_extrinsic_bytes.len(),
                                         e
                                     );
+                                    failed_calls.push((
+                                        id,
+                                        create_failed_call(id, error_message),
+                                    ));
                                     continue;
                                 }
                             };
 
-                        let signature: MultiSignature =
-                            if sig_kind == 0x01 {
-                                let mut raw_sig = [0u8; 64];
-                                raw_sig.copy_from_slice(sig_bytes);
-                                MultiSignature::from(sr25519::Signature::from_raw(raw_sig))
-                            } else {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "  id=0x{}: unsupported signature format kind=0x{:02x}, len={}",
-                                    hex::encode(id.as_bytes()),
-                                    sig_kind,
-                                    sig_bytes.len()
-                                );
-                                continue;
-                            };
-
-                        log::debug!(
-                            target: "mev-shield",
-                            "  id=0x{}: decrypted wrapper: signer={}, key_hash=0x{}, call={:?}",
-                            hex::encode(id.as_bytes()),
-                            signer,
-                            hex::encode(key_hash_h256.as_bytes()),
-                            inner_call
-                        );
-
-                        let reveal = node_subtensor_runtime::RuntimeCall::MevShield(
-                            pallet_shield::Call::execute_revealed {
-                                id,
-                                signer: signer.clone(),
-                                key_hash: key_hash_h256.into(),
-                                call: Box::new(inner_call),
-                                signature,
-                            },
-                        );
-
-                        to_submit.push((id, reveal));
+                        to_submit.push((id, signed_extrinsic));
                     }
 
-                    // Submit locally.
+                    // Submit as external the signed extrinsics.
                     let at = client.info().best_hash;
                     log::debug!(
                         target: "mev-shield",
-                        "revealer: submitting {} execute_revealed calls at best_hash={:?}",
+                        "revealer: submitting {} extrinsics to pool at best_hash={:?}",
                         to_submit.len(),
                         at
                     );
 
-                    for (id, call) in to_submit.into_iter() {
-                        let uxt: node_subtensor_runtime::UncheckedExtrinsic =
-                            node_subtensor_runtime::UncheckedExtrinsic::new_bare(call);
+                    for (id, uxt) in to_submit.into_iter() {
                         let xt_bytes = uxt.encode();
 
                         log::debug!(
@@ -812,7 +795,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         match OpaqueExtrinsic::from_bytes(&xt_bytes) {
                             Ok(opaque) => {
                                 match pool
-                                    .submit_one(at, TransactionSource::Local, opaque)
+                                    .submit_one(at, TransactionSource::External, opaque)
                                     .await
                                 {
                                     Ok(_) => {
@@ -820,7 +803,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                             sp_core::hashing::blake2_256(&xt_bytes);
                                         log::debug!(
                                             target: "mev-shield",
-                                            "  id=0x{}: submit_one(execute_revealed) OK, xt_hash=0x{}",
+                                            "  id=0x{}: submit_one(...) OK, xt_hash=0x{}",
                                             hex::encode(id.as_bytes()),
                                             hex::encode(xt_hash)
                                         );
@@ -828,7 +811,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     Err(e) => {
                                         log::debug!(
                                             target: "mev-shield",
-                                            "  id=0x{}: submit_one(execute_revealed) FAILED: {:?}",
+                                            "  id=0x{}: submit_one(...) FAILED: {:?}",
                                             hex::encode(id.as_bytes()),
                                             e
                                         );
@@ -842,6 +825,65 @@ pub fn spawn_revealer<B, C, Pool>(
                                     hex::encode(id.as_bytes()),
                                     e
                                 );
+                            }
+                        }
+                    }
+
+                    // Submit failed decryption calls
+                    if !failed_calls.is_empty() {
+                        log::debug!(
+                            target: "mev-shield",
+                            "revealer: submitting {} mark_decryption_failed calls at best_hash={:?}",
+                            failed_calls.len(),
+                            at
+                        );
+
+                        for (id, call) in failed_calls.into_iter() {
+                            let uxt: node_subtensor_runtime::UncheckedExtrinsic =
+                                node_subtensor_runtime::UncheckedExtrinsic::new_bare(call);
+                            let xt_bytes = uxt.encode();
+
+                            log::debug!(
+                                target: "mev-shield",
+                                "  id=0x{}: encoded mark_decryption_failed UncheckedExtrinsic len={}",
+                                hex::encode(id.as_bytes()),
+                                xt_bytes.len()
+                            );
+
+                            match OpaqueExtrinsic::from_bytes(&xt_bytes) {
+                                Ok(opaque) => {
+                                    match pool
+                                        .submit_one(at, TransactionSource::Local, opaque)
+                                        .await
+                                    {
+                                        Ok(_) => {
+                                            let xt_hash =
+                                                sp_core::hashing::blake2_256(&xt_bytes);
+                                            log::debug!(
+                                                target: "mev-shield",
+                                                "  id=0x{}: submit_one(mark_decryption_failed) OK, xt_hash=0x{}",
+                                                hex::encode(id.as_bytes()),
+                                                hex::encode(xt_hash)
+                                            );
+                                        }
+                                        Err(e) => {
+                                            log::warn!(
+                                                target: "mev-shield",
+                                                "  id=0x{}: submit_one(mark_decryption_failed) FAILED: {:?}",
+                                                hex::encode(id.as_bytes()),
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    log::warn!(
+                                        target: "mev-shield",
+                                        "  id=0x{}: OpaqueExtrinsic::from_bytes(mark_decryption_failed) failed: {:?}",
+                                        hex::encode(id.as_bytes()),
+                                        e
+                                    );
+                                }
                             }
                         }
                     }
