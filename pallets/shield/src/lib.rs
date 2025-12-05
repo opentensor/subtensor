@@ -279,21 +279,12 @@ pub mod pallet {
         /// Client‑side:
         ///
         ///   1. Read `NextKey` (ML‑KEM public key bytes) from storage.
-        ///   2. Compute `key_hash = Hashing::hash(NextKey_bytes)`.
-        ///   3. Build:
+		///   2. Sign your extrinsic so that it can be executed when added to the pool,
+		///        i.e. you may need to increment the nonce if you submit using the same account.
+        ///   3. `commitment = Hashing::hash(signed_extrinsic)`.
+        ///   4. Encrypt:
         ///
-        ///        raw_payload = signer (32B AccountId)
-        ///                    || key_hash (32B Hash)
-        ///                    || SCALE(call)
-        ///
-        ///   4. `commitment = Hashing::hash(raw_payload)`.
-        ///   5. Signature message:
-        ///
-        ///        "mev-shield:v1" || genesis_hash || raw_payload
-        ///
-        ///   6. Encrypt:
-        ///
-        ///        plaintext = raw_payload || sig_kind || signature(64B)
+        ///        plaintext = signed_extrinsic
         ///
         ///      with ML‑KEM‑768 + XChaCha20‑Poly1305, producing
         ///
