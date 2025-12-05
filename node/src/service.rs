@@ -568,7 +568,7 @@ where
             timing.clone(),
         );
 
-        // Start last-portion-of-slot revealer (decrypt -> execute_revealed).
+        // Start last-portion-of-slot revealer (decrypt -> submit_one).
         proposer::spawn_revealer::<Block, _, _>(
             &task_manager.spawn_handle(),
             client.clone(),
