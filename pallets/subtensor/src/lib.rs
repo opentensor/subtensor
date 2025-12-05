@@ -2433,7 +2433,7 @@ pub mod pallet {
 
 #[derive(Debug, PartialEq)]
 pub enum CustomTransactionError {
-    ColdkeyInSwapSchedule,
+    ColdkeySwapAnnounced,
     StakeAmountTooLow,
     BalanceTooLow,
     SubnetNotExists,
@@ -2460,7 +2460,7 @@ pub enum CustomTransactionError {
 impl From<CustomTransactionError> for u8 {
     fn from(variant: CustomTransactionError) -> u8 {
         match variant {
-            CustomTransactionError::ColdkeyInSwapSchedule => 0,
+            CustomTransactionError::ColdkeySwapAnnounced => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
             CustomTransactionError::BalanceTooLow => 2,
             CustomTransactionError::SubnetNotExists => 3,
