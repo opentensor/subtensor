@@ -343,6 +343,7 @@ pub mod pallet {
             DispatchClass::Normal,
             Pays::No
         ))]
+        #[allow(clippy::useless_conversion)]
         pub fn mark_decryption_failed(
             origin: OriginFor<T>,
             id: T::Hash,
