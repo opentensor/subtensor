@@ -420,6 +420,89 @@ fn execute_revealed_rejects_replay_for_same_wrapper_id() {
 }
 
 #[test]
+fn execute_revealed_rejects_submission_by_other_origin() {
+    new_test_ext().execute_with(|| {
+        let pair = test_sr25519_pair();
+        let attacker_pair = sr25519::Pair::from_seed(&[2u8; 32]);
+
+        let signer: AccountId32 = pair.public().into();
+        let attacker: AccountId32 = attacker_pair.public().into();
+        assert_ne!(signer, attacker);
+
+        let inner_call = RuntimeCall::System(frame_system::Call::<Test>::remark {
+            remark: b"replay-test".to_vec(),
+        });
+
+        System::set_block_number(10);
+        let submitted_in = System::block_number();
+
+        let key_hash: TestHash = <Test as frame_system::Config>::Hashing::hash(b"replay-epoch");
+        KeyHashByBlock::<Test>::insert(submitted_in, key_hash);
+
+        let payload_bytes = build_raw_payload_bytes_for_test(&signer, &key_hash, &inner_call);
+        let commitment: TestHash =
+            <Test as frame_system::Config>::Hashing::hash(payload_bytes.as_ref());
+
+        let ciphertext_bytes = vec![7u8; 16];
+        let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
+            BoundedVec::truncate_from(ciphertext_bytes.clone());
+
+        assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(signer.clone()),
+            commitment,
+            ciphertext.clone(),
+        ));
+
+        assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(attacker.clone()),
+            commitment,
+            ciphertext.clone(),
+        ));
+
+        let id: TestHash = <Test as frame_system::Config>::Hashing::hash_of(&(
+            signer.clone(),
+            commitment,
+            &ciphertext,
+        ));
+
+        let id2: TestHash = <Test as frame_system::Config>::Hashing::hash_of(&(
+            attacker.clone(),
+            commitment,
+            &ciphertext,
+        ));
+
+        let genesis = System::block_hash(0);
+        let mut msg = b"mev-shield:v1".to_vec();
+        msg.extend_from_slice(genesis.as_ref());
+        msg.extend_from_slice(&payload_bytes);
+
+        let sig_sr25519 = pair.sign(&msg);
+        let signature: MultiSignature = sig_sr25519.into();
+
+        // First execution succeeds.
+        assert_ok!(MevShield::execute_revealed(
+            RuntimeOrigin::none(),
+            id,
+            signer.clone(),
+            key_hash,
+            Box::new(inner_call.clone()),
+            signature.clone(),
+        ));
+
+        // Second execution with the same commitment, but different id
+        let attack_res = MevShield::execute_revealed(
+            RuntimeOrigin::none(),
+            id2,
+            signer.clone(),
+            key_hash,
+            Box::new(inner_call.clone()),
+            signature,
+        );
+        assert_noop!(attack_res, pallet_mev_shield::Error::<Test>::SignerMismatch);
+    });
+}
+
+#[test]
 fn key_hash_by_block_prunes_old_entries() {
     new_test_ext().execute_with(|| {
         // This must match the constant configured in the pallet.

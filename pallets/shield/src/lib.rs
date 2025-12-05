@@ -165,6 +165,8 @@ pub mod pallet {
         KeyExpired,
         /// The provided `key_hash` does not match the expected epoch key hash.
         KeyHashMismatch,
+        /// The provided signer does not match the submission author.
+        SignerMismatch,
     }
 
     // ----------------- Hooks -----------------
@@ -365,21 +367,24 @@ pub mod pallet {
                 return Err(Error::<T>::MissingSubmission.into());
             };
 
-            // 2) Bind to the MEV‑Shield key epoch at submit time.
+            // 2) Ensure the signer matches the submission author.
+            ensure!(sub.author == signer, Error::<T>::SignerMismatch);
+
+            // 3) Bind to the MEV‑Shield key epoch at submit time.
             let expected_key_hash =
                 KeyHashByBlock::<T>::get(sub.submitted_in).ok_or(Error::<T>::KeyExpired)?;
 
             ensure!(key_hash == expected_key_hash, Error::<T>::KeyHashMismatch);
 
-            // 3) Rebuild the same payload bytes the client used for both
+            // 4) Rebuild the same payload bytes the client used for both
             //    commitment and signature.
             let payload_bytes = Self::build_raw_payload_bytes(&signer, &key_hash, call.as_ref());
 
-            // 4) Commitment check against on-chain stored commitment.
+            // 5) Commitment check against on-chain stored commitment.
             let recomputed: T::Hash = T::Hashing::hash(&payload_bytes);
             ensure!(sub.commitment == recomputed, Error::<T>::CommitmentMismatch);
 
-            // 5) Signature check over the same payload, with domain separation
+            // 6) Signature check over the same payload, with domain separation
             //    and genesis hash to make signatures chain‑bound.
             let genesis = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
             let mut msg = b"mev-shield:v1".to_vec();
@@ -389,7 +394,7 @@ pub mod pallet {
             let sig_ok = signature.verify(msg.as_slice(), &signer);
             ensure!(sig_ok, Error::<T>::SignatureInvalid);
 
-            // 6) Dispatch inner call from signer.
+            // 7) Dispatch inner call from signer.
             let info = call.get_dispatch_info();
             let required = info.call_weight.saturating_add(info.extension_weight);
 
