@@ -2,19 +2,23 @@ use crate as pallet_mev_shield;
 use crate::mock::*;
 
 use codec::Encode;
-use frame_support::pallet_prelude::ValidateUnsigned;
-use frame_support::traits::ConstU32 as FrameConstU32;
-use frame_support::traits::Hooks;
-use frame_support::{BoundedVec, assert_noop, assert_ok};
+use frame_support::{
+    BoundedVec, assert_noop, assert_ok,
+    pallet_prelude::ValidateUnsigned,
+    traits::{ConstU32 as FrameConstU32, Hooks},
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_mev_shield::{
     Call as MevShieldCall, CurrentKey, Event as MevShieldEvent, KeyHashByBlock, NextKey,
     Submissions,
 };
-use sp_core::Pair;
-use sp_core::sr25519;
-use sp_runtime::traits::{Hash, SaturatedConversion};
-use sp_runtime::{AccountId32, MultiSignature, transaction_validity::TransactionSource};
+use sp_core::{Pair, sr25519};
+use sp_runtime::{
+    AccountId32, MultiSignature, Vec,
+    traits::{Hash, SaturatedConversion},
+    transaction_validity::TransactionSource,
+};
+use sp_std::boxed::Box;
 
 // Type aliases for convenience in tests.
 type TestHash = <Test as frame_system::Config>::Hash;
@@ -586,5 +590,142 @@ fn validate_unsigned_accepts_inblock_source_for_execute_revealed() {
 
         let validity = MevShield::validate_unsigned(TransactionSource::InBlock, &call);
         assert_ok!(validity);
+    });
+}
+
+#[test]
+fn mark_decryption_failed_removes_submission_and_emits_event() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(42);
+        let pair = test_sr25519_pair();
+        let who: AccountId32 = pair.public().into();
+
+        let commitment: TestHash =
+            <Test as frame_system::Config>::Hashing::hash(b"failed-decryption-commitment");
+        let ciphertext_bytes = vec![5u8; 8];
+        let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
+            BoundedVec::truncate_from(ciphertext_bytes.clone());
+
+        assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(who.clone()),
+            commitment,
+            ciphertext.clone(),
+        ));
+
+        let id: TestHash = <Test as frame_system::Config>::Hashing::hash_of(&(
+            who.clone(),
+            commitment,
+            &ciphertext,
+        ));
+
+        // Sanity: submission exists.
+        assert!(Submissions::<Test>::get(id).is_some());
+
+        // Reason we will pass into mark_decryption_failed.
+        let reason_bytes = b"AEAD decrypt failed".to_vec();
+        let reason: BoundedVec<u8, FrameConstU32<256>> =
+            BoundedVec::truncate_from(reason_bytes.clone());
+
+        // Call mark_decryption_failed as unsigned (RuntimeOrigin::none()).
+        assert_ok!(MevShield::mark_decryption_failed(
+            RuntimeOrigin::none(),
+            id,
+            reason.clone(),
+        ));
+
+        // Submission should be removed.
+        assert!(Submissions::<Test>::get(id).is_none());
+
+        // Last event should be DecryptionFailed with the correct id and reason.
+        let events = System::events();
+        let last = events
+            .last()
+            .expect("an event should be emitted")
+            .event
+            .clone();
+
+        assert!(
+            matches!(
+                last,
+                RuntimeEvent::MevShield(
+                    MevShieldEvent::<Test>::DecryptionFailed { id: ev_id, reason: ev_reason }
+                )
+                if ev_id == id && ev_reason.to_vec() == reason_bytes
+            ),
+            "expected DecryptionFailed event with correct id & reason"
+        );
+
+        // A second call with the same id should now fail with MissingSubmission.
+        let res = MevShield::mark_decryption_failed(RuntimeOrigin::none(), id, reason);
+        assert_noop!(res, pallet_mev_shield::Error::<Test>::MissingSubmission);
+    });
+}
+
+#[test]
+fn announce_next_key_charges_then_refunds_fee() {
+    new_test_ext().execute_with(|| {
+        const KYBER_PK_LEN: usize = 1184;
+
+        // ---------------------------------------------------------------------
+        // 1. Seed Aura authorities with a single validator and derive account.
+        // ---------------------------------------------------------------------
+        let validator_pair = test_sr25519_pair();
+        let validator_account: AccountId32 = validator_pair.public().into();
+        let validator_aura_id: <Test as pallet_aura::Config>::AuthorityId =
+            validator_pair.public().into();
+
+        let authorities: BoundedVec<
+            <Test as pallet_aura::Config>::AuthorityId,
+            <Test as pallet_aura::Config>::MaxAuthorities,
+        > = BoundedVec::truncate_from(vec![validator_aura_id]);
+        pallet_aura::Authorities::<Test>::put(authorities);
+
+        // ---------------------------------------------------------------------
+        // 2. Build a valid Kyber public key and the corresponding RuntimeCall.
+        // ---------------------------------------------------------------------
+        let pk_bytes = vec![42u8; KYBER_PK_LEN];
+        let bounded_pk: BoundedVec<u8, FrameConstU32<2048>> =
+            BoundedVec::truncate_from(pk_bytes.clone());
+
+        let runtime_call = RuntimeCall::MevShield(MevShieldCall::<Test>::announce_next_key {
+            public_key: bounded_pk.clone(),
+        });
+
+        // ---------------------------------------------------------------------
+        // 3. Pre-dispatch: DispatchInfo must say Pays::Yes.
+        // ---------------------------------------------------------------------
+        let pre_info = <RuntimeCall as frame_support::dispatch::GetDispatchInfo>::get_dispatch_info(
+            &runtime_call,
+        );
+
+        assert_eq!(
+            pre_info.pays_fee,
+            frame_support::dispatch::Pays::Yes,
+            "announce_next_key must be declared as fee-paying at pre-dispatch"
+        );
+
+        // ---------------------------------------------------------------------
+        // 4. Dispatch via the pallet function.
+        // ---------------------------------------------------------------------
+        let post = MevShield::announce_next_key(
+            RuntimeOrigin::signed(validator_account.clone()),
+            bounded_pk.clone(),
+        )
+        .expect("announce_next_key should succeed for an Aura validator");
+
+        // Post-dispatch info should switch pays_fee from Yes -> No (refund).
+        assert_eq!(
+            post.pays_fee,
+            frame_support::dispatch::Pays::No,
+            "announce_next_key must refund the previously chargeable fee"
+        );
+
+        // And we don't override the actual weight (None => use pre-dispatch weight).
+        assert!(
+            post.actual_weight.is_none(),
+            "announce_next_key should not override actual_weight in PostDispatchInfo"
+        );
+        let next = NextKey::<Test>::get().expect("NextKey should be set by announce_next_key");
+        assert_eq!(next, pk_bytes);
     });
 }

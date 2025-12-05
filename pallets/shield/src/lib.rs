@@ -142,6 +142,11 @@ pub mod pallet {
             id: T::Hash,
             reason: DispatchErrorWithPostInfo<PostDispatchInfo>,
         },
+        /// Decryption failed - validator could not decrypt the submission.
+        DecryptionFailed {
+            id: T::Hash,
+            reason: BoundedVec<u8, ConstU32<256>>,
+        },
     }
 
     #[pallet::error]
@@ -244,12 +249,13 @@ pub mod pallet {
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
+        #[allow(clippy::useless_conversion)]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: BoundedVec<u8, ConstU32<2048>>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             // Only a current Aura validator may call this (signed account ∈ Aura authorities)
             T::AuthorityOrigin::ensure_validator(origin)?;
 
@@ -259,9 +265,13 @@ pub mod pallet {
                 Error::<T>::BadPublicKeyLen
             );
 
-            NextKey::<T>::put(public_key.clone());
+            NextKey::<T>::put(public_key);
 
-            Ok(())
+            // Refund the fee on success by setting pays_fee = Pays::No
+            Ok(PostDispatchInfo {
+                actual_weight: None,
+                pays_fee: Pays::No,
+            })
         }
 
         /// Users submit an encrypted wrapper.
@@ -335,7 +345,7 @@ pub mod pallet {
             Weight::from_parts(77_280_000, 0)
                 .saturating_add(T::DbWeight::get().reads(4_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::No
         ))]
         #[allow(clippy::useless_conversion)]
@@ -404,6 +414,43 @@ pub mod pallet {
                 }
             }
         }
+
+        /// Marks a submission as failed to decrypt and removes it from storage.
+        ///
+        /// Called by the block author when decryption fails at any stage (e.g., ML-KEM decapsulate
+        /// failed, AEAD decrypt failed, invalid ciphertext format, etc.). This allows clients to be
+        /// notified of decryption failures through on-chain events.
+        ///
+        /// # Arguments
+        ///
+        /// * `id` - The wrapper id (hash of (author, commitment, ciphertext))
+        /// * `reason` - Human-readable reason for the decryption failure (e.g., "ML-KEM decapsulate failed")
+        #[pallet::call_index(3)]
+        #[pallet::weight((
+            Weight::from_parts(13_260_000, 0)
+                .saturating_add(T::DbWeight::get().reads(1_u64))
+                .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Normal,
+            Pays::No
+        ))]
+        pub fn mark_decryption_failed(
+            origin: OriginFor<T>,
+            id: T::Hash,
+            reason: BoundedVec<u8, ConstU32<256>>,
+        ) -> DispatchResult {
+            // Unsigned: only the author node may inject this via ValidateUnsigned.
+            ensure_none(origin)?;
+
+            // Load and consume the submission.
+            let Some(_sub) = Submissions::<T>::take(id) else {
+                return Err(Error::<T>::MissingSubmission.into());
+            };
+
+            // Emit event to notify clients
+            Self::deposit_event(Event::DecryptionFailed { id, reason });
+
+            Ok(())
+        }
     }
 
     impl<T: Config> Pallet<T> {
@@ -439,7 +486,7 @@ pub mod pallet {
                         // Only allow locally-submitted / already-in-block txs.
                         TransactionSource::Local | TransactionSource::InBlock => {
                             ValidTransaction::with_tag_prefix("mev-shield-exec")
-                                .priority(u64::MAX)
+                                .priority(1u64)
                                 .longevity(64) // long because propagate(false)
                                 .and_provides(id) // dedupe by wrapper id
                                 .propagate(false) // CRITICAL: no gossip, stays on author node
@@ -448,7 +495,19 @@ pub mod pallet {
                         _ => InvalidTransaction::Call.into(),
                     }
                 }
-
+                Call::mark_decryption_failed { id, .. } => {
+                    match source {
+                        TransactionSource::Local | TransactionSource::InBlock => {
+                            ValidTransaction::with_tag_prefix("mev-shield-failed")
+                                .priority(1u64)
+                                .longevity(64) // long because propagate(false)
+                                .and_provides(id) // dedupe by wrapper id
+                                .propagate(false) // CRITICAL: no gossip, stays on author node
+                                .build()
+                        }
+                        _ => InvalidTransaction::Call.into(),
+                    }
+                }
                 _ => InvalidTransaction::Call.into(),
             }
         }

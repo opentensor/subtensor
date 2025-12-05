@@ -2,11 +2,13 @@ use chacha20poly1305::{
     KeyInit, XChaCha20Poly1305, XNonce,
     aead::{Aead, Payload},
 };
+use frame_system_rpc_runtime_api::AccountNonceApi;
 use ml_kem::{EncodedSizeUser, KemCore, MlKem768};
 use node_subtensor_runtime as runtime;
 use rand::rngs::OsRng;
+use sp_api::ProvideRuntimeApi;
 use sp_core::blake2_256;
-use sp_runtime::KeyTypeId;
+use sp_runtime::{AccountId32, KeyTypeId};
 use std::sync::{Arc, Mutex};
 use subtensor_macros::freeze_struct;
 use tokio::time::sleep;
@@ -139,7 +141,13 @@ pub fn spawn_author_tasks<B, C, Pool>(
 ) -> ShieldContext
 where
     B: sp_runtime::traits::Block,
-    C: sc_client_api::HeaderBackend<B> + sc_client_api::BlockchainEvents<B> + Send + Sync + 'static,
+    C: sc_client_api::HeaderBackend<B>
+        + sc_client_api::BlockchainEvents<B>
+        + ProvideRuntimeApi<B>
+        + Send
+        + Sync
+        + 'static,
+    C::Api: AccountNonceApi<B, AccountId32, u32>,
     Pool: sc_transaction_pool_api::TransactionPool<Block = B> + Send + Sync + 'static,
     B::Extrinsic: From<sp_runtime::OpaqueExtrinsic>,
 {
@@ -162,6 +170,7 @@ where
         }
     };
 
+    let aura_account: AccountId32 = local_aura_pub.into();
     let ctx_clone = ctx.clone();
     let client_clone = client.clone();
     let pool_clone = pool.clone();
@@ -194,15 +203,13 @@ where
             );
 
             let mut import_stream = client_clone.import_notification_stream();
-            let mut local_nonce: u32 = 0;
 
             while let Some(notif) = import_stream.next().await {
-                // ✅ Only act on blocks that this node authored.
+                // Only act on blocks that this node authored.
                 if notif.origin != BlockOrigin::Own {
                     continue;
                 }
 
-                // This block is the start of a slot for which we are the author.
                 let (curr_pk_len, next_pk_len) = match ctx_clone.keys.lock() {
                     Ok(k) => (k.current_pk.len(), k.next_pk.len()),
                     Err(e) => {
@@ -236,49 +243,38 @@ where
                     }
                 };
 
-                // Submit announce_next_key once, signed with the local Aura authority that authors this block
-                match submit_announce_extrinsic::<B, C, Pool>(
+                // 🔑 Fetch the current on-chain nonce for the Aura account using the best block hash.
+                let best_hash = client_clone.info().best_hash;
+
+                let nonce: u32 = match client_clone
+                    .runtime_api()
+                    .account_nonce(best_hash, aura_account.clone())
+                {
+                    Ok(n) => n,
+                    Err(e) => {
+                        log::debug!(
+                            target: "mev-shield",
+                            "spawn_author_tasks: failed to fetch account nonce for MEV-Shield author: {e:?}",
+                        );
+                        continue;
+                    }
+                };
+
+                // Submit announce_next_key signed with the Aura key using the correct nonce.
+                if let Err(e) = submit_announce_extrinsic::<B, C, Pool>(
                     client_clone.clone(),
                     pool_clone.clone(),
                     keystore_clone.clone(),
                     local_aura_pub,
                     next_pk.clone(),
-                    local_nonce,
+                    nonce,
                 )
                 .await
                 {
-                    Ok(()) => {
-                        local_nonce = local_nonce.saturating_add(1);
-                    }
-                    Err(e) => {
-                        let msg = format!("{e:?}");
-                        // If the nonce is stale, bump once and retry.
-                        if msg.contains("InvalidTransaction::Stale") || msg.contains("Stale") {
-                            if submit_announce_extrinsic::<B, C, Pool>(
-                                client_clone.clone(),
-                                pool_clone.clone(),
-                                keystore_clone.clone(),
-                                local_aura_pub,
-                                next_pk,
-                                local_nonce.saturating_add(1),
-                            )
-                            .await
-                            .is_ok()
-                            {
-                                local_nonce = local_nonce.saturating_add(2);
-                            } else {
-                                log::debug!(
-                                    target: "mev-shield",
-                                    "announce_next_key retry failed after stale nonce: {e:?}"
-                                );
-                            }
-                        } else {
-                            log::debug!(
-                                target: "mev-shield",
-                                "announce_next_key submit error: {e:?}"
-                            );
-                        }
-                    }
+                    log::debug!(
+                        target: "mev-shield",
+                        "announce_next_key submit error (nonce={nonce:?}): {e:?}"
+                    );
                 }
 
                 // Sleep the remainder of the slot (if any).
@@ -332,7 +328,7 @@ where
     use sp_core::H256;
     use sp_runtime::codec::Encode;
     use sp_runtime::{
-        AccountId32, BoundedVec, MultiSignature,
+        BoundedVec, MultiSignature,
         generic::Era,
         traits::{ConstU32, TransactionExtension},
     };
@@ -442,7 +438,7 @@ where
 
     log::debug!(
         target: "mev-shield",
-        "announce_next_key submitted: xt=0x{xt_hash_hex}, nonce={nonce}",
+        "announce_next_key submitted: xt=0x{xt_hash_hex}, nonce={nonce:?}",
     );
 
     Ok(())
