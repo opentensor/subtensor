@@ -27,7 +27,7 @@ use super::mock;
 use super::mock::*;
 use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
-use crate::{Call, ColdkeySwapScheduleDuration, Error};
+use crate::{Call, Error};
 
 #[test]
 fn test_announce_coldkey_swap_works() {
@@ -81,7 +81,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
             vec![(who.clone(), (now, new_coldkey_hash))]
         );
 
-        let delay = ColdkeySwapScheduleDuration::<Test>::get() + 1;
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         System::run_to_block::<AllPalletsWithSystem>(now + delay);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
@@ -137,7 +137,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
             vec![(who.clone(), (now, new_coldkey_hash))]
         );
 
-        let unmet_delay = ColdkeySwapScheduleDuration::<Test>::get();
+        let unmet_delay = ColdkeySwapAnnouncementDelay::<Test>::get();
         System::run_to_block::<AllPalletsWithSystem>(now + unmet_delay);
 
         assert_noop!(
@@ -185,7 +185,7 @@ fn test_swap_coldkey_announced_works() {
         // Run some blocks for the announcement to be past the delay
         // WARN: this is required before staking to neurons to avoid
         // value mismatch due to coinbase run
-        let delay = ColdkeySwapScheduleDuration::<Test>::get() + 1;
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         System::run_to_block::<AllPalletsWithSystem>(now + delay);
 
         // Setup networks and subnet ownerships
@@ -505,7 +505,7 @@ fn test_swap_coldkey_announced_with_already_associated_coldkey_fails() {
         ));
 
         let now = System::block_number();
-        let delay = ColdkeySwapScheduleDuration::<Test>::get() + 1;
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         System::run_to_block::<AllPalletsWithSystem>(now + delay);
 
         let swap_cost = SubtensorModule::get_key_swap_cost();
@@ -537,7 +537,7 @@ fn test_swap_coldkey_announced_with_hotkey_fails() {
         ));
 
         let now = System::block_number();
-        let delay = ColdkeySwapScheduleDuration::<Test>::get() + 1;
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         System::run_to_block::<AllPalletsWithSystem>(now + delay);
 
         let swap_cost = SubtensorModule::get_key_swap_cost();
@@ -562,7 +562,7 @@ fn test_do_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
         let new_coldkey = U256::from(2);
 
         let now = System::block_number();
-        let delay = ColdkeySwapScheduleDuration::<Test>::get() + 1;
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         System::run_to_block::<AllPalletsWithSystem>(now + delay);
 
         assert_noop!(

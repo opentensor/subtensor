@@ -225,15 +225,15 @@ mod events {
         SubnetIdentityRemoved(NetUid),
         /// A dissolve network extrinsic scheduled.
         DissolveNetworkScheduled {
-            /// The account ID schedule the dissolve network extrisnic
+            /// The account ID schedule the dissolve network extrinsic
             account: T::AccountId,
             /// network ID will be dissolved
             netuid: NetUid,
             /// extrinsic execution block number
             execution_block: BlockNumberFor<T>,
         },
-        /// The duration of schedule coldkey swap has been set
-        ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
+        /// The coldkey swap announcement delay has been set.
+        ColdkeySwapAnnouncementDelaySet(BlockNumberFor<T>),
         /// The duration of dissolve network has been set
         DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
         /// Commit-reveal v3 weights have been successfully committed.

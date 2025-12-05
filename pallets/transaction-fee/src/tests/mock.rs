@@ -202,7 +202,7 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
-    pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const InitialColdkeySwapAnnouncementDelay: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialDissolveNetworkScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
@@ -271,7 +271,7 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = ();
-    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;

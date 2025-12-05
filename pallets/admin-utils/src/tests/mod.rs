@@ -1382,7 +1382,7 @@ fn test_sudo_get_set_alpha() {
 }
 
 #[test]
-fn test_sudo_set_coldkey_swap_schedule_duration() {
+fn test_sudo_set_coldkey_swap_announcement_delay() {
     new_test_ext().execute_with(|| {
         // Arrange
         let root = RuntimeOrigin::root();
@@ -1391,12 +1391,12 @@ fn test_sudo_set_coldkey_swap_schedule_duration() {
 
         // Act & Assert: Non-root account should fail
         assert_noop!(
-            AdminUtils::sudo_set_coldkey_swap_schedule_duration(non_root, new_duration),
+            AdminUtils::sudo_set_coldkey_swap_announcement_delay(non_root, new_duration),
             DispatchError::BadOrigin
         );
 
         // Act: Root account should succeed
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_schedule_duration(
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_announcement_delay(
             root.clone(),
             new_duration
         ));
@@ -1408,7 +1408,7 @@ fn test_sudo_set_coldkey_swap_schedule_duration() {
         );
 
         // Act & Assert: Setting the same value again should succeed (idempotent operation)
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_schedule_duration(
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_announcement_delay(
             root,
             new_duration
         ));

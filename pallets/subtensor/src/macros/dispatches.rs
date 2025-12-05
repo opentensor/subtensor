@@ -2347,7 +2347,7 @@ mod dispatches {
             let now = <frame_system::Pallet<T>>::block_number();
 
             if let Some(existing) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
-                let delay = ColdkeySwapScheduleDuration::<T>::get();
+                let delay = ColdkeySwapAnnouncementDelay::<T>::get();
                 let when = existing.0;
                 ensure!(
                     now > when + delay,
@@ -2384,7 +2384,7 @@ mod dispatches {
             );
 
             let now = <frame_system::Pallet<T>>::block_number();
-            let delay = ColdkeySwapScheduleDuration::<T>::get();
+            let delay = ColdkeySwapAnnouncementDelay::<T>::get();
             ensure!(now > when + delay, Error::<T>::ColdKeySwapTooEarly);
 
             Self::do_swap_coldkey(&who, &new_coldkey)?;

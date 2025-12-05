@@ -943,17 +943,11 @@ pub mod pallet {
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
     }
-
-    /// Default value for coldkey swap schedule duration
+    
+    /// Default value for coldkey swap announcement delay.
     #[pallet::type_value]
-    pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
-        T::InitialColdkeySwapScheduleDuration::get()
-    }
-
-    /// Default value for coldkey swap reschedule duration
-    #[pallet::type_value]
-    pub fn DefaultColdkeySwapRescheduleDuration<T: Config>() -> BlockNumberFor<T> {
-        T::InitialColdkeySwapRescheduleDuration::get()
+    pub fn DefaultColdkeySwapAnnouncementDelay<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapAnnouncementDelay::get()
     }
 
     /// Default value for applying pending items (e.g. childkeys).
@@ -1012,15 +1006,6 @@ pub mod pallet {
         360
     }
 
-    /// Default value for coldkey swap scheduled
-    #[pallet::type_value]
-    pub fn DefaultColdkeySwapScheduled<T: Config>() -> (BlockNumberFor<T>, T::AccountId) {
-        #[allow(clippy::expect_used)]
-        let default_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
-            .expect("trailing zeroes always produce a valid account ID; qed");
-        (BlockNumberFor::<T>::from(0_u32), default_account)
-    }
-
     /// Default value for setting subnet owner hotkey rate limit
     #[pallet::type_value]
     pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
@@ -1071,16 +1056,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type OwnerHyperparamRateLimit<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
-
-    /// Duration of coldkey swap schedule before execution
-    #[pallet::storage]
-    pub type ColdkeySwapScheduleDuration<T: Config> =
-        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
-
-    /// Duration of coldkey swap reschedule before execution
-    #[pallet::storage]
-    pub type ColdkeySwapRescheduleDuration<T: Config> =
-        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapRescheduleDuration<T>>;
 
     /// Duration of dissolve network schedule before execution
     #[pallet::storage]
@@ -1358,16 +1333,10 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// --- DMAP ( cold ) --> (block_expected, new_coldkey), Maps coldkey to the block to swap at and new coldkey.
+    /// The delay after an announcement before a coldkey swap can be performed.
     #[pallet::storage]
-    pub type ColdkeySwapScheduled<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        (BlockNumberFor<T>, T::AccountId),
-        ValueQuery,
-        DefaultColdkeySwapScheduled<T>,
-    >;
+    pub type ColdkeySwapAnnouncementDelay<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapAnnouncementDelay<T>>;
 
     /// A map of the coldkey swap announcements from a coldkey
     /// to the block number the announcement was made and the new coldkey.

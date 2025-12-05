@@ -220,7 +220,7 @@ mod config {
         // type InitialHotkeyEmissionTempo: Get<u64>;
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
-        type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
+        type InitialColdkeySwapAnnouncementDelay: Get<BlockNumberFor<Self>>;
         /// Dissolve network schedule duration
         #[pallet::constant]
         type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
