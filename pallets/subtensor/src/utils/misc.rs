@@ -1,8 +1,6 @@
 use super::*;
 use crate::Error;
-use crate::system::{
-    ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor,
-};
+use crate::system::{ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor};
 use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
@@ -34,15 +32,6 @@ impl<T: Config> Pallet<T> {
             Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
         }
-    }
-
-    /// Like `ensure_root` but also prohibits calls during the last N blocks of the tempo.
-    pub fn ensure_root_with_rate_limit(
-        o: T::RuntimeOrigin,
-        netuid: NetUid,
-    ) -> Result<(), DispatchError> {
-        ensure_root(o)?;
-        Self::ensure_admin_window_open(netuid)
     }
 
     /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).

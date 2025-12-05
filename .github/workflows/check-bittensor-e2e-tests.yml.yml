@@ -130,17 +130,27 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Move Docker data-root to /mnt/data
+        run: |
+          sudo systemctl stop docker
+          sudo mkdir -p /mnt/data/docker
+          sudo chown -R runner:runner /mnt/data
+          sudo chmod -R 777 /mnt/data
+          echo '{"data-root": "/mnt/data/docker"}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker
+          docker info | grep "Docker Root Dir"
+
       - name: Build Docker Image
         run: docker build -f Dockerfile-localnet -t localnet .
 
       - name: Save Docker Image as Tar
-        run: docker save -o subtensor-localnet.tar localnet
+        run: docker save -o /mnt/data/subtensor-localnet.tar localnet
 
       - name: Upload Docker Image as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: subtensor-localnet
-          path: subtensor-localnet.tar
+          path: /mnt/data/subtensor-localnet.tar
 
   # main btcli job
   run-btcli-e2e-tests:
@@ -181,7 +191,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: 'false'
+          enable-cache: "false"
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
@@ -275,7 +285,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: 'false'
+          enable-cache: "false"
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
