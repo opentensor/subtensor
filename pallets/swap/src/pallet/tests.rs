@@ -2045,8 +2045,8 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
     });
 }
 
-/// V3 path with user liquidity disabled at teardown:
-/// must still remove positions and clear state (after protocol clear).
+// V3 path with user liquidity disabled at teardown:
+// must still remove positions and clear state (after protocol clear).
 // #[test]
 // fn test_liquidate_v3_with_user_liquidity_disabled() {
 //     new_test_ext().execute_with(|| {
