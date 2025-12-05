@@ -1,4 +1,7 @@
-use crate::{BalancesCall, Call, Config, CustomTransactionError, Error, Pallet, TransactionType};
+use crate::{
+    BalancesCall, Call, ColdkeySwapAnnouncements, Config, CustomTransactionError, Error, Pallet,
+    TransactionType,
+};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
@@ -113,7 +116,12 @@ where
         };
 
         // Ensure the origin coldkey is not announced for a swap.
-        if !matches!(call.is_sub_type(), Some(Call::announce_coldkey_swap { .. })) {
+        if ColdkeySwapAnnouncements::<T>::contains_key(who)
+            && !matches!(
+                call.is_sub_type(),
+                Some(Call::swap_coldkey_announced { .. })
+            )
+        {
             return Err(CustomTransactionError::ColdkeySwapAnnounced.into());
         }
 
