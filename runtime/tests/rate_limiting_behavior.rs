@@ -327,6 +327,7 @@ fn weights_and_hparam_parity() {
         let origin = RuntimeOrigin::signed(hot.clone());
         let scope = Some(netuid);
         let usage = Some(UsageKey::SubnetNeuron { netuid, uid });
+
         let legacy_weights = || SubtensorModule::check_rate_limit(netuid.into(), uid, now);
         parity_check(
             now,

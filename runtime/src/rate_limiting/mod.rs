@@ -50,6 +50,32 @@ pub enum RateLimitUsageKey<AccountId: Parameter> {
         mecid: MechId,
         uid: u16,
     },
+    AccountSubnetServing {
+        account: AccountId,
+        netuid: NetUid,
+        endpoint: ServingEndpoint,
+    },
+}
+
+#[derive(
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    TypeInfo,
+    MaxEncodedLen,
+)]
+pub enum ServingEndpoint {
+    Axon,
+    Prometheus,
 }
 
 #[derive(Default)]
@@ -105,6 +131,16 @@ impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for
                 | SubtensorCall::add_stake_limit { .. }
                 | SubtensorCall::decrease_take { .. } => {
                     return BypassDecision::bypass_and_record();
+                }
+                SubtensorCall::reveal_weights { netuid, .. }
+                | SubtensorCall::batch_reveal_weights { netuid, .. }
+                | SubtensorCall::reveal_mechanism_weights { netuid, .. } => {
+                    if pallet_subtensor::Pallet::<Runtime>::get_commit_reveal_weights_enabled(
+                        *netuid,
+                    ) {
+                        // Legacy: reveals are not rate-limited while commit-reveal is enabled.
+                        return BypassDecision::bypass_and_skip();
+                    }
                 }
                 _ => {}
             }
@@ -185,12 +221,20 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     })
                 }
                 SubtensorCall::serve_axon { netuid, .. }
-                | SubtensorCall::serve_axon_tls { netuid, .. }
-                | SubtensorCall::serve_prometheus { netuid, .. } => {
+                | SubtensorCall::serve_axon_tls { netuid, .. } => {
                     let hotkey = signed_origin(origin)?;
-                    Some(RateLimitUsageKey::<AccountId>::AccountSubnet {
+                    Some(RateLimitUsageKey::<AccountId>::AccountSubnetServing {
                         account: hotkey,
                         netuid: *netuid,
+                        endpoint: ServingEndpoint::Axon,
+                    })
+                }
+                SubtensorCall::serve_prometheus { netuid, .. } => {
+                    let hotkey = signed_origin(origin)?;
+                    Some(RateLimitUsageKey::<AccountId>::AccountSubnetServing {
+                        account: hotkey,
+                        netuid: *netuid,
+                        endpoint: ServingEndpoint::Prometheus,
                     })
                 }
                 SubtensorCall::associate_evm_key { netuid, .. } => {
