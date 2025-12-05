@@ -521,7 +521,7 @@ fn test_swap_coldkey_announced_with_hotkey_fails() {
 }
 
 #[test]
-fn test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
+fn test_do_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
@@ -538,7 +538,7 @@ fn test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
 }
 
 #[test]
-fn test_swap_with_no_stake() {
+fn test_do_swap_coldkey_with_no_stake() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
@@ -560,7 +560,7 @@ fn test_swap_with_no_stake() {
 }
 
 #[test]
-fn test_swap_with_max_values() {
+fn test_do_swap_coldkey_with_max_values() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
@@ -648,7 +648,7 @@ fn test_swap_with_max_values() {
 }
 
 #[test]
-fn test_swap_effect_on_delegated_stake() {
+fn test_do_swap_coldkey_effect_on_delegated_stake() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
@@ -1167,7 +1167,7 @@ fn test_coldkey_swap_total() {
 }
 
 #[test]
-fn test_coldkey_delegations() {
+fn test_do_swap_coldkey_effect_on_delegations() {
     new_test_ext(1).execute_with(|| {
         let new_coldkey = U256::from(0);
         let owner = U256::from(1);
