@@ -1373,7 +1373,7 @@ pub mod pallet {
     /// to the block number the announcement was made and the new coldkey.
     #[pallet::storage]
     pub type ColdkeySwapAnnouncements<T: Config> =
-        StorageMap<_, Twox64Concat, T::AccountId, (BlockNumberFor<T>, T::AccountId), OptionQuery>;
+        StorageMap<_, Twox64Concat, T::AccountId, (BlockNumberFor<T>, T::Hash), OptionQuery>;
 
     /// --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     #[pallet::storage]
