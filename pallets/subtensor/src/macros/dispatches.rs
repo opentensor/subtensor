@@ -2461,6 +2461,7 @@ mod dispatches {
             Self::deposit_event(Event::ValidatorClaimTypeSet {
                 hotkey: hotkey.clone(),
                 root_claim_type: new_claim_type,
+                netuid,
             });
             Ok(())
         }

@@ -1,8 +1,8 @@
 #![allow(clippy::expect_used)]
 
-use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::{
-    RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
+    RuntimeEvent, RuntimeOrigin, SubtensorModule, System, Test, add_dynamic_network, new_test_ext,
+    run_to_block,
 };
 use crate::{
     DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
@@ -10,6 +10,7 @@ use crate::{
     StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
     SubnetTAO, SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
 };
+use crate::{Event, RootAlphaDividendsPerSubnet};
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed, ValidatorClaimType};
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
@@ -1563,6 +1564,55 @@ fn test_claim_root_with_unrelated_subnets() {
 
         let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
         assert_eq!(u128::from(new_stake), claimed);
+    });
+}
+
+#[test]
+fn test_claim_root_with_set_validator_claim_type() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&hotkey, &coldkey);
+        let new_claim_type = RootClaimTypeEnum::Swap;
+
+        // Default check
+        assert_eq!(
+            ValidatorClaimType::<Test>::get(hotkey, netuid),
+            RootClaimTypeEnum::Keep
+        );
+
+        // Set new type
+        assert_ok!(SubtensorModule::set_validator_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            new_claim_type.clone()
+        ),);
+
+        // Result check
+        assert_eq!(
+            ValidatorClaimType::<Test>::get(hotkey, netuid),
+            new_claim_type
+        );
+
+        let event = System::events().into_iter().find(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::ValidatorClaimTypeSet { .. })
+            )
+        });
+        assert!(event.is_some());
+
+        if let Some(RuntimeEvent::SubtensorModule(Event::ValidatorClaimTypeSet {
+            hotkey: ev_hotkey,
+            root_claim_type: ev_claim_type,
+            netuid: ev_netuid,
+        })) = event.map(|e| e.event.clone())
+        {
+            assert_eq!(ev_hotkey, hotkey);
+            assert_eq!(ev_claim_type, new_claim_type);
+            assert_eq!(ev_netuid, netuid);
+        }
     });
 }
 

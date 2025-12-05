@@ -476,6 +476,8 @@ mod events {
             hotkey: T::AccountId,
             /// root claim type enum
             root_claim_type: RootClaimTypeEnum,
+            /// subnet UID
+            netuid: NetUid,
         },
 
         /// Subnet lease dividends have been distributed.
