@@ -139,8 +139,8 @@ if [ $BUILD_ONLY -eq 0 ]; then
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
   (
-    ("${alice_start[@]}" 2>&1) &
-    ("${bob_start[@]}" 2>&1)
+    "${alice_start[@]}" 2>&1 &
+    "${bob_start[@]}" 2>&1 &
     wait
   )
 fi
