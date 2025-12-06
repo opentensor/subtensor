@@ -266,5 +266,7 @@ mod errors {
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.
         InvalidSubnetNumber,
+        /// The maximum allowed UIDs times mechanism count should not exceed 256.
+        TooManyUIDsPerMechanism,
     }
 }
