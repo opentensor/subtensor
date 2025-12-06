@@ -950,6 +950,12 @@ pub mod pallet {
         T::InitialColdkeySwapScheduleDuration::get()
     }
 
+    /// Default value for deregistration priority schedule delay
+    #[pallet::type_value]
+    pub fn DefaultDeregistrationPriorityScheduleDelay<T: Config>() -> BlockNumberFor<T> {
+        T::InitialDeregistrationPriorityScheduleDelay::get()
+    }
+
     /// Default value for coldkey swap reschedule duration
     #[pallet::type_value]
     pub fn DefaultColdkeySwapRescheduleDuration<T: Config>() -> BlockNumberFor<T> {
@@ -1612,6 +1618,25 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
+
+    /// --- FIFO queue of netuids pending deregistration
+    #[pallet::storage]
+    pub type SubnetDeregistrationPriorityQueue<T: Config> =
+        StorageValue<_, sp_std::vec::Vec<NetUid>, ValueQuery>;
+
+    /// --- MAP ( netuid ) --> scheduled block for enqueuing deregistration priority
+    #[pallet::storage]
+    pub type SubnetDeregistrationPrioritySchedule<T: Config> =
+        StorageMap<_, Identity, NetUid, BlockNumberFor<T>, OptionQuery>;
+
+    /// --- Global delay for scheduled deregistration priority activations
+    #[pallet::storage]
+    pub type DeregistrationPriorityScheduleDelay<T: Config> = StorageValue<
+        _,
+        BlockNumberFor<T>,
+        ValueQuery,
+        DefaultDeregistrationPriorityScheduleDelay<T>,
+    >;
 
     /// --- MAP ( netuid ) --> pending_server_emission
     #[pallet::storage]

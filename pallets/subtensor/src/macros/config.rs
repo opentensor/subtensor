@@ -221,6 +221,9 @@ mod config {
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
+        /// Deregistration priority schedule delay.
+        #[pallet::constant]
+        type InitialDeregistrationPriorityScheduleDelay: Get<BlockNumberFor<Self>>;
         /// Coldkey swap reschedule duration.
         #[pallet::constant]
         type InitialColdkeySwapRescheduleDuration: Get<BlockNumberFor<Self>>;
