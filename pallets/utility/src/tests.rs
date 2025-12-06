@@ -133,12 +133,11 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-const MOTION_DURATION_IN_BLOCKS: BlockNumber = 3;
 parameter_types! {
     pub const MultisigDepositBase: u64 = 1;
     pub const MultisigDepositFactor: u64 = 1;
     pub const MaxSignatories: u32 = 3;
-    pub const MotionDuration: BlockNumber = MOTION_DURATION_IN_BLOCKS;
+    pub const MotionDuration: BlockNumber = 3;
     pub const MaxProposals: u32 = 100;
     pub const MaxMembers: u32 = 100;
     pub MaxProposalWeight: Weight = BlockWeights::get().max_block.saturating_div(2);
