@@ -424,7 +424,7 @@ where
         (),           // CheckNonZeroSender
         spec_version, // dynamic or fallback spec_version
         tx_version,   // dynamic or fallback transaction_version
-        genesis_h256, // CheckEra::Implicit (Immortal => genesis hash)
+        genesis_h256, // CheckGenesis::Implicit = Hash
         at_hash_h256, // CheckEra::Implicit = hash of the block the tx is created at
         (),           // CheckNonce::Implicit = ()
         (),           // CheckWeight::Implicit = ()
