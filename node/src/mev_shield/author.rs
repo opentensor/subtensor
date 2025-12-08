@@ -332,7 +332,7 @@ where
     use sp_runtime::{
         BoundedVec, MultiSignature,
         generic::Era,
-        traits::{ConstU32, TransactionExtension},
+        traits::{ConstU32, TransactionExtension, SaturatedConversion},
     };
 
     fn to_h256<H: AsRef<[u8]>>(h: H) -> H256 {
@@ -367,13 +367,23 @@ where
 
     // 2) Build the transaction extensions exactly like the runtime.
     type Extra = runtime::TransactionExtensions;
+
+    let info = client.info();
+    let at_hash = info.best_hash;
+    let at_hash_h256: H256 = to_h256(at_hash);
+    let genesis_h256: H256 = to_h256(info.genesis_hash);
+
+    const ERA_PERIOD: u64 = 12;
+    let current_block: u64 = info.best_number.saturated_into();
+    let era = Era::mortal(ERA_PERIOD, current_block);
+
     let extra: Extra =
         (
             frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
             frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
             frame_system::CheckTxVersion::<runtime::Runtime>::new(),
             frame_system::CheckGenesis::<runtime::Runtime>::new(),
-            frame_system::CheckEra::<runtime::Runtime>::from(Era::Immortal),
+            frame_system::CheckEra::<runtime::Runtime>::from(era),
             node_subtensor_runtime::check_nonce::CheckNonce::<runtime::Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<runtime::Runtime>::new(),
             node_subtensor_runtime::transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<
@@ -390,10 +400,6 @@ where
 
     // 3) Manually construct the `Implicit` tuple that the runtime will also derive.
     type Implicit = <Extra as TransactionExtension<RuntimeCall>>::Implicit;
-
-    let info = client.info();
-    let genesis_h256: H256 = to_h256(info.genesis_hash);
-    let at_hash = info.best_hash;
 
     // Try to get the *current* runtime version from on-chain WASM; if that fails,
     // fall back to the compiled runtime::VERSION.
@@ -418,8 +424,8 @@ where
         (),           // CheckNonZeroSender
         spec_version, // dynamic or fallback spec_version
         tx_version,   // dynamic or fallback transaction_version
-        genesis_h256, // CheckGenesis::Implicit = Hash
         genesis_h256, // CheckEra::Implicit (Immortal => genesis hash)
+        at_hash_h256,  // CheckEra::Implicit = hash of the block the tx is created at
         (),           // CheckNonce::Implicit = ()
         (),           // CheckWeight::Implicit = ()
         (),           // ChargeTransactionPaymentWrapper::Implicit = ()
@@ -455,12 +461,13 @@ where
     let opaque: sp_runtime::OpaqueExtrinsic = uxt.into();
     let xt: <B as sp_runtime::traits::Block>::Extrinsic = opaque.into();
 
-    pool.submit_one(at_hash, TransactionSource::Local, xt)
-        .await?;
+    pool.submit_one(at_hash, TransactionSource::Local, xt).await?;
 
     log::debug!(
         target: "mev-shield",
-        "announce_next_key submitted: xt=0x{xt_hash_hex}, nonce={nonce:?}, spec_version={spec_version}, tx_version={tx_version}",
+        "announce_next_key submitted: xt=0x{xt_hash_hex}, nonce={nonce:?}, \
+         spec_version={spec_version}, tx_version={tx_version}, era={:?}",
+        era,
     );
 
     Ok(())
