@@ -1,22 +1,12 @@
 use super::*;
 
-use codec::Encode;
 use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
-
 use frame_support::{BoundedVec, pallet_prelude::ConstU32};
-use frame_system::pallet_prelude::BlockNumberFor;
-
-use sp_core::crypto::KeyTypeId;
-use sp_core::sr25519;
-use sp_io::crypto::{sr25519_generate, sr25519_sign};
-
-use sp_runtime::{
-    AccountId32, MultiSignature,
-    traits::{Hash as HashT, SaturatedConversion, Zero},
-};
-
-use sp_std::{boxed::Box, vec, vec::Vec};
+use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
+use sp_core::{crypto::KeyTypeId, sr25519};
+use sp_io::crypto::sr25519_generate;
+use sp_runtime::{AccountId32, traits::Hash as HashT};
+use sp_std::vec;
 
 /// Helper to build bounded bytes (public key) of a given length.
 fn bounded_pk<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
@@ -28,25 +18,6 @@ fn bounded_pk<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
 fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
     let v = vec![0u8; len];
     BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
-}
-
-/// Build the raw payload bytes used by `commitment` & signature verification in the pallet.
-/// Layout: signer (32B) || nonce (u32 LE) || SCALE(call)
-fn build_payload_bytes<T: pallet::Config>(
-    signer: &T::AccountId,
-    nonce: <T as frame_system::Config>::Nonce,
-    call: &<T as pallet::Config>::RuntimeCall,
-) -> Vec<u8> {
-    let mut out = Vec::new();
-    out.extend_from_slice(signer.as_ref());
-
-    // canonicalize nonce to u32 LE
-    let n_u32: u32 = nonce.saturated_into();
-    out.extend_from_slice(&n_u32.to_le_bytes());
-
-    // append SCALE-encoded call
-    out.extend(call.encode());
-    out
 }
 
 /// Seed Aura authorities so `EnsureAuraAuthority` passes for a given sr25519 pubkey.
@@ -132,71 +103,42 @@ mod benches {
         assert_eq!(got.ciphertext.as_slice(), ciphertext.as_slice());
     }
 
-    /// Benchmark `execute_revealed`.
+    /// Benchmark `mark_decryption_failed`.
     #[benchmark]
-    fn execute_revealed() {
-        // Generate a dev sr25519 key in the host keystore and derive the account.
-        const KT: KeyTypeId = KeyTypeId(*b"benc");
-        let signer_pub: sr25519::Public = sr25519_generate(KT, Some("//Alice".as_bytes().to_vec()));
-        let signer: AccountId32 = signer_pub.into();
+    fn mark_decryption_failed() {
+        // Any account can be the author of the submission.
+        let who: T::AccountId = whitelisted_caller();
+        let submitted_in: BlockNumberFor<T> = frame_system::Pallet::<T>::block_number();
 
-        // Inner call that will be executed as the signer (cheap & always available).
-        let inner_call: <T as pallet::Config>::RuntimeCall = frame_system::Call::<T>::remark {
-            remark: vec![1, 2, 3],
-        }
-        .into();
+        // Build a dummy commitment and ciphertext.
+        let commitment: T::Hash =
+            <T as frame_system::Config>::Hashing::hash(b"bench-mark-decryption-failed");
+        const CT_DEFAULT_LEN: usize = 32;
+        let ciphertext: BoundedVec<u8, ConstU32<8192>> =
+            BoundedVec::truncate_from(vec![0u8; CT_DEFAULT_LEN]);
 
-        // Nonce must match current system nonce (fresh account => 0).
-        let nonce: <T as frame_system::Config>::Nonce = 0u32.into();
+        // Compute the submission id exactly like `submit_encrypted` does.
+        let id: T::Hash =
+            <T as frame_system::Config>::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
 
-        // Build payload and commitment exactly how the pallet expects.
-        let payload_bytes = super::build_payload_bytes::<T>(&signer, nonce, &inner_call);
-        let commitment: <T as frame_system::Config>::Hash =
-            <T as frame_system::Config>::Hashing::hash(payload_bytes.as_slice());
-
-        // Ciphertext is stored in the submission but not used by `execute_revealed`; keep small.
-        const CT_DEFAULT_LEN: usize = 64;
-        let ciphertext: BoundedVec<u8, ConstU32<8192>> = super::bounded_ct::<8192>(CT_DEFAULT_LEN);
-
-        // The submission `id` must match pallet's hashing scheme in submit_encrypted.
-        let id: <T as frame_system::Config>::Hash = <T as frame_system::Config>::Hashing::hash_of(
-            &(signer.clone(), commitment, &ciphertext),
-        );
-
-        // Seed the Submissions map with the expected entry.
+        // Seed Submissions with an entry for this id.
         let sub = Submission::<T::AccountId, BlockNumberFor<T>, <T as frame_system::Config>::Hash> {
-            author: signer.clone(),
+            author: who,
             commitment,
             ciphertext: ciphertext.clone(),
-            submitted_in: frame_system::Pallet::<T>::block_number(),
+            submitted_in,
         };
         Submissions::<T>::insert(id, sub);
 
-        // Domain-separated signing as in pallet: "mev-shield:v1" || genesis_hash || payload
-        let zero: BlockNumberFor<T> = Zero::zero();
-        let genesis = frame_system::Pallet::<T>::block_hash(zero);
-        let mut msg = b"mev-shield:v1".to_vec();
-        msg.extend_from_slice(genesis.as_ref());
-        msg.extend_from_slice(&payload_bytes);
+        // Reason for failure.
+        let reason: BoundedVec<u8, ConstU32<256>> =
+            BoundedVec::truncate_from(b"benchmark-decryption-failed".to_vec());
 
-        // Sign using the host keystore and wrap into MultiSignature.
-        let sig = sr25519_sign(KT, &signer_pub, &msg).expect("signing should succeed in benches");
-        let signature: MultiSignature = sig.into();
-
-        // Measure: dispatch the unsigned extrinsic (RawOrigin::None) with a valid wrapper.
+        // Measure: dispatch the unsigned extrinsic.
         #[extrinsic_call]
-        execute_revealed(
-            RawOrigin::None,
-            id,
-            signer.clone(),
-            nonce,
-            Box::new(inner_call.clone()),
-            signature.clone(),
-        );
+        mark_decryption_failed(RawOrigin::None, id, reason);
 
-        // Assert: submission consumed, signer nonce bumped to 1.
+        // Assert: submission is removed.
         assert!(Submissions::<T>::get(id).is_none());
-        let new_nonce = frame_system::Pallet::<T>::account_nonce(&signer);
-        assert_eq!(new_nonce, 1u32.into());
     }
 }

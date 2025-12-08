@@ -2725,6 +2725,99 @@ fn test_migrate_reset_unactive_sn_idempotence() {
     });
 }
 
+fn test_migrate_remove_old_identity_maps() {
+    let migration =
+        crate::migrations::migrate_remove_old_identity_maps::migrate_remove_old_identity_maps::<Test>;
+
+    const MIGRATION_NAME: &str = "migrate_remove_old_identity_maps";
+
+    let pallet_name = "SubtensorModule";
+
+    test_remove_storage_item(MIGRATION_NAME, pallet_name, "Identities", migration, 100);
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        "SubnetIdentities",
+        migration,
+        100,
+    );
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        "SubnetIdentitiesV2",
+        migration,
+        100,
+    );
+}
+
+#[test]
+fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
+    use crate::migrations::migrate_remove_unknown_neuron_axon_cert_prom::*;
+    const MIGRATION_NAME: &[u8] = b"migrate_remove_neuron_axon_cert_prom";
+
+    new_test_ext(1).execute_with(|| {
+        setup_for(NetUid::from(2), 64, 1231);
+        setup_for(NetUid::from(42), 256, 15151);
+        setup_for(NetUid::from(99), 1024, 32323);
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME));
+
+        let w = migrate_remove_unknown_neuron_axon_cert_prom::<Test>();
+        assert!(!w.is_zero(), "Weight must be non-zero");
+
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME));
+        assert_for(NetUid::from(2), 64, 1231);
+        assert_for(NetUid::from(42), 256, 15151);
+        assert_for(NetUid::from(99), 1024, 32323);
+    });
+
+    fn setup_for(netuid: NetUid, uids: u32, items: u32) {
+        NetworksAdded::<Test>::insert(netuid, true);
+
+        for i in 1u32..=uids {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            Uids::<Test>::insert(netuid, hk, i as u16);
+        }
+
+        for i in 1u32..=items {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            Axons::<Test>::insert(netuid, hk, AxonInfo::default());
+            NeuronCertificates::<Test>::insert(netuid, hk, NeuronCertificate::default());
+            Prometheus::<Test>::insert(netuid, hk, PrometheusInfo::default());
+        }
+    }
+
+    fn assert_for(netuid: NetUid, uids: u32, items: u32) {
+        assert_eq!(
+            Axons::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+        assert_eq!(
+            NeuronCertificates::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+        assert_eq!(
+            Prometheus::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+
+        for i in 1u32..=uids {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            assert!(Axons::<Test>::contains_key(netuid, hk));
+            assert!(NeuronCertificates::<Test>::contains_key(netuid, hk));
+            assert!(Prometheus::<Test>::contains_key(netuid, hk));
+        }
+
+        for i in uids + 1u32..=items {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            assert!(!Axons::<Test>::contains_key(netuid, hk));
+            assert!(!NeuronCertificates::<Test>::contains_key(netuid, hk));
+            assert!(!Prometheus::<Test>::contains_key(netuid, hk));
+        }
+    }
+}
+
 #[test]
 fn test_migrate_coldkey_swap_scheduled_to_announcements() {
     new_test_ext(1000).execute_with(|| {
