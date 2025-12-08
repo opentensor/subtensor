@@ -279,8 +279,8 @@ pub mod pallet {
         /// Client‑side:
         ///
         ///   1. Read `NextKey` (ML‑KEM public key bytes) from storage.
-		///   2. Sign your extrinsic so that it can be executed when added to the pool,
-		///        i.e. you may need to increment the nonce if you submit using the same account.
+        ///   2. Sign your extrinsic so that it can be executed when added to the pool,
+        ///        i.e. you may need to increment the nonce if you submit using the same account.
         ///   3. `commitment = Hashing::hash(signed_extrinsic)`.
         ///   4. Encrypt:
         ///
