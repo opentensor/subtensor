@@ -943,7 +943,7 @@ pub mod pallet {
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
     }
-    
+
     /// Default value for coldkey swap announcement delay.
     #[pallet::type_value]
     pub fn DefaultColdkeySwapAnnouncementDelay<T: Config>() -> BlockNumberFor<T> {
