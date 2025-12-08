@@ -316,7 +316,8 @@ pub async fn submit_announce_extrinsic<B, C, Pool>(
 ) -> anyhow::Result<()>
 where
     B: sp_runtime::traits::Block,
-    C: sc_client_api::HeaderBackend<B> + Send + Sync + 'static,
+    C: sc_client_api::HeaderBackend<B> + sp_api::ProvideRuntimeApi<B> + Send + Sync + 'static,
+    C::Api: sp_api::Core<B>,
     Pool: sc_transaction_pool_api::TransactionPool<Block = B> + Send + Sync + 'static,
     B::Extrinsic: From<sp_runtime::OpaqueExtrinsic>,
     B::Hash: AsRef<[u8]>,
@@ -325,6 +326,7 @@ where
     use runtime::{RuntimeCall, SignedPayload, UncheckedExtrinsic};
 
     use sc_transaction_pool_api::TransactionSource;
+    use sp_api::Core as _;
     use sp_core::H256;
     use sp_runtime::codec::Encode;
     use sp_runtime::{
@@ -391,19 +393,39 @@ where
 
     let info = client.info();
     let genesis_h256: H256 = to_h256(info.genesis_hash);
+    let at_hash = info.best_hash;
+
+    // Try to get the *current* runtime version from on-chain WASM; if that fails,
+    // fall back to the compiled runtime::VERSION.
+    let (spec_version, tx_version) = match client.runtime_api().version(at_hash) {
+        Ok(v) => (v.spec_version, v.transaction_version),
+        Err(e) => {
+            log::debug!(
+                target: "mev-shield",
+                "runtime_api::version failed at_hash={:?}: {:?}; \
+                 falling back to compiled runtime::VERSION",
+                at_hash,
+                e
+            );
+            (
+                runtime::VERSION.spec_version,
+                runtime::VERSION.transaction_version,
+            )
+        }
+    };
 
     let implicit: Implicit = (
-        (),                                   // CheckNonZeroSender
-        runtime::VERSION.spec_version,        // CheckSpecVersion::Implicit = u32
-        runtime::VERSION.transaction_version, // CheckTxVersion::Implicit = u32
-        genesis_h256,                         // CheckGenesis::Implicit = Hash
-        genesis_h256,                         // CheckEra::Implicit (Immortal => genesis hash)
-        (),                                   // CheckNonce::Implicit = ()
-        (),                                   // CheckWeight::Implicit = ()
-        (),                                   // ChargeTransactionPaymentWrapper::Implicit = ()
-        (),                                   // SubtensorTransactionExtension::Implicit = ()
-        (),                                   // DrandPriority::Implicit = ()
-        None,                                 // CheckMetadataHash::Implicit = Option<[u8; 32]>
+        (),           // CheckNonZeroSender
+        spec_version, // dynamic or fallback spec_version
+        tx_version,   // dynamic or fallback transaction_version
+        genesis_h256, // CheckGenesis::Implicit = Hash
+        genesis_h256, // CheckEra::Implicit (Immortal => genesis hash)
+        (),           // CheckNonce::Implicit = ()
+        (),           // CheckWeight::Implicit = ()
+        (),           // ChargeTransactionPaymentWrapper::Implicit = ()
+        (),           // SubtensorTransactionExtension::Implicit = ()
+        (),           // DrandPriority::Implicit = ()
+        None,         // CheckMetadataHash::Implicit = Option<[u8; 32]>
     );
 
     // 4) Build the exact signable payload from call + extra + implicit.
@@ -433,12 +455,12 @@ where
     let opaque: sp_runtime::OpaqueExtrinsic = uxt.into();
     let xt: <B as sp_runtime::traits::Block>::Extrinsic = opaque.into();
 
-    pool.submit_one(info.best_hash, TransactionSource::Local, xt)
+    pool.submit_one(at_hash, TransactionSource::Local, xt)
         .await?;
 
     log::debug!(
         target: "mev-shield",
-        "announce_next_key submitted: xt=0x{xt_hash_hex}, nonce={nonce:?}",
+        "announce_next_key submitted: xt=0x{xt_hash_hex}, nonce={nonce:?}, spec_version={spec_version}, tx_version={tx_version}",
     );
 
     Ok(())
