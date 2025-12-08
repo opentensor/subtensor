@@ -332,7 +332,7 @@ where
     use sp_runtime::{
         BoundedVec, MultiSignature,
         generic::Era,
-        traits::{ConstU32, TransactionExtension, SaturatedConversion},
+        traits::{ConstU32, SaturatedConversion, TransactionExtension},
     };
 
     fn to_h256<H: AsRef<[u8]>>(h: H) -> H256 {
@@ -425,7 +425,7 @@ where
         spec_version, // dynamic or fallback spec_version
         tx_version,   // dynamic or fallback transaction_version
         genesis_h256, // CheckEra::Implicit (Immortal => genesis hash)
-        at_hash_h256,  // CheckEra::Implicit = hash of the block the tx is created at
+        at_hash_h256, // CheckEra::Implicit = hash of the block the tx is created at
         (),           // CheckNonce::Implicit = ()
         (),           // CheckWeight::Implicit = ()
         (),           // ChargeTransactionPaymentWrapper::Implicit = ()
@@ -461,7 +461,8 @@ where
     let opaque: sp_runtime::OpaqueExtrinsic = uxt.into();
     let xt: <B as sp_runtime::traits::Block>::Extrinsic = opaque.into();
 
-    pool.submit_one(at_hash, TransactionSource::Local, xt).await?;
+    pool.submit_one(at_hash, TransactionSource::Local, xt)
+        .await?;
 
     log::debug!(
         target: "mev-shield",
