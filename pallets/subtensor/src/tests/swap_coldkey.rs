@@ -3,7 +3,8 @@
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    clippy::arithmetic_side_effects
 )]
 
 use approx::assert_abs_diff_eq;
