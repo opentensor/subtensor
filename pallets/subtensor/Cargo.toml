@@ -87,6 +87,7 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-crowdloan/try-runtime",
 	"pallet-drand/try-runtime",
+	"pallet-sudo/try-runtime",
 	"pallet-subtensor-proxy/try-runtime",
 	"pallet-subtensor-utility/try-runtime"
 ]
