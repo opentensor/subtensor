@@ -7,6 +7,7 @@ use sp_io::storage::clear_prefix;
 pub mod migrate_auto_stake_destination;
 pub mod migrate_chain_identity;
 pub mod migrate_coldkey_swap_scheduled;
+pub mod migrate_coldkey_swap_scheduled_to_announcements;
 pub mod migrate_commit_reveal_settings;
 pub mod migrate_commit_reveal_v2;
 pub mod migrate_create_root_network;
