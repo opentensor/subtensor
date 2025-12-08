@@ -17,6 +17,7 @@ export type ClientUrlType = 'ws://localhost:9944'
 export async function getDevnetApi() {
     if (api === undefined) {
         let client = await getClient()
+
         api = client.getTypedApi(devnet)
     }
     return api
