@@ -2,19 +2,16 @@
 
 use frame_support::traits::OnRuntimeUpgrade;
 use frame_system::pallet_prelude::BlockNumberFor;
-use node_subtensor_runtime::{
-    BuildStorage, Runtime, RuntimeGenesisConfig, SubtensorModule, System, rate_limiting,
-    rate_limiting::migration::{Migration, identifier_for_transaction_type},
-};
-use pallet_rate_limiting::{RateLimit, RateLimitKind, RateLimitTarget};
-use pallet_subtensor::{
-    HasMigrationRun, LastRateLimitedBlock, RateLimitKey, utils::rate_limiting::TransactionType,
-};
+use pallet_rate_limiting::{RateLimit, RateLimitKind, RateLimitTarget, TransactionIdentifier};
+use pallet_subtensor::{HasMigrationRun, LastRateLimitedBlock, RateLimitKey};
 use sp_runtime::traits::SaturatedConversion;
 use subtensor_runtime_common::NetUid;
 
-type GroupId = <Runtime as pallet_rate_limiting::Config>::GroupId;
-const MIGRATION_NAME: &[u8] = b"migrate_rate_limiting";
+use node_subtensor_runtime::{
+    BuildStorage, Runtime, RuntimeGenesisConfig, SubtensorModule, System, rate_limiting,
+    rate_limiting::migration::{GROUP_REGISTER_NETWORK, MIGRATION_NAME, Migration},
+};
+
 type AccountId = <Runtime as frame_system::Config>::AccountId;
 type UsageKey = rate_limiting::RateLimitUsageKey<AccountId>;
 
@@ -26,20 +23,6 @@ fn new_test_ext() -> sp_io::TestExternalities {
         .into();
     ext.execute_with(|| System::set_block_number(1));
     ext
-}
-
-fn resolve_target(
-    identifier: pallet_rate_limiting::TransactionIdentifier,
-) -> RateLimitTarget<GroupId> {
-    if let Some(group) = pallet_rate_limiting::CallGroups::<Runtime>::get(identifier) {
-        RateLimitTarget::Group(group)
-    } else {
-        RateLimitTarget::Transaction(identifier)
-    }
-}
-
-fn exact_span(span: u64) -> RateLimitKind<BlockNumberFor<Runtime>> {
-    RateLimitKind::Exact(span.saturated_into())
 }
 
 #[test]
@@ -54,9 +37,7 @@ fn migrates_global_register_network_last_seen() {
         // Run migration.
         Migration::<Runtime>::on_runtime_upgrade();
 
-        let identifier =
-            identifier_for_transaction_type(TransactionType::RegisterNetwork).expect("identifier");
-        let target = resolve_target(identifier);
+        let target = RateLimitTarget::Group(GROUP_REGISTER_NETWORK);
 
         // LastSeen preserved globally (usage = None).
         let stored = pallet_rate_limiting::LastSeen::<Runtime>::get(target, None::<UsageKey>)
@@ -77,13 +58,11 @@ fn sn_owner_hotkey_limit_not_tempo_scaled_and_last_seen_preserved() {
 
         Migration::<Runtime>::on_runtime_upgrade();
 
-        let identifier =
-            identifier_for_transaction_type(TransactionType::SetSNOwnerHotkey).expect("identifier");
-        let target = resolve_target(identifier);
+        let target = RateLimitTarget::Transaction(TransactionIdentifier::new(19, 67));
 
         // Limit should remain the fixed default (50400 blocks), not tempo-scaled.
         let limit = pallet_rate_limiting::Limits::<Runtime>::get(target).expect("limit stored");
-        assert!(matches!(limit, RateLimit::Global(kind) if kind == exact_span(50_400)));
+        assert!(matches!(limit, RateLimit::Global(kind) if kind == RateLimitKind::Exact(50_400)));
 
         // LastSeen preserved per subnet.
         let usage: Option<<Runtime as pallet_rate_limiting::Config>::UsageKey> =

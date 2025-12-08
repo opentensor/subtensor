@@ -90,6 +90,8 @@ pub struct TransactionIdentifier {
     Copy,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Encode,
     Decode,
     DecodeWithMemTracking,
