@@ -1065,19 +1065,24 @@ mod dispatches {
             Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid)
         }
 
-        /// The extrinsic for user to change the coldkey associated with their account.
+        /// Performs an arbitrary coldkey swap for any coldkey.
         ///
-        /// WARNING: This is deprecated in favor of `announce_coldkey_swap`/`coldkey_swap`
+        /// Only callable by root as it doesn't require an announcement and can be used to swap any coldkey.
         #[pallet::call_index(71)]
         #[pallet::weight(Weight::zero())]
-        #[deprecated(note = "Deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`")]
         pub fn swap_coldkey(
-            _origin: OriginFor<T>,
-            _old_coldkey: T::AccountId,
-            _new_coldkey: T::AccountId,
-            _swap_cost: TaoCurrency,
+            origin: OriginFor<T>,
+            old_coldkey: T::AccountId,
+            new_coldkey: T::AccountId,
+            swap_cost: TaoCurrency,
         ) -> DispatchResult {
-            Err(Error::<T>::Deprecated.into())
+            ensure_root(origin)?;
+
+            Self::do_swap_coldkey(&old_coldkey, &new_coldkey, swap_cost)?;
+            // We also remove any announcement for security reasons
+            ColdkeySwapAnnouncements::<T>::remove(old_coldkey);
+
+            Ok(())
         }
 
         /// Sets the childkey take for a given hotkey.
@@ -2351,7 +2356,7 @@ mod dispatches {
                 let when = existing.0;
                 ensure!(
                     now > when.saturating_add(delay),
-                    Error::<T>::ColdKeySwapReannouncedTooEarly
+                    Error::<T>::ColdkeySwapReannouncedTooEarly
                 );
             }
 
@@ -2376,7 +2381,7 @@ mod dispatches {
             let who = ensure_signed(origin)?;
 
             let (when, new_coldkey_hash) = ColdkeySwapAnnouncements::<T>::take(who.clone())
-                .ok_or(Error::<T>::ColdKeySwapAnnouncementNotFound)?;
+                .ok_or(Error::<T>::ColdkeySwapAnnouncementNotFound)?;
 
             ensure!(
                 new_coldkey_hash == T::Hashing::hash_of(&new_coldkey),
@@ -2387,11 +2392,26 @@ mod dispatches {
             let delay = ColdkeySwapAnnouncementDelay::<T>::get();
             ensure!(
                 now > when.saturating_add(delay),
-                Error::<T>::ColdKeySwapTooEarly
+                Error::<T>::ColdkeySwapTooEarly
             );
 
-            Self::do_swap_coldkey(&who, &new_coldkey)?;
+            let swap_cost = Self::get_key_swap_cost();
+            Self::do_swap_coldkey(&who, &new_coldkey, swap_cost)?;
 
+            Ok(())
+        }
+
+        /// Removes a coldkey swap announcement for a coldkey.
+        ///
+        /// Only callable by root.
+        #[pallet::call_index(127)]
+        #[pallet::weight(Weight::zero())]
+        pub fn remove_coldkey_swap_announcement(
+            origin: OriginFor<T>,
+            coldkey: T::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ColdkeySwapAnnouncements::<T>::remove(coldkey);
             Ok(())
         }
     }

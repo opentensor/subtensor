@@ -1184,9 +1184,11 @@ fn test_claim_root_with_swap_coldkey() {
         );
 
         // Swap coldkey
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost.to_u64());
-        assert_ok!(SubtensorModule::do_swap_coldkey(&coldkey, &new_coldkey,));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &coldkey,
+            &new_coldkey,
+            TaoCurrency::ZERO
+        ));
 
         // Check swapped keys claimed values
 

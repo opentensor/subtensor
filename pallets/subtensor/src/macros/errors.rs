@@ -149,11 +149,11 @@ mod errors {
         /// Default transaction rate limit exceeded.
         TxRateLimitExceeded,
         /// Coldkey swap announcement not found
-        ColdKeySwapAnnouncementNotFound,
+        ColdkeySwapAnnouncementNotFound,
         /// Coldkey swap too early.
-        ColdKeySwapTooEarly,
+        ColdkeySwapTooEarly,
         /// Coldkey swap reannounced too early.
-        ColdKeySwapReannouncedTooEarly,
+        ColdkeySwapReannouncedTooEarly,
         /// The announced coldkey hash does not match the new coldkey hash.
         AnnouncedColdkeyHashDoesNotMatch,
         /// New coldkey is hotkey

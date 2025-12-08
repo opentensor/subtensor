@@ -7,6 +7,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_swap_coldkey(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
+        swap_cost: TaoCurrency,
     ) -> DispatchResult {
         ensure!(
             StakingHotkeys::<T>::get(new_coldkey).is_empty(),
@@ -18,7 +19,6 @@ impl<T: Config> Pallet<T> {
         );
 
         // Remove and recycle the swap cost from the old coldkey's account
-        let swap_cost = Self::get_key_swap_cost();
         ensure!(
             Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost.into()),
             Error::<T>::NotEnoughBalanceToPaySwapColdKey

@@ -142,7 +142,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
 
         assert_noop!(
             SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2_hash,),
-            Error::<Test>::ColdKeySwapReannouncedTooEarly
+            Error::<Test>::ColdkeySwapReannouncedTooEarly
         );
     });
 }
@@ -266,7 +266,7 @@ fn test_swap_coldkey_announced_works() {
         ));
 
         // Ensure the announcement has been consumed
-        assert_eq!(ColdkeySwapAnnouncements::<Test>::get(who), None);
+        assert_eq!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
 
         // Ensure the cost has been withdrawn from the old coldkey and recycled
         let balance_after = SubtensorModule::get_coldkey_balance(&who);
@@ -404,10 +404,11 @@ fn test_do_swap_coldkey_preserves_new_coldkey_identity() {
         };
         IdentitiesV2::<Test>::insert(new_coldkey, new_identity.clone());
 
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost.to_u64());
-
-        assert_ok!(SubtensorModule::do_swap_coldkey(&who, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &who,
+            &new_coldkey,
+            TaoCurrency::ZERO
+        ));
 
         // Identity is preserved
         assert_eq!(IdentitiesV2::<Test>::get(who), Some(old_identity));
@@ -441,7 +442,7 @@ fn test_swap_coldkey_announced_without_announcement_fails() {
 
         assert_noop!(
             SubtensorModule::swap_coldkey_announced(RuntimeOrigin::signed(who), new_coldkey),
-            Error::<Test>::ColdKeySwapAnnouncementNotFound
+            Error::<Test>::ColdkeySwapAnnouncementNotFound
         );
     })
 }
@@ -483,7 +484,7 @@ fn test_swap_coldkey_announced_too_early_fails() {
                 <Test as frame_system::Config>::RuntimeOrigin::signed(who),
                 new_coldkey
             ),
-            Error::<Test>::ColdKeySwapTooEarly
+            Error::<Test>::ColdkeySwapTooEarly
         );
     })
 }
@@ -562,8 +563,9 @@ fn test_do_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         System::run_to_block::<AllPalletsWithSystem>(now + delay);
 
+        let swap_cost = SubtensorModule::get_key_swap_cost();
         assert_noop!(
-            SubtensorModule::do_swap_coldkey(&who, &new_coldkey),
+            SubtensorModule::do_swap_coldkey(&who, &new_coldkey, swap_cost),
             Error::<Test>::NotEnoughBalanceToPaySwapColdKey
         );
     });
@@ -575,10 +577,11 @@ fn test_do_swap_coldkey_with_no_stake() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
 
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost.to_u64());
-
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey,));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            TaoCurrency::ZERO
+        ));
 
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
@@ -648,14 +651,15 @@ fn test_do_swap_coldkey_with_max_values() {
             netuid2,
         );
 
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost.to_u64());
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey2, swap_cost.to_u64());
-
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey,));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            TaoCurrency::ZERO
+        ));
         assert_ok!(SubtensorModule::do_swap_coldkey(
             &old_coldkey2,
-            &new_coldkey2
+            &new_coldkey2,
+            TaoCurrency::ZERO
         ));
 
         assert_eq!(
@@ -713,10 +717,11 @@ fn test_do_swap_coldkey_effect_on_delegated_stake() {
         let coldkey_stake_before = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
         let delegator_stake_before = SubtensorModule::get_total_stake_for_coldkey(&delegator);
 
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost.to_u64());
-
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey,));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            TaoCurrency::ZERO
+        ));
 
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
@@ -808,11 +813,12 @@ fn test_swap_delegated_stake_for_coldkey() {
         let total_hotkey1_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey1);
         let total_hotkey2_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey2);
 
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost.to_u64());
-
         // Perform the swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey,));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            TaoCurrency::ZERO
+        ));
 
         // Verify stake transfer
         assert_eq!(
@@ -1100,16 +1106,17 @@ fn test_coldkey_swap_total() {
             vec![hotkey3, delegate3]
         );
 
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost.to_u64());
-
         // Perform the swap
         let new_coldkey = U256::from(1100);
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&coldkey),
             ck_stake
         );
-        assert_ok!(SubtensorModule::do_swap_coldkey(&coldkey, &new_coldkey,));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &coldkey,
+            &new_coldkey,
+            TaoCurrency::ZERO
+        ));
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
             ck_stake
@@ -1243,11 +1250,12 @@ fn test_do_swap_coldkey_effect_on_delegations() {
             stake.into()
         ));
 
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost.to_u64());
-
         // Perform the swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&coldkey, &new_coldkey,));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &coldkey,
+            &new_coldkey,
+            TaoCurrency::ZERO
+        ));
 
         // Verify stake was moved for the delegate
         let approx_total_stake = TaoCurrency::from(stake * 2 - fee * 2);
@@ -1280,6 +1288,44 @@ fn test_do_swap_coldkey_effect_on_delegations() {
                 .into()
         );
         assert_eq!(Alpha::<Test>::get((delegate, coldkey, netuid2)), 0);
+    });
+}
+
+#[test]
+fn test_remove_coldkey_swap_announcement_works() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who),
+            new_coldkey_hash,
+        ));
+
+        assert_ok!(SubtensorModule::remove_coldkey_swap_announcement(
+            RuntimeOrigin::root(),
+            who,
+        ));
+
+        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
+    });
+}
+
+#[test]
+fn test_remove_coldkey_swap_announcement_with_bad_origin_fails() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+
+        assert_noop!(
+            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::none(), who),
+            BadOrigin
+        );
+
+        assert_noop!(
+            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::root(), who),
+            BadOrigin
+        );
     });
 }
 
@@ -1398,25 +1444,6 @@ fn test_subtensor_extension_rejects_any_call_that_is_not_swap_coldkey_announced(
         let info = call.get_dispatch_info();
         let ext = SubtensorTransactionExtension::<Test>::new();
         assert_ok!(ext.dispatch_transaction(RuntimeOrigin::signed(who).into(), call, &info, 0, 0));
-    });
-}
-
-#[test]
-#[allow(deprecated)]
-fn test_swap_coldkey_deprecated() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-
-        assert_noop!(
-            SubtensorModule::swap_coldkey(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                old_coldkey,
-                new_coldkey,
-                TaoCurrency::MAX
-            ),
-            Error::<Test>::Deprecated
-        );
     });
 }
 

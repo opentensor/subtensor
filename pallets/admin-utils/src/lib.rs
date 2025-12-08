@@ -2199,7 +2199,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_coldkey_swap_announcement_delay(duration);
-            log::trace!("ColdkeySwapScheduleDurationSet( duration: {duration:?} )");
+            log::trace!("ColdkeySwapAnnouncementDelaySet( duration: {duration:?} )");
             Ok(())
         }
     }
