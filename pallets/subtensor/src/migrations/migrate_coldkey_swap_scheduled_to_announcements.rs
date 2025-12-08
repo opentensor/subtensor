@@ -4,7 +4,7 @@ use frame_support::{pallet_prelude::Blake2_128Concat, traits::Get, weights::Weig
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::prelude::string::String;
 use sp_io::storage::clear;
-use sp_runtime::traits::Hash;
+use sp_runtime::{Saturating, traits::Hash};
 
 pub mod deprecated {
     use super::*;
@@ -64,7 +64,7 @@ pub fn migrate_coldkey_swap_scheduled_to_announcements<T: Config>() -> Weight {
             let coldkey_hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
             // The announcement should be at the scheduled time - delay to be able to call
             // the swap_coldkey_announced call at the old scheduled time
-            ColdkeySwapAnnouncements::<T>::insert(who, (when - delay, coldkey_hash));
+            ColdkeySwapAnnouncements::<T>::insert(who, (when.saturating_sub(delay), coldkey_hash));
             weight.saturating_accrue(T::DbWeight::get().writes(1));
         }
         weight.saturating_accrue(T::DbWeight::get().reads(1));

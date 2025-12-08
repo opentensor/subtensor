@@ -39,14 +39,14 @@ fn test_announce_coldkey_swap_works() {
         assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who.clone()),
+            RuntimeOrigin::signed(who),
             new_coldkey_hash,
         ));
 
         let now = System::block_number();
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(who.clone(), (now, new_coldkey_hash))]
+            vec![(who, (now, new_coldkey_hash))]
         );
         assert_eq!(
             last_event(),
@@ -71,28 +71,28 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
         assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who.clone()),
+            RuntimeOrigin::signed(who),
             new_coldkey_hash,
         ));
 
         let now = System::block_number();
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(who.clone(), (now, new_coldkey_hash))]
+            vec![(who, (now, new_coldkey_hash))]
         );
 
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         System::run_to_block::<AllPalletsWithSystem>(now + delay);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who.clone()),
+            RuntimeOrigin::signed(who),
             new_coldkey_2_hash,
         ));
 
         let now = System::block_number();
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(who.clone(), (now, new_coldkey_2_hash))]
+            vec![(who, (now, new_coldkey_2_hash))]
         );
     });
 }
@@ -127,24 +127,21 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
         assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who.clone()),
+            RuntimeOrigin::signed(who),
             new_coldkey_hash,
         ));
 
         let now = System::block_number();
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(who.clone(), (now, new_coldkey_hash))]
+            vec![(who, (now, new_coldkey_hash))]
         );
 
         let unmet_delay = ColdkeySwapAnnouncementDelay::<Test>::get();
         System::run_to_block::<AllPalletsWithSystem>(now + unmet_delay);
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(
-                RuntimeOrigin::signed(who.clone()),
-                new_coldkey_2_hash,
-            ),
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2_hash,),
             Error::<Test>::ColdKeySwapReannouncedTooEarly
         );
     });
@@ -174,12 +171,12 @@ fn test_swap_coldkey_announced_works() {
 
         // Announce the coldkey swap
         assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who.clone()),
+            RuntimeOrigin::signed(who),
             new_coldkey_hash,
         ));
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(who.clone(), (now, new_coldkey_hash))]
+            vec![(who, (now, new_coldkey_hash))]
         );
 
         // Run some blocks for the announcement to be past the delay
@@ -222,8 +219,8 @@ fn test_swap_coldkey_announced_works() {
         register_ok_neuron(netuid1, hotkey3, who, 0);
 
         let hotkeys = vec![hotkey1, hotkey2, hotkey3];
-        assert_eq!(StakingHotkeys::<Test>::get(&who), hotkeys);
-        assert_eq!(OwnedHotkeys::<Test>::get(&who), hotkeys);
+        assert_eq!(StakingHotkeys::<Test>::get(who), hotkeys);
+        assert_eq!(OwnedHotkeys::<Test>::get(who), hotkeys);
         assert_eq!(Owner::<Test>::get(hotkey1), who);
         assert_eq!(Owner::<Test>::get(hotkey2), who);
         assert_eq!(Owner::<Test>::get(hotkey3), who);
@@ -279,8 +276,8 @@ fn test_swap_coldkey_announced_works() {
         );
 
         // Ensure the identity is correctly swapped
-        assert!(IdentitiesV2::<Test>::get(&who).is_none());
-        assert_eq!(IdentitiesV2::<Test>::get(&new_coldkey), Some(identity));
+        assert!(IdentitiesV2::<Test>::get(who).is_none());
+        assert_eq!(IdentitiesV2::<Test>::get(new_coldkey), Some(identity));
 
         // Ensure the subnet ownerships are correctly swapped
         assert_eq!(SubnetOwner::<Test>::get(netuid1), new_coldkey);
@@ -353,12 +350,12 @@ fn test_swap_coldkey_announced_works() {
         );
 
         // Ensure the staking hotkeys are correctly swapped
-        assert!(StakingHotkeys::<Test>::get(&who).is_empty());
-        assert_eq!(StakingHotkeys::<Test>::get(&new_coldkey), hotkeys);
+        assert!(StakingHotkeys::<Test>::get(who).is_empty());
+        assert_eq!(StakingHotkeys::<Test>::get(new_coldkey), hotkeys);
 
         // Ensure the hotkey ownership is correctly swapped
-        assert!(OwnedHotkeys::<Test>::get(&who).is_empty());
-        assert_eq!(OwnedHotkeys::<Test>::get(&new_coldkey), hotkeys);
+        assert!(OwnedHotkeys::<Test>::get(who).is_empty());
+        assert_eq!(OwnedHotkeys::<Test>::get(new_coldkey), hotkeys);
         assert_eq!(Owner::<Test>::get(hotkey1), new_coldkey);
         assert_eq!(Owner::<Test>::get(hotkey2), new_coldkey);
         assert_eq!(Owner::<Test>::get(hotkey3), new_coldkey);
@@ -458,7 +455,7 @@ fn test_swap_coldkey_announced_with_mismatched_coldkey_hash_fails() {
         let other_coldkey = U256::from(3);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who.clone()),
+            RuntimeOrigin::signed(who),
             new_coldkey_hash,
         ));
 
@@ -477,7 +474,7 @@ fn test_swap_coldkey_announced_too_early_fails() {
         let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who.clone()),
+            RuntimeOrigin::signed(who),
             new_coldkey_hash,
         ));
 
@@ -500,7 +497,7 @@ fn test_swap_coldkey_announced_with_already_associated_coldkey_fails() {
         let hotkey = U256::from(3);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who.clone()),
+            RuntimeOrigin::signed(who),
             new_coldkey_hash,
         ));
 
@@ -532,7 +529,7 @@ fn test_swap_coldkey_announced_with_hotkey_fails() {
         let hotkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&hotkey);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who.clone()),
+            RuntimeOrigin::signed(who),
             hotkey_hash,
         ));
 

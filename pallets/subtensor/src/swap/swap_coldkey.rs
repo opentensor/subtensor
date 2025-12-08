@@ -9,11 +9,11 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
     ) -> DispatchResult {
         ensure!(
-            StakingHotkeys::<T>::get(&new_coldkey).is_empty(),
+            StakingHotkeys::<T>::get(new_coldkey).is_empty(),
             Error::<T>::ColdKeyAlreadyAssociated
         );
         ensure!(
-            !Self::hotkey_account_exists(&new_coldkey),
+            !Self::hotkey_account_exists(new_coldkey),
             Error::<T>::NewColdKeyIsHotkey
         );
 
@@ -34,21 +34,21 @@ impl<T: Config> Pallet<T> {
         }
 
         for netuid in Self::get_all_subnet_netuids() {
-            Self::transfer_subnet_ownership(netuid, old_coldkey, &new_coldkey);
-            Self::transfer_auto_stake_destination(netuid, old_coldkey, &new_coldkey);
-            Self::transfer_coldkey_stake(netuid, old_coldkey, &new_coldkey);
+            Self::transfer_subnet_ownership(netuid, old_coldkey, new_coldkey);
+            Self::transfer_auto_stake_destination(netuid, old_coldkey, new_coldkey);
+            Self::transfer_coldkey_stake(netuid, old_coldkey, new_coldkey);
         }
-        Self::transfer_staking_hotkeys(old_coldkey, &new_coldkey);
-        Self::transfer_hotkeys_ownership(old_coldkey, &new_coldkey);
+        Self::transfer_staking_hotkeys(old_coldkey, new_coldkey);
+        Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey);
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);
         if remaining_balance > 0 {
             Self::kill_coldkey_account(old_coldkey, remaining_balance)?;
-            Self::add_balance_to_coldkey_account(&new_coldkey, remaining_balance);
+            Self::add_balance_to_coldkey_account(new_coldkey, remaining_balance);
         }
 
-        Self::set_last_tx_block(&new_coldkey, Self::get_current_block_as_u64());
+        Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
 
         Self::deposit_event(Event::ColdkeySwapped {
             old_coldkey: old_coldkey.clone(),

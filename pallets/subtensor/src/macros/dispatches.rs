@@ -9,7 +9,7 @@ mod dispatches {
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
-    use sp_runtime::{Percent, traits::Hash};
+    use sp_runtime::{Percent, Saturating, traits::Hash};
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     use crate::MAX_NUM_ROOT_CLAIMS;
@@ -2350,7 +2350,7 @@ mod dispatches {
                 let delay = ColdkeySwapAnnouncementDelay::<T>::get();
                 let when = existing.0;
                 ensure!(
-                    now > when + delay,
+                    now > when.saturating_add(delay),
                     Error::<T>::ColdKeySwapReannouncedTooEarly
                 );
             }
@@ -2385,7 +2385,10 @@ mod dispatches {
 
             let now = <frame_system::Pallet<T>>::block_number();
             let delay = ColdkeySwapAnnouncementDelay::<T>::get();
-            ensure!(now > when + delay, Error::<T>::ColdKeySwapTooEarly);
+            ensure!(
+                now > when.saturating_add(delay),
+                Error::<T>::ColdKeySwapTooEarly
+            );
 
             Self::do_swap_coldkey(&who, &new_coldkey)?;
 
