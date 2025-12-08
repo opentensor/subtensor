@@ -694,9 +694,6 @@ impl<T: Config> Pallet<T> {
         price_limit: TaoCurrency,
         drop_fees: bool,
     ) -> Result<TaoCurrency, DispatchError> {
-        // Record the protocol TAO before the swap.
-        let protocol_tao = Self::get_protocol_tao(netuid);
-
         //  Decrease alpha on subnet
         let actual_alpha_decrease =
             Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
