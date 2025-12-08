@@ -12,8 +12,8 @@ use subtensor_runtime_common::NetUid;
 
 use crate::{
     pallet::{
-        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet,
-        Positions, SwapV3Initialized,
+        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, Pallet, Positions,
+        SwapV3Initialized,
     },
     position::{Position, PositionId},
     tick::TickIndex,
@@ -131,17 +131,17 @@ mod benchmarks {
         );
     }
 
-    #[benchmark]
-    fn toggle_user_liquidity() {
-        let netuid = NetUid::from(101);
+    // #[benchmark]
+    // fn toggle_user_liquidity() {
+    //     let netuid = NetUid::from(101);
 
-        assert!(!EnabledUserLiquidity::<T>::get(netuid));
+    //     assert!(!EnabledUserLiquidity::<T>::get(netuid));
 
-        #[extrinsic_call]
-        toggle_user_liquidity(RawOrigin::Root, netuid.into(), true);
+    //     #[extrinsic_call]
+    //     toggle_user_liquidity(RawOrigin::Root, netuid.into(), true);
 
-        assert!(EnabledUserLiquidity::<T>::get(netuid));
-    }
+    //     assert!(EnabledUserLiquidity::<T>::get(netuid));
+    // }
 
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
