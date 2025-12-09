@@ -995,8 +995,7 @@ fn get_alpha_price_returns_encoded_price() {
         assert!(env.charged_weight().is_none());
 
         // Decode the output
-        let output_price: u64 =
-            Decode::decode(&mut &env.output()[..]).expect("Failed to decode output price");
+        let output_price: u64 = Decode::decode(&mut &env.output()[..]).unwrap();
 
         assert_eq!(
             output_price, expected_price_u64,
