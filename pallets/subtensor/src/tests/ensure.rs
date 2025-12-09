@@ -63,26 +63,20 @@ fn ensure_subnet_owner_or_root_distinguishes_root_and_owner() {
 }
 
 #[test]
-fn ensure_root_with_rate_limit_blocks_in_freeze_window() {
+fn ensure_admin_window_open_blocks_in_freeze_window() {
     new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid = NetUid::from(0);
         let tempo = 10;
         add_network(netuid, 10, 0);
 
-        // Set freeze window to 3
         let freeze_window = 3;
         crate::Pallet::<Test>::set_admin_freeze_window(freeze_window);
 
-        run_to_block((tempo - freeze_window + 1).into());
+        System::set_block_number((tempo - freeze_window).into());
+        assert!(crate::Pallet::<Test>::ensure_admin_window_open(netuid).is_err());
 
-        // Root is blocked in freeze window
-        assert!(
-            crate::Pallet::<Test>::ensure_root_with_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid
-            )
-            .is_err()
-        );
+        System::set_block_number((tempo - freeze_window - 1).into());
+        assert!(crate::Pallet::<Test>::ensure_admin_window_open(netuid).is_ok());
     });
 }
 
