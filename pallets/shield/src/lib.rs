@@ -16,20 +16,22 @@ pub mod pallet {
     use super::*;
     use codec::Encode;
     use frame_support::{
-        dispatch::{GetDispatchInfo, PostDispatchInfo},
+        dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
         traits::ConstU32,
+        traits::IsSubType,
         weights::Weight,
     };
     use frame_system::pallet_prelude::*;
     use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
     use sp_core::ByteArray;
-    use sp_runtime::transaction_validity::{
-        InvalidTransaction, TransactionSource, ValidTransaction,
-    };
     use sp_runtime::{
         AccountId32, DispatchErrorWithPostInfo, RuntimeDebug, Saturating,
-        traits::{BadOrigin, Hash},
+        traits::{
+            BadOrigin, DispatchInfoOf, DispatchOriginOf, Dispatchable, Hash, Implication,
+            TransactionExtension,
+        },
+        transaction_validity::{InvalidTransaction, TransactionSource, ValidTransaction},
     };
     use sp_std::{marker::PhantomData, prelude::*};
     use subtensor_macros::freeze_struct;
@@ -279,21 +281,12 @@ pub mod pallet {
         /// Client‑side:
         ///
         ///   1. Read `NextKey` (ML‑KEM public key bytes) from storage.
-        ///   2. Compute `key_hash = Hashing::hash(NextKey_bytes)`.
-        ///   3. Build:
+        ///   2. Sign your extrinsic so that it can be executed when added to the pool,
+        ///        i.e. you may need to increment the nonce if you submit using the same account.
+        ///   3. `commitment = Hashing::hash(signed_extrinsic)`.
+        ///   4. Encrypt:
         ///
-        ///        raw_payload = signer (32B AccountId)
-        ///                    || key_hash (32B Hash)
-        ///                    || SCALE(call)
-        ///
-        ///   4. `commitment = Hashing::hash(raw_payload)`.
-        ///   5. Signature message:
-        ///
-        ///        "mev-shield:v1" || genesis_hash || raw_payload
-        ///
-        ///   6. Encrypt:
-        ///
-        ///        plaintext = raw_payload || sig_kind || signature(64B)
+        ///        plaintext = signed_extrinsic
         ///
         ///      with ML‑KEM‑768 + XChaCha20‑Poly1305, producing
         ///
@@ -389,6 +382,95 @@ pub mod pallet {
                 }
                 _ => InvalidTransaction::Call.into(),
             }
+        }
+    }
+
+    #[freeze_struct("51f74eb54f5ab1fe")]
+    #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
+    pub struct MevShieldDecryptionFilter<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+
+    impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for MevShieldDecryptionFilter<T> {
+        fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+            write!(f, "MevShieldDecryptionFilter")
+        }
+    }
+
+    impl<T: Config + Send + Sync + TypeInfo> MevShieldDecryptionFilter<T> {
+        pub fn new() -> Self {
+            Self(PhantomData)
+        }
+
+        #[inline]
+        fn mev_failed_priority() -> TransactionPriority {
+            1u64
+        }
+    }
+
+    impl<T: Config + Send + Sync + TypeInfo> TransactionExtension<RuntimeCallFor<T>>
+        for MevShieldDecryptionFilter<T>
+    where
+        <T as frame_system::Config>::RuntimeCall:
+            Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+        <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+    {
+        const IDENTIFIER: &'static str = "MevShieldDecryptionFilter";
+
+        type Implicit = ();
+        type Val = ();
+        type Pre = ();
+
+        fn weight(&self, _call: &RuntimeCallFor<T>) -> Weight {
+            // Only does light pattern matching; treat as free.
+            Weight::zero()
+        }
+
+        fn validate(
+            &self,
+            origin: DispatchOriginOf<RuntimeCallFor<T>>,
+            call: &RuntimeCallFor<T>,
+            _info: &DispatchInfoOf<RuntimeCallFor<T>>,
+            _len: usize,
+            _self_implicit: Self::Implicit,
+            _inherited_implication: &impl Implication,
+            source: TransactionSource,
+        ) -> ValidateResult<Self::Val, RuntimeCallFor<T>> {
+            match call.is_sub_type() {
+                Some(Call::mark_decryption_failed { id, .. }) => {
+                    match source {
+                        TransactionSource::Local | TransactionSource::InBlock => {
+                            let validity_res =
+                                ValidTransaction::with_tag_prefix("mev-shield-failed")
+                                    .priority(Self::mev_failed_priority())
+                                    .longevity(64)
+                                    .and_provides(id)
+                                    .propagate(false)
+                                    .build();
+
+                            match validity_res {
+                                Ok(validity) => Ok((validity, (), origin)),
+                                Err(e) => Err(e),
+                            }
+                        }
+
+                        // Anything coming from the outside world (including *signed*
+                        // transactions) is rejected at the pool boundary.
+                        _ => Err(InvalidTransaction::Call.into()),
+                    }
+                }
+
+                _ => Ok((Default::default(), (), origin)),
+            }
+        }
+
+        fn prepare(
+            self,
+            _val: Self::Val,
+            _origin: &DispatchOriginOf<RuntimeCallFor<T>>,
+            _call: &RuntimeCallFor<T>,
+            _info: &DispatchInfoOf<RuntimeCallFor<T>>,
+            _len: usize,
+        ) -> Result<Self::Pre, TransactionValidityError> {
+            Ok(())
         }
     }
 }
