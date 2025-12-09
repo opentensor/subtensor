@@ -54,7 +54,6 @@ fn test_announce_coldkey_swap_works() {
             RuntimeEvent::SubtensorModule(Event::ColdkeySwapAnnounced {
                 who,
                 new_coldkey_hash,
-                block_number: now,
             })
         );
     });

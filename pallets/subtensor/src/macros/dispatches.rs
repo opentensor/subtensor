@@ -2363,9 +2363,8 @@ mod dispatches {
             ColdkeySwapAnnouncements::<T>::insert(who.clone(), (now, new_coldkey_hash.clone()));
 
             Self::deposit_event(Event::ColdkeySwapAnnounced {
-                who: who.clone(),
-                new_coldkey_hash: new_coldkey_hash.clone(),
-                block_number: now,
+                who,
+                new_coldkey_hash,
             });
             Ok(())
         }
