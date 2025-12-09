@@ -427,7 +427,7 @@ mod pallet_benchmarks {
         let now = frame_system::Pallet::<T>::block_number();
         let delay = ColdkeySwapAnnouncementDelay::<T>::get();
         ColdkeySwapAnnouncements::<T>::insert(&old_coldkey, (now, new_coldkey_hash));
-        frame_system::Pallet::<T>::set_block_number(now + delay);
+        frame_system::Pallet::<T>::set_block_number(now + delay + 1);
 
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
         Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, swap_cost.into());
