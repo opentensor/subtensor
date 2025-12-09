@@ -2132,3 +2132,41 @@ fn test_claim_root_keep_subnets_swap_claim_type() {
         );
     });
 }
+
+#[test]
+fn test_claim_root_calculate_tao_outflow() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &coldkey);
+
+        // Setup root prop
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+
+        let tao_amount = 10u64;
+
+        // Check unbounded tao outflow (coefficient < 10)
+        let tao_reserve = TaoCurrency::from(1_000_000_000_000u64);
+        SubnetTAO::<Test>::insert(NetUid::ROOT, tao_reserve);
+
+        let tao_outflow_unbounded: u64 =
+            SubtensorModule::calculate_tao_outflow(netuid, tao_amount.into()).into();
+
+        assert_abs_diff_eq!(tao_outflow_unbounded, tao_amount, epsilon = 1u64,);
+
+        // Check bounded tao outflow (coefficient > 10).
+        let tao_reserve = TaoCurrency::from(10_000_000_000u64);
+        SubnetTAO::<Test>::insert(NetUid::ROOT, tao_reserve);
+
+        let tao_outflow_bounded: u64 =
+            SubtensorModule::calculate_tao_outflow(netuid, tao_amount.into()).into();
+        let bounded_root_prop_multiplier = 10u64;
+
+        assert_eq!(
+            tao_outflow_bounded,
+            bounded_root_prop_multiplier * tao_amount,
+        );
+    });
+}
