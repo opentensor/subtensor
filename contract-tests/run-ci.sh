@@ -15,7 +15,7 @@ while [ $i -le 2000 ]; do
 done
 
 # port not available exit with error
-if [ "$i" -eq 1000 ]; then
+if [ "$i" -eq 2000 ]; then
     exit 1
 fi
 
