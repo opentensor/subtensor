@@ -489,7 +489,7 @@ mod pallet_benchmarks {
             swap_cost,
         );
     }
-    
+
     #[benchmark]
     fn remove_coldkey_swap_announcement() {
         let coldkey: T::AccountId = account("old_coldkey", 0, 0);
@@ -501,8 +501,6 @@ mod pallet_benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Root, coldkey);
     }
-
-
 
     #[benchmark]
     fn batch_reveal_weights() {
