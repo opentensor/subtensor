@@ -563,4 +563,14 @@ describe("Test wasm contract", () => {
         assert.ok(proxiesAfterRemove !== undefined)
         assert.ok(proxiesAfterRemove[0].length === 0)
     })
+
+    it("Can get alpha price", async () => {
+        const message = inkClient.message("get_alpha_price")
+        const data = message.encode({
+            netuid: netuid,
+        })
+        const result = await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+        assert.ok(result !== undefined)
+        assert.ok(result > BigInt(0))
+    })
 });

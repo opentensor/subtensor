@@ -18047,6 +18047,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "substrate-fixed",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
 ]
