@@ -18,7 +18,9 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The total alpha issuance for the specified subnet.
     pub fn get_alpha_issuance(netuid: NetUid) -> AlphaCurrency {
-        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
+        SubnetAlphaIn::<T>::get(netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
+            .saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
     pub fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
