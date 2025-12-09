@@ -426,7 +426,7 @@ mod pallet_benchmarks {
 
         let now = frame_system::Pallet::<T>::block_number();
         let delay = ColdkeySwapAnnouncementDelay::<T>::get();
-        ColdkeySwapAnnouncements::<T>::insert(&old_coldkey, (now, new_coldkey_hash.clone()));
+        ColdkeySwapAnnouncements::<T>::insert(&old_coldkey, (now, new_coldkey_hash));
         frame_system::Pallet::<T>::set_block_number(now + delay);
 
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
@@ -455,28 +455,10 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn remove_coldkey_swap_announcement() {
-        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
-        let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
-        let now = frame_system::Pallet::<T>::block_number();
-
-        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
-
-        #[extrinsic_call]
-        _(RawOrigin::Root, coldkey);
-    }
-
-    #[benchmark]
     fn swap_coldkey() {
         let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
-        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
         let hotkey1: T::AccountId = account("hotkey1", 0, 0);
-
-        let now = frame_system::Pallet::<T>::block_number();
-        let delay = ColdkeySwapAnnouncementDelay::<T>::get();
-        ColdkeySwapAnnouncements::<T>::insert(&old_coldkey, (now, new_coldkey_hash.clone()));
-        frame_system::Pallet::<T>::set_block_number(now + delay);
 
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
         Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, swap_cost.into());
@@ -507,6 +489,20 @@ mod pallet_benchmarks {
             swap_cost,
         );
     }
+    
+    #[benchmark]
+    fn remove_coldkey_swap_announcement() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
+        let now = frame_system::Pallet::<T>::block_number();
+
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, coldkey);
+    }
+
+
 
     #[benchmark]
     fn batch_reveal_weights() {
