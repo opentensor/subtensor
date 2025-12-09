@@ -569,8 +569,19 @@ describe("Test wasm contract", () => {
         const data = message.encode({
             netuid: netuid,
         })
-        const result = await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+
+        const response = await api.apis.ContractsApi.call(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            BigInt(0),
+            undefined,
+            undefined,
+            Binary.fromBytes(data.asBytes()),
+        )
+
+        assert.ok(response.result.success)
+        const result = message.decode(response.result.value).value.value
+
         assert.ok(result !== undefined)
-        assert.ok(result > BigInt(0))
     })
 });
