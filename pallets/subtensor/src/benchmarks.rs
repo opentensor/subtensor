@@ -370,17 +370,6 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn schedule_swap_coldkey() {
-        let old_coldkey: T::AccountId = account("old_cold", 0, 1);
-        let new_coldkey: T::AccountId = account("new_cold", 1, 2);
-        let amount: u64 = 100_000_000_000_000;
-        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, amount);
-
-        #[extrinsic_call]
-        _(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone());
-    }
-
-    #[benchmark]
     fn sudo_set_tx_childkey_take_rate_limit() {
         let new_rate_limit: u64 = 100;
 
@@ -419,14 +408,31 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn swap_coldkey() {
+    fn announce_coldkey_swap() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey), new_coldkey_hash);
+    }
+
+    #[benchmark]
+    fn swap_coldkey_announced() {
         let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
         let hotkey1: T::AccountId = account("hotkey1", 0, 0);
-        let netuid = NetUid::from(1);
-        let swap_cost = Subtensor::<T>::get_key_swap_cost();
-        let free_balance_old = swap_cost + 12345.into();
 
+        let now = frame_system::Pallet::<T>::block_number();
+        let delay = ColdkeySwapAnnouncementDelay::<T>::get();
+        ColdkeySwapAnnouncements::<T>::insert(&old_coldkey, (now, new_coldkey_hash.clone()));
+        frame_system::Pallet::<T>::set_block_number(now + delay);
+
+        let swap_cost = Subtensor::<T>::get_key_swap_cost();
+        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, swap_cost.into());
+
+        let netuid = NetUid::from(1);
         Subtensor::<T>::init_new_network(netuid, 1);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
@@ -444,18 +450,54 @@ mod pallet_benchmarks {
             old_coldkey.clone(),
         );
 
-        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, free_balance_old.into());
-        let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
-        let identity = ChainIdentityV2 {
-            name,
-            url: vec![],
-            github_repo: vec![],
-            image: vec![],
-            discord: vec![],
-            description: vec![],
-            additional: vec![],
-        };
-        IdentitiesV2::<T>::insert(&old_coldkey, identity);
+        #[extrinsic_call]
+        _(RawOrigin::Signed(old_coldkey), new_coldkey);
+    }
+
+    #[benchmark]
+    fn remove_coldkey_swap_announcement() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
+        let now = frame_system::Pallet::<T>::block_number();
+
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, coldkey);
+    }
+
+    #[benchmark]
+    fn swap_coldkey() {
+        let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let hotkey1: T::AccountId = account("hotkey1", 0, 0);
+
+        let now = frame_system::Pallet::<T>::block_number();
+        let delay = ColdkeySwapAnnouncementDelay::<T>::get();
+        ColdkeySwapAnnouncements::<T>::insert(&old_coldkey, (now, new_coldkey_hash.clone()));
+        frame_system::Pallet::<T>::set_block_number(now + delay);
+
+        let swap_cost = Subtensor::<T>::get_key_swap_cost();
+        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, swap_cost.into());
+
+        let netuid = NetUid::from(1);
+        Subtensor::<T>::init_new_network(netuid, 1);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+
+        let block_number = Subtensor::<T>::get_current_block_as_u64();
+        let (nonce, work) =
+            Subtensor::<T>::create_work_for_block_number(netuid, block_number, 3, &hotkey1);
+        let _ = Subtensor::<T>::register(
+            RawOrigin::Signed(old_coldkey.clone()).into(),
+            netuid,
+            block_number,
+            nonce,
+            work.clone(),
+            hotkey1.clone(),
+            old_coldkey.clone(),
+        );
 
         #[extrinsic_call]
         _(
