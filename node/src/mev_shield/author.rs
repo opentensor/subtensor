@@ -408,10 +408,8 @@ where
         Err(e) => {
             log::debug!(
                 target: "mev-shield",
-                "runtime_api::version failed at_hash={:?}: {:?}; \
+                "runtime_api::version failed at_hash={at_hash:?}: {e:?}; \
                  falling back to compiled runtime::VERSION",
-                at_hash,
-                e
             );
             (
                 runtime::VERSION.spec_version,
@@ -467,8 +465,7 @@ where
     log::debug!(
         target: "mev-shield",
         "announce_next_key submitted: xt=0x{xt_hash_hex}, nonce={nonce:?}, \
-         spec_version={spec_version}, tx_version={tx_version}, era={:?}",
-        era,
+         spec_version={spec_version}, tx_version={tx_version}, era={era:?}",
     );
 
     Ok(())
