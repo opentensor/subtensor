@@ -17,7 +17,7 @@ scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 log.workspace = true
-hex = { workspace = true, features = ["serde"] }
+hex = { workspace = true, features = ["serde", "alloc"] }
 sha2.workspace = true
 anyhow.workspace = true
 # frame deps
@@ -29,7 +29,7 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
 # arkworks dependencies
-sp-ark-bls12-381.workspace = true
+sp-crypto-ec-utils = { workspace = true, features = ["bls12-381"] }
 ark-bls12-381 = { workspace = true, features = ["curve"] }
 ark-serialize = { workspace = true, features = ["derive"] }
 ark-ff.workspace = true
@@ -64,7 +64,7 @@ std = [
 	"serde/std",
 	"serde_json/std",
 	"hex/std",
-	"sp-ark-bls12-381/std",
+	"sp-crypto-ec-utils/std",
 	"ark-bls12-381/std",
 	"ark-serialize/std",
 	"ark-ff/std",
