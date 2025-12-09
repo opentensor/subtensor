@@ -4,7 +4,7 @@
     clippy::indexing_slicing
 )]
 use super::mock::*;
-use crate::{subnets::leasing::SubnetLeaseOf, *};
+use crate::*;
 use frame_support::{StorageDoubleMap, assert_err, assert_ok};
 use sp_core::U256;
 use sp_runtime::Percent;
@@ -23,7 +23,7 @@ fn test_register_leased_network_works() {
             (U256::from(2), 600_000_000_000), // 600 TAO
             (U256::from(3), 390_000_000_000), // 390 TAO
         ];
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Register the leased network
         let end_block = 500;
@@ -163,7 +163,7 @@ fn test_register_lease_network_fails_if_current_crowdloan_id_is_not_set() {
             (U256::from(2), 600_000_000_000), // 600 TAO
             (U256::from(3), 390_000_000_000), // 390 TAO
         ];
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Mark as if the current crowdloan id is not set
         pallet_crowdloan::CurrentCrowdloanId::<Test>::set(None);
@@ -194,7 +194,7 @@ fn test_register_leased_network_fails_if_origin_is_not_crowdloan_creator() {
             (U256::from(2), 600_000_000_000), // 600 TAO
             (U256::from(3), 390_000_000_000), // 390 TAO
         ];
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         let end_block = 500;
         let emissions_share = Percent::from_percent(30);
@@ -221,7 +221,7 @@ fn test_register_lease_network_fails_if_end_block_is_in_the_past() {
             (U256::from(2), 600_000_000_000), // 600 TAO
             (U256::from(3), 390_000_000_000), // 390 TAO
         ];
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         let end_block = 500;
         let emissions_share = Percent::from_percent(30);
@@ -246,17 +246,17 @@ fn test_terminate_lease_works() {
         let deposit = 10_000_000_000; // 10 TAO
         let cap = 1_000_000_000_000; // 1000 TAO
         let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let tao_to_stake = 100_000_000_000; // 100 TAO
         let emissions_share = Percent::from_percent(30);
-        let (lease_id, lease) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            Some(tao_to_stake),
+            Some(tao_to_stake)
         );
 
         // Run to the end of the lease
@@ -338,17 +338,17 @@ fn test_terminate_lease_fails_if_origin_is_not_beneficiary() {
         let deposit = 10_000_000_000; // 10 TAO
         let cap = 1_000_000_000_000; // 1000 TAO
         let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let tao_to_stake = 100_000_000_000; // 100 TAO
         let emissions_share = Percent::from_percent(30);
-        let (lease_id, _lease) = setup_leased_network(
+        let (lease_id, _lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            Some(tao_to_stake),
+            Some(tao_to_stake)
         );
 
         // Run to the end of the lease
@@ -379,13 +379,13 @@ fn test_terminate_lease_fails_if_lease_has_no_end_block() {
         let deposit = 10_000_000_000; // 10 TAO
         let cap = 1_000_000_000_000; // 1000 TAO
         let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let tao_to_stake = 100_000_000_000; // 100 TAO
         let emissions_share = Percent::from_percent(30);
         let (lease_id, lease) =
-            setup_leased_network(beneficiary, emissions_share, None, Some(tao_to_stake));
+            setup_leased_network!(beneficiary, emissions_share, None, Some(tao_to_stake));
 
         // Create a hotkey for the beneficiary
         let hotkey = U256::from(3);
@@ -412,17 +412,17 @@ fn test_terminate_lease_fails_if_lease_has_not_ended() {
         let deposit = 10_000_000_000; // 10 TAO
         let cap = 1_000_000_000_000; // 1000 TAO
         let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let tao_to_stake = 100_000_000_000; // 100 TAO
         let emissions_share = Percent::from_percent(30);
-        let (lease_id, lease) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            Some(tao_to_stake),
+            Some(tao_to_stake)
         );
 
         // Create a hotkey for the beneficiary
@@ -450,17 +450,17 @@ fn test_terminate_lease_fails_if_beneficiary_does_not_own_hotkey() {
         let deposit = 10_000_000_000; // 10 TAO
         let cap = 1_000_000_000_000; // 1000 TAO
         let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let tao_to_stake = 100_000_000_000; // 100 TAO
         let emissions_share = Percent::from_percent(30);
-        let (lease_id, lease) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            Some(tao_to_stake),
+            Some(tao_to_stake)
         );
 
         // Run to the end of the lease
@@ -489,17 +489,17 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
             (U256::from(2), 600_000_000_000), // 600 TAO
             (U256::from(3), 390_000_000_000), // 390 TAO
         ];
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let emissions_share = Percent::from_percent(30);
         let tao_to_stake = 100_000_000_000; // 100 TAO
-        let (lease_id, lease) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            Some(tao_to_stake),
+            Some(tao_to_stake)
         );
 
         // Setup the correct block to distribute dividends
@@ -628,17 +628,17 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
         let deposit = 10_000_000_000; // 10 TAO
         let cap = 1_000_000_000_000; // 1000 TAO
         let contributions = vec![(U256::from(1), 990_000_000_000)]; // 990 TAO
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let emissions_share = Percent::from_percent(30);
         let tao_to_stake = 100_000_000_000; // 100 TAO
-        let (lease_id, lease) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            Some(tao_to_stake),
+            Some(tao_to_stake)
         );
 
         // Setup the correct block to distribute dividends
@@ -699,17 +699,17 @@ fn test_distribute_lease_network_dividends_accumulates_if_not_the_correct_block(
             (U256::from(2), 600_000_000_000), // 600 TAO
             (U256::from(3), 390_000_000_000), // 390 TAO
         ];
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let emissions_share = Percent::from_percent(30);
         let tao_to_stake = 100_000_000_000; // 100 TAO
-        let (lease_id, lease) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            Some(tao_to_stake),
+            Some(tao_to_stake)
         );
 
         // Setup incorrect block to distribute dividends
@@ -799,17 +799,17 @@ fn test_distribute_lease_network_dividends_does_nothing_if_lease_has_ended() {
             (U256::from(2), 600_000_000_000), // 600 TAO
             (U256::from(3), 390_000_000_000), // 390 TAO
         ];
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let tao_to_stake = 100_000_000_000; // 100 TAO
         let emissions_share = Percent::from_percent(30);
-        let (lease_id, lease) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            Some(tao_to_stake),
+            Some(tao_to_stake)
         );
 
         // Run to the end of the lease
@@ -889,16 +889,16 @@ fn test_distribute_lease_network_dividends_accumulates_if_amount_is_too_low() {
             (U256::from(3), 390_000_000_000), // 390 TAO
         ];
 
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let emissions_share = Percent::from_percent(30);
-        let (lease_id, lease) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            None, // We don't add any liquidity
+            None // We don't add any liquidity
         );
 
         // Get the initial alpha for the contributors and beneficiary and ensure they are zero
@@ -971,16 +971,16 @@ fn test_distribute_lease_network_dividends_accumulates_if_insufficient_liquidity
             (U256::from(3), 390_000_000_000), // 390 TAO
         ];
 
-        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
 
         // Setup a leased network
         let end_block = 500;
         let emissions_share = Percent::from_percent(30);
-        let (lease_id, lease) = setup_leased_network(
+        let (lease_id, lease) = setup_leased_network!(
             beneficiary,
             emissions_share,
             Some(end_block),
-            None, // We don't add any liquidity
+            None // We don't add any liquidity
         );
 
         let contributor1_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1039,71 +1039,83 @@ fn test_distribute_lease_network_dividends_accumulates_if_insufficient_liquidity
     });
 }
 
-fn setup_crowdloan(
-    id: u32,
-    deposit: u64,
-    cap: u64,
-    beneficiary: U256,
-    contributions: &[(U256, u64)],
-) {
-    let funds_account = U256::from(42424242 + id);
+#[test]
+fn announce_subnet_sale_into_lease_works() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![
+            (U256::from(2), 600_000_000_000), // 600 TAO
+            (U256::from(3), 390_000_000_000), // 390 TAO
+        ];
 
-    pallet_crowdloan::Crowdloans::<Test>::insert(
-        id,
-        pallet_crowdloan::CrowdloanInfo {
-            creator: beneficiary,
-            deposit,
-            min_contribution: 0,
-            end: 0,
-            cap,
-            raised: cap,
-            finalized: false,
-            funds_account,
-            call: None,
-            target_address: None,
-            contributors_count: 1 + contributions.len() as u32,
-        },
-    );
-
-    // Simulate contributions
-    pallet_crowdloan::Contributions::<Test>::insert(id, beneficiary, deposit);
-    for (contributor, amount) in contributions {
-        pallet_crowdloan::Contributions::<Test>::insert(id, contributor, amount);
-    }
-
-    SubtensorModule::add_balance_to_coldkey_account(&funds_account, cap);
-
-    // Mark the crowdloan as finalizing
-    pallet_crowdloan::CurrentCrowdloanId::<Test>::set(Some(0));
+        setup_crowdloan!(crowdloan_id, deposit, cap, beneficiary, &contributions);
+    });
 }
 
-fn setup_leased_network(
-    beneficiary: U256,
-    emissions_share: Percent,
-    end_block: Option<u64>,
-    tao_to_stake: Option<u64>,
-) -> (u32, SubnetLeaseOf<Test>) {
-    let lease_id = 0;
-    assert_ok!(SubtensorModule::do_register_leased_network(
-        RuntimeOrigin::signed(beneficiary),
-        emissions_share,
-        end_block,
-    ));
+#[macro_export]
+macro_rules! setup_crowdloan {
+    ($id:expr, $deposit:expr, $cap:expr, $creator:expr, $contributions:expr) => {
+        let funds_account = U256::from(42424242 + $id);
 
-    // Configure subnet and add some stake
-    let lease = SubnetLeases::<Test>::get(lease_id).unwrap();
-    let netuid = lease.netuid;
-    SubtokenEnabled::<Test>::insert(netuid, true);
+        pallet_crowdloan::Crowdloans::<Test>::insert(
+            $id,
+            pallet_crowdloan::CrowdloanInfo {
+                creator: $creator,
+                deposit: $deposit,
+                min_contribution: 0,
+                end: 0,
+                cap: $cap,
+                raised: $cap,
+                finalized: false,
+                funds_account,
+                call: None,
+                target_address: None,
+                contributors_count: 1 + $contributions.len() as u32,
+            },
+        );
 
-    if let Some(tao_to_stake) = tao_to_stake {
-        SubtensorModule::add_balance_to_coldkey_account(&lease.coldkey, tao_to_stake);
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(lease.coldkey),
-            lease.hotkey,
-            netuid,
-            tao_to_stake.into()
+        // Simulate contributions
+        pallet_crowdloan::Contributions::<Test>::insert($id, $creator, $deposit);
+        for (contributor, amount) in $contributions {
+            pallet_crowdloan::Contributions::<Test>::insert($id, contributor, amount);
+        }
+
+        SubtensorModule::add_balance_to_coldkey_account(&funds_account, $cap);
+
+        // Mark the crowdloan as finalizing
+        pallet_crowdloan::CurrentCrowdloanId::<Test>::set(Some($id));
+    };
+}
+
+#[macro_export]
+macro_rules! setup_leased_network {
+    ($beneficiary:expr, $emissions_share:expr, $end_block:expr, $tao_to_stake:expr) => {{
+        let lease_id = 0;
+        assert_ok!(SubtensorModule::do_register_leased_network(
+            RuntimeOrigin::signed($beneficiary),
+            $emissions_share,
+            $end_block,
         ));
-    }
 
-    (lease_id, lease)
+        // Configure subnet and add some stake
+        let lease = SubnetLeases::<Test>::get(lease_id).unwrap();
+        let netuid = lease.netuid;
+        SubtokenEnabled::<Test>::insert(netuid, true);
+
+        if let Some(tao_to_stake) = $tao_to_stake {
+            SubtensorModule::add_balance_to_coldkey_account(&lease.coldkey, tao_to_stake);
+            assert_ok!(SubtensorModule::add_stake(
+                RuntimeOrigin::signed(lease.coldkey),
+                lease.hotkey,
+                netuid,
+                tao_to_stake.into()
+            ));
+        }
+
+        (lease_id, lease)
+    }};
 }
