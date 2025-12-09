@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -190,8 +190,11 @@ impl<T: Config> Pallet<T> {
                 }
             };
 
+            let recorded_tao_outflow =
+                Self::calculate_tao_outflow(netuid, owed_tao.amount_paid_out);
+
             // Importantly measures swap as flow.
-            Self::record_tao_outflow(netuid, owed_tao.amount_paid_out.into());
+            Self::record_tao_outflow(netuid, recorded_tao_outflow.into());
 
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 hotkey,
@@ -221,6 +224,35 @@ impl<T: Config> Pallet<T> {
         RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {
             *root_claimed = root_claimed.saturating_add(owed_u64.into());
         });
+    }
+
+    // Calculates root proportion for subnet, uses "1 / root_prop" (with 10 as an upper bound) as
+    // a multiplier for provided Tao amount.
+    pub(crate) fn calculate_tao_outflow(netuid: NetUid, amount: TaoCurrency) -> TaoCurrency {
+        let root_tao: U96F32 = U96F32::saturating_from_num(SubnetTAO::<T>::get(NetUid::ROOT));
+        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+        let alpha_issuance: U96F32 = U96F32::saturating_from_num(Self::get_alpha_issuance(netuid));
+        let root_proportion: U96F32 = tao_weight
+            .checked_div(tao_weight.saturating_add(alpha_issuance))
+            .unwrap_or(U96F32::saturating_from_num(0));
+
+        let root_prop_multiplier = {
+            let root_prop_multiplier = U96F32::saturating_from_num(1)
+                .checked_div(root_proportion)
+                .unwrap_or(U96F32::saturating_from_num(0.0));
+            let upper_bound = U96F32::saturating_from_num(10);
+
+            if root_prop_multiplier < upper_bound {
+                root_prop_multiplier
+            } else {
+                upper_bound
+            }
+        };
+
+        let tao = U96F32::saturating_from_num(amount.to_u64());
+        let recorded_tao_outflow: u64 = tao.saturating_mul(root_prop_multiplier).to_num();
+
+        recorded_tao_outflow.into()
     }
 
     fn root_claim_on_subnet_weight(_root_claim_type: RootClaimTypeEnum) -> Weight {

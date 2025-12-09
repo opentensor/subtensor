@@ -653,8 +653,10 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
             RootClaimTypeEnum::Swap
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Swap);
-
         assert_eq!(SubnetTaoFlow::<Test>::get(netuid), 0);
+
+        // Setup root prop
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000_000u64));
 
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(coldkey),
@@ -682,10 +684,15 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         );
 
         // Check tao flow
+        let tao_outflow: u64 = SubtensorModule::calculate_tao_outflow(
+            netuid,
+            (estimated_stake_increment as u64).into(),
+        )
+        .into();
 
         assert_abs_diff_eq!(
             SubnetTaoFlow::<Test>::get(netuid),
-            -estimated_stake_increment as i64,
+            -(tao_outflow as i64),
             epsilon = 10i64,
         );
 
