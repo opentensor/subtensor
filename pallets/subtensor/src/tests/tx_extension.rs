@@ -1,10 +1,10 @@
+use crate::tests::mock::{RuntimeCall, RuntimeOrigin, SubtensorCall, new_test_ext};
+use crate::transaction_extension::SubtensorTransactionExtension;
 use frame_support::assert_ok;
 use frame_support::dispatch::GetDispatchInfo;
-use crate::tests::mock::{new_test_ext, RuntimeCall, RuntimeOrigin, SubtensorCall};
-use subtensor_runtime_common::{NetUid, TaoCurrency};
 use sp_core::U256;
 use sp_runtime::traits::{TransactionExtension, TxBaseImplication, ValidateResult};
-use crate::transaction_extension::SubtensorTransactionExtension;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
 
 use super::mock::*;
 use crate::*;
@@ -65,12 +65,12 @@ fn sudo_signed_by_wrong_account_is_rejected() {
         // Wrong signer
         let origin = RuntimeOrigin::signed(U256::from(99));
         let res = validate_ext(origin, &sudo_call);
-        assert!(
-            matches!(
-                res,
-                Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
-            )
-        );
+        assert!(matches!(
+            res,
+            Err(TransactionValidityError::Invalid(
+                InvalidTransaction::BadSigner
+            ))
+        ));
     });
 }
 
@@ -82,12 +82,12 @@ fn sudo_when_no_sudo_key_configured_is_rejected() {
         let sudo_call = sudo_extrinsic(some_call());
         let origin = RuntimeOrigin::signed(U256::from(42));
         let res = validate_ext(origin, &sudo_call);
-        assert!(
-            matches!(
-                res,
-                Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
-            )
-        );
+        assert!(matches!(
+            res,
+            Err(TransactionValidityError::Invalid(
+                InvalidTransaction::BadSigner
+            ))
+        ));
     });
 }
 

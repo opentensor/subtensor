@@ -29,6 +29,6 @@ mod subnet_emissions;
 mod swap_coldkey;
 mod swap_hotkey;
 mod swap_hotkey_with_subnet;
+mod tx_extension;
 mod uids;
 mod weights;
-mod tx_extension;
