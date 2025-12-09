@@ -2,6 +2,16 @@
 
 echo "start run-ci.sh"
 
+cd contract-tests
+
+cd bittensor
+
+rustup component add rust-src
+cargo install cargo-contract 
+cargo contract build --release 
+
+cd ../..
+
 scripts/localnet.sh &>/dev/null &
 
 i=1
@@ -27,14 +37,6 @@ if ! nc -z localhost 9944; then
 fi
 
 cd contract-tests
-
-cd bittensor
-
-rustup component add rust-src
-cargo install cargo-contract 
-cargo contract build --release 
-
-cd ..
 
 # required for papi in get-metadata.sh, but we cannot run yarn before papi as it adds the descriptors to the package.json which won't resolve
 npm i -g polkadot-api
