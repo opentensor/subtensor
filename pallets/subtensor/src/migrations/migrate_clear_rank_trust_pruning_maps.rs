@@ -21,47 +21,59 @@ pub fn migrate_clear_rank_trust_pruning_maps<T: Config>() -> Weight {
 
     let mut total_reads: u64 = 0;
     let mut total_writes: u64 = 0;
+    let limit: u32 = u32::MAX;
 
     // ------------------------------
-    // 1) Rank: collect keys, then remove
+    // 1) Rank: clear in one go
     // ------------------------------
-    let rank_keys: Vec<NetUid> = Rank::<T>::iter_keys().collect();
-    let rank_removed = rank_keys.len() as u64;
-    total_reads = total_reads.saturating_add(rank_removed);
-    for k in rank_keys {
-        Rank::<T>::remove(k);
-        total_writes = total_writes.saturating_add(1);
-    }
+    let rank_res = Rank::<T>::clear(limit, None);
+    let rank_reads = rank_res.loops as u64;
+    let rank_writes = rank_res.backend as u64;
+    total_reads = total_reads.saturating_add(rank_reads);
+    total_writes = total_writes.saturating_add(rank_writes);
+
+    log::info!(
+        "Rank wipe: backend={}, loops={}, cursor_is_none={}",
+        rank_res.backend,
+        rank_res.loops,
+        rank_res.maybe_cursor.is_none(),
+    );
 
     // ------------------------------
-    // 2) Trust: collect keys, then remove
+    // 2) Trust: clear in one go
     // ------------------------------
-    let trust_keys: Vec<NetUid> = Trust::<T>::iter_keys().collect();
-    let trust_removed = trust_keys.len() as u64;
-    total_reads = total_reads.saturating_add(trust_removed);
-    for k in trust_keys {
-        Trust::<T>::remove(k);
-        total_writes = total_writes.saturating_add(1);
-    }
+    let trust_res = Trust::<T>::clear(limit, None);
+    let trust_reads = trust_res.loops as u64;
+    let trust_writes = trust_res.backend as u64;
+    total_reads = total_reads.saturating_add(trust_reads);
+    total_writes = total_writes.saturating_add(trust_writes);
+
+    log::info!(
+        "Trust wipe: backend={}, loops={}, cursor_is_none={}",
+        trust_res.backend,
+        trust_res.loops,
+        trust_res.maybe_cursor.is_none(),
+    );
 
     // ------------------------------
-    // 3) PruningScores: collect keys, then remove
+    // 3) PruningScores: clear in one go
     // ------------------------------
-    let ps_keys: Vec<NetUid> = PruningScores::<T>::iter_keys().collect();
-    let ps_removed = ps_keys.len() as u64;
-    total_reads = total_reads.saturating_add(ps_removed);
-    for k in ps_keys {
-        PruningScores::<T>::remove(k);
-        total_writes = total_writes.saturating_add(1);
-    }
+    let ps_res = PruningScores::<T>::clear(limit, None);
+    let ps_reads = ps_res.loops as u64;
+    let ps_writes = ps_res.backend as u64;
+    total_reads = total_reads.saturating_add(ps_reads);
+    total_writes = total_writes.saturating_add(ps_writes);
 
-    // Accumulate reads/writes into the total weight
+    log::info!(
+        "PruningScores wipe: backend={}, loops={}, cursor_is_none={}",
+        ps_res.backend,
+        ps_res.loops,
+        ps_res.maybe_cursor.is_none(),
+    );
+
+    // Accumulate reads/writes from Rank/Trust/PruningScores into the total weight
     total_weight =
         total_weight.saturating_add(T::DbWeight::get().reads_writes(total_reads, total_writes));
-
-    log::info!("Rank wipe: removed={rank_removed}");
-    log::info!("Trust wipe: removed={trust_removed}");
-    log::info!("PruningScores wipe: removed={ps_removed}");
 
     // Mark migration as done
     HasMigrationRun::<T>::insert(&mig_name, true);
