@@ -99,7 +99,8 @@ fn test_coinbase_tao_issuance_base() {
         let subnet_owner_hk = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
         let total_issuance_before = TotalIssuance::<Test>::get();
-        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from(3141) / I96F32::from(1000));
+        // Set subnet TAO flow to non-zero
+        SubnetTaoFlow::<Test>::insert(netuid, 1234567_i64);
         let tao_in_before = SubnetTAO::<Test>::get(netuid);
         let total_stake_before = TotalStake::<Test>::get();
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
@@ -120,6 +121,8 @@ fn test_coinbase_tao_issuance_base_low() {
         let emission = TaoCurrency::from(1);
         add_network(netuid, 1, 0);
         assert_eq!(SubnetTAO::<Test>::get(netuid), TaoCurrency::ZERO);
+        // Set subnet flow to non-zero
+        SubnetTaoFlow::<Test>::insert(netuid, 33433_i64);
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         assert_eq!(SubnetTAO::<Test>::get(netuid), emission);
         assert_eq!(TotalIssuance::<Test>::get(), emission);
@@ -171,6 +174,10 @@ fn test_coinbase_tao_issuance_multiple() {
         assert_eq!(SubnetTAO::<Test>::get(netuid1), TaoCurrency::ZERO);
         assert_eq!(SubnetTAO::<Test>::get(netuid2), TaoCurrency::ZERO);
         assert_eq!(SubnetTAO::<Test>::get(netuid3), TaoCurrency::ZERO);
+        // Set Tao flows to equal and non-zero
+        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid3, 100_000_000_i64);
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid1),
@@ -234,9 +241,10 @@ fn test_coinbase_tao_issuance_different_prices() {
         SubnetMechanism::<Test>::insert(netuid1, 1);
         SubnetMechanism::<Test>::insert(netuid2, 1);
 
-        // Set subnet prices.
-        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
-        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
+        // Set subnet flows
+        // Subnet 2 has twice the flow of subnet 1.
+        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
 
         // Assert initial TAO reserves.
         assert_eq!(SubnetTAO::<Test>::get(netuid1), initial_tao.into());
@@ -483,8 +491,9 @@ fn test_coinbase_alpha_issuance_base() {
         SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial));
         SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(initial));
         SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial));
-        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from(1));
-        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from(1));
+        // Equal flow
+        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 100_000_000_i64);
         // Check initial
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // tao_in = 500_000
@@ -523,9 +532,9 @@ fn test_coinbase_alpha_issuance_different() {
         SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial));
         SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(2 * initial));
         SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial));
-        // Set subnet ema prices to 1 and 2
-        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
-        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
+        // Set subnet TAO flows to non-zero and 1:2 ratio
+        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
         // Do NOT Set tao flow, let it initialize
         // Run coinbase
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
@@ -602,8 +611,9 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         // Enable emission
         FirstEmissionBlockNumber::<Test>::insert(netuid1, 0);
         FirstEmissionBlockNumber::<Test>::insert(netuid2, 0);
-        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
-        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
+        // Set subnet TAO flows to non-zero and 1:2 ratio
+        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
 
         // Force the swap to initialize
         SubtensorModule::swap_tao_for_alpha(
@@ -2750,8 +2760,9 @@ fn test_coinbase_v3_liquidity_update() {
 
         // Enable emissions and run coinbase (which will increase position liquidity)
         let emission: u64 = 1_234_567;
+        // Set the TAO flow to non-zero
+        SubnetTaoFlow::<Test>::insert(netuid, 8348383_i64);
         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
-        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0.5));
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
 
         let position_after = pallet_subtensor_swap::Positions::<Test>::get((

@@ -4,5 +4,6 @@ pub mod client;
 pub mod conditional_evm_block_import;
 pub mod consensus;
 pub mod ethereum;
+pub mod mev_shield;
 pub mod rpc;
 pub mod service;

@@ -22,8 +22,9 @@ impl<A> LinearCostPrecompile for Sr25519Verify<A>
 where
     A: From<[u8; 32]>,
 {
-    const BASE: u64 = 15;
-    const WORD: u64 = 3;
+    // There is no EIP for SR25519, so we use the same base cost as Ed25519.
+    const BASE: u64 = 6000;
+    const WORD: u64 = 0;
 
     fn execute(input: &[u8], _: u64) -> Result<(ExitSucceed, Vec<u8>), PrecompileFailure> {
         if input.len() < 132 {

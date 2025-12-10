@@ -334,16 +334,11 @@ pub mod pallet {
         Swap,
         /// Keep all alpha emission.
         Keep,
-    }
-
-    /// Enum for the per-coldkey root claim frequency setting.
-    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
-    pub enum RootClaimFrequencyEnum {
-        /// Claim automatically.
-        #[default]
-        Auto,
-        /// Only claim manually; Never automatically.
-        Manual,
+        /// Keep all alpha emission for specified subnets.
+        KeepSubnets {
+            /// Subnets to keep alpha emissions (swap everything else).
+            subnets: BTreeSet<NetUid>,
+        },
     }
 
     /// Default minimum root claim amount.
@@ -1211,9 +1206,22 @@ pub mod pallet {
         DefaultAccountLinkage<T>,
     >;
 
-    /// --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo.
+    /// --- DMAP ( netuid, hotkey ) --> u64 | Last alpha dividend this hotkey got on tempo.
     #[pallet::storage]
     pub type AlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Blake2_128Concat,
+        T::AccountId,
+        AlphaCurrency,
+        ValueQuery,
+        DefaultZeroAlpha<T>,
+    >;
+
+    /// --- DMAP ( netuid, hotkey ) --> u64 | Last root alpha dividend this hotkey got on tempo.
+    #[pallet::storage]
+    pub type RootAlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
         NetUid,
@@ -2054,25 +2062,10 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// --- MAP ( coldkey ) --> identity. (DEPRECATED for V2)
-    #[pallet::storage]
-    pub type Identities<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
-
     /// --- MAP ( coldkey ) --> identity
     #[pallet::storage]
     pub type IdentitiesV2<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOfV2, OptionQuery>;
-
-    /// --- MAP ( netuid ) --> identity. (DEPRECATED for V2)
-    #[pallet::storage]
-    pub type SubnetIdentities<T: Config> =
-        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOf, OptionQuery>;
-
-    /// --- MAP ( netuid ) --> identityV2 (DEPRECATED for V3)
-    #[pallet::storage]
-    pub type SubnetIdentitiesV2<T: Config> =
-        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV2, OptionQuery>;
 
     /// --- MAP ( netuid ) --> SubnetIdentityOfV3
     #[pallet::storage]

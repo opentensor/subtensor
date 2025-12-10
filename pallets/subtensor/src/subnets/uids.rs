@@ -87,14 +87,13 @@ impl<T: Config> Pallet<T> {
         BlockAtRegistration::<T>::insert(netuid, uid_to_replace, block_number); // Fill block at registration.
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
 
-        // 4. Clear neuron certificates
-        NeuronCertificates::<T>::remove(netuid, old_hotkey.clone());
+        // 4. Clear neuron axons, certificates and prometheus info
+        Axons::<T>::remove(netuid, &old_hotkey);
+        NeuronCertificates::<T>::remove(netuid, &old_hotkey);
+        Prometheus::<T>::remove(netuid, &old_hotkey);
 
         // 5. Reset new neuron's values.
         Self::clear_neuron(netuid, uid_to_replace);
-
-        // 5a. reset axon info for the new uid.
-        Axons::<T>::remove(netuid, old_hotkey);
     }
 
     /// Appends the uid to the network.
