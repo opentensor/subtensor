@@ -385,7 +385,7 @@ impl<T: Config> Pallet<T> {
         pallet_crowdloan::Error<T>,
     > {
         let crowdloan_id = pallet_crowdloan::CurrentCrowdloanId::<T>::get()
-            .ok_or(pallet_crowdloan::Error::<T>::InvalidCrowdloanId)?;
+            .ok_or(pallet_crowdloan::Error::<T>::CurrentCrowdloanIdNotSet)?;
         let crowdloan = pallet_crowdloan::Crowdloans::<T>::get(crowdloan_id)
             .ok_or(pallet_crowdloan::Error::<T>::InvalidCrowdloanId)?;
         Ok((crowdloan_id, crowdloan))

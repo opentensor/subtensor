@@ -480,5 +480,15 @@ mod events {
             /// The amount of alpha distributed
             alpha: AlphaCurrency,
         },
+
+        /// A subnet sale into lease announcement has been made.
+        SubnetSaleIntoLeaseAnnounced {
+            /// The account ID of the coldkey that made the announcement.
+            who: T::AccountId,
+            /// The account ID of the beneficiary.
+            beneficiary: T::AccountId,
+            /// The network identifier.
+            netuid: NetUid,
+        },
     }
 }

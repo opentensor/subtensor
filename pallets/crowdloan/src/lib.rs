@@ -269,6 +269,8 @@ pub mod pallet {
         DepositCannotBeWithdrawn,
         /// The maximum number of contributors has been reached.
         MaxContributorsReached,
+        /// The current crowdloan ID is not set.
+        CurrentCrowdloanIdNotSet,
     }
 
     #[pallet::hooks]

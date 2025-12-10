@@ -86,6 +86,7 @@ pub mod pallet {
         },
     };
     use frame_system::pallet_prelude::*;
+    use pallet_crowdloan::CrowdloanId;
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
     use sp_core::{ConstU32, H160, H256};
@@ -2274,6 +2275,17 @@ pub mod pallet {
     #[pallet::storage]
     pub type AccumulatedLeaseDividends<T: Config> =
         StorageMap<_, Twox64Concat, LeaseId, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// A map of the subnet sale into lease announcements from a coldkey to the
+    /// block number the announcement was made and the lease beneficiary.
+    #[pallet::storage]
+    pub type SubnetSaleIntoLeaseAnnouncements<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        T::AccountId,
+        (BlockNumberFor<T>, T::AccountId, NetUid, CrowdloanId),
+        OptionQuery,
+    >;
 
     /// --- ITEM ( CommitRevealWeightsVersion )
     #[pallet::storage]

@@ -2451,5 +2451,60 @@ mod dispatches {
             ColdkeySwapAnnouncements::<T>::remove(coldkey);
             Ok(())
         }
+
+        /// Announces a subnet sale into a lease using the beneficiary coldkey.
+        ///
+        /// Only callable by subnet owner and through a crowdloan.
+        #[pallet::call_index(128)]
+        #[pallet::weight(Weight::zero())]
+        pub fn announce_subnet_sale_into_lease(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            beneficiary: T::AccountId,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let now = frame_system::Pallet::<T>::block_number();
+
+            let crowdloan_id = pallet_crowdloan::CurrentCrowdloanId::<T>::get()
+                .ok_or(pallet_crowdloan::Error::<T>::CurrentCrowdloanIdNotSet)?;
+
+            ensure!(
+                !ColdkeySwapAnnouncements::<T>::contains_key(&who),
+                Error::<T>::ColdkeySwapAnnouncementAlreadyExists
+            );
+            ensure!(
+                !SubnetSaleIntoLeaseAnnouncements::<T>::contains_key(&who),
+                Error::<T>::SubnetSaleIntoLeaseAnnouncementAlreadyExists
+            );
+
+            ensure!(
+                SubnetOwner::<T>::get(netuid) == who,
+                Error::<T>::NotSubnetOwner
+            );
+            let owners = SubnetOwner::<T>::iter().collect::<Vec<_>>();
+            ensure!(
+                owners.iter().filter(|(_, owner)| owner == &who).count() == 1,
+                Error::<T>::TooManySubnetsOwned
+            );
+
+            SubnetSaleIntoLeaseAnnouncements::<T>::insert(
+                &who,
+                (now, beneficiary.clone(), netuid, crowdloan_id),
+            );
+
+            Self::deposit_event(Event::SubnetSaleIntoLeaseAnnounced {
+                who,
+                beneficiary,
+                netuid,
+            });
+            Ok(())
+        }
+
+        /// Settles a subnet sale into a lease.
+        #[pallet::call_index(129)]
+        #[pallet::weight(Weight::zero())]
+        pub fn settle_subnet_sale_into_lease(_origin: OriginFor<T>) -> DispatchResult {
+            Ok(())
+        }
     }
 }

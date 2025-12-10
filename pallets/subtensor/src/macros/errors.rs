@@ -154,6 +154,8 @@ mod errors {
         ColdkeySwapTooEarly,
         /// Coldkey swap reannounced too early.
         ColdkeySwapReannouncedTooEarly,
+        /// Coldkey swap announcement already exists
+        ColdkeySwapAnnouncementAlreadyExists,
         /// The announced coldkey hash does not match the new coldkey hash.
         AnnouncedColdkeyHashDoesNotMatch,
         /// New coldkey is hotkey
@@ -270,5 +272,9 @@ mod errors {
         InvalidSubnetNumber,
         /// Deprecated call.
         Deprecated,
+        /// Subnet sale into lease announcement already exists
+        SubnetSaleIntoLeaseAnnouncementAlreadyExists,
+        /// Too many subnets owned
+        TooManySubnetsOwned,
     }
 }
