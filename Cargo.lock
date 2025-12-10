@@ -9591,8 +9591,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sp-ark-bls12-381",
  "sp-core",
+ "sp-crypto-ec-utils",
  "sp-io",
  "sp-keyring",
  "sp-keystore",
@@ -16800,15 +16800,6 @@ dependencies = [
  "scale-info",
  "serde",
  "static_assertions",
-]
-
-[[package]]
-name = "sp-ark-bls12-381"
-version = "0.4.2"
-source = "git+https://github.com/paritytech/arkworks-substrate#f08093a5f7c32778eae1295430ec064dccd062a6"
-dependencies = [
- "ark-bls12-381-ext",
- "sp-crypto-ec-utils",
 ]
 
 [[package]]
