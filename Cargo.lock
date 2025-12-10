@@ -8230,6 +8230,7 @@ dependencies = [
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
+ "polkadot-runtime-common",
  "polkadot-sdk",
  "rand 0.8.5",
  "rand_core 0.9.3",
