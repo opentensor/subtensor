@@ -350,9 +350,9 @@ mod pallet {
                 Error::<T>::MechanismDoesNotExist
             );
 
-            EnabledUserLiquidity::<T>::insert(netuid, enable);
+            // EnabledUserLiquidity::<T>::insert(netuid, enable);
 
-            Self::deposit_event(Event::UserLiquidityToggled { netuid, enable });
+            // Self::deposit_event(Event::UserLiquidityToggled { netuid, enable });
 
             Ok(())
         }
@@ -596,6 +596,32 @@ mod pallet {
                     netuid.into(),
                     result.fee_alpha,
                 )?;
+            }
+
+            Ok(())
+        }
+
+        /// Disable user liquidity in all subnets.
+        ///
+        /// Emits `Event::UserLiquidityToggled` on success
+        #[pallet::call_index(5)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::modify_position())]
+        pub fn disable_lp(origin: OriginFor<T>) -> DispatchResult {
+            ensure_root(origin)?;
+
+            for netuid in 1..=128 {
+                let netuid = NetUid::from(netuid as u16);
+                if EnabledUserLiquidity::<T>::get(netuid) {
+                    EnabledUserLiquidity::<T>::insert(netuid, false);
+                    Self::deposit_event(Event::UserLiquidityToggled {
+                        netuid,
+                        enable: false,
+                    });
+                }
+
+                // Remove provided liquidity unconditionally because the network may have
+                // user liquidity previously disabled
+                Self::do_dissolve_all_liquidity_providers(netuid)?;
             }
 
             Ok(())

@@ -16,20 +16,22 @@ pub mod pallet {
     use super::*;
     use codec::Encode;
     use frame_support::{
-        dispatch::{GetDispatchInfo, PostDispatchInfo},
+        dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
         traits::ConstU32,
+        traits::IsSubType,
         weights::Weight,
     };
     use frame_system::pallet_prelude::*;
     use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
     use sp_core::ByteArray;
-    use sp_runtime::transaction_validity::{
-        InvalidTransaction, TransactionSource, ValidTransaction,
-    };
     use sp_runtime::{
-        AccountId32, DispatchErrorWithPostInfo, MultiSignature, RuntimeDebug, Saturating,
-        traits::{BadOrigin, Dispatchable, Hash, Verify},
+        AccountId32, DispatchErrorWithPostInfo, RuntimeDebug, Saturating,
+        traits::{
+            BadOrigin, DispatchInfoOf, DispatchOriginOf, Dispatchable, Hash, Implication,
+            TransactionExtension,
+        },
+        transaction_validity::{InvalidTransaction, TransactionSource, ValidTransaction},
     };
     use sp_std::{marker::PhantomData, prelude::*};
     use subtensor_macros::freeze_struct;
@@ -142,6 +144,11 @@ pub mod pallet {
             id: T::Hash,
             reason: DispatchErrorWithPostInfo<PostDispatchInfo>,
         },
+        /// Decryption failed - validator could not decrypt the submission.
+        DecryptionFailed {
+            id: T::Hash,
+            reason: BoundedVec<u8, ConstU32<256>>,
+        },
     }
 
     #[pallet::error]
@@ -244,12 +251,13 @@ pub mod pallet {
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
+        #[allow(clippy::useless_conversion)]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: BoundedVec<u8, ConstU32<2048>>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             // Only a current Aura validator may call this (signed account ∈ Aura authorities)
             T::AuthorityOrigin::ensure_validator(origin)?;
 
@@ -259,9 +267,13 @@ pub mod pallet {
                 Error::<T>::BadPublicKeyLen
             );
 
-            NextKey::<T>::put(public_key.clone());
+            NextKey::<T>::put(public_key);
 
-            Ok(())
+            // Refund the fee on success by setting pays_fee = Pays::No
+            Ok(PostDispatchInfo {
+                actual_weight: None,
+                pays_fee: Pays::No,
+            })
         }
 
         /// Users submit an encrypted wrapper.
@@ -269,21 +281,12 @@ pub mod pallet {
         /// Client‑side:
         ///
         ///   1. Read `NextKey` (ML‑KEM public key bytes) from storage.
-        ///   2. Compute `key_hash = Hashing::hash(NextKey_bytes)`.
-        ///   3. Build:
+        ///   2. Sign your extrinsic so that it can be executed when added to the pool,
+        ///        i.e. you may need to increment the nonce if you submit using the same account.
+        ///   3. `commitment = Hashing::hash(signed_extrinsic)`.
+        ///   4. Encrypt:
         ///
-        ///        raw_payload = signer (32B AccountId)
-        ///                    || key_hash (32B Hash)
-        ///                    || SCALE(call)
-        ///
-        ///   4. `commitment = Hashing::hash(raw_payload)`.
-        ///   5. Signature message:
-        ///
-        ///        "mev-shield:v1" || genesis_hash || raw_payload
-        ///
-        ///   6. Encrypt:
-        ///
-        ///        plaintext = raw_payload || sig_kind || signature(64B)
+        ///        plaintext = signed_extrinsic
         ///
         ///      with ML‑KEM‑768 + XChaCha20‑Poly1305, producing
         ///
@@ -320,111 +323,41 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Executed by the block author after decrypting a batch of wrappers.
+        /// Marks a submission as failed to decrypt and removes it from storage.
         ///
-        /// The author passes in:
+        /// Called by the block author when decryption fails at any stage (e.g., ML-KEM decapsulate
+        /// failed, AEAD decrypt failed, invalid ciphertext format, etc.). This allows clients to be
+        /// notified of decryption failures through on-chain events.
         ///
-        ///   * `id`       – wrapper id (hash of (author, commitment, ciphertext))
-        ///   * `signer`   – account that should be treated as the origin of `call`
-        ///   * `key_hash` – 32‑byte hash the client embedded (and signed) in the payload
-        ///   * `call`     – inner RuntimeCall to execute on behalf of `signer`
-        ///   * `signature` – MultiSignature over the domain‑separated payload
+        /// # Arguments
         ///
-        #[pallet::call_index(2)]
+        /// * `id` - The wrapper id (hash of (author, commitment, ciphertext))
+        /// * `reason` - Human-readable reason for the decryption failure (e.g., "ML-KEM decapsulate failed")
+        #[pallet::call_index(3)]
         #[pallet::weight((
-            Weight::from_parts(77_280_000, 0)
-                .saturating_add(T::DbWeight::get().reads(4_u64))
+            Weight::from_parts(13_260_000, 0)
+                .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::No
         ))]
-        #[allow(clippy::useless_conversion)]
-        pub fn execute_revealed(
+        pub fn mark_decryption_failed(
             origin: OriginFor<T>,
             id: T::Hash,
-            signer: T::AccountId,
-            key_hash: T::Hash,
-            call: Box<<T as Config>::RuntimeCall>,
-            signature: MultiSignature,
-        ) -> DispatchResultWithPostInfo {
+            reason: BoundedVec<u8, ConstU32<256>>,
+        ) -> DispatchResult {
             // Unsigned: only the author node may inject this via ValidateUnsigned.
             ensure_none(origin)?;
 
-            // 1) Load and consume the submission.
-            let Some(sub) = Submissions::<T>::take(id) else {
+            // Load and consume the submission.
+            let Some(_sub) = Submissions::<T>::take(id) else {
                 return Err(Error::<T>::MissingSubmission.into());
             };
 
-            // 2) Bind to the MEV‑Shield key epoch at submit time.
-            let expected_key_hash =
-                KeyHashByBlock::<T>::get(sub.submitted_in).ok_or(Error::<T>::KeyExpired)?;
+            // Emit event to notify clients
+            Self::deposit_event(Event::DecryptionFailed { id, reason });
 
-            ensure!(key_hash == expected_key_hash, Error::<T>::KeyHashMismatch);
-
-            // 3) Rebuild the same payload bytes the client used for both
-            //    commitment and signature.
-            let payload_bytes = Self::build_raw_payload_bytes(&signer, &key_hash, call.as_ref());
-
-            // 4) Commitment check against on-chain stored commitment.
-            let recomputed: T::Hash = T::Hashing::hash(&payload_bytes);
-            ensure!(sub.commitment == recomputed, Error::<T>::CommitmentMismatch);
-
-            // 5) Signature check over the same payload, with domain separation
-            //    and genesis hash to make signatures chain‑bound.
-            let genesis = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
-            let mut msg = b"mev-shield:v1".to_vec();
-            msg.extend_from_slice(genesis.as_ref());
-            msg.extend_from_slice(&payload_bytes);
-
-            let sig_ok = signature.verify(msg.as_slice(), &signer);
-            ensure!(sig_ok, Error::<T>::SignatureInvalid);
-
-            // 6) Dispatch inner call from signer.
-            let info = call.get_dispatch_info();
-            let required = info.call_weight.saturating_add(info.extension_weight);
-
-            let origin_signed = frame_system::RawOrigin::Signed(signer.clone()).into();
-            let res = (*call).dispatch(origin_signed);
-
-            match res {
-                Ok(post) => {
-                    let actual = post.actual_weight.unwrap_or(required);
-                    Self::deposit_event(Event::DecryptedExecuted { id, signer });
-                    Ok(PostDispatchInfo {
-                        actual_weight: Some(actual),
-                        pays_fee: Pays::No,
-                    })
-                }
-                Err(e) => {
-                    Self::deposit_event(Event::DecryptedRejected { id, reason: e });
-                    Ok(PostDispatchInfo {
-                        actual_weight: Some(required),
-                        pays_fee: Pays::No,
-                    })
-                }
-            }
-        }
-    }
-
-    impl<T: Config> Pallet<T> {
-        /// Build the raw payload bytes used for both:
-        ///
-        ///   * `commitment = T::Hashing::hash(raw_payload)`
-        ///   * signature message (after domain separation)
-        ///
-        /// Layout:
-        ///
-        ///   signer (32B) || key_hash (T::Hash bytes) || SCALE(call)
-        fn build_raw_payload_bytes(
-            signer: &T::AccountId,
-            key_hash: &T::Hash,
-            call: &<T as Config>::RuntimeCall,
-        ) -> Vec<u8> {
-            let mut out = Vec::new();
-            out.extend_from_slice(signer.as_ref());
-            out.extend_from_slice(key_hash.as_ref());
-            out.extend(call.encode());
-            out
+            Ok(())
         }
     }
 
@@ -434,12 +367,11 @@ pub mod pallet {
 
         fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
-                Call::execute_revealed { id, .. } => {
+                Call::mark_decryption_failed { id, .. } => {
                     match source {
-                        // Only allow locally-submitted / already-in-block txs.
                         TransactionSource::Local | TransactionSource::InBlock => {
-                            ValidTransaction::with_tag_prefix("mev-shield-exec")
-                                .priority(u64::MAX)
+                            ValidTransaction::with_tag_prefix("mev-shield-failed")
+                                .priority(1u64)
                                 .longevity(64) // long because propagate(false)
                                 .and_provides(id) // dedupe by wrapper id
                                 .propagate(false) // CRITICAL: no gossip, stays on author node
@@ -448,9 +380,97 @@ pub mod pallet {
                         _ => InvalidTransaction::Call.into(),
                     }
                 }
-
                 _ => InvalidTransaction::Call.into(),
             }
+        }
+    }
+
+    #[freeze_struct("51f74eb54f5ab1fe")]
+    #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
+    pub struct MevShieldDecryptionFilter<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+
+    impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for MevShieldDecryptionFilter<T> {
+        fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+            write!(f, "MevShieldDecryptionFilter")
+        }
+    }
+
+    impl<T: Config + Send + Sync + TypeInfo> MevShieldDecryptionFilter<T> {
+        pub fn new() -> Self {
+            Self(PhantomData)
+        }
+
+        #[inline]
+        fn mev_failed_priority() -> TransactionPriority {
+            1u64
+        }
+    }
+
+    impl<T: Config + Send + Sync + TypeInfo> TransactionExtension<RuntimeCallFor<T>>
+        for MevShieldDecryptionFilter<T>
+    where
+        <T as frame_system::Config>::RuntimeCall:
+            Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+        <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+    {
+        const IDENTIFIER: &'static str = "MevShieldDecryptionFilter";
+
+        type Implicit = ();
+        type Val = ();
+        type Pre = ();
+
+        fn weight(&self, _call: &RuntimeCallFor<T>) -> Weight {
+            // Only does light pattern matching; treat as free.
+            Weight::zero()
+        }
+
+        fn validate(
+            &self,
+            origin: DispatchOriginOf<RuntimeCallFor<T>>,
+            call: &RuntimeCallFor<T>,
+            _info: &DispatchInfoOf<RuntimeCallFor<T>>,
+            _len: usize,
+            _self_implicit: Self::Implicit,
+            _inherited_implication: &impl Implication,
+            source: TransactionSource,
+        ) -> ValidateResult<Self::Val, RuntimeCallFor<T>> {
+            match call.is_sub_type() {
+                Some(Call::mark_decryption_failed { id, .. }) => {
+                    match source {
+                        TransactionSource::Local | TransactionSource::InBlock => {
+                            let validity_res =
+                                ValidTransaction::with_tag_prefix("mev-shield-failed")
+                                    .priority(Self::mev_failed_priority())
+                                    .longevity(64)
+                                    .and_provides(id)
+                                    .propagate(false)
+                                    .build();
+
+                            match validity_res {
+                                Ok(validity) => Ok((validity, (), origin)),
+                                Err(e) => Err(e),
+                            }
+                        }
+
+                        // Anything coming from the outside world (including *signed*
+                        // transactions) is rejected at the pool boundary.
+                        _ => Err(InvalidTransaction::Call.into()),
+                    }
+                }
+
+                _ => Ok((Default::default(), (), origin)),
+            }
+        }
+
+        fn prepare(
+            self,
+            _val: Self::Val,
+            _origin: &DispatchOriginOf<RuntimeCallFor<T>>,
+            _call: &RuntimeCallFor<T>,
+            _info: &DispatchInfoOf<RuntimeCallFor<T>>,
+            _len: usize,
+        ) -> Result<Self::Pre, TransactionValidityError> {
+            Ok(())
         }
     }
 }

@@ -38,7 +38,7 @@ sp-consensus-aura.workspace = true
 [dev-dependencies]
 
 [features]
-default = []
+default = ["std"]
 
 std = [
 	"codec/std",
