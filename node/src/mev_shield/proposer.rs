@@ -14,6 +14,22 @@ use std::{
 };
 use tokio::time::sleep;
 
+/// Helper to build a `mark_decryption_failed` runtime call with a bounded reason string.
+fn create_failed_call(id: H256, reason: &str) -> node_subtensor_runtime::RuntimeCall {
+    use sp_runtime::BoundedVec;
+
+    let reason_bytes = reason.as_bytes();
+    let reason_bounded = BoundedVec::try_from(reason_bytes.to_vec()).unwrap_or_else(|_| {
+        // Fallback if the reason is too long for the bounded vector.
+        BoundedVec::try_from(b"Decryption failed".to_vec()).unwrap_or_default()
+    });
+
+    node_subtensor_runtime::RuntimeCall::MevShield(pallet_shield::Call::mark_decryption_failed {
+        id,
+        reason: reason_bounded,
+    })
+}
+
 /// Buffer of wrappers keyed by the block number in which they were included.
 #[derive(Default, Clone)]
 struct WrapperBuffer {
@@ -34,10 +50,12 @@ impl WrapperBuffer {
 
     /// Drain only wrappers whose `block_number` matches the given `block`.
     ///   - Wrappers with `block_number > block` are kept for future decrypt windows.
-    ///   - Wrappers with `block_number < block` are considered stale and dropped.
+    ///   - Wrappers with `block_number < block` are considered stale and dropped, and
+    ///     we emit `mark_decryption_failed` calls for them so they are visible on-chain.
     fn drain_for_block(
         &mut self,
         block: u64,
+        failed_calls: &mut Vec<(H256, node_subtensor_runtime::RuntimeCall)>,
     ) -> Vec<(H256, u64, sp_runtime::AccountId32, Vec<u8>)> {
         let mut ready = Vec::new();
         let mut kept_future: usize = 0;
@@ -53,7 +71,7 @@ impl WrapperBuffer {
                 kept_future = kept_future.saturating_add(1);
                 true
             } else {
-                // block_number < block => stale / missed reveal window; drop.
+                // block_number < block => stale / missed reveal window; drop and mark failed.
                 dropped_past = dropped_past.saturating_add(1);
                 log::debug!(
                     target: "mev-shield",
@@ -62,6 +80,16 @@ impl WrapperBuffer {
                     *block_number,
                     block
                 );
+
+                // Mark decryption failed on-chain so clients can observe the missed wrapper.
+                failed_calls.push((
+                    *id,
+                    create_failed_call(
+                        *id,
+                        "missed decrypt window (wrapper submitted in an earlier block)",
+                    ),
+                ));
+
                 false
             }
         });
@@ -325,10 +353,16 @@ pub fn spawn_revealer<B, C, Pool>(
                         next_pk_len
                     );
 
+                    // Prepare containers for decrypted extrinsics and failed decryptions.
+                    let mut to_submit: Vec<(H256, node_subtensor_runtime::UncheckedExtrinsic)> =
+                        Vec::new();
+                    let mut failed_calls: Vec<(H256, node_subtensor_runtime::RuntimeCall)> =
+                        Vec::new();
+
                     // Only process wrappers whose originating block matches the reveal_block.
                     let drained: Vec<(H256, u64, sp_runtime::AccountId32, Vec<u8>)> =
                         match buffer.lock() {
-                            Ok(mut buf) => buf.drain_for_block(curr_block),
+                            Ok(mut buf) => buf.drain_for_block(curr_block, &mut failed_calls),
                             Err(e) => {
                                 log::debug!(
                                     target: "mev-shield",
@@ -344,28 +378,6 @@ pub fn spawn_revealer<B, C, Pool>(
                         drained.len(),
                         curr_block
                     );
-
-                    let mut to_submit: Vec<(H256, node_subtensor_runtime::UncheckedExtrinsic)> =
-                        Vec::new();
-                    let mut failed_calls: Vec<(H256, node_subtensor_runtime::RuntimeCall)> =
-                        Vec::new();
-
-                    // Helper to create mark_decryption_failed call
-                    let create_failed_call = |id: H256, reason: &str| -> node_subtensor_runtime::RuntimeCall {
-                        use sp_runtime::BoundedVec;
-                        let reason_bytes = reason.as_bytes();
-                        let reason_bounded = BoundedVec::try_from(reason_bytes.to_vec())
-                            .unwrap_or_else(|_| { // Fallback if the reason is too long
-                                BoundedVec::try_from(b"Decryption failed".to_vec()).unwrap_or_default()
-                            });
-
-                        node_subtensor_runtime::RuntimeCall::MevShield(
-                            pallet_shield::Call::mark_decryption_failed {
-                                id,
-                                reason: reason_bounded,
-                            },
-                        )
-                    };
 
                     for (id, block_number, author, blob) in drained.into_iter() {
                         log::debug!(
