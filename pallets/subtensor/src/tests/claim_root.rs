@@ -1620,6 +1620,40 @@ fn test_claim_root_with_set_validator_claim_type() {
             assert_eq!(ev_claim_type, new_claim_type);
             assert_eq!(ev_netuid, netuid);
         }
+
+        // Check possible options
+        assert_ok!(SubtensorModule::set_validator_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            RootClaimTypeEnum::Keep
+        ),);
+        assert_ok!(SubtensorModule::set_validator_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            RootClaimTypeEnum::Swap
+        ),);
+        assert_err!(
+            SubtensorModule::set_validator_claim_type(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                RootClaimTypeEnum::Delegated
+            ),
+            Error::<Test>::InvalidRootClaimType
+        );
+        assert_err!(
+            SubtensorModule::set_validator_claim_type(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                RootClaimTypeEnum::KeepSubnets {
+                    subnets: BTreeSet::from([netuid])
+                }
+            ),
+            Error::<Test>::InvalidRootClaimType
+        );
     });
 }
 
