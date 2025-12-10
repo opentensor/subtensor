@@ -66,7 +66,7 @@ fn parity_check<F>(
     now: u64,
     call: RuntimeCall,
     origin: RuntimeOrigin,
-    usage_override: Option<UsageKey>,
+    usage_override: Option<Vec<UsageKey>>,
     scope_override: Option<NetUid>,
     legacy_check: F,
 ) where
@@ -82,9 +82,8 @@ fn parity_check<F>(
     let identifier =
         TransactionIdentifier::from_call::<Runtime, ()>(&call).expect("identifier for call");
     let scope = scope_override.or_else(|| RuntimeScopeResolver::context(&origin, &call));
-    let usage: Option<<Runtime as pallet_rate_limiting::Config>::UsageKey> = usage_override
-        .map(Into::into)
-        .or_else(|| RuntimeUsageResolver::context(&origin, &call).map(Into::into));
+    let usage: Option<Vec<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
+        usage_override.or_else(|| RuntimeUsageResolver::context(&origin, &call));
     let target = resolve_target(identifier);
 
     // Use the runtime-adjusted span (handles tempo scaling for admin-utils).
@@ -97,28 +96,37 @@ fn parity_check<F>(
     .unwrap_or_default();
     let span_u64: u64 = span.saturated_into();
 
-    let within = pallet_rate_limiting::Pallet::<Runtime>::is_within_limit(
-        &origin.clone().into(),
-        &call,
-        &identifier,
-        &scope,
-        &usage,
-    )
-    .expect("pallet rate limit result");
+    let usage_keys: Vec<Option<<Runtime as pallet_rate_limiting::Config>::UsageKey>> = match usage {
+        None => vec![None],
+        Some(keys) => keys.into_iter().map(Some).collect(),
+    };
+
+    let within = usage_keys.iter().all(|key| {
+        pallet_rate_limiting::Pallet::<Runtime>::is_within_limit(
+            &origin.clone().into(),
+            &call,
+            &identifier,
+            &scope,
+            key,
+        )
+        .expect("pallet rate limit result")
+    });
     assert_eq!(within, legacy_check(), "parity at now for {:?}", identifier);
 
     // Advance beyond the span and re-check (span==0 treated as allow).
     let advance: BlockNumberFor<Runtime> = span.saturating_add(exact_span(1));
     System::set_block_number(System::block_number().saturating_add(advance));
 
-    let within_after = pallet_rate_limiting::Pallet::<Runtime>::is_within_limit(
-        &origin.into(),
-        &call,
-        &identifier,
-        &scope,
-        &usage,
-    )
-    .expect("pallet rate limit result (after)");
+    let within_after = usage_keys.iter().all(|key| {
+        pallet_rate_limiting::Pallet::<Runtime>::is_within_limit(
+            &origin.clone().into(),
+            &call,
+            &identifier,
+            &scope,
+            key,
+        )
+        .expect("pallet rate limit result (after)")
+    });
     assert!(
         within_after || span_u64 == 0,
         "parity after window for {:?}",
@@ -326,7 +334,7 @@ fn weights_and_hparam_parity() {
         });
         let origin = RuntimeOrigin::signed(hot.clone());
         let scope = Some(netuid);
-        let usage = Some(UsageKey::SubnetNeuron { netuid, uid });
+        let usage = Some(vec![UsageKey::SubnetNeuron { netuid, uid }]);
 
         let legacy_weights = || SubtensorModule::check_rate_limit(netuid.into(), uid, now);
         parity_check(
@@ -414,7 +422,7 @@ fn associate_evm_key_parity() {
             signature: ecdsa::Signature::from_raw([0u8; 65]),
         });
         let origin = RuntimeOrigin::signed(hot.clone());
-        let usage = Some(UsageKey::SubnetNeuron { netuid, uid });
+        let usage = Some(vec![UsageKey::SubnetNeuron { netuid, uid }]);
         let scope = Some(netuid);
         let limit = <Runtime as pallet_subtensor::Config>::EvmKeyAssociateRateLimit::get();
         let legacy = || {

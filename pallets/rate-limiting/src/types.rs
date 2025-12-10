@@ -2,7 +2,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::DispatchError, traits::GetCallMetadata};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_std::collections::btree_map::BTreeMap;
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// Resolves the optional identifier within which a rate limit applies and can optionally adjust
 /// enforcement behaviour.
@@ -53,9 +53,11 @@ impl BypassDecision {
 
 /// Resolves the optional usage tracking key applied when enforcing limits.
 pub trait RateLimitUsageResolver<Origin, Call, Usage> {
-    /// Returns `Some(usage)` when usage should be tracked per-key, or `None` for global usage
-    /// tracking.
-    fn context(origin: &Origin, call: &Call) -> Option<Usage>;
+    /// Returns `Some(keys)` to track usage per key, or `None` for global usage tracking.
+    ///
+    /// When multiple keys are returned, the rate limit is enforced against each key and all are
+    /// recorded on success.
+    fn context(origin: &Origin, call: &Call) -> Option<Vec<Usage>>;
 }
 
 /// Identifies a runtime call by pallet and extrinsic indices.

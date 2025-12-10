@@ -43,6 +43,7 @@ const GROUP_WEIGHTS_SUBNET: GroupId = 2;
 pub const GROUP_REGISTER_NETWORK: GroupId = 3;
 const GROUP_OWNER_HPARAMS: GroupId = 4;
 const GROUP_STAKING_OPS: GroupId = 5;
+const GROUP_SWAP_KEYS: GroupId = 6;
 
 // `set_children` is rate-limited to once every 150 blocks, it's hard-coded in the legacy code.
 const SET_CHILDREN_RATE_LIMIT: u64 = 150;
@@ -144,9 +145,9 @@ fn commits() -> (Vec<GroupConfig>, Vec<Commit>, u64) {
     reads += build_register_network(&mut groups, &mut commits);
     reads += build_owner_hparams(&mut groups, &mut commits);
     reads += build_staking_ops(&mut groups, &mut commits);
+    reads += build_swap_keys(&mut groups, &mut commits);
 
     // standalone
-    reads += build_swap_hotkey(&mut commits);
     reads += build_childkey_take(&mut commits);
     reads += build_set_children(&mut commits);
     reads += build_weights_version_key(&mut commits);
@@ -571,14 +572,23 @@ fn build_staking_ops(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -
     0
 }
 
-// Standalone swap_hotkey.
-// usage: account
+// Swap hotkey/coldkey share the lock and usage; swap_coldkey bypasses enforcement but records
+// usage.
+// usage: account (coldkey)
 // legacy sources: TxRateLimit, LastRateLimitedBlock per LastTxBlock
-fn build_swap_hotkey(commits: &mut Vec<Commit>) -> u64 {
+fn build_swap_keys(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
     let mut reads: u64 = 0;
-    let target =
-        RateLimitTarget::Transaction(TransactionIdentifier::new(SUBTENSOR_PALLET_INDEX, 70));
+    groups.push(GroupConfig {
+        id: GROUP_SWAP_KEYS,
+        name: b"swap-keys".to_vec(),
+        sharing: GroupSharing::ConfigAndUsage,
+        members: vec![
+            MigratedCall::subtensor(70, false), // swap_hotkey
+            MigratedCall::subtensor(71, false), // swap_coldkey
+        ],
+    });
 
+    let target = RateLimitTarget::Group(GROUP_SWAP_KEYS);
     reads += 1;
     push_limit_commit_if_non_zero(commits, target, TxRateLimit::<Runtime>::get(), None);
 
@@ -1055,8 +1065,7 @@ mod tests {
                 MIGRATION_NAME
             ));
 
-            let tx_target =
-                RateLimitTarget::Transaction(MigratedCall::subtensor(70, false).identifier());
+            let tx_target = RateLimitTarget::Group(GROUP_SWAP_KEYS);
             let delegate_group = RateLimitTarget::Group(DELEGATE_TAKE_GROUP_ID);
 
             assert_eq!(
@@ -1088,7 +1097,7 @@ mod tests {
                 ),
                 Some(DELEGATE_TAKE_GROUP_ID)
             );
-            assert_eq!(pallet_rate_limiting::NextGroupId::<Runtime>::get(), 6);
+            assert_eq!(pallet_rate_limiting::NextGroupId::<Runtime>::get(), 7);
         });
     }
 

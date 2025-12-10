@@ -105,12 +105,12 @@ impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, Li
 impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, UsageKey>
     for TestUsageResolver
 {
-    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<UsageKey> {
+    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<Vec<UsageKey>> {
         match call {
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
-                (*block_span).try_into().ok()
+                (*block_span).try_into().ok().map(|key| vec![key])
             }
-            RuntimeCall::RateLimiting(_) => Some(1),
+            RuntimeCall::RateLimiting(_) => Some(vec![1]),
             _ => None,
         }
     }

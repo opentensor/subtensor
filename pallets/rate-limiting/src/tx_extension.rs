@@ -13,7 +13,7 @@ use frame_support::{
     },
 };
 use scale_info::TypeInfo;
-use sp_std::{marker::PhantomData, result::Result};
+use sp_std::{marker::PhantomData, result::Result, vec, vec::Vec};
 
 use crate::{
     Config, LastSeen, Pallet,
@@ -94,12 +94,12 @@ where
     type Implicit = ();
     type Val = Option<(
         RateLimitTarget<<T as Config<I>>::GroupId>,
-        Option<<T as Config<I>>::UsageKey>,
+        Option<Vec<<T as Config<I>>::UsageKey>>,
         bool,
     )>;
     type Pre = Option<(
         RateLimitTarget<<T as Config<I>>::GroupId>,
-        Option<<T as Config<I>>::UsageKey>,
+        Option<Vec<<T as Config<I>>::UsageKey>>,
         bool,
     )>;
 
@@ -155,7 +155,14 @@ where
             return Ok((ValidTransaction::default(), None, origin));
         }
 
-        let within_limit = Pallet::<T, I>::within_span(&usage_target, &usage, block_span);
+        let usage_keys: Vec<Option<<T as Config<I>>::UsageKey>> = match usage.clone() {
+            None => vec![None],
+            Some(keys) => keys.into_iter().map(Some).collect(),
+        };
+
+        let within_limit = usage_keys
+            .iter()
+            .all(|key| Pallet::<T, I>::within_span(&usage_target, key, block_span));
 
         if !within_limit {
             return Err(TransactionValidityError::Invalid(
@@ -194,7 +201,18 @@ where
                     return Ok(());
                 }
                 let block_number = frame_system::Pallet::<T>::block_number();
-                LastSeen::<T, I>::insert(target, usage, block_number);
+                match usage {
+                    None => LastSeen::<T, I>::insert(
+                        target,
+                        None::<<T as Config<I>>::UsageKey>,
+                        block_number,
+                    ),
+                    Some(keys) => {
+                        for key in keys {
+                            LastSeen::<T, I>::insert(target, Some(key), block_number);
+                        }
+                    }
+                }
             }
         }
         Ok(())
@@ -253,7 +271,7 @@ mod tests {
     ) -> Result<
         (
             sp_runtime::transaction_validity::ValidTransaction,
-            Option<(RateLimitTarget<GroupId>, Option<UsageKey>, bool)>,
+            Option<(RateLimitTarget<GroupId>, Option<Vec<UsageKey>>, bool)>,
             RuntimeOrigin,
         ),
         TransactionValidityError,
