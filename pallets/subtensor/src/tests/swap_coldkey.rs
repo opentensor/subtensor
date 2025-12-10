@@ -199,6 +199,28 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
 }
 
 #[test]
+fn test_announce_coldkey_swap_fails_if_subnet_sale_into_lease_announcement_exists() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let now = System::block_number();
+        let netuid = NetUid::from(1);
+        let crowdloan_id = 0;
+
+        SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
+            who,
+            (now, new_coldkey, netuid, crowdloan_id),
+        );
+
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_hash),
+            Error::<Test>::SubnetSaleIntoLeaseAnnouncementAlreadyExists
+        );
+    });
+}
+
+#[test]
 fn test_swap_coldkey_announced_works() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
