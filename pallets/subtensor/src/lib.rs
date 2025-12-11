@@ -329,11 +329,11 @@ pub mod pallet {
     )]
     /// Enum for the per-coldkey root claim setting.
     pub enum RootClaimTypeEnum {
-        /// Swap any alpha emission for TAO.
-        #[default]
-        Swap,
         /// Keep all alpha emission.
+		#[default]
         Keep,
+		/// Swap any alpha emission for TAO.
+        Swap,
         /// Keep all alpha emission for specified subnets.
         KeepSubnets {
             /// Subnets to keep alpha emissions (swap everything else).
