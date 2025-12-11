@@ -2461,12 +2461,16 @@ mod dispatches {
             origin: OriginFor<T>,
             netuid: NetUid,
             beneficiary: T::AccountId,
+            min_sale_price: TaoCurrency,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let now = frame_system::Pallet::<T>::block_number();
 
-            let crowdloan_id = pallet_crowdloan::CurrentCrowdloanId::<T>::get()
-                .ok_or(pallet_crowdloan::Error::<T>::CurrentCrowdloanIdNotSet)?;
+            let (crowdloan_id, crowdloan) = Self::get_crowdloan_being_finalized()?;
+            ensure!(
+                crowdloan.raised >= min_sale_price.to_u64(),
+                Error::<T>::SubnetMinSalePriceNotMet
+            );
 
             ensure!(
                 !ColdkeySwapAnnouncements::<T>::contains_key(&who),

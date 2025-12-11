@@ -276,5 +276,7 @@ mod errors {
         SubnetSaleIntoLeaseAnnouncementAlreadyExists,
         /// Too many subnets owned
         TooManySubnetsOwned,
+        /// Subnet minimum sale price not met.
+        SubnetMinSalePriceNotMet,
     }
 }

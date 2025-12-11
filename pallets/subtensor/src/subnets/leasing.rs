@@ -377,7 +377,7 @@ impl<T: Config> Pallet<T> {
 
     // Get the crowdloan being finalized from the crowdloan pallet when the call is executed,
     // and the current crowdloan ID is exposed to us.
-    fn get_crowdloan_being_finalized() -> Result<
+    pub(crate) fn get_crowdloan_being_finalized() -> Result<
         (
             pallet_crowdloan::CrowdloanId,
             pallet_crowdloan::CrowdloanInfoOf<T>,
