@@ -34,6 +34,7 @@ pallet-subtensor-proxy.workspace = true
 pallet-drand.workspace = true
 subtensor-swap-interface.workspace = true
 num_enum.workspace = true
+substrate-fixed.workspace = true
 
 [lints]
 workspace = true
@@ -64,4 +65,5 @@ std = [
 	"pallet-drand/std",
 	"subtensor-swap-interface/std",
 	"num_enum/std",
+	"substrate-fixed/std",
 ]
