@@ -19,11 +19,11 @@ macro_rules! tou64 {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn run_coinbase(block_emission: U96F32) {
+    pub fn run_coinbase(tao_block_emission: U96F32) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!(
-            "Running coinbase for block {current_block:?} with block emission: {block_emission:?}"
+            "Running coinbase for block {current_block:?} with block emission: {tao_block_emission:?}"
         );
         // --- 1. Get all subnets (excluding root).
         let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()
@@ -38,13 +38,13 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Get emissions for subnets to emit to
         let subnet_emissions =
-            Self::get_subnet_block_emissions(&subnets_to_emit_to, block_emission);
+            Self::get_subnet_block_emissions(&subnets_to_emit_to, tao_block_emission);
         log::debug!("Subnet emissions: {subnet_emissions:?}");
         let root_sell_flag = Self::get_network_root_sell_flag(&subnets_to_emit_to);
         log::debug!("Root sell flag: {root_sell_flag:?}");
 
         // --- 4. Emit to subnets for this block.
-        Self::emit_to_subnets(&subnets_to_emit_to, &subnet_emissions, root_sell_flag);
+        Self::emit_to_subnets(tao_block_emission, &subnets_to_emit_to, &subnet_emissions, root_sell_flag);
 
         // --- 5. Drain pending emissions.
         let emissions_to_distribute = Self::drain_pending(&subnets, current_block);
@@ -112,6 +112,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_subnet_terms(
+        tao_block_emission: U96F32
         subnet_emissions: &BTreeMap<NetUid, U96F32>,
     ) -> (
         BTreeMap<NetUid, U96F32>,
@@ -128,7 +129,7 @@ impl<T: Config> Pallet<T> {
         // Only calculate for subnets that we are emitting to.
         for (&netuid_i, &tao_emission_i) in subnet_emissions.iter() {
             // Get alpha_emission this block.
-            let alpha_emission_i: U96F32 = asfloat!(
+            let alpha_block_emission_i: U96F32 = asfloat!(
                 Self::get_block_emission_for_issuance(Self::get_alpha_issuance(netuid_i).into())
                     .unwrap_or(0)
             );
@@ -142,7 +143,8 @@ impl<T: Config> Pallet<T> {
             let alpha_out_i: U96F32 = alpha_emission_i;
             let mut alpha_in_i: U96F32 = tao_emission_i.safe_div_or(price_i, U96F32::from_num(0.0));
 
-            if alpha_in_i > alpha_emission_i {
+            let alpha_emission_max: U96F32 = min(alpha_block_emission_i, tao_block_emission);
+            if alpha_in_i > min( alpha_emission_i {
                 alpha_in_i = alpha_emission_i;
                 tao_in_i = alpha_in_i.saturating_mul(price_i);
             }
@@ -159,13 +161,14 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn emit_to_subnets(
+        tao_block_emission: U96F32,
         subnets_to_emit_to: &[NetUid],
         subnet_emissions: &BTreeMap<NetUid, U96F32>,
         root_sell_flag: bool,
     ) {
         // --- 1. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // and excess_tao amounts.
-        let (tao_in, alpha_in, alpha_out, excess_amount) = Self::get_subnet_terms(subnet_emissions);
+        let (tao_in, alpha_in, alpha_out, excess_amount) = Self::get_subnet_terms( tao_block_emission, subnet_emissions );
 
         log::debug!("tao_in: {tao_in:?}");
         log::debug!("alpha_in: {alpha_in:?}");
