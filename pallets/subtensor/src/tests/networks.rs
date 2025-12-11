@@ -1882,7 +1882,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         // Ordered α snapshot per net at **pair granularity** (pre‑LP):
         let mut alpha_pairs_per_net: BTreeMap<NetUid, Vec<((U256, U256), u128)>> = BTreeMap::new();
 
-        
         // Register both hotkeys for each participating cold on each net and stake τ→α.
         for (ni, &net) in nets.iter().enumerate() {
             let participants = lp_sets_per_net[ni];
