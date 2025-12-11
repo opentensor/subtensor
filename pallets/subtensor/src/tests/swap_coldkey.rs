@@ -53,9 +53,10 @@ fn test_announce_coldkey_swap_works() {
         ));
 
         let now = System::block_number();
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(who, (now, new_coldkey_hash))]
+            vec![(who, (now + delay, new_coldkey_hash))]
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), left_over);
         assert_eq!(
@@ -88,12 +89,12 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
         ));
 
         let now = System::block_number();
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(who, (now, new_coldkey_hash))]
+            vec![(who, (now + delay, new_coldkey_hash))]
         );
 
-        let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         System::run_to_block::<AllPalletsWithSystem>(now + delay);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
@@ -104,7 +105,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
         let now = System::block_number();
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(who, (now, new_coldkey_2_hash))]
+            vec![(who, (now + delay, new_coldkey_2_hash))]
         );
     });
 }
@@ -118,19 +119,22 @@ fn test_announce_coldkey_swap_only_pays_swap_cost_if_no_announcement_exists() {
         let new_coldkey_2 = U256::from(3);
         let new_coldkey_2_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey_2);
         let left_over = 12345;
-        
+
         let swap_cost = SubtensorModule::get_key_swap_cost().to_u64();
         SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost + left_over);
-        assert_eq!(SubtensorModule::get_coldkey_balance(&who), swap_cost + left_over);
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&who),
+            swap_cost + left_over
+        );
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
             new_coldkey_hash,
         ));
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), left_over);
-        
+
         let now = System::block_number();
-        let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
         System::run_to_block::<AllPalletsWithSystem>(now + delay);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
@@ -179,13 +183,11 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
         ));
 
         let now = System::block_number();
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(who, (now, new_coldkey_hash))]
+            vec![(who, (now + delay, new_coldkey_hash))]
         );
-
-        let unmet_delay = ColdkeySwapAnnouncementDelay::<Test>::get();
-        System::run_to_block::<AllPalletsWithSystem>(now + unmet_delay);
 
         assert_noop!(
             SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2_hash,),
@@ -321,9 +323,10 @@ fn test_swap_coldkey_announced_too_early_fails() {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
         let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
-        let now = System::block_number();
 
-        ColdkeySwapAnnouncements::<Test>::insert(who.clone(), (now, new_coldkey_hash));
+        let now = System::block_number();
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
+        ColdkeySwapAnnouncements::<Test>::insert(who.clone(), (now + delay, new_coldkey_hash));
 
         assert_noop!(
             SubtensorModule::swap_coldkey_announced(

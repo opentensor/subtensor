@@ -1339,7 +1339,7 @@ pub mod pallet {
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapAnnouncementDelay<T>>;
 
     /// A map of the coldkey swap announcements from a coldkey
-    /// to the block number the announcement was made and the new coldkey.
+    /// to the block number the coldkey swap can be performed.
     #[pallet::storage]
     pub type ColdkeySwapAnnouncements<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, (BlockNumberFor<T>, T::Hash), OptionQuery>;

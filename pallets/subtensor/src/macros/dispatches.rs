@@ -2375,19 +2375,16 @@ mod dispatches {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
 
-            if let Some(existing) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
-                let delay = ColdkeySwapAnnouncementDelay::<T>::get();
-                let when = existing.0;
-                ensure!(
-                    now > when.saturating_add(delay),
-                    Error::<T>::ColdkeySwapReannouncedTooEarly
-                );
+            if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
+                ensure!(now >= when, Error::<T>::ColdkeySwapReannouncedTooEarly);
             } else {
                 let swap_cost = Self::get_key_swap_cost();
                 Self::charge_swap_cost(&who, swap_cost)?;
             }
 
-            ColdkeySwapAnnouncements::<T>::insert(who.clone(), (now, new_coldkey_hash.clone()));
+            let delay = ColdkeySwapAnnouncementDelay::<T>::get();
+            let when = now.saturating_add(delay);
+            ColdkeySwapAnnouncements::<T>::insert(who.clone(), (when, new_coldkey_hash.clone()));
 
             Self::deposit_event(Event::ColdkeySwapAnnounced {
                 who,
@@ -2425,11 +2422,7 @@ mod dispatches {
             );
 
             let now = <frame_system::Pallet<T>>::block_number();
-            let delay = ColdkeySwapAnnouncementDelay::<T>::get();
-            ensure!(
-                now > when.saturating_add(delay),
-                Error::<T>::ColdkeySwapTooEarly
-            );
+            ensure!(now >= when, Error::<T>::ColdkeySwapTooEarly);
 
             Self::do_swap_coldkey(&who, &new_coldkey)?;
 
