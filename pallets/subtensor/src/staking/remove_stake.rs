@@ -492,7 +492,7 @@ impl<T: Config> Pallet<T> {
         for hot in hotkeys_in_subnet.iter() {
             for ((cold, _), share_u64f64) in Alpha::<T>::iter_prefix((hot,)) {
                 keys_to_remove.push((hot.clone(), cold.clone()));
-                if !hotkeys_seen.contains(&hot) {
+                if !hotkeys_seen.contains(hot) {
                     hotkeys_seen.push(hot.clone());
                 }
 
