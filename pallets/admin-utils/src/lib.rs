@@ -1580,7 +1580,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(62)]
         #[pallet::weight((
-            Weight::from_parts(10_020_000, 3507)
+            Weight::from_parts(5_698_000, 0)
 			    .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(0_u64)),
             DispatchClass::Operational,
