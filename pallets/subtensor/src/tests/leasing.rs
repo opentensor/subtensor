@@ -1040,7 +1040,13 @@ fn test_announce_subnet_sale_into_lease_works() {
     new_test_ext(1).execute_with(|| {
         let crowdloan_id = 0;
         let creator = U256::from(1);
-        setup_crowdloan!(crowdloan_id, 0, 0, creator, vec![] as Vec<(U256, u64)>);
+        setup_crowdloan!(
+            crowdloan_id,
+            0,
+            100_000_000,
+            creator,
+            vec![] as Vec<(U256, u64)>
+        );
 
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
@@ -1051,6 +1057,7 @@ fn test_announce_subnet_sale_into_lease_works() {
             RuntimeOrigin::signed(creator),
             netuid,
             beneficiary,
+            TaoCurrency::from(100_000_000),
         ));
 
         let now = frame_system::Pallet::<Test>::block_number();
@@ -1073,12 +1080,14 @@ fn test_announce_subnet_sale_into_lease_fails_if_bad_origin() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let beneficiary = U256::from(1);
+        let min_sale_price = TaoCurrency::from(100_000_000);
 
         assert_noop!(
             SubtensorModule::announce_subnet_sale_into_lease(
                 RuntimeOrigin::none(),
                 netuid,
                 beneficiary,
+                min_sale_price,
             ),
             DispatchError::BadOrigin
         );
@@ -1088,6 +1097,7 @@ fn test_announce_subnet_sale_into_lease_fails_if_bad_origin() {
                 RuntimeOrigin::root(),
                 netuid,
                 beneficiary,
+                min_sale_price,
             ),
             DispatchError::BadOrigin
         );
@@ -1102,7 +1112,8 @@ fn test_announce_subnet_sale_into_lease_fails_if_coldkey_swap_announcement_exist
         let beneficiary = U256::from(2);
         let beneficiary_hash = <Test as frame_system::Config>::Hashing::hash_of(&beneficiary);
         let now = frame_system::Pallet::<Test>::block_number();
-        setup_crowdloan!(0, 0, 0, creator, vec![] as Vec<(U256, u64)>);
+        let min_sale_price = TaoCurrency::from(100_000_000);
+        setup_crowdloan!(0, 0, min_sale_price.to_u64(), creator, vec![] as Vec<(U256, u64)>);
 
         ColdkeySwapAnnouncements::<Test>::insert(creator, (now, beneficiary_hash));
 
@@ -1110,7 +1121,8 @@ fn test_announce_subnet_sale_into_lease_fails_if_coldkey_swap_announcement_exist
             SubtensorModule::announce_subnet_sale_into_lease(
                 RuntimeOrigin::signed(creator),
                 netuid,
-                beneficiary
+                beneficiary,
+                min_sale_price,
             ),
             Error::<Test>::ColdkeySwapAnnouncementAlreadyExists
         );
@@ -1125,7 +1137,8 @@ fn test_announce_subnet_sale_into_lease_fails_if_subnet_sale_into_lease_announce
         let creator = U256::from(1);
         let beneficiary = U256::from(2);
         let now = frame_system::Pallet::<Test>::block_number();
-        setup_crowdloan!(crowdloan_id, 0, 0, creator, vec![] as Vec<(U256, u64)>);
+        let min_sale_price = TaoCurrency::from(100_000_000);
+        setup_crowdloan!(crowdloan_id, 0, min_sale_price.to_u64(), creator, vec![] as Vec<(U256, u64)>);
 
         SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
             creator,
@@ -1136,7 +1149,8 @@ fn test_announce_subnet_sale_into_lease_fails_if_subnet_sale_into_lease_announce
             SubtensorModule::announce_subnet_sale_into_lease(
                 RuntimeOrigin::signed(creator),
                 netuid,
-                beneficiary
+                beneficiary,
+                min_sale_price,
             ),
             Error::<Test>::SubnetSaleIntoLeaseAnnouncementAlreadyExists
         );
@@ -1149,7 +1163,8 @@ fn test_announce_subnet_sale_into_lease_fails_if_caller_doesnt_owns_subnet() {
         let crowdloan_id = 0;
         let creator = U256::from(1);
         let beneficiary = U256::from(2);
-        setup_crowdloan!(crowdloan_id, 0, 0, creator, vec![] as Vec<(U256, u64)>);
+        let min_sale_price = TaoCurrency::from(100_000_000);
+        setup_crowdloan!(crowdloan_id, 0, min_sale_price.to_u64(), creator, vec![] as Vec<(U256, u64)>);
 
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
@@ -1159,7 +1174,8 @@ fn test_announce_subnet_sale_into_lease_fails_if_caller_doesnt_owns_subnet() {
             SubtensorModule::announce_subnet_sale_into_lease(
                 RuntimeOrigin::signed(creator),
                 netuid,
-                beneficiary
+                beneficiary,
+                min_sale_price,
             ),
             Error::<Test>::NotSubnetOwner
         );
@@ -1172,7 +1188,8 @@ fn test_announce_subnet_sale_into_lease_fails_if_caller_owns_multiple_subnets() 
         let crowdloan_id = 0;
         let creator = U256::from(1);
         let beneficiary = U256::from(2);
-        setup_crowdloan!(crowdloan_id, 0, 0, creator, vec![] as Vec<(U256, u64)>);
+        let min_sale_price = TaoCurrency::from(100_000_000);
+        setup_crowdloan!(crowdloan_id, 0, min_sale_price.to_u64(), creator, vec![] as Vec<(U256, u64)>);
 
         let netuid1 = NetUid::from(1);
         add_network(netuid1, 1, 0);
@@ -1185,7 +1202,8 @@ fn test_announce_subnet_sale_into_lease_fails_if_caller_owns_multiple_subnets() 
             SubtensorModule::announce_subnet_sale_into_lease(
                 RuntimeOrigin::signed(creator),
                 netuid1,
-                beneficiary
+                beneficiary,
+                min_sale_price,
             ),
             Error::<Test>::TooManySubnetsOwned
         );
