@@ -1,14 +1,19 @@
-use sp_std::marker::PhantomData;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
-use frame_support::traits::IsSubType;
-use scale_info::TypeInfo;
-use pallet_sudo::Call as SudoCall;
-use sp_runtime::traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension, ValidateResult};
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidityError};
-use frame_system::Config;
-use subtensor_macros::freeze_struct;
 use frame_support::pallet_prelude::Weight;
+use frame_support::traits::IsSubType;
+use frame_system::Config;
+use pallet_sudo::Call as SudoCall;
+use scale_info::TypeInfo;
+use sp_runtime::traits::{
+    AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
+    ValidateResult,
+};
+use sp_runtime::transaction_validity::{
+    InvalidTransaction, TransactionSource, TransactionValidityError,
+};
+use sp_std::marker::PhantomData;
+use subtensor_macros::freeze_struct;
 
 #[freeze_struct("99dce71278b36b44")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
@@ -31,9 +36,10 @@ impl<T: Config + Send + Sync + TypeInfo> SudoTransactionExtension<T> {
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo + pallet_sudo::Config> TransactionExtension<<T as Config>::RuntimeCall> for SudoTransactionExtension<T>
+impl<T: Config + Send + Sync + TypeInfo + pallet_sudo::Config>
+    TransactionExtension<<T as Config>::RuntimeCall> for SudoTransactionExtension<T>
 where
-    <T as Config>::RuntimeCall:Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as Config>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
     <T as Config>::RuntimeCall: IsSubType<SudoCall<T>>,
 {

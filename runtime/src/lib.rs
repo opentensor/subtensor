@@ -12,8 +12,8 @@ use core::num::NonZeroU64;
 
 pub mod check_nonce;
 mod migrations;
-pub mod transaction_payment_wrapper;
 pub mod sudo_wrapper;
+pub mod transaction_payment_wrapper;
 
 extern crate alloc;
 
@@ -1160,9 +1160,9 @@ impl pallet_subtensor_swap::Config for Runtime {
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
 }
 
+use crate::sudo_wrapper::SudoTransactionExtension;
 use crate::transaction_payment_wrapper::ChargeTransactionPaymentWrapper;
 use sp_runtime::BoundedVec;
-use crate::sudo_wrapper::SudoTransactionExtension;
 
 pub struct AuraPalletIntrf;
 impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf {
