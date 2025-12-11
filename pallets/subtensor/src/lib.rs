@@ -2249,6 +2249,16 @@ pub mod pallet {
     #[pallet::storage] // --- Value --> num_root_claim | Number of coldkeys to claim each auto-claim.
     pub type NumRootClaim<T: Config> = StorageValue<_, u64, ValueQuery, DefaultNumRootClaim<T>>;
 
+    /// --- MAP ( subnet ) --> claimed root alpha (kept)
+    #[pallet::storage]
+    pub type SubnetRootClaimKeep<T: Config> =
+        StorageMap<_, Blake2_128Concat, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// --- MAP ( subnet ) --> claimed root alpha (swapped)
+    #[pallet::storage]
+    pub type SubnetRootClaimSwap<T: Config> =
+        StorageMap<_, Blake2_128Concat, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
     /// =============================
     /// ==== EVM related storage ====
     /// =============================

@@ -191,6 +191,10 @@ impl<T: Config> Pallet<T> {
                 coldkey,
                 owed_tao.amount_paid_out.into(),
             );
+
+            SubnetRootClaimSwap::<T>::mutate(netuid, |alpha| {
+                *alpha = alpha.saturating_add(owed_u64.into());
+            });
         } else
         /* Keep */
         {
@@ -206,6 +210,10 @@ impl<T: Config> Pallet<T> {
         // Increase root claimed by owed amount.
         RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {
             *root_claimed = root_claimed.saturating_add(owed_u64.into());
+        });
+
+        SubnetRootClaimKeep::<T>::mutate(netuid, |alpha| {
+            *alpha = alpha.saturating_add(owed_u64.into());
         });
     }
 
@@ -388,8 +396,8 @@ impl<T: Config> Pallet<T> {
         RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
     }
 
-    /// Claim all root dividends for subnet and remove all associated data.
-    pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
+    /// Remove all root claim data for subnet.
+    pub fn clear_root_claim_root_data(netuid: NetUid) {
         let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
 
         for hotkey in hotkeys.iter() {
@@ -399,5 +407,8 @@ impl<T: Config> Pallet<T> {
         }
 
         let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+
+        SubnetRootClaimKeep::<T>::remove(&netuid);
+        SubnetRootClaimSwap::<T>::remove(&netuid);
     }
 }
