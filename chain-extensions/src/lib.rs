@@ -18,7 +18,9 @@ use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
 use sp_std::marker::PhantomData;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, ProxyType, TaoCurrency};
+use subtensor_swap_interface::SwapHandler;
 
 #[derive(DebugNoBound)]
 pub struct SubtensorChainExtension<T>(PhantomData<T>);
@@ -33,7 +35,8 @@ impl<T> ChainExtension<T> for SubtensorChainExtension<T>
 where
     T: pallet_subtensor::Config
         + pallet_contracts::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_subtensor_swap::Config,
     T::AccountId: Clone,
     <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
 {
@@ -54,7 +57,8 @@ impl<T> SubtensorChainExtension<T>
 where
     T: pallet_subtensor::Config
         + pallet_contracts::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_subtensor_swap::Config,
     T::AccountId: Clone,
 {
     fn dispatch<Env>(env: &mut Env) -> Result<RetVal, DispatchError>
@@ -505,6 +509,26 @@ where
                         Ok(RetVal::Converging(error_code))
                     }
                 }
+            }
+            FunctionId::GetAlphaPriceV1 => {
+                let netuid: NetUid = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let current_alpha_price =
+                    <pallet_subtensor_swap::Pallet<T> as SwapHandler>::current_alpha_price(
+                        netuid.into(),
+                    );
+
+                let price = current_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
+                let price: u64 = price.saturating_to_num();
+
+                let encoded_result = price.encode();
+
+                env.write_output(&encoded_result)
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
             }
         }
     }
