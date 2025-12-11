@@ -77,7 +77,7 @@ impl<T: Config> Pallet<T> {
         let (crowdloan_id, crowdloan) = Self::get_crowdloan_being_finalized()?;
         ensure!(
             who == crowdloan.creator,
-            Error::<T>::InvalidLeaseBeneficiary
+            Error::<T>::ExpectedBeneficiaryOrigin
         );
 
         if let Some(end_block) = end_block {
