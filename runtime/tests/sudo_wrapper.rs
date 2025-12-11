@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use frame_support::assert_ok;
 use frame_support::dispatch::GetDispatchInfo;
 use node_subtensor_runtime::{
