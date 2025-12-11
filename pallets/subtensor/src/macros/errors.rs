@@ -278,5 +278,11 @@ mod errors {
         TooManySubnetsOwned,
         /// Subnet minimum sale price not met.
         SubnetMinSalePriceNotMet,
+        /// Subnet sale into lease announcement not found.
+        SubnetSaleIntoLeaseAnnouncementNotFound,
+        /// Subnet sale into lease announcement settled too early.
+        SubnetLeaseIntoSaleSettledTooEarly,
+        /// Expected subnet seller origin.
+        ExpectedSubnetSellerOrigin,
     }
 }
