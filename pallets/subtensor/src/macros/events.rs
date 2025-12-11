@@ -182,14 +182,12 @@ mod events {
             /// The account ID of the coldkey that made the announcement.
             who: T::AccountId,
         },
-        /// A coldkey has been swapped
+        /// A coldkey has been swapped.
         ColdkeySwapped {
-            /// the account ID of old coldkey
+            /// The account ID of old coldkey.
             old_coldkey: T::AccountId,
-            /// the account ID of new coldkey
+            /// The account ID of new coldkey.
             new_coldkey: T::AccountId,
-            /// the swap cost
-            swap_cost: TaoCurrency,
         },
         /// All balance of a hotkey has been unstaked and transferred to a new coldkey
         AllBalanceUnstakedAndTransferredToNewColdkey {

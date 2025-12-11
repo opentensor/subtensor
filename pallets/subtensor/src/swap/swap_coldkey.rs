@@ -7,7 +7,6 @@ impl<T: Config> Pallet<T> {
     pub fn do_swap_coldkey(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
-        swap_cost: TaoCurrency,
     ) -> DispatchResult {
         ensure!(
             StakingHotkeys::<T>::get(new_coldkey).is_empty(),
@@ -17,14 +16,6 @@ impl<T: Config> Pallet<T> {
             !Self::hotkey_account_exists(new_coldkey),
             Error::<T>::NewColdKeyIsHotkey
         );
-
-        // Remove and recycle the swap cost from the old coldkey's account
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost.into()),
-            Error::<T>::NotEnoughBalanceToPaySwapColdKey
-        );
-        let burn_amount = Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost.into())?;
-        Self::recycle_tao(burn_amount);
 
         // Swap the identity if the old coldkey has one and the new coldkey doesn't
         if IdentitiesV2::<T>::get(new_coldkey).is_none()
@@ -53,8 +44,20 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ColdkeySwapped {
             old_coldkey: old_coldkey.clone(),
             new_coldkey: new_coldkey.clone(),
-            swap_cost,
         });
+        Ok(())
+    }
+
+    /// Charges the swap cost from the coldkey's account and recycles the tokens.
+    pub fn charge_swap_cost(coldkey: &T::AccountId, swap_cost: TaoCurrency) -> DispatchResult {
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(coldkey, swap_cost.into()),
+            Error::<T>::NotEnoughBalanceToPaySwapColdKey
+        );
+
+        let burn_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost.into())?;
+        Self::recycle_tao(burn_amount);
+
         Ok(())
     }
 

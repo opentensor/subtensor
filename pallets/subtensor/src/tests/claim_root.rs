@@ -1184,11 +1184,7 @@ fn test_claim_root_with_swap_coldkey() {
         );
 
         // Swap coldkey
-        assert_ok!(SubtensorModule::do_swap_coldkey(
-            &coldkey,
-            &new_coldkey,
-            TaoCurrency::ZERO
-        ));
+        assert_ok!(SubtensorModule::do_swap_coldkey(&coldkey, &new_coldkey,));
 
         // Check swapped keys claimed values
 

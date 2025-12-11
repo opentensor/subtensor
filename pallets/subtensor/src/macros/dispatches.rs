@@ -1082,7 +1082,11 @@ mod dispatches {
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            Self::do_swap_coldkey(&old_coldkey, &new_coldkey, swap_cost)?;
+            if swap_cost.to_u64() > 0 {
+                Self::charge_swap_cost(&old_coldkey, swap_cost)?;
+            }
+            Self::do_swap_coldkey(&old_coldkey, &new_coldkey)?;
+
             // We also remove any announcement for security reasons
             ColdkeySwapAnnouncements::<T>::remove(old_coldkey);
 
@@ -2344,8 +2348,20 @@ mod dispatches {
             Ok(())
         }
 
-        /// Announces a coldkey swap using coldkey hash.
-        /// This is required before the coldkey swap can be performed after the delay period.
+        /// Announces a coldkey swap using BlakeTwo256 hash of the new coldkey.
+        ///
+        /// This is required before the coldkey swap can be performed
+        /// after the delay period.
+        ///
+        /// It can be reannounced after a delay of `ColdkeySwapReannouncementDelay` between the
+        /// original announcement and the reannouncement.
+        ///
+        /// The dispatch origin of this call must be the original coldkey that made the announcement.
+        ///
+        /// - `new_coldkey_hash`: The hash of the new coldkey using BlakeTwo256.
+        ///
+        /// The `ColdkeySwapAnnounced` event is emitted on successful announcement.
+        ///
         #[pallet::call_index(125)]
         #[pallet::weight(
             Weight::from_parts(16_150_000, 0)
@@ -2366,6 +2382,9 @@ mod dispatches {
                     now > when.saturating_add(delay),
                     Error::<T>::ColdkeySwapReannouncedTooEarly
                 );
+            } else {
+                let swap_cost = Self::get_key_swap_cost();
+                Self::charge_swap_cost(&who, swap_cost)?;
             }
 
             ColdkeySwapAnnouncements::<T>::insert(who.clone(), (now, new_coldkey_hash.clone()));
@@ -2377,8 +2396,14 @@ mod dispatches {
             Ok(())
         }
 
-        /// Performs a coldkey swap iff an announcement has been made.
-        /// The provided new coldkey must match the announced coldkey hash.
+        /// Performs a coldkey swap if an announcement has been made.
+        ///
+        /// The dispatch origin of this call must be the original coldkey that made the announcement.
+        ///
+        /// - `new_coldkey`: The new coldkey to swap to. The BlakeTwo256 hash of the new coldkey must be
+        ///   the same as the announced coldkey hash.
+        ///
+        /// The `ColdkeySwapped` event is emitted on successful swap.
         #[pallet::call_index(126)]
         #[pallet::weight(
             Weight::from_parts(207_300_000, 0)
@@ -2406,15 +2431,17 @@ mod dispatches {
                 Error::<T>::ColdkeySwapTooEarly
             );
 
-            let swap_cost = Self::get_key_swap_cost();
-            Self::do_swap_coldkey(&who, &new_coldkey, swap_cost)?;
+            Self::do_swap_coldkey(&who, &new_coldkey)?;
 
             Ok(())
         }
 
         /// Removes a coldkey swap announcement for a coldkey.
         ///
-        /// Only callable by root.
+        /// The dispatch origin of this call must be root.
+        ///
+        /// - `coldkey`: The coldkey to remove the swap announcement for.
+        ///
         #[pallet::call_index(127)]
         #[pallet::weight(
             Weight::from_parts(4_609_000, 0)
