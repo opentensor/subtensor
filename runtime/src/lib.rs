@@ -13,6 +13,7 @@ use core::num::NonZeroU64;
 pub mod check_nonce;
 mod migrations;
 pub mod transaction_payment_wrapper;
+pub mod sudo_wrapper;
 
 extern crate alloc;
 
@@ -170,6 +171,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             frame_system::CheckEra::<Runtime>::from(Era::Immortal),
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
+            SudoTransactionExtension::<Runtime>::new(),
             ChargeTransactionPaymentWrapper::new(
                 pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
             ),
@@ -1160,6 +1162,7 @@ impl pallet_subtensor_swap::Config for Runtime {
 
 use crate::transaction_payment_wrapper::ChargeTransactionPaymentWrapper;
 use sp_runtime::BoundedVec;
+use crate::sudo_wrapper::SudoTransactionExtension;
 
 pub struct AuraPalletIntrf;
 impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf {
@@ -1608,6 +1611,7 @@ pub type TransactionExtensions = (
     frame_system::CheckEra<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
+    SudoTransactionExtension<Runtime>,
     ChargeTransactionPaymentWrapper<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,

@@ -374,6 +374,7 @@ where
             frame_system::CheckEra::<runtime::Runtime>::from(Era::Immortal),
             node_subtensor_runtime::check_nonce::CheckNonce::<runtime::Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<runtime::Runtime>::new(),
+            node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
             node_subtensor_runtime::transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<
                 runtime::Runtime,
             >::new(pallet_transaction_payment::ChargeTransactionPayment::<
@@ -400,6 +401,7 @@ where
         genesis_h256,                         // CheckEra::Implicit (Immortal => genesis hash)
         (),                                   // CheckNonce::Implicit = ()
         (),                                   // CheckWeight::Implicit = ()
+        (),                                   // SudoTransactionExtension::Implicit = ()
         (),                                   // ChargeTransactionPaymentWrapper::Implicit = ()
         (),                                   // SubtensorTransactionExtension::Implicit = ()
         (),                                   // DrandPriority::Implicit = ()

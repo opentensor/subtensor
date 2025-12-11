@@ -55,7 +55,6 @@ sha2.workspace = true
 rand_chacha.workspace = true
 pallet-crowdloan.workspace = true
 pallet-subtensor-proxy.workspace = true
-pallet-sudo.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -87,7 +86,6 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-crowdloan/try-runtime",
 	"pallet-drand/try-runtime",
-	"pallet-sudo/try-runtime",
 	"pallet-subtensor-proxy/try-runtime",
 	"pallet-subtensor-utility/try-runtime"
 ]
@@ -119,7 +117,6 @@ std = [
 	"pallet-subtensor-swap/std",
 	"subtensor-swap-interface/std",
 	"pallet-subtensor-utility/std",
-	"pallet-sudo/std",
 	"safe-math/std",
 	"share-pool/std",
 	"ark-serialize/std",
@@ -148,7 +145,6 @@ runtime-benchmarks = [
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks",
 	"pallet-subtensor-proxy/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-subtensor-utility/runtime-benchmarks"

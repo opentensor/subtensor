@@ -5,7 +5,7 @@
 use crate::client::FullClient;
 
 use node_subtensor_runtime as runtime;
-use node_subtensor_runtime::pallet_subtensor;
+use node_subtensor_runtime::{pallet_subtensor, sudo_wrapper};
 use node_subtensor_runtime::{check_nonce, transaction_payment_wrapper};
 use runtime::{BalancesCall, SystemCall};
 use sc_cli::Result;
@@ -136,6 +136,7 @@ pub fn create_benchmark_extrinsic(
             )),
             check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
             frame_system::CheckWeight::<runtime::Runtime>::new(),
+            sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
             transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(
                 pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
             ),
@@ -155,6 +156,7 @@ pub fn create_benchmark_extrinsic(
             runtime::VERSION.transaction_version,
             genesis_hash,
             best_hash,
+            (),
             (),
             (),
             (),
