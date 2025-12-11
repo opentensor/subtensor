@@ -2507,8 +2507,8 @@ mod dispatches {
         /// Settles a subnet sale into a lease.
         #[pallet::call_index(129)]
         #[pallet::weight(Weight::zero())]
-        pub fn settle_subnet_sale_into_lease(_origin: OriginFor<T>) -> DispatchResult {
-            Ok(())
+        pub fn settle_subnet_sale_into_lease(origin: OriginFor<T>) -> DispatchResult {
+            Self::do_settle_subnet_sale_into_lease(origin)
         }
     }
 }

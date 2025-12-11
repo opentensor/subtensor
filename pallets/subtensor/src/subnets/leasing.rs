@@ -22,7 +22,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
-use sp_runtime::{Percent, traits::TrailingZeroInput};
+use sp_runtime::{Percent, Saturating, traits::TrailingZeroInput};
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
@@ -186,6 +186,92 @@ impl<T: Config> Pallet<T> {
             // We have the max number of contributors, so we don't need to refund anything
             Ok(().into())
         }
+    }
+
+    /// Settle a subnet sale into a lease.
+    pub fn do_settle_subnet_sale_into_lease(origin: OriginFor<T>) -> DispatchResult {
+        let who = ensure_signed(origin)?;
+
+        let (when, beneficiary, netuid, crowdloan_id) =
+            SubnetSaleIntoLeaseAnnouncements::<T>::take(who.clone())
+                .ok_or(Error::<T>::SubnetSaleIntoLeaseAnnouncementNotFound)?;
+
+        let now = <frame_system::Pallet<T>>::block_number();
+        let delay = ColdkeySwapAnnouncementDelay::<T>::get();
+        ensure!(
+            now > when.saturating_add(delay),
+            Error::<T>::SubnetLeaseIntoSaleSettledTooEarly
+        );
+
+        let crowdloan = pallet_crowdloan::Crowdloans::<T>::get(crowdloan_id)
+            .ok_or(pallet_crowdloan::Error::<T>::InvalidCrowdloanId)?;
+
+        let lease_id = Self::get_next_lease_id()?;
+        let lease_coldkey = Self::lease_coldkey(lease_id)?;
+        let lease_hotkey = Self::lease_hotkey(lease_id)?;
+        frame_system::Pallet::<T>::inc_providers(&lease_coldkey);
+        frame_system::Pallet::<T>::inc_providers(&lease_hotkey);
+
+        <T as Config>::Currency::transfer(
+            &crowdloan.funds_account,
+            &lease_coldkey,
+            crowdloan.raised,
+            Preservation::Expendable,
+        )?;
+
+        // Swap the coldkey to the lease coldkey
+        Self::do_swap_coldkey(&who, &lease_coldkey, TaoCurrency::ZERO)?;
+
+        // Enable the beneficiary to operate the subnet through a proxy
+        T::ProxyInterface::add_lease_beneficiary_proxy(&lease_coldkey, &beneficiary)?;
+
+        // Get left leftover cap and compute the cost of the registration + proxy
+        let leftover_cap = <T as Config>::Currency::balance(&lease_coldkey);
+        let cost = crowdloan.raised.saturating_sub(leftover_cap);
+
+        SubnetLeases::<T>::insert(
+            lease_id,
+            SubnetLease {
+                beneficiary: beneficiary.clone(),
+                coldkey: lease_coldkey.clone(),
+                hotkey: lease_hotkey.clone(),
+                emissions_share: Percent::from_percent(100),
+                end_block: None,
+                netuid,
+                cost,
+            },
+        );
+        SubnetUidToLeaseId::<T>::insert(netuid, lease_id);
+
+        // The lease take should be 0% to allow all contributors to receive dividends entirely.
+        Self::delegate_hotkey(&lease_hotkey, 0);
+
+        // Get all the contributions to the crowdloan except for the beneficiary
+        // because its share will be computed as the dividends are distributed
+        let contributions = pallet_crowdloan::Contributions::<T>::iter_prefix(crowdloan_id)
+            .into_iter()
+            .filter(|(contributor, _)| contributor != &beneficiary);
+
+        for (contributor, amount) in contributions {
+            // Compute the share of the contributor to the lease
+            let share: U64F64 = U64F64::from(amount).saturating_div(U64F64::from(crowdloan.raised));
+            SubnetLeaseShares::<T>::insert(lease_id, &contributor, share);
+        }
+
+        <T as Config>::Currency::transfer(
+            &lease_coldkey,
+            &who,
+            leftover_cap,
+            Preservation::Expendable,
+        )?;
+
+        Self::deposit_event(Event::SubnetLeaseCreated {
+            beneficiary,
+            lease_id,
+            netuid,
+            end_block: None,
+        });
+        Ok(())
     }
 
     /// Terminate a lease.
