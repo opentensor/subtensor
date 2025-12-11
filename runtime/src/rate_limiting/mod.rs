@@ -12,6 +12,7 @@ use subtensor_runtime_common::{BlockNumber, MechId, NetUid};
 
 use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
 
+mod legacy;
 pub mod migration;
 
 #[derive(
