@@ -95,7 +95,8 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
             vec![(who, (now + delay, new_coldkey_hash))]
         );
 
-        System::run_to_block::<AllPalletsWithSystem>(now + delay);
+        let reannouncement_delay = ColdkeySwapReannouncementDelay::<Test>::get();
+        System::run_to_block::<AllPalletsWithSystem>(now + delay + reannouncement_delay);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
@@ -134,8 +135,9 @@ fn test_announce_coldkey_swap_only_pays_swap_cost_if_no_announcement_exists() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), left_over);
 
         let now = System::block_number();
-        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
-        System::run_to_block::<AllPalletsWithSystem>(now + delay);
+        let base_delay = ColdkeySwapAnnouncementDelay::<Test>::get();
+        let reannouncement_delay = ColdkeySwapReannouncementDelay::<Test>::get();
+        System::run_to_block::<AllPalletsWithSystem>(now + base_delay + reannouncement_delay);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),

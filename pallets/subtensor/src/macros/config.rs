@@ -214,13 +214,14 @@ mod config {
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
         /// A flag to indicate if Yuma3 is enabled.
+        #[pallet::constant]
         type Yuma3On: Get<bool>;
-        // /// Initial hotkey emission tempo.
-        // #[pallet::constant]
-        // type InitialHotkeyEmissionTempo: Get<u64>;
-        /// Coldkey swap schedule duartion.
+        /// Coldkey swap announcement delay.
         #[pallet::constant]
         type InitialColdkeySwapAnnouncementDelay: Get<BlockNumberFor<Self>>;
+        /// Coldkey swap reannouncement delay.
+        #[pallet::constant]
+        type InitialColdkeySwapReannouncementDelay: Get<BlockNumberFor<Self>>;
         /// Dissolve network schedule duration
         #[pallet::constant]
         type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;

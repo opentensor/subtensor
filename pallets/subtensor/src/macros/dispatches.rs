@@ -2376,7 +2376,9 @@ mod dispatches {
             let now = <frame_system::Pallet<T>>::block_number();
 
             if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
-                ensure!(now >= when, Error::<T>::ColdkeySwapReannouncedTooEarly);
+                let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
+                let new_when = when.saturating_add(reannouncement_delay);
+                ensure!(now >= new_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
             } else {
                 let swap_cost = Self::get_key_swap_cost();
                 Self::charge_swap_cost(&who, swap_cost)?;

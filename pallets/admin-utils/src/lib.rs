@@ -2202,6 +2202,25 @@ pub mod pallet {
             log::trace!("ColdkeySwapAnnouncementDelaySet( duration: {duration:?} )");
             Ok(())
         }
+
+        /// Sets the reannouncement delay for coldkey swap.
+        #[pallet::call_index(85)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(0_u64))
+			    .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_coldkey_swap_reannouncement_delay(
+            origin: OriginFor<T>,
+            duration: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_coldkey_swap_reannouncement_delay(duration);
+            log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
+            Ok(())
+        }
     }
 }
 
