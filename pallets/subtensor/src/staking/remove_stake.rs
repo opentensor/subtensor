@@ -484,31 +484,34 @@ impl<T: Config> Pallet<T> {
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
         let mut total_alpha_value_u128: u128 = 0;
 
-        for ((hot, cold, this_netuid), share_u64f64) in Alpha::<T>::iter() {
-            if this_netuid != netuid {
-                continue;
-            }
+        let hotkeys_in_subnet: Vec<T::AccountId> = TotalHotkeyAlpha::<T>::iter()
+            .filter(|(_, this_netuid, _)| *this_netuid == netuid)
+            .map(|(hot, _, _)| hot.clone())
+            .collect::<Vec<_>>();
 
-            keys_to_remove.push((hot.clone(), cold.clone()));
-            if !hotkeys_seen.contains(&hot) {
-                hotkeys_seen.push(hot.clone());
-            }
+        for hot in hotkeys_in_subnet.iter() {
+            for ((cold, _), share_u64f64) in Alpha::<T>::iter_prefix((hot,)) {
+                keys_to_remove.push((hot.clone(), cold.clone()));
+                if !hotkeys_seen.contains(&hot) {
+                    hotkeys_seen.push(hot.clone());
+                }
 
-            // Primary: actual α value via share pool.
-            let pool = Self::get_alpha_share_pool(hot.clone(), netuid);
-            let actual_val_u64 = pool.try_get_value(&cold).unwrap_or(0);
+                // Primary: actual α value via share pool.
+                let pool = Self::get_alpha_share_pool(hot.clone(), netuid);
+                let actual_val_u64 = pool.try_get_value(&cold).unwrap_or(0);
 
-            // Fallback: if pool uninitialized, treat raw Alpha share as value.
-            let val_u64 = if actual_val_u64 == 0 {
-                share_u64f64.saturating_to_num::<u64>()
-            } else {
-                actual_val_u64
-            };
+                // Fallback: if pool uninitialized, treat raw Alpha share as value.
+                let val_u64 = if actual_val_u64 == 0 {
+                    share_u64f64.saturating_to_num::<u64>()
+                } else {
+                    actual_val_u64
+                };
 
-            if val_u64 > 0 {
-                let val_u128 = val_u64 as u128;
-                total_alpha_value_u128 = total_alpha_value_u128.saturating_add(val_u128);
-                stakers.push((hot, cold, val_u128));
+                if val_u64 > 0 {
+                    let val_u128 = val_u64 as u128;
+                    total_alpha_value_u128 = total_alpha_value_u128.saturating_add(val_u128);
+                    stakers.push((hot.clone(), cold, val_u128));
+                }
             }
         }
 
