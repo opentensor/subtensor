@@ -490,7 +490,10 @@ impl<T: Config> Pallet<T> {
             .collect::<Vec<_>>();
 
         for hot in hotkeys_in_subnet.iter() {
-            for ((cold, _), share_u64f64) in Alpha::<T>::iter_prefix((hot,)) {
+            for ((cold, this_netuid), share_u64f64) in Alpha::<T>::iter_prefix((hot,)) {
+                if this_netuid != netuid {
+                    continue;
+                }
                 keys_to_remove.push((hot.clone(), cold.clone()));
                 if !hotkeys_seen.contains(hot) {
                     hotkeys_seen.push(hot.clone());
