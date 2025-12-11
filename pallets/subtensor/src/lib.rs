@@ -339,6 +339,8 @@ pub mod pallet {
             /// Subnets to keep alpha emissions (swap everything else).
             subnets: BTreeSet<NetUid>,
         },
+        /// Delegate choice to subnet.
+        Delegated,
     }
 
     /// Default minimum root claim amount.
@@ -354,7 +356,12 @@ pub mod pallet {
     /// This is set by the user. Either swap to TAO or keep as alpha.
     #[pallet::type_value]
     pub fn DefaultRootClaimType<T: Config>() -> RootClaimTypeEnum {
-        RootClaimTypeEnum::default()
+        RootClaimTypeEnum::Delegated
+    }
+    /// Default value for delegate claim type storage
+    #[pallet::type_value]
+    pub fn DefaultValidatorClaimType<T: Config>() -> RootClaimTypeEnum {
+        RootClaimTypeEnum::Keep
     }
 
     /// Default number of root claims per claim call.
@@ -2236,6 +2243,17 @@ pub mod pallet {
         RootClaimTypeEnum,
         ValueQuery,
         DefaultRootClaimType<T>,
+    >;
+    #[pallet::storage] // -- MAP ( hotkey, netuid ) --> delegate_claim_type enum
+    pub type ValidatorClaimType<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        NetUid,
+        RootClaimTypeEnum,
+        ValueQuery,
+        DefaultValidatorClaimType<T>,
     >;
     #[pallet::storage] // --- MAP ( u64 ) --> coldkey | Maps coldkeys that have stake to an index
     pub type StakingColdkeysByIndex<T: Config> =
