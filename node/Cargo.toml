@@ -137,6 +137,7 @@ subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-rpc = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
 subtensor-macros.workspace = true
+runtime-common.workspace = true
 
 [build-dependencies]
 substrate-build-script-utils.workspace = true

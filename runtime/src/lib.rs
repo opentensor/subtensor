@@ -43,7 +43,7 @@ use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::SimSwapResult;
 use pallet_subtensor_utility as pallet_utility;
-use runtime_common::prod_or_fast;
+pub use runtime_common::prod_or_fast;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_babe::BabeConfiguration;
