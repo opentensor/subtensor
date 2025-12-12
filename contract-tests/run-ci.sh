@@ -2,8 +2,6 @@
 
 echo "start run-ci.sh"
 
-cargo build --release -p node-subtensor --features fast-runtime
-
 cd contract-tests
 
 cd bittensor
@@ -14,12 +12,10 @@ cargo contract build --release
 
 cd ../..
 
-# scripts/localnet.sh &>/dev/null &
-
-target/release/node-subtensor --dev --tmp --one &>/dev/null &
+scripts/localnet.sh &
 
 i=1
-while [ $i -le 100 ]; do
+while [ $i -le 2000 ]; do
   if nc -z localhost 9944; then
     echo "node subtensor is running after $i seconds"
     break
@@ -29,11 +25,11 @@ while [ $i -le 100 ]; do
 done
 
 # port not available exit with error
-if [ "$i" -eq 100 ]; then
+if [ "$i" -eq 2000 ]; then
     exit 1
 fi
 
-sleep 2
+sleep 10
 
 if ! nc -z localhost 9944; then
     echo "node subtensor exit, port not available"
