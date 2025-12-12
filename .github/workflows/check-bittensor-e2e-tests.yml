@@ -126,7 +126,7 @@ jobs:
           - runner: [self-hosted, type-ccx33]
             triple: x86_64-unknown-linux-gnu
             arch: amd64
-        runtime: ["fast-runtime"]
+        runtime: ["fast-runtime", "non-fast-runtime"]
 
     runs-on: ${{ matrix.platform.runner }}
 
