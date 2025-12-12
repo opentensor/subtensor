@@ -81,11 +81,45 @@ jobs:
         working-directory: ${{ github.workspace }}/btcli
         run: git checkout staging
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: "false"
+
+      - name: Create Python virtual environment
+        working-directory: ${{ github.workspace }}/btcli
+        run: uv venv --seed
+
+      - name: Install dependencies
+        working-directory: ${{ github.workspace }}/btcli
+        run: |
+          source .venv/bin/activate
+          uv run --active pip install --upgrade pip
+          uv run --active pip install '.[dev]'
+          uv run --active pip install pytest
+
       - name: Find e2e test files
         id: get-btcli-tests
+        working-directory: ${{ github.workspace }}/btcli
         run: |
-          test_files=$(find ${{ github.workspace }}/btcli/tests/e2e_tests -name "test*.py" | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          echo "test-files=$test_files" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          test_matrix=$(
+            source .venv/bin/activate
+            uv run pytest -q --collect-only tests/e2e_tests \
+            | sed -n '/^tests\//p' \
+            | jq -R -s -c '
+                split("\n")
+                | map(select(. != ""))
+                | map({nodeid: ., label: (sub("^tests/e2e_tests/"; ""))})
+              '
+          )
+          echo "Found tests: $test_matrix"
+          echo "test-files=$test_matrix" >> "$GITHUB_OUTPUT"
         shell: bash
 
   find-sdk-e2e-tests:
@@ -108,11 +142,45 @@ jobs:
         working-directory: ${{ github.workspace }}/bittensor
         run: git checkout staging
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: "false"
+
+      - name: Create Python virtual environment
+        working-directory: ${{ github.workspace }}/bittensor
+        run: uv venv --seed
+
+      - name: Install dependencies
+        working-directory: ${{ github.workspace }}/bittensor
+        run: |
+          source .venv/bin/activate
+          uv run --active pip install --upgrade pip
+          uv run --active pip install '.[dev]'
+          uv run --active pip install pytest
+
       - name: Find e2e test files
         id: get-sdk-tests
+        working-directory: ${{ github.workspace }}/bittensor
         run: |
-          test_files=$(find ${{ github.workspace }}/bittensor/tests/e2e_tests -name "test*.py" | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          echo "test-files=$test_files" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          test_matrix=$(
+            source .venv/bin/activate
+            uv run pytest -q --collect-only tests/e2e_tests \
+            | sed -n '/^tests\//p' \
+            | jq -R -s -c '
+                split("\n")
+                | map(select(. != ""))
+                | map({nodeid: ., label: (sub("^tests/e2e_tests/"; ""))})
+              '
+          )
+          echo "Found tests: $test_matrix"
+          echo "test-files=$test_matrix" >> "$GITHUB_OUTPUT"
         shell: bash
 
   # build artifacts for fast-runtime and non-fast-runtime
@@ -257,7 +325,7 @@ jobs:
           - x86_64-unknown-linux-gnu
         os:
           - ubuntu-latest
-        test-file: ${{ fromJson(needs.find-btcli-e2e-tests.outputs.test-files) }}
+        include: ${{ fromJson(needs.find-btcli-e2e-tests.outputs.test-files) }}
 
     env:
       RELEASE_NAME: development
@@ -267,7 +335,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
 
     timeout-minutes: 60
-    name: "cli: ${{ matrix.test-file }}"
+    name: "cli: ${{ matrix.label }}"
     steps:
       - name: Check-out repository
         uses: actions/checkout@v4
@@ -317,7 +385,7 @@ jobs:
           set +e
           for i in 1 2; do
             echo "🔁 Attempt $i: Running tests"
-            uv run pytest ${{ matrix.test-file }} -s
+            uv run pytest "${{ matrix.nodeid }}" -s
             status=$?
             if [ $status -eq 0 ]; then
               echo "✅ Tests passed on attempt $i"
@@ -351,7 +419,7 @@ jobs:
           - x86_64-unknown-linux-gnu
         os:
           - ubuntu-latest
-        test-file: ${{ fromJson(needs.find-sdk-e2e-tests.outputs.test-files) }}
+        include: ${{ fromJson(needs.find-sdk-e2e-tests.outputs.test-files) }}
 
     env:
       RELEASE_NAME: development
@@ -361,7 +429,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
 
     timeout-minutes: 60
-    name: "sdk: ${{ matrix.test-file }}"
+    name: "sdk: ${{ matrix.label }}"
     steps:
       - name: Check-out repository
         uses: actions/checkout@v4
@@ -411,7 +479,7 @@ jobs:
           set +e
           for i in 1 2; do
             echo "🔁 Attempt $i: Running tests"
-            uv run pytest ${{ matrix.test-file }} -s
+            uv run pytest "${{ matrix.nodeid }}" -s
             status=$?
             if [ $status -eq 0 ]; then
               echo "✅ Tests passed on attempt $i"
