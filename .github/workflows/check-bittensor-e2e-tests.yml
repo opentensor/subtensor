@@ -115,7 +115,7 @@ jobs:
           echo "test-files=$test_files" >> $GITHUB_OUTPUT
         shell: bash
 
-  # build artifacts for non-fast-runtime (e2e tests only need this)
+  # build artifacts for fast-runtime (e2e tests only need this)
   artifacts:
     name: Node • ${{ matrix.runtime }} • ${{ matrix.platform.arch }}
     needs: check-label
@@ -123,9 +123,13 @@ jobs:
     strategy:
       matrix:
         platform:
-          - triple: x86_64-unknown-linux-gnu
+          - runner: [self-hosted, type-ccx33]
+            triple: x86_64-unknown-linux-gnu
             arch: amd64
-        runtime: ["non-fast-runtime"]
+          - runner: [ubuntu-24.04-arm]
+            triple: aarch64-unknown-linux-gnu
+            arch: arm64
+        runtime: ["fast-runtime"]
 
     runs-on: ubuntu-latest
 
@@ -156,7 +160,11 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           export CARGO_BUILD_TARGET="${{ matrix.platform.triple }}"
 
-          ./scripts/localnet.sh False --build-only
+          if [ "${{ matrix.runtime }}" = "fast-runtime" ]; then
+            ./scripts/localnet.sh --build-only
+          else
+            ./scripts/localnet.sh False --build-only
+          fi
 
       # use `ci_target` name bc .dockerignore excludes `target`
       - name: Prepare artifacts for upload
