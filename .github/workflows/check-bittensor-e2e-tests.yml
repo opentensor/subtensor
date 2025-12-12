@@ -109,9 +109,9 @@ jobs:
         run: |
           set -euo pipefail
           test_matrix=$(
-            source .venv/bin/activate
             uv run pytest -q --collect-only tests/e2e_tests \
-            | sed -n '/^tests\//p' \
+            | sed -n '/^e2e_tests\//p' \
+            | sed 's|^|tests/|' \
             | jq -R -s -c '
                 split("\n")
                 | map(select(. != ""))
@@ -170,9 +170,9 @@ jobs:
         run: |
           set -euo pipefail
           test_matrix=$(
-            source .venv/bin/activate
             uv run pytest -q --collect-only tests/e2e_tests \
-            | sed -n '/^tests\//p' \
+            | sed -n '/^e2e_tests\//p' \
+            | sed 's|^|tests/|' \
             | jq -R -s -c '
                 split("\n")
                 | map(select(. != ""))
