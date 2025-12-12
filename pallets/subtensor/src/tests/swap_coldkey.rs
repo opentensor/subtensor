@@ -214,7 +214,7 @@ fn test_swap_coldkey_announced_works() {
         let stake3 = min_stake * 30;
         let now = System::block_number();
 
-        ColdkeySwapAnnouncements::<Test>::insert(who.clone(), (now, new_coldkey_hash));
+        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
 
         // Run some blocks for the announcement to be past the delay
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
@@ -310,7 +310,7 @@ fn test_swap_coldkey_announced_with_mismatched_coldkey_hash_fails() {
         let other_coldkey = U256::from(3);
         let now = System::block_number();
 
-        ColdkeySwapAnnouncements::<Test>::insert(who.clone(), (now, new_coldkey_hash));
+        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
 
         assert_noop!(
             SubtensorModule::swap_coldkey_announced(RuntimeOrigin::signed(who), other_coldkey),
@@ -328,7 +328,7 @@ fn test_swap_coldkey_announced_too_early_fails() {
 
         let now = System::block_number();
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
-        ColdkeySwapAnnouncements::<Test>::insert(who.clone(), (now + delay, new_coldkey_hash));
+        ColdkeySwapAnnouncements::<Test>::insert(who, (now + delay, new_coldkey_hash));
 
         assert_noop!(
             SubtensorModule::swap_coldkey_announced(
@@ -381,7 +381,7 @@ fn test_swap_coldkey_announced_with_hotkey_fails() {
         let hotkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&hotkey);
         let now = System::block_number();
 
-        ColdkeySwapAnnouncements::<Test>::insert(who.clone(), (now, hotkey_hash.clone()));
+        ColdkeySwapAnnouncements::<Test>::insert(who, (now, hotkey_hash));
 
         let now = System::block_number();
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
@@ -1242,7 +1242,7 @@ fn test_remove_coldkey_swap_announcement_works() {
         let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
         let now = System::block_number();
 
-        ColdkeySwapAnnouncements::<Test>::insert(who.clone(), (now, new_coldkey_hash.clone()));
+        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
 
         assert_ok!(SubtensorModule::remove_coldkey_swap_announcement(
             RuntimeOrigin::root(),
