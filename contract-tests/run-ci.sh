@@ -16,7 +16,7 @@ cd ../..
 
 # scripts/localnet.sh &>/dev/null &
 
-target/release/node-subtensor --dev --tmp &>/dev/null &
+target/release/node-subtensor --dev --tmp --one &>/dev/null &
 
 i=1
 while [ $i -le 100 ]; do
@@ -33,7 +33,7 @@ if [ "$i" -eq 100 ]; then
     exit 1
 fi
 
-sleep 10
+sleep 2
 
 if ! nc -z localhost 9944; then
     echo "node subtensor exit, port not available"
