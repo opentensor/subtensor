@@ -194,7 +194,7 @@ jobs:
           - runner: [self-hosted, type-ccx33]
             triple: x86_64-unknown-linux-gnu
             arch: amd64
-        runtime: ["fast-runtime", "non-fast-runtime"]
+        runtime: ["fast-runtime"]
 
     runs-on: ${{ matrix.platform.runner }}
 
@@ -284,6 +284,20 @@ jobs:
           pattern: binaries-*
           path: build/
           merge-multiple: true
+
+      # make fake artifacts for non-fast-runtime bc of `install_prebuilt_binaries.sh` requires (save time)
+      - name: Copy fast-runtime artifacts to non-fast-runtime (hack for e2e tests)
+        run: |
+          TRIPLE="x86_64-unknown-linux-gnu"
+          # Copy binary
+          mkdir -p build/ci_target/non-fast-runtime/${TRIPLE}/release/
+          cp -v build/ci_target/fast-runtime/${TRIPLE}/release/node-subtensor \
+            build/ci_target/non-fast-runtime/${TRIPLE}/release/node-subtensor
+          # Copy WASM
+          mkdir -p build/ci_target/non-fast-runtime/${TRIPLE}/release/wbuild/node-subtensor-runtime/
+          cp -v build/ci_target/fast-runtime/${TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
+            build/ci_target/non-fast-runtime/${TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
+          echo "✅ Copied fast-runtime artifacts to non-fast-runtime"
 
       - name: Move Docker data-root to /mnt/data
         run: |
