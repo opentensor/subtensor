@@ -272,7 +272,7 @@ fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
             {
                 log::info!("Failed to aquire DB lock, trying again in 1s...");
                 std::thread::sleep(std::time::Duration::from_secs(1));
-                return start_babe_service(arg_matches);
+                start_babe_service(arg_matches)
             // Unknown error, return it.
             } else {
                 log::error!("Failed to start Babe service: {e:?}");

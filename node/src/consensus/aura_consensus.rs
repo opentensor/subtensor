@@ -120,7 +120,7 @@ impl ConsensusMechanism for AuraConsensus {
         Self {}
     }
 
-    fn build_biq(&mut self) -> Result<BIQ, sc_service::Error>
+    fn build_biq(&mut self) -> Result<BIQ<'_>, sc_service::Error>
     where
         NumberFor<Block>: BlockNumberOps,
     {

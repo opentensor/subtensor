@@ -227,9 +227,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         if next_value >= U110F18::saturating_from_num(Self::get_max_difficulty(netuid)) {
             Self::get_max_difficulty(netuid)
         } else if next_value <= U110F18::saturating_from_num(Self::get_min_difficulty(netuid)) {
-            return Self::get_min_difficulty(netuid);
+            Self::get_min_difficulty(netuid)
         } else {
-            return next_value.saturating_to_num::<u64>();
+            next_value.saturating_to_num::<u64>()
         }
     }
 
@@ -261,9 +261,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         if next_value >= U110F18::saturating_from_num(Self::get_max_burn(netuid)) {
             Self::get_max_burn(netuid)
         } else if next_value <= U110F18::saturating_from_num(Self::get_min_burn(netuid)) {
-            return Self::get_min_burn(netuid);
+            Self::get_min_burn(netuid)
         } else {
-            return next_value.saturating_to_num::<u64>().into();
+            next_value.saturating_to_num::<u64>().into()
         }
     }
 
