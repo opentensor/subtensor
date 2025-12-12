@@ -153,7 +153,7 @@ pub fn new_test_ext() -> TestExternalities {
 }
 
 pub(crate) fn identifier_for(call: &RuntimeCall) -> TransactionIdentifier {
-    TransactionIdentifier::from_call::<Test, ()>(call).expect("identifier for call")
+    TransactionIdentifier::from_call(call).expect("identifier for call")
 }
 
 pub(crate) fn pop_last_event() -> RuntimeEvent {

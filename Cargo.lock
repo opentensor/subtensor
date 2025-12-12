@@ -10314,6 +10314,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
+ "rate-limiting-interface",
  "scale-info",
  "serde",
  "sp-core",
@@ -13725,6 +13726,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
 dependencies = [
  "rand_core 0.9.3",
+]
+
+[[package]]
+name = "rate-limiting-interface"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-std",
 ]
 
 [[package]]

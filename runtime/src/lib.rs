@@ -1150,7 +1150,7 @@ impl pallet_rate_limiting::Config for Runtime {
     type LimitScopeResolver = RuntimeScopeResolver;
     type UsageKey = RateLimitUsageKey<AccountId>;
     type UsageResolver = RuntimeUsageResolver;
-    type GroupId = u32;
+    type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
     type MaxGroupMembers = RateLimitingMaxGroupMembers;
     type MaxGroupNameLength = RateLimitingMaxGroupNameLength;
     #[cfg(feature = "runtime-benchmarks")]

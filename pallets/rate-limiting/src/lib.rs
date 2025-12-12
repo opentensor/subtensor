@@ -6,8 +6,8 @@
 //!
 //! `pallet-rate-limiting` lets a runtime restrict how frequently particular calls can execute.
 //! Limits are stored on-chain, keyed by explicit [`RateLimitTarget`] values. A target is either a
-//! single [`TransactionIdentifier`] (the pallet/extrinsic indices) or a named *group* managed by the
-//! admin APIs. Groups provide a way to give multiple calls the same configuration and/or usage
+//! single [`TransactionIdentifier`] (the pallet/extrinsic indices) or a named *group* managed by
+//! the admin APIs. Groups provide a way to give multiple calls the same configuration and/or usage
 //! tracking without duplicating storage. Each target entry stores either a global span or a set of
 //! scoped spans resolved at runtime. The pallet exposes a handful of extrinsics, restricted by
 //! [`Config::AdminOrigin`], to manage this data:
@@ -142,11 +142,56 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
 pub use pallet::*;
+pub use rate_limiting_interface::{RateLimitTarget, TransactionIdentifier};
+pub use rate_limiting_interface::{RateLimitingInfo, TryIntoRateLimitTarget};
 pub use tx_extension::RateLimitTransactionExtension;
 pub use types::{
     BypassDecision, GroupSharing, RateLimit, RateLimitGroup, RateLimitKind, RateLimitScopeResolver,
-    RateLimitTarget, RateLimitUsageResolver, TransactionIdentifier,
+    RateLimitUsageResolver,
 };
+
+impl<T: pallet::Config<I>, I: 'static> RateLimitingInfo for pallet::Pallet<T, I> {
+    type GroupId = <T as pallet::Config<I>>::GroupId;
+    type CallMetadata = <T as pallet::Config<I>>::RuntimeCall;
+    type Limit = frame_system::pallet_prelude::BlockNumberFor<T>;
+    type Scope = <T as pallet::Config<I>>::LimitScope;
+    type UsageKey = <T as pallet::Config<I>>::UsageKey;
+
+    fn rate_limit<TargetArg>(target: TargetArg, scope: Option<Self::Scope>) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        let raw_target = target
+            .try_into_rate_limit_target::<Self::CallMetadata>()
+            .ok()?;
+        let config_target = match raw_target {
+            // A transaction identifier may be assigned to a group; resolve the effective storage
+            // target.
+            RateLimitTarget::Transaction(identifier) => Self::config_target(&identifier).ok()?,
+            _ => raw_target,
+        };
+        Self::resolved_limit(&config_target, &scope)
+    }
+
+    fn last_seen<TargetArg>(
+        target: TargetArg,
+        usage_key: Option<Self::UsageKey>,
+    ) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        let raw_target = target
+            .try_into_rate_limit_target::<Self::CallMetadata>()
+            .ok()?;
+        let usage_target = match raw_target {
+            // A transaction identifier may be assigned to a group; resolve the effective storage
+            // target.
+            RateLimitTarget::Transaction(identifier) => Self::usage_target(&identifier).ok()?,
+            _ => raw_target,
+        };
+        pallet::LastSeen::<T, I>::get(usage_target, usage_key)
+    }
+}
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -768,7 +813,9 @@ pub mod pallet {
         fn call_metadata(
             identifier: &TransactionIdentifier,
         ) -> Result<(Vec<u8>, Vec<u8>), DispatchError> {
-            let (pallet_name, extrinsic_name) = identifier.names::<T, I>()?;
+            let (pallet_name, extrinsic_name) = identifier
+                .names::<<T as Config<I>>::RuntimeCall>()
+                .ok_or(Error::<T, I>::InvalidRuntimeCall)?;
             Ok((
                 Vec::from(pallet_name.as_bytes()),
                 Vec::from(extrinsic_name.as_bytes()),
@@ -917,7 +964,8 @@ pub mod pallet {
 
             T::AdminOrigin::ensure_origin(origin)?;
 
-            let identifier = TransactionIdentifier::from_call::<T, I>(call.as_ref())?;
+            let identifier = TransactionIdentifier::from_call(call.as_ref())
+                .ok_or(Error::<T, I>::InvalidRuntimeCall)?;
             Self::ensure_call_unregistered(&identifier)?;
 
             let target = RateLimitTarget::Transaction(identifier);

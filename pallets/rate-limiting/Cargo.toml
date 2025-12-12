@@ -18,6 +18,7 @@ scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
 sp-std.workspace = true
 sp-runtime.workspace = true
+rate-limiting-interface.workspace = true
 subtensor-runtime-common.workspace = true
 
 [dev-dependencies]
@@ -32,6 +33,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"rate-limiting-interface/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-std/std",

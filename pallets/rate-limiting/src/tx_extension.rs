@@ -117,9 +117,8 @@ where
         _inherited_implication: &impl Implication,
         _source: TransactionSource,
     ) -> ValidateResult<Self::Val, <T as Config<I>>::RuntimeCall> {
-        let identifier = match TransactionIdentifier::from_call::<T, I>(call) {
-            Ok(identifier) => identifier,
-            Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+        let Some(identifier) = TransactionIdentifier::from_call(call) else {
+            return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
         };
 
         if !Pallet::<T, I>::is_registered(&identifier) {

@@ -40,7 +40,7 @@ fn register_call_with_group<T: Config>(
     group: Option<<T as Config>::GroupId>,
 ) -> TransactionIdentifier {
     let call = sample_call::<T>();
-    let identifier = TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("id");
+    let identifier = TransactionIdentifier::from_call(call.as_ref()).expect("id");
     Pallet::<T, ()>::register_call(RawOrigin::Root.into(), call, group).expect("registered");
     identifier
 }
@@ -53,7 +53,7 @@ mod benchmarks {
     #[benchmark]
     fn register_call() {
         let call = sample_call::<T>();
-        let identifier = TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("id");
+        let identifier = TransactionIdentifier::from_call(call.as_ref()).expect("id");
         let target = RateLimitTarget::Transaction(identifier);
 
         #[extrinsic_call]
@@ -65,7 +65,7 @@ mod benchmarks {
     #[benchmark]
     fn set_rate_limit() {
         let call = sample_call::<T>();
-        let identifier = TransactionIdentifier::from_call::<T, ()>(call.as_ref()).expect("id");
+        let identifier = TransactionIdentifier::from_call(call.as_ref()).expect("id");
         let target = RateLimitTarget::Transaction(identifier);
         Limits::<T, ()>::insert(target, RateLimit::global(RateLimitKind::Default));
 
