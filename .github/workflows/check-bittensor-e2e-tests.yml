@@ -332,20 +332,7 @@ jobs:
       fail-fast: false
       max-parallel: 32
       matrix:
-        rust-branch:
-          - stable
-        rust-target:
-          - x86_64-unknown-linux-gnu
-        os:
-          - ubuntu-latest
         include: ${{ fromJson(needs.find-btcli-e2e-tests.outputs.test-files) }}
-
-    env:
-      RELEASE_NAME: development
-      RUSTV: ${{ matrix.rust-branch }}
-      RUST_BACKTRACE: full
-      RUST_BIN_DIR: target/${{ matrix.rust-target }}
-      TARGET: ${{ matrix.rust-target }}
 
     timeout-minutes: 60
     name: "cli: ${{ matrix.label }}"
@@ -426,20 +413,7 @@ jobs:
       fail-fast: false
       max-parallel: 64
       matrix:
-        rust-branch:
-          - stable
-        rust-target:
-          - x86_64-unknown-linux-gnu
-        os:
-          - ubuntu-latest
         include: ${{ fromJson(needs.find-sdk-e2e-tests.outputs.test-files) }}
-
-    env:
-      RELEASE_NAME: development
-      RUSTV: ${{ matrix.rust-branch }}
-      RUST_BACKTRACE: full
-      RUST_BIN_DIR: target/${{ matrix.rust-target }}
-      TARGET: ${{ matrix.rust-target }}
 
     timeout-minutes: 60
     name: "sdk: ${{ matrix.label }}"
