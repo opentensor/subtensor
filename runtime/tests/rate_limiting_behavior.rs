@@ -17,10 +17,9 @@ use pallet_subtensor::{
 };
 use sp_core::{H160, ecdsa};
 use sp_runtime::traits::SaturatedConversion;
-use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{NetUid, NetUidStorageIndex, rate_limiting::GroupId};
 
 type AccountId = <Runtime as frame_system::Config>::AccountId;
-type GroupId = <Runtime as pallet_rate_limiting::Config>::GroupId;
 type UsageKey = RateLimitUsageKey<AccountId>;
 
 const MIGRATION_NAME: &[u8] = b"migrate_rate_limiting";
@@ -79,8 +78,7 @@ fn parity_check<F>(
     // Run migration to hydrate pallet-rate-limiting state.
     Migration::<Runtime>::on_runtime_upgrade();
 
-    let identifier =
-        TransactionIdentifier::from_call::<Runtime, ()>(&call).expect("identifier for call");
+    let identifier = TransactionIdentifier::from_call(&call).expect("identifier for call");
     let scope = scope_override.or_else(|| RuntimeScopeResolver::context(&origin, &call));
     let usage: Option<Vec<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
         usage_override.or_else(|| RuntimeUsageResolver::context(&origin, &call));

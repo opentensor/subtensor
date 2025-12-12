@@ -5,11 +5,11 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_rate_limiting::{RateLimit, RateLimitKind, RateLimitTarget, TransactionIdentifier};
 use pallet_subtensor::{HasMigrationRun, LastRateLimitedBlock, RateLimitKey};
 use sp_runtime::traits::SaturatedConversion;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, rate_limiting::GROUP_REGISTER_NETWORK};
 
 use node_subtensor_runtime::{
     BuildStorage, Runtime, RuntimeGenesisConfig, SubtensorModule, System, rate_limiting,
-    rate_limiting::migration::{GROUP_REGISTER_NETWORK, MIGRATION_NAME, Migration},
+    rate_limiting::migration::{MIGRATION_NAME, Migration},
 };
 
 type AccountId = <Runtime as frame_system::Config>::AccountId;

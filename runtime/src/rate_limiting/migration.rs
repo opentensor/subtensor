@@ -16,7 +16,13 @@ use sp_std::{
     vec,
     vec::Vec,
 };
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{
+    NetUid,
+    rate_limiting::{
+        GROUP_DELEGATE_TAKE, GROUP_OWNER_HPARAMS, GROUP_REGISTER_NETWORK, GROUP_SERVE,
+        GROUP_STAKING_OPS, GROUP_SWAP_KEYS, GROUP_WEIGHTS_SUBNET, GroupId,
+    },
+};
 
 use super::{
     AccountId, RateLimitUsageKey, Runtime,
@@ -26,7 +32,6 @@ use super::{
     },
 };
 
-type GroupId = <Runtime as pallet_rate_limiting::Config>::GroupId;
 type GroupNameOf<T> = BoundedVec<u8, <T as pallet_rate_limiting::Config>::MaxGroupNameLength>;
 type GroupMembersOf<T> =
     BoundedBTreeSet<TransactionIdentifier, <T as pallet_rate_limiting::Config>::MaxGroupMembers>;
@@ -38,14 +43,6 @@ const ADMIN_UTILS_PALLET_INDEX: u8 = 19;
 
 /// Marker stored in `pallet_subtensor::HasMigrationRun` once the migration finishes.
 pub const MIGRATION_NAME: &[u8] = b"migrate_rate_limiting";
-
-const GROUP_SERVE: GroupId = 0;
-const GROUP_DELEGATE_TAKE: GroupId = 1;
-const GROUP_WEIGHTS_SUBNET: GroupId = 2;
-pub const GROUP_REGISTER_NETWORK: GroupId = 3;
-const GROUP_OWNER_HPARAMS: GroupId = 4;
-const GROUP_STAKING_OPS: GroupId = 5;
-const GROUP_SWAP_KEYS: GroupId = 6;
 
 // `set_children` is rate-limited to once every 150 blocks, it's hard-coded in the legacy code.
 const SET_CHILDREN_RATE_LIMIT: u64 = 150;
