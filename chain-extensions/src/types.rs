@@ -20,6 +20,7 @@ pub enum FunctionId {
     SetColdkeyAutoStakeHotkeyV1 = 12,
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
+    GetAlphaPriceV1 = 15,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
