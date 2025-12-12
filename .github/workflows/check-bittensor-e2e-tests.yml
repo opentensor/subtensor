@@ -330,7 +330,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 16
+      max-parallel: 32
       matrix:
         rust-branch:
           - stable
@@ -424,7 +424,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 16
+      max-parallel: 64
       matrix:
         rust-branch:
           - stable
