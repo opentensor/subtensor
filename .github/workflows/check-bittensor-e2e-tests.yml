@@ -28,7 +28,7 @@ jobs:
   check-label:
     runs-on: ubuntu-latest
     outputs:
-      skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests }}
+      skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests || steps.set-default.outputs.skip-bittensor-e2e-tests }}
     steps:
       - name: Install dependencies
         run: |
@@ -38,11 +38,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Get labels from PR
         id: get-labels
+        if: github.event_name == 'pull_request'
         run: |
           LABELS=$(gh pr -R ${{ github.repository }} view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           echo "Current labels: $LABELS"
@@ -53,6 +54,12 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set default skip value for workflow_dispatch
+        id: set-default
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "skip-bittensor-e2e-tests=false" >> $GITHUB_OUTPUT
 
   find-btcli-e2e-tests:
     needs: check-label
@@ -108,27 +115,102 @@ jobs:
           echo "test-files=$test_files" >> $GITHUB_OUTPUT
         shell: bash
 
-  build-image-with-current-branch:
+  # build artifacts for non-fast-runtime (e2e tests only need this)
+  artifacts:
+    name: Node • ${{ matrix.runtime }} • ${{ matrix.platform.arch }}
     needs: check-label
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    strategy:
+      matrix:
+        platform:
+          - triple: x86_64-unknown-linux-gnu
+            arch: amd64
+        runtime: ["non-fast-runtime"]
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+      - name: Install Rust + dependencies
+        run: |
+          chmod +x ./scripts/install_build_env.sh
+          ./scripts/install_build_env.sh
+
+      - name: Add Rust target triple
+        run: |
+          source "$HOME/.cargo/env"
+          rustup target add ${{ matrix.platform.triple }}
+
+      - name: Patch limits for local run
+        run: |
+          chmod +x ./scripts/localnet_patch.sh
+          ./scripts/localnet_patch.sh
+
+      - name: Build binaries
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          export CARGO_BUILD_TARGET="${{ matrix.platform.triple }}"
+
+          ./scripts/localnet.sh False --build-only
+
+      # use `ci_target` name bc .dockerignore excludes `target`
+      - name: Prepare artifacts for upload
+        run: |
+          RUNTIME="${{ matrix.runtime }}"
+          TRIPLE="${{ matrix.platform.triple }}"
+
+          # Verify binaries exist before copying
+          BINARY_PATH="target/${RUNTIME}/${TRIPLE}/release/node-subtensor"
+          WASM_PATH="target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
+
+          if [[ ! -f "$BINARY_PATH" ]]; then
+            echo "❌ Error: Binary not found at $BINARY_PATH"
+            exit 1
+          fi
+
+          if [[ ! -f "$WASM_PATH" ]]; then
+            echo "❌ Error: WASM file not found at $WASM_PATH"
+            exit 1
+          fi
+
+          mkdir -p build/ci_target/${RUNTIME}/${TRIPLE}/release/
+          cp -v "$BINARY_PATH" \
+            build/ci_target/${RUNTIME}/${TRIPLE}/release/
+
+          mkdir -p build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
+          cp -v "$WASM_PATH" \
+            build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.platform.triple }}-${{ matrix.runtime }}
+          path: build/
+          if-no-files-found: error
+
+  # Collect all artifacts and build a Docker image
+  build-image-with-current-branch:
+    needs: [check-label, artifacts]
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
-      - name: Patch non-fast-runtime node
-        run: |
-          chmod +x ./scripts/localnet_patch.sh
-          ./scripts/localnet_patch.sh
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: binaries-*
+          path: build/
+          merge-multiple: true
 
       - name: Move Docker data-root to /mnt/data
         run: |
@@ -185,8 +267,8 @@ jobs:
       - name: Check-out repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -279,8 +361,8 @@ jobs:
       - name: Check-out repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
