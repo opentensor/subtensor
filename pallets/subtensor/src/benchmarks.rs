@@ -413,6 +413,9 @@ mod pallet_benchmarks {
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
         let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
 
+        let swap_cost = Subtensor::<T>::get_key_swap_cost();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, swap_cost.into());
+
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), new_coldkey_hash);
     }
@@ -428,9 +431,6 @@ mod pallet_benchmarks {
         let delay = ColdkeySwapAnnouncementDelay::<T>::get();
         ColdkeySwapAnnouncements::<T>::insert(&old_coldkey, (now, new_coldkey_hash));
         frame_system::Pallet::<T>::set_block_number(now + delay + 1u32.into());
-
-        let swap_cost = Subtensor::<T>::get_key_swap_cost();
-        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, swap_cost.into());
 
         let netuid = NetUid::from(1);
         Subtensor::<T>::init_new_network(netuid, 1);
