@@ -110,8 +110,7 @@ jobs:
           set -euo pipefail
           test_matrix=$(
             uv run pytest -q --collect-only tests/e2e_tests \
-            | sed -n '/^e2e_tests\//p' \
-            | sed 's|^|tests/|' \
+            | sed -n '/^tests\//p' \
             | jq -R -s -c '
                 split("\n")
                 | map(select(. != ""))
