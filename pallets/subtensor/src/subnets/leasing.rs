@@ -151,7 +151,68 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Settle a subnet sale into a lease.
+    /// Announces a subnet sale into a lease using the beneficiary coldkey and the min sale price.
+    /// 
+    /// The caller must be the subnet owner and the crowdloan's raised amount must be greater 
+    /// than or equal to the min sale price.
+    pub fn do_announce_subnet_sale_into_lease(
+        origin: OriginFor<T>,
+        netuid: NetUid,
+        beneficiary: T::AccountId,
+        min_sale_price: TaoCurrency,
+    ) -> DispatchResult {
+        let who = ensure_signed(origin)?;
+        let now = frame_system::Pallet::<T>::block_number();
+
+        let (crowdloan_id, crowdloan) = Self::get_crowdloan_being_finalized()?;
+        ensure!(
+            crowdloan.raised >= min_sale_price.to_u64(),
+            Error::<T>::SubnetMinSalePriceNotMet
+        );
+
+        ensure!(
+            !ColdkeySwapAnnouncements::<T>::contains_key(&who),
+            Error::<T>::ColdkeySwapAnnouncementAlreadyExists
+        );
+        ensure!(
+            !SubnetSaleIntoLeaseAnnouncements::<T>::contains_key(&who),
+            Error::<T>::SubnetSaleIntoLeaseAnnouncementAlreadyExists
+        );
+
+        ensure!(
+            SubnetOwner::<T>::get(netuid) == who,
+            Error::<T>::NotSubnetOwner
+        );
+        let owners = SubnetOwner::<T>::iter().collect::<Vec<_>>();
+        ensure!(
+            owners.iter().filter(|(_, owner)| owner == &who).count() == 1,
+            Error::<T>::TooManySubnetsOwned
+        );
+
+        SubnetSaleIntoLeaseAnnouncements::<T>::insert(
+            &who,
+            (now, beneficiary.clone(), netuid, crowdloan_id),
+        );
+
+        Self::deposit_event(Event::SubnetSaleIntoLeaseAnnounced {
+            who,
+            beneficiary,
+            netuid,
+        });
+        Ok(())
+    }
+
+    /// Settles a subnet sale into a lease.
+    /// 
+    /// The caller must be the subnet owner and the announcement must be older than the coldkey swap announcement delay.
+    /// 
+    /// The coldkey swap will`` be performed and a new lease will be created with the beneficiary coldkey 
+    /// to operate the subnet through a proxy.
+    ///
+    /// The crowdloan's contributions are used to compute the share of the emissions that the contributors
+    /// will receive as dividends.
+    ///
+    /// The leftover cap is paid to the seller.
     pub fn do_settle_subnet_sale_into_lease(origin: OriginFor<T>) -> DispatchResult {
         let who = ensure_signed(origin)?;
 

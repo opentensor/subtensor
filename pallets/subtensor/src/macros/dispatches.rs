@@ -2463,45 +2463,7 @@ mod dispatches {
             beneficiary: T::AccountId,
             min_sale_price: TaoCurrency,
         ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-            let now = frame_system::Pallet::<T>::block_number();
-
-            let (crowdloan_id, crowdloan) = Self::get_crowdloan_being_finalized()?;
-            ensure!(
-                crowdloan.raised >= min_sale_price.to_u64(),
-                Error::<T>::SubnetMinSalePriceNotMet
-            );
-
-            ensure!(
-                !ColdkeySwapAnnouncements::<T>::contains_key(&who),
-                Error::<T>::ColdkeySwapAnnouncementAlreadyExists
-            );
-            ensure!(
-                !SubnetSaleIntoLeaseAnnouncements::<T>::contains_key(&who),
-                Error::<T>::SubnetSaleIntoLeaseAnnouncementAlreadyExists
-            );
-
-            ensure!(
-                SubnetOwner::<T>::get(netuid) == who,
-                Error::<T>::NotSubnetOwner
-            );
-            let owners = SubnetOwner::<T>::iter().collect::<Vec<_>>();
-            ensure!(
-                owners.iter().filter(|(_, owner)| owner == &who).count() == 1,
-                Error::<T>::TooManySubnetsOwned
-            );
-
-            SubnetSaleIntoLeaseAnnouncements::<T>::insert(
-                &who,
-                (now, beneficiary.clone(), netuid, crowdloan_id),
-            );
-
-            Self::deposit_event(Event::SubnetSaleIntoLeaseAnnounced {
-                who,
-                beneficiary,
-                netuid,
-            });
-            Ok(())
+            Self::do_announce_subnet_sale_into_lease(origin, netuid, beneficiary, min_sale_price)
         }
 
         /// Settles a subnet sale into a lease.
