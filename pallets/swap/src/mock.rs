@@ -83,7 +83,7 @@ parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const MaxFeeRate: u16 = 10000; // 15.26%
     pub const MaxPositions: u32 = 100;
-    pub const MinimumLiquidity: u64 = 1_000;
+    pub const MinimumLiquidity: u128 = 1_000;
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
 
@@ -102,6 +102,8 @@ impl CurrencyReserve<TaoCurrency> for TaoReserve {
 
     fn increase_provided(_: NetUid, _: TaoCurrency) {}
     fn decrease_provided(_: NetUid, _: TaoCurrency) {}
+    fn increase_protocol(_: NetUid, _: TaoCurrency) {}
+    fn decrease_protocol(_: NetUid, _: TaoCurrency) {}
 }
 
 #[derive(Clone)]
@@ -118,6 +120,8 @@ impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
 
     fn increase_provided(_: NetUid, _: AlphaCurrency) {}
     fn decrease_provided(_: NetUid, _: AlphaCurrency) {}
+    fn increase_protocol(_: NetUid, _: AlphaCurrency) {}
+    fn decrease_protocol(_: NetUid, _: AlphaCurrency) {}
 }
 
 pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;
