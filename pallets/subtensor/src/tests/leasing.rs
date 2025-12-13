@@ -1058,7 +1058,7 @@ fn test_announce_subnet_sale_into_lease_works() {
             RuntimeOrigin::signed(creator),
             netuid,
             beneficiary,
-            min_sale_price.clone(),
+            min_sale_price,
         ));
 
         let now = frame_system::Pallet::<Test>::block_number();
