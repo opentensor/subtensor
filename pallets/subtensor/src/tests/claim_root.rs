@@ -1184,13 +1184,7 @@ fn test_claim_root_with_swap_coldkey() {
         );
 
         // Swap coldkey
-        let mut weight = Weight::zero();
-
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
+        assert_ok!(SubtensorModule::do_swap_coldkey(&coldkey, &new_coldkey,));
 
         // Check swapped keys claimed values
 
