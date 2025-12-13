@@ -4,6 +4,7 @@ use frame_support::traits::IsSubType;
 use frame_system::Config;
 use pallet_sudo::Call as SudoCall;
 use scale_info::TypeInfo;
+use sp_runtime::impl_tx_ext_default;
 use sp_runtime::traits::{
     AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
     ValidateResult,
@@ -11,7 +12,6 @@ use sp_runtime::traits::{
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource};
 use sp_std::marker::PhantomData;
 use subtensor_macros::freeze_struct;
-use sp_runtime::impl_tx_ext_default;
 
 #[freeze_struct("99dce71278b36b44")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
