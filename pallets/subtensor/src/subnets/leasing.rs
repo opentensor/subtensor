@@ -152,8 +152,8 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Announces a subnet sale into a lease using the beneficiary coldkey and the min sale price.
-    /// 
-    /// The caller must be the subnet owner and the crowdloan's raised amount must be greater 
+    ///
+    /// The caller must be the subnet owner and the crowdloan's raised amount must be greater
     /// than or equal to the min sale price.
     pub fn do_announce_subnet_sale_into_lease(
         origin: OriginFor<T>,
@@ -190,23 +190,23 @@ impl<T: Config> Pallet<T> {
         );
 
         SubnetSaleIntoLeaseAnnouncements::<T>::insert(
-            &who,
+            who,
             (now, beneficiary.clone(), netuid, crowdloan_id),
         );
 
         Self::deposit_event(Event::SubnetSaleIntoLeaseAnnounced {
-            who,
             beneficiary,
             netuid,
+            min_sale_price,
         });
         Ok(())
     }
 
     /// Settles a subnet sale into a lease.
-    /// 
+    ///
     /// The caller must be the subnet owner and the announcement must be older than the coldkey swap announcement delay.
-    /// 
-    /// The coldkey swap will`` be performed and a new lease will be created with the beneficiary coldkey 
+    ///
+    /// The coldkey swap will`` be performed and a new lease will be created with the beneficiary coldkey
     /// to operate the subnet through a proxy.
     ///
     /// The crowdloan's contributions are used to compute the share of the emissions that the contributors
@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
         let (lease_id, lease) =
             Self::initialize_lease(&crowdloan, &beneficiary, emissions_share, end_block)?;
 
-        Self::do_swap_coldkey(&who, &lease.coldkey, TaoCurrency::ZERO)?;
+        Self::do_swap_coldkey(&who, &lease.coldkey)?;
 
         let leftover_cap =
             Self::finalize_lease_creation(&crowdloan, lease_id, lease.clone(), netuid)?;
@@ -260,11 +260,34 @@ impl<T: Config> Pallet<T> {
         )?;
 
         Self::deposit_event(Event::SubnetLeaseCreated {
-            beneficiary,
+            beneficiary: who,
             lease_id,
             netuid,
-            end_block: None,
+            end_block,
         });
+        Self::deposit_event(Event::SubnetSaleIntoLeaseSettled {
+            beneficiary,
+            netuid,
+        });
+        Ok(())
+    }
+
+    pub fn do_cancel_subnet_sale_into_lease(origin: OriginFor<T>) -> DispatchResult {
+        let who = ensure_signed(origin)?;
+
+        let (_, _, netuid, crowdloan_id) = SubnetSaleIntoLeaseAnnouncements::<T>::take(who.clone())
+            .ok_or(Error::<T>::SubnetSaleIntoLeaseAnnouncementNotFound)?;
+
+        pallet_crowdloan::Crowdloans::<T>::try_mutate(crowdloan_id, |crowdloan| match crowdloan {
+            Some(crowdloan) => {
+                // Unmark the crowdloan as finalized to allow the contributions to be refunded
+                crowdloan.finalized = false;
+                Ok::<_, DispatchError>(())
+            }
+            None => Err(pallet_crowdloan::Error::<T>::InvalidCrowdloanId.into()),
+        })?;
+
+        Self::deposit_event(Event::SubnetSaleIntoLeaseCancelled { netuid });
         Ok(())
     }
 
