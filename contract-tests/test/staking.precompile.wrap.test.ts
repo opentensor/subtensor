@@ -20,6 +20,7 @@ import { ethers } from "ethers";
 import { generateRandomEthersWallet } from "../src/utils";
 
 import { abi, bytecode } from "../src/contracts/stakeWrap";
+import { setMaxIdleHTTPParsers } from "http";
 
 describe("Test staking precompile add from deployed contract", () => {
   const hotkey = getRandomSubstrateKeypair();
@@ -62,6 +63,8 @@ describe("Test staking precompile add from deployed contract", () => {
     const txResponse = await wallet1.sendTransaction(ethTransfer)
     await txResponse.wait();
 
+    console.log("stakeWrap contract deployed, target: ", contract.target.toString());
+
     const deployedContract = new ethers.Contract(
       contract.target.toString(),
       abi,
@@ -74,6 +77,8 @@ describe("Test staking precompile add from deployed contract", () => {
       tao(2),
     );
     await tx.wait();
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     const tx2 = await deployedContract.removeStake(
       hotkey.publicKey,
