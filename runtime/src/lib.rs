@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_nonce;
 mod migrations;
+pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
 
 extern crate alloc;
@@ -173,6 +174,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             ChargeTransactionPaymentWrapper::new(
                 pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
             ),
+            SudoTransactionExtension::<Runtime>::new(),
             pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(
             ),
             pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
@@ -1158,6 +1160,7 @@ impl pallet_subtensor_swap::Config for Runtime {
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
 }
 
+use crate::sudo_wrapper::SudoTransactionExtension;
 use crate::transaction_payment_wrapper::ChargeTransactionPaymentWrapper;
 use sp_runtime::BoundedVec;
 
@@ -1609,6 +1612,7 @@ pub type TransactionExtensions = (
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     ChargeTransactionPaymentWrapper<Runtime>,
+    SudoTransactionExtension<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
