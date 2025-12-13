@@ -1419,6 +1419,39 @@ fn test_sudo_set_coldkey_swap_schedule_duration() {
 }
 
 #[test]
+fn test_sudo_set_deregistration_priority_schedule_delay() {
+    new_test_ext().execute_with(|| {
+        let root = RuntimeOrigin::root();
+        let non_root = RuntimeOrigin::signed(U256::from(1));
+        let new_duration = 150u32.into();
+
+        assert_noop!(
+            AdminUtils::sudo_set_deregistration_priority_schedule_delay(non_root, new_duration),
+            DispatchError::BadOrigin
+        );
+
+        assert_ok!(AdminUtils::sudo_set_deregistration_priority_schedule_delay(
+            root.clone(),
+            new_duration
+        ));
+
+        assert_eq!(
+            pallet_subtensor::DeregistrationPriorityScheduleDelay::<Test>::get(),
+            new_duration
+        );
+
+        System::assert_last_event(
+            Event::DeregistrationPriorityScheduleDelaySet(new_duration).into(),
+        );
+
+        assert_ok!(AdminUtils::sudo_set_deregistration_priority_schedule_delay(
+            root,
+            new_duration
+        ));
+    });
+}
+
+#[test]
 fn test_sudo_set_dissolve_network_schedule_duration() {
     new_test_ext().execute_with(|| {
         // Arrange

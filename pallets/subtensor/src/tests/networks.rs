@@ -6,6 +6,7 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
+use sp_runtime::DispatchError;
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
@@ -55,6 +56,8 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(0));
         Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
+        assert!(SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -63,6 +66,142 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
         // Balance should be unchanged (whatever the network-lock bookkeeping left there)
         assert_eq!(after, before);
         assert!(!SubtensorModule::if_subnet_exist(net));
+        assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
+    });
+}
+
+#[test]
+fn schedule_priority_and_force_set() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(11);
+        let owner_hot = U256::from(22);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        assert_ok!(SubtensorModule::schedule_deregistration_priority(
+            RuntimeOrigin::signed(owner_cold),
+            net
+        ));
+
+        assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
+        let when =
+            SubnetDeregistrationPrioritySchedule::<Test>::get(net).expect("Expected to not panic");
+        assert!(when > 0);
+
+        assert_ok!(SubtensorModule::enqueue_subnet_deregistration(
+            RuntimeOrigin::root(),
+            net
+        ));
+
+        assert!(SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
+            net
+        ));
+    });
+}
+
+#[test]
+fn cancel_priority_schedule_only() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(13);
+        let owner_hot = U256::from(26);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
+        SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 42);
+
+        assert_ok!(SubtensorModule::cancel_deregistration_priority_schedules(
+            RuntimeOrigin::signed(owner_cold),
+            net
+        ));
+
+        assert!(SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
+            net
+        ));
+    });
+}
+
+#[test]
+fn clear_priority_requires_root() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(19);
+        let owner_hot = U256::from(38);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
+        SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 55);
+
+        assert_ok!(SubtensorModule::clear_deregistration_priority(
+            RuntimeOrigin::root(),
+            net
+        ));
+
+        assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
+            net
+        ));
+    });
+}
+
+#[test]
+fn schedule_priority_requires_owner_or_root() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(15);
+        let owner_hot = U256::from(30);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+        let intruder = U256::from(999);
+
+        assert_err!(
+            SubtensorModule::schedule_deregistration_priority(RuntimeOrigin::signed(intruder), net),
+            DispatchError::BadOrigin
+        );
+
+        assert_ok!(SubtensorModule::schedule_deregistration_priority(
+            RuntimeOrigin::root(),
+            net
+        ));
+    });
+}
+
+#[test]
+fn enqueue_subnet_deregistration_is_noop_without_schedule() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(17);
+        let owner_hot = U256::from(34);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        assert_ok!(SubtensorModule::enqueue_subnet_deregistration(
+            RuntimeOrigin::root(),
+            net
+        ));
+
+        assert!(!SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
+    });
+}
+
+#[test]
+fn schedule_swap_coldkey_cancels_priority_schedule() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(21);
+        let owner_hot = U256::from(42);
+        let new_cold = U256::from(84);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&owner_cold, swap_cost.to_u64() + 1_000);
+
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| queue.push(net));
+        SubnetDeregistrationPrioritySchedule::<Test>::insert(net, 5);
+
+        assert_ok!(SubtensorModule::schedule_swap_coldkey(
+            RuntimeOrigin::signed(owner_cold),
+            new_cold
+        ));
+
+        assert!(SubnetDeregistrationPriorityQueue::<Test>::get().contains(&net));
+        assert!(!SubnetDeregistrationPrioritySchedule::<Test>::contains_key(
+            net
+        ));
     });
 }
 
@@ -1161,6 +1300,27 @@ fn prune_tie_on_price_earlier_registration_wins() {
         // identical prices → tie; earlier (n1) must be chosen
         SubnetMovingPrice::<Test>::insert(n1, I96F32::from_num(7));
         SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(7));
+
+        assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
+    });
+}
+
+#[test]
+fn prune_prefers_higher_priority_over_price() {
+    new_test_ext(0).execute_with(|| {
+        let n1 = add_dynamic_network(&U256::from(210), &U256::from(201));
+        let n2 = add_dynamic_network(&U256::from(420), &U256::from(401));
+
+        let imm = SubtensorModule::get_network_immunity_period();
+        System::set_block_number(imm + 5);
+
+        SubnetMovingPrice::<Test>::insert(n1, I96F32::from_num(100));
+        SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(1));
+
+        SubnetDeregistrationPriorityQueue::<Test>::mutate(|queue| {
+            queue.push(n1);
+            queue.push(n2);
+        });
 
         assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
     });

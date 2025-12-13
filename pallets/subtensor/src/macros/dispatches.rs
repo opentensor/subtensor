@@ -1411,6 +1411,7 @@ mod dispatches {
             .map_err(|_| Error::<T>::FailedToSchedule)?;
 
             ColdkeySwapScheduled::<T>::insert(&who, (when, new_coldkey.clone()));
+            Self::cancel_deregistration_priority_schedule_for_owner(&who);
             // Emit the SwapScheduled event
             Self::deposit_event(Event::ColdkeySwapScheduled {
                 old_coldkey: who.clone(),
@@ -2149,6 +2150,139 @@ mod dispatches {
             TokenSymbol::<T>::insert(netuid, symbol.clone());
 
             Self::deposit_event(Event::SymbolUpdated { netuid, symbol });
+            Ok(())
+        }
+
+        /// Schedules the subnet to be appended to the deregistration priority queue.
+        ///
+        /// Accessible by the subnet owner or root origin.
+        ///
+        /// # Errors
+        /// * [`Error::SubnetNotExists`] if the subnet does not exist.
+        /// * [`Error::SubnetDeregistrationPriorityAlreadyScheduled`] if a set operation is already
+        ///   scheduled.
+        #[pallet::call_index(125)]
+        #[pallet::weight((
+            Weight::from_parts(40_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads_writes(4, 2)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn schedule_deregistration_priority(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            ensure!(
+                SubnetDeregistrationPrioritySchedule::<T>::get(netuid).is_none(),
+                Error::<T>::SubnetDeregistrationPriorityAlreadyScheduled
+            );
+
+            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
+            let delay: BlockNumberFor<T> = DeregistrationPriorityScheduleDelay::<T>::get();
+            let when: BlockNumberFor<T> = current_block.saturating_add(delay);
+
+            let call = Call::<T>::enqueue_subnet_deregistration { netuid };
+            let bound_call = <T as Config>::Preimages::bound(LocalCallOf::<T>::from(call))
+                .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            T::Scheduler::schedule(
+                DispatchTime::At(when),
+                None,
+                63,
+                frame_system::RawOrigin::Root.into(),
+                bound_call,
+            )
+            .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            SubnetDeregistrationPrioritySchedule::<T>::insert(netuid, when);
+            Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleAdded(
+                netuid, when,
+            ));
+
+            Ok(())
+        }
+
+        /// Enqueues the subnet for deregistration immediately.
+        ///
+        /// This call is intended to be used by the scheduler and requires root origin.
+        #[pallet::call_index(126)]
+        #[pallet::weight((
+            Weight::from_parts(15_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads_writes(3, 2)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn enqueue_subnet_deregistration(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+            if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleRemoved(netuid));
+            }
+
+            Self::enqueue_subnet_to_deregistration_priority_queue(netuid);
+            Self::deposit_event(Event::SubnetDeregistrationPriorityQueueAdded(netuid));
+
+            Ok(())
+        }
+
+        /// Cancels a pending deregistration priority schedule.
+        ///
+        /// Accessible by the subnet owner or root origin.
+        #[pallet::call_index(127)]
+        #[pallet::weight((
+            Weight::from_parts(20_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn cancel_deregistration_priority_schedules(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            if SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some() {
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleRemoved(netuid));
+            }
+
+            Ok(())
+        }
+
+        /// Clears any deregistration priority queue entry and pending schedule for a subnet.
+        ///
+        /// Only callable by root origin.
+        #[pallet::call_index(128)]
+        #[pallet::weight((
+            Weight::from_parts(20_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads_writes(2, 2)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn clear_deregistration_priority(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+            let was_queued = Self::remove_subnet_from_deregistration_priority_queue(netuid);
+            let had_schedule = SubnetDeregistrationPrioritySchedule::<T>::take(netuid).is_some();
+
+            if was_queued {
+                Self::deposit_event(Event::SubnetDeregistrationPriorityQueueRemoved(netuid));
+            }
+            if had_schedule {
+                Self::deposit_event(Event::SubnetDeregistrationPriorityScheduleRemoved(netuid));
+            }
+
             Ok(())
         }
 
