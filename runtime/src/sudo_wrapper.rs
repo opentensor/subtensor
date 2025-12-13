@@ -1,6 +1,5 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
-use frame_support::pallet_prelude::Weight;
 use frame_support::traits::IsSubType;
 use frame_system::Config;
 use pallet_sudo::Call as SudoCall;
@@ -9,11 +8,10 @@ use sp_runtime::traits::{
     AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
     ValidateResult,
 };
-use sp_runtime::transaction_validity::{
-    InvalidTransaction, TransactionSource, TransactionValidityError,
-};
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource};
 use sp_std::marker::PhantomData;
 use subtensor_macros::freeze_struct;
+use sp_runtime::impl_tx_ext_default;
 
 #[freeze_struct("99dce71278b36b44")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
@@ -49,9 +47,7 @@ where
     type Val = Option<T::AccountId>;
     type Pre = ();
 
-    fn weight(&self, _call: &<T as Config>::RuntimeCall) -> Weight {
-        Weight::zero()
-    }
+    impl_tx_ext_default!(<T as Config>::RuntimeCall; weight prepare);
 
     fn validate(
         &self,
@@ -84,15 +80,5 @@ where
         }
 
         Ok((Default::default(), Some(who.clone()), origin))
-    }
-    fn prepare(
-        self,
-        _val: Self::Val,
-        _origin: &<T as Config>::RuntimeOrigin,
-        _call: &<T as Config>::RuntimeCall,
-        _info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
-        _len: usize,
-    ) -> Result<Self::Pre, TransactionValidityError> {
-        Ok(())
     }
 }

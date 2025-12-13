@@ -386,13 +386,13 @@ where
             frame_system::CheckEra::<runtime::Runtime>::from(era),
             node_subtensor_runtime::check_nonce::CheckNonce::<runtime::Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<runtime::Runtime>::new(),
-            node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(
-            ),
             node_subtensor_runtime::transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<
                 runtime::Runtime,
             >::new(pallet_transaction_payment::ChargeTransactionPayment::<
                 runtime::Runtime,
             >::from(0u64)),
+            node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(
+            ),
             pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<
                 runtime::Runtime,
             >::new(),
@@ -428,8 +428,8 @@ where
         at_hash_h256, // CheckEra::Implicit = hash of the block the tx is created at
         (),           // CheckNonce::Implicit = ()
         (),           // CheckWeight::Implicit = ()
-        (),           // SudoTransactionExtension::Implicit = ()
         (),           // ChargeTransactionPaymentWrapper::Implicit = ()
+        (),           // SudoTransactionExtension::Implicit = ()
         (),           // SubtensorTransactionExtension::Implicit = ()
         (),           // DrandPriority::Implicit = ()
         None,         // CheckMetadataHash::Implicit = Option<[u8; 32]>
