@@ -627,5 +627,23 @@ mod benchmarks {
 		_(RawOrigin::Root, 1u16.into()/*netuid*/, 256u16/*max_n*/)/*sudo_trim_to_max_allowed_uids()*/;
     }
 
+    #[benchmark]
+    fn sudo_set_min_non_immune_uids() {
+        // disable admin freeze window
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        // create a network for netuid = 1
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16.into(), /* netuid */
+            1u16,        /* sudo_tempo */
+        );
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Root,
+            1u16.into(), /* netuid */
+            12u16,       /* min */
+        ); /* sudo_set_min_non_immune_uids() */
+    }
+
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }

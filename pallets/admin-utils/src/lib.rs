@@ -2184,6 +2184,25 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Sets the minimum number of non-immortal & non-immune UIDs that must remain in a subnet
+        #[pallet::call_index(84)]
+        #[pallet::weight((
+            Weight::from_parts(7_114_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_min_non_immune_uids(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            min: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_min_non_immune_uids(netuid, min);
+            Ok(())
+        }
+
         /// Sets the announcement delay for coldkey swap.
         #[pallet::call_index(84)]
         #[pallet::weight((
@@ -2219,7 +2238,6 @@ pub mod pallet {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_coldkey_swap_reannouncement_delay(duration);
             log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
-            Ok(())
         }
     }
 }
