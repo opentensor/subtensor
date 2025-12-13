@@ -483,10 +483,24 @@ mod events {
 
         /// A subnet sale into lease announcement has been made.
         SubnetSaleIntoLeaseAnnounced {
-            /// The account ID of the coldkey that made the announcement.
-            who: T::AccountId,
             /// The account ID of the beneficiary.
             beneficiary: T::AccountId,
+            /// The network identifier.
+            netuid: NetUid,
+            /// The minimum sale price.
+            min_sale_price: TaoCurrency,
+        },
+
+        /// A subnet sale into lease has been settled.
+        SubnetSaleIntoLeaseSettled {
+            /// The account ID of the beneficiary.
+            beneficiary: T::AccountId,
+            /// The network identifier.
+            netuid: NetUid,
+        },
+
+        /// A subnet sale into lease announcement has been cancelled.
+        SubnetSaleIntoLeaseCancelled {
             /// The network identifier.
             netuid: NetUid,
         },

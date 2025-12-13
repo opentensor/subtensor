@@ -2472,5 +2472,15 @@ mod dispatches {
         pub fn settle_subnet_sale_into_lease(origin: OriginFor<T>) -> DispatchResult {
             Self::do_settle_subnet_sale_into_lease(origin)
         }
+
+        /// Cancels a subnet sale into a lease.
+        ///
+        /// The crowdloan will be unmarked as being finalized which will allow
+        /// the contributions to be refunded.
+        #[pallet::call_index(130)]
+        #[pallet::weight(Weight::zero())]
+        pub fn cancel_subnet_sale_into_lease(origin: OriginFor<T>) -> DispatchResult {
+            Self::do_cancel_subnet_sale_into_lease(origin)
+        }
     }
 }

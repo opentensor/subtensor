@@ -1053,11 +1053,12 @@ fn test_announce_subnet_sale_into_lease_works() {
         SubnetOwner::<Test>::insert(netuid, creator);
 
         let beneficiary = U256::from(2);
+        let min_sale_price = TaoCurrency::from(100_000_000);
         assert_ok!(SubtensorModule::announce_subnet_sale_into_lease(
             RuntimeOrigin::signed(creator),
             netuid,
             beneficiary,
-            TaoCurrency::from(100_000_000),
+            min_sale_price.clone(),
         ));
 
         let now = frame_system::Pallet::<Test>::block_number();
@@ -1067,9 +1068,9 @@ fn test_announce_subnet_sale_into_lease_works() {
         );
         assert_last_event::<Test>(RuntimeEvent::SubtensorModule(
             Event::SubnetSaleIntoLeaseAnnounced {
-                who: creator,
                 beneficiary,
                 netuid,
+                min_sale_price,
             },
         ));
     });
