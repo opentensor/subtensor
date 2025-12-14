@@ -2238,6 +2238,7 @@ pub mod pallet {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_coldkey_swap_reannouncement_delay(duration);
             log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
+            Ok(())
         }
     }
 }
