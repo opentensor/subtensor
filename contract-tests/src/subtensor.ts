@@ -1,14 +1,15 @@
 import * as assert from "assert";
 import { devnet, MultiAddress } from '@polkadot-api/descriptors';
-import { TypedApi, TxCallData, Binary, Enum } from 'polkadot-api';
+import { TypedApi, TxCallData, Binary, Enum, getTypedCodecs } from 'polkadot-api';
 import { KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair, waitForTransactionWithRetry } from './substrate'
 import { convertH160ToSS58, convertPublicKeyToSs58, ethAddressToH160 } from './address-utils'
 import { tao } from './balance-math'
-import internal from "stream";
 
 // create a new subnet and return netuid
 export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: KeyPair, coldkey: KeyPair) {
+
+
     const alice = getAliceSigner()
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
 
@@ -26,6 +27,9 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     const newTotalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
     // could create multiple subnetworks during retry, just return the first created one
     assert.ok(newTotalNetworks > totalNetworks)
+
+    await resetNetworkLastLock(api)
+
     return totalNetworks
 }
 
@@ -398,4 +402,21 @@ export async function sendWasmContractExtrinsic(api: TypedApi<typeof devnet>, co
         storage_deposit_limit: BigInt(1000000000)
     })
     await waitForTransactionWithRetry(api, tx, signer)
-}   
+}
+
+export async function resetNetworkLastLock(api: TypedApi<typeof devnet>) {
+    const alice = getAliceSigner()
+    const key = await api.query.SubtensorModule.NetworkLastLockCost.getKey()
+
+    // Get the codec for NetworkLastLockCost value (TaoCurrency/u128)
+    const codec = await getTypedCodecs(devnet)
+    const valueCodec = codec.query.SubtensorModule.NetworkLastLockCost.value
+
+    // Encode the value (0) as SCALE-encoded bytes
+    const encodedValue = valueCodec.enc(BigInt(0))
+
+    const changes: [Binary, Binary][] = [[Binary.fromHex(key.toString()), Binary.fromBytes(encodedValue)]];
+    const internalCall = api.tx.System.set_storage({ items: changes })
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
+    await waitForTransactionWithRetry(api, tx, alice)
+}
