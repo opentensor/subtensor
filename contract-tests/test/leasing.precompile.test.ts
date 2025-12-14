@@ -7,7 +7,7 @@ import { ethers } from "ethers";
 import { TypedApi } from "polkadot-api";
 import { devnet } from "@polkadot-api/descriptors";
 import { getAliceSigner, getBobSigner, getDevnetApi, waitForFinalizedBlock } from "../src/substrate";
-import { forceSetBalanceToEthAddress } from "../src/subtensor";
+import { forceSetBalanceToEthAddress, resetNetworkLastLock } from "../src/subtensor";
 import { decodeAddress } from "@polkadot/util-crypto";
 import { u8aToHex } from "@polkadot/util";
 import { ILEASING_ADDRESS, ILeasingABI } from "../src/contracts/leasing";
@@ -40,6 +40,8 @@ describe("Test Leasing precompile", () => {
 
         await forceSetBalanceToEthAddress(api, wallet1.address);
         await forceSetBalanceToEthAddress(api, wallet2.address);
+
+        await resetNetworkLastLock(api);
     });
 
     it("gets an existing lease created on substrate side, its subnet id and its contributor shares", async () => {
