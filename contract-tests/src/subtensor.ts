@@ -412,8 +412,8 @@ export async function resetNetworkLastLock(api: TypedApi<typeof devnet>) {
     const codec = await getTypedCodecs(devnet)
     const valueCodec = codec.query.SubtensorModule.NetworkLastLockCost.value
 
-    // Encode the value (0) as SCALE-encoded bytes
-    const encodedValue = valueCodec.enc(BigInt(0))
+    // Encode the value 1 TAO as SCALE-encoded bytes
+    const encodedValue = valueCodec.enc(BigInt(10000000000))
 
     const changes: [Binary, Binary][] = [[Binary.fromHex(key.toString()), Binary.fromBytes(encodedValue)]];
     const internalCall = api.tx.System.set_storage({ items: changes })
