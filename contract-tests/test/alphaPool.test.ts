@@ -14,7 +14,7 @@ import { ethers } from "ethers"
 import { tao } from "../src/balance-math";
 import { ISTAKING_V2_ADDRESS, IStakingV2ABI } from "../src/contracts/staking";
 // import { KeyPair } from "@polkadot-labs/hdkd-helpers";
-describe("bridge token contract deployment", () => {
+describe("Alpha Pool Test", () => {
   // init eth part
   const wallet = generateRandomEthersWallet();
   let publicClient: PublicClient;
