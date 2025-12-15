@@ -2334,7 +2334,7 @@ fn test_do_set_child_cooldown_period() {
         );
 
         wait_and_set_pending_children(netuid);
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
             netuid,
@@ -2475,7 +2475,7 @@ fn test_revoke_child_no_min_stake_check() {
         assert_eq!(children_before, vec![]);
 
         wait_and_set_pending_children(netuid);
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
             NetUid::ROOT,
@@ -2545,7 +2545,7 @@ fn test_do_set_child_registration_disabled() {
         ));
 
         wait_and_set_pending_children(netuid);
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
             netuid,

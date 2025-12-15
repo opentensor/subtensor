@@ -1240,7 +1240,7 @@ fn test_remove_stake_from_hotkey_account() {
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
             &coldkey_id,
             netuid,
@@ -1293,7 +1293,7 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
         );
 
         // Remove all stake
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
             &coldkey_id,
             netuid,

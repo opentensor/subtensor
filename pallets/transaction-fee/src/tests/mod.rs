@@ -346,7 +346,7 @@ fn test_remove_stake_not_enough_balance_for_fees() {
 
         // For-set Alpha balance to low
         let new_current_stake = AlphaCurrency::from(1_000);
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &sn.hotkeys[0],
             &sn.coldkey,
             sn.subnets[0].netuid,
@@ -413,7 +413,7 @@ fn test_remove_stake_edge_alpha() {
 
         // For-set Alpha balance to low, but enough to pay tx fees at the current Alpha price
         let new_current_stake = AlphaCurrency::from(1_000_000);
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &sn.hotkeys[0],
             &sn.coldkey,
             sn.subnets[0].netuid,
