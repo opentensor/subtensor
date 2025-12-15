@@ -1235,6 +1235,140 @@ fn test_announce_subnet_sale_into_lease_fails_if_caller_owns_multiple_subnets() 
     });
 }
 
+#[test]
+fn test_cancel_subnet_sale_into_lease_works() {
+    new_test_ext(1).execute_with(|| {
+        let crowdloan_id = 0;
+        let deposit = 10_000_000_000;
+        let creator = U256::from(1);
+        let beneficiary = U256::from(2);
+        let now = frame_system::Pallet::<Test>::block_number();
+        let min_sale_price = TaoCurrency::from(100_000_000_000);
+        setup_crowdloan!(
+            crowdloan_id,
+            deposit,
+            min_sale_price.to_u64(),
+            creator,
+            vec![
+                (beneficiary, 80_000_000_000u64),
+                (U256::from(3), 100_000_000)
+            ]
+        );
+
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+        SubnetOwner::<Test>::insert(netuid, creator);
+
+        SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
+            creator,
+            (now, beneficiary, netuid, crowdloan_id),
+        );
+        pallet_crowdloan::Crowdloans::<Test>::mutate(crowdloan_id, |crowdloan| {
+            if let Some(crowdloan) = crowdloan {
+                crowdloan.finalized = true;
+            }
+        });
+
+        // We can't refund a finalized crowdloan
+        assert_noop!(
+            pallet_crowdloan::Pallet::<Test>::refund(RuntimeOrigin::signed(creator), crowdloan_id),
+            pallet_crowdloan::Error::<Test>::AlreadyFinalized
+        );
+
+        assert_ok!(SubtensorModule::cancel_subnet_sale_into_lease(
+            RuntimeOrigin::signed(creator),
+        ));
+
+        assert_eq!(
+            SubnetSaleIntoLeaseAnnouncements::<Test>::iter().collect::<Vec<_>>(),
+            vec![]
+        );
+        assert_last_event::<Test>(RuntimeEvent::SubtensorModule(
+            Event::SubnetSaleIntoLeaseCancelled { netuid },
+        ));
+
+        // We can emit refunds for the crowdloan
+        assert_ok!(pallet_crowdloan::Pallet::<Test>::refund(
+            RuntimeOrigin::signed(creator),
+            crowdloan_id
+        ));
+    });
+}
+
+#[test]
+fn test_cancel_subnet_sale_into_lease_fails_if_bad_origin() {
+    new_test_ext(1).execute_with(|| {
+        let crowdloan_id = 0;
+        let creator = U256::from(1);
+        setup_crowdloan!(
+            crowdloan_id,
+            0,
+            100_000_000,
+            creator,
+            vec![] as Vec<(U256, u64)>
+        );
+
+        assert_noop!(
+            SubtensorModule::cancel_subnet_sale_into_lease(RuntimeOrigin::none()),
+            DispatchError::BadOrigin
+        );
+
+        assert_noop!(
+            SubtensorModule::cancel_subnet_sale_into_lease(RuntimeOrigin::root()),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_cancel_subnet_sale_into_lease_fails_if_no_subnet_sale_into_lease_announcement_exists() {
+    new_test_ext(1).execute_with(|| {
+        let crowdloan_id = 0;
+        let creator = U256::from(1);
+        setup_crowdloan!(
+            crowdloan_id,
+            0,
+            100_000_000,
+            creator,
+            vec![] as Vec<(U256, u64)>
+        );
+
+        assert_noop!(
+            SubtensorModule::cancel_subnet_sale_into_lease(RuntimeOrigin::signed(creator)),
+            Error::<Test>::SubnetSaleIntoLeaseAnnouncementNotFound
+        );
+    });
+}
+
+#[test]
+fn test_cancel_subnet_sale_into_lease_fails_if_crowdloan_does_not_exists() {
+    new_test_ext(1).execute_with(|| {
+        let crowdloan_id = 0;
+        let creator = U256::from(1);
+        let beneficiary = U256::from(2);
+        let now = frame_system::Pallet::<Test>::block_number();
+        let netuid = NetUid::from(1);
+        setup_crowdloan!(
+            crowdloan_id,
+            0,
+            100_000_000,
+            creator,
+            vec![] as Vec<(U256, u64)>
+        );
+
+        SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
+            creator,
+            // Bogus crowdloan id
+            (now, beneficiary, netuid, crowdloan_id + 1),
+        );
+
+        assert_noop!(
+            SubtensorModule::cancel_subnet_sale_into_lease(RuntimeOrigin::signed(creator)),
+            pallet_crowdloan::Error::<Test>::InvalidCrowdloanId
+        );
+    });
+}
+
 #[macro_export]
 macro_rules! setup_crowdloan {
     ($id:expr, $deposit:expr, $cap:expr, $creator:expr, $contributions:expr) => {
@@ -1245,7 +1379,7 @@ macro_rules! setup_crowdloan {
             pallet_crowdloan::CrowdloanInfo {
                 creator: $creator,
                 deposit: $deposit,
-                min_contribution: 0,
+                min_contribution: 100_000_000,
                 end: 0,
                 cap: $cap,
                 raised: $cap,

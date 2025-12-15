@@ -240,11 +240,11 @@ impl<T: Config> Pallet<T> {
         let leftover_cap =
             Self::finalize_lease_creation(&crowdloan, lease_id, lease.clone(), netuid)?;
 
-        // Get all the contributions to the crowdloan except for the beneficiary
-        // because its share will be computed as the dividends are distributed
+        // Get all the contributions to the crowdloan except the seller because he doesn't get any shares
+        // and the beneficiary because its share will be computed as the dividends are distributed
         let contributions = pallet_crowdloan::Contributions::<T>::iter_prefix(crowdloan_id)
             .into_iter()
-            .filter(|(contributor, _)| contributor != &beneficiary);
+            .filter(|(contributor, _)| contributor != &who && contributor != &beneficiary);
 
         for (contributor, amount) in contributions {
             // Compute the share of the contributor to the lease
