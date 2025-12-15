@@ -1,84 +1,34 @@
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::pallet_prelude::Parameter;
+//! Runtime-level rate limiting wiring and resolvers.
+//!
+//! `pallet-rate-limiting` supports multiple independent instances, and is intended to be deployed
+//! as “one instance per pallet” with pallet-specific scope/usage-key types and resolvers.
+//!
+//! This runtime module is centralized today because `pallet-subtensor` is currently centralized and
+//! coupled with `pallet-admin-utils`; both share a single `pallet-rate-limiting` instance and a
+//! single resolver implementation.
+//!
+//! For new pallets, do not reuse or extend the centralized scope/usage-key types or resolvers.
+//! Prefer defining pallet-local types/resolvers and using a dedicated `pallet-rate-limiting`
+//! instance.
+//!
+//! Long-term, we should refactor `pallet-subtensor` into smaller pallets and move to dedicated
+//! `pallet-rate-limiting` instances per pallet.
+
 use frame_system::RawOrigin;
 use pallet_admin_utils::Call as AdminUtilsCall;
 use pallet_rate_limiting::BypassDecision;
 use pallet_rate_limiting::{RateLimitScopeResolver, RateLimitUsageResolver};
 use pallet_subtensor::{Call as SubtensorCall, Tempo};
-use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
 use sp_std::{vec, vec::Vec};
-use subtensor_runtime_common::{BlockNumber, MechId, NetUid};
+use subtensor_runtime_common::{
+    BlockNumber, NetUid,
+    rate_limiting::{RateLimitUsageKey, ServingEndpoint},
+};
 
 use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
 
 mod legacy;
 pub mod migration;
-
-#[derive(
-    Serialize,
-    Deserialize,
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Debug,
-    TypeInfo,
-    MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(AccountId))]
-pub enum RateLimitUsageKey<AccountId: Parameter> {
-    Account(AccountId),
-    Subnet(NetUid),
-    AccountSubnet {
-        account: AccountId,
-        netuid: NetUid,
-    },
-    ColdkeyHotkeySubnet {
-        coldkey: AccountId,
-        hotkey: AccountId,
-        netuid: NetUid,
-    },
-    SubnetNeuron {
-        netuid: NetUid,
-        uid: u16,
-    },
-    SubnetMechanismNeuron {
-        netuid: NetUid,
-        mecid: MechId,
-        uid: u16,
-    },
-    AccountSubnetServing {
-        account: AccountId,
-        netuid: NetUid,
-        endpoint: ServingEndpoint,
-    },
-}
-
-#[derive(
-    Serialize,
-    Deserialize,
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Debug,
-    TypeInfo,
-    MaxEncodedLen,
-)]
-pub enum ServingEndpoint {
-    Axon,
-    Prometheus,
-}
 
 #[derive(Default)]
 pub struct ScopeResolver;

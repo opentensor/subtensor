@@ -4,8 +4,7 @@ use frame_support::traits::OnRuntimeUpgrade;
 use frame_system::pallet_prelude::BlockNumberFor;
 use node_subtensor_runtime::{
     BuildStorage, Runtime, RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, RuntimeScopeResolver,
-    RuntimeUsageResolver, SubtensorModule, System, rate_limiting::RateLimitUsageKey,
-    rate_limiting::migration::Migration,
+    RuntimeUsageResolver, SubtensorModule, System, rate_limiting::migration::Migration,
 };
 use pallet_rate_limiting::{RateLimitScopeResolver, RateLimitUsageResolver};
 use pallet_rate_limiting::{RateLimitTarget, TransactionIdentifier};
@@ -17,7 +16,10 @@ use pallet_subtensor::{
 };
 use sp_core::{H160, ecdsa};
 use sp_runtime::traits::SaturatedConversion;
-use subtensor_runtime_common::{NetUid, NetUidStorageIndex, rate_limiting::GroupId};
+use subtensor_runtime_common::{
+    NetUid, NetUidStorageIndex,
+    rate_limiting::{GroupId, RateLimitUsageKey},
+};
 
 type AccountId = <Runtime as frame_system::Config>::AccountId;
 type UsageKey = RateLimitUsageKey<AccountId>;

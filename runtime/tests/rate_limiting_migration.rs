@@ -5,15 +5,18 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_rate_limiting::{RateLimit, RateLimitKind, RateLimitTarget, TransactionIdentifier};
 use pallet_subtensor::{HasMigrationRun, LastRateLimitedBlock, RateLimitKey};
 use sp_runtime::traits::SaturatedConversion;
-use subtensor_runtime_common::{NetUid, rate_limiting::GROUP_REGISTER_NETWORK};
+use subtensor_runtime_common::{
+    NetUid,
+    rate_limiting::{GROUP_REGISTER_NETWORK, RateLimitUsageKey},
+};
 
 use node_subtensor_runtime::{
-    BuildStorage, Runtime, RuntimeGenesisConfig, SubtensorModule, System, rate_limiting,
+    BuildStorage, Runtime, RuntimeGenesisConfig, SubtensorModule, System,
     rate_limiting::migration::{MIGRATION_NAME, Migration},
 };
 
 type AccountId = <Runtime as frame_system::Config>::AccountId;
-type UsageKey = rate_limiting::RateLimitUsageKey<AccountId>;
+type UsageKey = RateLimitUsageKey<AccountId>;
 
 fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();

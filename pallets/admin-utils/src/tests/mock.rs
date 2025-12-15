@@ -8,6 +8,7 @@ use frame_support::{
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureRoot, limits};
+use rate_limiting_interface::{RateLimitingInfo, TryIntoRateLimitTarget};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
@@ -19,7 +20,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoCurrency, rate_limiting::RateLimitUsageKey};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 // Configure a mock runtime to test the pallet.
@@ -224,6 +225,7 @@ impl pallet_subtensor::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type RateLimiting = NoRateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
@@ -354,6 +356,33 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 pub struct CommitmentsI;
 impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
     fn purge_netuid(_netuid: NetUid) {}
+}
+
+pub struct NoRateLimiting;
+
+impl RateLimitingInfo for NoRateLimiting {
+    type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
+    type CallMetadata = RuntimeCall;
+    type Limit = u64;
+    type Scope = subtensor_runtime_common::NetUid;
+    type UsageKey = RateLimitUsageKey<AccountId>;
+
+    fn rate_limit<TargetArg>(_target: TargetArg, _scope: Option<Self::Scope>) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
+
+    fn last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+    ) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
 }
 
 pub struct GrandpaInterfaceImpl;

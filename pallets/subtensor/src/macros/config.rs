@@ -8,6 +8,7 @@ mod config {
 
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use pallet_commitments::GetCommitments;
+    use rate_limiting_interface::RateLimitingInfo;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -55,6 +56,17 @@ mod config {
 
         ///  Interface to clean commitments on network dissolution.
         type CommitmentsInterface: CommitmentsInterface;
+
+        /// Read-only interface for querying rate limiting configuration and usage.
+        type RateLimiting: RateLimitingInfo<
+                GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+                CallMetadata = <Self as Config>::RuntimeCall,
+                Limit = BlockNumberFor<Self>,
+                Scope = subtensor_runtime_common::NetUid,
+                UsageKey = subtensor_runtime_common::rate_limiting::RateLimitUsageKey<
+                    Self::AccountId,
+                >,
+            >;
 
         /// Rate limit for associating an EVM key.
         type EvmKeyAssociateRateLimit: Get<u64>;

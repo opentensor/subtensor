@@ -102,11 +102,12 @@ use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 pub use rate_limiting::{
-    RateLimitUsageKey, ScopeResolver as RuntimeScopeResolver, UsageResolver as RuntimeUsageResolver,
+    ScopeResolver as RuntimeScopeResolver, UsageResolver as RuntimeUsageResolver,
 };
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+pub use subtensor_runtime_common::rate_limiting::RateLimitUsageKey;
 
 // Drand
 impl pallet_drand::Config for Runtime {
@@ -1135,6 +1136,7 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type RateLimiting = RateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 

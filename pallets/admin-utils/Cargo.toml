@@ -38,6 +38,7 @@ sp-core.workspace = true
 sp-io.workspace = true
 sp-tracing.workspace = true
 sp-consensus-aura.workspace = true
+rate-limiting-interface.workspace = true
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler.workspace = true
 pallet-grandpa.workspace = true
@@ -75,6 +76,7 @@ std = [
 	"substrate-fixed/std",
 	"subtensor-swap-interface/std",
 	"subtensor-runtime-common/std",
+	"rate-limiting-interface/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

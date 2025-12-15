@@ -150,49 +150,6 @@ pub use types::{
     RateLimitUsageResolver,
 };
 
-impl<T: pallet::Config<I>, I: 'static> RateLimitingInfo for pallet::Pallet<T, I> {
-    type GroupId = <T as pallet::Config<I>>::GroupId;
-    type CallMetadata = <T as pallet::Config<I>>::RuntimeCall;
-    type Limit = frame_system::pallet_prelude::BlockNumberFor<T>;
-    type Scope = <T as pallet::Config<I>>::LimitScope;
-    type UsageKey = <T as pallet::Config<I>>::UsageKey;
-
-    fn rate_limit<TargetArg>(target: TargetArg, scope: Option<Self::Scope>) -> Option<Self::Limit>
-    where
-        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
-    {
-        let raw_target = target
-            .try_into_rate_limit_target::<Self::CallMetadata>()
-            .ok()?;
-        let config_target = match raw_target {
-            // A transaction identifier may be assigned to a group; resolve the effective storage
-            // target.
-            RateLimitTarget::Transaction(identifier) => Self::config_target(&identifier).ok()?,
-            _ => raw_target,
-        };
-        Self::resolved_limit(&config_target, &scope)
-    }
-
-    fn last_seen<TargetArg>(
-        target: TargetArg,
-        usage_key: Option<Self::UsageKey>,
-    ) -> Option<Self::Limit>
-    where
-        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
-    {
-        let raw_target = target
-            .try_into_rate_limit_target::<Self::CallMetadata>()
-            .ok()?;
-        let usage_target = match raw_target {
-            // A transaction identifier may be assigned to a group; resolve the effective storage
-            // target.
-            RateLimitTarget::Transaction(identifier) => Self::usage_target(&identifier).ok()?,
-            _ => raw_target,
-        };
-        pallet::LastSeen::<T, I>::get(usage_target, usage_key)
-    }
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod tx_extension;
@@ -1330,5 +1287,48 @@ pub mod pallet {
 
             Ok(())
         }
+    }
+}
+
+impl<T: pallet::Config<I>, I: 'static> RateLimitingInfo for pallet::Pallet<T, I> {
+    type GroupId = <T as pallet::Config<I>>::GroupId;
+    type CallMetadata = <T as pallet::Config<I>>::RuntimeCall;
+    type Limit = frame_system::pallet_prelude::BlockNumberFor<T>;
+    type Scope = <T as pallet::Config<I>>::LimitScope;
+    type UsageKey = <T as pallet::Config<I>>::UsageKey;
+
+    fn rate_limit<TargetArg>(target: TargetArg, scope: Option<Self::Scope>) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        let raw_target = target
+            .try_into_rate_limit_target::<Self::CallMetadata>()
+            .ok()?;
+        let config_target = match raw_target {
+            // A transaction identifier may be assigned to a group; resolve the effective storage
+            // target.
+            RateLimitTarget::Transaction(identifier) => Self::config_target(&identifier).ok()?,
+            _ => raw_target,
+        };
+        Self::resolved_limit(&config_target, &scope)
+    }
+
+    fn last_seen<TargetArg>(
+        target: TargetArg,
+        usage_key: Option<Self::UsageKey>,
+    ) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        let raw_target = target
+            .try_into_rate_limit_target::<Self::CallMetadata>()
+            .ok()?;
+        let usage_target = match raw_target {
+            // A transaction identifier may be assigned to a group; resolve the effective storage
+            // target.
+            RateLimitTarget::Transaction(identifier) => Self::usage_target(&identifier).ok()?,
+            _ => raw_target,
+        };
+        pallet::LastSeen::<T, I>::get(usage_target, usage_key)
     }
 }
