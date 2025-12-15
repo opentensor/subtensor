@@ -5,10 +5,11 @@ use crate::tests::mock::{
     run_to_block,
 };
 use crate::{
-    DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
-    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
-    SubnetTAO, SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
+    DefaultMinRootClaimAmount, Error, GetTaoForAlpha, MAX_NUM_ROOT_CLAIMS,
+    MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys,
+    PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold, StakingColdkeys,
+    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice, SubnetTAO,
+    SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
 };
 use crate::{Event, RootAlphaDividendsPerSubnet};
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed, ValidatorClaimType};
@@ -22,7 +23,7 @@ use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{Order, SwapHandler};
 
 #[test]
 fn test_claim_root_set_claim_type() {
@@ -46,7 +47,9 @@ fn test_claim_root_with_drain_emissions() {
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
 
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::saturating_from_num(1));
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000_000u64));
 
         let root_stake = 2_000_000u64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -140,6 +143,28 @@ fn test_claim_root_with_drain_emissions() {
 
         let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
         assert_eq!(u128::from(new_stake), claimed);
+
+        // Check tao flow
+        let moving_price = SubnetMovingPrice::<Test>::get(netuid).saturating_to_num::<u64>();
+        let order = GetTaoForAlpha::<Test>::with_amount(new_stake);
+
+        let swapped_tao = <Test as pallet::Config>::SwapInterface::swap(
+            netuid.into(),
+            order,
+            moving_price.into(),
+            true,
+            true,
+        )
+        .expect("Swap must work here");
+
+        let tao_inflow: u64 =
+            SubtensorModule::calculate_tao_flow(netuid, swapped_tao.amount_paid_out).into();
+
+        assert_abs_diff_eq!(
+            SubnetTaoFlow::<Test>::get(netuid),
+            tao_inflow as i64,
+            epsilon = 10i64,
+        );
 
         // Distribute pending root alpha (round 2)
 
@@ -684,11 +709,9 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         );
 
         // Check tao flow
-        let tao_outflow: u64 = SubtensorModule::calculate_tao_outflow(
-            netuid,
-            (estimated_stake_increment as u64).into(),
-        )
-        .into();
+        let tao_outflow: u64 =
+            SubtensorModule::calculate_tao_flow(netuid, (estimated_stake_increment as u64).into())
+                .into();
 
         assert_abs_diff_eq!(
             SubnetTaoFlow::<Test>::get(netuid),
@@ -2168,7 +2191,7 @@ fn test_claim_root_keep_subnets_swap_claim_type() {
 }
 
 #[test]
-fn test_claim_root_calculate_tao_outflow() {
+fn test_claim_root_calculate_tao_flow() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
@@ -2185,23 +2208,20 @@ fn test_claim_root_calculate_tao_outflow() {
         let tao_reserve = TaoCurrency::from(1_000_000_000_000u64);
         SubnetTAO::<Test>::insert(NetUid::ROOT, tao_reserve);
 
-        let tao_outflow_unbounded: u64 =
-            SubtensorModule::calculate_tao_outflow(netuid, tao_amount.into()).into();
+        let tao_flow_unbounded: u64 =
+            SubtensorModule::calculate_tao_flow(netuid, tao_amount.into()).into();
 
-        assert_abs_diff_eq!(tao_outflow_unbounded, tao_amount, epsilon = 1u64,);
+        assert_abs_diff_eq!(tao_flow_unbounded, tao_amount, epsilon = 1u64,);
 
-        // Check bounded tao outflow (coefficient > 10).
+        // Check bounded tao flow (coefficient > 10).
         let tao_reserve = TaoCurrency::from(10_000_000_000u64);
         SubnetTAO::<Test>::insert(NetUid::ROOT, tao_reserve);
 
-        let tao_outflow_bounded: u64 =
-            SubtensorModule::calculate_tao_outflow(netuid, tao_amount.into()).into();
+        let tao_flow_bounded: u64 =
+            SubtensorModule::calculate_tao_flow(netuid, tao_amount.into()).into();
         let bounded_root_prop_multiplier = 10u64;
 
-        assert_eq!(
-            tao_outflow_bounded,
-            bounded_root_prop_multiplier * tao_amount,
-        );
+        assert_eq!(tao_flow_bounded, bounded_root_prop_multiplier * tao_amount,);
     });
 }
 

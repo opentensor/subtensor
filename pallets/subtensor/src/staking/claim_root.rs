@@ -3,7 +3,7 @@ use frame_support::weights::Weight;
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::{I96F32, U96F32};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{Order, SwapHandler};
 
 impl<T: Config> Pallet<T> {
     pub fn block_hash_to_indices(block_hash: T::Hash, k: u64, n: u64) -> Vec<u64> {
@@ -190,8 +190,7 @@ impl<T: Config> Pallet<T> {
                 }
             };
 
-            let recorded_tao_outflow =
-                Self::calculate_tao_outflow(netuid, owed_tao.amount_paid_out);
+            let recorded_tao_outflow = Self::calculate_tao_flow(netuid, owed_tao.amount_paid_out);
 
             // Importantly measures swap as flow.
             Self::record_tao_outflow(netuid, recorded_tao_outflow.into());
@@ -218,6 +217,26 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 owed_u64.into(),
             );
+
+            // Record simulated swapped TAO as in flow.
+            let moving_price = SubnetMovingPrice::<T>::get(netuid).saturating_to_num::<u64>();
+            let order = GetTaoForAlpha::<T>::with_amount(owed_u64);
+
+            let owed_tao =
+                match T::SwapInterface::swap(netuid.into(), order, moving_price.into(), true, true)
+                {
+                    Ok(owed_tao) => owed_tao,
+                    Err(err) => {
+                        log::error!("Error sim swapping alpha for TAO: {err:?}");
+
+                        return;
+                    }
+                };
+
+            // Apply root_prop multiplier
+            let recorded_tao_inflow = Self::calculate_tao_flow(netuid, owed_tao.amount_paid_out);
+
+            Self::record_tao_inflow(netuid, recorded_tao_inflow.into());
         }
 
         // Increase root claimed by owed amount.
@@ -228,7 +247,7 @@ impl<T: Config> Pallet<T> {
 
     // Calculates root proportion for subnet, uses "1 / root_prop" (with 10 as an upper bound) as
     // a multiplier for provided Tao amount.
-    pub(crate) fn calculate_tao_outflow(netuid: NetUid, amount: TaoCurrency) -> TaoCurrency {
+    pub(crate) fn calculate_tao_flow(netuid: NetUid, amount: TaoCurrency) -> TaoCurrency {
         let root_tao: U96F32 = U96F32::saturating_from_num(SubnetTAO::<T>::get(NetUid::ROOT));
         let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
         let alpha_issuance: U96F32 = U96F32::saturating_from_num(Self::get_alpha_issuance(netuid));
@@ -250,9 +269,9 @@ impl<T: Config> Pallet<T> {
         };
 
         let tao = U96F32::saturating_from_num(amount.to_u64());
-        let recorded_tao_outflow: u64 = tao.saturating_mul(root_prop_multiplier).to_num();
+        let recorded_tao_flow: u64 = tao.saturating_mul(root_prop_multiplier).to_num();
 
-        recorded_tao_outflow.into()
+        recorded_tao_flow.into()
     }
 
     fn root_claim_on_subnet_weight(_root_claim_type: RootClaimTypeEnum) -> Weight {
