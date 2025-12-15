@@ -44,7 +44,7 @@ where
     const IDENTIFIER: &'static str = "SudoTransactionExtension";
 
     type Implicit = ();
-    type Val = Option<T::AccountId>;
+    type Val = ();
     type Pre = ();
 
     impl_tx_ext_default!(<T as Config>::RuntimeCall; weight prepare);
@@ -61,7 +61,7 @@ where
     ) -> ValidateResult<Self::Val, <T as Config>::RuntimeCall> {
         // Ensure the transaction is signed, else we just skip the extension.
         let Some(who) = origin.as_system_origin_signer() else {
-            return Ok((Default::default(), None, origin));
+            return Ok((Default::default(), (), origin));
         };
 
         // Check validity of the signer for sudo call
@@ -79,6 +79,6 @@ where
             }
         }
 
-        Ok((Default::default(), Some(who.clone()), origin))
+        Ok((Default::default(), (), origin))
     }
 }
