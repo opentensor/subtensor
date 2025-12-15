@@ -3,21 +3,20 @@
 #![allow(clippy::multiple_bound_locations)]
 
 use core::marker::PhantomData;
-
 use frame_benchmarking::v2::*;
-use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
 
 use crate::{
     pallet::{
-        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, Pallet, Positions,
-        SwapV3Initialized,
+        Call, Config, Pallet, PositionsV2,
     },
     position::{Position, PositionId},
-    tick::TickIndex,
 };
+
+fn init_swap<T: Config>(netuid: NetUid) {
+    let _ = Pallet::<T>::maybe_initialize_palswap(netuid);
+}
 
 #[benchmarks(where T: Config)]
 mod benchmarks {
@@ -36,25 +35,16 @@ mod benchmarks {
     fn add_liquidity() {
         let netuid = NetUid::from(1);
 
-        if !SwapV3Initialized::<T>::get(netuid) {
-            SwapV3Initialized::<T>::insert(netuid, true);
-            AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
-            CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
-            CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
-        }
+        init_swap::<T>(netuid);
 
         let caller: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("hotkey", 0, 0);
-        let tick_low = TickIndex::new_unchecked(-1000);
-        let tick_high = TickIndex::new_unchecked(1000);
 
         #[extrinsic_call]
         add_liquidity(
             RawOrigin::Signed(caller),
             hotkey,
             netuid,
-            tick_low,
-            tick_high,
             1000,
         );
     }
@@ -63,27 +53,20 @@ mod benchmarks {
     fn remove_liquidity() {
         let netuid = NetUid::from(1);
 
-        if !SwapV3Initialized::<T>::get(netuid) {
-            SwapV3Initialized::<T>::insert(netuid, true);
-            AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
-            CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
-            CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
-        }
+        init_swap::<T>(netuid);
 
         let caller: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("hotkey", 0, 0);
         let id = PositionId::from(1u128);
 
-        Positions::<T>::insert(
+        PositionsV2::<T>::insert(
             (netuid, caller.clone(), id),
             Position {
                 id,
                 netuid,
-                tick_low: TickIndex::new(-10000).unwrap(),
-                tick_high: TickIndex::new(10000).unwrap(),
-                liquidity: 1000,
-                fees_tao: I64F64::from_num(0),
-                fees_alpha: I64F64::from_num(0),
+                // liquidity: 1000,
+                // fees_tao: I64F64::from_num(0),
+                // fees_alpha: I64F64::from_num(0),
                 _phantom: PhantomData,
             },
         );
@@ -96,27 +79,20 @@ mod benchmarks {
     fn modify_position() {
         let netuid = NetUid::from(1);
 
-        if !SwapV3Initialized::<T>::get(netuid) {
-            SwapV3Initialized::<T>::insert(netuid, true);
-            AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
-            CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
-            CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
-        }
+        init_swap::<T>(netuid);
 
         let caller: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("hotkey", 0, 0);
         let id = PositionId::from(1u128);
 
-        Positions::<T>::insert(
+        PositionsV2::<T>::insert(
             (netuid, caller.clone(), id),
             Position {
                 id,
                 netuid,
-                tick_low: TickIndex::new(-10000).unwrap(),
-                tick_high: TickIndex::new(10000).unwrap(),
-                liquidity: 10000,
-                fees_tao: I64F64::from_num(0),
-                fees_alpha: I64F64::from_num(0),
+                // liquidity: 10000,
+                // fees_tao: I64F64::from_num(0),
+                // fees_alpha: I64F64::from_num(0),
                 _phantom: PhantomData,
             },
         );

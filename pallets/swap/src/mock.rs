@@ -14,13 +14,15 @@ use sp_runtime::{
     BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use substrate_fixed::types::U64F64;
+// use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaCurrency, BalanceOps, 
+    // Currency, 
+    CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
 use subtensor_swap_interface::Order;
 
-use crate::pallet::{EnabledUserLiquidity, FeeGlobalAlpha, FeeGlobalTao};
+use crate::pallet::EnabledUserLiquidity;
 
 construct_runtime!(
     pub enum Test {
@@ -123,22 +125,7 @@ impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
 pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;
 pub type GetTaoForAlpha = subtensor_swap_interface::GetTaoForAlpha<AlphaReserve, TaoReserve>;
 
-pub(crate) trait GlobalFeeInfo: Currency {
-    fn global_fee(&self, netuid: NetUid) -> U64F64;
-}
-
-impl GlobalFeeInfo for TaoCurrency {
-    fn global_fee(&self, netuid: NetUid) -> U64F64 {
-        FeeGlobalTao::<Test>::get(netuid)
-    }
-}
-
-impl GlobalFeeInfo for AlphaCurrency {
-    fn global_fee(&self, netuid: NetUid) -> U64F64 {
-        FeeGlobalAlpha::<Test>::get(netuid)
-    }
-}
-
+#[allow(dead_code)]
 pub(crate) trait TestExt<O: Order> {
     fn approx_expected_swap_output(
         sqrt_current_price: f64,

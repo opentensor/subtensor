@@ -3,7 +3,7 @@ use frame_support::traits::Get;
 use safe_math::*;
 use substrate_fixed::{
     transcendental::log2,
-    types::{I96F32, U96F32},
+    types::{I96F32, U64F64},
 };
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
@@ -36,15 +36,15 @@ impl<T: Config> Pallet<T> {
         alpha_block_emission: u64,
     ) -> (u64, u64, u64) {
         // Init terms.
-        let mut tao_in_emission: U96F32 = U96F32::saturating_from_num(tao_emission);
-        let float_alpha_block_emission: U96F32 = U96F32::saturating_from_num(alpha_block_emission);
+        let mut tao_in_emission: U64F64 = U64F64::saturating_from_num(tao_emission);
+        let float_alpha_block_emission: U64F64 = U64F64::saturating_from_num(alpha_block_emission);
 
         // Get alpha price for subnet.
         let alpha_price = T::SwapInterface::current_alpha_price(netuid.into());
         log::debug!("{netuid:?} - alpha_price: {alpha_price:?}");
 
         // Get initial alpha_in
-        let mut alpha_in_emission: U96F32 = U96F32::saturating_from_num(tao_emission)
+        let mut alpha_in_emission: U64F64 = U64F64::saturating_from_num(tao_emission)
             .checked_div(alpha_price)
             .unwrap_or(float_alpha_block_emission);
 
@@ -62,11 +62,13 @@ impl<T: Config> Pallet<T> {
         }
 
         // Avoid rounding errors.
-        if tao_in_emission < U96F32::saturating_from_num(1)
-            || alpha_in_emission < U96F32::saturating_from_num(1)
+        let zero = U64F64::saturating_from_num(0);
+        let one = U64F64::saturating_from_num(1);
+        if tao_in_emission < one
+            || alpha_in_emission < one
         {
-            alpha_in_emission = U96F32::saturating_from_num(0);
-            tao_in_emission = U96F32::saturating_from_num(0);
+            alpha_in_emission = zero;
+            tao_in_emission = zero;
         }
 
         // Set Alpha in emission.

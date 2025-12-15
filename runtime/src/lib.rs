@@ -2491,10 +2491,10 @@ impl_runtime_apis! {
 
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
         fn current_alpha_price(netuid: NetUid) -> u64 {
-            use substrate_fixed::types::U96F32;
+            use substrate_fixed::types::U64F64;
 
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
-                .saturating_mul(U96F32::from_num(1_000_000_000))
+                .saturating_mul(U64F64::from_num(1_000_000_000))
                 .saturating_to_num()
         }
 
