@@ -987,6 +987,15 @@ pub(crate) fn last_event() -> RuntimeEvent {
     System::events().pop().expect("RuntimeEvent expected").event
 }
 
+pub(crate) fn nth_last_event(n: usize) -> RuntimeEvent {
+    System::events()
+        .into_iter()
+        .rev()
+        .nth(n)
+        .expect("RuntimeEvent expected")
+        .event
+}
+
 pub fn assert_last_event<T: frame_system::pallet::Config>(
     generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
 ) {

@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
         let delay = ColdkeySwapAnnouncementDelay::<T>::get();
         ensure!(
-            now > when.saturating_add(delay),
+            now >= when.saturating_add(delay),
             Error::<T>::SubnetLeaseIntoSaleSettledTooEarly
         );
 
@@ -248,7 +248,8 @@ impl<T: Config> Pallet<T> {
 
         for (contributor, amount) in contributions {
             // Compute the share of the contributor to the lease
-            let share: U64F64 = U64F64::from(amount).saturating_div(U64F64::from(crowdloan.raised));
+            let denominator = U64F64::from(crowdloan.raised.saturating_sub(crowdloan.deposit));
+            let share: U64F64 = U64F64::from(amount).saturating_div(denominator);
             SubnetLeaseShares::<T>::insert(lease_id, &contributor, share);
         }
 
@@ -260,7 +261,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         Self::deposit_event(Event::SubnetLeaseCreated {
-            beneficiary: who,
+            beneficiary: beneficiary.clone(),
             lease_id,
             netuid,
             end_block,

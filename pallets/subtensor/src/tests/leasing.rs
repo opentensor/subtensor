@@ -41,6 +41,9 @@ fn test_register_leased_network_works() {
         assert_eq!(lease.emissions_share, emissions_share);
         assert_eq!(lease.end_block, Some(end_block));
 
+        // Ensure the lease owns the subnet
+        assert_eq!(SubnetOwner::<Test>::get(lease.netuid), lease.coldkey);
+
         // Ensure the subnet exists
         assert!(SubnetMechanism::<Test>::contains_key(lease.netuid));
 
@@ -54,6 +57,7 @@ fn test_register_leased_network_works() {
         assert!(PROXIES.with_borrow(|proxies| proxies.0 == vec![(lease.coldkey, beneficiary)]));
 
         // Ensure the lease shares have been created for each contributor
+
         let contributor1_share = U64F64::from(contributions[0].1).saturating_div(U64F64::from(cap));
         assert_eq!(
             SubnetLeaseShares::<Test>::get(lease_id, contributions[0].0),
@@ -64,6 +68,14 @@ fn test_register_leased_network_works() {
             SubnetLeaseShares::<Test>::get(lease_id, contributions[1].0),
             contributor2_share
         );
+        let shares_count = SubnetLeaseShares::<Test>::iter_prefix(lease_id).count();
+        assert_eq!(shares_count, 2);
+
+        // Ensure the beneficiary has no lease shares because computed dynamically
+        assert!(!SubnetLeaseShares::<Test>::contains_key(
+            lease_id,
+            beneficiary
+        ));
 
         // Ensure the lease hotkey has 0 take from staking
         assert_eq!(SubtensorModule::get_hotkey_take(&lease.hotkey), 0);
@@ -1039,23 +1051,23 @@ fn test_distribute_lease_network_dividends_accumulates_if_insufficient_liquidity
 fn test_announce_subnet_sale_into_lease_works() {
     new_test_ext(1).execute_with(|| {
         let crowdloan_id = 0;
-        let creator = U256::from(1);
+        let seller = U256::from(1);
         setup_crowdloan!(
             crowdloan_id,
             0,
             100_000_000,
-            creator,
+            seller,
             vec![] as Vec<(U256, u64)>
         );
 
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
-        SubnetOwner::<Test>::insert(netuid, creator);
+        SubnetOwner::<Test>::insert(netuid, seller);
 
         let beneficiary = U256::from(2);
         let min_sale_price = TaoCurrency::from(100_000_000);
         assert_ok!(SubtensorModule::announce_subnet_sale_into_lease(
-            RuntimeOrigin::signed(creator),
+            RuntimeOrigin::signed(seller),
             netuid,
             beneficiary,
             min_sale_price,
@@ -1064,7 +1076,7 @@ fn test_announce_subnet_sale_into_lease_works() {
         let now = frame_system::Pallet::<Test>::block_number();
         assert_eq!(
             SubnetSaleIntoLeaseAnnouncements::<Test>::iter().collect::<Vec<_>>(),
-            vec![(creator, (now, beneficiary, netuid, crowdloan_id))]
+            vec![(seller, (now, beneficiary, netuid, crowdloan_id))]
         );
         assert_last_event::<Test>(RuntimeEvent::SubtensorModule(
             Event::SubnetSaleIntoLeaseAnnounced {
@@ -1109,7 +1121,7 @@ fn test_announce_subnet_sale_into_lease_fails_if_bad_origin() {
 fn test_announce_subnet_sale_into_lease_fails_if_coldkey_swap_announcement_exists() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        let creator = U256::from(1);
+        let seller = U256::from(1);
         let beneficiary = U256::from(2);
         let beneficiary_hash = <Test as frame_system::Config>::Hashing::hash_of(&beneficiary);
         let now = frame_system::Pallet::<Test>::block_number();
@@ -1118,15 +1130,15 @@ fn test_announce_subnet_sale_into_lease_fails_if_coldkey_swap_announcement_exist
             0,
             0,
             min_sale_price.to_u64(),
-            creator,
+            seller,
             vec![] as Vec<(U256, u64)>
         );
 
-        ColdkeySwapAnnouncements::<Test>::insert(creator, (now, beneficiary_hash));
+        ColdkeySwapAnnouncements::<Test>::insert(seller, (now, beneficiary_hash));
 
         assert_noop!(
             SubtensorModule::announce_subnet_sale_into_lease(
-                RuntimeOrigin::signed(creator),
+                RuntimeOrigin::signed(seller),
                 netuid,
                 beneficiary,
                 min_sale_price,
@@ -1141,7 +1153,7 @@ fn test_announce_subnet_sale_into_lease_fails_if_subnet_sale_into_lease_announce
     new_test_ext(1).execute_with(|| {
         let crowdloan_id = 0;
         let netuid = NetUid::from(1);
-        let creator = U256::from(1);
+        let seller = U256::from(1);
         let beneficiary = U256::from(2);
         let now = frame_system::Pallet::<Test>::block_number();
         let min_sale_price = TaoCurrency::from(100_000_000);
@@ -1149,18 +1161,18 @@ fn test_announce_subnet_sale_into_lease_fails_if_subnet_sale_into_lease_announce
             crowdloan_id,
             0,
             min_sale_price.to_u64(),
-            creator,
+            seller,
             vec![] as Vec<(U256, u64)>
         );
 
         SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
-            creator,
+            seller,
             (now, beneficiary, netuid, crowdloan_id),
         );
 
         assert_noop!(
             SubtensorModule::announce_subnet_sale_into_lease(
-                RuntimeOrigin::signed(creator),
+                RuntimeOrigin::signed(seller),
                 netuid,
                 beneficiary,
                 min_sale_price,
@@ -1174,14 +1186,14 @@ fn test_announce_subnet_sale_into_lease_fails_if_subnet_sale_into_lease_announce
 fn test_announce_subnet_sale_into_lease_fails_if_caller_doesnt_owns_subnet() {
     new_test_ext(1).execute_with(|| {
         let crowdloan_id = 0;
-        let creator = U256::from(1);
+        let seller = U256::from(1);
         let beneficiary = U256::from(2);
         let min_sale_price = TaoCurrency::from(100_000_000);
         setup_crowdloan!(
             crowdloan_id,
             0,
             min_sale_price.to_u64(),
-            creator,
+            seller,
             vec![] as Vec<(U256, u64)>
         );
 
@@ -1191,7 +1203,7 @@ fn test_announce_subnet_sale_into_lease_fails_if_caller_doesnt_owns_subnet() {
 
         assert_noop!(
             SubtensorModule::announce_subnet_sale_into_lease(
-                RuntimeOrigin::signed(creator),
+                RuntimeOrigin::signed(seller),
                 netuid,
                 beneficiary,
                 min_sale_price,
@@ -1205,27 +1217,27 @@ fn test_announce_subnet_sale_into_lease_fails_if_caller_doesnt_owns_subnet() {
 fn test_announce_subnet_sale_into_lease_fails_if_caller_owns_multiple_subnets() {
     new_test_ext(1).execute_with(|| {
         let crowdloan_id = 0;
-        let creator = U256::from(1);
+        let seller = U256::from(1);
         let beneficiary = U256::from(2);
         let min_sale_price = TaoCurrency::from(100_000_000);
         setup_crowdloan!(
             crowdloan_id,
             0,
             min_sale_price.to_u64(),
-            creator,
+            seller,
             vec![] as Vec<(U256, u64)>
         );
 
         let netuid1 = NetUid::from(1);
         add_network(netuid1, 1, 0);
-        SubnetOwner::<Test>::insert(netuid1, creator);
+        SubnetOwner::<Test>::insert(netuid1, seller);
         let netuid2 = NetUid::from(2);
         add_network(netuid2, 1, 0);
-        SubnetOwner::<Test>::insert(netuid2, creator);
+        SubnetOwner::<Test>::insert(netuid2, seller);
 
         assert_noop!(
             SubtensorModule::announce_subnet_sale_into_lease(
-                RuntimeOrigin::signed(creator),
+                RuntimeOrigin::signed(seller),
                 netuid1,
                 beneficiary,
                 min_sale_price,
@@ -1236,11 +1248,116 @@ fn test_announce_subnet_sale_into_lease_fails_if_caller_owns_multiple_subnets() 
 }
 
 #[test]
+fn test_settle_subnet_sale_into_lease_works() {
+    new_test_ext(1).execute_with(|| {
+        let crowdloan_id = 0;
+        let deposit = 10_000_000_000;
+        let seller = U256::from(1);
+        let beneficiary = U256::from(2);
+        let now = frame_system::Pallet::<Test>::block_number();
+        let min_sale_price = TaoCurrency::from(100_000_000_000);
+        let contributions = vec![
+            (beneficiary, 80_000_000_000u64),
+            (U256::from(3), 10_000_000_000),
+            (U256::from(4), 10_000_000_000),
+        ];
+        setup_crowdloan!(
+            crowdloan_id,
+            deposit,
+            min_sale_price.to_u64(),
+            seller,
+            contributions.clone()
+        );
+
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+        SubnetOwner::<Test>::insert(netuid, seller);
+
+        SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
+            seller,
+            (now, beneficiary, netuid, crowdloan_id),
+        );
+
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
+        run_to_block(now + delay);
+
+        assert_ok!(SubtensorModule::settle_subnet_sale_into_lease(
+            RuntimeOrigin::signed(seller),
+        ));
+
+        // Ensure the lease was created
+        let lease_id = 0;
+        let lease = SubnetLeases::<Test>::get(lease_id).unwrap();
+        assert_eq!(lease.beneficiary, beneficiary);
+        assert_eq!(lease.emissions_share, Percent::from_percent(100));
+        assert_eq!(lease.end_block, None);
+
+        // Ensure the lease owns the subnet
+        assert_eq!(SubnetOwner::<Test>::get(lease.netuid), lease.coldkey);
+
+        // Ensure the subnet uid lease id mapping exists
+        assert_eq!(SubnetUidToLeaseId::<Test>::get(netuid), Some(lease_id));
+
+        // Ensure the beneficiary has been added as a proxy
+        assert!(PROXIES.with_borrow(|proxies| proxies.0 == vec![(lease.coldkey, beneficiary)]));
+
+        // Ensure lease shares have been created for each contributor
+        let contributor1_share = U64F64::from(contributions[1].1)
+            .saturating_div(U64F64::from(min_sale_price.to_u64() - deposit));
+        assert_eq!(
+            SubnetLeaseShares::<Test>::get(lease_id, contributions[1].0),
+            contributor1_share
+        );
+        let contributor2_share = U64F64::from(contributions[2].1)
+            .saturating_div(U64F64::from(min_sale_price.to_u64() - deposit));
+        assert_eq!(
+            SubnetLeaseShares::<Test>::get(lease_id, contributions[2].0),
+            contributor2_share
+        );
+        let shares_count = SubnetLeaseShares::<Test>::iter_prefix(lease_id).count();
+        assert_eq!(shares_count, 2);
+
+        // Ensure the beneficiary has no lease shares because computed dynamically
+        assert!(!SubnetLeaseShares::<Test>::contains_key(
+            lease_id,
+            beneficiary
+        ));
+
+        // Ensure the lease hotkey has 0 take from staking
+        assert_eq!(SubtensorModule::get_hotkey_take(&lease.hotkey), 0);
+
+        // Ensure the seller has been paid the leftover sale price
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&seller),
+            min_sale_price.to_u64() - lease.cost
+        );
+
+        // Ensure events are emitted
+        assert_eq!(
+            nth_last_event(1),
+            RuntimeEvent::SubtensorModule(Event::SubnetLeaseCreated {
+                beneficiary,
+                lease_id,
+                netuid,
+                end_block: None
+            })
+        );
+        assert_eq!(
+            nth_last_event(0),
+            RuntimeEvent::SubtensorModule(Event::SubnetSaleIntoLeaseSettled {
+                beneficiary,
+                netuid
+            })
+        );
+    });
+}
+
+#[test]
 fn test_cancel_subnet_sale_into_lease_works() {
     new_test_ext(1).execute_with(|| {
         let crowdloan_id = 0;
         let deposit = 10_000_000_000;
-        let creator = U256::from(1);
+        let seller = U256::from(1);
         let beneficiary = U256::from(2);
         let now = frame_system::Pallet::<Test>::block_number();
         let min_sale_price = TaoCurrency::from(100_000_000_000);
@@ -1248,19 +1365,19 @@ fn test_cancel_subnet_sale_into_lease_works() {
             crowdloan_id,
             deposit,
             min_sale_price.to_u64(),
-            creator,
+            seller,
             vec![
                 (beneficiary, 80_000_000_000u64),
-                (U256::from(3), 100_000_000)
+                (U256::from(3), 10_000_000_000)
             ]
         );
 
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
-        SubnetOwner::<Test>::insert(netuid, creator);
+        SubnetOwner::<Test>::insert(netuid, seller);
 
         SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
-            creator,
+            seller,
             (now, beneficiary, netuid, crowdloan_id),
         );
         pallet_crowdloan::Crowdloans::<Test>::mutate(crowdloan_id, |crowdloan| {
@@ -1271,12 +1388,12 @@ fn test_cancel_subnet_sale_into_lease_works() {
 
         // We can't refund a finalized crowdloan
         assert_noop!(
-            pallet_crowdloan::Pallet::<Test>::refund(RuntimeOrigin::signed(creator), crowdloan_id),
+            pallet_crowdloan::Pallet::<Test>::refund(RuntimeOrigin::signed(seller), crowdloan_id),
             pallet_crowdloan::Error::<Test>::AlreadyFinalized
         );
 
         assert_ok!(SubtensorModule::cancel_subnet_sale_into_lease(
-            RuntimeOrigin::signed(creator),
+            RuntimeOrigin::signed(seller),
         ));
 
         assert_eq!(
@@ -1289,7 +1406,7 @@ fn test_cancel_subnet_sale_into_lease_works() {
 
         // We can emit refunds for the crowdloan
         assert_ok!(pallet_crowdloan::Pallet::<Test>::refund(
-            RuntimeOrigin::signed(creator),
+            RuntimeOrigin::signed(seller),
             crowdloan_id
         ));
     });
@@ -1299,12 +1416,12 @@ fn test_cancel_subnet_sale_into_lease_works() {
 fn test_cancel_subnet_sale_into_lease_fails_if_bad_origin() {
     new_test_ext(1).execute_with(|| {
         let crowdloan_id = 0;
-        let creator = U256::from(1);
+        let seller = U256::from(1);
         setup_crowdloan!(
             crowdloan_id,
             0,
             100_000_000,
-            creator,
+            seller,
             vec![] as Vec<(U256, u64)>
         );
 
@@ -1324,17 +1441,17 @@ fn test_cancel_subnet_sale_into_lease_fails_if_bad_origin() {
 fn test_cancel_subnet_sale_into_lease_fails_if_no_subnet_sale_into_lease_announcement_exists() {
     new_test_ext(1).execute_with(|| {
         let crowdloan_id = 0;
-        let creator = U256::from(1);
+        let seller = U256::from(1);
         setup_crowdloan!(
             crowdloan_id,
             0,
             100_000_000,
-            creator,
+            seller,
             vec![] as Vec<(U256, u64)>
         );
 
         assert_noop!(
-            SubtensorModule::cancel_subnet_sale_into_lease(RuntimeOrigin::signed(creator)),
+            SubtensorModule::cancel_subnet_sale_into_lease(RuntimeOrigin::signed(seller)),
             Error::<Test>::SubnetSaleIntoLeaseAnnouncementNotFound
         );
     });
@@ -1344,7 +1461,7 @@ fn test_cancel_subnet_sale_into_lease_fails_if_no_subnet_sale_into_lease_announc
 fn test_cancel_subnet_sale_into_lease_fails_if_crowdloan_does_not_exists() {
     new_test_ext(1).execute_with(|| {
         let crowdloan_id = 0;
-        let creator = U256::from(1);
+        let seller = U256::from(1);
         let beneficiary = U256::from(2);
         let now = frame_system::Pallet::<Test>::block_number();
         let netuid = NetUid::from(1);
@@ -1352,18 +1469,18 @@ fn test_cancel_subnet_sale_into_lease_fails_if_crowdloan_does_not_exists() {
             crowdloan_id,
             0,
             100_000_000,
-            creator,
+            seller,
             vec![] as Vec<(U256, u64)>
         );
 
         SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
-            creator,
+            seller,
             // Bogus crowdloan id
             (now, beneficiary, netuid, crowdloan_id + 1),
         );
 
         assert_noop!(
-            SubtensorModule::cancel_subnet_sale_into_lease(RuntimeOrigin::signed(creator)),
+            SubtensorModule::cancel_subnet_sale_into_lease(RuntimeOrigin::signed(seller)),
             pallet_crowdloan::Error::<Test>::InvalidCrowdloanId
         );
     });
