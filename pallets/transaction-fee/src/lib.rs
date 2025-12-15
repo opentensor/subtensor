@@ -67,7 +67,7 @@ pub trait AlphaFeeHandler<T: frame_system::Config> {
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: u64,
-    );
+    ) -> Result<(), DispatchError>;
     fn get_all_netuids_for_coldkey_and_hotkey(
         coldkey: &AccountIdOf<T>,
         hotkey: &AccountIdOf<T>,
@@ -159,14 +159,14 @@ where
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: u64,
-    ) {
+    ) -> Result<(), DispatchError> {
         if alpha_vec.is_empty() {
-            return;
+            return Ok(());
         }
 
         let tao_per_entry = tao_amount.checked_div(alpha_vec.len() as u64).unwrap_or(0);
 
-        alpha_vec.iter().for_each(|(hotkey, netuid)| {
+        for (hotkey, netuid) in alpha_vec.iter() {
             // Divide tao_amount evenly among all alpha entries
             let alpha_balance = U96F32::saturating_from_num(
                 pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -180,13 +180,20 @@ where
                 .min(alpha_balance)
                 .saturating_to_num::<u64>();
 
-            pallet_subtensor::Pallet::<T>::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                coldkey,
-                *netuid,
-                alpha_fee.into(),
+            let alpha_removed =
+                pallet_subtensor::Pallet::<T>::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey,
+                    coldkey,
+                    *netuid,
+                    alpha_fee.into(),
+                );
+            ensure!(
+                alpha_removed <= alpha_fee.into(),
+                "Alpha removed is greater than alpha fee"
             );
-        });
+        }
+
+        Ok(())
     }
 
     fn get_all_netuids_for_coldkey_and_hotkey(
@@ -308,7 +315,7 @@ where
 
     fn withdraw_fee(
         who: &AccountIdOf<T>,
-        _call: &CallOf<T>,
+        call: &CallOf<T>,
         _dispatch_info: &DispatchInfoOf<CallOf<T>>,
         fee: Self::Balance,
         _tip: Self::Balance,
@@ -327,12 +334,14 @@ where
         ) {
             Ok(imbalance) => Ok(Some(WithdrawnFee::Tao(imbalance))),
             Err(_) => {
-                // let alpha_vec = Self::fees_in_alpha::<T>(who, call);
-                // if !alpha_vec.is_empty() {
-                //     let fee_u64: u64 = fee.into();
-                //     OU::withdraw_in_alpha(who, &alpha_vec, fee_u64);
-                //     return Ok(Some(WithdrawnFee::Alpha));
-                // }
+                let alpha_vec = Self::fees_in_alpha::<T>(who, call);
+                if !alpha_vec.is_empty() {
+                    let fee_u64: u64 = fee.into();
+                    OU::withdraw_in_alpha(who, &alpha_vec, fee_u64).map_err(|_| {
+                        TransactionValidityError::Invalid(InvalidTransaction::Payment)
+                    })?;
+                    return Ok(Some(WithdrawnFee::Alpha));
+                }
                 Err(InvalidTransaction::Payment.into())
             }
         }
@@ -340,7 +349,7 @@ where
 
     fn can_withdraw_fee(
         who: &AccountIdOf<T>,
-        _call: &CallOf<T>,
+        call: &CallOf<T>,
         _dispatch_info: &DispatchInfoOf<CallOf<T>>,
         fee: Self::Balance,
         _tip: Self::Balance,
@@ -353,14 +362,14 @@ where
         match F::can_withdraw(who, fee) {
             WithdrawConsequence::Success => Ok(()),
             _ => {
-                // // Fallback to fees in Alpha if possible
-                // let alpha_vec = Self::fees_in_alpha::<T>(who, call);
-                // if !alpha_vec.is_empty() {
-                //     let fee_u64: u64 = fee.into();
-                //     if OU::can_withdraw_in_alpha(who, &alpha_vec, fee_u64) {
-                //         return Ok(());
-                //     }
-                // }
+                // Fallback to fees in Alpha if possible
+                let alpha_vec = Self::fees_in_alpha::<T>(who, call);
+                if !alpha_vec.is_empty() {
+                    let fee_u64: u64 = fee.into();
+                    if OU::can_withdraw_in_alpha(who, &alpha_vec, fee_u64) {
+                        return Ok(());
+                    }
+                }
                 Err(InvalidTransaction::Payment.into())
             }
         }
