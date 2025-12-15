@@ -3980,3 +3980,39 @@ fn test_root_proportion() {
         assert_eq!(actual_root_proportion, expected_root_prop);
     });
 }
+
+#[test]
+fn test_get_subnet_terms_alpha_emissions_cap() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(10);
+        let owner_coldkey = U256::from(11);
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let tao_block_emission: U96F32 = U96F32::saturating_from_num(
+            SubtensorModule::get_block_emission()
+                .unwrap_or(TaoCurrency::ZERO)
+                .to_u64(),
+        );
+
+        // price = 1.0
+        // tao_block_emission = 1000000000
+        // tao_block_emission == alpha_emission_i
+        // alpha_in_i <= alpha_injection_cap
+        let emissions1 = U96F32::from_num(100_000_000);
+
+        let subnet_emissions1 = BTreeMap::from([(netuid, emissions1)]);
+        let (_, alpha_in, _, _) = SubtensorModule::get_subnet_terms(&subnet_emissions1);
+
+        assert_eq!(alpha_in.get(&netuid).copied().unwrap(), emissions1);
+
+        // price = 1.0
+        // tao_block_emission = 1000000000
+        // tao_block_emission == alpha_emission_i
+        // alpha_in_i > alpha_injection_cap
+        let emissions2 = U96F32::from_num(10_000_000_000u64);
+
+        let subnet_emissions2 = BTreeMap::from([(netuid, emissions2)]);
+        let (_, alpha_in, _, _) = SubtensorModule::get_subnet_terms(&subnet_emissions2);
+
+        assert_eq!(alpha_in.get(&netuid).copied().unwrap(), tao_block_emission);
+    });
+}
