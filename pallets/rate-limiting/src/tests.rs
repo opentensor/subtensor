@@ -2,8 +2,9 @@ use frame_support::{assert_noop, assert_ok};
 use sp_std::vec::Vec;
 
 use crate::{
-    CallGroups, CallReadOnly, Config, GroupMembers, GroupSharing, LastSeen, Limits, RateLimit,
-    RateLimitKind, RateLimitTarget, TransactionIdentifier, mock::*, pallet::Error,
+    CallGroups, CallReadOnly, Config, GroupMembers, GroupSharing, LastSeen, LimitSettingRules,
+    Limits, RateLimit, RateLimitKind, RateLimitTarget, TransactionIdentifier, mock::*,
+    pallet::Error,
 };
 use frame_support::traits::Get;
 
@@ -44,6 +45,45 @@ fn create_group(name: &[u8], sharing: GroupSharing) -> GroupId {
 
 fn last_event() -> RuntimeEvent {
     pop_last_event()
+}
+
+#[test]
+fn set_rate_limit_respects_limit_setting_rule() {
+    new_test_ext().execute_with(|| {
+        let identifier = register(remark_call(), None);
+        let tx_target = target(identifier);
+
+        // Default rule is root-only.
+        assert_noop!(
+            RateLimiting::set_rate_limit(
+                RuntimeOrigin::signed(1),
+                tx_target,
+                None,
+                RateLimitKind::Exact(1),
+            ),
+            sp_runtime::DispatchError::BadOrigin
+        );
+
+        // Root updates the limit-setting rule for this transaction target.
+        assert_ok!(RateLimiting::set_limit_setting_rule(
+            RuntimeOrigin::root(),
+            tx_target,
+            LimitSettingRule::AnySigned,
+        ));
+
+        assert_eq!(
+            LimitSettingRules::<Test, ()>::get(tx_target),
+            LimitSettingRule::AnySigned
+        );
+
+        // Now any signed origin may set the limit for this target.
+        assert_ok!(RateLimiting::set_rate_limit(
+            RuntimeOrigin::signed(1),
+            tx_target,
+            None,
+            RateLimitKind::Exact(7),
+        ));
+    });
 }
 
 #[test]

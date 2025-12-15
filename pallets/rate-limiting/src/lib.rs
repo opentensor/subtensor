@@ -146,8 +146,8 @@ pub use rate_limiting_interface::{RateLimitTarget, TransactionIdentifier};
 pub use rate_limiting_interface::{RateLimitingInfo, TryIntoRateLimitTarget};
 pub use tx_extension::RateLimitTransactionExtension;
 pub use types::{
-    BypassDecision, GroupSharing, RateLimit, RateLimitGroup, RateLimitKind, RateLimitScopeResolver,
-    RateLimitUsageResolver,
+    BypassDecision, EnsureLimitSettingRule, GroupSharing, RateLimit, RateLimitGroup, RateLimitKind,
+    RateLimitScopeResolver, RateLimitUsageResolver,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -178,8 +178,9 @@ pub mod pallet {
     #[cfg(feature = "runtime-benchmarks")]
     use crate::benchmarking::BenchmarkHelper as BenchmarkHelperTrait;
     use crate::types::{
-        BypassDecision, GroupSharing, RateLimit, RateLimitGroup, RateLimitKind,
-        RateLimitScopeResolver, RateLimitTarget, RateLimitUsageResolver, TransactionIdentifier,
+        BypassDecision, EnsureLimitSettingRule, GroupSharing, RateLimit, RateLimitGroup,
+        RateLimitKind, RateLimitScopeResolver, RateLimitTarget, RateLimitUsageResolver,
+        TransactionIdentifier,
     };
 
     type GroupNameOf<T, I> = BoundedVec<u8, <T as Config<I>>::MaxGroupNameLength>;
@@ -204,6 +205,16 @@ pub mod pallet {
 
         /// Origin permitted to configure rate limits.
         type AdminOrigin: EnsureOrigin<OriginFor<Self>>;
+
+        /// Rule type that decides which origins may call [`Pallet::set_rate_limit`].
+        type LimitSettingRule: Parameter + Member + MaxEncodedLen + MaybeSerializeDeserialize;
+
+        /// Default rule applied when a target does not have an explicit entry in
+        /// [`LimitSettingRules`].
+        type DefaultLimitSettingRule: Get<Self::LimitSettingRule>;
+
+        /// Origin checker invoked when setting a rate limit, parameterized by the stored rule.
+        type LimitSettingOrigin: EnsureLimitSettingRule<OriginFor<Self>, Self::LimitSettingRule, Self::LimitScope>;
 
         /// Scope identifier used to namespace stored rate limits.
         type LimitScope: Parameter + Clone + PartialEq + Eq + Ord + MaybeSerializeDeserialize;
@@ -257,6 +268,23 @@ pub mod pallet {
         RateLimitTarget<<T as Config<I>>::GroupId>,
         RateLimit<<T as Config<I>>::LimitScope, BlockNumberFor<T>>,
         OptionQuery,
+    >;
+
+    #[pallet::type_value]
+    pub fn DefaultLimitSettingRuleFor<T: Config<I>, I: 'static>() -> T::LimitSettingRule {
+        T::DefaultLimitSettingRule::get()
+    }
+
+    /// Stores the rule used to authorize [`Pallet::set_rate_limit`] per call/group target.
+    #[pallet::storage]
+    #[pallet::getter(fn limit_setting_rule)]
+    pub type LimitSettingRules<T: Config<I>, I: 'static = ()> = StorageMap<
+        _,
+        Blake2_128Concat,
+        RateLimitTarget<<T as Config<I>>::GroupId>,
+        <T as Config<I>>::LimitSettingRule,
+        ValueQuery,
+        DefaultLimitSettingRuleFor<T, I>,
     >;
 
     /// Tracks when a rate-limited target was last observed per usage key.
@@ -359,6 +387,13 @@ pub mod pallet {
             pallet: Option<Vec<u8>>,
             /// Extrinsic name associated with the transaction, when available.
             extrinsic: Option<Vec<u8>>,
+        },
+        /// The rule that authorizes [`Pallet::set_rate_limit`] was updated for a target.
+        LimitSettingRuleUpdated {
+            /// Target whose limit-setting rule changed.
+            target: RateLimitTarget<<T as Config<I>>::GroupId>,
+            /// Updated rule.
+            rule: <T as Config<I>>::LimitSettingRule,
         },
         /// A rate-limited call was deregistered or had a scoped entry cleared.
         CallDeregistered {
@@ -978,7 +1013,8 @@ pub mod pallet {
             scope: Option<<T as Config<I>>::LimitScope>,
             limit: RateLimitKind<BlockNumberFor<T>>,
         ) -> DispatchResult {
-            T::AdminOrigin::ensure_origin(origin)?;
+            let rule = LimitSettingRules::<T, I>::get(&target);
+            T::LimitSettingOrigin::ensure_origin(origin, &rule, &scope)?;
 
             let (transaction, pallet, extrinsic) = match target {
                 RateLimitTarget::Transaction(identifier) => {
@@ -1016,6 +1052,31 @@ pub mod pallet {
                 pallet,
                 extrinsic,
             });
+            Ok(())
+        }
+
+        /// Sets the rule used to authorize [`Pallet::set_rate_limit`] for the provided target.
+        #[pallet::call_index(10)]
+        #[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+        pub fn set_limit_setting_rule(
+            origin: OriginFor<T>,
+            target: RateLimitTarget<<T as Config<I>>::GroupId>,
+            rule: <T as Config<I>>::LimitSettingRule,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            match target {
+                RateLimitTarget::Transaction(identifier) => {
+                    Self::ensure_call_registered(&identifier)?;
+                }
+                RateLimitTarget::Group(group) => {
+                    Self::ensure_group_details(group)?;
+                }
+            }
+
+            LimitSettingRules::<T, I>::insert(target, rule.clone());
+            Self::deposit_event(Event::LimitSettingRuleUpdated { target, rule });
+
             Ok(())
         }
 

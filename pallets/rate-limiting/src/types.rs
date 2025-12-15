@@ -1,4 +1,5 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::dispatch::DispatchResult;
 pub use rate_limiting_interface::{RateLimitTarget, TransactionIdentifier};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -58,6 +59,18 @@ pub trait RateLimitUsageResolver<Origin, Call, Usage> {
     /// When multiple keys are returned, the rate limit is enforced against each key and all are
     /// recorded on success.
     fn context(origin: &Origin, call: &Call) -> Option<Vec<Usage>>;
+}
+
+/// Origin check performed when configuring a rate limit.
+///
+/// `pallet-rate-limiting` supports configuring a distinct "who may set limits" rule per call/group
+/// target. This trait is invoked by [`pallet::Pallet::set_rate_limit`] after loading the rule from
+/// storage, allowing runtimes to implement arbitrary permissioning logic.
+///
+/// Note: the hook receives the provided `scope` (if any). Some policies (for example "subnet owner")
+/// require a scope value (such as `netuid`) in order to validate the caller.
+pub trait EnsureLimitSettingRule<Origin, Rule, Scope> {
+    fn ensure_origin(origin: Origin, rule: &Rule, scope: &Option<Scope>) -> DispatchResult;
 }
 
 /// Sharing mode configured for a group.

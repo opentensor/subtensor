@@ -4,13 +4,15 @@ use core::convert::TryInto;
 
 use frame_support::{
     derive_impl,
+    dispatch::DispatchResult,
     sp_runtime::{
         BuildStorage,
         traits::{BlakeTwo256, IdentityLookup},
     },
-    traits::{ConstU16, ConstU32, ConstU64, Everything},
+    traits::{ConstU16, ConstU32, ConstU64, EnsureOrigin, Everything},
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, ensure_signed};
+use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_io::TestExternalities;
 use sp_std::vec::Vec;
@@ -58,6 +60,51 @@ impl frame_system::Config for Test {
 pub type LimitScope = u16;
 pub type UsageKey = u16;
 pub type GroupId = u32;
+
+#[derive(
+    codec::Encode,
+    codec::Decode,
+    codec::DecodeWithMemTracking,
+    Serialize,
+    Deserialize,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    scale_info::TypeInfo,
+    codec::MaxEncodedLen,
+    Debug,
+)]
+pub enum LimitSettingRule {
+    RootOnly,
+    AnySigned,
+}
+
+frame_support::parameter_types! {
+    pub const DefaultLimitSettingRule: LimitSettingRule = LimitSettingRule::RootOnly;
+}
+
+pub struct LimitSettingOrigin;
+
+impl pallet_rate_limiting::EnsureLimitSettingRule<RuntimeOrigin, LimitSettingRule, LimitScope>
+    for LimitSettingOrigin
+{
+    fn ensure_origin(
+        origin: RuntimeOrigin,
+        rule: &LimitSettingRule,
+        _scope: &Option<LimitScope>,
+    ) -> DispatchResult {
+        match rule {
+            LimitSettingRule::RootOnly => EnsureRoot::<u64>::ensure_origin(origin)
+                .map(|_| ())
+                .map_err(Into::into),
+            LimitSettingRule::AnySigned => {
+                let _ = ensure_signed(origin)?;
+                Ok(())
+            }
+        }
+    }
+}
 
 pub struct TestScopeResolver;
 pub struct TestUsageResolver;
@@ -123,6 +170,9 @@ impl pallet_rate_limiting::Config for Test {
     type UsageKey = UsageKey;
     type UsageResolver = TestUsageResolver;
     type AdminOrigin = EnsureRoot<Self::AccountId>;
+    type LimitSettingRule = LimitSettingRule;
+    type DefaultLimitSettingRule = DefaultLimitSettingRule;
+    type LimitSettingOrigin = LimitSettingOrigin;
     type GroupId = GroupId;
     type MaxGroupMembers = ConstU32<32>;
     type MaxGroupNameLength = ConstU32<64>;
