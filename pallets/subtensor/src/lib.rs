@@ -330,9 +330,9 @@ pub mod pallet {
     /// Enum for the per-coldkey root claim setting.
     pub enum RootClaimTypeEnum {
         /// Swap any alpha emission for TAO.
-        #[default]
         Swap,
         /// Keep all alpha emission.
+        #[default]
         Keep,
         /// Keep all alpha emission for specified subnets.
         KeepSubnets {
@@ -1057,7 +1057,12 @@ pub mod pallet {
         128
     }
 
-    /// Global minimum activity cutoff value
+    /// Default value for MinNonImmuneUids.
+    #[pallet::type_value]
+    pub fn DefaultMinNonImmuneUids<T: Config>() -> u16 {
+        10u16
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -2303,6 +2308,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkRegistrationStartBlock<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
+
+    /// --- MAP ( netuid ) --> minimum required number of non-immortal & non-immune UIDs
+    #[pallet::storage]
+    pub type MinNonImmuneUids<T: Config> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMinNonImmuneUids<T>>;
 
     /// ============================
     /// ==== Subnet Mechanisms =====

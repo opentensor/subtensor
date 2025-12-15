@@ -1989,3 +1989,12 @@ fn test_claim_root_subnet_root_claim_map_swap() {
         assert!(!SubnetRootClaimSwap::<Test>::contains_key(netuid));
     });
 }
+
+#[test]
+fn test_claim_root_default_mode_keep() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1003);
+
+        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
+    });
+}
