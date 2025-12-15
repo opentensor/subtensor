@@ -38,10 +38,7 @@ fn sudo_extrinsic(inner: RuntimeCall) -> RuntimeCall {
     })
 }
 
-fn validate_ext(
-    origin: RuntimeOrigin,
-    call: &RuntimeCall,
-) -> ValidateResult<(), RuntimeCall> {
+fn validate_ext(origin: RuntimeOrigin, call: &RuntimeCall) -> ValidateResult<(), RuntimeCall> {
     let ext = sudo_wrapper::SudoTransactionExtension::<Runtime>::new();
 
     ext.validate(
