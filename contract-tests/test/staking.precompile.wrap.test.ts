@@ -71,6 +71,7 @@ describe("Test staking precompile add from deployed contract", () => {
       wallet1,
     );
 
+    await new Promise(resolve => setTimeout(resolve, 1000));
     const tx = await deployedContract.stake(
       hotkey.publicKey,
       netuid,
