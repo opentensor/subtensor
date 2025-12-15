@@ -4,10 +4,14 @@
     clippy::indexing_slicing
 )]
 use super::mock::*;
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
-use frame_support::{StorageDoubleMap, assert_noop, assert_ok};
+use frame_support::{StorageDoubleMap, assert_noop, assert_ok, dispatch::GetDispatchInfo};
 use sp_core::U256;
-use sp_runtime::{Percent, traits::Hash};
+use sp_runtime::{
+    Percent,
+    traits::{DispatchTransaction, Hash},
+};
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::AlphaCurrency;
 
@@ -1558,6 +1562,149 @@ fn test_cancel_subnet_sale_into_lease_fails_if_crowdloan_does_not_exists() {
             SubtensorModule::cancel_subnet_sale_into_lease(RuntimeOrigin::signed(seller)),
             pallet_crowdloan::Error::<Test>::InvalidCrowdloanId
         );
+    });
+}
+
+#[test]
+fn test_subtensor_extension_rejects_any_call_that_is_not_settle_subnet_or_cancel_subnet_sale_into_lease()
+ {
+    new_test_ext(0).execute_with(|| {
+        let crowdloan_id = 0;
+        let deposit = 10_000_000_000;
+        let seller = U256::from(1);
+        let beneficiary = U256::from(2);
+        let now = frame_system::Pallet::<Test>::block_number();
+        let min_sale_price = TaoCurrency::from(100_000_000_000);
+        let hotkey = U256::from(2);
+        let stake = DefaultMinStake::<Test>::get().to_u64();
+        setup_crowdloan!(
+            crowdloan_id,
+            deposit,
+            min_sale_price.to_u64(),
+            seller,
+            vec![
+                (beneficiary, 80_000_000_000u64),
+                (U256::from(3), 10_000_000_000)
+            ]
+        );
+
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+        SubnetOwner::<Test>::insert(netuid, seller);
+
+        // Setup sale announcement
+        SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
+            seller,
+            (now, beneficiary, netuid, crowdloan_id),
+        );
+
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
+        run_to_block(now + delay);
+
+        let forbidden_calls: Vec<RuntimeCall> = vec![
+            RuntimeCall::SubtensorModule(SubtensorCall::dissolve_network {
+                netuid,
+                coldkey: seller,
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
+                hotkey,
+                netuid,
+                amount_staked: stake.into(),
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::add_stake_limit {
+                hotkey,
+                netuid,
+                amount_staked: stake.into(),
+                limit_price: stake.into(),
+                allow_partial: false,
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::swap_stake {
+                hotkey,
+                origin_netuid: netuid,
+                destination_netuid: netuid,
+                alpha_amount: stake.into(),
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::swap_stake_limit {
+                hotkey,
+                origin_netuid: netuid,
+                destination_netuid: netuid,
+                alpha_amount: stake.into(),
+                limit_price: stake.into(),
+                allow_partial: false,
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::move_stake {
+                origin_hotkey: hotkey,
+                destination_hotkey: hotkey,
+                origin_netuid: netuid,
+                destination_netuid: netuid,
+                alpha_amount: stake.into(),
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::transfer_stake {
+                destination_coldkey: beneficiary,
+                hotkey,
+                origin_netuid: netuid,
+                destination_netuid: netuid,
+                alpha_amount: stake.into(),
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
+                hotkey,
+                netuid,
+                amount_unstaked: (DefaultMinStake::<Test>::get().to_u64() * 2).into(),
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_limit {
+                hotkey,
+                netuid,
+                amount_unstaked: (stake * 2).into(),
+                limit_price: 123456789.into(),
+                allow_partial: true,
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::burned_register { netuid, hotkey }),
+            RuntimeCall::Balances(BalancesCall::transfer_all {
+                dest: beneficiary,
+                keep_alive: false,
+            }),
+            RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
+                dest: beneficiary,
+                value: 100_000_000_000,
+            }),
+            RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+                dest: beneficiary,
+                value: 100_000_000_000,
+            }),
+        ];
+
+        for call in forbidden_calls {
+            let info = call.get_dispatch_info();
+            let ext = SubtensorTransactionExtension::<Test>::new();
+            assert_noop!(
+                ext.dispatch_transaction(RuntimeOrigin::signed(seller).into(), call, &info, 0, 0),
+                CustomTransactionError::ColdkeySwapAnnounced
+            );
+        }
+
+        // Settle subnet sale into lease should succeed
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::settle_subnet_sale_into_lease {});
+        let info = call.get_dispatch_info();
+        let ext = SubtensorTransactionExtension::<Test>::new();
+        assert_ok!(ext.dispatch_transaction(
+            RuntimeOrigin::signed(seller).into(),
+            call,
+            &info,
+            0,
+            0
+        ));
+
+        // Cancel subnet sale into lease should succeed
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::cancel_subnet_sale_into_lease {});
+        let info = call.get_dispatch_info();
+        let ext = SubtensorTransactionExtension::<Test>::new();
+        assert_ok!(ext.dispatch_transaction(
+            RuntimeOrigin::signed(seller).into(),
+            call,
+            &info,
+            0,
+            0
+        ));
     });
 }
 

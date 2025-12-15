@@ -2375,6 +2375,11 @@ mod dispatches {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
 
+            ensure!(
+                !SubnetSaleIntoLeaseAnnouncements::<T>::contains_key(&who),
+                Error::<T>::SubnetSaleIntoLeaseAnnouncementAlreadyExists
+            );
+
             if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
                 let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
                 let new_when = when.saturating_add(reannouncement_delay);

@@ -1,6 +1,6 @@
 use crate::{
     BalancesCall, Call, ColdkeySwapAnnouncements, Config, CustomTransactionError, Error, Pallet,
-    TransactionType,
+    SubnetSaleIntoLeaseAnnouncements, TransactionType,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
@@ -83,6 +83,23 @@ where
             })
         }
     }
+
+    // Check if the origin coldkey is announced for a swap or sale
+    pub fn should_prevent_coldkey_action(who: &T::AccountId, call: &CallOf<T>) -> bool {
+        let has_sale_announced = SubnetSaleIntoLeaseAnnouncements::<T>::contains_key(who)
+            && !matches!(
+                call.is_sub_type(),
+                Some(Call::settle_subnet_sale_into_lease { .. })
+                    | Some(Call::cancel_subnet_sale_into_lease { .. })
+            );
+        let has_swap_announced = ColdkeySwapAnnouncements::<T>::contains_key(who)
+            && !matches!(
+                call.is_sub_type(),
+                Some(Call::swap_coldkey_announced { .. })
+            );
+
+        has_sale_announced || has_swap_announced
+    }
 }
 
 impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config>
@@ -115,13 +132,7 @@ where
             return Ok((Default::default(), (), origin));
         };
 
-        // Ensure the origin coldkey is not announced for a swap.
-        if ColdkeySwapAnnouncements::<T>::contains_key(who)
-            && !matches!(
-                call.is_sub_type(),
-                Some(Call::swap_coldkey_announced { .. })
-            )
-        {
+        if Self::should_prevent_coldkey_action(who, call) {
             return Err(CustomTransactionError::ColdkeySwapAnnounced.into());
         }
 

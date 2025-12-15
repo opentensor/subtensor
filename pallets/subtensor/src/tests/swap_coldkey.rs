@@ -204,9 +204,12 @@ fn test_announce_coldkey_swap_fails_if_subnet_sale_into_lease_announcement_exist
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
         let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let swap_cost = SubtensorModule::get_key_swap_cost().to_u64();
         let now = System::block_number();
         let netuid = NetUid::from(1);
         let crowdloan_id = 0;
+
+        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost);
 
         SubnetSaleIntoLeaseAnnouncements::<Test>::insert(
             who,
