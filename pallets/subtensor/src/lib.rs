@@ -330,9 +330,9 @@ pub mod pallet {
     /// Enum for the per-coldkey root claim setting.
     pub enum RootClaimTypeEnum {
         /// Swap any alpha emission for TAO.
+        #[default]
         Swap,
         /// Keep all alpha emission.
-        #[default]
         Keep,
         /// Keep all alpha emission for specified subnets.
         KeepSubnets {
@@ -361,7 +361,7 @@ pub mod pallet {
     /// Default value for delegate claim type storage
     #[pallet::type_value]
     pub fn DefaultValidatorClaimType<T: Config>() -> RootClaimTypeEnum {
-        RootClaimTypeEnum::Keep
+        RootClaimTypeEnum::Swap
     }
 
     /// Default number of root claims per claim call.

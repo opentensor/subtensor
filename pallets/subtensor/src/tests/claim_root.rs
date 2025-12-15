@@ -1585,7 +1585,7 @@ fn test_claim_root_with_set_validator_claim_type() {
         // Default check
         assert_eq!(
             ValidatorClaimType::<Test>::get(hotkey, netuid),
-            RootClaimTypeEnum::Keep
+            RootClaimTypeEnum::Swap
         );
 
         // Set new type
@@ -2206,10 +2206,26 @@ fn test_claim_root_calculate_tao_outflow() {
 }
 
 #[test]
-fn test_claim_root_default_mode_keep() {
+fn test_claim_root_default_mode() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1003);
 
-        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
+        assert_eq!(
+            RootClaimType::<Test>::get(coldkey),
+            RootClaimTypeEnum::Delegated
+        );
+    });
+}
+
+#[test]
+fn test_claim_root_default_validator_mode() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1003);
+        let netuid = NetUid::from(100u16);
+
+        assert_eq!(
+            ValidatorClaimType::<Test>::get(coldkey, netuid),
+            RootClaimTypeEnum::Swap
+        );
     });
 }
