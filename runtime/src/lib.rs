@@ -1614,7 +1614,8 @@ pub type TransactionExtensions = (
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-type Migrations = pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
+type Migrations =
+    pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >;
 
