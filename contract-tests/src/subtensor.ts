@@ -8,8 +8,6 @@ import { tao } from './balance-math'
 
 // create a new subnet and return netuid
 export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: KeyPair, coldkey: KeyPair) {
-
-
     const alice = getAliceSigner()
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
 
@@ -27,9 +25,8 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     const newTotalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
     // could create multiple subnetworks during retry, just return the first created one
     assert.ok(newTotalNetworks > totalNetworks)
-
+    // reset network last lock to 0 for tests
     await resetNetworkLastLock(api)
-
     return totalNetworks
 }
 
@@ -404,6 +401,8 @@ export async function sendWasmContractExtrinsic(api: TypedApi<typeof devnet>, co
     await waitForTransactionWithRetry(api, tx, signer)
 }
 
+// Reset network last lock to 0 for tests, then the cose for network registration will be the default minimum
+// We can make the const cost for each network registration for tests. avoid the cost spike
 export async function resetNetworkLastLock(api: TypedApi<typeof devnet>) {
     const alice = getAliceSigner()
     const key = await api.query.SubtensorModule.NetworkLastLockCost.getKey()
@@ -412,7 +411,7 @@ export async function resetNetworkLastLock(api: TypedApi<typeof devnet>) {
     const codec = await getTypedCodecs(devnet)
     const valueCodec = codec.query.SubtensorModule.NetworkLastLockCost.value
 
-    // Encode the value 1 TAO as SCALE-encoded bytes
+    // Encode the value 0 as SCALE-encoded bytes
     const encodedValue = valueCodec.enc(BigInt(0))
 
     const changes: [Binary, Binary][] = [[Binary.fromHex(key.toString()), Binary.fromBytes(encodedValue)]];
