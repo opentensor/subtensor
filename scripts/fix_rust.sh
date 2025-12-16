@@ -11,12 +11,12 @@ commit_if_changes() {
     fi
 }
 
-# Step 1: Run cargo check and commit changes to Cargo.lock if any.
+# Step 1: Run cargo check and commit changes to Cargo.lock if any
 cargo check --workspace
 commit_if_changes "commit Cargo.lock"
 
 # Step 2: Run cargo clippy with fixes and commit changes if any.
-cargo clippy --fix --workspace --all-features
+cargo clippy --fix --workspace --all-features --all-targets
 commit_if_changes "cargo clippy"
 
 # Step 3: Run cargo fix and commit changes if any.
@@ -24,5 +24,10 @@ cargo fix --workspace --all-features --all-targets
 commit_if_changes "cargo fix"
 
 # Step 4: Run cargo fmt and commit changes if any.
-cargo fmt
+cargo +nightly fmt --all
 commit_if_changes "cargo fmt"
+
+if command -v zepter >/dev/null 2>&1; then
+    echo "zepter detected, running 'zepter run check'..."
+    zepter run check
+fi
