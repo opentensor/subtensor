@@ -32,6 +32,7 @@ members = [
 	"primitives/*",
 	"runtime",
 	"support/*",
+	"chain-extensions",
 ]
 resolver = "2"
 
@@ -68,6 +69,7 @@ subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
 subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
 subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
+subtensor-chain-extensions = { default-features = false, path = "chain-extensions" }
 
 ed25519-dalek = { version = "2.1.0", default-features = false }
 async-trait = "0.1"
@@ -115,6 +117,7 @@ expander = "2"
 ahash = { version = "0.8", default-features = false }
 regex = { version = "1.11.1", default-features = false }
 ethereum = { version = "0.18.2", default-features = false }
+num_enum = { version = "0.7.4", default-features = false }
 
 frame = { package = "polkadot-sdk-frame", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -145,6 +148,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-root-testing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
 # NPoS
 frame-election-provider-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -270,7 +274,6 @@ sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "p
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std", default-features = false }
 ark-crypto-primitives = { version = "0.4.0", default-features = false }
 ark-scale = { version = "0.0.11", default-features = false }
-sp-ark-bls12-381 = { git = "https://github.com/paritytech/substrate-curves", default-features = false }
 ark-bls12-381 = { version = "0.4.0", default-features = false }
 ark-serialize = { version = "0.4.0", default-features = false }
 ark-ff = { version = "0.4.0", default-features = false }
@@ -280,6 +283,9 @@ anyhow = { version = "1.0.81", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 tle = { git = "https://github.com/ideal-lab5/timelock", rev = "5416406cfd32799e31e1795393d4916894de4468", default-features = false }
+
+pallet-shield = { path = "pallets/shield", default-features = false }
+ml-kem = { version = "0.2.0", default-features = true }
 
 # Primitives
 

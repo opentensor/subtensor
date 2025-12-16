@@ -62,8 +62,10 @@ impl<T: Config> Pallet<T> {
             alpha_out_emission: SubnetAlphaOutEmission::<T>::get(netuid).into(),
             alpha_in_emission: SubnetAlphaInEmission::<T>::get(netuid).into(),
             tao_in_emission: SubnetTaoInEmission::<T>::get(netuid).into(),
-            pending_alpha_emission: PendingEmission::<T>::get(netuid).into(),
-            pending_root_emission: PendingRootDivs::<T>::get(netuid).into(),
+            pending_alpha_emission: PendingValidatorEmission::<T>::get(netuid)
+                .saturating_add(PendingServerEmission::<T>::get(netuid))
+                .into(),
+            pending_root_emission: TaoCurrency::from(0u64).into(),
             subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
             subnet_identity: SubnetIdentitiesV3::<T>::get(netuid),

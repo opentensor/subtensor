@@ -718,39 +718,34 @@ fn test_512_graph() {
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
                         max_stake_per_validator.into()
                     );
-                    assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
-                    assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 0);
                     assert_eq!(
                         SubtensorModule::get_incentive_for_uid(netuid.into(), uid),
                         0
                     );
-                    assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 1023); // Note D = floor(1 / 64 * 65_535) = 1023
+                    assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 1023); // floor(1 / 64 * 65_535)
                     assert_eq!(
                         SubtensorModule::get_emission_for_uid(netuid, uid),
                         7812500.into()
-                    ); // Note E = 0.5 / 200 * 1_000_000_000 = 7_812_500
+                    ); // 0.5 / 200 * 1_000_000_000
                     assert_eq!(bonds[uid as usize][validator], 0.0);
                     assert_eq!(bonds[uid as usize][server], I32F32::from_num(65_535));
-                    // Note B_ij = floor(1 / 64 * 65_535) / 65_535 = 1023 / 65_535, then max-upscaled to 65_535
                 }
                 for uid in servers {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
                         TaoCurrency::ZERO
                     );
-                    assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
-                    assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
-                    assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 146); // Note C = floor(1 / (512 - 64) * 65_535) = 146
+                    assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 146);
                     assert_eq!(
                         SubtensorModule::get_incentive_for_uid(netuid.into(), uid),
                         146
-                    ); // Note I = floor(1 / (512 - 64) * 65_535) = 146
+                    ); // floor(1 / (512 - 64) * 65_535)
                     assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
                     assert_eq!(
                         SubtensorModule::get_emission_for_uid(netuid, uid),
                         1116071.into()
-                    ); // Note E = floor(0.5 / (512 - 64) * 1_000_000_000) = 1_116_071
+                    ); // floor(0.5 / (512 - 64) * 1_000_000_000)
                     assert_eq!(bonds[uid as usize][validator], 0.0);
                     assert_eq!(bonds[uid as usize][server], 0.0);
                 }
@@ -1024,7 +1019,6 @@ fn test_bonds() {
 		SubtensorModule::set_target_registrations_per_interval(netuid, n);
 		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
         SubtensorModule::set_min_allowed_weights( netuid, 1 );
-        SubtensorModule::set_max_weight_limit( netuid, u16::MAX );
 		SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
 
 
@@ -1370,7 +1364,6 @@ fn test_active_stake() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
@@ -1587,7 +1580,6 @@ fn test_outdated_weights() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
@@ -1777,7 +1769,6 @@ fn test_zero_weights() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // === Register [validator, server]
         for key in 0..n as u64 {
@@ -1980,7 +1971,6 @@ fn test_deregistered_miner_bonds() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
@@ -2700,7 +2690,6 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
     SubtensorModule::set_target_registrations_per_interval(netuid, n);
     SubtensorModule::set_weights_set_rate_limit(netuid, 0);
     SubtensorModule::set_min_allowed_weights(netuid, 1);
-    SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
     SubtensorModule::set_bonds_penalty(netuid, 0);
     SubtensorModule::set_alpha_sigmoid_steepness(netuid, 1000);
     SubtensorModule::set_bonds_moving_average(netuid, 975_000);
@@ -3813,16 +3802,16 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
         SubtensorModule::epoch(netuid, 1_000.into());
 
         assert!(
-            SubtensorModule::get_rank_for_uid(netuid, 1) > 0,
+            SubtensorModule::get_incentive_for_uid(netuid.into(), 1) > 0,
             "UID-1 (old) unmasked"
         );
         assert_eq!(
-            SubtensorModule::get_rank_for_uid(netuid, 2),
+            SubtensorModule::get_incentive_for_uid(netuid.into(), 2),
             0,
             "UID-2 (inside window) masked"
         );
         assert_eq!(
-            SubtensorModule::get_rank_for_uid(netuid, 3),
+            SubtensorModule::get_incentive_for_uid(netuid.into(), 3),
             0,
             "UID-3 (inside window) masked"
         );

@@ -1,0 +1,469 @@
+name: Bittensor Bittensor E2E Test
+
+permissions:
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: e2e-cli-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: ["*"]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+  VERBOSE: ${{ github.event.inputs.verbose }}
+
+jobs:
+  check-label:
+    runs-on: ubuntu-latest
+    outputs:
+      skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests || steps.set-default.outputs.skip-bittensor-e2e-tests }}
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh jq
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+      - name: Get labels from PR
+        id: get-labels
+        if: github.event_name == 'pull_request'
+        run: |
+          LABELS=$(gh pr -R ${{ github.repository }} view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          echo "Current labels: $LABELS"
+          if echo "$LABELS" | grep -q "skip-bittensor-e2e-tests"; then
+            echo "skip-bittensor-e2e-tests=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip-bittensor-e2e-tests=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set default skip value for workflow_dispatch
+        id: set-default
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "skip-bittensor-e2e-tests=false" >> $GITHUB_OUTPUT
+
+  find-btcli-e2e-tests:
+    needs: check-label
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    runs-on: ubuntu-latest
+    outputs:
+      test-files: ${{ steps.get-btcli-tests.outputs.test-files }}
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" jq
+
+      - name: Research preparation
+        working-directory: ${{ github.workspace }}
+        run: git clone https://github.com/opentensor/btcli.git
+
+      - name: Checkout
+        working-directory: ${{ github.workspace }}/btcli
+        run: git checkout staging
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: "false"
+
+      - name: Create Python virtual environment
+        working-directory: ${{ github.workspace }}/btcli
+        run: uv venv --seed
+
+      - name: Install dependencies
+        working-directory: ${{ github.workspace }}/btcli
+        run: |
+          source .venv/bin/activate
+          uv run --active pip install --upgrade pip
+          uv run --active pip install '.[dev]'
+          uv run --active pip install pytest
+
+      - name: Find e2e test files
+        id: get-btcli-tests
+        working-directory: ${{ github.workspace }}/btcli
+        run: |
+          set -euo pipefail
+          test_matrix=$(
+            uv run pytest -q --collect-only tests/e2e_tests \
+            | sed -n '/^tests\//p' \
+            | jq -R -s -c '
+                split("\n")
+                | map(select(. != ""))
+                | map({nodeid: ., label: (sub("^tests/e2e_tests/"; ""))})
+              '
+          )
+          echo "Found tests: $test_matrix"
+          echo "test-files=$test_matrix" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+  find-sdk-e2e-tests:
+    needs: check-label
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    runs-on: ubuntu-latest
+    outputs:
+      test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" jq
+
+      - name: Research preparation
+        working-directory: ${{ github.workspace }}
+        run: git clone https://github.com/opentensor/bittensor.git
+
+      - name: Checkout
+        working-directory: ${{ github.workspace }}/bittensor
+        run: git checkout staging
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: "false"
+
+      - name: Create Python virtual environment
+        working-directory: ${{ github.workspace }}/bittensor
+        run: uv venv --seed
+
+      - name: Install dependencies
+        working-directory: ${{ github.workspace }}/bittensor
+        run: |
+          source .venv/bin/activate
+          uv run --active pip install --upgrade pip
+          uv run --active pip install '.[dev]'
+          uv run --active pip install pytest
+
+      - name: Find e2e test files
+        id: get-sdk-tests
+        working-directory: ${{ github.workspace }}/bittensor
+        run: |
+          set -euo pipefail
+          test_matrix=$(
+            uv run pytest -q --collect-only tests/e2e_tests \
+            | sed -n '/^e2e_tests\//p' \
+            | sed 's|^|tests/|' \
+            | jq -R -s -c '
+                split("\n")
+                | map(select(. != ""))
+                | map({nodeid: ., label: (sub("^tests/e2e_tests/"; ""))})
+              '
+          )
+          echo "Found tests: $test_matrix"
+          echo "test-files=$test_matrix" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+  # build artifacts for fast-runtime and non-fast-runtime
+  artifacts:
+    name: Node • ${{ matrix.runtime }} • ${{ matrix.platform.arch }}
+    needs: check-label
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    strategy:
+      matrix:
+        platform:
+          - runner: [self-hosted, type-ccx33]
+            triple: x86_64-unknown-linux-gnu
+            arch: amd64
+        runtime: ["fast-runtime", "non-fast-runtime"]
+
+    runs-on: ${{ matrix.platform.runner }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+      - name: Install Rust + dependencies
+        run: |
+          chmod +x ./scripts/install_build_env.sh
+          ./scripts/install_build_env.sh
+
+      - name: Add Rust target triple
+        run: |
+          source "$HOME/.cargo/env"
+          rustup target add ${{ matrix.platform.triple }}
+
+      - name: Patch limits for local run
+        run: |
+          chmod +x ./scripts/localnet_patch.sh
+          ./scripts/localnet_patch.sh
+
+      - name: Build binaries
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          export CARGO_BUILD_TARGET="${{ matrix.platform.triple }}"
+
+          if [ "${{ matrix.runtime }}" = "fast-runtime" ]; then
+            ./scripts/localnet.sh --build-only
+          else
+            ./scripts/localnet.sh False --build-only
+          fi
+
+      # use `ci_target` name bc .dockerignore excludes `target`
+      - name: Prepare artifacts for upload
+        run: |
+          RUNTIME="${{ matrix.runtime }}"
+          TRIPLE="${{ matrix.platform.triple }}"
+
+          # Verify binaries exist before copying
+          BINARY_PATH="target/${RUNTIME}/${TRIPLE}/release/node-subtensor"
+          WASM_PATH="target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
+
+          if [[ ! -f "$BINARY_PATH" ]]; then
+            echo "❌ Error: Binary not found at $BINARY_PATH"
+            exit 1
+          fi
+
+          if [[ ! -f "$WASM_PATH" ]]; then
+            echo "❌ Error: WASM file not found at $WASM_PATH"
+            exit 1
+          fi
+
+          mkdir -p build/ci_target/${RUNTIME}/${TRIPLE}/release/
+          cp -v "$BINARY_PATH" \
+            build/ci_target/${RUNTIME}/${TRIPLE}/release/
+
+          mkdir -p build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
+          cp -v "$WASM_PATH" \
+            build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.platform.triple }}-${{ matrix.runtime }}
+          path: build/
+          if-no-files-found: error
+
+  # Collect all artifacts and build a Docker image
+  build-image-with-current-branch:
+    needs: [check-label, artifacts]
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: binaries-*
+          path: build/
+          merge-multiple: true
+
+      - name: Move Docker data-root to /mnt/data
+        run: |
+          sudo systemctl stop docker
+          sudo mkdir -p /mnt/data/docker
+          sudo chown -R runner:runner /mnt/data
+          sudo chmod -R 777 /mnt/data
+          echo '{"data-root": "/mnt/data/docker"}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker
+          docker info | grep "Docker Root Dir"
+
+      - name: Build Docker Image
+        run: docker build -f Dockerfile-localnet --build-arg BUILT_IN_CI="Boom shakalaka" -t localnet .
+
+      - name: Save Docker Image as Tar
+        run: docker save -o /mnt/data/subtensor-localnet.tar localnet
+
+      - name: Upload Docker Image as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: subtensor-localnet
+          path: /mnt/data/subtensor-localnet.tar
+
+  # main btcli job
+  run-btcli-e2e-tests:
+    needs:
+      - check-label
+      - find-btcli-e2e-tests
+      - build-image-with-current-branch
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 32
+      matrix:
+        include: ${{ fromJson(needs.find-btcli-e2e-tests.outputs.test-files) }}
+
+    timeout-minutes: 60
+    name: "cli: ${{ matrix.label }}"
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: "false"
+
+      - name: Create Python virtual environment
+        working-directory: ${{ github.workspace }}
+        run: uv venv --seed ${{ github.workspace }}/venv
+
+      - name: Clone Bittensor CLI repo
+        working-directory: ${{ github.workspace }}
+        run: git clone https://github.com/opentensor/btcli.git
+
+      - name: Setup Bittensor-cli from cloned repo
+        working-directory: ${{ github.workspace }}/btcli
+        run: |
+          source ${{ github.workspace }}/venv/bin/activate
+          git checkout staging
+          git fetch origin staging
+          uv run --active pip install --upgrade pip
+          uv run --active pip install '.[dev]'
+          uv run --active pip install pytest
+
+      - name: Download Cached Docker Image
+        uses: actions/download-artifact@v4
+        with:
+          name: subtensor-localnet
+
+      - name: Load Docker Image
+        run: docker load -i subtensor-localnet.tar
+
+      - name: Retag Docker Image
+        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
+
+      - name: Run with retry
+        working-directory: ${{ github.workspace }}/btcli
+        run: |
+          source ${{ github.workspace }}/venv/bin/activate
+          export SKIP_PULL=1
+          set +e
+          for i in 1 2; do
+            echo "🔁 Attempt $i: Running tests"
+            uv run pytest "${{ matrix.nodeid }}" -s
+            status=$?
+            if [ $status -eq 0 ]; then
+              echo "✅ Tests passed on attempt $i"
+              break
+            else
+              echo "❌ Tests failed on attempt $i"
+              if [ $i -eq 2 ]; then
+                echo "🔥 Tests failed after 2 attempts"
+                exit 1
+              fi
+              echo "🕒 Retrying..."
+              sleep 5
+            fi
+          done
+
+  # main sdk job
+  run-sdk-e2e-tests:
+    needs:
+      - check-label
+      - find-sdk-e2e-tests
+      - build-image-with-current-branch
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 64
+      matrix:
+        include: ${{ fromJson(needs.find-sdk-e2e-tests.outputs.test-files) }}
+
+    timeout-minutes: 60
+    name: "sdk: ${{ matrix.label }}"
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: "false"
+
+      - name: Create Python virtual environment
+        working-directory: ${{ github.workspace }}
+        run: uv venv --seed ${{ github.workspace }}/venv
+
+      - name: Clone Bittensor SDK repo
+        working-directory: ${{ github.workspace }}
+        run: git clone https://github.com/opentensor/bittensor.git
+
+      - name: Setup Bittensor SDK from cloned repo
+        working-directory: ${{ github.workspace }}/bittensor
+        run: |
+          source ${{ github.workspace }}/venv/bin/activate
+          git checkout staging
+          git fetch origin staging
+          uv run --active pip install --upgrade pip
+          uv run --active pip install '.[dev]'
+          uv run --active pip install pytest
+
+      - name: Download Cached Docker Image
+        uses: actions/download-artifact@v4
+        with:
+          name: subtensor-localnet
+
+      - name: Load Docker Image
+        run: docker load -i subtensor-localnet.tar
+
+      - name: Retag Docker Image
+        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
+
+      - name: Run with retry
+        working-directory: ${{ github.workspace }}/bittensor
+        run: |
+          source ${{ github.workspace }}/venv/bin/activate
+          export SKIP_PULL=1
+          set +e
+          for i in 1 2; do
+            echo "🔁 Attempt $i: Running tests"
+            uv run pytest "${{ matrix.nodeid }}" -s
+            status=$?
+            if [ $status -eq 0 ]; then
+              echo "✅ Tests passed on attempt $i"
+              break
+            else
+              echo "❌ Tests failed on attempt $i"
+              if [ $i -eq 2 ]; then
+                echo "🔥 Tests failed after 2 attempts"
+                exit 1
+              fi
+              echo "🕒 Retrying..."
+              sleep 5
+            fi
+          done

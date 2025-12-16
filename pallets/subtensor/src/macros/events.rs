@@ -50,7 +50,8 @@ mod events {
         BulkBalancesSet(u16, u16),
         /// max allowed uids has been set for a subnetwork.
         MaxAllowedUidsSet(NetUid, u16),
-        /// the max weight limit has been set for a subnetwork.
+        #[deprecated(note = "Max weight limit is now a constant and this event is unused")]
+        /// DEPRECATED: max weight limit updates are no longer supported.
         MaxWeightLimitSet(NetUid, u16),
         /// the difficulty has been set for a subnet.
         DifficultySet(NetUid, u64),
@@ -446,6 +447,37 @@ mod events {
             netuid: NetUid,
             /// The account ID of the hotkey.
             hotkey: T::AccountId,
+        },
+
+        /// The minimum allowed non-Immune UIDs has been set.
+        MinNonImmuneUidsSet(NetUid, u16),
+        /// Root emissions have been claimed for a coldkey on all subnets and hotkeys.
+        /// Parameters:
+        /// (coldkey)
+        RootClaimed {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+        },
+
+        /// Root claim type for a coldkey has been set.
+        /// Parameters:
+        /// (coldkey, u8)
+        RootClaimTypeSet {
+            /// Claim coldkey
+            coldkey: T::AccountId,
+
+            /// Claim type
+            root_claim_type: RootClaimTypeEnum,
+        },
+
+        /// Subnet lease dividends have been distributed.
+        SubnetLeaseDividendsDistributed {
+            /// The lease ID
+            lease_id: LeaseId,
+            /// The contributor
+            contributor: T::AccountId,
+            /// The amount of alpha distributed
+            alpha: AlphaCurrency,
         },
     }
 }

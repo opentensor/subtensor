@@ -644,7 +644,8 @@ impl<T: Config> Pallet<T> {
         let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoCurrency>)> = vec![];
         let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<AlphaCurrency>)> = vec![];
         for hotkey in hotkeys.clone() {
-            let tao_divs = TaoDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
+            // Tao dividends were removed
+            let tao_divs = TaoCurrency::ZERO;
             let alpha_divs = AlphaDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
             tao_dividends_per_hotkey.push((hotkey.clone(), tao_divs.into()));
             alpha_dividends_per_hotkey.push((hotkey.clone(), alpha_divs.into()));
@@ -693,8 +694,10 @@ impl<T: Config> Pallet<T> {
             alpha_out_emission: SubnetAlphaOutEmission::<T>::get(netuid).into(), // amount injected in alpha reserves per block
             alpha_in_emission: SubnetAlphaInEmission::<T>::get(netuid).into(), // amount injected outstanding per block
             tao_in_emission: SubnetTaoInEmission::<T>::get(netuid).into(), // amount of tao injected per block
-            pending_alpha_emission: PendingEmission::<T>::get(netuid).into(), // pending alpha to be distributed
-            pending_root_emission: PendingRootDivs::<T>::get(netuid).into(), // panding tao for root divs to be distributed
+            pending_alpha_emission: PendingValidatorEmission::<T>::get(netuid)
+                .saturating_add(PendingServerEmission::<T>::get(netuid))
+                .into(), // pending alpha to be distributed
+            pending_root_emission: TaoCurrency::from(0u64).into(), // panding tao for root divs to be distributed
             subnet_volume: subnet_volume.into(),
             moving_price: SubnetMovingPrice::<T>::get(netuid),
 
@@ -999,12 +1002,16 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::PendingAlphaEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                pending_alpha_emission: Some(PendingEmission::<T>::get(netuid).into()),
+                pending_alpha_emission: Some(
+                    PendingValidatorEmission::<T>::get(netuid)
+                        .saturating_add(PendingServerEmission::<T>::get(netuid))
+                        .into(),
+                ),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::PendingRootEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                pending_root_emission: Some(PendingRootDivs::<T>::get(netuid).into()),
+                pending_root_emission: Some(TaoCurrency::from(0u64).into()),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::SubnetVolume) => SelectiveMetagraph {
@@ -1405,7 +1412,8 @@ impl<T: Config> Pallet<T> {
                 let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoCurrency>)> =
                     vec![];
                 for hotkey in hotkeys.clone() {
-                    let tao_divs = TaoDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
+                    // Tao dividends were removed
+                    let tao_divs = TaoCurrency::ZERO;
                     tao_dividends_per_hotkey.push((hotkey.clone(), tao_divs.into()));
                 }
                 SelectiveMetagraph {

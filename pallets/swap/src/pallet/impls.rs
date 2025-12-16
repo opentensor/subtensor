@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // initializes V3 swap for a subnet if needed
-    pub(super) fn maybe_initialize_v3(netuid: NetUid) -> Result<(), Error<T>> {
+    pub fn maybe_initialize_v3(netuid: NetUid) -> Result<(), Error<T>> {
         if SwapV3Initialized::<T>::get(netuid) {
             return Ok(());
         }
@@ -880,10 +880,12 @@ impl<T: Config> Pallet<T> {
                         // ---------------- USER: refund τ and convert α → stake ----------------
 
                         // 1) Refund τ principal directly.
-                        if rm.tao > TaoCurrency::ZERO {
-                            T::BalanceOps::increase_balance(&owner, rm.tao);
-                            user_refunded_tao = user_refunded_tao.saturating_add(rm.tao);
-                            T::TaoReserve::decrease_provided(netuid, rm.tao);
+                        let tao_total_from_pool: TaoCurrency = rm.tao.saturating_add(rm.fee_tao);
+                        if tao_total_from_pool > TaoCurrency::ZERO {
+                            T::BalanceOps::increase_balance(&owner, tao_total_from_pool);
+                            user_refunded_tao =
+                                user_refunded_tao.saturating_add(tao_total_from_pool);
+                            T::TaoReserve::decrease_provided(netuid, tao_total_from_pool);
                         }
 
                         // 2) Stake ALL withdrawn α (principal + fees) to the best permitted validator.
@@ -967,17 +969,17 @@ impl<T: Config> Pallet<T> {
                 Ok(rm) => {
                     let alpha_total_from_pool: AlphaCurrency =
                         rm.alpha.saturating_add(rm.fee_alpha);
-                    let tao = rm.tao;
+                    let tao_total_from_pool: TaoCurrency = rm.tao.saturating_add(rm.fee_tao);
 
-                    if tao > TaoCurrency::ZERO {
-                        burned_tao = burned_tao.saturating_add(tao);
+                    if tao_total_from_pool > TaoCurrency::ZERO {
+                        burned_tao = burned_tao.saturating_add(tao_total_from_pool);
                     }
                     if alpha_total_from_pool > AlphaCurrency::ZERO {
                         burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
                     }
 
                     log::debug!(
-                        "clear_protocol_liquidity: burned protocol pos: netuid={netuid:?}, pos_id={pos_id:?}, τ={tao:?}, α_total={alpha_total_from_pool:?}"
+                        "clear_protocol_liquidity: burned protocol pos: netuid={netuid:?}, pos_id={pos_id:?}, τ={tao_total_from_pool:?}, α_total={alpha_total_from_pool:?}"
                     );
                 }
                 Err(e) => {
@@ -1110,6 +1112,24 @@ impl<T: Config> SwapHandler for Pallet<T> {
 
     fn current_alpha_price(netuid: NetUid) -> U96F32 {
         Self::current_price(netuid.into())
+    }
+
+    fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
+        let protocol_account_id = Self::protocol_account_id();
+        let mut positions =
+            Positions::<T>::iter_prefix_values((netuid, protocol_account_id.clone()))
+                .collect::<sp_std::vec::Vec<_>>();
+
+        if let Some(position) = positions.get_mut(0) {
+            let current_sqrt_price = AlphaSqrtPrice::<T>::get(netuid);
+            // Adjust liquidity
+            let maybe_token_amounts = position.to_token_amounts(current_sqrt_price);
+            if let Ok((tao, _)) = maybe_token_amounts {
+                return tao.into();
+            }
+        }
+
+        TaoCurrency::ZERO
     }
 
     fn min_price<C: Currency>() -> C {

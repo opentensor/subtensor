@@ -14,6 +14,7 @@ use sp_runtime::{
     BoundedVec, Percent,
     traits::{BlakeTwo256, Hash},
 };
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
@@ -445,15 +446,16 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, free_balance_old.into());
         let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
-        let identity = ChainIdentity {
+        let identity = ChainIdentityV2 {
             name,
             url: vec![],
+            github_repo: vec![],
             image: vec![],
             discord: vec![],
             description: vec![],
             additional: vec![],
         };
-        Identities::<T>::insert(&old_coldkey, identity);
+        IdentitiesV2::<T>::insert(&old_coldkey, identity);
 
         #[extrinsic_call]
         _(
@@ -1564,5 +1566,104 @@ mod pallet_benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), netuid, hotkey.clone());
+    }
+    #[benchmark]
+    fn set_root_claim_type() {
+        let coldkey: T::AccountId = whitelisted_caller();
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), RootClaimTypeEnum::Keep);
+    }
+
+    #[benchmark]
+    fn claim_root() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        let hotkey: T::AccountId = account("A", 0, 1);
+
+        let netuid = Subtensor::<T>::get_next_netuid();
+
+        let lock_cost = Subtensor::<T>::get_network_lock_cost();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, lock_cost.into());
+
+        assert_ok!(Subtensor::<T>::register_network(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone()
+        ));
+
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+        NetworkRegistrationAllowed::<T>::insert(netuid, true);
+        FirstEmissionBlockNumber::<T>::insert(netuid, 0);
+
+        SubnetMechanism::<T>::insert(netuid, 1);
+        SubnetworkN::<T>::insert(netuid, 1);
+        Subtensor::<T>::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let root_stake = 100_000_000u64;
+        Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 100_000_000u64;
+        Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let pending_root_alpha = 10_000_000u64;
+        Subtensor::<T>::distribute_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        let initial_stake =
+            Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        assert_ok!(Subtensor::<T>::set_root_claim_type(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            RootClaimTypeEnum::Keep
+        ),);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), BTreeSet::from([netuid]));
+
+        // Verification
+        let new_stake =
+            Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        assert!(new_stake > initial_stake);
+    }
+
+    #[benchmark]
+    fn sudo_set_num_root_claims() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 40);
+    }
+
+    #[benchmark]
+    fn sudo_set_root_claim_threshold() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        let hotkey: T::AccountId = account("A", 0, 1);
+
+        let netuid = Subtensor::<T>::get_next_netuid();
+
+        let lock_cost = Subtensor::<T>::get_network_lock_cost();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, lock_cost.into());
+
+        assert_ok!(Subtensor::<T>::register_network(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone()
+        ));
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, 100);
     }
 }

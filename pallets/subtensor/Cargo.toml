@@ -42,6 +42,7 @@ approx.workspace = true
 subtensor-swap-interface.workspace = true
 runtime-common.workspace = true
 subtensor-runtime-common = { workspace = true, features = ["approx"] }
+sp-keyring.workspace = true
 
 pallet-drand.workspace = true
 pallet-commitments.workspace = true
@@ -58,6 +59,8 @@ pallet-subtensor-proxy.workspace = true
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler.workspace = true
+pallet-subtensor-proxy.workspace = true
+subtensor-runtime-common.workspace = true
 pallet-subtensor-swap.workspace = true
 sp-version.workspace = true
 # Substrate
@@ -105,6 +108,7 @@ std = [
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-version/std",
+	"sp-keyring/std",
 	"subtensor-runtime-common/std",
 	"pallet-commitments/std",
 	"pallet-crowdloan/std",

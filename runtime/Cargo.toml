@@ -93,6 +93,11 @@ pallet-commitments.workspace = true
 
 # for prod_or_fast! macro
 runtime-common.workspace = true
+
+# Wasm smart contracts support
+pallet-contracts.workspace = true
+subtensor-chain-extensions.workspace = true
+
 # NPoS
 frame-election-provider-support = { workspace = true }
 pallet-authority-discovery = { workspace = true }
@@ -143,6 +148,9 @@ ark-serialize = { workspace = true, features = ["derive"] }
 
 # Crowdloan
 pallet-crowdloan.workspace = true
+
+# Mev Shield
+pallet-shield.workspace = true
 
 ethereum.workspace = true
 
@@ -263,7 +271,10 @@ std = [
 	"pallet-subtensor-swap/std",
 	"pallet-subtensor-swap-runtime-api/std",
 	"subtensor-swap-interface/std",
+	"pallet-contracts/std",
+	"subtensor-chain-extensions/std",
 	"ethereum/std",
+	"pallet-shield/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -296,6 +307,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-contracts/runtime-benchmarks",
 
 	# EVM + Frontier
 	"pallet-ethereum/runtime-benchmarks",
@@ -307,6 +319,7 @@ runtime-benchmarks = [
 
 	# Smart Tx fees pallet
 	"subtensor-transaction-fee/runtime-benchmarks",
+	"pallet-shield/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -335,6 +348,7 @@ try-runtime = [
 	"pallet-babe/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
+	"pallet-contracts/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"frame-election-provider-support/try-runtime",
 	"pallet-authority-discovery/try-runtime",
@@ -353,5 +367,6 @@ try-runtime = [
 	"pallet-drand/try-runtime",
 	"runtime-common/try-runtime",
 	"pallet-aura/try-runtime",
+	"pallet-shield/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

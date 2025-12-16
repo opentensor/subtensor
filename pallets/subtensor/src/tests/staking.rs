@@ -5576,3 +5576,73 @@ fn test_remove_root_updates_counters() {
         );
     });
 }
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_staking_records_flow --exact --show-output
+#[test]
+fn test_staking_records_flow() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let coldkey = U256::from(4);
+        let amount = 100_000_000;
+
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Forse-set alpha in and tao reserve to make price equal 0.01
+        let tao_reserve = TaoCurrency::from(100_000_000_000);
+        let alpha_in = AlphaCurrency::from(1_000_000_000_000);
+        mock::setup_reserves(netuid, tao_reserve, alpha_in);
+
+        // Initialize swap v3
+        SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            TaoCurrency::ZERO,
+            1_000_000_000_000.into(),
+            false,
+        )
+        .unwrap();
+
+        // Add stake with slippage safety and check if the result is ok
+        assert_ok!(SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            amount.into(),
+            TaoCurrency::MAX,
+            false,
+            false,
+        ));
+        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
+            / u16::MAX as f64;
+        let expected_flow = (amount as f64) * (1. - fee_rate);
+
+        // Check that flow has been recorded (less unstaking fees)
+        assert_abs_diff_eq!(
+            SubnetTaoFlow::<Test>::get(netuid),
+            expected_flow as i64,
+            epsilon = 1_i64
+        );
+
+        // Remove stake
+        let alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_ok!(SubtensorModule::unstake_from_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            alpha,
+            TaoCurrency::ZERO,
+            false,
+        ));
+
+        // Check that outflow has been recorded (less unstaking fees)
+        let expected_unstake_fee = expected_flow * fee_rate;
+        assert_abs_diff_eq!(
+            SubnetTaoFlow::<Test>::get(netuid),
+            expected_unstake_fee as i64,
+            epsilon = (expected_unstake_fee / 100.0) as i64
+        );
+    });
+}

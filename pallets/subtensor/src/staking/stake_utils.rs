@@ -18,7 +18,13 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The total alpha issuance for the specified subnet.
     pub fn get_alpha_issuance(netuid: NetUid) -> AlphaCurrency {
-        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
+        SubnetAlphaIn::<T>::get(netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
+            .saturating_add(SubnetAlphaOut::<T>::get(netuid))
+    }
+
+    pub fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
+        T::SwapInterface::get_protocol_tao(netuid)
     }
 
     pub fn get_moving_alpha_price(netuid: NetUid) -> U96F32 {
@@ -707,6 +713,12 @@ impl<T: Config> Pallet<T> {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
         }
 
+        // If this is a root-stake
+        if netuid == NetUid::ROOT {
+            // Adjust root claimed value for this hotkey and coldkey.
+            Self::remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
+        }
+
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO const: fix.
         // if Self::get_stake(hotkey, coldkey) == 0 {
@@ -714,6 +726,9 @@ impl<T: Config> Pallet<T> {
         //         hotkeys.retain(|k| k != hotkey);
         //     });
         // }
+
+        // Record TAO outflow
+        Self::record_tao_outflow(netuid, swap_result.amount_paid_out.into());
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
@@ -789,10 +804,21 @@ impl<T: Config> Pallet<T> {
             StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
         }
 
+        // Record TAO inflow
+        Self::record_tao_inflow(netuid, swap_result.amount_paid_in.into());
+
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         if set_limit {
             Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
+        }
+
+        // If this is a root-stake
+        if netuid == NetUid::ROOT {
+            // Adjust root claimed for this hotkey and coldkey.
+            let alpha = swap_result.amount_paid_out.into();
+            Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
+            Self::maybe_add_coldkey_index(coldkey);
         }
 
         // Deposit and log the staking event.

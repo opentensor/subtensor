@@ -147,7 +147,7 @@ pub enum ProxyType {
     NonCritical,
     NonTransfer,
     Senate,
-    NonFungibile, // Nothing involving moving TAO
+    NonFungible, // Nothing involving moving TAO
     Triumvirate,
     Governance, // Both above governance
     Staking,
@@ -159,6 +159,34 @@ pub enum ProxyType {
     SudoUncheckedSetCode,
     SwapHotkey,
     SubnetLeaseBeneficiary, // Used to operate the leased subnet
+    RootClaim,
+}
+
+impl TryFrom<u8> for ProxyType {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Any),
+            1 => Ok(Self::Owner),
+            2 => Ok(Self::NonCritical),
+            3 => Ok(Self::NonTransfer),
+            4 => Ok(Self::Senate),
+            5 => Ok(Self::NonFungible),
+            6 => Ok(Self::Triumvirate),
+            7 => Ok(Self::Governance),
+            8 => Ok(Self::Staking),
+            9 => Ok(Self::Registration),
+            10 => Ok(Self::Transfer),
+            11 => Ok(Self::SmallTransfer),
+            12 => Ok(Self::RootWeights),
+            13 => Ok(Self::ChildKeys),
+            14 => Ok(Self::SudoUncheckedSetCode),
+            15 => Ok(Self::SwapHotkey),
+            16 => Ok(Self::SubnetLeaseBeneficiary),
+            _ => Err(()),
+        }
+    }
 }
 
 impl Default for ProxyType {
