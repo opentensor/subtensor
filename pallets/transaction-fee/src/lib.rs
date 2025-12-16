@@ -151,7 +151,24 @@ where
                 ),
             );
             let alpha_price = pallet_subtensor_swap::Pallet::<T>::current_alpha_price(*netuid);
-            alpha_price.saturating_mul(alpha_balance) >= tao_per_entry
+            if alpha_price.saturating_mul(alpha_balance) < tao_per_entry {
+                return false;
+            }
+
+            let alpha_fee = U96F32::saturating_from_num(tao_per_entry)
+                .checked_div(alpha_price)
+                .unwrap_or(alpha_balance)
+                .min(alpha_balance)
+                .saturating_to_num::<u64>();
+
+            let can_unstake =
+                pallet_subtensor::Pallet::<T>::try_decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey,
+                    coldkey,
+                    *netuid,
+                    alpha_fee.into(),
+                );
+            can_unstake
         })
     }
 
@@ -188,8 +205,8 @@ where
                     alpha_fee.into(),
                 );
             ensure!(
-                alpha_removed <= alpha_fee.into(),
-                "Alpha removed is greater than alpha fee"
+                alpha_removed == alpha_fee.into(),
+                "Alpha is not greater than alpha fee"
             );
         }
 
