@@ -562,10 +562,10 @@ fn test_recycle_precision_loss() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // amount to recycle
-        let recycle_amount = AlphaCurrency::from(stake);
+        let recycle_amount = AlphaCurrency::from(stake / 2);
 
         // Modify the alpha pool denominator so it's low-precision
-        let denominator = U64F64::from_num(0.0000001);
+        let denominator = U64F64::from_num(0.00000001);
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, denominator);
         Alpha::<Test>::insert((&hotkey, &coldkey, netuid), denominator);
 
@@ -599,10 +599,10 @@ fn test_burn_precision_loss() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // amount to recycle
-        let burn_amount = AlphaCurrency::from(stake);
+        let burn_amount = AlphaCurrency::from(stake / 2);
 
         // Modify the alpha pool denominator so it's low-precision
-        let denominator = U64F64::from_num(0.0000001);
+        let denominator = U64F64::from_num(0.00000001);
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, denominator);
         Alpha::<Test>::insert((&hotkey, &coldkey, netuid), denominator);
 
