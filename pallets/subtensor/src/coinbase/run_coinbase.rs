@@ -78,7 +78,9 @@ impl<T: Config> Pallet<T> {
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
                     let bought_alpha: AlphaCurrency = buy_swap_result_ok.amount_paid_out.into();
-                    Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
+                    PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
+                        *total = total.saturating_add(tou64!(bought_alpha).into());
+                    });
                 }
             }
 
