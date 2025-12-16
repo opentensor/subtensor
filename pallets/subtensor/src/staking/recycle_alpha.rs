@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Recycle means we should decrease the alpha issuance tracker.
-        Self::recycle_subnet_alpha(netuid, actual_alpha_decrease);
+        Self::recycle_subnet_alpha(netuid, amount);
 
         Self::deposit_event(Event::AlphaRecycled(
             coldkey,
