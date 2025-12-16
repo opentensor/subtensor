@@ -27,7 +27,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.89.0
+          toolchain: stable
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
