@@ -1,15 +1,16 @@
 #![allow(clippy::expect_used)]
 
 use crate::tests::mock::{
-    RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
+    RuntimeEvent, RuntimeOrigin, SubtensorModule, System, Test, add_dynamic_network, new_test_ext,
+    run_to_block, step_block,
 };
 use crate::{
-    DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
-    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
-    SubnetTAO, SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
+    DefaultMinRootClaimAmount, Error, Event, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD,
+    NetworksAdded, NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, PendingRootClaimedData,
+    RootClaimable, RootClaimableThreshold, StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn,
+    SubnetMechanism, SubnetMovingPrice, SubnetTAO, SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
 };
-use crate::{RootAlphaDividendsPerSubnet, SubnetRootClaimKeep, SubnetRootClaimSwap};
+use crate::{PendingSubnetRootClaimData, RootAlphaDividendsPerSubnet};
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
@@ -18,7 +19,7 @@ use frame_support::traits::Get;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
@@ -1861,7 +1862,7 @@ fn test_claim_root_subnet_root_claim_map_keep() {
             RootClaimTypeEnum::Keep
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
-        assert!(!SubnetRootClaimKeep::<Test>::contains_key(netuid));
+        assert!(!PendingSubnetRootClaimData::<Test>::contains_key(netuid));
 
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(coldkey),
@@ -1873,12 +1874,46 @@ fn test_claim_root_subnet_root_claim_map_keep() {
         let new_stake =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
-        assert_eq!(new_stake, SubnetRootClaimKeep::<Test>::get(netuid),);
+        assert!(PendingSubnetRootClaimData::<Test>::contains_key(netuid));
 
-        // Check SubnetRootClaimKeep after network deregistration
+        let root_claim_data = PendingSubnetRootClaimData::<Test>::get(netuid);
 
-        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
-        assert!(!SubnetRootClaimKeep::<Test>::contains_key(netuid));
+        assert_eq!(new_stake, root_claim_data.alpha_kept);
+
+        assert_eq!(root_claim_data.alpha_swapped, AlphaCurrency::ZERO);
+        assert_eq!(root_claim_data.tao_swapped, TaoCurrency::ZERO);
+
+        // Check PendingSubnetRootClaimData after on_finalize()
+
+        step_block(1);
+        assert!(!PendingSubnetRootClaimData::<Test>::contains_key(netuid));
+
+        // Check for the event
+        let event = System::events()
+            .into_iter()
+            .find(|e| {
+                matches!(
+                    &e.event,
+                    RuntimeEvent::SubtensorModule(Event::RootClaimedData { .. })
+                )
+            })
+            .expect("Event must be found");
+
+        let RuntimeEvent::SubtensorModule(Event::RootClaimedData { data }) = event.event else {
+            panic!("Event must be RootClaimedData")
+        };
+
+        assert_eq!(
+            BTreeMap::from([(
+                netuid,
+                PendingRootClaimedData {
+                    alpha_swapped: AlphaCurrency::ZERO,
+                    tao_swapped: TaoCurrency::ZERO,
+                    alpha_kept: new_stake,
+                }
+            )]),
+            data
+        );
     });
 }
 
@@ -1946,7 +1981,7 @@ fn test_claim_root_subnet_root_claim_map_swap() {
             RootClaimTypeEnum::Swap
         ),);
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Swap);
-        assert!(!SubnetRootClaimSwap::<Test>::contains_key(netuid));
+        assert!(!PendingSubnetRootClaimData::<Test>::contains_key(netuid));
 
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(coldkey),
@@ -1975,18 +2010,52 @@ fn test_claim_root_subnet_root_claim_map_swap() {
 
         // Check SubnetRootClaimSwap
 
-        let saved_swapped_alpha: u64 = SubnetRootClaimSwap::<Test>::get(netuid).into();
+        let root_claim_data = PendingSubnetRootClaimData::<Test>::get(netuid);
+
+        let saved_swapped_alpha: u64 = root_claim_data.alpha_swapped.into();
+
+        let saved_swapped_tao: u64 = root_claim_data.tao_swapped.into();
+
+        assert_eq!(root_claim_data.alpha_kept, AlphaCurrency::ZERO);
 
         assert_abs_diff_eq!(
-            estimated_stake_increment as f64 / current_price,
+            estimated_stake_increment,
+            saved_swapped_tao as f64,
+            epsilon = 10f64,
+        );
+
+        assert_abs_diff_eq!(
+            estimated_stake_increment / current_price,
             saved_swapped_alpha as f64,
             epsilon = 10f64,
         );
 
-        // Check SubnetRootClaimSwap after network deregistration
+        // Check PendingSubnetRootClaimData after block finalization
 
-        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
-        assert!(!SubnetRootClaimSwap::<Test>::contains_key(netuid));
+        step_block(1);
+        assert!(!PendingSubnetRootClaimData::<Test>::contains_key(netuid));
+
+        // Check for the event
+        let event = System::events()
+            .into_iter()
+            .find(|e| {
+                matches!(
+                    &e.event,
+                    RuntimeEvent::SubtensorModule(Event::RootClaimedData { .. })
+                )
+            })
+            .expect("Event must be found");
+
+        let RuntimeEvent::SubtensorModule(Event::RootClaimedData { data }) = event.event else {
+            panic!("Event must be RootClaimedData")
+        };
+
+        for (event_netuid, root_claim_data) in data.into_iter() {
+            assert_eq!(event_netuid, netuid);
+            assert_eq!(root_claim_data.alpha_kept, AlphaCurrency::ZERO);
+            assert_eq!(root_claim_data.alpha_swapped, saved_swapped_alpha.into());
+            assert_eq!(root_claim_data.tao_swapped, saved_swapped_tao.into());
+        }
     });
 }
 

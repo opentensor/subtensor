@@ -479,5 +479,11 @@ mod events {
             /// The amount of alpha distributed
             alpha: AlphaCurrency,
         },
+
+        /// Root claimed data for this block.
+        RootClaimedData {
+            /// Root claim data for this block
+            data: BTreeMap<NetUid, PendingRootClaimedData>,
+        },
     }
 }
