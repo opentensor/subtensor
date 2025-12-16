@@ -1614,10 +1614,13 @@ pub type TransactionExtensions = (
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-type Migrations =
+type Migrations = (
+    // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
+    // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
-    >;
+    >,
+);
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
