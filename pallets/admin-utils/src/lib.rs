@@ -2229,7 +2229,7 @@ pub mod pallet {
         }
 
         /// Sets the global maximum number of mechanisms in a subnet
-        #[pallet::call_index(84)]
+        #[pallet::call_index(85)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
@@ -2241,7 +2241,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::do_set_max_mechanism_count(max_mechanism_count)?;
             Ok(())
         }
-            
+
         /// Sets the minimum number of non-immortal & non-immune UIDs that must remain in a subnet
         #[pallet::call_index(84)]
         #[pallet::weight((
