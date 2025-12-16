@@ -757,13 +757,12 @@ impl SubtensorExtensionEnv<AccountId> for MockEnv {
     }
 
     fn charge_weight(&mut self, weight: Weight) -> Result<(), DispatchError> {
-        if let Some(expected) = self.expected_weight {
-            if weight != expected {
+        if let Some(expected) = self.expected_weight
+            && weight != expected {
                 return Err(DispatchError::Other(
                     "unexpected weight charged by mock env",
                 ));
             }
-        }
         self.charged_weight = Some(weight);
         Ok(())
     }
