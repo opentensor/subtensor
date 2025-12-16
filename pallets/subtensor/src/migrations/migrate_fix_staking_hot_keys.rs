@@ -27,11 +27,10 @@ pub fn migrate_fix_staking_hot_keys<T: Config>() -> Weight {
             continue;
         }
 
-        let staking_hotkeys = cache.entry(coldkey.clone())
-            .or_insert_with(|| {
-                storage_reads = storage_reads.saturating_add(1);
-                StakingHotkeys::<T>::get(&coldkey)
-            });
+        let staking_hotkeys = cache.entry(coldkey.clone()).or_insert_with(|| {
+            storage_reads = storage_reads.saturating_add(1);
+            StakingHotkeys::<T>::get(&coldkey)
+        });
 
         if !staking_hotkeys.contains(&hotkey) {
             staking_hotkeys.push(hotkey.clone());

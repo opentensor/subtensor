@@ -19,6 +19,7 @@ pub mod migrate_fix_childkeys;
 pub mod migrate_fix_is_network_member;
 pub mod migrate_fix_root_subnet_tao;
 pub mod migrate_fix_root_tao_and_alpha_in;
+pub mod migrate_fix_staking_hot_keys;
 pub mod migrate_init_tao_flow;
 pub mod migrate_init_total_issuance;
 pub mod migrate_kappa_map_to_default;
@@ -58,7 +59,6 @@ pub mod migrate_to_v1_separate_emission;
 pub mod migrate_to_v2_fixed_total_stake;
 pub mod migrate_transfer_ownership_to_foundation;
 pub mod migrate_upgrade_revealed_commitments;
-pub mod migrate_fix_staking_hot_keys;
 
 pub(crate) fn migrate_storage<T: Config>(
     migration_name: &'static str,

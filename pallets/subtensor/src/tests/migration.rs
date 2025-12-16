@@ -1150,13 +1150,12 @@ fn test_migrate_fix_staking_hot_keys() {
 
         // Add some data
         Alpha::<Test>::insert(
-            (U256::from(1),
-            U256::from(2),
-            NetUid::ROOT),
-            U64F64::from(1_u64)
+            (U256::from(1), U256::from(2), NetUid::ROOT),
+            U64F64::from(1_u64),
         );
         // Run migration
-        let weight = migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<Test>();
+        let weight =
+            migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<Test>();
 
         assert!(
             HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
@@ -1173,7 +1172,6 @@ fn test_migrate_fix_staking_hot_keys() {
         );
     });
 }
-
 
 #[test]
 fn test_migrate_fix_root_subnet_tao() {
