@@ -161,14 +161,12 @@ where
                 .min(alpha_balance)
                 .saturating_to_num::<u64>();
 
-            let can_unstake =
-                pallet_subtensor::Pallet::<T>::try_decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey,
-                    coldkey,
-                    *netuid,
-                    alpha_fee.into(),
-                );
-            can_unstake
+            pallet_subtensor::Pallet::<T>::try_decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey,
+                coldkey,
+                *netuid,
+                alpha_fee.into(),
+            )
         })
     }
 
