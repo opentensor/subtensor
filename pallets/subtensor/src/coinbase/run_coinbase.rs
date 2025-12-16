@@ -124,6 +124,11 @@ impl<T: Config> Pallet<T> {
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut excess_tao: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let tao_block_emission: U96F32 = U96F32::saturating_from_num(
+            Self::get_block_emission()
+                .unwrap_or(TaoCurrency::ZERO)
+                .to_u64(),
+        );
 
         // Only calculate for subnets that we are emitting to.
         for (&netuid_i, &tao_emission_i) in subnet_emissions.iter() {
@@ -142,8 +147,9 @@ impl<T: Config> Pallet<T> {
             let alpha_out_i: U96F32 = alpha_emission_i;
             let mut alpha_in_i: U96F32 = tao_emission_i.safe_div_or(price_i, U96F32::from_num(0.0));
 
-            if alpha_in_i > alpha_emission_i {
-                alpha_in_i = alpha_emission_i;
+            let alpha_injection_cap: U96F32 = alpha_emission_i.min(tao_block_emission);
+            if alpha_in_i > alpha_injection_cap {
+                alpha_in_i = alpha_injection_cap;
                 tao_in_i = alpha_in_i.saturating_mul(price_i);
             }
 
@@ -178,13 +184,6 @@ impl<T: Config> Pallet<T> {
         // --- 3. Inject ALPHA for participants.
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
 
-        // Get total TAO on root.
-        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
-        log::debug!("root_tao: {root_tao:?}");
-        // Get tao_weight
-        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-        log::debug!("tao_weight: {tao_weight:?}");
-
         for netuid_i in subnets_to_emit_to.iter() {
             // Get alpha_out for this block.
             let mut alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
@@ -205,14 +204,8 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tou64!(owner_cut_i).into());
             });
 
-            // Get ALPHA issuance.
-            let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
-            log::debug!("alpha_issuance: {alpha_issuance:?}");
-
             // Get root proportional dividends.
-            let root_proportion: U96F32 = tao_weight
-                .checked_div(tao_weight.saturating_add(alpha_issuance))
-                .unwrap_or(asfloat!(0.0));
+            let root_proportion = Self::root_proportion(*netuid_i);
             log::debug!("root_proportion: {root_proportion:?}");
 
             // Get root alpha from root prop.

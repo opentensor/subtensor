@@ -18,10 +18,7 @@ pub struct EpochTerms {
     pub stake_weight: u16,
     pub active: bool,
     pub emission: AlphaCurrency,
-    pub rank: u16,
-    pub trust: u16,
     pub consensus: u16,
-    pub pruning_score: u16,
     pub validator_trust: u16,
     pub new_validator_permit: bool,
     pub bond: Vec<(u16, u16)>,
@@ -128,22 +125,16 @@ impl<T: Config> Pallet<T> {
 
         let active = extract_from_sorted_terms!(terms_sorted, active);
         let emission = extract_from_sorted_terms!(terms_sorted, emission);
-        let rank = extract_from_sorted_terms!(terms_sorted, rank);
-        let trust = extract_from_sorted_terms!(terms_sorted, trust);
         let consensus = extract_from_sorted_terms!(terms_sorted, consensus);
         let dividend = extract_from_sorted_terms!(terms_sorted, dividend);
-        let pruning_score = extract_from_sorted_terms!(terms_sorted, pruning_score);
         let validator_trust = extract_from_sorted_terms!(terms_sorted, validator_trust);
         let new_validator_permit = extract_from_sorted_terms!(terms_sorted, new_validator_permit);
         let stake_weight = extract_from_sorted_terms!(terms_sorted, stake_weight);
 
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, emission);
-        Rank::<T>::insert(netuid, rank);
-        Trust::<T>::insert(netuid, trust);
         Consensus::<T>::insert(netuid, consensus);
         Dividends::<T>::insert(netuid, dividend);
-        PruningScores::<T>::insert(netuid, pruning_score);
         ValidatorTrust::<T>::insert(netuid, validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permit);
         StakeWeight::<T>::insert(netuid, stake_weight);
@@ -325,9 +316,6 @@ impl<T: Config> Pallet<T> {
         // == Consensus, Validator Trust ==
         // ================================
 
-        // Compute preranks: r_j = SUM(i) w_ij * s_i
-        let preranks: Vec<I32F32> = matmul(&weights, &active_stake);
-
         // Consensus majority ratio, e.g. 51%.
         let kappa: I32F32 = Self::get_float_kappa(netuid);
         // Calculate consensus as stake-weighted median of weights.
@@ -344,9 +332,6 @@ impl<T: Config> Pallet<T> {
 
         // Compute ranks: r_j = SUM(i) w_ij * s_i
         let mut ranks: Vec<I32F32> = matmul(&clipped_weights, &active_stake);
-
-        // Compute server trust: ratio of rank after vs. rank before.
-        let trust: Vec<I32F32> = vecdiv(&ranks, &preranks);
 
         inplace_normalize(&mut ranks);
         let incentive: Vec<I32F32> = ranks.clone();
@@ -494,23 +479,11 @@ impl<T: Config> Pallet<T> {
         log::trace!("nCE: {:?}", &normalized_combined_emission);
         log::trace!("CE: {:?}", &combined_emission);
 
-        // Set pruning scores using combined emission scores.
-        let pruning_scores: Vec<I32F32> = normalized_combined_emission.clone();
-        log::trace!("P: {:?}", &pruning_scores);
-
         // ===================
         // == Value storage ==
         // ===================
         let cloned_emission = combined_emission.clone();
         let cloned_stake_weight: Vec<u16> = stake
-            .iter()
-            .map(|xi| fixed_proportion_to_u16(*xi))
-            .collect::<Vec<u16>>();
-        let cloned_ranks: Vec<u16> = ranks
-            .iter()
-            .map(|xi| fixed_proportion_to_u16(*xi))
-            .collect::<Vec<u16>>();
-        let cloned_trust: Vec<u16> = trust
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
@@ -526,7 +499,6 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
-        let cloned_pruning_scores: Vec<u16> = vec_max_upscale_to_u16(&pruning_scores);
         let cloned_validator_trust: Vec<u16> = validator_trust
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -534,12 +506,9 @@ impl<T: Config> Pallet<T> {
         StakeWeight::<T>::insert(netuid, cloned_stake_weight.clone());
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, cloned_emission);
-        Rank::<T>::insert(netuid, cloned_ranks);
-        Trust::<T>::insert(netuid, cloned_trust);
         Consensus::<T>::insert(netuid, cloned_consensus);
         Incentive::<T>::insert(NetUidStorageIndex::from(netuid), cloned_incentive);
         Dividends::<T>::insert(netuid, cloned_dividends);
-        PruningScores::<T>::insert(netuid, cloned_pruning_scores);
         ValidatorTrust::<T>::insert(netuid, cloned_validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
 
@@ -790,10 +759,6 @@ impl<T: Config> Pallet<T> {
         // == Consensus, Validator Trust ==
         // ================================
 
-        // Compute preranks: r_j = SUM(i) w_ij * s_i
-        let preranks: Vec<I32F32> = matmul_sparse(&weights, &active_stake, n);
-        log::trace!("Ranks (before): {:?}", &preranks);
-
         // Consensus majority ratio, e.g. 51%.
         let kappa: I32F32 = Self::get_float_kappa(netuid);
         // Calculate consensus as stake-weighted median of weights.
@@ -814,11 +779,6 @@ impl<T: Config> Pallet<T> {
 
         // Compute ranks: r_j = SUM(i) w_ij * s_i.
         let mut ranks: Vec<I32F32> = matmul_sparse(&clipped_weights, &active_stake, n);
-        log::trace!("Ranks (after): {:?}", &ranks);
-
-        // Compute server trust: ratio of rank after vs. rank before.
-        let trust: Vec<I32F32> = vecdiv(&ranks, &preranks); // range: I32F32(0, 1)
-        log::trace!("Trust: {:?}", &trust);
 
         inplace_normalize(&mut ranks); // range: I32F32(0, 1)
         let incentive: Vec<I32F32> = ranks.clone();
@@ -1004,10 +964,6 @@ impl<T: Config> Pallet<T> {
         );
         log::trace!("Combined Emission: {:?}", &combined_emission);
 
-        // Set pruning scores using combined emission scores.
-        let pruning_scores: Vec<I32F32> = normalized_combined_emission.clone();
-        log::trace!("Pruning Scores: {:?}", &pruning_scores);
-
         // ===========================
         // == Populate epoch output ==
         // ===========================
@@ -1016,14 +972,6 @@ impl<T: Config> Pallet<T> {
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
         let cloned_emission = combined_emission.clone();
-        let cloned_ranks: Vec<u16> = ranks
-            .iter()
-            .map(|xi| fixed_proportion_to_u16(*xi))
-            .collect::<Vec<u16>>();
-        let cloned_trust: Vec<u16> = trust
-            .iter()
-            .map(|xi| fixed_proportion_to_u16(*xi))
-            .collect::<Vec<u16>>();
         let cloned_consensus: Vec<u16> = consensus
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -1036,7 +984,6 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
-        let cloned_pruning_scores: Vec<u16> = vec_max_upscale_to_u16(&pruning_scores);
         let cloned_validator_trust: Vec<u16> = validator_trust
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -1056,13 +1003,7 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or_default();
             terms.active = active.get(terms.uid).copied().unwrap_or_default();
             terms.emission = cloned_emission.get(terms.uid).copied().unwrap_or_default();
-            terms.rank = cloned_ranks.get(terms.uid).copied().unwrap_or_default();
-            terms.trust = cloned_trust.get(terms.uid).copied().unwrap_or_default();
             terms.consensus = cloned_consensus.get(terms.uid).copied().unwrap_or_default();
-            terms.pruning_score = cloned_pruning_scores
-                .get(terms.uid)
-                .copied()
-                .unwrap_or_default();
             terms.validator_trust = cloned_validator_trust
                 .get(terms.uid)
                 .copied()
