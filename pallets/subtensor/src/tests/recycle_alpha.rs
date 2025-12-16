@@ -561,10 +561,6 @@ fn test_recycle_precision_loss() {
         let stake = 200_000;
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
-        // get initial total issuance and alpha out
-        let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
-        let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
-
         // amount to recycle
         let recycle_amount = AlphaCurrency::from(stake);
 
@@ -601,10 +597,6 @@ fn test_burn_precision_loss() {
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
-
-        // get initial total issuance and alpha out
-        let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
-        let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
         let burn_amount = AlphaCurrency::from(stake);
