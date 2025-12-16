@@ -555,6 +555,7 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier of the subnet.
     /// * `amount` - The amount of alpha to be added.
     ///
+    #[must_use]
     pub fn decrease_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
