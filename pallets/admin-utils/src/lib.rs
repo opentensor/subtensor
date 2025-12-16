@@ -538,7 +538,7 @@ pub mod pallet {
             );
             // Prevent chain bloat: Require max UIDs to be limited
             let mechanism_count = pallet_subtensor::MechanismCountCurrent::<T>::get(netuid);
-            pallet_subtensor::Pallet::<T>::check_max_uids_vs_mechanism_count(
+            pallet_subtensor::Pallet::<T>::ensure_max_uids_over_all_mechanisms(
                 max_allowed_uids,
                 mechanism_count.into(),
             )?;

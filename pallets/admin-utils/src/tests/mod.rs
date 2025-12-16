@@ -10,7 +10,10 @@ use pallet_subtensor::{
     TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit, *,
 };
 // use pallet_subtensor::{migrations, Event};
-use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
+use pallet_subtensor::{
+    Event, subnets::mechanism::MAX_MECHANISM_COUNT_PER_SUBNET,
+    utils::rate_limiting::TransactionType,
+};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
@@ -540,10 +543,10 @@ fn test_sudo_set_max_allowed_uids() {
             Error::<Test>::MaxAllowedUidsGreaterThanDefaultMaxAllowedUids
         );
 
-        // Chain bloat check against mechanism count
-        // Set MechanismCountCurrent to exceed 256 / DefaultMaxAllowedUids (16)
+        // Trying to set max allowed uids that would cause max_allowed_uids * mechanism_count > 256
+        MaxAllowedUids::<Test>::insert(netuid, 8);
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(32));
-        let large_max_uids = 16_u16;
+        let large_max_uids = 16;
         assert_noop!(
             AdminUtils::sudo_set_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::root(),
@@ -2885,6 +2888,35 @@ fn test_sudo_set_min_allowed_uids() {
                 SubtensorModule::get_subnetwork_n(netuid) + 1
             ),
             Error::<Test>::MinAllowedUidsGreaterThanCurrentUids
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_max_mechanism_count() {
+    new_test_ext().execute_with(|| {
+        // Normal case
+        assert_ok!(AdminUtils::sudo_set_max_mechanism_count(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            MechId::from(10)
+        ));
+
+        // Zero fails
+        assert_noop!(
+            AdminUtils::sudo_set_max_mechanism_count(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                MechId::from(0)
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // Over max bound fails
+        assert_noop!(
+            AdminUtils::sudo_set_max_mechanism_count(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET + 1)
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
         );
     });
 }
