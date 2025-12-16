@@ -596,6 +596,15 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::PowRegistrationAllowed(netuid, registration_allowed));
     }
 
+    // Emissions Disabled utils
+    pub fn get_emissions_disabled(netuid: NetUid) -> bool {
+        EmissionsDisabled::<T>::get(netuid)
+    }
+    pub fn set_emissions_disabled(netuid: NetUid, disabled: bool) {
+        EmissionsDisabled::<T>::insert(netuid, disabled);
+        Self::deposit_event(Event::EmissionsDisabledSet(netuid, disabled));
+    }
+
     pub fn get_target_registrations_per_interval(netuid: NetUid) -> u16 {
         TargetRegistrationsPerInterval::<T>::get(netuid)
     }

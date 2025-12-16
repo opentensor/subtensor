@@ -2887,3 +2887,59 @@ fn test_sudo_set_min_non_immune_uids() {
         assert_eq!(SubtensorModule::get_min_non_immune_uids(netuid), to_be_set);
     });
 }
+
+#[test]
+fn test_sudo_set_emissions_disabled() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10);
+
+        // Check default value is false (emissions enabled)
+        let init_value: bool = SubtensorModule::get_emissions_disabled(netuid);
+        assert!(!init_value);
+
+        // Non-root cannot call
+        assert_eq!(
+            AdminUtils::sudo_set_emissions_disabled(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                true
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(SubtensorModule::get_emissions_disabled(netuid), init_value);
+
+        // Root can disable emissions
+        assert_ok!(AdminUtils::sudo_set_emissions_disabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true
+        ));
+        assert!(SubtensorModule::get_emissions_disabled(netuid));
+
+        // Root can re-enable emissions
+        assert_ok!(AdminUtils::sudo_set_emissions_disabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            false
+        ));
+        assert!(!SubtensorModule::get_emissions_disabled(netuid));
+    });
+}
+
+#[test]
+fn test_sudo_set_emissions_disabled_subnet_not_exist() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(99);
+
+        // Subnet does not exist
+        assert_err!(
+            AdminUtils::sudo_set_emissions_disabled(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                true
+            ),
+            Error::<Test>::SubnetDoesNotExist
+        );
+    });
+}

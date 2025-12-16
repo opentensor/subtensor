@@ -645,5 +645,17 @@ mod benchmarks {
         ); /* sudo_set_min_non_immune_uids() */
     }
 
+    #[benchmark]
+    fn sudo_set_emissions_disabled() {
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16.into(), /*netuid*/
+            1u16,        /*tempo*/
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, 1u16.into()/*netuid*/, true/*disabled*/)/*sudo_set_emissions_disabled*/;
+    }
+
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }

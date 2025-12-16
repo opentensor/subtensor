@@ -2240,6 +2240,34 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_min_non_immune_uids(netuid, min);
             Ok(())
         }
+
+        /// Enables or disables emissions for a specific subnet.
+        /// It is only callable by the root account (sudo).
+        /// When emissions are disabled, the subnet will not receive any TAO emissions.
+        #[pallet::call_index(85)]
+        #[pallet::weight((
+            Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_emissions_disabled(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            disabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            pallet_subtensor::Pallet::<T>::set_emissions_disabled(netuid, disabled);
+            log::debug!(
+                "sudo_set_emissions_disabled( netuid: {netuid:?}, disabled: {disabled:?} ) "
+            );
+            Ok(())
+        }
     }
 }
 

@@ -8,11 +8,13 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
         // Filter out root subnet.
         // Filter out subnets with no first emission block number.
+        // Filter out subnets with emissions disabled.
         subnets
             .iter()
             .filter(|netuid| !netuid.is_root())
             .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
             .filter(|netuid| SubtokenEnabled::<T>::get(*netuid))
+            .filter(|netuid| !EmissionsDisabled::<T>::get(*netuid))
             .filter(|&netuid| {
                 // Only emit TAO if the subnetwork allows registration.
                 Self::get_network_registration_allowed(*netuid)

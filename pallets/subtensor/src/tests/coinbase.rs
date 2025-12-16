@@ -4016,3 +4016,35 @@ fn test_get_subnet_terms_alpha_emissions_cap() {
         assert_eq!(alpha_in.get(&netuid).copied().unwrap(), tao_block_emission);
     });
 }
+
+#[test]
+fn test_get_subnets_to_emit_to_filters_emissions_disabled() {
+    new_test_ext(1).execute_with(|| {
+        let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let netuid1 = add_dynamic_network(&U256::from(3), &U256::from(4));
+
+        // Both subnets should be in the list initially
+        let subnets_to_emit_to_0 = SubtensorModule::get_subnets_to_emit_to(&[netuid0, netuid1]);
+        assert_eq!(subnets_to_emit_to_0.len(), 2);
+        assert!(subnets_to_emit_to_0.contains(&netuid0));
+        assert!(subnets_to_emit_to_0.contains(&netuid1));
+
+        // Disable emissions for netuid0
+        EmissionsDisabled::<Test>::insert(netuid0, true);
+
+        // Check that netuid0 is not in the list
+        let subnets_to_emit_to_1 = SubtensorModule::get_subnets_to_emit_to(&[netuid0, netuid1]);
+        assert_eq!(subnets_to_emit_to_1.len(), 1);
+        assert!(!subnets_to_emit_to_1.contains(&netuid0));
+        assert!(subnets_to_emit_to_1.contains(&netuid1));
+
+        // Re-enable emissions for netuid0
+        EmissionsDisabled::<Test>::insert(netuid0, false);
+
+        // Check that netuid0 is back in the list
+        let subnets_to_emit_to_2 = SubtensorModule::get_subnets_to_emit_to(&[netuid0, netuid1]);
+        assert_eq!(subnets_to_emit_to_2.len(), 2);
+        assert!(subnets_to_emit_to_2.contains(&netuid0));
+        assert!(subnets_to_emit_to_2.contains(&netuid1));
+    });
+}
