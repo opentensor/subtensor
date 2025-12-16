@@ -64,11 +64,19 @@ mod benchmarks {
     }
 
     #[benchmark]
+    #[allow(deprecated)]
     fn sudo_set_serving_rate_limit() {
         // disable admin freeze window
         pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 100u64/*serving_rate_limit*/)/*sudo_set_serving_rate_limit*/;
+        #[block]
+        {
+            #[allow(deprecated)]
+            let _ = AdminUtils::<T>::sudo_set_serving_rate_limit(
+                RawOrigin::Root.into(),
+                1u16.into(),  /*netuid*/
+                100u64,       /*serving_rate_limit*/
+            );
+        }
     }
 
     #[benchmark]

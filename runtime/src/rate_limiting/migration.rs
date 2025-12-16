@@ -25,7 +25,7 @@ use subtensor_runtime_common::{
 };
 
 use super::{
-    AccountId, RateLimitUsageKey, Runtime,
+    AccountId, LimitSettingRule, RateLimitUsageKey, Runtime,
     legacy::{
         Hyperparameter, RateLimitKey, TransactionType, defaults as legacy_defaults,
         storage as legacy_storage,
@@ -116,6 +116,14 @@ pub fn migrate_rate_limiting() -> Weight {
     let mut writes = group_writes
         .saturating_add(limit_writes)
         .saturating_add(last_seen_writes);
+
+    // Legacy parity: serving-rate-limit configuration is allowed for root OR subnet owner.
+    // Everything else remains default (`AdminOrigin` / root in this runtime).
+    pallet_rate_limiting::LimitSettingRules::<Runtime>::insert(
+        RateLimitTarget::Group(GROUP_SERVE),
+        LimitSettingRule::RootOrSubnetOwnerAdminWindow,
+    );
+    writes += 1;
 
     HasMigrationRun::<Runtime>::insert(MIGRATION_NAME, true);
     writes += 1;
@@ -1087,6 +1095,13 @@ mod tests {
                 Some(DELEGATE_TAKE_GROUP_ID)
             );
             assert_eq!(pallet_rate_limiting::NextGroupId::<Runtime>::get(), 7);
+
+            let serve_target = RateLimitTarget::Group(GROUP_SERVE);
+            assert!(pallet_rate_limiting::LimitSettingRules::<Runtime>::contains_key(serve_target));
+            assert_eq!(
+                pallet_rate_limiting::LimitSettingRules::<Runtime>::get(serve_target),
+                crate::rate_limiting::LimitSettingRule::RootOrSubnetOwnerAdminWindow
+            );
         });
     }
 

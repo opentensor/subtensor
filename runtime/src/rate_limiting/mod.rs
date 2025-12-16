@@ -14,11 +14,17 @@
 //! Long-term, we should refactor `pallet-subtensor` into smaller pallets and move to dedicated
 //! `pallet-rate-limiting` instances per pallet.
 
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use pallet_admin_utils::Call as AdminUtilsCall;
-use pallet_rate_limiting::BypassDecision;
-use pallet_rate_limiting::{RateLimitScopeResolver, RateLimitUsageResolver};
+use pallet_rate_limiting::{
+    BypassDecision, EnsureLimitSettingRule, RateLimitScopeResolver, RateLimitUsageResolver,
+};
 use pallet_subtensor::{Call as SubtensorCall, Tempo};
+use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
+use sp_runtime::DispatchError;
 use sp_std::{vec, vec::Vec};
 use subtensor_runtime_common::{
     BlockNumber, NetUid,
@@ -29,6 +35,63 @@ use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
 
 mod legacy;
 pub mod migration;
+
+/// Authorization rules for configuring rate limits via `pallet-rate-limiting::set_rate_limit`.
+///
+/// Legacy note: historically, all rate-limit setters were `Root`-only except
+/// `admin-utils::sudo_set_serving_rate_limit` (subnet-owner-or-root). We preserve that behavior by
+/// requiring a `scope` value when using the [`LimitSettingRule::RootOrSubnetOwnerAdminWindow`] rule and
+/// validating subnet ownership against that `scope` (`netuid`).
+#[derive(
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Serialize,
+    Deserialize,
+    Clone,
+    PartialEq,
+    Eq,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug,
+)]
+pub enum LimitSettingRule {
+    /// Require `Root`.
+    Root,
+    /// Allow `Root` or the subnet owner for the provided `netuid` scope.
+    ///
+    /// This rule requires `scope == Some(netuid)`.
+    RootOrSubnetOwnerAdminWindow,
+}
+
+pub struct DefaultLimitSettingRule;
+
+impl Get<LimitSettingRule> for DefaultLimitSettingRule {
+    fn get() -> LimitSettingRule {
+        LimitSettingRule::Root
+    }
+}
+
+pub struct LimitSettingOrigin;
+
+impl EnsureLimitSettingRule<RuntimeOrigin, LimitSettingRule, NetUid> for LimitSettingOrigin {
+    fn ensure_origin(
+        origin: RuntimeOrigin,
+        rule: &LimitSettingRule,
+        scope: &Option<NetUid>,
+    ) -> frame_support::dispatch::DispatchResult {
+        match rule {
+            LimitSettingRule::Root => frame_system::ensure_root(origin).map_err(Into::into),
+            LimitSettingRule::RootOrSubnetOwnerAdminWindow => {
+                let netuid = scope.ok_or(DispatchError::BadOrigin)?;
+                pallet_subtensor::Pallet::<Runtime>::ensure_admin_window_open(netuid)?;
+                pallet_subtensor::Pallet::<Runtime>::ensure_subnet_owner_or_root(origin, netuid)
+                    .map(|_| ())
+                    .map_err(Into::into)
+            }
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct ScopeResolver;

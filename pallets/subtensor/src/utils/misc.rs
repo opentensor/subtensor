@@ -1,12 +1,15 @@
 use super::*;
 use crate::Error;
 use crate::system::{ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor};
+use rate_limiting_interface::RateLimitingInfo;
 use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
-use sp_runtime::Saturating;
+use sp_runtime::{SaturatedConversion, Saturating};
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{
+    AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency, rate_limiting,
+};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -428,8 +431,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_serving_rate_limit(netuid: NetUid) -> u64 {
-        ServingRateLimit::<T>::get(netuid)
+        T::RateLimiting::rate_limit(rate_limiting::GROUP_SERVE, Some(netuid))
+            .unwrap_or_default()
+            .saturated_into()
     }
+
     pub fn set_serving_rate_limit(netuid: NetUid, serving_rate_limit: u64) {
         ServingRateLimit::<T>::insert(netuid, serving_rate_limit);
         Self::deposit_event(Event::ServingRateLimitSet(netuid, serving_rate_limit));

@@ -117,6 +117,8 @@ pub mod pallet {
         MaxAllowedUidsGreaterThanDefaultMaxAllowedUids,
         /// Bad parameter value
         InvalidValue,
+        /// The called extrinsic has been deprecated.
+        Deprecated,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -220,31 +222,22 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the serving rate limit for a subnet.
-        /// It is only callable by the root account or subnet owner.
-        /// The extrinsic will call the Subtensor pallet to set the serving rate limit.
+        ///
+        /// Deprecated: serving rate limits are now configured via `pallet-rate-limiting` on the
+        /// serving group target (`GROUP_SERVE`) with `scope = Some(netuid)`.
         #[pallet::call_index(3)]
         #[pallet::weight(Weight::from_parts(22_980_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        #[deprecated(
+            note = "deprecated: configure via pallet-rate-limiting::set_rate_limit(target=Group(GROUP_SERVE), scope=Some(netuid), ...)"
+        )]
         pub fn sudo_set_serving_rate_limit(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            serving_rate_limit: u64,
+            _origin: OriginFor<T>,
+            _netuid: NetUid,
+            _serving_rate_limit: u64,
         ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::ServingRateLimit.into()],
-            )?;
-            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
-            pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, serving_rate_limit);
-            log::debug!("ServingRateLimitSet( serving_rate_limit: {serving_rate_limit:?} ) ");
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::ServingRateLimit.into()],
-            );
-            Ok(())
+            Err(Error::<T>::Deprecated.into())
         }
 
         /// The extrinsic sets the minimum difficulty for a subnet.

@@ -278,14 +278,11 @@ fn serving_parity() {
         });
         let origin = RuntimeOrigin::signed(hot.clone());
         let legacy_axon = || {
-            SubtensorModule::axon_passes_rate_limit(
-                netuid,
-                &AxonInfo {
-                    block: now - 1,
-                    ..Default::default()
-                },
-                now,
-            )
+            let info = AxonInfo {
+                block: now.saturating_sub(1),
+                ..Default::default()
+            };
+            now.saturating_sub(info.block) >= ServingRateLimit::<Runtime>::get(netuid)
         };
         parity_check(now, axon_call, origin.clone(), None, None, legacy_axon);
 
@@ -298,14 +295,11 @@ fn serving_parity() {
             ip_type: 4,
         });
         let legacy_prom = || {
-            SubtensorModule::prometheus_passes_rate_limit(
-                netuid,
-                &PrometheusInfo {
-                    block: now - 1,
-                    ..Default::default()
-                },
-                now,
-            )
+            let info = PrometheusInfo {
+                block: now.saturating_sub(1),
+                ..Default::default()
+            };
+            now.saturating_sub(info.block) >= ServingRateLimit::<Runtime>::get(netuid)
         };
         parity_check(now, prom_call, origin, None, None, legacy_prom);
     });

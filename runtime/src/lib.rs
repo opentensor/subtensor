@@ -1148,6 +1148,9 @@ parameter_types! {
 impl pallet_rate_limiting::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type AdminOrigin = EnsureRoot<AccountId>;
+    type LimitSettingRule = rate_limiting::LimitSettingRule;
+    type DefaultLimitSettingRule = rate_limiting::DefaultLimitSettingRule;
+    type LimitSettingOrigin = rate_limiting::LimitSettingOrigin;
     type LimitScope = NetUid;
     type LimitScopeResolver = RuntimeScopeResolver;
     type UsageKey = RateLimitUsageKey<AccountId>;

@@ -1235,7 +1235,7 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    /// --- ITEM ( global_block_emission )    
+    /// --- ITEM ( global_block_emission )
     #[pallet::storage]
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
 
@@ -1275,7 +1275,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type TotalStake<T> = StorageValue<_, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
 
-    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.         
+    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.
     #[pallet::storage]
     pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
 
@@ -2434,7 +2434,6 @@ pub enum CustomTransactionError {
     TransferDisallowed,
     HotKeyNotRegisteredInNetwork,
     InvalidIpAddress,
-    ServingRateLimitExceeded,
     InvalidPort,
     BadRequest,
     ZeroMaxAmount,
@@ -2461,7 +2460,6 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::TransferDisallowed => 9,
             CustomTransactionError::HotKeyNotRegisteredInNetwork => 10,
             CustomTransactionError::InvalidIpAddress => 11,
-            CustomTransactionError::ServingRateLimitExceeded => 12,
             CustomTransactionError::InvalidPort => 13,
             CustomTransactionError::BadRequest => 255,
             CustomTransactionError::ZeroMaxAmount => 14,
