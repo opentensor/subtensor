@@ -29,6 +29,10 @@ describe("Test the Subnet precompile contract", () => {
         await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
     })
 
+    beforeEach(async () => {
+        await new Promise(resolve => setTimeout(resolve, 500))
+    })
+
     it("Can register network without identity info", async () => {
         const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
 
