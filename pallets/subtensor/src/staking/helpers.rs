@@ -324,6 +324,10 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(amount);
         });
+        // Keep TotalStake in sync
+        TotalStake::<T>::mutate(|total| {
+            *total = total.saturating_sub(amount.into());
+        });
     }
 
     /// The function clears Alpha map in batches. Each run will check ALPHA_MAP_BATCH_SIZE
