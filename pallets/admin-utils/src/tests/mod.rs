@@ -2943,3 +2943,38 @@ fn test_sudo_set_emissions_disabled_subnet_not_exist() {
         );
     });
 }
+
+#[test]
+fn test_sudo_set_emissions_disabled_same_value() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10);
+
+        // Default value is false
+        assert!(!SubtensorModule::get_emissions_disabled(netuid));
+
+        // Setting to same value (false) should succeed without changing anything
+        assert_ok!(AdminUtils::sudo_set_emissions_disabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            false
+        ));
+        assert!(!SubtensorModule::get_emissions_disabled(netuid));
+
+        // Now disable emissions
+        assert_ok!(AdminUtils::sudo_set_emissions_disabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true
+        ));
+        assert!(SubtensorModule::get_emissions_disabled(netuid));
+
+        // Setting to same value (true) should succeed without changing anything
+        assert_ok!(AdminUtils::sudo_set_emissions_disabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true
+        ));
+        assert!(SubtensorModule::get_emissions_disabled(netuid));
+    });
+}

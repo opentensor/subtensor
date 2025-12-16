@@ -2247,7 +2247,7 @@ pub mod pallet {
         #[pallet::call_index(85)]
         #[pallet::weight((
             Weight::from_parts(7_343_000, 0)
-                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2))
                 .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
             DispatchClass::Operational,
             Pays::Yes
@@ -2262,6 +2262,12 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
+
+            let current_value = pallet_subtensor::Pallet::<T>::get_emissions_disabled(netuid);
+            if current_value == disabled {
+                return Ok(());
+            }
+
             pallet_subtensor::Pallet::<T>::set_emissions_disabled(netuid, disabled);
             log::debug!(
                 "sudo_set_emissions_disabled( netuid: {netuid:?}, disabled: {disabled:?} ) "
