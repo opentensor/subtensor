@@ -80,16 +80,28 @@ impl<T: pallet_governance::Config> CollectiveMembersProvider<T> for FakeCollecti
 where
     T::AccountId: From<AccountOf<Test>>,
 {
-    fn get_economic_collective() -> BoundedVec<T::AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>> {
-        BoundedVec::truncate_from(
-            ECONOMIC_COLLECTIVE
-                .with(|c| c.borrow().iter().map(|a| T::AccountId::from(*a)).collect()),
+    fn get_economic_collective() -> (
+        BoundedVec<T::AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>>,
+        Weight,
+    ) {
+        (
+            BoundedVec::truncate_from(
+                ECONOMIC_COLLECTIVE
+                    .with(|c| c.borrow().iter().map(|a| T::AccountId::from(*a)).collect()),
+            ),
+            Weight::zero(),
         )
     }
-    fn get_building_collective() -> BoundedVec<T::AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>> {
-        BoundedVec::truncate_from(
-            BUILDING_COLLECTIVE
-                .with(|c| c.borrow().iter().map(|a| T::AccountId::from(*a)).collect()),
+    fn get_building_collective() -> (
+        BoundedVec<T::AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>>,
+        Weight,
+    ) {
+        (
+            BoundedVec::truncate_from(
+                BUILDING_COLLECTIVE
+                    .with(|c| c.borrow().iter().map(|a| T::AccountId::from(*a)).collect()),
+            ),
+            Weight::zero(),
         )
     }
 }
@@ -127,13 +139,10 @@ parameter_types! {
     pub const CleanupPeriod: BlockNumberFor<Test> = 500;
     pub const FastTrackThreshold: Percent = Percent::from_percent(67); // ~2/3
     pub const CancellationThreshold: Percent = Percent::from_percent(51);
-    pub const EligibilityLockCost: BalanceOf<Test> = 1_000_000_000;
-    pub const NominationThreshold: Percent = Percent::from_percent(51);
 }
 
 impl pallet_governance::Config for Test {
     type RuntimeCall = RuntimeCall;
-    type RuntimeHoldReason = RuntimeHoldReason;
     type Currency = Balances;
     type Preimages = Preimage;
     type Scheduler = Scheduler;
@@ -151,8 +160,6 @@ impl pallet_governance::Config for Test {
     type CleanupPeriod = CleanupPeriod;
     type CancellationThreshold = CancellationThreshold;
     type FastTrackThreshold = FastTrackThreshold;
-    type EligibilityLockCost = EligibilityLockCost;
-    type NominationThreshold = NominationThreshold;
 }
 
 #[frame_support::pallet]
@@ -210,11 +217,6 @@ impl Default for TestState {
 }
 
 impl TestState {
-    pub(crate) fn with_balance(mut self, who: AccountOf<Test>, balance: BalanceOf<Test>) -> Self {
-        self.balances.push((who, balance));
-        self
-    }
-
     pub(crate) fn with_allowed_proposers(
         mut self,
         allowed_proposers: Vec<AccountOf<Test>>,
