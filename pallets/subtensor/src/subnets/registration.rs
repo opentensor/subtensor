@@ -522,10 +522,9 @@ impl<T: Config> Pallet<T> {
         let can_prune_non_immune = free_count > min_free;
 
         // Prefer non‑immune if allowed; otherwise fall back to immune.
-        if can_prune_non_immune
-            && let Some((_, _, uid)) = best_non_immune {
-                return Some(uid);
-            }
+        if can_prune_non_immune && let Some((_, _, uid)) = best_non_immune {
+            return Some(uid);
+        }
         best_immune.map(|(_, _, uid)| uid)
     }
 
