@@ -449,6 +449,8 @@ mod events {
             hotkey: T::AccountId,
         },
 
+        /// The minimum allowed non-Immune UIDs has been set.
+        MinNonImmuneUidsSet(NetUid, u16),
         /// Root emissions have been claimed for a coldkey on all subnets and hotkeys.
         /// Parameters:
         /// (coldkey)
@@ -466,6 +468,16 @@ mod events {
 
             /// Claim type
             root_claim_type: RootClaimTypeEnum,
+        },
+
+        /// Subnet lease dividends have been distributed.
+        SubnetLeaseDividendsDistributed {
+            /// The lease ID
+            lease_id: LeaseId,
+            /// The contributor
+            contributor: T::AccountId,
+            /// The amount of alpha distributed
+            alpha: AlphaCurrency,
         },
     }
 }

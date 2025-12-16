@@ -72,14 +72,9 @@ mod hooks {
                 .saturating_add(migrations::migrate_delete_subnet_21::migrate_delete_subnet_21::<T>())
                 // Storage version v4 -> v5
                 .saturating_add(migrations::migrate_delete_subnet_3::migrate_delete_subnet_3::<T>())
-                // Doesn't check storage version. TODO: Remove after upgrade
-                // Storage version v5 -> v6
-                .saturating_add(migrations::migrate_total_issuance::migrate_total_issuance::<T>(false))
                 // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
                 // Storage version v6 -> v7
                 .saturating_add(migrations::migrate_populate_owned_hotkeys::migrate_populate_owned::<T>())
-                // Migrate Delegate Ids on chain
-                .saturating_add(migrations::migrate_chain_identity::migrate_set_hotkey_identities::<T>())
                 // Migrate Commit-Reval 2.0
                 .saturating_add(migrations::migrate_commit_reveal_v2::migrate_commit_reveal_2::<T>())
                 // Migrate to RAO
@@ -87,8 +82,6 @@ mod hooks {
 				// Fix the IsNetworkMember map to be consistent with other storage maps
 				.saturating_add(migrations::migrate_fix_is_network_member::migrate_fix_is_network_member::<T>())
 				.saturating_add(migrations::migrate_subnet_volume::migrate_subnet_volume::<T>())
-                // Upgrade identities to V2
-                .saturating_add(migrations::migrate_identities_v2::migrate_identities_to_v2::<T>())
 				// Set the min burn across all subnets to a new minimum
 				.saturating_add(migrations::migrate_set_min_burn::migrate_set_min_burn::<T>())
 				// Set the min difficulty across all subnets to a new minimum
@@ -124,8 +117,6 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<T>())
                 // Fix the owner disable the registration
                 .saturating_add(migrations::migrate_set_registration_enable::migrate_set_registration_enable::<T>())
-                // Migrate Subnet Identities to V3
-                .saturating_add(migrations::migrate_subnet_identities_to_v3::migrate_subnet_identities_to_v3::<T>())
                 // Migrate subnet symbols to fix the shift after subnet 81
                 .saturating_add(migrations::migrate_subnet_symbols::migrate_subnet_symbols::<T>())
                 // Migrate CRV3 add commit_block
@@ -158,10 +149,20 @@ mod hooks {
                 .saturating_add(migrations::migrate_auto_stake_destination::migrate_auto_stake_destination::<T>())
                 // Migrate Kappa to default (0.5)
                 .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>())
-                // Set the first block of tao flow
-                .saturating_add(migrations::migrate_set_first_tao_flow_block::migrate_set_first_tao_flow_block::<T>())
                 // Remove obsolete map entries
-                .saturating_add(migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<T>());
+                .saturating_add(migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<T>())
+                // Remove Trust, Rank, and Pruning Score
+                .saturating_add(migrations::migrate_clear_rank_trust_pruning_maps::migrate_clear_rank_trust_pruning_maps::<T>())
+                // Re-init tao flows
+                .saturating_add(migrations::migrate_init_tao_flow::migrate_init_tao_flow::<T>())
+                // Migrate pending emissions
+                .saturating_add(migrations::migrate_pending_emissions::migrate_pending_emissions::<T>())
+                // Reset unactive subnets
+                .saturating_add(migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<T>())
+                // Remove old identity map entries(Identities, SubnetIdentities, SubnetIdentitiesV2)
+                .saturating_add(migrations::migrate_remove_old_identity_maps::migrate_remove_old_identity_maps::<T>())
+                // Remove unknown neuron axon, certificate prom
+                .saturating_add(migrations::migrate_remove_unknown_neuron_axon_cert_prom::migrate_remove_unknown_neuron_axon_cert_prom::<T>());
             weight
         }
 

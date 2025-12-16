@@ -22,98 +22,66 @@ impl<T: Config> Pallet<T> {
     pub fn run_coinbase(block_emission: U96F32) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
-        log::debug!("Current block: {current_block:?}");
-
-        // --- 1. Get all netuids (filter out root)
+        log::debug!(
+            "Running coinbase for block {current_block:?} with block emission: {block_emission:?}"
+        );
+        // --- 1. Get all subnets (excluding root).
         let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()
             .into_iter()
             .filter(|netuid| *netuid != NetUid::ROOT)
             .collect();
-        log::debug!("All subnet netuids: {subnets:?}");
+        log::debug!("All subnets: {subnets:?}");
 
-        // 2. Get subnets to emit to and emissions
-        let subnet_emissions = Self::get_subnet_block_emissions(&subnets, block_emission);
-        let subnets_to_emit_to: Vec<NetUid> = subnet_emissions.keys().copied().collect();
+        // --- 2. Get subnets to emit to
+        let subnets_to_emit_to: Vec<NetUid> = Self::get_subnets_to_emit_to(&subnets);
+        log::debug!("Subnets to emit to: {subnets_to_emit_to:?}");
 
-        // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
-        // Computation is described in detail in the dtao whitepaper.
-        let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
-        // Only calculate for subnets that we are emitting to.
+        // --- 3. Get emissions for subnets to emit to
+        let subnet_emissions =
+            Self::get_subnet_block_emissions(&subnets_to_emit_to, block_emission);
+        log::debug!("Subnet emissions: {subnet_emissions:?}");
+        let root_sell_flag = Self::get_network_root_sell_flag(&subnets_to_emit_to);
+        log::debug!("Root sell flag: {root_sell_flag:?}");
+
+        // --- 4. Emit to subnets for this block.
+        Self::emit_to_subnets(&subnets_to_emit_to, &subnet_emissions, root_sell_flag);
+
+        // --- 5. Drain pending emissions.
+        let emissions_to_distribute = Self::drain_pending(&subnets, current_block);
+
+        // --- 6. Distribute the emissions to the subnets.
+        Self::distribute_emissions_to_subnets(&emissions_to_distribute);
+    }
+
+    pub fn inject_and_maybe_swap(
+        subnets_to_emit_to: &[NetUid],
+        tao_in: &BTreeMap<NetUid, U96F32>,
+        alpha_in: &BTreeMap<NetUid, U96F32>,
+        excess_tao: &BTreeMap<NetUid, U96F32>,
+    ) {
         for netuid_i in subnets_to_emit_to.iter() {
-            // Get subnet price.
-            let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
-            log::debug!("price_i: {price_i:?}");
-            // Emission is price over total.
-            let default_tao_in_i: U96F32 = subnet_emissions
-                .get(netuid_i)
-                .copied()
-                .unwrap_or(asfloat!(0));
-            log::debug!("default_tao_in_i: {default_tao_in_i:?}");
-            // Get alpha_emission total
-            let alpha_emission_i: U96F32 = asfloat!(
-                Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i).into())
-                    .unwrap_or(0)
-            );
-            log::debug!("alpha_emission_i: {alpha_emission_i:?}");
+            let tao_in_i: TaoCurrency =
+                tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
+            let alpha_in_i: AlphaCurrency =
+                tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
+            let tao_to_swap_with: TaoCurrency =
+                tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
 
-            // Get initial alpha_in
-            let mut alpha_in_i: U96F32;
-            let mut tao_in_i: U96F32;
-            let tao_in_ratio: U96F32 = default_tao_in_i.safe_div_or(
-                U96F32::saturating_from_num(block_emission),
-                U96F32::saturating_from_num(0.0),
-            );
-            if price_i < tao_in_ratio {
-                tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
-                alpha_in_i = block_emission;
-                let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
-                // Difference becomes buy.
+            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
+
+            if tao_to_swap_with > TaoCurrency::ZERO {
                 let buy_swap_result = Self::swap_tao_for_alpha(
                     *netuid_i,
-                    tou64!(difference_tao).into(),
+                    tao_to_swap_with,
                     T::SwapInterface::max_price(),
                     true,
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
-                    let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
-                    SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_sub(bought_alpha);
-                    });
+                    let bought_alpha: AlphaCurrency = buy_swap_result_ok.amount_paid_out.into();
+                    Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
                 }
-                is_subsidized.insert(*netuid_i, true);
-            } else {
-                tao_in_i = default_tao_in_i;
-                alpha_in_i = tao_in_i.safe_div_or(price_i, alpha_emission_i);
-                is_subsidized.insert(*netuid_i, false);
             }
-            log::debug!("alpha_in_i: {alpha_in_i:?}");
 
-            // Get alpha_out.
-            let mut alpha_out_i = alpha_emission_i;
-            // Only emit TAO if the subnetwork allows registration.
-            if !Self::get_network_registration_allowed(*netuid_i)
-                && !Self::get_network_pow_registration_allowed(*netuid_i)
-            {
-                tao_in_i = asfloat!(0.0);
-                alpha_in_i = asfloat!(0.0);
-                alpha_out_i = asfloat!(0.0);
-            }
-            // Insert values into maps
-            tao_in.insert(*netuid_i, tao_in_i);
-            alpha_in.insert(*netuid_i, alpha_in_i);
-            alpha_out.insert(*netuid_i, alpha_out_i);
-        }
-        log::debug!("tao_in: {tao_in:?}");
-        log::debug!("alpha_in: {alpha_in:?}");
-        log::debug!("alpha_out: {alpha_out:?}");
-
-        // --- 4. Injection.
-        // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
-        // This operation changes the pool liquidity each block.
-        for netuid_i in subnets_to_emit_to.iter() {
             // Inject Alpha in.
             let alpha_in_i =
                 AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
@@ -121,111 +89,179 @@ impl<T: Config> Pallet<T> {
             SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(alpha_in_i);
             });
-            // Injection Alpha out.
-            let alpha_out_i =
-                AlphaCurrency::from(tou64!(*alpha_out.get(netuid_i).unwrap_or(&asfloat!(0))));
-            SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_out_i);
-            SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_out_i);
-            });
+
             // Inject TAO in.
-            let tao_in_i: TaoCurrency =
+            let injected_tao: TaoCurrency =
                 tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_i));
+            SubnetTaoInEmission::<T>::insert(*netuid_i, injected_tao);
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(injected_tao);
             });
             TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(injected_tao);
             });
-            TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
-            });
-            // Adjust protocol liquidity based on new reserves
-            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
-        }
 
-        // --- 5. Compute owner cuts and remove them from alpha_out remaining.
-        // Remove owner cuts here so that we can properly seperate root dividends in the next step.
-        // Owner cuts are accumulated and then fed to the drain at the end of this func.
+            // Update total TAO issuance.
+            let difference_tao = tou64!(*excess_tao.get(netuid_i).unwrap_or(&asfloat!(0)));
+            TotalIssuance::<T>::mutate(|total| {
+                *total = total
+                    .saturating_add(injected_tao.into())
+                    .saturating_add(difference_tao.into());
+            });
+        }
+    }
+
+    pub fn get_subnet_terms(
+        subnet_emissions: &BTreeMap<NetUid, U96F32>,
+    ) -> (
+        BTreeMap<NetUid, U96F32>,
+        BTreeMap<NetUid, U96F32>,
+        BTreeMap<NetUid, U96F32>,
+        BTreeMap<NetUid, U96F32>,
+    ) {
+        // Computation is described in detail in the dtao whitepaper.
+        let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut excess_tao: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let tao_block_emission: U96F32 = U96F32::saturating_from_num(
+            Self::get_block_emission()
+                .unwrap_or(TaoCurrency::ZERO)
+                .to_u64(),
+        );
+
+        // Only calculate for subnets that we are emitting to.
+        for (&netuid_i, &tao_emission_i) in subnet_emissions.iter() {
+            // Get alpha_emission this block.
+            let alpha_emission_i: U96F32 = asfloat!(
+                Self::get_block_emission_for_issuance(Self::get_alpha_issuance(netuid_i).into())
+                    .unwrap_or(0)
+            );
+            log::debug!("alpha_emission_i: {alpha_emission_i:?}");
+
+            // Get subnet price.
+            let price_i: U96F32 = T::SwapInterface::current_alpha_price(netuid_i.into());
+            log::debug!("price_i: {price_i:?}");
+
+            let mut tao_in_i: U96F32 = tao_emission_i;
+            let alpha_out_i: U96F32 = alpha_emission_i;
+            let mut alpha_in_i: U96F32 = tao_emission_i.safe_div_or(price_i, U96F32::from_num(0.0));
+
+            let alpha_injection_cap: U96F32 = alpha_emission_i.min(tao_block_emission);
+            if alpha_in_i > alpha_injection_cap {
+                alpha_in_i = alpha_injection_cap;
+                tao_in_i = alpha_in_i.saturating_mul(price_i);
+            }
+
+            let excess_amount: U96F32 = tao_emission_i.saturating_sub(tao_in_i);
+            excess_tao.insert(netuid_i, excess_amount);
+
+            // Insert values into maps
+            tao_in.insert(netuid_i, tao_in_i);
+            alpha_in.insert(netuid_i, alpha_in_i);
+            alpha_out.insert(netuid_i, alpha_out_i);
+        }
+        (tao_in, alpha_in, alpha_out, excess_tao)
+    }
+
+    pub fn emit_to_subnets(
+        subnets_to_emit_to: &[NetUid],
+        subnet_emissions: &BTreeMap<NetUid, U96F32>,
+        root_sell_flag: bool,
+    ) {
+        // --- 1. Get subnet terms (tao_in, alpha_in, and alpha_out)
+        // and excess_tao amounts.
+        let (tao_in, alpha_in, alpha_out, excess_amount) = Self::get_subnet_terms(subnet_emissions);
+
+        log::debug!("tao_in: {tao_in:?}");
+        log::debug!("alpha_in: {alpha_in:?}");
+        log::debug!("alpha_out: {alpha_out:?}");
+        log::debug!("excess_amount: {excess_amount:?}");
+
+        // --- 2. Inject TAO and ALPHA to pool and swap with excess TAO.
+        Self::inject_and_maybe_swap(subnets_to_emit_to, &tao_in, &alpha_in, &excess_amount);
+
+        // --- 3. Inject ALPHA for participants.
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
-        let mut owner_cuts: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+
         for netuid_i in subnets_to_emit_to.iter() {
-            // Get alpha out.
-            let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
-            log::debug!("alpha_out_i: {alpha_out_i:?}");
+            // Get alpha_out for this block.
+            let mut alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
+
+            let alpha_created: AlphaCurrency = AlphaCurrency::from(tou64!(alpha_out_i));
+            SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_created);
+            SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
+                *total = total.saturating_add(alpha_created);
+            });
+
             // Calculate the owner cut.
             let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
             log::debug!("owner_cut_i: {owner_cut_i:?}");
-            // Save owner cut.
-            *owner_cuts.entry(*netuid_i).or_insert(asfloat!(0)) = owner_cut_i;
-            // Save new alpha_out.
-            alpha_out.insert(*netuid_i, alpha_out_i.saturating_sub(owner_cut_i));
+            // Deduct owner cut from alpha_out.
+            alpha_out_i = alpha_out_i.saturating_sub(owner_cut_i);
             // Accumulate the owner cut in pending.
             PendingOwnerCut::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tou64!(owner_cut_i).into());
             });
-        }
 
-        // Get total TAO on root.
-        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
-        log::debug!("root_tao: {root_tao:?}");
-        // Get tao_weight
-        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-        log::debug!("tao_weight: {tao_weight:?}");
-
-        // --- 6. Seperate out root dividends in alpha and keep them.
-        // Then accumulate those dividends for later.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Get remaining alpha out.
-            let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0.0));
-            log::debug!("alpha_out_i: {alpha_out_i:?}");
-            // Get total ALPHA on subnet.
-            let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
-            log::debug!("alpha_issuance: {alpha_issuance:?}");
             // Get root proportional dividends.
-            let root_proportion: U96F32 = tao_weight
-                .checked_div(tao_weight.saturating_add(alpha_issuance))
-                .unwrap_or(asfloat!(0.0));
+            let root_proportion = Self::root_proportion(*netuid_i);
             log::debug!("root_proportion: {root_proportion:?}");
-            // Get root proportion of alpha_out dividends.
+
+            // Get root alpha from root prop.
             let root_alpha: U96F32 = root_proportion
                 .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
                 .saturating_mul(asfloat!(0.5)); // 50% to validators.
-            // Remove root alpha from alpha_out.
             log::debug!("root_alpha: {root_alpha:?}");
-            // Get pending alpha as original alpha_out - root_alpha.
-            let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
-            log::debug!("pending_alpha: {pending_alpha:?}");
 
-            let subsidized: bool = *is_subsidized.get(netuid_i).unwrap_or(&false);
-            if !subsidized {
+            // Get pending server alpha, which is the miner cut of the alpha out.
+            // Currently miner cut is 50% of the alpha out.
+            let pending_server_alpha = alpha_out_i.saturating_mul(asfloat!(0.5));
+            log::debug!("pending_server_alpha: {pending_server_alpha:?}");
+            // The total validator alpha is the remaining alpha out minus the server alpha.
+            let total_validator_alpha = alpha_out_i.saturating_sub(pending_server_alpha);
+            log::debug!("total_validator_alpha: {total_validator_alpha:?}");
+            // The alpha validators don't get the root alpha.
+            let pending_validator_alpha = total_validator_alpha.saturating_sub(root_alpha);
+            log::debug!("pending_validator_alpha: {pending_validator_alpha:?}");
+
+            // Accumulate the server alpha emission.
+            PendingServerEmission::<T>::mutate(*netuid_i, |total| {
+                *total = total.saturating_add(tou64!(pending_server_alpha).into());
+            });
+            // Accumulate the validator alpha emission.
+            PendingValidatorEmission::<T>::mutate(*netuid_i, |total| {
+                *total = total.saturating_add(tou64!(pending_validator_alpha).into());
+            });
+
+            if root_sell_flag {
+                // Only accumulate root alpha divs if root sell is allowed.
                 PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
                     *total = total.saturating_add(tou64!(root_alpha).into());
                 });
+            } else {
+                // If we are not selling the root alpha, we should recycle it.
+                Self::recycle_subnet_alpha(*netuid_i, AlphaCurrency::from(tou64!(root_alpha)));
             }
-
-            // Accumulate alpha emission in pending.
-            PendingEmission::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(pending_alpha).into());
-            });
         }
+    }
 
-        // --- 7. Update moving prices after using them in the emission calculation.
-        // Only update price EMA for subnets that we emit to.
-        for netuid_i in subnets_to_emit_to.iter() {
-            // Update moving prices after using them above.
-            Self::update_moving_price(*netuid_i);
-        }
-
-        // --- 8. Drain pending emission through the subnet based on tempo.
+    pub fn drain_pending(
+        subnets: &[NetUid],
+        current_block: u64,
+    ) -> BTreeMap<NetUid, (AlphaCurrency, AlphaCurrency, AlphaCurrency, AlphaCurrency)> {
+        // Map of netuid to (pending_server_alpha, pending_validator_alpha, pending_root_alpha, pending_owner_cut).
+        let mut emissions_to_distribute: BTreeMap<
+            NetUid,
+            (AlphaCurrency, AlphaCurrency, AlphaCurrency, AlphaCurrency),
+        > = BTreeMap::new();
+        // --- Drain pending emissions for all subnets hat are at their tempo.
         // Run the epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
-            // Reveal matured weights.
-            if let Err(e) = Self::reveal_crv3_commits(netuid) {
-                log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");
-            };
-            // Pass on subnets that have not reached their tempo.
+            // Increment blocks since last step.
+            BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
+
+            // Run the epoch if applicable.
             if Self::should_run_epoch(netuid, current_block)
                 && Self::is_epoch_input_state_consistent(netuid)
             {
@@ -234,24 +270,66 @@ impl<T: Config> Pallet<T> {
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);
 
                 // Get and drain the subnet pending emission.
-                let pending_alpha = PendingEmission::<T>::get(netuid);
-                PendingEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
+                let pending_server_alpha = PendingServerEmission::<T>::get(netuid);
+                PendingServerEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
 
-                // Get and drain the subnet pending root alpha divs.
+                let pending_validator_alpha = PendingValidatorEmission::<T>::get(netuid);
+                PendingValidatorEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
+
+                // Get and drain the pending Alpha for root divs.
                 let pending_root_alpha = PendingRootAlphaDivs::<T>::get(netuid);
                 PendingRootAlphaDivs::<T>::insert(netuid, AlphaCurrency::ZERO);
 
-                // Get owner cut and drain.
+                // Get and drain the pending owner cut.
                 let owner_cut = PendingOwnerCut::<T>::get(netuid);
                 PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
-                // Drain pending root alpha divs, alpha emission, and owner cut.
-                Self::drain_pending_emission(netuid, pending_alpha, pending_root_alpha, owner_cut);
-            } else {
-                // Increment
-                BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
+                // Save the emissions to distribute.
+                emissions_to_distribute.insert(
+                    netuid,
+                    (
+                        pending_server_alpha,
+                        pending_validator_alpha,
+                        pending_root_alpha,
+                        owner_cut,
+                    ),
+                );
             }
         }
+        emissions_to_distribute
+    }
+
+    pub fn distribute_emissions_to_subnets(
+        emissions_to_distribute: &BTreeMap<
+            NetUid,
+            (AlphaCurrency, AlphaCurrency, AlphaCurrency, AlphaCurrency),
+        >,
+    ) {
+        for (
+            &netuid,
+            &(pending_server_alpha, pending_validator_alpha, pending_root_alpha, pending_owner_cut),
+        ) in emissions_to_distribute.iter()
+        {
+            // Distribute the emission to the subnet.
+            Self::distribute_emission(
+                netuid,
+                pending_server_alpha,
+                pending_validator_alpha,
+                pending_root_alpha,
+                pending_owner_cut,
+            );
+        }
+    }
+
+    pub fn get_network_root_sell_flag(subnets_to_emit_to: &[NetUid]) -> bool {
+        let total_ema_price: U96F32 = subnets_to_emit_to
+            .iter()
+            .map(|netuid| Self::get_moving_alpha_price(*netuid))
+            .sum();
+
+        // If the total EMA price is less than or equal to 1
+        // then we WILL NOT root sell.
+        total_ema_price > U96F32::saturating_from_num(1)
     }
 
     pub fn calculate_dividends_and_incentives(
@@ -413,10 +491,11 @@ impl<T: Config> Pallet<T> {
 
         // Insert subnet owner hotkey in the beginning of the list if valid and not
         // already present
-        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-            if Uids::<T>::get(netuid, &owner_hk).is_some() && !owner_hotkeys.contains(&owner_hk) {
-                owner_hotkeys.insert(0, owner_hk);
-            }
+        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid)
+            && Uids::<T>::get(netuid, &owner_hk).is_some()
+            && !owner_hotkeys.contains(&owner_hk)
+        {
+            owner_hotkeys.insert(0, owner_hk);
         }
 
         owner_hotkeys
@@ -430,22 +509,22 @@ impl<T: Config> Pallet<T> {
         root_alpha_dividends: BTreeMap<T::AccountId, U96F32>,
     ) {
         // Distribute the owner cut.
-        if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
-            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                // Increase stake for owner hotkey and coldkey.
-                log::debug!(
-                    "owner_hotkey: {owner_hotkey:?} owner_coldkey: {owner_coldkey:?}, owner_cut: {owner_cut:?}"
-                );
-                let real_owner_cut = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    &owner_hotkey,
-                    &owner_coldkey,
-                    netuid,
-                    owner_cut,
-                );
-                // If the subnet is leased, notify the lease logic that owner cut has been distributed.
-                if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
-                    Self::distribute_leased_network_dividends(lease_id, real_owner_cut);
-                }
+        if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid)
+            && let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid)
+        {
+            // Increase stake for owner hotkey and coldkey.
+            log::debug!(
+                "owner_hotkey: {owner_hotkey:?} owner_coldkey: {owner_coldkey:?}, owner_cut: {owner_cut:?}"
+            );
+            let real_owner_cut = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &owner_hotkey,
+                &owner_coldkey,
+                netuid,
+                owner_cut,
+            );
+            // If the subnet is leased, notify the lease logic that owner cut has been distributed.
+            if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
+                Self::distribute_leased_network_dividends(lease_id, real_owner_cut);
             }
         }
 
@@ -482,6 +561,7 @@ impl<T: Config> Pallet<T> {
             let destination = maybe_dest.clone().unwrap_or(hotkey.clone());
 
             if let Some(dest) = maybe_dest {
+                log::debug!("incentives: auto staking {incentive:?} to {dest:?}");
                 Self::deposit_event(Event::<T>::AutoStakeAdded {
                     netuid,
                     destination: dest,
@@ -490,6 +570,7 @@ impl<T: Config> Pallet<T> {
                     incentive,
                 });
             }
+
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination,
                 &owner,
@@ -528,6 +609,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Distribute root alpha divs.
+        let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (hotkey, mut root_alpha) in root_alpha_dividends {
             // Get take prop
             let alpha_take: U96F32 =
@@ -550,7 +632,7 @@ impl<T: Config> Pallet<T> {
             );
 
             // Record root alpha dividends for this validator on this subnet.
-            AlphaDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
+            RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
                 *divs = divs.saturating_add(tou64!(root_alpha).into());
             });
         }
@@ -600,21 +682,25 @@ impl<T: Config> Pallet<T> {
         (incentives, (alpha_dividends, root_alpha_dividends))
     }
 
-    pub fn drain_pending_emission(
+    pub fn distribute_emission(
         netuid: NetUid,
-        pending_alpha: AlphaCurrency,
+        pending_server_alpha: AlphaCurrency,
+        pending_validator_alpha: AlphaCurrency,
         pending_root_alpha: AlphaCurrency,
-        owner_cut: AlphaCurrency,
+        pending_owner_cut: AlphaCurrency,
     ) {
         log::debug!(
-            "Draining pending alpha emission for netuid {netuid:?}, pending_alpha: {pending_alpha:?}, pending_root_alpha: {pending_root_alpha:?}, owner_cut: {owner_cut:?}"
+            "Draining pending alpha emission for netuid {netuid:?}, pending_server_alpha: {pending_server_alpha:?}, pending_validator_alpha: {pending_validator_alpha:?}, pending_root_alpha: {pending_root_alpha:?}, pending_owner_cut: {pending_owner_cut:?}"
         );
 
         let tao_weight = Self::get_tao_weight();
+        let total_alpha_minus_owner_cut = pending_server_alpha
+            .saturating_add(pending_validator_alpha)
+            .saturating_add(pending_root_alpha);
 
-        // Run the epoch.
+        // Run the epoch, using the alpha going to both the servers and the validators.
         let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
-            Self::epoch_with_mechanisms(netuid, pending_alpha.saturating_add(pending_root_alpha));
+            Self::epoch_with_mechanisms(netuid, total_alpha_minus_owner_cut);
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
         // Compute the pending validator alpha.
@@ -629,21 +715,20 @@ impl<T: Config> Pallet<T> {
             });
         log::debug!("incentive_sum: {incentive_sum:?}");
 
-        let pending_validator_alpha = if !incentive_sum.is_zero() {
-            pending_alpha
-                .saturating_add(pending_root_alpha)
-                .saturating_div(2.into())
-                .saturating_sub(pending_root_alpha)
+        let validator_alpha = if !incentive_sum.is_zero() {
+            pending_validator_alpha
         } else {
-            // If the incentive is 0, then Validators get 100% of the alpha.
-            pending_alpha
+            // If the incentive is 0, then Alpha Validators get both the server and validator alpha.
+            pending_validator_alpha.saturating_add(pending_server_alpha)
         };
+        let root_alpha = pending_root_alpha;
+        let owner_cut = pending_owner_cut;
 
         let (incentives, (alpha_dividends, root_alpha_dividends)) =
             Self::calculate_dividend_and_incentive_distribution(
                 netuid,
-                pending_root_alpha,
-                pending_validator_alpha,
+                root_alpha,
+                validator_alpha,
                 hotkey_emission,
                 tao_weight,
             );

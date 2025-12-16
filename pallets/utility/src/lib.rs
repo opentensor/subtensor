@@ -145,8 +145,7 @@ pub mod pallet {
             let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
             let call_size = (core::mem::size_of::<<T as Config>::RuntimeCall>() as u32)
                 .div_ceil(CALL_ALIGN)
-                .checked_mul(CALL_ALIGN)
-                .unwrap_or(u32::MAX);
+                .saturating_mul(CALL_ALIGN);
             // The margin to take into account vec doubling capacity.
             let margin_factor = 3;
 
@@ -636,7 +635,8 @@ pub mod pallet {
 }
 
 /// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
-#[freeze_struct("7e600c53ace0630a")]
+#[allow(unused)]
+#[freeze_struct("8b0fb6b91f673972")]
 #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode)]
 struct IndexedUtilityPalletId(u16);
 

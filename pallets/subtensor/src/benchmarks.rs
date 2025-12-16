@@ -446,15 +446,16 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, free_balance_old.into());
         let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
-        let identity = ChainIdentity {
+        let identity = ChainIdentityV2 {
             name,
             url: vec![],
+            github_repo: vec![],
             image: vec![],
             discord: vec![],
             description: vec![],
             additional: vec![],
         };
-        Identities::<T>::insert(&old_coldkey, identity);
+        IdentitiesV2::<T>::insert(&old_coldkey, identity);
 
         #[extrinsic_call]
         _(
@@ -1615,9 +1616,10 @@ mod pallet_benchmarks {
         );
 
         let pending_root_alpha = 10_000_000u64;
-        Subtensor::<T>::drain_pending_emission(
+        Subtensor::<T>::distribute_emission(
             netuid,
             AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
             pending_root_alpha.into(),
             AlphaCurrency::ZERO,
         );

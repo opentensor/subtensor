@@ -26,8 +26,8 @@ use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
-use substrate_fixed::types::I96F32;
 use substrate_fixed::types::extra::U2;
+use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
 
 #[allow(clippy::arithmetic_side_effects)]
@@ -2016,7 +2016,7 @@ fn test_migrate_network_lock_reduction_interval_and_decay() {
 
         // last_lock_block should be set one week in the future
         let last_lock_block = Pallet::<Test>::get_network_last_lock_block();
-        let expected_block = current_block_before.saturating_add(ONE_WEEK_BLOCKS);
+        let expected_block = current_block_before + ONE_WEEK_BLOCKS;
         assert_eq!(
             last_lock_block,
             expected_block,
@@ -2243,10 +2243,8 @@ fn test_migrate_network_lock_cost_2500_sets_price_and_decay() {
         let min_lock_rao: u64 = Pallet::<Test>::get_network_min_lock().to_u64();
 
         step_block(1);
-        let expected_after_1: u64 = core::cmp::max(
-            min_lock_rao,
-            TARGET_COST_RAO.saturating_sub(per_block_decrement),
-        );
+        let expected_after_1: u64 =
+            core::cmp::max(min_lock_rao, TARGET_COST_RAO - per_block_decrement);
         let lock_cost_after_1 = Pallet::<Test>::get_network_lock_cost();
         assert_eq!(
             lock_cost_after_1,
@@ -2293,9 +2291,9 @@ fn test_migrate_kappa_map_to_default() {
         let default: u16 = DefaultKappa::<Test>::get();
 
         let not_default: u16 = if default == u16::MAX {
-            default.saturating_sub(1)
+            default - 1
         } else {
-            default.saturating_add(1)
+            default + 1
         };
 
         // ------------------------------
@@ -2396,4 +2394,542 @@ fn test_migrate_remove_tao_dividends() {
         migration,
         200_000,
     );
+}
+
+#[test]
+fn test_migrate_clear_rank_trust_pruning_maps_removes_entries() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0) Constants
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"clear_rank_trust_pruning_maps";
+        let empty: Vec<u16> = EmptyU16Vec::<Test>::get();
+
+        // ------------------------------
+        // 1) Pre-state: seed using the correct key type (NetUid)
+        // ------------------------------
+        let n0: NetUid = 0u16.into();
+        let n1: NetUid = 1u16.into();
+        let n2: NetUid = 42u16.into();
+
+        // Rank: n0 non-empty, n1 explicitly empty, n2 absent
+        Rank::<Test>::insert(n0, vec![10, 20, 30]);
+        Rank::<Test>::insert(n1, Vec::<u16>::new());
+
+        // Trust: n0 non-empty, n2 non-empty
+        Trust::<Test>::insert(n0, vec![7]);
+        Trust::<Test>::insert(n2, vec![1, 2, 3]);
+
+        // PruningScores: n0 non-empty, n1 empty, n2 non-empty
+        PruningScores::<Test>::insert(n0, vec![5, 5, 5]);
+        PruningScores::<Test>::insert(n1, Vec::<u16>::new());
+        PruningScores::<Test>::insert(n2, vec![9]);
+
+        // Sanity: preconditions (keys should exist where inserted)
+        assert!(Rank::<Test>::contains_key(n0));
+        assert!(Rank::<Test>::contains_key(n1));
+        assert!(!Rank::<Test>::contains_key(n2));
+
+        assert!(Trust::<Test>::contains_key(n0));
+        assert!(!Trust::<Test>::contains_key(n1));
+        assert!(Trust::<Test>::contains_key(n2));
+
+        assert!(PruningScores::<Test>::contains_key(n0));
+        assert!(PruningScores::<Test>::contains_key(n1));
+        assert!(PruningScores::<Test>::contains_key(n2));
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 2) Run migration
+        // ------------------------------
+        let w = crate::migrations::migrate_clear_rank_trust_pruning_maps::migrate_clear_rank_trust_pruning_maps::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 3) Verify: all entries removed (no keys present)
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        // Rank: all removed
+        assert!(
+            !Rank::<Test>::contains_key(n0),
+            "Rank[n0] should be removed"
+        );
+        assert!(
+            !Rank::<Test>::contains_key(n1),
+            "Rank[n1] should be removed"
+        );
+        assert!(
+            !Rank::<Test>::contains_key(n2),
+            "Rank[n2] should remain absent"
+        );
+        // ValueQuery still returns empty default
+        assert_eq!(Rank::<Test>::get(n0), empty);
+        assert_eq!(Rank::<Test>::get(n1), empty);
+        assert_eq!(Rank::<Test>::get(n2), empty);
+
+        // Trust: all removed
+        assert!(
+            !Trust::<Test>::contains_key(n0),
+            "Trust[n0] should be removed"
+        );
+        assert!(
+            !Trust::<Test>::contains_key(n1),
+            "Trust[n1] should remain absent"
+        );
+        assert!(
+            !Trust::<Test>::contains_key(n2),
+            "Trust[n2] should be removed"
+        );
+        assert_eq!(Trust::<Test>::get(n0), empty);
+        assert_eq!(Trust::<Test>::get(n1), empty);
+        assert_eq!(Trust::<Test>::get(n2), empty);
+
+        // PruningScores: all removed
+        assert!(
+            !PruningScores::<Test>::contains_key(n0),
+            "PruningScores[n0] should be removed"
+        );
+        assert!(
+            !PruningScores::<Test>::contains_key(n1),
+            "PruningScores[n1] should be removed"
+        );
+        assert!(
+            !PruningScores::<Test>::contains_key(n2),
+            "PruningScores[n2] should be removed"
+        );
+        assert_eq!(PruningScores::<Test>::get(n0), empty);
+        assert_eq!(PruningScores::<Test>::get(n1), empty);
+        assert_eq!(PruningScores::<Test>::get(n2), empty);
+
+    });
+}
+fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
+    // Register some subnets
+    let netuid0 = add_dynamic_network_without_emission_block(&U256::from(0), &U256::from(0));
+    let netuid1 = add_dynamic_network_without_emission_block(&U256::from(1), &U256::from(1));
+    let netuid2 = add_dynamic_network_without_emission_block(&U256::from(2), &U256::from(2));
+    let inactive_netuids = vec![netuid0, netuid1, netuid2];
+    // Add active subnets
+    let netuid3 = add_dynamic_network_without_emission_block(&U256::from(3), &U256::from(3));
+    let netuid4 = add_dynamic_network_without_emission_block(&U256::from(4), &U256::from(4));
+    let netuid5 = add_dynamic_network_without_emission_block(&U256::from(5), &U256::from(5));
+    let active_netuids = vec![netuid3, netuid4, netuid5];
+    let netuids: Vec<NetUid> = inactive_netuids
+        .iter()
+        .chain(active_netuids.iter())
+        .copied()
+        .collect();
+
+    let initial_tao = Pallet::<Test>::get_network_min_lock();
+    let initial_alpha: AlphaCurrency = initial_tao.to_u64().into();
+
+    const EXTRA_POOL_TAO: u64 = 123_123_u64;
+    const EXTRA_POOL_ALPHA: u64 = 123_123_u64;
+
+    // Add stake to the subnet pools
+    for netuid in &netuids {
+        let extra_for_pool = TaoCurrency::from(EXTRA_POOL_TAO);
+        let stake_in_pool = TaoCurrency::from(
+            u64::from(initial_tao)
+                .checked_add(EXTRA_POOL_TAO)
+                .expect("initial_tao + extra_for_pool overflow"),
+        );
+        SubnetTAO::<Test>::insert(netuid, stake_in_pool);
+        TotalStake::<Test>::mutate(|total_stake| {
+            let updated_total = u64::from(*total_stake)
+                .checked_add(EXTRA_POOL_TAO)
+                .expect("total stake overflow");
+            *total_stake = updated_total.into();
+        });
+        TotalIssuance::<Test>::mutate(|total_issuance| {
+            let updated_total = u64::from(*total_issuance)
+                .checked_add(EXTRA_POOL_TAO)
+                .expect("total issuance overflow");
+            *total_issuance = updated_total.into();
+        });
+
+        let subnet_alpha_in = AlphaCurrency::from(
+            u64::from(initial_alpha)
+                .checked_add(EXTRA_POOL_ALPHA)
+                .expect("initial alpha + extra alpha overflow"),
+        );
+        SubnetAlphaIn::<Test>::insert(netuid, subnet_alpha_in);
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(EXTRA_POOL_ALPHA));
+        SubnetVolume::<Test>::insert(netuid, 123123_u128);
+
+        // Try registering on the subnet to simulate a real network
+        // give balance to the coldkey
+        let coldkey_account_id = U256::from(1111);
+        let hotkey_account_id = U256::from(1111);
+        let burn_cost = SubtensorModule::get_burn(*netuid);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
+        TotalIssuance::<Test>::mutate(|total_issuance| {
+            let updated_total = u64::from(*total_issuance)
+                .checked_add(u64::from(burn_cost))
+                .expect("total issuance overflow (burn)");
+            *total_issuance = updated_total.into();
+        });
+
+        // register the neuron
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            *netuid,
+            hotkey_account_id
+        ));
+    }
+
+    for netuid in &active_netuids {
+        // Set the FirstEmissionBlockNumber for the active subnet
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 100);
+        // Also set SubtokenEnabled to true
+        SubtokenEnabled::<Test>::insert(netuid, true);
+    }
+
+    let alpha_amt = AlphaCurrency::from(123123_u64);
+    // Create some Stake entries
+    for netuid in &netuids {
+        for hotkey in 0..10 {
+            let hk = U256::from(hotkey);
+            TotalHotkeyAlpha::<Test>::insert(hk, netuid, alpha_amt);
+            TotalHotkeyShares::<Test>::insert(hk, netuid, U64F64::from(123123_u64));
+            TotalHotkeyAlphaLastEpoch::<Test>::insert(hk, netuid, alpha_amt);
+
+            RootClaimable::<Test>::mutate(hk, |claimable| {
+                claimable.insert(*netuid, I96F32::from(alpha_amt.to_u64()));
+            });
+            for coldkey in 0..10 {
+                let ck = U256::from(coldkey);
+                Alpha::<Test>::insert((hk, ck, netuid), U64F64::from(123_u64));
+                RootClaimed::<Test>::insert((netuid, hk, ck), 222_u128);
+            }
+        }
+    }
+    // Add some pending emissions
+    let alpha_em_amt = AlphaCurrency::from(355555_u64);
+    for netuid in &netuids {
+        PendingServerEmission::<Test>::insert(netuid, alpha_em_amt);
+        PendingValidatorEmission::<Test>::insert(netuid, alpha_em_amt);
+        PendingRootAlphaDivs::<Test>::insert(netuid, alpha_em_amt);
+        PendingOwnerCut::<Test>::insert(netuid, alpha_em_amt);
+
+        SubnetTaoInEmission::<Test>::insert(netuid, TaoCurrency::from(12345678_u64));
+        SubnetAlphaInEmission::<Test>::insert(netuid, AlphaCurrency::from(12345678_u64));
+        SubnetAlphaOutEmission::<Test>::insert(netuid, AlphaCurrency::from(12345678_u64));
+    }
+
+    (active_netuids, inactive_netuids)
+}
+
+#[test]
+fn test_migrate_reset_unactive_sn_get_unactive_netuids() {
+    new_test_ext(1).execute_with(|| {
+        let (active_netuids, inactive_netuids) = do_setup_unactive_sn();
+
+        let initial_tao = Pallet::<Test>::get_network_min_lock();
+        let initial_alpha: AlphaCurrency = initial_tao.to_u64().into();
+
+        let (unactive_netuids, w) =
+            crate::migrations::migrate_reset_unactive_sn::get_unactive_sn_netuids::<Test>(
+                initial_alpha,
+            );
+        // Make sure ALL the inactive subnets are in the unactive netuids
+        assert!(
+            inactive_netuids
+                .iter()
+                .all(|netuid| unactive_netuids.contains(netuid))
+        );
+        // Make sure the active subnets are not in the unactive netuids
+        assert!(
+            active_netuids
+                .iter()
+                .all(|netuid| !unactive_netuids.contains(netuid))
+        );
+    });
+}
+
+#[test]
+fn test_migrate_reset_unactive_sn() {
+    new_test_ext(1).execute_with(|| {
+        let (active_netuids, inactive_netuids) = do_setup_unactive_sn();
+
+        let initial_tao = Pallet::<Test>::get_network_min_lock();
+        let initial_alpha: AlphaCurrency = initial_tao.to_u64().into();
+
+        // Run the migration
+        let w = crate::migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // Verify the results
+        for netuid in &inactive_netuids {
+            let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
+            let actual_tao_lock_amount_less_pool_tao = if (actual_tao_lock_amount < initial_tao) {
+                TaoCurrency::ZERO
+            } else {
+                actual_tao_lock_amount - initial_tao
+            };
+            assert_eq!(
+                PendingServerEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_eq!(
+                PendingValidatorEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_eq!(
+                PendingRootAlphaDivs::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_eq!(
+                // not modified
+                RAORecycledForRegistration::<Test>::get(netuid),
+                actual_tao_lock_amount_less_pool_tao
+            );
+            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
+                *netuid
+            ));
+            assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
+            assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
+            assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_eq!(SubnetTaoInEmission::<Test>::get(netuid), TaoCurrency::ZERO);
+            assert_eq!(
+                SubnetAlphaInEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_eq!(
+                SubnetAlphaOutEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_ne!(SubnetVolume::<Test>::get(netuid), 0u128);
+            for hotkey in 0..10 {
+                let hk = U256::from(hotkey);
+                assert_ne!(
+                    TotalHotkeyAlpha::<Test>::get(hk, netuid),
+                    AlphaCurrency::ZERO
+                );
+                assert_ne!(
+                    TotalHotkeyShares::<Test>::get(hk, netuid),
+                    U64F64::from_num(0.0)
+                );
+                assert_ne!(
+                    TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
+                    AlphaCurrency::ZERO
+                );
+                assert_ne!(RootClaimable::<Test>::get(hk).get(netuid), None);
+                for coldkey in 0..10 {
+                    let ck = U256::from(coldkey);
+                    assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
+                    assert_ne!(RootClaimed::<Test>::get((netuid, hk, ck)), 0u128);
+                }
+            }
+
+            // Don't touch SubnetLocked
+            assert_ne!(SubnetLocked::<Test>::get(netuid), TaoCurrency::ZERO);
+        }
+
+        // !!! Make sure the active subnets were not reset
+        for netuid in &active_netuids {
+            let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
+            let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount - initial_tao;
+            assert_ne!(
+                PendingServerEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_ne!(
+                PendingValidatorEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_ne!(
+                PendingRootAlphaDivs::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_eq!(
+                // not modified
+                RAORecycledForRegistration::<Test>::get(netuid),
+                actual_tao_lock_amount_less_pool_tao
+            );
+            assert_ne!(SubnetTaoInEmission::<Test>::get(netuid), TaoCurrency::ZERO);
+            assert_ne!(
+                SubnetAlphaInEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert_ne!(
+                SubnetAlphaOutEmission::<Test>::get(netuid),
+                AlphaCurrency::ZERO
+            );
+            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
+                *netuid
+            ));
+            assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
+            assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
+            assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_ne!(SubnetVolume::<Test>::get(netuid), 0u128);
+            for hotkey in 0..10 {
+                let hk = U256::from(hotkey);
+                assert_ne!(
+                    TotalHotkeyAlpha::<Test>::get(hk, netuid),
+                    AlphaCurrency::ZERO
+                );
+                assert_ne!(
+                    TotalHotkeyShares::<Test>::get(hk, netuid),
+                    U64F64::from_num(0.0)
+                );
+                assert_ne!(
+                    TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
+                    AlphaCurrency::ZERO
+                );
+                assert!(RootClaimable::<Test>::get(hk).contains_key(netuid));
+                for coldkey in 0..10 {
+                    let ck = U256::from(coldkey);
+                    assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
+                    assert_ne!(RootClaimed::<Test>::get((netuid, hk, ck)), 0u128);
+                }
+            }
+            // Don't touch SubnetLocked
+            assert_ne!(SubnetLocked::<Test>::get(netuid), TaoCurrency::ZERO);
+        }
+    });
+}
+
+#[test]
+fn test_migrate_reset_unactive_sn_idempotence() {
+    new_test_ext(1).execute_with(|| {
+        let (active_netuids, inactive_netuids) = do_setup_unactive_sn();
+        let netuids = inactive_netuids
+            .iter()
+            .chain(active_netuids.iter())
+            .copied()
+            .collect::<Vec<_>>();
+
+        // Run total issuance migration *before* running the migration.
+        crate::migrations::migrate_init_total_issuance::migrate_init_total_issuance::<Test>();
+
+        // Run the migration
+        let w = crate::migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // Store the values after running the migration
+        let mut subnet_tao_before = BTreeMap::new();
+        for netuid in &netuids {
+            subnet_tao_before.insert(netuid, SubnetTAO::<Test>::get(netuid));
+        }
+        let total_stake_before = TotalStake::<Test>::get();
+        let total_issuance_before = TotalIssuance::<Test>::get();
+
+        // Run total issuance migration again, to make sure no changes happen from it.
+        crate::migrations::migrate_init_total_issuance::migrate_init_total_issuance::<Test>();
+
+        // Verify that none of the values are different
+        for netuid in &netuids {
+            assert_eq!(
+                SubnetTAO::<Test>::get(netuid),
+                *subnet_tao_before.get(netuid).unwrap_or(&TaoCurrency::ZERO)
+            );
+        }
+        assert_eq!(TotalStake::<Test>::get(), total_stake_before);
+        assert_eq!(TotalIssuance::<Test>::get(), total_issuance_before);
+    });
+}
+
+#[test]
+fn test_migrate_remove_old_identity_maps() {
+    let migration =
+        crate::migrations::migrate_remove_old_identity_maps::migrate_remove_old_identity_maps::<Test>;
+
+    const MIGRATION_NAME: &str = "migrate_remove_old_identity_maps";
+
+    let pallet_name = "SubtensorModule";
+
+    test_remove_storage_item(MIGRATION_NAME, pallet_name, "Identities", migration, 100);
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        "SubnetIdentities",
+        migration,
+        100,
+    );
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        "SubnetIdentitiesV2",
+        migration,
+        100,
+    );
+}
+
+#[test]
+fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
+    use crate::migrations::migrate_remove_unknown_neuron_axon_cert_prom::*;
+    const MIGRATION_NAME: &[u8] = b"migrate_remove_neuron_axon_cert_prom";
+
+    new_test_ext(1).execute_with(|| {
+        setup_for(NetUid::from(2), 64, 1231);
+        setup_for(NetUid::from(42), 256, 15151);
+        setup_for(NetUid::from(99), 1024, 32323);
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME));
+
+        let w = migrate_remove_unknown_neuron_axon_cert_prom::<Test>();
+        assert!(!w.is_zero(), "Weight must be non-zero");
+
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME));
+        assert_for(NetUid::from(2), 64, 1231);
+        assert_for(NetUid::from(42), 256, 15151);
+        assert_for(NetUid::from(99), 1024, 32323);
+    });
+
+    fn setup_for(netuid: NetUid, uids: u32, items: u32) {
+        NetworksAdded::<Test>::insert(netuid, true);
+
+        for i in 1u32..=uids {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            Uids::<Test>::insert(netuid, hk, i as u16);
+        }
+
+        for i in 1u32..=items {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            Axons::<Test>::insert(netuid, hk, AxonInfo::default());
+            NeuronCertificates::<Test>::insert(netuid, hk, NeuronCertificate::default());
+            Prometheus::<Test>::insert(netuid, hk, PrometheusInfo::default());
+        }
+    }
+
+    fn assert_for(netuid: NetUid, uids: u32, items: u32) {
+        assert_eq!(
+            Axons::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+        assert_eq!(
+            NeuronCertificates::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+        assert_eq!(
+            Prometheus::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+
+        for i in 1u32..=uids {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            assert!(Axons::<Test>::contains_key(netuid, hk));
+            assert!(NeuronCertificates::<Test>::contains_key(netuid, hk));
+            assert!(Prometheus::<Test>::contains_key(netuid, hk));
+        }
+
+        for i in uids + 1u32..=items {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            assert!(!Axons::<Test>::contains_key(netuid, hk));
+            assert!(!NeuronCertificates::<Test>::contains_key(netuid, hk));
+            assert!(!Prometheus::<Test>::contains_key(netuid, hk));
+        }
+    }
 }

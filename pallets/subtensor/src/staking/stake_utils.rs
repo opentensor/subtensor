@@ -18,7 +18,13 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The total alpha issuance for the specified subnet.
     pub fn get_alpha_issuance(netuid: NetUid) -> AlphaCurrency {
-        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
+        SubnetAlphaIn::<T>::get(netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
+            .saturating_add(SubnetAlphaOut::<T>::get(netuid))
+    }
+
+    pub fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
+        T::SwapInterface::get_protocol_tao(netuid)
     }
 
     pub fn get_moving_alpha_price(netuid: NetUid) -> U96F32 {
@@ -558,11 +564,10 @@ impl<T: Config> Pallet<T> {
 
         // We expect a negative value here
         let mut actual_alpha = 0;
-        if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
-            if value >= amount {
-                actual_alpha =
-                    alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
-            }
+        if let Ok(value) = alpha_share_pool.try_get_value(coldkey)
+            && value >= amount
+        {
+            actual_alpha = alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
         }
 
         // Get the negation of the removed alpha, and clamp at 0.
@@ -1175,10 +1180,10 @@ impl<T: Config> Pallet<T> {
 
             // Ensure that if partial execution is not allowed, the amount will not cause
             // slippage over desired
-            if let Some(allow_partial) = maybe_allow_partial {
-                if !allow_partial {
-                    ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
-                }
+            if let Some(allow_partial) = maybe_allow_partial
+                && !allow_partial
+            {
+                ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
             }
         }
 

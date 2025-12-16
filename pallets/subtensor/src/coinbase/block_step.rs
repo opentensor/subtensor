@@ -18,13 +18,20 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 .to_u64(),
         );
         log::debug!("Block emission: {block_emission:?}");
-        // --- 3. Run emission through network.
+
+        // --- 3. Reveal matured weights.
+        Self::reveal_crv3_commits();
+        // --- 4. Run emission through network.
         Self::run_coinbase(block_emission);
-        // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
+        // --- 5. Update moving prices AFTER using them for emissions.
+        Self::update_moving_prices();
+        // --- 6. Update roop prop AFTER using them for emissions.
+        Self::update_root_prop();
+        // --- 7. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
-        // --- 5. Run auto-claim root divs.
+        // --- 8. Run auto-claim root divs.
         Self::run_auto_claim_root_divs(last_block_hash);
-        // --- 6. Populate root coldkey maps.
+        // --- 9. Populate root coldkey maps.
         Self::populate_root_coldkey_staking_maps();
 
         // Return ok.
@@ -222,9 +229,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         if next_value >= U110F18::saturating_from_num(Self::get_max_difficulty(netuid)) {
             Self::get_max_difficulty(netuid)
         } else if next_value <= U110F18::saturating_from_num(Self::get_min_difficulty(netuid)) {
-            return Self::get_min_difficulty(netuid);
+            Self::get_min_difficulty(netuid)
         } else {
-            return next_value.saturating_to_num::<u64>();
+            next_value.saturating_to_num::<u64>()
         }
     }
 
@@ -256,9 +263,52 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         if next_value >= U110F18::saturating_from_num(Self::get_max_burn(netuid)) {
             Self::get_max_burn(netuid)
         } else if next_value <= U110F18::saturating_from_num(Self::get_min_burn(netuid)) {
-            return Self::get_min_burn(netuid);
+            Self::get_min_burn(netuid)
         } else {
-            return next_value.saturating_to_num::<u64>().into();
+            next_value.saturating_to_num::<u64>().into()
+        }
+    }
+
+    pub fn update_moving_prices() {
+        let subnets_to_emit_to: Vec<NetUid> =
+            Self::get_subnets_to_emit_to(&Self::get_all_subnet_netuids());
+        // Only update price EMA for subnets that we emit to.
+        for netuid_i in subnets_to_emit_to.iter() {
+            // Update moving prices after using them above.
+            Self::update_moving_price(*netuid_i);
+        }
+    }
+
+    pub fn update_root_prop() {
+        let subnets_to_emit_to: Vec<NetUid> =
+            Self::get_subnets_to_emit_to(&Self::get_all_subnet_netuids());
+        // Only root_prop for subnets that we emit to.
+        for netuid_i in subnets_to_emit_to.iter() {
+            let root_prop = Self::root_proportion(*netuid_i);
+
+            RootProp::<T>::insert(netuid_i, root_prop);
+        }
+    }
+
+    pub fn root_proportion(netuid: NetUid) -> U96F32 {
+        let alpha_issuance = U96F32::from_num(Self::get_alpha_issuance(netuid));
+        let root_tao: U96F32 = U96F32::from_num(SubnetTAO::<T>::get(NetUid::ROOT));
+        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+
+        let root_proportion: U96F32 = tao_weight
+            .checked_div(tao_weight.saturating_add(alpha_issuance))
+            .unwrap_or(U96F32::from_num(0.0));
+
+        root_proportion
+    }
+
+    pub fn reveal_crv3_commits() {
+        let netuids: Vec<NetUid> = Self::get_all_subnet_netuids();
+        for netuid in netuids.into_iter().filter(|netuid| *netuid != NetUid::ROOT) {
+            // Reveal matured weights.
+            if let Err(e) = Self::reveal_crv3_commits_for_subnet(netuid) {
+                log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");
+            };
         }
     }
 }

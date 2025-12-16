@@ -4383,8 +4383,8 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         // Attempt unauthorized reveal
         let unauthorized_hotkey = hotkeys[0];
         let target_hotkey = hotkeys[1];
-        if let Some(commits) = commit_info_map.get(&target_hotkey) {
-            if let Some((_commit_hash, salt, uids, values, version_key)) = commits.first() {
+        if let Some(commits) = commit_info_map.get(&target_hotkey)
+            && let Some((_commit_hash, salt, uids, values, version_key)) = commits.first() {
                 assert_err!(
                     SubtensorModule::reveal_weights(
                         RuntimeOrigin::signed(unauthorized_hotkey),
@@ -4397,7 +4397,6 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                     Error::<Test>::InvalidRevealCommitHashNotMatch
                 );
             }
-        }
 
         let non_committing_hotkey: <Test as frame_system::Config>::AccountId = U256::from(9999);
         assert_err!(
@@ -5016,7 +5015,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         step_epochs(1, netuid);
 
         // Attempt to reveal commits after the reveal epoch has passed
-        assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
+        assert_ok!(SubtensorModule::reveal_crv3_commits_for_subnet(netuid));
 
         // Verify that the weights for the neuron have not been set
         let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
@@ -5353,7 +5352,7 @@ fn test_reveal_crv3_commits_decryption_failure() {
             },
         );
 
-        assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
+        assert_ok!(SubtensorModule::reveal_crv3_commits_for_subnet(netuid));
 
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
@@ -5973,7 +5972,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         // ---------------------------------------------------------------------
         // Run the reveal pass WITHOUT a pulse – only expiry housekeeping runs.
         // ---------------------------------------------------------------------
-        assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
+        assert_ok!(SubtensorModule::reveal_crv3_commits_for_subnet(netuid));
 
         // past_epoch (< reveal_epoch) must be gone
         assert!(
