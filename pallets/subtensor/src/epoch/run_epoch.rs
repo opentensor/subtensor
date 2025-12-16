@@ -730,10 +730,10 @@ impl<T: Config> Pallet<T> {
             // ---------- v3 ------------------------------------------------------
             for (_epoch, q) in TimelockedWeightCommits::<T>::iter_prefix(netuid_index) {
                 for (who, cb, ..) in q.iter() {
-                    if !Self::is_commit_expired(netuid, *cb) {
-                        if let Some(cell) = uid_of(who).and_then(|i| commit_blocks.get_mut(i)) {
-                            *cell = (*cell).min(*cb);
-                        }
+                    if !Self::is_commit_expired(netuid, *cb)
+                        && let Some(cell) = uid_of(who).and_then(|i| commit_blocks.get_mut(i))
+                    {
+                        *cell = (*cell).min(*cb);
                     }
                 }
             }
