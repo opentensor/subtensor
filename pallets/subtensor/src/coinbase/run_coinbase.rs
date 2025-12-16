@@ -144,8 +144,8 @@ impl<T: Config> Pallet<T> {
             let alpha_out_i: U96F32 = alpha_emission_i;
             let mut alpha_in_i: U96F32 = tao_emission_i.safe_div_or(price_i, U96F32::from_num(0.0));
 
-            if alpha_in_i > alpha_emission_i {
-                alpha_in_i = alpha_emission_i;
+            if alpha_in_i > Self::root_proportion( netuid ) {
+                alpha_in_i = Self::root_proportion( netuid );
                 tao_in_i = alpha_in_i.saturating_mul(price_i);
             }
 
