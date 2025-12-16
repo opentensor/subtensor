@@ -190,25 +190,28 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
-    #[precompile::public("transferStake(bytes32,bytes32,uint256,uint256,uint256)")]
+    #[precompile::public("transferStake(bytes32,bytes32,bytes32,uint256,uint256,uint256)")]
     #[precompile::payable]
     fn transfer_stake(
         handle: &mut impl PrecompileHandle,
         destination_coldkey: H256,
-        hotkey: H256,
+        origin_hotkey: H256,
+        destination_hotkey: H256,
         origin_netuid: U256,
         destination_netuid: U256,
         amount_alpha: U256,
     ) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let destination_coldkey = R::AccountId::from(destination_coldkey.0);
-        let hotkey = R::AccountId::from(hotkey.0);
+        let origin_hotkey = R::AccountId::from(origin_hotkey.0);
+        let destination_hotkey = R::AccountId::from(destination_hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
         let alpha_amount: u64 = amount_alpha.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::transfer_stake {
             destination_coldkey,
-            hotkey,
+            origin_hotkey,
+            destination_hotkey,
             origin_netuid: origin_netuid.into(),
             destination_netuid: destination_netuid.into(),
             alpha_amount: alpha_amount.into(),

@@ -68,7 +68,8 @@ pub trait RuntimeReadWrite {
     #[ink(function = 6)]
     fn transfer_stake(
         destination_coldkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        destination_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
         amount: AlphaCurrency,
@@ -278,7 +279,8 @@ mod bittensor {
         pub fn transfer_stake(
             &self,
             destination_coldkey: [u8; 32],
-            hotkey: [u8; 32],
+            origin_hotkey: [u8; 32],
+            destination_hotkey: [u8; 32],
             origin_netuid: u16,
             destination_netuid: u16,
             amount: u64,
@@ -287,7 +289,8 @@ mod bittensor {
                 .extension()
                 .transfer_stake(
                     destination_coldkey.into(),
-                    hotkey.into(),
+                    origin_hotkey.into(),
+                    destination_hotkey.into(),
                     origin_netuid.into(),
                     destination_netuid.into(),
                     amount.into(),

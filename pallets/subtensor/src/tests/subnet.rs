@@ -538,6 +538,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
                 hotkey_account_2_id,
+                hotkey_account_2_id,
                 netuid,
                 netuid2,
                 amount.into(),
@@ -658,6 +659,7 @@ fn test_subtoken_enable_trading_ok_with_enable() {
         assert_ok!(SubtensorModule::transfer_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
+            hotkey_account_2_id,
             hotkey_account_2_id,
             netuid,
             netuid2,

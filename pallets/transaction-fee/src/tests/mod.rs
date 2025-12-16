@@ -901,7 +901,8 @@ fn test_transfer_stake_fees_alpha() {
         );
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
             destination_coldkey,
-            hotkey: sn.hotkeys[0],
+            origin_hotkey: sn.hotkeys[0],
+            destination_hotkey: sn.hotkeys[0],
             origin_netuid: sn.subnets[0].netuid,
             destination_netuid: sn.subnets[1].netuid,
             alpha_amount: unstake_amount,

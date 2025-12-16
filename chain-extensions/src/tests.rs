@@ -478,7 +478,7 @@ fn transfer_stake_success_moves_between_coldkeys() {
         let alpha_to_transfer: AlphaCurrency = (alpha_before.to_u64() / 3).into();
 
         let expected_weight = Weight::from_parts(160_300_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(13))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(14))
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(6));
 
         let mut env = MockEnv::new(
@@ -486,6 +486,7 @@ fn transfer_stake_success_moves_between_coldkeys() {
             origin_coldkey,
             (
                 destination_coldkey,
+                hotkey,
                 hotkey,
                 netuid,
                 netuid,

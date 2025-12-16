@@ -226,12 +226,13 @@ where
             }
             FunctionId::TransferStakeV1 => {
                 let weight = Weight::from_parts(160_300_000, 0)
-                    .saturating_add(T::DbWeight::get().reads(13_u64))
+                    .saturating_add(T::DbWeight::get().reads(14_u64))
                     .saturating_add(T::DbWeight::get().writes(6_u64));
 
                 env.charge_weight(weight)?;
 
-                let (destination_coldkey, hotkey, origin_netuid, destination_netuid, alpha_amount): (
+                let (destination_coldkey, origin_hotkey, destination_hotkey, origin_netuid, destination_netuid, alpha_amount): (
+                    T::AccountId,
                     T::AccountId,
                     T::AccountId,
                     NetUid,
@@ -244,7 +245,8 @@ where
                 let call_result = pallet_subtensor::Pallet::<T>::transfer_stake(
                     RawOrigin::Signed(env.caller()).into(),
                     destination_coldkey,
-                    hotkey,
+                    origin_hotkey,
+                    destination_hotkey,
                     origin_netuid,
                     destination_netuid,
                     alpha_amount,
