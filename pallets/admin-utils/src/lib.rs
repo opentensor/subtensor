@@ -259,7 +259,8 @@ pub mod pallet {
             netuid: NetUid,
             min_difficulty: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -716,7 +717,8 @@ pub mod pallet {
             netuid: NetUid,
             target_registrations_per_interval: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -826,7 +828,8 @@ pub mod pallet {
             netuid: NetUid,
             difficulty: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -848,7 +851,8 @@ pub mod pallet {
             netuid: NetUid,
             max_allowed_validators: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -955,7 +959,8 @@ pub mod pallet {
             netuid: NetUid,
             max_registrations_per_block: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1019,7 +1024,8 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -1935,7 +1941,8 @@ pub mod pallet {
             netuid: NetUid,
             subtoken_enabled: bool,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::SubtokenEnabled::<T>::set(netuid, subtoken_enabled);
 
             log::debug!(
@@ -2132,7 +2139,8 @@ pub mod pallet {
             netuid: NetUid,
             min_allowed_uids: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -2231,6 +2239,25 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::do_set_max_mechanism_count(max_mechanism_count)?;
+            Ok(())
+        }
+            
+        /// Sets the minimum number of non-immortal & non-immune UIDs that must remain in a subnet
+        #[pallet::call_index(84)]
+        #[pallet::weight((
+            Weight::from_parts(7_114_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_min_non_immune_uids(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            min: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_min_non_immune_uids(netuid, min);
             Ok(())
         }
     }

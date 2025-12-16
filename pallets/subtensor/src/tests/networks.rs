@@ -106,6 +106,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
         let pot: u64 = 99_999;
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(pot));
         SubtensorModule::set_subnet_locked_balance(net, 0.into());
+        TotalHotkeyAlpha::<Test>::insert(s_hot, net, AlphaCurrency::from(5_000u64));
 
         // Cold-key balance before
         let before = SubtensorModule::get_coldkey_balance(&s_cold);
@@ -141,6 +142,9 @@ fn dissolve_two_stakers_pro_rata_distribution() {
 
         Alpha::<Test>::insert((s1_hot, s1_cold, net), U64F64::from_num(a1));
         Alpha::<Test>::insert((s2_hot, s2_cold, net), U64F64::from_num(a2));
+
+        TotalHotkeyAlpha::<Test>::insert(s1_hot, net, AlphaCurrency::from(a1 as u64));
+        TotalHotkeyAlpha::<Test>::insert(s2_hot, net, AlphaCurrency::from(a2 as u64));
 
         let pot: u64 = 10_000;
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(pot));
@@ -627,6 +631,7 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(0)); // zero TAO
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
         Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
+        TotalHotkeyAlpha::<Test>::insert(sh, net, AlphaCurrency::from(1_000u64));
 
         let before = SubtensorModule::get_coldkey_balance(&sc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -671,6 +676,9 @@ fn dissolve_rounding_remainder_distribution() {
 
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(1)); // TAO pot = 1
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
+
+        TotalHotkeyAlpha::<Test>::insert(s1h, net, AlphaCurrency::from(3u64));
+        TotalHotkeyAlpha::<Test>::insert(s2h, net, AlphaCurrency::from(2u64));
 
         // Cold-key balances before
         let c1_before = SubtensorModule::get_coldkey_balance(&s1c);
@@ -1922,8 +1930,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
 
         // Capture **pair‑level** α snapshot per net (pre‑LP).
         for ((hot, cold, net), amt) in Alpha::<Test>::iter() {
-            if let Some(&ni) = net_index.get(&net) {
-                if lp_sets_per_net[ni].contains(&cold) {
+            if let Some(&ni) = net_index.get(&net)
+                && lp_sets_per_net[ni].contains(&cold) {
                     let a: u128 = amt.saturating_to_num();
                     if a > 0 {
                         alpha_pairs_per_net
@@ -1932,7 +1940,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                             .push(((hot, cold), a));
                     }
                 }
-            }
         }
 
         // ────────────────────────────────────────────────────────────────────

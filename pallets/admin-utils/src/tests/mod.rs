@@ -2482,7 +2482,7 @@ fn test_trim_to_max_allowed_uids() {
             register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
         }
 
-        // Run some block to ensure stake weights are set and that we are past the immunity period
+        // Run some blocks to ensure stake weights are set and that we are past the immunity period
         // for all neurons
         run_to_block((ImmunityPeriod::<Test>::get(netuid) + 1).into());
 
@@ -2505,6 +2505,8 @@ fn test_trim_to_max_allowed_uids() {
         let u64_values: Vec<u64> = values.iter().map(|&v| v as u64).collect();
 
         Emission::<Test>::set(netuid, alpha_values);
+        // NOTE: `Rank`, `Trust`, and `PruningScores` are *not* trimmed anymore,
+        // but we can still populate them without asserting on them.
         Rank::<Test>::insert(netuid, values.clone());
         Trust::<Test>::insert(netuid, values.clone());
         Consensus::<Test>::insert(netuid, values.clone());
@@ -2592,7 +2594,7 @@ fn test_trim_to_max_allowed_uids() {
         assert_eq!(MaxAllowedUids::<Test>::get(netuid), new_max_n);
 
         // Ensure the emission has been trimmed correctly, keeping the highest emitters
-        // and immune and compressed to the left
+        // (after respecting immunity/owner exclusions) and compressed to the left
         assert_eq!(
             Emission::<Test>::get(netuid),
             vec![
@@ -2606,16 +2608,16 @@ fn test_trim_to_max_allowed_uids() {
                 74.into()
             ]
         );
-        // Ensure rest of storage has been trimmed correctly
+
+        // Ensure rest of (active) storage has been trimmed correctly
         let expected_values = vec![56, 91, 34, 77, 65, 88, 51, 74];
         let expected_bools = vec![true, true, true, true, true, true, true, true];
         let expected_u64_values = vec![56, 91, 34, 77, 65, 88, 51, 74];
-        assert_eq!(Rank::<Test>::get(netuid), expected_values);
-        assert_eq!(Trust::<Test>::get(netuid), expected_values);
+
+        // NOTE: Rank/Trust/PruningScores are no longer trimmed; do not assert on them.
         assert_eq!(Active::<Test>::get(netuid), expected_bools);
         assert_eq!(Consensus::<Test>::get(netuid), expected_values);
         assert_eq!(Dividends::<Test>::get(netuid), expected_values);
-        assert_eq!(PruningScores::<Test>::get(netuid), expected_values);
         assert_eq!(ValidatorTrust::<Test>::get(netuid), expected_values);
         assert_eq!(ValidatorPermit::<Test>::get(netuid), expected_bools);
         assert_eq!(StakeWeight::<Test>::get(netuid), expected_values);
@@ -2695,7 +2697,7 @@ fn test_trim_to_max_allowed_uids() {
             assert_eq!(uid, Some(i));
         }
 
-        // EVM association have been remapped correctly (uids: 7 -> 2, 14 -> 7)
+        // EVM association have been remapped correctly (uids: 6 -> 2, 14 -> 7)
         assert_eq!(
             AssociatedEvmAddress::<Test>::get(netuid, 2),
             Some((sp_core::H160::from_slice(b"12345678901234567891"), now))
@@ -2918,5 +2920,25 @@ fn test_sudo_set_max_mechanism_count() {
             ),
             pallet_subtensor::Error::<Test>::InvalidValue
         );
+    });
+}
+
+#[test]
+fn test_sudo_set_min_non_immune_uids() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10);
+
+        let to_be_set: u16 = 12;
+        let init_value: u16 = SubtensorModule::get_min_non_immune_uids(netuid);
+
+        assert_ok!(AdminUtils::sudo_set_min_non_immune_uids(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+
+        assert!(init_value != to_be_set);
+        assert_eq!(SubtensorModule::get_min_non_immune_uids(netuid), to_be_set);
     });
 }

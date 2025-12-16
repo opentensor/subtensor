@@ -344,18 +344,9 @@ impl<T: Config> Pallet<T> {
                                 terms.emission,
                                 sub_weight,
                             );
-                            acc_terms.rank =
-                                Self::weighted_acc_u16(acc_terms.rank, terms.rank, sub_weight);
-                            acc_terms.trust =
-                                Self::weighted_acc_u16(acc_terms.trust, terms.trust, sub_weight);
                             acc_terms.consensus = Self::weighted_acc_u16(
                                 acc_terms.consensus,
                                 terms.consensus,
-                                sub_weight,
-                            );
-                            acc_terms.pruning_score = Self::weighted_acc_u16(
-                                acc_terms.pruning_score,
-                                terms.pruning_score,
                                 sub_weight,
                             );
                             acc_terms.validator_trust = Self::weighted_acc_u16(
@@ -384,14 +375,7 @@ impl<T: Config> Pallet<T> {
                                     terms.emission,
                                     sub_weight,
                                 ),
-                                rank: Self::weighted_acc_u16(0, terms.rank, sub_weight),
-                                trust: Self::weighted_acc_u16(0, terms.trust, sub_weight),
                                 consensus: Self::weighted_acc_u16(0, terms.consensus, sub_weight),
-                                pruning_score: Self::weighted_acc_u16(
-                                    0,
-                                    terms.pruning_score,
-                                    sub_weight,
-                                ),
                                 validator_trust: Self::weighted_acc_u16(
                                     0,
                                     terms.validator_trust,
