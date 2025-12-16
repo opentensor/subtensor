@@ -24,7 +24,7 @@ cargo fix --workspace --all-features --all-targets
 commit_if_changes "cargo fix"
 
 # Step 4: Run cargo fmt and commit changes if any.
-cargo +nightly fmt --all
+cargo fmt --all
 commit_if_changes "cargo fmt"
 
 if command -v zepter >/dev/null 2>&1; then

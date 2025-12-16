@@ -38,7 +38,7 @@ jobs:
       - name: Install Rust Nightly
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           components: rustfmt
 
       - name: Utilize Shared Rust Cache
@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           # Run cargo fmt and capture both stdout and stderr
-          output=$(cargo +nightly fmt --check --all 2>&1) || {
+          output=$(cargo fmt --check --all 2>&1) || {
             echo "❌ cargo fmt failed with non-zero exit code"
             echo "$output"
             exit 1
