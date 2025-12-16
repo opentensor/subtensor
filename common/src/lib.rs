@@ -184,6 +184,7 @@ impl TryFrom<u8> for ProxyType {
             14 => Ok(Self::SudoUncheckedSetCode),
             15 => Ok(Self::SwapHotkey),
             16 => Ok(Self::SubnetLeaseBeneficiary),
+            17 => Ok(Self::RootClaim),
             _ => Err(()),
         }
     }
