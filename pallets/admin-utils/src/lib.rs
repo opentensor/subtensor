@@ -139,8 +139,8 @@ pub mod pallet {
         Alpha,
         /// Enum for crowdloan precompile
         Crowdloan,
-        /// Pure proxy precompile
-        PureProxy,
+        /// Proxy precompile
+        Proxy,
         /// Leasing precompile
         Leasing,
     }
@@ -236,6 +236,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::ServingRateLimit.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, serving_rate_limit);
             log::debug!("ServingRateLimitSet( serving_rate_limit: {serving_rate_limit:?} ) ");
             pallet_subtensor::Pallet::<T>::record_owner_rl(
@@ -258,7 +259,8 @@ pub mod pallet {
             netuid: NetUid,
             min_difficulty: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -288,6 +290,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MaxDifficulty.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -322,6 +325,7 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::SetWeightsVersionKey],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -413,6 +417,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::AdjustmentAlpha.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -445,6 +450,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::ImmunityPeriod.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -479,6 +485,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MinAllowedWeights.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -513,6 +520,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MaxAllowedUids.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -572,6 +580,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::Rho.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -604,6 +613,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::ActivityCutoff.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -672,6 +682,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::PowRegistrationAllowed.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::set_network_pow_registration_allowed(
                 netuid,
@@ -700,7 +711,8 @@ pub mod pallet {
             netuid: NetUid,
             target_registrations_per_interval: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -733,6 +745,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MinBurn.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -773,6 +786,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::MaxBurn.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -808,7 +822,8 @@ pub mod pallet {
             netuid: NetUid,
             difficulty: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -830,7 +845,8 @@ pub mod pallet {
             netuid: NetUid,
             max_allowed_validators: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -868,6 +884,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::BondsMovingAverage.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             if maybe_owner.is_some() {
                 ensure!(
                     bonds_moving_average <= 975000,
@@ -908,6 +925,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::BondsPenalty.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -935,7 +953,8 @@ pub mod pallet {
             netuid: NetUid,
             max_registrations_per_block: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -999,7 +1018,8 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
@@ -1245,6 +1265,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::CommitRevealEnabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1288,6 +1309,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::LiquidAlphaEnabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
             log::debug!("LiquidAlphaEnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
             pallet_subtensor::Pallet::<T>::record_owner_rl(
@@ -1318,6 +1340,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::AlphaValues.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             let res = pallet_subtensor::Pallet::<T>::do_set_alpha_values(
                 origin, netuid, alpha_low, alpha_high,
             );
@@ -1437,6 +1460,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::WeightCommitInterval.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1535,6 +1559,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::TransferEnabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             let res = pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle);
             if res.is_ok() {
                 pallet_subtensor::Pallet::<T>::record_owner_rl(
@@ -1567,6 +1592,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::RecycleOrBurn.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::set_recycle_or_burn(netuid, recycle_or_burn);
             pallet_subtensor::Pallet::<T>::record_owner_rl(
@@ -1734,6 +1760,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::AlphaSigmoidSteepness.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1784,6 +1811,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::Yuma3Enabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_yuma3_enabled(netuid, enabled);
 
             Self::deposit_event(Event::Yuma3EnableToggled { netuid, enabled });
@@ -1823,6 +1851,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::BondsResetEnabled.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_bonds_reset(netuid, enabled);
 
             Self::deposit_event(Event::BondsResetToggled { netuid, enabled });
@@ -1906,7 +1935,8 @@ pub mod pallet {
             netuid: NetUid,
             subtoken_enabled: bool,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::SubtokenEnabled::<T>::set(netuid, subtoken_enabled);
 
             log::debug!(
@@ -1948,6 +1978,7 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::ImmuneNeuronLimit.into()],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
@@ -2021,6 +2052,7 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::MechanismCountUpdate],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::do_set_mechanism_count(netuid, mechanism_count)?;
 
@@ -2047,6 +2079,7 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::MechanismEmission],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
 
@@ -2077,6 +2110,7 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::MaxUidsTrimming],
             )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
 
@@ -2099,7 +2133,8 @@ pub mod pallet {
             netuid: NetUid,
             min_allowed_uids: u16,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root_with_rate_limit(origin, netuid)?;
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -2184,6 +2219,25 @@ pub mod pallet {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_tao_flow_smoothing_factor(smoothing_factor);
             log::debug!("set_tao_flow_smoothing_factor( {smoothing_factor:?} ) ");
+            Ok(())
+        }
+
+        /// Sets the minimum number of non-immortal & non-immune UIDs that must remain in a subnet
+        #[pallet::call_index(84)]
+        #[pallet::weight((
+            Weight::from_parts(7_114_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_min_non_immune_uids(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            min: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_min_non_immune_uids(netuid, min);
             Ok(())
         }
     }

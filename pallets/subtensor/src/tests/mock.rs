@@ -8,7 +8,7 @@ use core::num::NonZeroU64;
 
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
-use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
+use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth, InstanceFilter};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
@@ -18,6 +18,7 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
+use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
@@ -30,7 +31,6 @@ use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
@@ -46,6 +46,7 @@ frame_support::construct_runtime!(
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
+        Proxy: pallet_subtensor_proxy = 14,
     }
 );
 
@@ -425,6 +426,51 @@ impl pallet_crowdloan::Config for Test {
     type MaxContributors = MaxContributors;
 }
 
+// Proxy Pallet config
+parameter_types! {
+    // Set as 1 for testing purposes
+    pub const ProxyDepositBase: Balance = 1;
+    // Set as 1 for testing purposes
+    pub const ProxyDepositFactor: Balance = 1;
+    // Set as 20 for testing purposes
+    pub const MaxProxies: u32 = 20; // max num proxies per acct
+    // Set as 15 for testing purposes
+    pub const MaxPending: u32 = 15; // max blocks pending ~15min
+    // Set as 1 for testing purposes
+    pub const AnnouncementDepositBase: Balance =  1;
+    // Set as 1 for testing purposes
+    pub const AnnouncementDepositFactor: Balance = 1;
+}
+
+impl pallet_proxy::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type ProxyType = subtensor_runtime_common::ProxyType;
+    type ProxyDepositBase = ProxyDepositBase;
+    type ProxyDepositFactor = ProxyDepositFactor;
+    type MaxProxies = MaxProxies;
+    type WeightInfo = pallet_proxy::weights::SubstrateWeight<Test>;
+    type MaxPending = MaxPending;
+    type CallHasher = BlakeTwo256;
+    type AnnouncementDepositBase = AnnouncementDepositBase;
+    type AnnouncementDepositFactor = AnnouncementDepositFactor;
+    type BlockNumberProvider = System;
+}
+
+impl InstanceFilter<RuntimeCall> for subtensor_runtime_common::ProxyType {
+    fn filter(&self, _c: &RuntimeCall) -> bool {
+        // In tests, allow all proxy types to pass through
+        true
+    }
+    fn is_superset(&self, o: &Self) -> bool {
+        match (self, o) {
+            (x, y) if x == y => true,
+            (subtensor_runtime_common::ProxyType::Any, _) => true,
+            _ => false,
+        }
+    }
+}
+
 mod test_crypto {
     use super::KEY_TYPE;
     use sp_core::{
@@ -570,6 +616,7 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
 pub(crate) fn step_block(n: u16) {
     for _ in 0..n {
         Scheduler::on_finalize(System::block_number());
+        Proxy::on_finalize(System::block_number());
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);

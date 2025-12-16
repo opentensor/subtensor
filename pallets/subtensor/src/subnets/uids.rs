@@ -18,12 +18,11 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Resets the trust, emission, consensus, incentive, dividends, bonds, and weights of
+    /// Resets the emission, consensus, incentives, dividends, bonds, and weights of
     /// the neuron to default
     pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
         let neuron_index: usize = neuron_uid.into();
         Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
-        Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
             let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
@@ -88,14 +87,13 @@ impl<T: Config> Pallet<T> {
         BlockAtRegistration::<T>::insert(netuid, uid_to_replace, block_number); // Fill block at registration.
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
 
-        // 4. Clear neuron certificates
-        NeuronCertificates::<T>::remove(netuid, old_hotkey.clone());
+        // 4. Clear neuron axons, certificates and prometheus info
+        Axons::<T>::remove(netuid, &old_hotkey);
+        NeuronCertificates::<T>::remove(netuid, &old_hotkey);
+        Prometheus::<T>::remove(netuid, &old_hotkey);
 
         // 5. Reset new neuron's values.
         Self::clear_neuron(netuid, uid_to_replace);
-
-        // 5a. reset axon info for the new uid.
-        Axons::<T>::remove(netuid, old_hotkey);
     }
 
     /// Appends the uid to the network.
@@ -109,9 +107,7 @@ impl<T: Config> Pallet<T> {
         // 2. Get and increase the uid count.
         SubnetworkN::<T>::insert(netuid, next_uid.saturating_add(1));
 
-        // 3. Expand Yuma Consensus with new position.
-        Rank::<T>::mutate(netuid, |v| v.push(0));
-        Trust::<T>::mutate(netuid, |v| v.push(0));
+        // 3. Expand per-neuron vectors with new position.
         Active::<T>::mutate(netuid, |v| v.push(true));
         Emission::<T>::mutate(netuid, |v| v.push(0.into()));
         Consensus::<T>::mutate(netuid, |v| v.push(0));
@@ -121,7 +117,6 @@ impl<T: Config> Pallet<T> {
             Self::set_last_update_for_uid(netuid_index, next_uid, block_number);
         }
         Dividends::<T>::mutate(netuid, |v| v.push(0));
-        PruningScores::<T>::mutate(netuid, |v| v.push(0));
         ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
         ValidatorPermit::<T>::mutate(netuid, |v| v.push(false));
 
@@ -232,12 +227,9 @@ impl<T: Config> Pallet<T> {
                 emissions.into_iter().unzip();
 
             // Get all current arrays from storage
-            let ranks = Rank::<T>::get(netuid);
-            let trust = Trust::<T>::get(netuid);
             let active = Active::<T>::get(netuid);
             let consensus = Consensus::<T>::get(netuid);
             let dividends = Dividends::<T>::get(netuid);
-            let pruning_scores = PruningScores::<T>::get(netuid);
             let vtrust = ValidatorTrust::<T>::get(netuid);
             let vpermit = ValidatorPermit::<T>::get(netuid);
             let stake_weight = StakeWeight::<T>::get(netuid);
@@ -245,24 +237,18 @@ impl<T: Config> Pallet<T> {
             // Create trimmed arrays by extracting values for kept uids only
             // Pre-allocate vectors with exact capacity for efficiency
             let len = trimmed_uids.len();
-            let mut trimmed_ranks = Vec::with_capacity(len);
-            let mut trimmed_trust = Vec::with_capacity(len);
             let mut trimmed_active = Vec::with_capacity(len);
             let mut trimmed_consensus = Vec::with_capacity(len);
             let mut trimmed_dividends = Vec::with_capacity(len);
-            let mut trimmed_pruning_scores = Vec::with_capacity(len);
             let mut trimmed_vtrust = Vec::with_capacity(len);
             let mut trimmed_vpermit = Vec::with_capacity(len);
             let mut trimmed_stake_weight = Vec::with_capacity(len);
 
             // Single iteration to extract values for all kept uids
             for &uid in &trimmed_uids {
-                trimmed_ranks.push(ranks.get(uid).cloned().unwrap_or_default());
-                trimmed_trust.push(trust.get(uid).cloned().unwrap_or_default());
                 trimmed_active.push(active.get(uid).cloned().unwrap_or_default());
                 trimmed_consensus.push(consensus.get(uid).cloned().unwrap_or_default());
                 trimmed_dividends.push(dividends.get(uid).cloned().unwrap_or_default());
-                trimmed_pruning_scores.push(pruning_scores.get(uid).cloned().unwrap_or_default());
                 trimmed_vtrust.push(vtrust.get(uid).cloned().unwrap_or_default());
                 trimmed_vpermit.push(vpermit.get(uid).cloned().unwrap_or_default());
                 trimmed_stake_weight.push(stake_weight.get(uid).cloned().unwrap_or_default());
@@ -270,12 +256,9 @@ impl<T: Config> Pallet<T> {
 
             // Update storage with trimmed arrays
             Emission::<T>::insert(netuid, trimmed_emissions);
-            Rank::<T>::insert(netuid, trimmed_ranks);
-            Trust::<T>::insert(netuid, trimmed_trust);
             Active::<T>::insert(netuid, trimmed_active);
             Consensus::<T>::insert(netuid, trimmed_consensus);
             Dividends::<T>::insert(netuid, trimmed_dividends);
-            PruningScores::<T>::insert(netuid, trimmed_pruning_scores);
             ValidatorTrust::<T>::insert(netuid, trimmed_vtrust);
             ValidatorPermit::<T>::insert(netuid, trimmed_vpermit);
             StakeWeight::<T>::insert(netuid, trimmed_stake_weight);

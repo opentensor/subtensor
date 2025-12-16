@@ -1,8 +1,6 @@
 use super::*;
 use crate::Error;
-use crate::system::{
-    ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor,
-};
+use crate::system::{ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor};
 use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
@@ -36,29 +34,13 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Like `ensure_root` but also prohibits calls during the last N blocks of the tempo.
-    pub fn ensure_root_with_rate_limit(
-        o: T::RuntimeOrigin,
-        netuid: NetUid,
-    ) -> Result<(), DispatchError> {
-        ensure_root(o)?;
-        let now = Self::get_current_block_as_u64();
-        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
-        Ok(())
-    }
-
     /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).
-    /// - Root: only freeze window is enforced; no TransactionType checks.
-    /// - Owner (Signed): freeze window plus all rate checks in `limits` using signer extracted from
-    ///   origin.
     pub fn ensure_sn_owner_or_root_with_limits(
         o: T::RuntimeOrigin,
         netuid: NetUid,
         limits: &[crate::utils::rate_limiting::TransactionType],
     ) -> Result<Option<T::AccountId>, DispatchError> {
         let maybe_who = Self::ensure_subnet_owner_or_root(o, netuid)?;
-        let now = Self::get_current_block_as_u64();
-        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
         if let Some(who) = maybe_who.as_ref() {
             for tx in limits.iter() {
                 ensure!(
@@ -68,26 +50,6 @@ impl<T: Config> Pallet<T> {
             }
         }
         Ok(maybe_who)
-    }
-
-    /// Ensure the caller is the subnet owner and passes all provided rate limits.
-    /// This does NOT allow root; it is strictly owner-only.
-    /// Returns the signer (owner) on success so callers may record last-blocks.
-    pub fn ensure_sn_owner_with_limits(
-        o: T::RuntimeOrigin,
-        netuid: NetUid,
-        limits: &[crate::utils::rate_limiting::TransactionType],
-    ) -> Result<T::AccountId, DispatchError> {
-        let who = Self::ensure_subnet_owner(o, netuid)?;
-        let now = Self::get_current_block_as_u64();
-        Self::ensure_not_in_admin_freeze_window(netuid, now)?;
-        for tx in limits.iter() {
-            ensure!(
-                tx.passes_rate_limit_on_subnet::<T>(&who, netuid),
-                Error::<T>::TxRateLimitExceeded
-            );
-        }
-        Ok(who)
     }
 
     /// Returns true if the current block is within the terminal freeze window of the tempo for the
@@ -103,7 +65,9 @@ impl<T: Config> Pallet<T> {
         remaining < window
     }
 
-    fn ensure_not_in_admin_freeze_window(netuid: NetUid, now: u64) -> Result<(), DispatchError> {
+    /// Ensures the admin freeze window is not currently active for the given subnet.
+    pub fn ensure_admin_window_open(netuid: NetUid) -> Result<(), DispatchError> {
+        let now = Self::get_current_block_as_u64();
         ensure!(
             !Self::is_in_admin_freeze_window(netuid, now),
             Error::<T>::AdminActionProhibitedDuringWeightsWindow
@@ -246,27 +210,6 @@ impl<T: Config> Pallet<T> {
         *updated_active = active;
         Active::<T>::insert(netuid, updated_active_vec);
     }
-    pub fn set_pruning_score_for_uid(netuid: NetUid, uid: u16, pruning_score: u16) {
-        log::debug!("netuid = {netuid:?}");
-        log::debug!(
-            "SubnetworkN::<T>::get( netuid ) = {:?}",
-            SubnetworkN::<T>::get(netuid)
-        );
-        log::debug!("uid = {uid:?}");
-        if uid < SubnetworkN::<T>::get(netuid) {
-            PruningScores::<T>::mutate(netuid, |v| {
-                if let Some(s) = v.get_mut(uid as usize) {
-                    *s = pruning_score;
-                }
-            });
-        } else {
-            log::error!(
-                "set_pruning_score_for_uid: uid >= SubnetworkN::<T>::get(netuid): {:?} >= {:?}",
-                uid,
-                SubnetworkN::<T>::get(netuid)
-            );
-        }
-    }
     pub fn set_validator_permit_for_uid(netuid: NetUid, uid: u16, validator_permit: bool) {
         let mut updated_validator_permits = Self::get_validator_permit(netuid);
         let Some(updated_validator_permit) = updated_validator_permits.get_mut(uid as usize) else {
@@ -360,6 +303,16 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_neuron_block_at_registration(netuid: NetUid, neuron_uid: u16) -> u64 {
         BlockAtRegistration::<T>::get(netuid, neuron_uid)
+    }
+    /// Returns the minimum number of non-immortal & non-immune UIDs that must remain in a subnet.
+    pub fn get_min_non_immune_uids(netuid: NetUid) -> u16 {
+        MinNonImmuneUids::<T>::get(netuid)
+    }
+
+    /// Sets the minimum number of non-immortal & non-immune UIDs that must remain in a subnet.
+    pub fn set_min_non_immune_uids(netuid: NetUid, min: u16) {
+        MinNonImmuneUids::<T>::insert(netuid, min);
+        Self::deposit_event(Event::MinNonImmuneUidsSet(netuid, min));
     }
 
     // ========================
