@@ -77,7 +77,7 @@ pub trait ConsensusMechanism {
     fn new() -> Self;
 
     /// Builds a `BIQ` that uses the ConsensusMechanism.
-    fn build_biq(&mut self) -> Result<BIQ, sc_service::Error>;
+    fn build_biq(&mut self) -> Result<BIQ<'_>, sc_service::Error>;
 
     /// Returns the slot duration.
     fn slot_duration(&self, client: &FullClient) -> Result<SlotDuration, ServiceError>;
