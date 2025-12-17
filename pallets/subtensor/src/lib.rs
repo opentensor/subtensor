@@ -2396,28 +2396,7 @@ pub mod pallet {
             total_stake >= Self::get_stake_threshold()
         }
 
-        pub fn burn_tokens_and_update_stake(
-            hotkey: &T::AccountId,
-            amount: TaoCurrency,
-        ) -> DispatchResult {
-            use frame_support::traits::tokens::{Precision, Preservation};
-            use frame_support::traits::tokens::fungible::Mutate;
 
-            // 1. Burn from Balances (Correctly updates TotalIssuance)
-            <T as Config>::Currency::burn_from(
-                hotkey,
-                amount.into(),
-                Precision::Exact,
-                Preservation::Expendable,
-            )?;
-
-            // 2. Decrement TotalStake
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_sub(amount);
-            });
-
-            Ok(())
-        }
 
         /// Helper function to check if register is allowed
         pub fn checked_allowed_register(netuid: NetUid) -> bool {
