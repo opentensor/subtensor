@@ -4383,8 +4383,8 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         // Attempt unauthorized reveal
         let unauthorized_hotkey = hotkeys[0];
         let target_hotkey = hotkeys[1];
-        if let Some(commits) = commit_info_map.get(&target_hotkey) {
-            if let Some((_commit_hash, salt, uids, values, version_key)) = commits.first() {
+        if let Some(commits) = commit_info_map.get(&target_hotkey)
+            && let Some((_commit_hash, salt, uids, values, version_key)) = commits.first() {
                 assert_err!(
                     SubtensorModule::reveal_weights(
                         RuntimeOrigin::signed(unauthorized_hotkey),
@@ -4397,7 +4397,6 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                     Error::<Test>::InvalidRevealCommitHashNotMatch
                 );
             }
-        }
 
         let non_committing_hotkey: <Test as frame_system::Config>::AccountId = U256::from(9999);
         assert_err!(
