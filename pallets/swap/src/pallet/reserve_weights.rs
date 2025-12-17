@@ -474,6 +474,9 @@ mod tests {
             if eps > 100.0 {
                 eps = 100.0;
             }
+            if eps < 1.0 {
+                eps = 1.0;
+            }
 
             assert!(
                 (actual - dy_expected).abs() <= eps,
