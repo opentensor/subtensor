@@ -2246,7 +2246,7 @@ pub mod pallet {
         /// When emissions are disabled, the subnet will not receive any TAO emissions.
         #[pallet::call_index(85)]
         #[pallet::weight((
-            Weight::from_parts(7_343_000, 0)
+            Weight::from_parts(17_230_000, 0)
                 .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2))
                 .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
             DispatchClass::Operational,
