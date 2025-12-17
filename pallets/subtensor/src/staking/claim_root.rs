@@ -229,12 +229,7 @@ impl<T: Config> Pallet<T> {
     // Calculates root proportion for subnet, uses "1 / root_prop" (with 10 as an upper bound) as
     // a multiplier for provided Tao amount.
     pub(crate) fn calculate_tao_outflow(netuid: NetUid, amount: TaoCurrency) -> TaoCurrency {
-        let root_tao: U96F32 = U96F32::saturating_from_num(SubnetTAO::<T>::get(NetUid::ROOT));
-        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-        let alpha_issuance: U96F32 = U96F32::saturating_from_num(Self::get_alpha_issuance(netuid));
-        let root_proportion: U96F32 = tao_weight
-            .checked_div(tao_weight.saturating_add(alpha_issuance))
-            .unwrap_or(U96F32::saturating_from_num(0));
+        let root_proportion = Self::root_proportion(netuid);
 
         let root_prop_multiplier = {
             let root_prop_multiplier = U96F32::saturating_from_num(1)
