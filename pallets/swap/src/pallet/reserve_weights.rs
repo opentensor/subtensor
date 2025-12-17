@@ -414,10 +414,24 @@ mod tests {
             // Each iteration gets its own deterministic RNG.
             // Seed depends on i, so runs are reproducible.
             let mut rng = StdRng::seed_from_u64(42 + i as u64);
+            let max_supply: u64 = 21_000_000_000_000_000;
+            let full_range = true;
 
-            let x: u64 = rng.gen_range(1_000..21_000_000_000_000_000); // Alpha reserve
-            let y: u64 = rng.gen_range(1_000..21_000_000_000_000_000); // TAO reserve (allow huge prices)
-            let dx: u64 = rng.gen_range(1_000..=21_000_000_000_000_000); // Alhpa sold (allow huge values)
+            let x: u64 = rng.gen_range(1_000..=max_supply); // Alpha reserve
+            let y: u64 = if full_range {
+                // TAO reserve (allow huge prices)
+                rng.gen_range(1_000..=max_supply)
+            } else {
+                // TAO reserve (limit prices with 0-1000)
+                rng.gen_range(1_000..x.saturating_mul(1000).min(max_supply))
+            };
+            let dx: u64 = if full_range {
+                // Alhpa sold (allow huge values)
+                rng.gen_range(1_000..=21_000_000_000_000_000)
+            } else {
+                // Alhpa sold (do not sell more than 100% of what's in alpha reserve)
+                rng.gen_range(1_000..=x)
+            };
             let w_numerator: u64 = rng.gen_range(ACCURACY / 10..=ACCURACY / 10 * 9);
             let w_quote = Perquintill::from_rational(w_numerator, ACCURACY);
 
@@ -448,7 +462,7 @@ mod tests {
                 actual, dy_expected, eps, x, y, dx, w_numerator,
             );
 
-            // Also assert that we didn't sell more than y
+            // Assert that we aren't giving out more than reserve y
             assert!(dy <= y, "dy = {},\ny =  {}", dy, y,);            
 
             // Print progress
