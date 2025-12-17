@@ -43,16 +43,10 @@ impl<T: Config> Pallet<T> {
             1 => {
                 let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
                 if !alpha_reserve.is_zero() {
-                    let alpha_reserve = U64F64::saturating_from_num(alpha_reserve);
                     let tao_reserve =
-                        U64F64::saturating_from_num(T::TaoReserve::reserve(netuid.into()));
+                        T::TaoReserve::reserve(netuid.into());
                     let reserve_weight = SwapReserveWeight::<T>::get(netuid);
-                    let base_weight =
-                        U64F64::saturating_from_num(reserve_weight.get_base_weight());
-                    let quote_weight =
-                        U64F64::saturating_from_num(reserve_weight.get_quote_weight());
-                    let w1_div_w2 = base_weight.safe_div(quote_weight);
-                    w1_div_w2.saturating_mul(tao_reserve.safe_div(alpha_reserve))
+                    reserve_weight.calculate_price(tao_reserve.into(), alpha_reserve.into())
                 } else {
                     U64F64::saturating_from_num(0)
                 }

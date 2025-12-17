@@ -12,6 +12,7 @@ frame-support.workspace = true
 frame-system.workspace = true
 log.workspace = true
 safe-math.workspace = true
+safe-bigmath.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, optional = true }
 sp-arithmetic.workspace = true
@@ -28,6 +29,7 @@ subtensor-swap-interface.workspace = true
 
 [dev-dependencies]
 sp-tracing.workspace = true
+rand = "0.8"
 
 [lints]
 workspace = true
