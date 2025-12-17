@@ -326,7 +326,7 @@ impl<T: Config> Pallet<T> {
         });
         // Keep TotalStake in sync
         TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_sub(amount.into());
+            *total = total.saturating_sub(amount.to_u64().into());
         });
     }
 
