@@ -716,7 +716,9 @@ fn test_remove_stake_total_balance_no_change() {
 
         // Add subnet TAO for the equivalent amount added at price
         let amount_tao = U96F32::from_num(amount)
-            * U96F32::from_num(<Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()));
+            * U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+            );
         SubnetTAO::<Test>::mutate(netuid, |v| {
             *v += amount_tao.saturating_to_num::<u64>().into()
         });
@@ -2177,8 +2179,9 @@ fn test_get_total_delegated_stake_after_unstaking() {
             netuid,
             unstake_amount_alpha.into()
         ));
-        let current_price =
-            U96F32::from_num(<Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()));
+        let current_price = U96F32::from_num(
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+        );
 
         // Calculate the expected delegated stake
         let unstake_amount =

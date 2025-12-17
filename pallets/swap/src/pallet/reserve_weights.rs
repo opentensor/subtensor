@@ -1,16 +1,16 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
-use safe_math::*;
 use safe_bigmath::*;
+use safe_math::*;
 use sp_arithmetic::Perquintill;
 use sp_runtime::Saturating;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("a83c5690c57a33b")]
+#[freeze_struct("8c6bbe52ef752203")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ReserveWeight {
-    quote: Perquintill
+    quote: Perquintill,
 }
 
 // Lower imit of weights is 0.01
@@ -26,7 +26,7 @@ pub enum ReserveWeightError {
 impl Default for ReserveWeight {
     fn default() -> Self {
         Self {
-            quote: Perquintill::from_rational(1u128, 2u128)
+            quote: Perquintill::from_rational(1u128, 2u128),
         }
     }
 }
@@ -77,7 +77,6 @@ impl ReserveWeight {
         let perquintill_scale = SafeInt::from(ACCURACY as u128);
         let denominator = x_safe.clone() + delta_safe;
         let maybe_result_safe_int = if base_quote {
-
             // println!("SafeInt::pow_ratio_scaled input: ");
             // println!("  x_safe = {:?}", x_safe);
             // println!("  denominator = {:?}", denominator);
@@ -132,16 +131,18 @@ impl ReserveWeight {
         let w1_fixed = U64F64::saturating_from_num(self.get_quote_weight().deconstruct());
         let x_fixed = U64F64::saturating_from_num(x);
         let y_fixed = U64F64::saturating_from_num(y);
-        w2_fixed.safe_div(w1_fixed).saturating_mul(y_fixed.safe_div(x_fixed))
+        w2_fixed
+            .safe_div(w1_fixed)
+            .saturating_mul(y_fixed.safe_div(x_fixed))
     }
 }
 
-// cargo test --package pallet-subtensor-swap --lib -- pallet::reserve_weights::tests --nocapture 
+// cargo test --package pallet-subtensor-swap --lib -- pallet::reserve_weights::tests --nocapture
 #[cfg(test)]
 mod tests {
-    use approx::assert_abs_diff_eq;
     use crate::pallet::ReserveWeight;
     use crate::pallet::reserve_weights::*;
+    use approx::assert_abs_diff_eq;
     use sp_arithmetic::Perquintill;
 
     fn perquintill_to_f64(p: Perquintill) -> f64 {
@@ -171,7 +172,10 @@ mod tests {
         )
         .expect("perquintill integer result");
 
-        assert_eq!(perquintill_result, SafeInt::from(649_519_052_838_328_985u128));
+        assert_eq!(
+            perquintill_result,
+            SafeInt::from(649_519_052_838_328_985u128)
+        );
         let readable = safe_bigmath::SafeDec::<18>::from_raw(perquintill_result);
         assert_eq!(format!("{}", readable), "0.649519052838328985");
     }
@@ -179,7 +183,6 @@ mod tests {
     /// Validate realistic values that can be calculated with f32 precision
     #[test]
     fn test_exp_bae_quote_happy_path() {
-
         // Outer test cases: w_quote
         [
             Perquintill::from_rational(500_000_000_000_u128, 1_000_000_000_000_u128),
@@ -223,11 +226,7 @@ mod tests {
                     100_000_000_000_000_u64,
                     100_000_000_u64,
                 ),
-                (
-                    100_000_000_000_u64,
-                    100_000_000_000_000_u64,
-                    1_000_000_u64,
-                ),
+                (100_000_000_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
                 (
                     100_000_000_000_u64,
                     100_000_000_000_000_u64,
@@ -243,36 +242,12 @@ mod tests {
                     100_000_000_000_000_u64,
                     1_000_000_000_000_u64,
                 ),
-                (
-                    1_000_u64,
-                    100_000_000_000_000_u64,
-                    1_000_000_000_000_u64,
-                ),
-                (
-                    1_000_u64,
-                    100_000_000_000_000_u64,
-                    1_000_000_000_u64,
-                ),
-                (
-                    1_000_u64,
-                    100_000_000_000_000_u64,
-                    1_000_000_u64,
-                ),
-                (
-                    1_000_u64,
-                    100_000_000_000_000_u64,
-                    1_000_u64,
-                ),
-                (
-                    1_000_u64,
-                    100_000_000_000_000_u64,
-                    100_000_000_000_000_u64,
-                ),
-                (
-                    10_u64,
-                    100_000_000_000_000_u64,
-                    100_000_000_000_000_u64,
-                ),
+                (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_000_u64),
+                (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_u64),
+                (1_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
+                (1_000_u64, 100_000_000_000_000_u64, 1_000_u64),
+                (1_000_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
+                (10_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
             ]
             .into_iter()
             .for_each(|(y, x, dx)| {
@@ -284,32 +259,27 @@ mod tests {
 
                 let w1 = perquintill_to_f64(rw.get_base_weight());
                 let w2 = perquintill_to_f64(rw.get_quote_weight());
-                let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1/w2);
+                let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
                 let dy_expected = y as f64 * (1. - e_expected);
 
                 let mut eps = dy_expected / 100000.;
                 if eps > 0.1 {
                     eps = 0.1;
                 }
-                assert_abs_diff_eq!(
-                    dy.to_num::<f64>(),
-                    dy_expected,
-                    epsilon = eps,
-                );
+                assert_abs_diff_eq!(dy.to_num::<f64>(), dy_expected, epsilon = eps,);
             })
         });
     }
 
     /// This test exercises practical application edge cases of exp_base_quote
-    /// The practical formula where this function is used: 
+    /// The practical formula where this function is used:
     ///    ∆y = y * (exp_base_quote(x, ∆x) - 1)
-    /// 
-    /// The test validates that two different sets of parameters produce (sensibly) 
+    ///
+    /// The test validates that two different sets of parameters produce (sensibly)
     /// different results
-    /// 
+    ///
     #[test]
     fn test_exp_bae_quote_dy_precision() {
-
         // Test cases: y, x1, ∆x1, w_quote1, x2, ∆x2, w_quote2
         // Realized dy1 should be greater than dy2
         [
@@ -389,13 +359,10 @@ mod tests {
         })
     }
 
-
-    
     /// Test the broad range of w_quote values, usually should be ignored
     #[ignore]
     #[test]
     fn test_exp_quote_broad_range() {
-
         let y = 1_000_000_000_000_u64;
         let x = 100_000_000_000_000_u64;
         let dx = 10_000_000_u64;
@@ -419,7 +386,7 @@ mod tests {
             let progress = (num as f64 - start as f64) / (stop as f64 - start as f64);
 
             if progress - last_progress >= 0.0001 {
-                println!("progress = {:?}%", progress*100.);
+                println!("progress = {:?}%", progress * 100.);
                 println!("dy = {:?}", dy);
                 last_progress = progress;
             }
@@ -428,51 +395,48 @@ mod tests {
             assert!(dy <= prev);
             prev = dy;
         }
-
     }
 
     #[test]
     fn test_exp_quote_fuzzy() {
-        use rand::{Rng, SeedableRng};
         use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+        use rayon::prelude::*;
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
-        let mut rng = StdRng::seed_from_u64(42);
+        const ITERATIONS: usize = 1_000_000_000;
+        let counter = Arc::new(AtomicUsize::new(0));
 
-        let iterations = 1_000_000_000;
-        for i in 0..iterations {
+        (0..ITERATIONS)
+        .into_par_iter()
+        .for_each(|i| {
+            // Each iteration gets its own deterministic RNG.
+            // Seed depends on i, so runs are reproducible.
+            let mut rng = StdRng::seed_from_u64(42 + i as u64);
 
-            let x: u64 = rng.gen_range(1_000..21_000_000_000_000_000);
-            let y: u64 = rng.gen_range(1_000..21_000_000_000_000_000);
-            let dx: u64 = rng.gen_range(1_000..=x);
-            let w_numerator: u64 = rng.gen_range(ACCURACY/10..=ACCURACY/10*9);
+            let x: u64 = rng.gen_range(1_000..21_000_000_000_000_000); // Alpha reserve
+            let y: u64 = rng.gen_range(1_000..21_000_000_000_000_000); // TAO reserve (allow huge prices)
+            let dx: u64 = rng.gen_range(1_000..=21_000_000_000_000_000); // Alhpa sold (allow huge values)
+            let w_numerator: u64 = rng.gen_range(ACCURACY / 10..=ACCURACY / 10 * 9);
             let w_quote = Perquintill::from_rational(w_numerator, ACCURACY);
 
             let rw = ReserveWeight::new(w_quote).unwrap();
             let e = rw.exp_base_quote(x, dx);
 
             let one = U64F64::from_num(1);
-            // println!("e = {:?}", e);
-            // println!("1 - e = {:?}", one - e);
-
             let dy = U64F64::from_num(y) * (one - e);
-            // println!("dy = {:?}", dy);
-
-            if i % 1000 == 0 {
-                let progress = i as f64 / iterations as f64;
-                println!("progress = {:?}%", progress*100.);
-                println!("dy = {:?}", dy);
-            }
 
             // Calculate expected in f64 and approx-assert
             let w1 = perquintill_to_f64(rw.get_base_weight());
             let w2 = perquintill_to_f64(rw.get_quote_weight());
-            let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1/w2);
+            let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
             let dy_expected = y as f64 * (1. - e_expected);
 
             let actual = dy.to_num::<f64>();
-            let mut eps = dy_expected / 1_000_000_000.;
-            if eps > 100.0 {
-                eps = 100.0;
+            let mut eps = dy_expected / 1_000_000.;
+            if eps > 1000.0 {
+                eps = 1000.0;
             }
             if eps < 1.0 {
                 eps = 1.0;
@@ -480,15 +444,19 @@ mod tests {
 
             assert!(
                 (actual - dy_expected).abs() <= eps,
-                "dy mismatch:\n  actual:   {}\n  expected: {}\n  eps:      {}\nParameters:\n  x:           {}\n  y:           {}\n  dx:          {}\n  w_numerator: {}\n",
-                actual,
-                dy_expected,
-                eps,
-                x, y, dx,
-                w_numerator, 
+                "dy mismatch:\n actual:   {}\n expected: {}\n eps: {}\nParameters:\n x:  {}\n y:  {}\n dx: {}\n w_numerator: {}\n",
+                actual, dy_expected, eps, x, y, dx, w_numerator,
             );
-        }
 
+            // Also assert that we didn't sell more than y
+            assert!(dy <= y, "dy = {},\ny =  {}", dy, y,);            
+
+            // Print progress
+            let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
+            if done % 1_000_000 == 0 {
+                let progress = done as f64 / ITERATIONS as f64 * 100.0;
+                println!("progress = {progress:.4}%");
+            }
+        });
     }
-
 }

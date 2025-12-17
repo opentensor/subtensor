@@ -30,6 +30,7 @@ subtensor-swap-interface.workspace = true
 [dev-dependencies]
 sp-tracing.workspace = true
 rand = "0.8"
+rayon = "1.10"
 
 [lints]
 workspace = true

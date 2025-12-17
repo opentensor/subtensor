@@ -16,9 +16,13 @@ use sp_runtime::{
 };
 // use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, 
-    // Currency, 
-    CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaCurrency,
+    BalanceOps,
+    // Currency,
+    CurrencyReserve,
+    NetUid,
+    SubnetInfo,
+    TaoCurrency,
 };
 use subtensor_swap_interface::Order;
 

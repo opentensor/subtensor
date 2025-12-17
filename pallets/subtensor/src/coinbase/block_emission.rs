@@ -64,9 +64,7 @@ impl<T: Config> Pallet<T> {
         // Avoid rounding errors.
         let zero = U64F64::saturating_from_num(0);
         let one = U64F64::saturating_from_num(1);
-        if tao_in_emission < one
-            || alpha_in_emission < one
-        {
+        if tao_in_emission < one || alpha_in_emission < one {
             alpha_in_emission = zero;
             tao_in_emission = zero;
         }

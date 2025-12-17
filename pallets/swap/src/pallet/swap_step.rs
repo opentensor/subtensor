@@ -49,8 +49,7 @@ where
         let requested_delta_in = amount_remaining.saturating_sub(fee);
 
         // Target and current prices
-        let target_price =
-            Self::price_target(requested_delta_in);
+        let target_price = Self::price_target(requested_delta_in);
         let current_price = Pallet::<T>::current_price(netuid);
 
         Self {
@@ -79,33 +78,20 @@ where
 
         // Calculate the stopping price: The price at which we either reach the limit price,
         // or exchange the full amount.
-        if Self::price_is_closer(&self.target_price, &self.limit_price)
-        {
+        if Self::price_is_closer(&self.target_price, &self.limit_price) {
             // Case 1. target_quantity is the lowest, execute in full
             self.final_price = self.target_price;
             self.delta_in = self.requested_delta_in;
         } else {
             // Case 2. lim_quantity is the lowest
             self.final_price = self.limit_price;
-            self.delta_in = Self::delta_in(
-                self.current_price,
-                self.limit_price,
-            );
+            self.delta_in = Self::delta_in(self.current_price, self.limit_price);
             recalculate_fee = true;
         }
 
-        log::trace!(
-            "\tCurrent Price    : {}",
-            self.current_price
-        );
-        log::trace!(
-            "\tTarget Price     : {}",
-            self.target_price
-        );
-        log::trace!(
-            "\tLimit Price      : {}",
-            self.limit_price
-        );
+        log::trace!("\tCurrent Price    : {}", self.current_price);
+        log::trace!("\tTarget Price     : {}", self.target_price);
+        log::trace!("\tLimit Price      : {}", self.limit_price);
         log::trace!("\tDelta In         : {}", self.delta_in);
 
         // Because on step creation we calculate fee off the total amount, we might need to
@@ -128,10 +114,7 @@ where
     /// Process a single step of a swap
     fn process_swap(&self) -> Result<SwapStepResult<PaidIn, PaidOut>, Error<T>> {
         // Hold the fees
-        Self::add_fees(
-            self.netuid,
-            self.fee,
-        );
+        Self::add_fees(self.netuid, self.fee);
 
         // Convert amounts, actual swap happens here
         let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
@@ -148,16 +131,11 @@ where
 impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
     for BasicSwapStep<T, TaoCurrency, AlphaCurrency>
 {
-    fn delta_in(
-        _price_curr: U64F64,
-        _price_target: U64F64,
-    ) -> TaoCurrency {
+    fn delta_in(_price_curr: U64F64, _price_target: U64F64) -> TaoCurrency {
         todo!();
     }
 
-    fn price_target(
-        _delta_in: TaoCurrency,
-    ) -> U64F64 {
+    fn price_target(_delta_in: TaoCurrency) -> U64F64 {
         todo!();
     }
 
@@ -177,16 +155,11 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
 impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
     for BasicSwapStep<T, AlphaCurrency, TaoCurrency>
 {
-    fn delta_in(
-        _price_curr: U64F64,
-        _price_target: U64F64,
-    ) -> AlphaCurrency {
+    fn delta_in(_price_curr: U64F64, _price_target: U64F64) -> AlphaCurrency {
         todo!();
     }
 
-    fn price_target(
-        _delta_in: AlphaCurrency,
-    ) -> U64F64 {
+    fn price_target(_delta_in: AlphaCurrency) -> U64F64 {
         todo!();
     }
 
@@ -210,15 +183,10 @@ where
     PaidOut: Currency,
 {
     /// Get the input amount needed to reach the target price
-    fn delta_in(
-        price_curr: U64F64,
-        price_target: U64F64,
-    ) -> PaidIn;
+    fn delta_in(price_curr: U64F64, price_target: U64F64) -> PaidIn;
 
     /// Get the target price based on the input amount
-    fn price_target(
-        delta_in: PaidIn,
-    ) -> U64F64;
+    fn price_target(delta_in: PaidIn) -> U64F64;
 
     /// Returns True if price1 is closer to the current price than price2
     /// in terms of order direction.

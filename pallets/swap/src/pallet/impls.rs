@@ -5,9 +5,13 @@ use sp_arithmetic::helpers_128bit;
 use sp_runtime::{DispatchResult, traits::AccountIdConversion};
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, 
-    // BalanceOps, 
-    Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaCurrency,
+    // BalanceOps,
+    Currency,
+    CurrencyReserve,
+    NetUid,
+    SubnetInfo,
+    TaoCurrency,
 };
 use subtensor_swap_interface::{
     DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
@@ -15,9 +19,7 @@ use subtensor_swap_interface::{
 
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep};
-use crate::{
-    position::PositionId,
-};
+use crate::position::PositionId;
 
 #[derive(Debug, PartialEq)]
 pub struct UpdateLiquidityResult {
@@ -43,8 +45,7 @@ impl<T: Config> Pallet<T> {
             1 => {
                 let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
                 if !alpha_reserve.is_zero() {
-                    let tao_reserve =
-                        T::TaoReserve::reserve(netuid.into());
+                    let tao_reserve = T::TaoReserve::reserve(netuid.into());
                     let reserve_weight = SwapReserveWeight::<T>::get(netuid);
                     reserve_weight.calculate_price(tao_reserve.into(), alpha_reserve.into())
                 } else {
@@ -62,7 +63,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Initialize the pal-swap:
-        // Reserves are re-purposed, nothing to set, just query values for creation 
+        // Reserves are re-purposed, nothing to set, just query values for creation
         // of protocol position
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
@@ -316,14 +317,12 @@ impl<T: Config> Pallet<T> {
     // }
 
     pub(crate) fn min_price_inner<C: Currency>() -> C {
-        u64::from(1_000_u64)
-            .into()
+        u64::from(1_000_u64).into()
     }
 
     pub(crate) fn max_price_inner<C: Currency>() -> C {
-        u64::from(1_000_000_000_000_000_u64)
-            .into()
-    }    
+        u64::from(1_000_000_000_000_000_u64).into()
+    }
 
     /// Returns the protocol account ID
     ///

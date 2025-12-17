@@ -135,7 +135,8 @@ impl<T: Config> Pallet<T> {
             log::debug!("alpha_emission_i: {alpha_emission_i:?}");
 
             // Get subnet price.
-            let price_i: U96F32 = U96F32::saturating_from_num(T::SwapInterface::current_alpha_price(netuid_i.into()));
+            let price_i: U96F32 =
+                U96F32::saturating_from_num(T::SwapInterface::current_alpha_price(netuid_i.into()));
             log::debug!("price_i: {price_i:?}");
 
             let mut tao_in_i: U96F32 = tao_emission_i;

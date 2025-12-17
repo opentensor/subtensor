@@ -8,7 +8,8 @@
 use approx::assert_abs_diff_eq;
 use frame_support::{
     //assert_err,
-    assert_noop, assert_ok
+    assert_noop,
+    assert_ok,
 };
 // use sp_arithmetic::helpers_128bit;
 use sp_runtime::DispatchError;
@@ -17,8 +18,8 @@ use subtensor_runtime_common::NetUid;
 use subtensor_swap_interface::Order as OrderT;
 
 use super::*;
-use crate::pallet::swap_step::*;
 use crate::mock::*;
+use crate::pallet::swap_step::*;
 
 #[allow(dead_code)]
 fn get_min_price() -> U64F64 {
@@ -862,13 +863,13 @@ fn test_swap_single_position() {
 
     // macro_rules! perform_test {
     //     ($order_t:ident,
-	// 	 $price_low_offset:expr,
-	// 	 $price_high_offset:expr,
-	// 	 $position_liquidity:expr,
-	// 	 $liquidity_fraction:expr,
-	// 	 $limit_price:expr,
-	// 	 $price_should_grow:expr
-	// 	 ) => {
+    // 	 $price_low_offset:expr,
+    // 	 $price_high_offset:expr,
+    // 	 $position_liquidity:expr,
+    // 	 $liquidity_fraction:expr,
+    // 	 $limit_price:expr,
+    // 	 $price_should_grow:expr
+    // 	 ) => {
     //         new_test_ext().execute_with(|| {
     //             let price_low_offset = $price_low_offset;
     //             let price_high_offset = $price_high_offset;
@@ -1250,8 +1251,7 @@ fn test_swap_precision_edge_case() {
         let limit_price: U64F64 = get_min_price();
 
         // Swap
-        let swap_result =
-            Pallet::<Test>::do_swap(netuid, order, limit_price, false, true).unwrap();
+        let swap_result = Pallet::<Test>::do_swap(netuid, order, limit_price, false, true).unwrap();
 
         assert!(swap_result.amount_paid_out > TaoCurrency::ZERO);
     });
@@ -1268,45 +1268,15 @@ fn test_convert_deltas() {
             (1500, 1000, 0.5, 0.5, 1, 0, 2),
             (1500, 1000, 0.5, 0.5, 10000, 4444, 22500),
             (1500, 1000, 0.5, 0.5, 1000000, 444444, 2250000),
-            (
-                1500, 1000, 0.5, 0.5,
-                u64::MAX,
-                2000000000000,
-                3000000000000,
-            ),
-            (
-                1, 1000000, 0.5, 0.5,
-                1,
-                18406523739291577836,
-                465,
-            ),
+            (1500, 1000, 0.5, 0.5, u64::MAX, 2000000000000, 3000000000000),
+            (1, 1000000, 0.5, 0.5, 1, 18406523739291577836, 465),
             (1, 1000000, 0.5, 0.5, 10000, u64::MAX, 465),
-            (
-                1, 1000000, 0.5, 0.5,
-                1000000,
-                u64::MAX,
-                465,
-            ),
-            (
-                1, 1000000, 0.5, 0.5,
-                u64::MAX,
-                u64::MAX,
-                464,
-            ),
-            (
-                1000000, 1, 0.5, 0.5,
-                1,
-                0,
-                18406523745214495085,
-            ),
+            (1, 1000000, 0.5, 0.5, 1000000, u64::MAX, 465),
+            (1, 1000000, 0.5, 0.5, u64::MAX, u64::MAX, 464),
+            (1000000, 1, 0.5, 0.5, 1, 0, 18406523745214495085),
             (1000000, 1, 0.5, 0.5, 10000, 0, u64::MAX),
             (1000000, 1, 0.5, 0.5, 1000000, 0, u64::MAX),
-            (
-                1000000, 1, 0.5, 0.5,
-                u64::MAX,
-                2000000000000,
-                u64::MAX,
-            ),
+            (1000000, 1, 0.5, 0.5, u64::MAX, 2000000000000, u64::MAX),
         ] {
             {
                 assert_abs_diff_eq!(

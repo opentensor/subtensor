@@ -8,9 +8,7 @@ use frame_system::RawOrigin;
 use subtensor_runtime_common::NetUid;
 
 use crate::{
-    pallet::{
-        Call, Config, Pallet, PositionsV2,
-    },
+    pallet::{Call, Config, Pallet, PositionsV2},
     position::{Position, PositionId},
 };
 
@@ -41,12 +39,7 @@ mod benchmarks {
         let hotkey: T::AccountId = account("hotkey", 0, 0);
 
         #[extrinsic_call]
-        add_liquidity(
-            RawOrigin::Signed(caller),
-            hotkey,
-            netuid,
-            1000,
-        );
+        add_liquidity(RawOrigin::Signed(caller), hotkey, netuid, 1000);
     }
 
     #[benchmark]

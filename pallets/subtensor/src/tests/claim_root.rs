@@ -5,16 +5,25 @@ use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };
 use crate::{
-    DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
-    NumRootClaim, NumStakingColdkeys, 
-    //PendingRootAlphaDivs, 
-    RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, 
+    DefaultMinRootClaimAmount,
+    Error,
+    MAX_NUM_ROOT_CLAIMS,
+    MAX_ROOT_CLAIM_THRESHOLD,
+    NetworksAdded,
+    NumRootClaim,
+    NumStakingColdkeys,
+    //PendingRootAlphaDivs,
+    RootClaimable,
+    RootClaimableThreshold,
+    StakingColdkeys,
+    StakingColdkeysByIndex,
+    SubnetAlphaIn,
+    SubnetMechanism,
     // SubnetMovingPrice,
-    SubnetTAO, 
-    // SubnetTaoFlow, 
-    SubtokenEnabled, 
-    //Tempo, 
+    SubnetTAO,
+    // SubnetTaoFlow,
+    SubtokenEnabled,
+    //Tempo,
     pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
@@ -26,7 +35,8 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
-use substrate_fixed::types::{I96F32, 
+use substrate_fixed::types::{
+    I96F32,
     //U64F64, U96F32
 };
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};

@@ -10919,6 +10919,7 @@ dependencies = [
  "pallet-subtensor-swap-runtime-api",
  "parity-scale-codec",
  "rand 0.8.5",
+ "rayon",
  "safe-bigmath",
  "safe-math",
  "scale-info",

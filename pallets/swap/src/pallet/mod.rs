@@ -9,8 +9,8 @@ use subtensor_runtime_common::{
 };
 
 use crate::{
-    position::{Position, PositionId},
     pallet::reserve_weights::ReserveWeight,
+    position::{Position, PositionId},
     weights::WeightInfo,
 };
 
@@ -394,12 +394,8 @@ mod pallet {
                 Error::<T>::SubtokenDisabled
             );
 
-            let (position_id, tao, alpha) = Self::do_add_liquidity(
-                netuid.into(),
-                &coldkey,
-                &hotkey,
-                liquidity,
-            )?;
+            let (position_id, tao, alpha) =
+                Self::do_add_liquidity(netuid.into(), &coldkey, &hotkey, liquidity)?;
             let alpha = AlphaCurrency::from(alpha);
             let tao = TaoCurrency::from(tao);
 

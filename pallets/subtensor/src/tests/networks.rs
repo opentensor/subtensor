@@ -7,13 +7,14 @@ use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use sp_std::collections::{
-    //btree_map::BTreeMap, 
-vec_deque::VecDeque};
+    //btree_map::BTreeMap,
+    vec_deque::VecDeque,
+};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::{
-    //Order, 
-    SwapHandler
+    //Order,
+    SwapHandler,
 };
 
 #[test]
@@ -252,8 +253,9 @@ fn dissolve_owner_cut_refund_logic() {
 
         // Use the current alpha price to estimate the TAO equivalent.
         let owner_emission_tao = {
-            let price: U96F32 =
-                U96F32::from_num(<Test as pallet::Config>::SwapInterface::current_alpha_price(net.into()));
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -903,8 +905,9 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
 
         let owner_emission_tao: u64 = {
             // Fallback matches the pallet's fallback
-            let price: U96F32 =
-                U96F32::from_num(<Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()));
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -983,8 +986,9 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
             .saturating_to_num::<u64>();
 
         let owner_emission_tao_u64 = {
-            let price: U96F32 =
-                U96F32::from_num(<Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()));
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -2157,10 +2161,10 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
 
     //     // Compute the exact min stake per the pallet rule: DefaultMinStake + fee(DefaultMinStake).
     //     let min_stake = DefaultMinStake::<Test>::get();
-	// 	let order = GetAlphaForTao::<Test>::with_amount(min_stake);
+    // 	let order = GetAlphaForTao::<Test>::with_amount(min_stake);
     //     let fee_for_min = pallet_subtensor_swap::Pallet::<Test>::sim_swap(
     //         net_new,
-	// 		order,
+    // 		order,
     //     )
     //     .map(|r| r.fee_paid)
     //     .unwrap_or_else(|_e| {
@@ -2177,10 +2181,10 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
     //         let a_prev: u64 = Alpha::<Test>::get((hot1, cold, net_new)).saturating_to_num();
 
     //         // Expected α for this exact τ, using the same sim path as the pallet.
-	// 		let order = GetAlphaForTao::<Test>::with_amount(min_amount_required);
+    // 		let order = GetAlphaForTao::<Test>::with_amount(min_amount_required);
     //         let expected_alpha_out = pallet_subtensor_swap::Pallet::<Test>::sim_swap(
     //             net_new,
-	// 			order,
+    // 			order,
     //         )
     //         .map(|r| r.amount_paid_out)
     //         .expect("sim_swap must succeed for fresh net and min amount");
