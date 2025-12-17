@@ -2394,6 +2394,10 @@ impl_runtime_apis! {
             SubtensorModule::get_all_mechagraphs()
         }
 
+        fn get_submetagraphs(netuid: NetUid) -> Vec<Option<Metagraph<AccountId32>>> {
+            SubtensorModule::get_submetagraphs(netuid)
+        }
+
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
             SubtensorModule::get_all_dynamic_info()
         }

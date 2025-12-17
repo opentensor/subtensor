@@ -847,6 +847,18 @@ impl<T: Config> Pallet<T> {
         metagraphs
     }
 
+    pub fn get_submetagraphs(netuid: NetUid) -> Vec<Option<Metagraph<T::AccountId>>> {
+        if !Self::if_subnet_exist(netuid) {
+            return Vec::new();
+        }
+        let mechanism_count = u8::from(MechanismCountCurrent::<T>::get(netuid));
+        let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
+        for mecid in 0..mechanism_count {
+            metagraphs.push(Self::get_mechagraph(netuid, MechId::from(mecid)));
+        }
+        metagraphs
+    }
+
     pub fn get_selective_metagraph(
         netuid: NetUid,
         metagraph_indexes: Vec<u16>,
