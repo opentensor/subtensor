@@ -15,16 +15,19 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
+pub use pallet::*;
 use sp_runtime::{
     FixedU128, Percent, Saturating,
     traits::{Hash, SaturatedConversion, UniqueSaturatedInto},
 };
-use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use subtensor_macros::freeze_struct;
+use weights::WeightInfo;
 
+mod benchmarking;
 mod mock;
 mod tests;
-pub use pallet::*;
+pub mod weights;
 
 /// WARNING: Any changes to these 3 constants require a migration to update the `BoundedVec` in storage
 /// for `Triumvirate`, `EconomicCollective`, or `BuildingCollective`.
@@ -128,6 +131,9 @@ pub mod pallet {
             + From<frame_system::Call<Self>>
             + IsSubType<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
+
+        /// The weight info.
+        type WeightInfo: WeightInfo;
 
         /// The currency mechanism.
         type Currency: fungible::Mutate<Self::AccountId>;
@@ -415,11 +421,11 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Set the allowed proposers.
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(T::WeightInfo::set_allowed_proposers(T::MaxProposals::get()))]
         pub fn set_allowed_proposers(
             origin: OriginFor<T>,
             mut new_allowed_proposers: BoundedVec<T::AccountId, T::MaxAllowedProposers>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             T::SetAllowedProposersOrigin::ensure_origin(origin)?;
 
             let new_allowed_proposers_set =
@@ -443,13 +449,14 @@ pub mod pallet {
                 );
 
             // Remove proposals from the outgoing allowed proposers.
-            let mut removed_proposals = vec![];
+            let mut removed_proposals = Vec::new();
             for (proposer, proposal_hash) in Proposals::<T>::get() {
                 if outgoing.contains(&proposer) {
                     Self::clear_proposal(proposal_hash);
                     removed_proposals.push((proposer, proposal_hash));
                 }
             }
+            let removed_proposals_count = removed_proposals.len() as u32;
 
             AllowedProposers::<T>::put(new_allowed_proposers);
 
@@ -458,16 +465,20 @@ pub mod pallet {
                 outgoing,
                 removed_proposals,
             });
-            Ok(())
+
+            Ok(Some(T::WeightInfo::set_allowed_proposers(
+                removed_proposals_count,
+            ))
+            .into())
         }
 
         /// Set the triumvirate.
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(T::WeightInfo::set_triumvirate(T::MaxProposals::get() as u32))]
         pub fn set_triumvirate(
             origin: OriginFor<T>,
             mut new_triumvirate: BoundedVec<T::AccountId, ConstU32<TRIUMVIRATE_SIZE>>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             T::SetTriumvirateOrigin::ensure_origin(origin)?;
 
             let new_triumvirate_set = Pallet::<T>::check_for_duplicates(&new_triumvirate)
@@ -494,11 +505,13 @@ pub mod pallet {
                 );
 
             // Remove votes from the outgoing triumvirate members.
+            let mut voting_count = 0;
             for (_proposer, proposal_hash) in Proposals::<T>::get() {
                 TriumvirateVoting::<T>::mutate(proposal_hash, |voting| {
                     if let Some(voting) = voting.as_mut() {
                         voting.ayes.retain(|a| !outgoing.contains(a));
                         voting.nays.retain(|a| !outgoing.contains(a));
+                        voting_count.saturating_inc();
                     }
                 });
             }
@@ -506,12 +519,13 @@ pub mod pallet {
             Triumvirate::<T>::put(new_triumvirate);
 
             Self::deposit_event(Event::<T>::TriumvirateSet { incoming, outgoing });
-            Ok(())
+
+            Ok(Some(T::WeightInfo::set_triumvirate(voting_count)).into())
         }
 
         /// Propose a new proposal.
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(T::WeightInfo::propose())]
         pub fn propose(
             origin: OriginFor<T>,
             proposal: Box<<T as Config>::RuntimeCall>,
@@ -573,7 +587,7 @@ pub mod pallet {
 
         /// Vote on a proposal as a triumvirate member.
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(T::WeightInfo::vote_on_proposed())]
         pub fn vote_on_proposed(
             origin: OriginFor<T>,
             proposal_hash: T::Hash,
@@ -612,7 +626,7 @@ pub mod pallet {
 
         /// Vote on a proposal as a collective member.
         #[pallet::call_index(4)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(T::WeightInfo::vote_on_scheduled())]
         pub fn vote_on_scheduled(
             origin: OriginFor<T>,
             proposal_hash: T::Hash,
