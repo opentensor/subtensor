@@ -322,6 +322,12 @@ mod events {
         /// (coldkey, hotkey, amount, subnet_id)
         AlphaBurned(T::AccountId, T::AccountId, AlphaCurrency, NetUid),
 
+        /// Subnet alpha-out tracker has been updated via sudo.
+        ///
+        /// Parameters:
+        /// (netuid, alpha_out)
+        SubnetAlphaOutSet(NetUid, AlphaCurrency),
+
         /// An EVM key has been associated with a hotkey.
         EvmKeyAssociated {
             /// The subnet that the hotkey belongs to.

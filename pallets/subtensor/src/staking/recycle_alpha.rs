@@ -45,18 +45,18 @@ impl<T: Config> Pallet<T> {
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         let amount = amount.min(alpha_available);
 
-        ensure!(
-            SubnetAlphaOut::<T>::get(netuid) >= amount,
-            Error::<T>::InsufficientLiquidity
-        );
-
         // Deduct from the coldkey's stake.
         let actual_alpha_decrease = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey, &coldkey, netuid, amount,
         );
 
+        ensure!(
+            SubnetAlphaOut::<T>::get(netuid) >= actual_alpha_decrease,
+            Error::<T>::NotEnoughAlphaOutToRecycle
+        );
+
         // Recycle means we should decrease the alpha issuance tracker.
-        Self::recycle_subnet_alpha(netuid, amount);
+        Self::recycle_subnet_alpha(netuid, actual_alpha_decrease);
 
         Self::deposit_event(Event::AlphaRecycled(
             coldkey,

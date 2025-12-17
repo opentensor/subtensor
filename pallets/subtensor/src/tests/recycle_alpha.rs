@@ -45,8 +45,19 @@ fn test_recycle_success() {
             netuid
         ));
 
-        assert!(TotalHotkeyAlpha::<Test>::get(hotkey, netuid) < initial_alpha);
-        assert!(SubnetAlphaOut::<Test>::get(netuid) < initial_net_alpha);
+        let new_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
+        let new_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
+
+        assert!(new_alpha < initial_alpha);
+        assert!(new_net_alpha < initial_net_alpha);
+
+        // Accounting invariant: recycle should reduce SubnetAlphaOut by the *same* amount of alpha
+        // that was actually removed from the hotkey's total.
+        assert_eq!(
+            initial_net_alpha.saturating_sub(new_net_alpha),
+            initial_alpha.saturating_sub(new_alpha)
+        );
+
         assert!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
                 < initial_alpha
