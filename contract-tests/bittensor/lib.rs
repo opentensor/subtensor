@@ -23,6 +23,7 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
+    TransferStakeV2 = 16,
 }
 
 #[ink::chain_extension(extension = 0x1000)]
@@ -65,8 +66,19 @@ pub trait RuntimeReadWrite {
         amount: AlphaCurrency,
     );
 
+    // Backward-compatible transfer_stake with 5 parameters (same hotkey)
     #[ink(function = 6)]
     fn transfer_stake(
+        destination_coldkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        amount: AlphaCurrency,
+    );
+
+    // New transfer_stake_v2 with 6 parameters (different hotkeys)
+    #[ink(function = 16)]
+    fn transfer_stake_v2(
         destination_coldkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         origin_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         destination_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
@@ -275,8 +287,31 @@ mod bittensor {
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
+        // Backward-compatible transfer_stake with 5 parameters (same hotkey)
         #[ink(message)]
         pub fn transfer_stake(
+            &self,
+            destination_coldkey: [u8; 32],
+            hotkey: [u8; 32],
+            origin_netuid: u16,
+            destination_netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .transfer_stake(
+                    destination_coldkey.into(),
+                    hotkey.into(),
+                    origin_netuid.into(),
+                    destination_netuid.into(),
+                    amount.into(),
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        // New transfer_stake_v2 with 6 parameters (different hotkeys)
+        #[ink(message)]
+        pub fn transfer_stake_v2(
             &self,
             destination_coldkey: [u8; 32],
             origin_hotkey: [u8; 32],
@@ -287,7 +322,7 @@ mod bittensor {
         ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .transfer_stake(
+                .transfer_stake_v2(
                     destination_coldkey.into(),
                     origin_hotkey.into(),
                     destination_hotkey.into(),

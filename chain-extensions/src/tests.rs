@@ -487,7 +487,6 @@ fn transfer_stake_success_moves_between_coldkeys() {
             (
                 destination_coldkey,
                 hotkey,
-                hotkey,
                 netuid,
                 netuid,
                 alpha_to_transfer,

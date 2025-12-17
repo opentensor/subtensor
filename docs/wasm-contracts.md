@@ -34,7 +34,8 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 3 | `unstake_all` | Unstake all TAO from a hotkey | `(AccountId)` | Error code |
 | 4 | `unstake_all_alpha` | Unstake all Alpha from a hotkey | `(AccountId)` | Error code |
 | 5 | `move_stake` | Move stake between hotkeys | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
-| 6 | `transfer_stake` | Transfer stake between coldkeys and hotkeys | `(AccountId, AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
+| 6 | `transfer_stake` | Transfer stake between coldkeys (same hotkey) | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
+| 16 | `transfer_stake_v2` | Transfer stake between coldkeys and hotkeys | `(AccountId, AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
 | 7 | `swap_stake` | Swap stake allocations between subnets | `(AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
 | 8 | `add_stake_limit` | Delegate stake with a price limit | `(AccountId, NetUid, TaoCurrency, TaoCurrency, bool)` | Error code |
 | 9 | `remove_stake_limit` | Withdraw stake with a price limit | `(AccountId, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
