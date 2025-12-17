@@ -474,7 +474,7 @@ pub mod pallet {
 
         /// Set the triumvirate.
         #[pallet::call_index(1)]
-        #[pallet::weight(T::WeightInfo::set_triumvirate(T::MaxProposals::get() as u32))]
+        #[pallet::weight(T::WeightInfo::set_triumvirate(T::MaxProposals::get()))]
         pub fn set_triumvirate(
             origin: OriginFor<T>,
             mut new_triumvirate: BoundedVec<T::AccountId, ConstU32<TRIUMVIRATE_SIZE>>,

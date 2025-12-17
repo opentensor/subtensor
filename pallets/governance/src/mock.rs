@@ -143,6 +143,7 @@ parameter_types! {
 
 impl pallet_governance::Config for Test {
     type RuntimeCall = RuntimeCall;
+    type WeightInfo = pallet_governance::weights::SubstrateWeight<Test>;
     type Currency = Balances;
     type Preimages = Preimage;
     type Scheduler = Scheduler;
