@@ -1592,8 +1592,3 @@ pub fn mat_ema_alpha(
 pub fn safe_ln(value: I32F32) -> I32F32 {
     ln(value).unwrap_or(I32F32::saturating_from_num(0.0))
 }
-
-/// Safe exp function, returns 0 if value is 0.
-pub fn safe_exp(value: I32F32) -> I32F32 {
-    exp(value).unwrap_or(I32F32::saturating_from_num(0.0))
-}
