@@ -16696,7 +16696,7 @@ dependencies = [
 [[package]]
 name = "sp-ark-bls12-381"
 version = "0.4.2"
-source = "git+https://github.com/paritytech/substrate-curves#f08093a5f7c32778eae1295430ec064dccd062a6"
+source = "git+https://github.com/paritytech/arkworks-substrate#f08093a5f7c32778eae1295430ec064dccd062a6"
 dependencies = [
  "ark-bls12-381-ext",
  "sp-crypto-ec-utils",
