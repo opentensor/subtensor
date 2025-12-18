@@ -1930,8 +1930,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
 
         // Capture **pair‑level** α snapshot per net (pre‑LP).
         for ((hot, cold, net), amt) in Alpha::<Test>::iter() {
-            if let Some(&ni) = net_index.get(&net) {
-                if lp_sets_per_net[ni].contains(&cold) {
+            if let Some(&ni) = net_index.get(&net)
+                && lp_sets_per_net[ni].contains(&cold) {
                     let a: u128 = amt.saturating_to_num();
                     if a > 0 {
                         alpha_pairs_per_net
@@ -1940,7 +1940,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                             .push(((hot, cold), a));
                     }
                 }
-            }
         }
 
         // ────────────────────────────────────────────────────────────────────
