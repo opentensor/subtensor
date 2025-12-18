@@ -23,6 +23,8 @@ pub fn migrate_fix_staking_hot_keys<T: Config>() -> Weight {
     let mut storage_writes: u64 = 0;
 
     for ((hotkey, coldkey, _netuid), alpha) in Alpha::<T>::iter() {
+        storage_reads = storage_reads.saturating_add(1);
+
         if alpha == 0 {
             continue;
         }
