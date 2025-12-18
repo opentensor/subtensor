@@ -4048,3 +4048,106 @@ fn test_get_subnets_to_emit_to_filters_emissions_disabled() {
         assert!(subnets_to_emit_to_2.contains(&netuid1));
     });
 }
+
+/// Test that disabled emissions do NOT accrue retroactively when re-enabled.
+/// This is critical to ensure that turning emissions back on doesn't magically
+/// give the subnet all the emissions it would have received while disabled.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_emissions_disabled_no_retroactive_accrual --exact --show-output --nocapture
+#[test]
+fn test_emissions_disabled_no_retroactive_accrual() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let emission_per_block: u64 = 1_000_000;
+
+        // Set up two networks
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        // Make subnets dynamic
+        SubnetMechanism::<Test>::insert(netuid1, 1);
+        SubnetMechanism::<Test>::insert(netuid2, 1);
+
+        // Set up equal initial state for both subnets
+        let initial: u64 = 1_000_000;
+        SubnetTAO::<Test>::insert(netuid1, TaoCurrency::from(initial));
+        SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial));
+        SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(initial));
+        SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial));
+
+        // Set equal TAO flows so emissions are split equally
+        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 100_000_000_i64);
+
+        // Run coinbase once - both subnets should receive emissions
+        SubtensorModule::run_coinbase(U96F32::from_num(emission_per_block));
+
+        let alpha_after_first_emission_netuid1 = SubnetAlphaIn::<Test>::get(netuid1);
+        let alpha_after_first_emission_netuid2 = SubnetAlphaIn::<Test>::get(netuid2);
+
+        // Both should have received equal emissions
+        assert_eq!(alpha_after_first_emission_netuid1, alpha_after_first_emission_netuid2);
+        assert!(u64::from(alpha_after_first_emission_netuid1) > initial);
+
+        // Now disable emissions for netuid1
+        EmissionsDisabled::<Test>::insert(netuid1, true);
+
+        // Run coinbase multiple times while netuid1 is disabled
+        // netuid2 should continue to receive emissions, netuid1 should NOT
+        for _ in 0..5 {
+            SubtensorModule::run_coinbase(U96F32::from_num(emission_per_block));
+        }
+
+        let alpha_after_disabled_period_netuid1 = SubnetAlphaIn::<Test>::get(netuid1);
+        let alpha_after_disabled_period_netuid2 = SubnetAlphaIn::<Test>::get(netuid2);
+
+        // netuid1 should NOT have received any additional emissions while disabled
+        assert_eq!(
+            alpha_after_disabled_period_netuid1,
+            alpha_after_first_emission_netuid1,
+            "netuid1 should not have received emissions while disabled"
+        );
+
+        // netuid2 should have received 5 more blocks of emissions
+        assert!(
+            u64::from(alpha_after_disabled_period_netuid2) > u64::from(alpha_after_first_emission_netuid2),
+            "netuid2 should have continued receiving emissions"
+        );
+
+        // Record the state before re-enabling
+        let alpha_before_reenable_netuid1 = SubnetAlphaIn::<Test>::get(netuid1);
+
+        // Re-enable emissions for netuid1
+        EmissionsDisabled::<Test>::insert(netuid1, false);
+
+        // Run coinbase once after re-enabling
+        SubtensorModule::run_coinbase(U96F32::from_num(emission_per_block));
+
+        let alpha_after_reenable_netuid1 = SubnetAlphaIn::<Test>::get(netuid1);
+
+        // netuid1 should have received ONLY the current block's emission share,
+        // NOT any retroactive emissions from the 5 blocks it was disabled
+        let emission_received_after_reenable =
+            u64::from(alpha_after_reenable_netuid1) - u64::from(alpha_before_reenable_netuid1);
+
+        // The emission received should be roughly equal to one block's worth of emissions
+        // (accounting for the emission split between subnets)
+        // It should definitely NOT be 5x or 6x the normal emission
+        let one_block_emission_estimate = emission_per_block / 2; // Split between 2 subnets
+
+        // Allow some tolerance for rounding, but ensure it's not retroactive
+        // If retroactive, it would be ~5x the normal emission
+        assert!(
+            emission_received_after_reenable < one_block_emission_estimate * 2,
+            "Emission after re-enable ({}) should be roughly one block's worth ({}), not retroactive",
+            emission_received_after_reenable,
+            one_block_emission_estimate
+        );
+
+        // Also verify it's not zero - the subnet should receive current emissions
+        assert!(
+            emission_received_after_reenable > 0,
+            "netuid1 should receive emissions after being re-enabled"
+        );
+    });
+}
