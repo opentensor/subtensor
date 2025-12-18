@@ -120,6 +120,199 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     }
 }
 
-// TODO: Add unit tests for this migration
-// TODO: Consider adding error handling for storage operations
-// TODO: Verify that all relevant storage items for subnet 3 are removed
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::mock::*;
+    use frame_support::traits::{GetStorageVersion, StorageVersion};
+    use sp_core::U256;
+
+    /// Test that migration runs successfully when conditions are met
+    #[test]
+    fn test_migrate_delete_subnet_3_success() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Create subnet 3
+            let netuid = NetUid::from(3);
+            add_network(netuid, 100, 0);
+            
+            // Register some neurons to populate storage
+            let hotkey = U256::from(1);
+            let coldkey = U256::from(2);
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
+            
+            // Verify subnet exists before migration
+            assert!(Pallet::<Test>::if_subnet_exist(netuid));
+            assert_eq!(TotalNetworks::<Test>::get(), 1);
+            
+            // Set storage version to 4 (less than new version 5)
+            StorageVersion::new(4).put::<Pallet<Test>>();
+            
+            // Run migration
+            let weight = migrate_delete_subnet_3::<Test>();
+            
+            // Verify migration executed
+            assert!(weight != Weight::zero());
+            
+            // Verify subnet 3 is removed
+            assert!(!Pallet::<Test>::if_subnet_exist(netuid));
+            assert_eq!(TotalNetworks::<Test>::get(), 0);
+            
+            // Verify storage version updated
+            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(5));
+            
+            // Verify network registration data removed
+            assert!(!NetworksAdded::<Test>::contains_key(netuid));
+            assert!(!NetworkRegisteredAt::<Test>::contains_key(netuid));
+        });
+    }
+
+    /// Test that migration skips when already completed (version check)
+    #[test]
+    fn test_migrate_delete_subnet_3_already_migrated() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Set storage version to 5 or higher
+            StorageVersion::new(5).put::<Pallet<Test>>();
+            
+            // Create subnet 3 that should NOT be deleted
+            let netuid = NetUid::from(3);
+            add_network(netuid, 100, 0);
+            
+            // Run migration
+            let weight = migrate_delete_subnet_3::<Test>();
+            
+            // Verify migration was skipped (zero weight)
+            assert_eq!(weight, Weight::zero());
+            
+            // Verify subnet 3 still exists
+            assert!(Pallet::<Test>::if_subnet_exist(netuid));
+        });
+    }
+
+    /// Test that migration skips when subnet 3 doesn't exist
+    #[test]
+    fn test_migrate_delete_subnet_3_subnet_not_exist() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Set storage version to 4 but don't create subnet 3
+            StorageVersion::new(4).put::<Pallet<Test>>();
+            
+            // Verify subnet 3 doesn't exist
+            assert!(!Pallet::<Test>::if_subnet_exist(NetUid::from(3)));
+            
+            // Run migration
+            let weight = migrate_delete_subnet_3::<Test>();
+            
+            // Verify migration was skipped
+            assert_eq!(weight, Weight::zero());
+        });
+    }
+
+    /// Test that all relevant storage items for subnet 3 are removed
+    #[test]
+    fn test_migrate_delete_subnet_3_storage_cleanup() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Create subnet 3 with full storage
+            let netuid = NetUid::from(3);
+            add_network(netuid, 100, 0);
+            
+            let hotkey = U256::from(1);
+            let coldkey = U256::from(2);
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
+            
+            // Manually set additional storage items that should be cleaned up
+            Tempo::<Test>::insert(netuid, 100);
+            Kappa::<Test>::insert(netuid, 100);
+            Difficulty::<Test>::insert(netuid, 10000);
+            MaxAllowedUids::<Test>::insert(netuid, 100);
+            ImmunityPeriod::<Test>::insert(netuid, 100);
+            ActivityCutoff::<Test>::insert(netuid, 100);
+            
+            // Set storage version
+            StorageVersion::new(4).put::<Pallet<Test>>();
+            
+            // Run migration
+            let weight = migrate_delete_subnet_3::<Test>();
+            
+            // Verify migration executed
+            assert!(weight != Weight::zero());
+            
+            // Verify all storage items removed
+            assert!(!SubnetworkN::<Test>::contains_key(netuid));
+            assert!(!NetworksAdded::<Test>::contains_key(netuid));
+            assert!(!NetworkRegisteredAt::<Test>::contains_key(netuid));
+            assert!(!Rank::<Test>::contains_key(netuid));
+            assert!(!Trust::<Test>::contains_key(netuid));
+            assert!(!Active::<Test>::contains_key(netuid));
+            assert!(!Emission::<Test>::contains_key(netuid));
+            assert!(!Consensus::<Test>::contains_key(netuid));
+            assert!(!Dividends::<Test>::contains_key(netuid));
+            assert!(!PruningScores::<Test>::contains_key(netuid));
+            assert!(!ValidatorPermit::<Test>::contains_key(netuid));
+            assert!(!ValidatorTrust::<Test>::contains_key(netuid));
+            assert!(!Tempo::<Test>::contains_key(netuid));
+            assert!(!Kappa::<Test>::contains_key(netuid));
+            assert!(!Difficulty::<Test>::contains_key(netuid));
+            assert!(!MaxAllowedUids::<Test>::contains_key(netuid));
+            assert!(!ImmunityPeriod::<Test>::contains_key(netuid));
+            assert!(!ActivityCutoff::<Test>::contains_key(netuid));
+            assert!(!MinAllowedWeights::<Test>::contains_key(netuid));
+            assert!(!RegistrationsThisInterval::<Test>::contains_key(netuid));
+            assert!(!POWRegistrationsThisInterval::<Test>::contains_key(netuid));
+            assert!(!BurnRegistrationsThisInterval::<Test>::contains_key(netuid));
+        });
+    }
+
+    /// Test that weight calculation is accurate for migration
+    #[test]
+    fn test_migrate_delete_subnet_3_weight_calculation() {
+        new_test_ext(1).execute_with(|| {
+            // Setup
+            let netuid = NetUid::from(3);
+            add_network(netuid, 100, 0);
+            StorageVersion::new(4).put::<Pallet<Test>>();
+            
+            // Run migration
+            let weight = migrate_delete_subnet_3::<Test>();
+            
+            // Verify weight is non-zero and includes all expected operations
+            // Weight should include:
+            // - 1 read (version check)
+            // - 5 writes (initial removals)
+            // - 4 writes (prefix clears)
+            // - 11 writes (network parameters)
+            // - 10 writes (erase parameters)
+            // - 1 write (storage version update)
+            // Total: 1 read + 31 writes minimum
+            assert!(weight.ref_time() > 0);
+            
+            let expected_min_weight = Test::DbWeight::get().reads(1)
+                .saturating_add(Test::DbWeight::get().writes(31));
+            
+            assert!(weight.ref_time() >= expected_min_weight.ref_time());
+        });
+    }
+
+    /// Test migration preserves other subnets
+    #[test]
+    fn test_migrate_delete_subnet_3_preserves_other_subnets() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Create subnet 1, 2, and 3
+            add_network(NetUid::from(1), 100, 0);
+            add_network(NetUid::from(2), 100, 0);
+            add_network(NetUid::from(3), 100, 0);
+            
+            assert_eq!(TotalNetworks::<Test>::get(), 3);
+            
+            StorageVersion::new(4).put::<Pallet<Test>>();
+            
+            // Run migration
+            migrate_delete_subnet_3::<Test>();
+            
+            // Verify only subnet 3 removed
+            assert!(Pallet::<Test>::if_subnet_exist(NetUid::from(1)));
+            assert!(Pallet::<Test>::if_subnet_exist(NetUid::from(2)));
+            assert!(!Pallet::<Test>::if_subnet_exist(NetUid::from(3)));
+            assert_eq!(TotalNetworks::<Test>::get(), 2);
+        });
+    }
+}
