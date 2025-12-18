@@ -49,7 +49,7 @@ mod dispatches {
         ///
         /// * 'weights' (Vec<u16>):
         /// 	- The u16 integer encoded weights. Interpreted as rational
-        /// 		values in the range [0,1]. They must sum to in32::MAX.
+        ///     values in the range [0,1]. They must sum to in32::MAX.
         ///
         /// * 'version_key' ( u64 ):
         /// 	- The network version key to check if the validator is up to date.
@@ -128,7 +128,7 @@ mod dispatches {
         ///
         /// * 'weights' (Vec<u16>):
         /// 	- The u16 integer encoded weights. Interpreted as rational
-        /// 		values in the range [0,1]. They must sum to in32::MAX.
+        ///     values in the range [0,1]. They must sum to in32::MAX.
         ///
         /// * 'version_key' ( u64 ):
         /// 	- The network version key to check if the validator is up to date.
@@ -1243,6 +1243,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(91_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        #[cfg(feature = "pow-faucet")]
         pub fn faucet(
             origin: OriginFor<T>,
             block_number: u64,

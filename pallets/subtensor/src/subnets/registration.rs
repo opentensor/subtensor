@@ -436,14 +436,13 @@ impl<T: Config> Pallet<T> {
 
         // Insert subnet owner hotkey in the beginning of the list if valid and not
         // already present
-        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-            if let Some(owner_uid) = Uids::<T>::get(netuid, &owner_hk) {
-                if !immune_tuples.contains(&(owner_uid, owner_hk.clone())) {
-                    immune_tuples.insert(0, (owner_uid, owner_hk.clone()));
-                    if immune_tuples.len() > limit {
-                        immune_tuples.truncate(limit);
-                    }
-                }
+        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid)
+            && let Some(owner_uid) = Uids::<T>::get(netuid, &owner_hk)
+            && !immune_tuples.contains(&(owner_uid, owner_hk.clone()))
+        {
+            immune_tuples.insert(0, (owner_uid, owner_hk.clone()));
+            if immune_tuples.len() > limit {
+                immune_tuples.truncate(limit);
             }
         }
 
@@ -523,10 +522,8 @@ impl<T: Config> Pallet<T> {
         let can_prune_non_immune = free_count > min_free;
 
         // Prefer non‑immune if allowed; otherwise fall back to immune.
-        if can_prune_non_immune {
-            if let Some((_, _, uid)) = best_non_immune {
-                return Some(uid);
-            }
+        if can_prune_non_immune && let Some((_, _, uid)) = best_non_immune {
+            return Some(uid);
         }
         best_immune.map(|(_, _, uid)| uid)
     }
