@@ -1402,7 +1402,7 @@ fn adjust_evm_priority_and_warn(
         let original_priority = valid_transaction.priority;
         valid_transaction.priority = EVM_TRANSACTION_BASE_PRIORITY;
 
-        let has_priority_fee = priority_fee.map_or(false, |fee| !fee.is_zero());
+        let has_priority_fee = priority_fee.is_some_and(|fee| !fee.is_zero());
         if has_priority_fee {
             log::warn!(
                 target: EVM_LOG_TARGET,
