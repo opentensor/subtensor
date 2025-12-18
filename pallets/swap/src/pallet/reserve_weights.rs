@@ -125,6 +125,78 @@ impl ReserveWeight {
             .safe_div(w2_fixed)
             .saturating_mul(y_fixed.safe_div(x_fixed))
     }
+
+    /// Calculates quote delta needed to reach the price up when byuing
+    pub fn calculate_quote_delta_in(
+        &self,
+        current_price: U64F64,
+        target_price: U64F64,
+        reserve: u64,
+    ) -> u64 {
+        let base_numerator: u128 = target_price.to_bits();
+        let base_denominator: u128 = current_price.to_bits();
+        let w1_fixed: u128 = self.get_base_weight().deconstruct() as u128;
+        let scale: u128 = 10u128.pow(18);
+
+        let maybe_exp_result = SafeInt::pow_ratio_scaled(
+            &SafeInt::from(base_numerator),
+            &SafeInt::from(base_denominator),
+            // &SafeInt::from(3u128),
+            // &SafeInt::from(4u128),
+            &SafeInt::from(w1_fixed),
+            &SafeInt::from(ACCURACY),
+            160,
+            &SafeInt::from(scale),
+        );
+
+        if let Some(exp_result_safe_int) = maybe_exp_result {
+            if let Some(exp_result_u64) = exp_result_safe_int.to_u64() {
+                let reserve_fixed = U64F64::saturating_from_num(reserve);
+                let exp_result_fixed = U64F64::saturating_from_num(exp_result_u64);
+                let one = U64F64::saturating_from_num(1);
+                let scale_fixed = U64F64::saturating_from_num(scale);
+                return reserve_fixed
+                    .saturating_mul(exp_result_fixed.safe_div(scale_fixed).saturating_sub(one))
+                    .saturating_to_num::<u64>();
+            }
+        }
+        return 0u64;
+    }
+
+    /// Calculates base delta needed to reach the price down when selling
+    pub fn calculate_base_delta_in(
+        &self,
+        current_price: U64F64,
+        target_price: U64F64,
+        reserve: u64,
+    ) -> u64 {
+        let base_numerator: u128 = current_price.to_bits();
+        let base_denominator: u128 = target_price.to_bits();
+        let w2_fixed: u128 = self.get_quote_weight().deconstruct() as u128;
+        let scale: u128 = 10u128.pow(18);
+
+        let maybe_exp_result = SafeInt::pow_ratio_scaled(
+            &SafeInt::from(base_numerator),
+            &SafeInt::from(base_denominator),
+            &SafeInt::from(w2_fixed),
+            &SafeInt::from(ACCURACY),
+            160,
+            &SafeInt::from(scale),
+        );
+
+        if let Some(exp_result_safe_int) = maybe_exp_result {
+            if let Some(exp_result_u64) = exp_result_safe_int.to_u64() {
+                let reserve_fixed = U64F64::saturating_from_num(reserve);
+                let exp_result_fixed = U64F64::saturating_from_num(exp_result_u64);
+                let one = U64F64::saturating_from_num(1);
+                let scale_fixed = U64F64::saturating_from_num(scale);
+                return reserve_fixed
+                    .saturating_mul(exp_result_fixed.safe_div(scale_fixed).saturating_sub(one))
+                    .saturating_to_num::<u64>();
+            }
+        }
+        return 0u64;
+    }
 }
 
 // cargo test --package pallet-subtensor-swap --lib -- pallet::reserve_weights::tests --nocapture
@@ -172,79 +244,78 @@ mod tests {
 
     /// Validate realistic values that can be calculated with f64 precision
     #[test]
-    fn test_exp_bae_quote_happy_path() {
+    fn test_exp_base_quote_happy_path() {
         // Outer test cases: w_quote
         [
             Perquintill::from_rational(500_000_000_000_u128, 1_000_000_000_000_u128),
             Perquintill::from_rational(500_000_000_001_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(500_000_000_100_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(500_000_001_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(500_000_010_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(500_000_100_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(500_001_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(500_010_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(500_100_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(501_000_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(510_000_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(100_000_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(100_000_000_001_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(200_000_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(300_000_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(400_000_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(600_000_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(700_000_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(800_000_000_000_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(899_999_999_999_u128, 1_000_000_000_000_u128),
-            // Perquintill::from_rational(900_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(500_000_000_100_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(500_000_001_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(500_000_010_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(500_000_100_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(500_001_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(500_010_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(500_100_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(501_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(510_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(100_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(100_000_000_001_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(200_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(300_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(400_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(600_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(700_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(800_000_000_000_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(899_999_999_999_u128, 1_000_000_000_000_u128),
+            Perquintill::from_rational(900_000_000_000_u128, 1_000_000_000_000_u128),
         ]
         .into_iter()
         .for_each(|w_quote| {
             // Inner test cases: y, x, ∆x
             [
-                // (
-                //     1_000_000_000_000_u64,
-                //     100_000_000_000_000_u64,
-                //     100_000_000_u64,
-                // ),
-                // (
-                //     1_000_000_000_000_u64,
-                //     100_000_000_000_000_u64,
-                //     100_000_000_u64,
-                // ),
-                // (
-                //     100_000_000_000_u64,
-                //     100_000_000_000_000_u64,
-                //     100_000_000_u64,
-                // ),
-                // (100_000_000_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
-                // (
-                //     100_000_000_000_u64,
-                //     100_000_000_000_000_u64,
-                //     1_000_000_000_000_u64,
-                // ),
-                // (
-                //     1_000_000_000_u64,
-                //     100_000_000_000_000_u64,
-                //     1_000_000_000_000_u64,
-                // ),
-                // (
-                //     1_000_000_u64,
-                //     100_000_000_000_000_u64,
-                //     1_000_000_000_000_u64,
-                // ),
-                // (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_000_u64),
-                // (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_u64),
-                // (1_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
-                // (1_000_u64, 100_000_000_000_000_u64, 1_000_u64),
-                // (1_000_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
-                // (10_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
+                (
+                    1_000_000_000_000_u64,
+                    100_000_000_000_000_u64,
+                    100_000_000_u64,
+                ),
+                (
+                    1_000_000_000_000_u64,
+                    100_000_000_000_000_u64,
+                    100_000_000_u64,
+                ),
+                (
+                    100_000_000_000_u64,
+                    100_000_000_000_000_u64,
+                    100_000_000_u64,
+                ),
+                (100_000_000_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
+                (
+                    100_000_000_000_u64,
+                    100_000_000_000_000_u64,
+                    1_000_000_000_000_u64,
+                ),
+                (
+                    1_000_000_000_u64,
+                    100_000_000_000_000_u64,
+                    1_000_000_000_000_u64,
+                ),
+                (
+                    1_000_000_u64,
+                    100_000_000_000_000_u64,
+                    1_000_000_000_000_u64,
+                ),
+                (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_000_u64),
+                (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_u64),
+                (1_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
+                (1_000_u64, 100_000_000_000_000_u64, 1_000_u64),
+                (1_000_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
+                (10_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
                 (1_000_000_000_u64, 4_000_000_000_u64, 1_000_000_000_000_u64),
             ]
             .into_iter()
             .for_each(|(y, x, dx)| {
                 let rw = ReserveWeight::new(w_quote).unwrap();
                 let e = rw.exp_base_quote(x, dx);
-                println!("e = {:?}", e);
                 let one = U64F64::from_num(1);
                 let y_fixed = U64F64::from_num(y);
                 let dy = y_fixed * (one - e);
@@ -252,7 +323,6 @@ mod tests {
                 let w1 = perquintill_to_f64(rw.get_base_weight());
                 let w2 = perquintill_to_f64(rw.get_quote_weight());
                 let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
-                println!("e_expected = {:?}", e_expected);
                 let dy_expected = y as f64 * (1. - e_expected);
 
                 let mut eps = dy_expected / 100000.;
@@ -272,7 +342,7 @@ mod tests {
     /// different results
     ///
     #[test]
-    fn test_exp_bae_quote_dy_precision() {
+    fn test_exp_base_quote_dy_precision() {
         // Test cases: y, x1, ∆x1, w_quote1, x2, ∆x2, w_quote2
         // Realized dy1 should be greater than dy2
         [
@@ -381,7 +451,7 @@ mod tests {
         }
     }
 
-    // #[ignore]
+    #[ignore]
     #[test]
     fn test_exp_quote_fuzzy() {
         use rand::rngs::StdRng;
@@ -457,5 +527,105 @@ mod tests {
                 println!("progress = {progress:.4}%");
             }
         });
+    }
+
+    #[test]
+    fn test_calculate_quote_delta_in() {
+        let num = 250_000_000_000_u128; // w1 = 0.75 
+        let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
+        let rw = ReserveWeight::new(w_quote).unwrap();
+
+        let current_price: U64F64 = U64F64::from_num(0.1);
+        let target_price: U64F64 = U64F64::from_num(0.2);
+        let tao_reserve: u64 = 1_000_000_000;
+
+        let dy = rw.calculate_quote_delta_in(current_price, target_price, tao_reserve);
+
+        // ∆y = y•[(p'/p)^w1 - 1]
+        let dy_expected = tao_reserve as f64
+            * ((target_price.to_num::<f64>() / current_price.to_num::<f64>()).powf(0.75) - 1.0);
+
+        assert_eq!(dy, dy_expected as u64,);
+    }
+
+    #[test]
+    fn test_calculate_base_delta_in() {
+        let num = 250_000_000_000_u128; // w2 = 0.25 
+        let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
+        let rw = ReserveWeight::new(w_quote).unwrap();
+
+        let current_price: U64F64 = U64F64::from_num(0.2);
+        let target_price: U64F64 = U64F64::from_num(0.1);
+        let alpha_reserve: u64 = 1_000_000_000;
+
+        let dx = rw.calculate_base_delta_in(current_price, target_price, alpha_reserve);
+
+        // ∆x = x•[(p/p')^w2 - 1]
+        let dx_expected = alpha_reserve as f64
+            * ((current_price.to_num::<f64>() / target_price.to_num::<f64>()).powf(0.25) - 1.0);
+
+        assert_eq!(dx, dx_expected as u64,);
+    }
+
+    #[test]
+    fn test_calculate_quote_delta_in_impossible() {
+        let num = 250_000_000_000_u128; // w1 = 0.75 
+        let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
+        let rw = ReserveWeight::new(w_quote).unwrap();
+
+        // Impossible price (lower)
+        let current_price: U64F64 = U64F64::from_num(0.1);
+        let target_price: U64F64 = U64F64::from_num(0.05);
+        let tao_reserve: u64 = 1_000_000_000;
+
+        let dy = rw.calculate_quote_delta_in(current_price, target_price, tao_reserve);
+        let dy_expected = 0u64;
+
+        assert_eq!(dy, dy_expected as u64,);
+    }
+
+    #[test]
+    fn test_calculate_base_delta_in_impossible() {
+        let num = 250_000_000_000_u128; // w2 = 0.25 
+        let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
+        let rw = ReserveWeight::new(w_quote).unwrap();
+
+        // Impossible price (higher)
+        let current_price: U64F64 = U64F64::from_num(0.1);
+        let target_price: U64F64 = U64F64::from_num(0.2);
+        let alpha_reserve: u64 = 1_000_000_000;
+
+        let dx = rw.calculate_base_delta_in(current_price, target_price, alpha_reserve);
+        let dx_expected = 0u64;
+
+        assert_eq!(dx, dx_expected as u64,);
+    }
+
+    #[test]
+    fn test_calculate_delta_in_reverse_swap() {
+        let num = 500_000_000_000_u128;
+        let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
+        let rw = ReserveWeight::new(w_quote).unwrap();
+
+        let current_price: U64F64 = U64F64::from_num(0.1);
+        let target_price: U64F64 = U64F64::from_num(0.2);
+        let tao_reserve: u64 = 1_000_000_000;
+
+        // Here is the simple case of w1 = w2 = 0.5, so alpha = tao / price
+        let alpha_reserve: u64 = (tao_reserve as f64 / current_price.to_num::<f64>()) as u64;
+
+        let dy = rw.calculate_quote_delta_in(current_price, target_price, tao_reserve);
+        let dx = alpha_reserve as f64
+            * (1.0
+                - (tao_reserve as f64 / (tao_reserve as f64 + dy as f64))
+                    .powf(num as f64 / (1_000_000_000_000 - num) as f64));
+
+        // Verify that buying with dy will in fact bring the price to target_price
+        let actual_price = rw.calculate_price(alpha_reserve - dx as u64, tao_reserve + dy);
+        assert_abs_diff_eq!(
+            actual_price.to_num::<f64>(),
+            target_price.to_num::<f64>(),
+            epsilon = target_price.to_num::<f64>() / 1_000_000_000.
+        );
     }
 }

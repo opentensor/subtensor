@@ -13,7 +13,7 @@ use frame_support::{
 };
 use sp_arithmetic::{
     //helpers_128bit,
-    Perquintill
+    Perquintill,
 };
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U64F64;
@@ -153,10 +153,12 @@ mod dispatchables {
                 // Check that reserve weight was properly updated
                 let new_tao = u64::from(tao + tao_delta) as f64;
                 let new_alpha = u64::from(alpha + alpha_delta) as f64;
-                let expected_quote_weight = new_tao / (new_alpha * price_before.to_num::<f64>() + new_tao);
+                let expected_quote_weight =
+                    new_tao / (new_alpha * price_before.to_num::<f64>() + new_tao);
                 let expected_quote_weight_delta = expected_quote_weight - 0.5;
                 let res_weights = SwapReserveWeight::<Test>::get(netuid);
-                let actual_quote_weight_delta = perquintill_to_f64(res_weights.get_quote_weight()) - 0.5;
+                let actual_quote_weight_delta =
+                    perquintill_to_f64(res_weights.get_quote_weight()) - 0.5;
                 let eps = expected_quote_weight / 1_000_000_000_000.;
                 assert_abs_diff_eq!(
                     expected_quote_weight_delta,
@@ -228,37 +230,37 @@ mod dispatchables {
                 AlphaReserve::set_mock_reserve(netuid, alpha);
                 let price_before = Swap::current_price(netuid);
                 assert_eq!(price_before, U64F64::from_num(0));
- 
+                let new_tao = u64::from(tao + tao_delta) as f64;
+                let new_alpha = u64::from(alpha + alpha_delta) as f64;
+
                 // Adjust reserves
                 Swap::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
                 TaoReserve::set_mock_reserve(netuid, tao + tao_delta);
                 AlphaReserve::set_mock_reserve(netuid, alpha + alpha_delta);
 
+                let res_weights = SwapReserveWeight::<Test>::get(netuid);
+                let actual_quote_weight = perquintill_to_f64(res_weights.get_quote_weight());
+
                 // Check that price didn't change
                 let price_after = Swap::current_price(netuid);
-                assert_abs_diff_eq!(
-                    price_before.to_num::<f64>(),
-                    price_after.to_num::<f64>(),
-                    epsilon = price_before.to_num::<f64>() / 1_000_000_000_000.
-                );
-
-                // Check that reserve weight was properly updated
-                let new_tao = u64::from(tao + tao_delta) as f64;
-                let new_alpha = u64::from(alpha + alpha_delta) as f64;
-                let expected_quote_weight = new_tao / (new_alpha * price_before.to_num::<f64>() + new_tao);
-                let expected_quote_weight_delta = expected_quote_weight - 0.5;
-                let res_weights = SwapReserveWeight::<Test>::get(netuid);
-                let actual_quote_weight_delta = perquintill_to_f64(res_weights.get_quote_weight()) - 0.5;
-                let eps = expected_quote_weight / 1_000_000_000_000.;
-                assert_abs_diff_eq!(
-                    expected_quote_weight_delta,
-                    actual_quote_weight_delta,
-                    epsilon = eps
-                );
+                if new_alpha == 0. {
+                    // If the pool state is still broken (∆x = 0), no change
+                    assert_eq!(actual_quote_weight, 0.5);
+                    assert_eq!(price_after, U64F64::from_num(0));
+                } else {
+                    // Price got fixed
+                    let expected_price = new_tao / new_alpha;
+                    assert_abs_diff_eq!(
+                        expected_price,
+                        price_after.to_num::<f64>(),
+                        epsilon = price_before.to_num::<f64>() / 1_000_000_000_000.
+                    );
+                    assert_eq!(actual_quote_weight, 0.5);
+                }
             });
         });
     }
-    
+
     // #[test]
     // fn test_toggle_user_liquidity() {
     //     new_test_ext().execute_with(|| {
@@ -895,7 +897,7 @@ fn test_modify_position_basic() {
     // });
 }
 
-// cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_swap_basic --exact --show-output
+// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_swap_basic --exact --nocapture
 #[test]
 fn test_swap_basic() {
     new_test_ext().execute_with(|| {
@@ -962,7 +964,10 @@ fn test_swap_basic() {
 
             // Assert that price movement is in correct direction
             let current_price_after = Pallet::<Test>::current_price(netuid);
-            assert_eq!(current_price_after >= current_price_before, price_should_grow);
+            assert_eq!(
+                current_price_after >= current_price_before,
+                price_should_grow
+            );
         }
 
         // Current price is 0.25
