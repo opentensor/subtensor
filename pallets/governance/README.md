@@ -37,11 +37,6 @@ The governance system consists of three main actors working together:
   - Can eject its own key from the allowed proposers list (i.e., if it is lost or compromised)
   - Can propose an update to the allowed proposers list via proposal flow
 
-**Open Questions:**
-
-- Q1: Who can add/remove proposer accounts? Only governance or should Triumvirate have emergency powers?
-- Q2: Who validates that proposal code matches stated intent before Triumvirate votes? Share runtime WASM hash like Polkadot fellowship does?
-
 #### Triumvirate
 
 - **Composition**: 3 distinct accounts (must always maintain 3 members)
@@ -52,28 +47,18 @@ The governance system consists of three main actors working together:
 - **Permissions**:
   - Can vote on proposals submitted by allowed proposers
 
-**Open Questions:**
-
-- Q3: How to allow a triumvirate member to resign?
-
 #### Economic and Building Collectives
 
 - **Economic Collective**: Top 16 validators by total stake (including delegated stake) (configurable)
 - **Building Collective**: Top 16 subnet owners by moving average price (with minimum age of 6 months) (configurable)
+- **Total Collective Size**: 32 members (16 Economic + 16 Building)
 - **Recalculation**: Membership refreshed every 6 months (configurable)
 - **Permissions**:
   - Can vote aye/nay on proposals submitted by allowed proposers and approved by Triumvirate
-    - More than 2/3 of aye vote for any collective fast tracks the proposal (next block execution) (threshold configurable)
-    - More than 1/2 of nay vote for any collective cancels the proposal (threshold configurable)
-    - Nays votes accumulate and delay the proposal execution exponentially until cancellation (see Delay Period section)
-  - Can replace a Triumvirate member every 6 months via single atomic vote (remove current holder + install replacement candidate, with rotating seat selection)
-  - Can mark himself as eligible for nomination to the Triumvirate
-  - Can accept a nomination to the Triumvirate
-
-**Open Questions:**
-
-- Q4: How to handle the nomination process?
-- Q5: How to incentivize the collective members to vote?
+    - Votes are aggregated across both collectives (total of 32 possible votes)
+    - More than configured threshold of aye votes (based on total collective size of 32) fast tracks the proposal (next block execution) (threshold configurable)
+    - More than configured threshold of nay votes (based on total collective size of 32) cancels the proposal (threshold configurable)
+    - Delay is calculated using net score (nays - ayes) and applies exponential delay until cancellation (see Delay Period section)
 
 ### Governance Process Flow
 
@@ -102,91 +87,31 @@ The governance system consists of three main actors working together:
 
 When a proposal has been approved by the Triumvirate, it is scheduled in 1 hour (configurable) and enters the "Delay Period" where the Economic and Building Collectives can vote to delay, cancel or fast-track the proposal.
 
-1. Both collectives can vote aye/nay on the proposal
-2. Delay is an exponential function of the number of nays votes, set to 2^n (configurable).
+1. Both collectives can vote aye/nay on the proposal, with votes aggregated across all 32 collective members
+2. Delay is calculated using **net score** (nays - ayes) and applies an exponential function based on a configurable delay factor.
 
 - Initial delay is 1 hour (configurable).
-- After 1 nays vote, the delay is 2^1 \* 1 hour = 2 hours.
-- After 2 nays votes, the delay is 2^2 \* 1 hour = 4 hours.
-- After 3 nays votes, the delay is 2^3 \* 1 hour = 8 hours.
-- After 4 nays votes, the delay is 2^4 \* 1 hour = 16 hours.
-- After 5 nays votes, the delay is 2^5 \* 1 hour = 32 hours.
-- After 6 nays votes, the delay is 2^6 \* 1 hour = 64 hours.
-- After 7 nays votes, the delay is 2^7 \* 1 hour = 128 hours.
-- After 8 nays votes, the delay is 2^8 \* 1 hour = 256 hours.
-- After 9 nays votes, proposal is cancelled (given we have a collective size of 16, hence more than 1/2 of the collective votes nay).
+- Net score = (number of nays) - (number of ayes)
+- If net score > 0: additional delay = initial_delay × (delay_factor ^ net_score)
+- If net score ≤ 0: no additional delay (proposal can be fast-tracked if net score becomes negative)
+- **Example with delay_factor = 2**:
+  - Net score of 1 (e.g., 1 nay, 0 ayes): delay = 1 hour × 2^1 = 2 hours
+  - Net score of 2 (e.g., 2 nays, 0 ayes): delay = 1 hour × 2^2 = 4 hours
+  - Net score of 3 (e.g., 3 nays, 0 ayes): delay = 1 hour × 2^3 = 8 hours
+  - Net score of 4 (e.g., 4 nays, 0 ayes): delay = 1 hour × 2^4 = 16 hours
+  - Net score of 5 (e.g., 5 nays, 0 ayes): delay = 1 hour × 2^5 = 32 hours
+  - Net score of 16 (e.g., 16 nays, 0 ayes): delay = 1 hour × 2^16 = 65,536 hours
+  - Net score of 17 (e.g., 17 nays, 0 ayes): proposal is cancelled (threshold configurable, typically ≥ 17 nays out of 32 total members)
 
 3. If the delay period expires without cancellation: Proposal executes automatically
 
-- The delay is calculated based on the collective with the most nays votes (i.e., if Economic has 3 nays and Building has 1 nay, the delay is based on 3 nays = 8 hours).
-- More than 2/3 of aye vote for any collective fast tracks the proposal (next block execution) (threshold configurable)
-- More than 1/2 of nay vote for any collective cancels the proposal (threshold configurable)
-- Collective members can change their vote during the delay period. If changing a nay vote to aye reduces the delay below the time already elapsed, the proposal executes immediately.
-  - **Example**: A proposal has 3 nays votes, creating a 8 hours delay. After 5 hours have elapsed, a collective member changes their nay vote to aye, reducing the delay to 4 hours. Since 5 hours have already passed (more than the new 4 hours delay), the proposal executes immediately.
-
-**Open Questions:**
-
-- Q6: Should the voting be across both collectives or each collective votes independently? What if a collective decide to go rogue and fast track proposals that the other collective is against or vice versa?
+- The delay is calculated based on the **net score** across both collectives (total of 32 members), not per collective
+- More than configured threshold of aye votes (based on total collective size of 32) fast tracks the proposal (next block execution) (threshold configurable)
+- More than configured threshold of nay votes (based on total collective size of 32) cancels the proposal (threshold configurable, typically ≥ 17 nays)
+- Collective members can change their vote during the delay period. If changing a nay vote to aye (or vice versa) changes the net score such that the delay is reduced below the time already elapsed, the proposal executes immediately.
+  - **Example**: A proposal has net score of 3 (3 nays, 0 ayes), creating an 8 hour delay. After 5 hours have elapsed, a collective member changes their nay vote to aye, reducing the net score to 2 (2 nays, 1 aye) and the delay to 4 hours. Since 5 hours have already passed (more than the new 4 hours delay), the proposal executes immediately.
 
 #### Execution
 
 - Proposals executed automatically after the delay period if not cancelled or when fast-tracked by the collectives.
 - If executing fails, the proposal is not retried and is cleaned up from storage.
-
-### Triumvirate Replacement Mechanism
-
-Each collective can replace one Triumvirate member every 6 months through a **single atomic vote**: the collective votes to replace the current seat holder with a randomly selected new candidate from the eligible candidates. If the vote succeeds, the replacement happens immediately. The Triumvirate always maintains exactly 3 active members.
-
-#### Timing
-
-- Each collective can initiate replacement vote every 6 months (configurable)
-- Economic and Building collectives have independent cycles (seat are rotated independently)
-
-**Open Questions:**
-
-- Q7: How to have an emergency replacement vote?
-- Q8: Can a replaced member be voted back in immediately, or should there be a cooldown period?
-
-#### Rotating Seat Selection
-
-- Triumvirate seats are numbered: Seat 0, Seat 1, Seat 2
-- Each collective maintains an independent rotation index that determines which seat they target:
-- Economic Power automatically targets the next seat in rotation:
-  - If last removal was Seat 0, next automatically targets Seat 1
-  - If last removal was Seat 1, next automatically targets Seat 2
-  - If last removal was Seat 2, next automatically targets Seat 0
-- Building Power has independent automatic rotation
-- Rotation ensures no single seat is disproportionately targeted
-- Collective members cannot choose which seat to target: it's determined automatically
-
-#### Replacement Process (Single Atomic Vote)
-
-The replacement happens in a single vote where the collective votes **both** to remove the current seat holder **and** to install a specific replacement candidate. This is an atomic operation: either both happen or neither happens.
-
-**Process:**
-
-1. **Eligibility Phase**: Collective members can mark themselves as eligible for nomination to the Triumvirate.
-2. **Voting Phase**: Collective members can vote aye/nay during the voting period to replace the current seat holder.
-   - Threshold of more than 1/2 of the collective size (configurable)
-   - **If vote succeeds**: Current seat holder immediately removed, replacement candidate immediately installed
-   - **If vote fails**: No change, current member remains.
-3. **Selection Phase**: The replacement candidate is selected randomly from the eligible candidates.
-4. **Validation Phase**: The replacement candidate validates their nomination on-chain to avoid nominating inactive members.
-5. **Transition**: Atomic swap ensures Triumvirate always has exactly 3 members with no vacancy period
-
-### Implementation Phases
-
-#### Phase 1: Coexistence (Duration: TBD)
-
-1. Remove dead code: triumvirate collective and senate pallets and related code
-2. Implement the governance as a new pallet
-3. Deploy new governance pallet to runtime
-4. Configure initial Triumvirate members and allowed proposers.
-5. Run new governance system in parallel with existing sudo multisig
-6. Emergency procedures documented and tested
-7. Community review and feedback period
-
-#### Phase 2: Full Migration
-
-1. Disable sudo pallet via governance vote (new runtime)
-2. New governance system becomes sole authority
