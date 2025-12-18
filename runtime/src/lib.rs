@@ -2709,8 +2709,8 @@ fn evm_priority_cannot_overtake_unstake() {
     ];
 
     queue.sort_by(|a, b| {
-            b.1.cmp(&a.1) // higher priority first
-                .then_with(|| a.2.cmp(&b.2)) // earlier arrival first when equal
+        b.1.cmp(&a.1) // higher priority first
+            .then_with(|| a.2.cmp(&b.2)) // earlier arrival first when equal
     });
 
     let first = queue.first().map(|entry| entry.0);
