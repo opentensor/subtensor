@@ -47,3 +47,6 @@ bt.snap
 
 # localnet spec
 scripts/specs/local.json
+
+# Node modules
+node_modules

@@ -1938,21 +1938,19 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
     //     for &cold in cold_lps.iter() {
     //         tao_before.insert(cold, SubtensorModule::get_coldkey_balance(&cold));
     //     }
-
-    //     // Capture **pair‑level** α snapshot per net (pre‑LP).
-    //     for ((hot, cold, net), amt) in Alpha::<Test>::iter() {
-    //         if let Some(&ni) = net_index.get(&net) {
-    //             if lp_sets_per_net[ni].contains(&cold) {
-    //                 let a: u128 = amt.saturating_to_num();
-    //                 if a > 0 {
-    //                     alpha_pairs_per_net
-    //                         .entry(net)
-    //                         .or_default()
-    //                         .push(((hot, cold), a));
-    //                 }
-    //             }
-    //         }
-    //     }
+    //    // Capture **pair‑level** α snapshot per net (pre‑LP).
+    //    for ((hot, cold, net), amt) in Alpha::<Test>::iter() {
+    //        if let Some(&ni) = net_index.get(&net)
+    //            && lp_sets_per_net[ni].contains(&cold) {
+    //                let a: u128 = amt.saturating_to_num();
+    //                if a > 0 {
+    //                    alpha_pairs_per_net
+    //                        .entry(net)
+    //                        .or_default()
+    //                        .push(((hot, cold), a));
+    //                }
+    //            }
+    //    }
 
     //     // ────────────────────────────────────────────────────────────────────
     //     // 4) Add many V3 positions per cold across nets, alternating hotkeys
