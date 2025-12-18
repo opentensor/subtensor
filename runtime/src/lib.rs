@@ -2685,10 +2685,12 @@ fn evm_priority_overrides_tip_to_base() {
     let signer = H160::repeat_byte(1);
     adjust_evm_priority_and_warn(&mut validity, Some(U256::from(10)), &signer);
 
-    let adjusted = validity
-        .expect("validity must exist")
-        .expect("must be valid");
-    assert_eq!(adjusted.priority, EVM_TRANSACTION_BASE_PRIORITY);
+    let adjusted_priority = validity
+        .as_ref()
+        .and_then(|v| v.as_ref().ok())
+        .map(|v| v.priority);
+
+    assert_eq!(adjusted_priority, Some(EVM_TRANSACTION_BASE_PRIORITY));
 }
 
 #[test]
@@ -2707,11 +2709,12 @@ fn evm_priority_cannot_overtake_unstake() {
     ];
 
     queue.sort_by(|a, b| {
-        b.1.cmp(&a.1) // higher priority first
-            .then_with(|| a.2.cmp(&b.2)) // earlier arrival first when equal
+            b.1.cmp(&a.1) // higher priority first
+                .then_with(|| a.2.cmp(&b.2)) // earlier arrival first when equal
     });
 
-    assert_eq!(queue[0].0, "unstake");
+    let first = queue.first().map(|entry| entry.0);
+    assert_eq!(first, Some("unstake"));
 }
 
 #[test]
