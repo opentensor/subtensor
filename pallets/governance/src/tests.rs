@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![allow(clippy::iter_skip_next, clippy::unwrap_used, clippy::indexing_slicing)]
 use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok};

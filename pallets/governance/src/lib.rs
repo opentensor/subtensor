@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+use frame::arithmetic::CheckedRem;
 use frame_support::{
     dispatch::{GetDispatchInfo, RawOrigin},
     pallet_prelude::*,
@@ -113,6 +114,7 @@ pub trait CollectiveMembersProvider<T: Config> {
 }
 
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
 
@@ -401,8 +403,14 @@ pub mod pallet {
             let economic_collective = EconomicCollective::<T>::get();
             let building_collective = BuildingCollective::<T>::get();
             let is_first_run = economic_collective.is_empty() || building_collective.is_empty();
-            let should_rotate = now % T::CollectiveRotationPeriod::get() == Zero::zero();
-            let should_cleanup = now % T::CleanupPeriod::get() == Zero::zero();
+            let should_rotate = now
+                .checked_rem(&T::CollectiveRotationPeriod::get())
+                .unwrap_or(now)
+                .is_zero();
+            let should_cleanup = now
+                .checked_rem(&T::CleanupPeriod::get())
+                .unwrap_or(now)
+                .is_zero();
 
             if is_first_run || should_rotate {
                 weight.saturating_accrue(Self::rotate_collectives());
@@ -419,6 +427,8 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         /// Set the allowed proposers.
         #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::set_allowed_proposers(T::MaxProposals::get()))]
@@ -565,7 +575,7 @@ pub mod pallet {
             ProposalOf::<T>::insert(proposal_hash, bounded_proposal);
 
             let now = frame_system::Pallet::<T>::block_number();
-            let end = now + T::MotionDuration::get();
+            let end = now.saturating_add(T::MotionDuration::get());
             TriumvirateVoting::<T>::insert(
                 proposal_hash,
                 TriumvirateVotes {

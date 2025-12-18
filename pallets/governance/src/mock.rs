@@ -143,7 +143,7 @@ parameter_types! {
 
 impl pallet_governance::Config for Test {
     type RuntimeCall = RuntimeCall;
-    type WeightInfo = pallet_governance::weights::SubstrateWeight<Test>;
+    type WeightInfo = crate::weights::SubstrateWeight<Test>;
     type Currency = Balances;
     type Preimages = Preimage;
     type Scheduler = Scheduler;
@@ -276,4 +276,26 @@ pub(crate) fn last_event() -> RuntimeEvent {
 
 pub(crate) fn run_to_block(n: BlockNumberFor<Test>) {
     System::run_to_block::<AllPalletsWithSystem>(n);
+}
+
+#[allow(unused)]
+pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
+    let mut t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
+        .expect("Expected to not panic");
+    pallet_balances::GenesisConfig::<Test> {
+        balances: vec![
+            (U256::from(1), 10),
+            (U256::from(2), 10),
+            (U256::from(3), 10),
+            (U256::from(4), 10),
+            (U256::from(5), 3),
+        ],
+        dev_accounts: None,
+    }
+    .assimilate_storage(&mut t)
+    .expect("Expected to not panic");
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
 }

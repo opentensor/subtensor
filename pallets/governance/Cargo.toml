@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
+frame.workspace = true
 subtensor-macros.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
