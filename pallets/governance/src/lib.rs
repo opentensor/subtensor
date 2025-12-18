@@ -430,6 +430,19 @@ pub mod pallet {
         #![deny(clippy::expect_used)]
 
         /// Set the allowed proposers.
+        ///
+        /// Updates the list of accounts that are allowed to submit proposals. The new list must
+        /// not contain duplicate accounts and must be disjoint from the triumvirate members.
+        /// Any active proposals from accounts being removed will be cancelled.
+        ///
+        /// The dispatch origin for this call must satisfy `SetAllowedProposersOrigin`.
+        ///
+        /// Parameters:
+        /// - `new_allowed_proposers`: The new list of allowed proposers. Must not exceed
+        ///   `MaxAllowedProposers` and must not contain duplicates.
+        ///
+        /// Emits `AllowedProposersSet` event with the incoming and outgoing accounts, as well as
+        /// any removed proposals.
         #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::set_allowed_proposers(T::MaxProposals::get()))]
         pub fn set_allowed_proposers(
@@ -483,6 +496,19 @@ pub mod pallet {
         }
 
         /// Set the triumvirate.
+        ///
+        /// Updates the triumvirate members who can vote on proposals. The new triumvirate must
+        /// contain exactly 3 members, must not contain duplicate accounts, and must be disjoint
+        /// from the allowed proposers. Votes from outgoing triumvirate members will be removed
+        /// from active proposals.
+        ///
+        /// The dispatch origin for this call must satisfy `SetTriumvirateOrigin`.
+        ///
+        /// Parameters:
+        /// - `new_triumvirate`: The new triumvirate members. Must contain exactly 3 accounts
+        ///   with no duplicates.
+        ///
+        /// Emits `TriumvirateSet` event with the incoming and outgoing members.
         #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::set_triumvirate(T::MaxProposals::get()))]
         pub fn set_triumvirate(
@@ -534,6 +560,23 @@ pub mod pallet {
         }
 
         /// Propose a new proposal.
+        ///
+        /// Submits a proposal for triumvirate voting. The proposal will be stored and a voting
+        /// period will begin. The proposal must not already exist and must not be scheduled.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and the account must be an allowed
+        /// proposer.
+        ///
+        /// Parameters:
+        /// - `proposal`: The call to be executed if the proposal passes. Must be boxed to reduce
+        ///   stack size.
+        /// - `length_bound`: The maximum encoded length of the proposal. The actual encoded length
+        ///   must not exceed this bound.
+        ///
+        /// The proposal's weight must not exceed `MaxProposalWeight` and the number of active
+        /// proposals must not exceed `MaxProposals`.
+        ///
+        /// Emits `ProposalSubmitted` event with the proposal details and voting end block.
         #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::propose())]
         pub fn propose(
@@ -596,6 +639,24 @@ pub mod pallet {
         }
 
         /// Vote on a proposal as a triumvirate member.
+        ///
+        /// Allows a triumvirate member to vote on an active proposal. If 2 or more members vote
+        /// yes, the proposal is scheduled for execution. If 2 or more members vote no, the proposal
+        /// is cancelled.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and the account must be a triumvirate
+        /// member.
+        ///
+        /// Parameters:
+        /// - `proposal_hash`: The hash of the proposal to vote on.
+        /// - `proposal_index`: The index of the proposal. Must match the stored proposal index.
+        /// - `approve`: `true` to vote yes, `false` to vote no.
+        ///
+        /// The proposal must exist and the voting period must not have ended. Each member can only
+        /// vote once per proposal.
+        ///
+        /// Emits `VotedOnProposal` event. If the vote results in scheduling or cancellation,
+        /// `ProposalScheduled` or `ProposalCancelled` events are also emitted.
         #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::vote_on_proposed())]
         pub fn vote_on_proposed(
@@ -635,6 +696,26 @@ pub mod pallet {
         }
 
         /// Vote on a proposal as a collective member.
+        ///
+        /// Allows a member of the economic or building collective to vote on a scheduled proposal.
+        /// Based on the vote results, the proposal may be fast-tracked, cancelled, or have its
+        /// delay adjusted.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and the account must be a member of
+        /// either the economic or building collective.
+        ///
+        /// Parameters:
+        /// - `proposal_hash`: The hash of the scheduled proposal to vote on.
+        /// - `proposal_index`: The index of the proposal. Must match the stored proposal index.
+        /// - `approve`: `true` to vote yes, `false` to vote no.
+        ///
+        /// The proposal must be scheduled. If the yes votes reach the fast-track threshold, the
+        /// proposal is executed immediately. If the no votes reach the cancellation threshold, the
+        /// proposal is cancelled. Otherwise, the delay is adjusted based on the net vote score.
+        ///
+        /// Emits `VotedOnScheduled` event. If the vote results in fast-tracking or cancellation,
+        /// `ScheduledProposalFastTracked` or `ScheduledProposalCancelled` events are also emitted.
+        /// If the delay is adjusted, `ScheduledProposalDelayAdjusted` event is emitted.
         #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::vote_on_scheduled())]
         pub fn vote_on_scheduled(
