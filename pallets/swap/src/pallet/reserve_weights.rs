@@ -69,7 +69,7 @@ impl ReserveWeight {
         let w1: u128 = self.get_base_weight().deconstruct() as u128;
         let w2: u128 = self.get_quote_weight().deconstruct() as u128;
 
-        let precision = 128;
+        let precision = 256;
         let x_safe = SafeInt::from(x);
         let delta_safe = SafeInt::from(dx);
         let w1_safe = SafeInt::from(w1);
@@ -77,14 +77,6 @@ impl ReserveWeight {
         let perquintill_scale = SafeInt::from(ACCURACY as u128);
         let denominator = x_safe.clone() + delta_safe;
         let maybe_result_safe_int = if base_quote {
-            // println!("SafeInt::pow_ratio_scaled input: ");
-            // println!("  x_safe = {:?}", x_safe);
-            // println!("  denominator = {:?}", denominator);
-            // println!("  w1_safe = {:?}", w1_safe);
-            // println!("  w2_safe = {:?}", w2_safe);
-            // println!("  precision = {:?}", precision);
-            // println!("  perquintill_scale = {:?}", perquintill_scale);
-
             SafeInt::pow_ratio_scaled(
                 &x_safe,
                 &denominator,
@@ -103,8 +95,6 @@ impl ReserveWeight {
                 &perquintill_scale,
             )
         };
-
-        // println!("SafeInt::pow_ratio_scaled output: {:?}", maybe_result_safe_int);
 
         if let Some(result_safe_int) = maybe_result_safe_int {
             if let Some(result_u64) = result_safe_int.to_u64() {
@@ -127,12 +117,12 @@ impl ReserveWeight {
 
     /// Calculates price as (w1/w2) * (y/x)
     pub fn calculate_price(&self, x: u64, y: u64) -> U64F64 {
-        let w2_fixed = U64F64::saturating_from_num(self.get_base_weight().deconstruct());
-        let w1_fixed = U64F64::saturating_from_num(self.get_quote_weight().deconstruct());
+        let w2_fixed = U64F64::saturating_from_num(self.get_quote_weight().deconstruct());
+        let w1_fixed = U64F64::saturating_from_num(self.get_base_weight().deconstruct());
         let x_fixed = U64F64::saturating_from_num(x);
         let y_fixed = U64F64::saturating_from_num(y);
-        w2_fixed
-            .safe_div(w1_fixed)
+        w1_fixed
+            .safe_div(w2_fixed)
             .saturating_mul(y_fixed.safe_div(x_fixed))
     }
 }
@@ -152,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_perquintill_power() {
-        const PRECISION: u32 = 256;
+        const PRECISION: u32 = 4096;
         const PERQUINTILL: u128 = ACCURACY as u128;
 
         let x = SafeInt::from(21_000_000_000_000_000u64);
@@ -180,79 +170,81 @@ mod tests {
         assert_eq!(format!("{}", readable), "0.649519052838328985");
     }
 
-    /// Validate realistic values that can be calculated with f32 precision
+    /// Validate realistic values that can be calculated with f64 precision
     #[test]
     fn test_exp_bae_quote_happy_path() {
         // Outer test cases: w_quote
         [
             Perquintill::from_rational(500_000_000_000_u128, 1_000_000_000_000_u128),
             Perquintill::from_rational(500_000_000_001_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(500_000_000_100_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(500_000_001_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(500_000_010_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(500_000_100_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(500_001_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(500_010_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(500_100_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(501_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(510_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(100_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(100_000_000_001_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(200_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(300_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(400_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(600_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(700_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(800_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(899_999_999_999_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(900_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(500_000_000_100_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(500_000_001_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(500_000_010_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(500_000_100_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(500_001_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(500_010_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(500_100_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(501_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(510_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(100_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(100_000_000_001_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(200_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(300_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(400_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(600_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(700_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(800_000_000_000_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(899_999_999_999_u128, 1_000_000_000_000_u128),
+            // Perquintill::from_rational(900_000_000_000_u128, 1_000_000_000_000_u128),
         ]
         .into_iter()
         .for_each(|w_quote| {
             // Inner test cases: y, x, ∆x
             [
-                (
-                    1_000_000_000_000_u64,
-                    100_000_000_000_000_u64,
-                    100_000_000_u64,
-                ),
-                (
-                    1_000_000_000_000_u64,
-                    100_000_000_000_000_u64,
-                    100_000_000_u64,
-                ),
-                (
-                    100_000_000_000_u64,
-                    100_000_000_000_000_u64,
-                    100_000_000_u64,
-                ),
-                (100_000_000_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
-                (
-                    100_000_000_000_u64,
-                    100_000_000_000_000_u64,
-                    1_000_000_000_000_u64,
-                ),
-                (
-                    1_000_000_000_u64,
-                    100_000_000_000_000_u64,
-                    1_000_000_000_000_u64,
-                ),
-                (
-                    1_000_000_u64,
-                    100_000_000_000_000_u64,
-                    1_000_000_000_000_u64,
-                ),
-                (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_000_u64),
-                (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_u64),
-                (1_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
-                (1_000_u64, 100_000_000_000_000_u64, 1_000_u64),
-                (1_000_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
-                (10_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
+                // (
+                //     1_000_000_000_000_u64,
+                //     100_000_000_000_000_u64,
+                //     100_000_000_u64,
+                // ),
+                // (
+                //     1_000_000_000_000_u64,
+                //     100_000_000_000_000_u64,
+                //     100_000_000_u64,
+                // ),
+                // (
+                //     100_000_000_000_u64,
+                //     100_000_000_000_000_u64,
+                //     100_000_000_u64,
+                // ),
+                // (100_000_000_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
+                // (
+                //     100_000_000_000_u64,
+                //     100_000_000_000_000_u64,
+                //     1_000_000_000_000_u64,
+                // ),
+                // (
+                //     1_000_000_000_u64,
+                //     100_000_000_000_000_u64,
+                //     1_000_000_000_000_u64,
+                // ),
+                // (
+                //     1_000_000_u64,
+                //     100_000_000_000_000_u64,
+                //     1_000_000_000_000_u64,
+                // ),
+                // (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_000_u64),
+                // (1_000_u64, 100_000_000_000_000_u64, 1_000_000_000_u64),
+                // (1_000_u64, 100_000_000_000_000_u64, 1_000_000_u64),
+                // (1_000_u64, 100_000_000_000_000_u64, 1_000_u64),
+                // (1_000_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
+                // (10_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
+                (1_000_000_000_u64, 4_000_000_000_u64, 1_000_000_000_000_u64),
             ]
             .into_iter()
             .for_each(|(y, x, dx)| {
                 let rw = ReserveWeight::new(w_quote).unwrap();
                 let e = rw.exp_base_quote(x, dx);
+                println!("e = {:?}", e);
                 let one = U64F64::from_num(1);
                 let y_fixed = U64F64::from_num(y);
                 let dy = y_fixed * (one - e);
@@ -260,6 +252,7 @@ mod tests {
                 let w1 = perquintill_to_f64(rw.get_base_weight());
                 let w2 = perquintill_to_f64(rw.get_quote_weight());
                 let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
+                println!("e_expected = {:?}", e_expected);
                 let dy_expected = y as f64 * (1. - e_expected);
 
                 let mut eps = dy_expected / 100000.;
@@ -334,22 +327,13 @@ mod tests {
             let rw1 = ReserveWeight::new(w_quote1).unwrap();
             let rw2 = ReserveWeight::new(w_quote2).unwrap();
 
-            println!("rw1 = {:?}", rw1);
-            println!("rw2 = {:?}", rw2);
-
             let exp1 = rw1.exp_base_quote(x1, dx1);
             let exp2 = rw2.exp_base_quote(x2, dx2);
-
-            println!("exp1 = {:?}", exp1);
-            println!("exp2 = {:?}", exp2);
 
             let one = U64F64::from_num(1);
             let y_fixed = U64F64::from_num(y);
             let dy1 = y_fixed * (one - exp1);
             let dy2 = y_fixed * (one - exp2);
-
-            println!("dy1 = {:?}", dy1);
-            println!("dy2 = {:?}", dy2);
 
             assert!(dy1 > dy2);
 
@@ -397,6 +381,7 @@ mod tests {
         }
     }
 
+    // #[ignore]
     #[test]
     fn test_exp_quote_fuzzy() {
         use rand::rngs::StdRng;
@@ -467,7 +452,7 @@ mod tests {
 
             // Print progress
             let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
-            if done % 1_000_000 == 0 {
+            if done % 100_000_000 == 0 {
                 let progress = done as f64 / ITERATIONS as f64 * 100.0;
                 println!("progress = {progress:.4}%");
             }

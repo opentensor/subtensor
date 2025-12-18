@@ -292,6 +292,9 @@ mod pallet {
 
         /// The subnet does not have subtoken enabled
         SubtokenDisabled,
+
+        /// Swap reserves are too imbalanced
+        ReservesOutOfBalance,
     }
 
     #[pallet::call]

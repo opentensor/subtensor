@@ -14585,8 +14585,8 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 
 [[package]]
 name = "safe-bigmath"
-version = "0.1.0"
-source = "git+https://github.com/sam0x17/safe-math?rev=6d81eb0#6d81eb059a7dde19b712988a399a616d8f225e88"
+version = "0.2.0"
+source = "git+https://github.com/sam0x17/safe-math?rev=4fb5b1c#4fb5b1c1e4231251f3b7bb397acc49c1665cee8d"
 dependencies = [
  "crabtime",
  "num-bigint",

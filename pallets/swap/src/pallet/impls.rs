@@ -1,7 +1,10 @@
 use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
-use sp_arithmetic::helpers_128bit;
+use sp_arithmetic::{
+    //helpers_128bit,
+    Perquintill
+};
 use sp_runtime::{DispatchResult, traits::AccountIdConversion};
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
@@ -19,7 +22,11 @@ use subtensor_swap_interface::{
 
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep};
-use crate::position::PositionId;
+use crate::{
+    pallet::ReserveWeight,
+    pallet::reserve_weights::ReserveWeightError,
+    position::PositionId
+};
 
 #[derive(Debug, PartialEq)]
 pub struct UpdateLiquidityResult {
@@ -47,7 +54,7 @@ impl<T: Config> Pallet<T> {
                 if !alpha_reserve.is_zero() {
                     let tao_reserve = T::TaoReserve::reserve(netuid.into());
                     let reserve_weight = SwapReserveWeight::<T>::get(netuid);
-                    reserve_weight.calculate_price(tao_reserve.into(), alpha_reserve.into())
+                    reserve_weight.calculate_price(alpha_reserve.into(), tao_reserve.into())
                 } else {
                     U64F64::saturating_from_num(0)
                 }
@@ -62,19 +69,26 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
+        // Insert 0.5 into SwapReserveWeight
+        let reserve_weight = ReserveWeight::new(Perquintill::from_rational(1_u64, 2_u64)).map_err(|err| match err {
+            ReserveWeightError::InvalidValue => Error::<T>::ReservesOutOfBalance,
+        })?;
+        SwapReserveWeight::<T>::insert(netuid, reserve_weight);
+
+        // TODO: Review when/if we have user liquidity
         // Initialize the pal-swap:
         // Reserves are re-purposed, nothing to set, just query values for creation
         // of protocol position
-        let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
+        // let tao_reserve = T::TaoReserve::reserve(netuid.into());
+        // let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
 
         // Set initial (protocol owned) liquidity and positions
         // Protocol liquidity makes one position
         // We are using the sp_arithmetic sqrt here, which works for u128
-        let _liquidity = helpers_128bit::sqrt(
-            (tao_reserve.to_u64() as u128).saturating_mul(alpha_reserve.to_u64() as u128),
-        ) as u64;
-        let _protocol_account_id = Self::protocol_account_id();
+        // let liquidity = helpers_128bit::sqrt(
+        //     (tao_reserve.to_u64() as u128).saturating_mul(alpha_reserve.to_u64() as u128),
+        // ) as u64;
+        // let protocol_account_id = Self::protocol_account_id();
 
         // let (position, _, _) = Self::add_liquidity_not_insert(
         //     netuid,
@@ -86,18 +100,34 @@ impl<T: Config> Pallet<T> {
 
         // Positions::<T>::insert(&(netuid, protocol_account_id, position.id), position);
 
-        // Ok(())
-
-        todo!()
+        Ok(())
     }
 
     /// Adjusts protocol liquidity with new values of TAO and Alpha reserve
     pub(super) fn adjust_protocol_liquidity(
-        _netuid: NetUid,
-        _tao_delta: TaoCurrency,
-        _alpha_delta: AlphaCurrency,
+        netuid: NetUid,
+        tao_delta: TaoCurrency,
+        alpha_delta: AlphaCurrency,
     ) {
-        todo!();
+        // Get reserves and price
+        let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
+        let tao_reserve = T::TaoReserve::reserve(netuid.into());
+        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let price = reserve_weight.calculate_price(alpha_reserve.into(), tao_reserve.into());
+
+        // Calculate new to-be reserves (do not update here)
+        let new_tao_reserve = U64F64::saturating_from_num(u64::from(tao_reserve.saturating_add(tao_delta)));
+        let new_alpha_reserve = U64F64::saturating_from_num(u64::from(alpha_reserve.saturating_add(alpha_delta)));
+
+        // Calculate new reserve weights
+        // w2_new = (y + ∆y) / ( p•(x + ∆x) + (y + ∆y) )
+        let denominator = price.saturating_mul(new_alpha_reserve).saturating_add(new_tao_reserve).saturating_to_num::<u64>();
+        let maybe_new_reserve_weight = ReserveWeight::new(Perquintill::from_rational(new_tao_reserve.saturating_to_num::<u64>(), denominator)).map_err(|err| match err {
+            ReserveWeightError::InvalidValue => Error::<T>::ReservesOutOfBalance,
+        });
+        if let Ok(new_reserve_weight) = maybe_new_reserve_weight {
+            SwapReserveWeight::<T>::insert(netuid, new_reserve_weight);
+        }
     }
 
     /// Executes a token swap on the specified subnet.
