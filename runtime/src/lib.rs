@@ -340,7 +340,7 @@ impl frame_system::Config for Runtime {
     // The data to be stored in an account.
     type AccountData = pallet_balances::AccountData<Balance>;
     // Weight information for the extrinsics of this pallet.
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
     // This is used as an identifier of the chain. 42 is the generic substrate prefix.
     type SS58Prefix = SS58Prefix;
     // The set code logic, just the default since we're not a parachain.
@@ -353,7 +353,7 @@ impl frame_system::Config for Runtime {
     type PreInherents = ();
     type PostInherents = ();
     type PostTransactions = ();
-    type ExtensionsWeightInfo = ();
+    type ExtensionsWeightInfo = (); // frame_system exports only default extension weights
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -371,7 +371,7 @@ impl pallet_grandpa::Config for Runtime {
 
     type KeyOwnerProof = sp_core::Void;
 
-    type WeightInfo = ();
+    type WeightInfo = (); // pallet_grandpa exports only default implementation
     type MaxAuthorities = ConstU32<32>;
     type MaxSetIdSessionEntries = ConstU64<0>;
     type MaxNominators = ConstU32<20>;
@@ -409,7 +409,7 @@ impl pallet_timestamp::Config for Runtime {
     type Moment = u64;
     type OnTimestampSet = Aura;
     type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-    type WeightInfo = ();
+    type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
