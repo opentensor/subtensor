@@ -1637,13 +1637,14 @@ mod dispatches {
             )
         }
 
-        /// Transfers a specified amount of stake from one coldkey to another, optionally across subnets,
-        /// while keeping the same hotkey.
+        /// Transfers a specified amount of stake from one coldkey to another, optionally across subnets
+        /// and hotkeys.
         ///
         /// # Arguments
         /// * `origin` - The origin of the transaction, which must be signed by the `origin_coldkey`.
         /// * `destination_coldkey` - The coldkey to which the stake is transferred.
-        /// * `hotkey` - The hotkey associated with the stake.
+        /// * `origin_hotkey` - The hotkey from which the stake is being transferred.
+        /// * `destination_hotkey` - The hotkey to which the stake is being transferred.
         /// * `origin_netuid` - The network/subnet ID to move stake from.
         /// * `destination_netuid` - The network/subnet ID to move stake to (for cross-subnet transfer).
         /// * `alpha_amount` - The amount of stake to transfer.
@@ -1652,20 +1653,21 @@ mod dispatches {
         /// Returns an error if:
         /// * The origin is not signed by the correct coldkey.
         /// * Either subnet does not exist.
-        /// * The hotkey does not exist.
-        /// * There is insufficient stake on `(origin_coldkey, hotkey, origin_netuid)`.
+        /// * Either hotkey does not exist.
+        /// * There is insufficient stake on `(origin_coldkey, origin_hotkey, origin_netuid)`.
         /// * The transfer amount is below the minimum stake requirement.
         ///
         /// # Events
         /// May emit a `StakeTransferred` event on success.
         #[pallet::call_index(86)]
         #[pallet::weight((Weight::from_parts(160_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(13_u64))
+        .saturating_add(T::DbWeight::get().reads(14_u64))
         .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn transfer_stake(
             origin: T::RuntimeOrigin,
             destination_coldkey: T::AccountId,
-            hotkey: T::AccountId,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
             alpha_amount: AlphaCurrency,
@@ -1673,7 +1675,8 @@ mod dispatches {
             Self::do_transfer_stake(
                 origin,
                 destination_coldkey,
-                hotkey,
+                origin_hotkey,
+                destination_hotkey,
                 origin_netuid,
                 destination_netuid,
                 alpha_amount,
