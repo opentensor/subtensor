@@ -55,8 +55,10 @@ impl<T: Config> Pallet<T> {
             &hotkey, &coldkey, netuid, amount,
         );
 
+        ensure!(actual_alpha_decrease <= amount, Error::<T>::PrecisionLoss);
+
         // Recycle means we should decrease the alpha issuance tracker.
-        Self::recycle_subnet_alpha(netuid, amount);
+        Self::recycle_subnet_alpha(netuid, actual_alpha_decrease);
 
         Self::deposit_event(Event::AlphaRecycled(
             coldkey,
@@ -120,7 +122,9 @@ impl<T: Config> Pallet<T> {
             &hotkey, &coldkey, netuid, amount,
         );
 
-        Self::burn_subnet_alpha(netuid, amount);
+        ensure!(actual_alpha_decrease <= amount, Error::<T>::PrecisionLoss);
+
+        Self::burn_subnet_alpha(netuid, actual_alpha_decrease);
 
         // Deposit event
         Self::deposit_event(Event::AlphaBurned(
