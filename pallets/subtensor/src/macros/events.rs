@@ -479,5 +479,17 @@ mod events {
             /// The amount of alpha distributed
             alpha: AlphaCurrency,
         },
+
+        /// Subnet EMA has been reset by the owner.
+        SubnetEmaReset {
+            /// The subnet ID
+            netuid: NetUid,
+            /// The account that executed the reset
+            who: T::AccountId,
+            /// The cost paid for the reset in TAO
+            cost: TaoCurrency,
+            /// The previous EMA value before reset (as i128 bits representation of I64F64)
+            previous_ema: i128,
+        },
     }
 }

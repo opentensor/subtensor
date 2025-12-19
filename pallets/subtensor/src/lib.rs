@@ -1493,6 +1493,16 @@ pub mod pallet {
     pub type FlowEmaSmoothingFactor<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultFlowEmaSmoothingFactor<T>>;
 
+    #[pallet::type_value]
+    /// Default maximum cost for resetting subnet EMA (100 TAO in RAO).
+    pub fn DefaultMaxEmaResetCost<T: Config>() -> TaoCurrency {
+        TaoCurrency::from(100_000_000_000u64) // 100 TAO
+    }
+    #[pallet::storage]
+    /// --- ITEM --> Maximum cost for resetting subnet EMA
+    pub type MaxEmaResetCost<T: Config> =
+        StorageValue<_, TaoCurrency, ValueQuery, DefaultMaxEmaResetCost<T>>;
+
     /// ============================
     /// ==== Global Parameters =====
     /// ============================

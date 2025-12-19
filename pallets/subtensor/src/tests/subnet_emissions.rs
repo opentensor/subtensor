@@ -3,7 +3,9 @@ use super::mock::*;
 use crate::*;
 use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
+use frame_support::{assert_noop, assert_ok};
 use sp_core::U256;
+use sp_runtime::DispatchError;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use subtensor_runtime_common::NetUid;
 
@@ -488,3 +490,280 @@ fn seed_price_and_flow(n1: NetUid, n2: NetUid, price1: f64, price2: f64, flow1: 
 //         assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
 //     });
 // }
+
+// ==========================
+// EMA Reset Tests
+// ==========================
+
+#[test]
+fn test_reset_subnet_ema_success() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Give the owner some balance
+        let initial_balance = 1_000_000_000_000u64; // 1000 TAO
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, initial_balance);
+
+        // Set a negative EMA flow
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, i64f64(-1_000_000_000.0))); // -1 TAO worth
+
+        // Verify EMA is negative before reset
+        let (_, ema_before) = SubnetEmaTaoFlow::<Test>::get(netuid).unwrap();
+        assert!(ema_before < i64f64(0.0));
+
+        // Reset the EMA
+        assert_ok!(SubtensorModule::reset_subnet_ema(
+            RuntimeOrigin::signed(owner_coldkey),
+            netuid
+        ));
+
+        // Verify EMA is now zero
+        let (_, ema_after) = SubnetEmaTaoFlow::<Test>::get(netuid).unwrap();
+        assert_eq!(ema_after, i64f64(0.0));
+
+        // Verify balance was reduced (some TAO was burned)
+        let balance_after = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+        assert!(balance_after < initial_balance);
+    });
+}
+
+#[test]
+fn test_reset_subnet_ema_fails_for_non_owner() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let not_owner = U256::from(999);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Give the non-owner some balance
+        SubtensorModule::add_balance_to_coldkey_account(&not_owner, 1_000_000_000_000u64);
+
+        // Set a negative EMA flow
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, i64f64(-1_000_000_000.0)));
+
+        // Attempt reset as non-owner should fail
+        assert_noop!(
+            SubtensorModule::reset_subnet_ema(RuntimeOrigin::signed(not_owner), netuid),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_reset_subnet_ema_fails_for_positive_ema() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Give the owner some balance
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, 1_000_000_000_000u64);
+
+        // Set a positive EMA flow
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, i64f64(1_000_000_000.0)));
+
+        // Attempt reset should fail because EMA is not negative
+        assert_noop!(
+            SubtensorModule::reset_subnet_ema(RuntimeOrigin::signed(owner_coldkey), netuid),
+            Error::<Test>::SubnetEmaNotNegative
+        );
+    });
+}
+
+#[test]
+fn test_reset_subnet_ema_fails_for_zero_ema() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Give the owner some balance
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, 1_000_000_000_000u64);
+
+        // Set a zero EMA flow
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, i64f64(0.0)));
+
+        // Attempt reset should fail because EMA is not negative
+        assert_noop!(
+            SubtensorModule::reset_subnet_ema(RuntimeOrigin::signed(owner_coldkey), netuid),
+            Error::<Test>::SubnetEmaNotNegative
+        );
+    });
+}
+
+#[test]
+fn test_reset_subnet_ema_fails_for_nonexistent_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let not_owner = U256::from(999);
+        let nonexistent_netuid = NetUid::from(99);
+
+        // Give some balance
+        SubtensorModule::add_balance_to_coldkey_account(&not_owner, 1_000_000_000_000u64);
+
+        // Attempt reset on non-existent subnet
+        assert_noop!(
+            SubtensorModule::reset_subnet_ema(RuntimeOrigin::signed(not_owner), nonexistent_netuid),
+            Error::<Test>::SubnetNotExists
+        );
+    });
+}
+
+#[test]
+fn test_reset_subnet_ema_fails_for_uninitialized_ema() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Give the owner some balance
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, 1_000_000_000_000u64);
+
+        // Do NOT set any EMA flow - leave it uninitialized
+        // SubnetEmaTaoFlow should be None for this netuid
+
+        // Attempt reset should fail because EMA is not initialized
+        assert_noop!(
+            SubtensorModule::reset_subnet_ema(RuntimeOrigin::signed(owner_coldkey), netuid),
+            Error::<Test>::EmaNotInitialized
+        );
+    });
+}
+
+#[test]
+fn test_reset_subnet_ema_fails_for_insufficient_balance() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Don't give the owner any balance (or very little)
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, 100u64);
+
+        // Set a negative EMA flow
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, i64f64(-1_000_000_000.0)));
+
+        // Attempt reset should fail because not enough balance
+        assert_noop!(
+            SubtensorModule::reset_subnet_ema(RuntimeOrigin::signed(owner_coldkey), netuid),
+            Error::<Test>::NotEnoughBalanceToPayEmaResetCost
+        );
+    });
+}
+
+#[test]
+fn test_get_ema_reset_cost_returns_none_for_positive_ema() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Set a positive EMA flow
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, i64f64(1_000_000_000.0)));
+
+        // get_ema_reset_cost should return None
+        assert!(SubtensorModule::get_ema_reset_cost(netuid).is_none());
+    });
+}
+
+#[test]
+fn test_get_ema_reset_cost_returns_some_for_negative_ema() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Set a negative EMA flow
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, i64f64(-1_000_000_000.0)));
+
+        // get_ema_reset_cost should return Some
+        let cost = SubtensorModule::get_ema_reset_cost(netuid);
+        assert!(cost.is_some());
+        assert!(cost.unwrap() > subtensor_runtime_common::TaoCurrency::ZERO);
+    });
+}
+
+#[test]
+fn test_reset_subnet_ema_cost_capped_at_max() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Set an extremely negative EMA flow (should be capped)
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, i64f64(-1_000_000_000_000_000.0)));
+
+        // get_ema_reset_cost should be capped at MaxEmaResetCost
+        let cost = SubtensorModule::get_ema_reset_cost(netuid);
+        assert!(cost.is_some());
+        let max_cost = MaxEmaResetCost::<Test>::get();
+        assert!(cost.unwrap() <= max_cost);
+    });
+}
+
+#[test]
+fn test_reset_subnet_ema_emits_event() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // Create subnet
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Give the owner enough balance
+        let initial_balance = 1_000_000_000_000u64; // 1000 TAO
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, initial_balance);
+
+        // Set a negative EMA flow
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let negative_ema = i64f64(-1_000_000_000.0);
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, negative_ema));
+
+        // Get the expected cost before reset
+        let expected_cost = SubtensorModule::get_ema_reset_cost(netuid).unwrap();
+
+        // Reset the EMA
+        assert_ok!(SubtensorModule::reset_subnet_ema(
+            RuntimeOrigin::signed(owner_coldkey),
+            netuid
+        ));
+
+        // Check that the event was emitted with correct values
+        System::assert_has_event(
+            Event::SubnetEmaReset {
+                netuid,
+                who: owner_coldkey,
+                cost: expected_cost,
+                previous_ema: negative_ema.to_bits(),
+            }
+            .into(),
+        );
+    });
+}

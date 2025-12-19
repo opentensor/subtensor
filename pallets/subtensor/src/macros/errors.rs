@@ -268,5 +268,11 @@ mod errors {
         InvalidSubnetNumber,
         /// Unintended precision loss when unstaking alpha
         PrecisionLoss,
+        /// EMA has not been initialized for this subnet.
+        EmaNotInitialized,
+        /// Subnet EMA is not negative, reset not needed.
+        SubnetEmaNotNegative,
+        /// Not enough balance to pay the EMA reset cost.
+        NotEnoughBalanceToPayEmaResetCost,
     }
 }
