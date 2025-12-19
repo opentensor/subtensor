@@ -353,7 +353,7 @@ impl frame_system::Config for Runtime {
     type PreInherents = ();
     type PostInherents = ();
     type PostTransactions = ();
-    type ExtensionsWeightInfo = (); // frame_system exports only default extension weights
+    type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
