@@ -154,6 +154,8 @@ pallet-shield.workspace = true
 
 ethereum.workspace = true
 
+pallet-governance.workspace = true
+
 [dev-dependencies]
 frame-metadata.workspace = true
 sp-io.workspace = true
@@ -197,6 +199,7 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
 	"pallet-commitments/std",
+	"pallet-governance/std",
 	"precompile-utils/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -308,6 +311,7 @@ runtime-benchmarks = [
 	"pallet-offences/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"pallet-contracts/runtime-benchmarks",
+	"pallet-governance/runtime-benchmarks",
 
 	# EVM + Frontier
 	"pallet-ethereum/runtime-benchmarks",
@@ -357,6 +361,7 @@ try-runtime = [
 	"pallet-fast-unstake/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-governance/try-runtime",
 
 	# EVM + Frontier
 	"fp-self-contained/try-runtime",
