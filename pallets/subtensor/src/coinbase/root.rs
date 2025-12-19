@@ -298,6 +298,8 @@ impl<T: Config> Pallet<T> {
         SubnetTaoInEmission::<T>::remove(netuid);
         SubnetVolume::<T>::remove(netuid);
         SubnetMovingPrice::<T>::remove(netuid);
+        SubnetTaoFlow::<T>::remove(netuid);
+        SubnetEmaTaoFlow::<T>::remove(netuid);
         SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
