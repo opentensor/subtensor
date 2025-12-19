@@ -2354,8 +2354,8 @@ mod dispatches {
         /// This is required before the coldkey swap can be performed
         /// after the delay period.
         ///
-        /// It can be reannounced after a delay of `ColdkeySwapReannouncementDelay` between the
-        /// original announcement and the reannouncement.
+        /// It can be reannounced after a delay of `ColdkeySwapReannouncementDelay` following
+        /// the first valid execution block of the original announcement.
         ///
         /// The dispatch origin of this call must be the original coldkey that made the announcement.
         ///
