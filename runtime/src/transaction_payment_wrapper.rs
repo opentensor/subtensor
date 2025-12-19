@@ -1,4 +1,4 @@
-use crate::Weight;
+use crate::{NORMAL_DISPATCH_BASE_PRIORITY, OPERATIONAL_DISPATCH_PRIORITY, Weight};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_election_provider_support::private::sp_arithmetic::traits::SaturatedConversion;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo};
@@ -77,19 +77,12 @@ where
         match inner_validate {
             Ok((mut valid_transaction, val, origin)) => {
                 let overridden_priority = {
-                    match info.class {
-                        DispatchClass::Normal => 1u64,
-                        DispatchClass::Mandatory => {
-                            // Mandatory extrinsics should be prohibited (e.g. by the [`CheckWeight`]
-                            // extensions), but just to be safe let's return the same priority as `Normal` here.
-                            1u64
-                        }
-                        DispatchClass::Operational => {
-                            // System calls
-                            10_000_000_000u64
-                        }
-                    }
-                    .saturated_into::<TransactionPriority>()
+                    let base: TransactionPriority = match info.class {
+                        DispatchClass::Normal => NORMAL_DISPATCH_BASE_PRIORITY,
+                        DispatchClass::Mandatory => NORMAL_DISPATCH_BASE_PRIORITY,
+                        DispatchClass::Operational => OPERATIONAL_DISPATCH_PRIORITY,
+                    };
+                    base.saturated_into::<TransactionPriority>()
                 };
 
                 valid_transaction.priority = overridden_priority;

@@ -563,4 +563,25 @@ describe("Test wasm contract", () => {
         assert.ok(proxiesAfterRemove !== undefined)
         assert.ok(proxiesAfterRemove[0].length === 0)
     })
+
+    it("Can get alpha price", async () => {
+        const message = inkClient.message("get_alpha_price")
+        const data = message.encode({
+            netuid: netuid,
+        })
+
+        const response = await api.apis.ContractsApi.call(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            BigInt(0),
+            undefined,
+            undefined,
+            Binary.fromBytes(data.asBytes()),
+        )
+
+        assert.ok(response.result.success)
+        const result = message.decode(response.result.value).value.value
+
+        assert.ok(result !== undefined)
+    })
 });

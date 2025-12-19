@@ -2,7 +2,7 @@
 
 use super::{SubtensorChainExtension, SubtensorExtensionEnv, mock};
 use crate::types::{FunctionId, Output};
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::RetVal;
@@ -10,6 +10,7 @@ use pallet_subtensor::DefaultMinStake;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::DispatchError;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyTrait, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -756,12 +757,12 @@ impl SubtensorExtensionEnv<AccountId> for MockEnv {
     }
 
     fn charge_weight(&mut self, weight: Weight) -> Result<(), DispatchError> {
-        if let Some(expected) = self.expected_weight {
-            if weight != expected {
-                return Err(DispatchError::Other(
-                    "unexpected weight charged by mock env",
-                ));
-            }
+        if let Some(expected) = self.expected_weight
+            && weight != expected
+        {
+            return Err(DispatchError::Other(
+                "unexpected weight charged by mock env",
+            ));
         }
         self.charged_weight = Some(weight);
         Ok(())
@@ -962,5 +963,43 @@ fn unstake_all_success_unstakes_balance() {
 
         let post_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
         assert!(post_balance > pre_balance);
+    });
+}
+
+#[test]
+fn get_alpha_price_returns_encoded_price() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(8001);
+        let owner_coldkey = U256::from(8002);
+        let caller = U256::from(8003);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Set up reserves to establish a price
+        let tao_reserve = TaoCurrency::from(150_000_000_000u64);
+        let alpha_reserve = AlphaCurrency::from(100_000_000_000u64);
+        mock::setup_reserves(netuid, tao_reserve, alpha_reserve);
+
+        // Get expected price from swap handler
+        let expected_price =
+            <pallet_subtensor_swap::Pallet<mock::Test> as SwapHandler>::current_alpha_price(
+                netuid.into(),
+            );
+        let expected_price_scaled = expected_price.saturating_mul(U96F32::from_num(1_000_000_000));
+        let expected_price_u64: u64 = expected_price_scaled.saturating_to_num();
+
+        let mut env = MockEnv::new(FunctionId::GetAlphaPriceV1, caller, netuid.encode());
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert!(env.charged_weight().is_none());
+
+        // Decode the output
+        let output_price: u64 = Decode::decode(&mut &env.output()[..]).unwrap();
+
+        assert_eq!(
+            output_price, expected_price_u64,
+            "Price should match expected value"
+        );
     });
 }
