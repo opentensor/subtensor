@@ -8,7 +8,7 @@
 
 use frame_support::{
     traits::Get,
-    weights::{Weight, constants::RocksDbWeight},
+    weights::{Weight, constants::ParityDbWeight},
 };
 use sp_std::marker::PhantomData;
 
@@ -64,31 +64,31 @@ impl<T: frame_system::Config> WeightInfo for DefaultWeight<T> {
 impl WeightInfo for () {
     fn set_fee_rate() -> Weight {
         Weight::from_parts(10_000_000, 0)
-            .saturating_add(RocksDbWeight::get().reads(1))
-            .saturating_add(RocksDbWeight::get().writes(1))
+            .saturating_add(ParityDbWeight::get().reads(1))
+            .saturating_add(ParityDbWeight::get().writes(1))
     }
 
     fn add_liquidity() -> Weight {
         Weight::from_parts(50_000_000, 0)
-            .saturating_add(RocksDbWeight::get().reads(5))
-            .saturating_add(RocksDbWeight::get().writes(4))
+            .saturating_add(ParityDbWeight::get().reads(5))
+            .saturating_add(ParityDbWeight::get().writes(4))
     }
 
     fn remove_liquidity() -> Weight {
         Weight::from_parts(50_000_000, 0)
-            .saturating_add(RocksDbWeight::get().reads(4))
-            .saturating_add(RocksDbWeight::get().writes(4))
+            .saturating_add(ParityDbWeight::get().reads(4))
+            .saturating_add(ParityDbWeight::get().writes(4))
     }
 
     fn modify_position() -> Weight {
         Weight::from_parts(50_000_000, 0)
-            .saturating_add(RocksDbWeight::get().reads(4))
-            .saturating_add(RocksDbWeight::get().writes(4))
+            .saturating_add(ParityDbWeight::get().reads(4))
+            .saturating_add(ParityDbWeight::get().writes(4))
     }
 
     fn toggle_user_liquidity() -> Weight {
         Weight::from_parts(10_000_000, 0)
-            .saturating_add(RocksDbWeight::get().reads(1))
-            .saturating_add(RocksDbWeight::get().writes(1))
+            .saturating_add(ParityDbWeight::get().reads(1))
+            .saturating_add(ParityDbWeight::get().writes(1))
     }
 }
