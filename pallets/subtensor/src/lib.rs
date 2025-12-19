@@ -116,9 +116,9 @@ pub mod pallet {
     pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO in RAO
 
     /// Minimum commit reveal periods
-    pub const MIN_COMMIT_REVEAL_PEROIDS: u64 = 1;
+    pub const MIN_COMMIT_REVEAL_PERIODS: u64 = 1;
     /// Maximum commit reveal periods
-    pub const MAX_COMMIT_REVEAL_PEROIDS: u64 = 100;
+    pub const MAX_COMMIT_REVEAL_PERIODS: u64 = 100;
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -896,7 +896,7 @@ pub mod pallet {
         T::InitialTxDelegateTakeRateLimit::get()
     }
 
-    /// Default value for chidlkey take rate limiting
+    /// Default value for childkey take rate limiting
     #[pallet::type_value]
     pub fn DefaultTxChildKeyTakeRateLimit<T: Config>() -> u64 {
         T::InitialTxChildKeyTakeRateLimit::get()
@@ -1549,7 +1549,7 @@ pub mod pallet {
     /// ============================
     /// ==== Rate Limiting =====
     /// ============================
-    /// --- MAP ( RateLimitKey ) --> Block number in which the last rate limited operation occured
+    /// --- MAP ( RateLimitKey ) --> Block number in which the last rate limited operation occurred
     #[pallet::storage]
     pub type LastRateLimitedBlock<T: Config> =
         StorageMap<_, Identity, RateLimitKey<T::AccountId>, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -2645,7 +2645,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 }
 
 /// Enum that defines types of rate limited operations for
-/// storing last block when this operation occured
+/// storing last block when this operation occurred
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
