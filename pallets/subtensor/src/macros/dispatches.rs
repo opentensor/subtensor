@@ -2438,7 +2438,13 @@ mod dispatches {
         /// This is an administrative escape hatch to repair alpha issuance / burn accounting
         /// when historical drift is detected.
         #[pallet::call_index(125)]
-        #[pallet::weight((\n            Weight::from_parts(6_000, 0)\n            .saturating_add(T::DbWeight::get().reads(1_u64))\n            .saturating_add(T::DbWeight::get().writes(1_u64)),\n            DispatchClass::Operational,\n            Pays::Yes\n        ))]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
         pub fn sudo_set_subnet_alpha_out(
             origin: OriginFor<T>,
             netuid: NetUid,
