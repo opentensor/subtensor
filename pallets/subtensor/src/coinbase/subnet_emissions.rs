@@ -1,8 +1,10 @@
 use super::*;
 use alloc::collections::BTreeMap;
+use frame_support::dispatch::DispatchResult;
 use safe_math::FixedExt;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
+use subtensor_runtime_common::TaoCurrency;
 
 impl<T: Config> Pallet<T> {
     pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
@@ -245,5 +247,105 @@ impl<T: Config> Pallet<T> {
                 (*netuid, share)
             })
             .collect::<BTreeMap<NetUid, U64F64>>()
+    }
+
+    /// Calculates the cost to reset a subnet's EMA to zero.
+    ///
+    /// The cost formula is: |EMA| × (1/α), capped at MaxEmaResetCost.
+    /// Where α is the FlowEmaSmoothingFactor normalized by i64::MAX.
+    ///
+    /// Returns the cost in RAO (TaoCurrency), or None if EMA is not negative.
+    pub fn get_ema_reset_cost(netuid: NetUid) -> Option<TaoCurrency> {
+        // Get the current EMA value
+        let (_, ema) = SubnetEmaTaoFlow::<T>::get(netuid)?;
+
+        // Only allow reset if EMA is negative
+        if ema >= I64F64::saturating_from_num(0) {
+            return None;
+        }
+
+        // Get the absolute value of EMA
+        let abs_ema = ema.saturating_abs();
+
+        // Get the smoothing factor (alpha) and normalize it
+        // FlowEmaSmoothingFactor is stored as u64 normalized by i64::MAX (2^63)
+        let alpha_normalized = FlowEmaSmoothingFactor::<T>::get();
+
+        // Cost = |EMA| × (1/α) = |EMA| × (i64::MAX / alpha_normalized)
+        // This can overflow, so we need to be careful with the calculation
+        let i64_max = I64F64::saturating_from_num(i64::MAX);
+        let alpha = I64F64::saturating_from_num(alpha_normalized).safe_div(i64_max);
+
+        // Calculate cost = |EMA| / alpha
+        let cost_raw = abs_ema.safe_div(alpha);
+
+        // Convert to u64 (RAO)
+        let cost_rao = cost_raw
+            .checked_to_num::<u64>()
+            .unwrap_or(u64::MAX);
+
+        // Cap at MaxEmaResetCost
+        let max_cost = MaxEmaResetCost::<T>::get();
+        let cost = TaoCurrency::from(cost_rao).min(max_cost);
+
+        Some(cost)
+    }
+
+    /// Resets the subnet EMA to zero by burning TAO.
+    ///
+    /// This function allows subnet owners to reset negative EMA values that
+    /// prevent their subnet from receiving emissions.
+    pub fn do_reset_subnet_ema(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
+        // Ensure the subnet exists
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // Ensure the caller is the subnet owner
+        let who = Self::ensure_subnet_owner(origin, netuid)?;
+
+        // Get the current EMA value - check if initialized
+        let (_, previous_ema) = SubnetEmaTaoFlow::<T>::get(netuid)
+            .ok_or(Error::<T>::EmaNotInitialized)?;
+
+        // Ensure EMA is negative
+        ensure!(
+            previous_ema < I64F64::saturating_from_num(0),
+            Error::<T>::SubnetEmaNotNegative
+        );
+
+        // Get the reset cost
+        let cost = Self::get_ema_reset_cost(netuid)
+            .ok_or(Error::<T>::SubnetEmaNotNegative)?;
+
+        // Ensure the owner has enough balance
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&who, cost.into()),
+            Error::<T>::NotEnoughBalanceToPayEmaResetCost
+        );
+
+        // Remove the balance from the owner's account
+        let actual_cost = Self::remove_balance_from_coldkey_account(&who, cost.into())?;
+
+        // Burn the TAO (reduce total issuance)
+        Self::recycle_tao(actual_cost);
+
+        // Reset the EMA to zero
+        let current_block = Self::get_current_block_as_u64();
+        SubnetEmaTaoFlow::<T>::insert(netuid, (current_block, I64F64::saturating_from_num(0)));
+
+        // Also reset the accumulated flow
+        Self::reset_tao_outflow(netuid);
+
+        // Convert previous_ema to i128 for the event (I64F64 is 128 bits total)
+        let previous_ema_bits = previous_ema.to_bits();
+
+        // Emit the event
+        Self::deposit_event(Event::SubnetEmaReset {
+            netuid,
+            who,
+            cost: actual_cost,
+            previous_ema: previous_ema_bits,
+        });
+
+        Ok(())
     }
 }
