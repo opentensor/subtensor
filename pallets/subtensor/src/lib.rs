@@ -2396,6 +2396,8 @@ pub mod pallet {
             total_stake >= Self::get_stake_threshold()
         }
 
+
+
         /// Helper function to check if register is allowed
         pub fn checked_allowed_register(netuid: NetUid) -> bool {
             if netuid.is_root() {
