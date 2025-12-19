@@ -169,6 +169,110 @@ mod dispatchables {
         });
     }
 
+    /// This test case verifies that small gradual injections (like emissions in every block)
+    /// in the worst case
+    ///   - Do not cause price to change
+    ///   - Result in the same weight change as one large injection
+    /// 
+    /// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::dispatchables::test_adjust_protocol_liquidity_small_deltas --exact --nocapture
+    #[test]
+    fn test_adjust_protocol_liquidity_small_deltas() {
+        // The number of times (blocks) over which gradual injections will be made
+        // const ITERATIONS: u64 = 1_000_000;
+        const ITERATIONS: u64 = 10;
+        const PRICE_PRECISION: f64 = 0.000_000_001;
+        const WEIGHT_PRECISION: f64 = 0.000_000_000_000_000_001;
+
+        let initial_tao_reserve = TaoCurrency::from(1_000_000_000_000_000_u64);
+        let initial_alpha_reserve = AlphaCurrency::from(10_000_000_000_000_000_u64);
+
+        // test case: tao_delta, alpha_delta
+        [
+            (0_u64, 0_u64),
+            // (0_u64, 1_u64),
+            // (1_u64, 0_u64),
+            // (1_u64, 1_u64),
+            // (0_u64, 10_u64),
+            // (10_u64, 0_u64),
+            // (10_u64, 10_u64),
+            // (0_u64, 100_u64),
+            // (100_u64, 0_u64),
+            // (100_u64, 100_u64),
+            // (0_u64, 987_u64),
+            // (987_u64, 0_u64),
+            // (876_u64, 987_u64),
+            // (0_u64, 1_000_u64),
+            // (1_000_u64, 0_u64),
+            // (1_000_u64, 1_000_u64),
+            // (0_u64, 1_234_u64),
+            // (1_234_u64, 0_u64),
+            // (1_234_u64, 4_321_u64),
+        ]
+        .into_iter()
+        .for_each(|(tao_delta, alpha_delta)| {
+            new_test_ext().execute_with(|| {
+                let netuid1 = NetUid::from(1);
+
+                let tao_delta = TaoCurrency::from(tao_delta);
+                let alpha_delta = AlphaCurrency::from(alpha_delta);
+
+                // Initialize realistically large reserves
+                let mut tao = initial_tao_reserve;
+                let mut alpha = initial_alpha_reserve;
+                TaoReserve::set_mock_reserve(netuid1, tao);
+                AlphaReserve::set_mock_reserve(netuid1, alpha);
+                let price_before = Swap::current_price(netuid1);
+
+                // Adjust reserves gradually
+                for _ in 0..ITERATIONS {
+                    Swap::adjust_protocol_liquidity(netuid1, tao_delta, alpha_delta);
+                    tao += tao_delta;
+                    alpha += alpha_delta;
+                    TaoReserve::set_mock_reserve(netuid1, tao);
+                    AlphaReserve::set_mock_reserve(netuid1, alpha);
+                }
+
+                // Check that price didn't change
+                let price_after = Swap::current_price(netuid1);
+                assert_abs_diff_eq!(
+                    price_before.to_num::<f64>(),
+                    price_after.to_num::<f64>(),
+                    epsilon = PRICE_PRECISION
+                );
+
+                /////////////////////////
+
+                // Now do one-time big injection with another netuid and compare weights
+
+                let netuid2 = NetUid::from(2);
+
+                // Initialize same large reserves
+                TaoReserve::set_mock_reserve(netuid2, initial_tao_reserve);
+                AlphaReserve::set_mock_reserve(netuid2, initial_alpha_reserve);
+
+                // Adjust reserves by one large amount at once
+                let tao_delta_once = TaoCurrency::from(ITERATIONS * u64::from(tao_delta));
+                let alpha_delta_once = AlphaCurrency::from(ITERATIONS * u64::from(alpha_delta));
+                Swap::adjust_protocol_liquidity(netuid2, tao_delta_once, alpha_delta_once);
+                TaoReserve::set_mock_reserve(netuid2, initial_tao_reserve + tao_delta_once);
+                AlphaReserve::set_mock_reserve(netuid2, initial_alpha_reserve + alpha_delta_once);
+
+                // Compare reserve weights for netuid 1 and 2
+                let res_weights1 = SwapReserveWeight::<Test>::get(netuid1);
+                let res_weights2 = SwapReserveWeight::<Test>::get(netuid2);
+                let actual_quote_weight1 =
+                    perquintill_to_f64(res_weights1.get_quote_weight());
+                let actual_quote_weight2 =
+                    perquintill_to_f64(res_weights2.get_quote_weight());
+                assert_abs_diff_eq!(
+                    actual_quote_weight1,
+                    actual_quote_weight2,
+                    epsilon = WEIGHT_PRECISION
+                );
+            });
+        });
+    }
+
     /// Should work ok when initial alpha is zero
     /// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::dispatchables::test_adjust_protocol_liquidity_zero_alpha --exact --nocapture
     #[test]
@@ -257,6 +361,8 @@ mod dispatchables {
                     );
                     assert_eq!(actual_quote_weight, 0.5);
                 }
+
+
             });
         });
     }
