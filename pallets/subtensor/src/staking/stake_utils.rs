@@ -6,6 +6,8 @@ use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler, SwapResult};
 
+use frame_support::storage::{TransactionOutcome, transactional};
+
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
     ///
@@ -553,6 +555,7 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier of the subnet.
     /// * `amount` - The amount of alpha to be added.
     ///
+    #[must_use]
     pub fn decrease_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
@@ -574,6 +577,43 @@ impl<T: Config> Pallet<T> {
         // This ensures we return a positive value, but only if
         // `actual_alpha` was negative (i.e. a decrease in stake).
         actual_alpha.neg().max(0).unsigned_abs().into()
+    }
+
+    pub fn try_decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+        amount: AlphaCurrency,
+    ) -> bool {
+        let alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+
+        if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
+            if value < amount.to_u64() {
+                return false;
+            }
+
+            // Try to decrease the stake, if we unstake too much, fail
+            // Rollback both operations
+            let result = transactional::with_transaction(
+                || -> TransactionOutcome<Result<(), sp_runtime::DispatchError>> {
+                    let result = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                        hotkey, coldkey, netuid, amount,
+                    );
+                    if result > amount {
+                        return TransactionOutcome::Rollback(Err(
+                            Error::<T>::NotEnoughStakeToWithdraw.into(),
+                        ));
+                    }
+
+                    TransactionOutcome::Rollback(Ok(()))
+                },
+            )
+            .is_ok();
+
+            return result;
+        }
+
+        false
     }
 
     /// Swaps TAO for the alpha token on the subnet.
