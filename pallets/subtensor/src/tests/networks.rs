@@ -368,6 +368,10 @@ fn dissolve_clears_all_per_subnet_storages() {
         SubnetTaoProvided::<Test>::insert(net, TaoCurrency::from(1));
         SubnetAlphaInProvided::<Test>::insert(net, AlphaCurrency::from(1));
 
+        // TAO Flow
+        SubnetTaoFlow::<Test>::insert(net, 0i64);
+        SubnetEmaTaoFlow::<Test>::insert(net, (0u64, substrate_fixed::types::I64F64::from_num(0)));
+
         // Subnet locks
         TransferToggle::<Test>::insert(net, true);
         SubnetLocked::<Test>::insert(net, TaoCurrency::from(1));
@@ -499,6 +503,10 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!SubnetAlphaOutEmission::<Test>::contains_key(net));
         assert!(!SubnetTaoInEmission::<Test>::contains_key(net));
         assert!(!SubnetVolume::<Test>::contains_key(net));
+
+        // TAO Flow
+        assert!(!SubnetTaoFlow::<Test>::contains_key(net));
+        assert!(!SubnetEmaTaoFlow::<Test>::contains_key(net));
 
         // These are now REMOVED
         assert!(!SubnetAlphaIn::<Test>::contains_key(net));
