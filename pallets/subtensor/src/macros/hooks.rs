@@ -43,10 +43,11 @@ mod hooks {
         // # Args:
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are finalizing.
-        fn on_finalize(_block_number: BlockNumberFor<T>) {
+        fn on_finalize(block_number: BlockNumberFor<T>) {
             for _ in StakingOperationRateLimiter::<T>::drain() {
                 // Clear all entries each block
             }
+            Self::check_invariants();
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {

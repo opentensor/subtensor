@@ -2431,5 +2431,27 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// Unpauses emission for a subnet.
+        /// Can only be called by root (sudo).
+        #[pallet::call_index(125)]
+        #[pallet::weight((
+             Weight::from_parts(10_000_000, 0)
+             .saturating_add(T::DbWeight::get().writes(1_u64)),
+             DispatchClass::Operational,
+             Pays::No
+        ))]
+        pub fn unpause_subnet_emission(
+             origin: OriginFor<T>,
+             netuid: NetUid
+        ) -> DispatchResult {
+             ensure_root(origin)?;
+
+             if crate::pallet::SubnetEmissionPaused::<T>::take(netuid) {
+                 Self::deposit_event(Event::SubnetEmissionResumed(netuid));
+             }
+
+             Ok(())
+        }
     }
 }
