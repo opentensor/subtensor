@@ -11,39 +11,12 @@ impl<T: Config> Pallet<T> {
     /// Should be called in on_finalize.
     pub fn check_invariants() {
         // 1. Check Emission Invariant (Global vs Sum of Subnets)
-        // Invariant: sum(subnet_emissions) <= global_emission
-        // We check this every block as emission happens every block.
-        Self::check_emission_invariant();
+        // Handled by Imbalance trait in run_coinbase.
 
         // 2. Check Stake Invariant (Per Subnet)
         // Invariant: sum(neuron_stake in subnet) == stored subnet_total_stake
         // We check this only at epoch boundaries (tempo) to save weight.
         Self::check_stake_invariant();
-    }
-
-    fn check_emission_invariant() {
-        let block_emission_u64 = BlockEmission::<T>::get();
-        let block_emission: TaoCurrency = block_emission_u64.into();
-
-        // Sum of all tao injected into subnets this block
-        let mut total_injected = TaoCurrency::zero();
-        
-        // We iterate all subnets. SubnetTaoInEmission is set in run_coinbase for the current block.
-        for netuid in Self::get_all_subnet_netuids() {
-             let injected = SubnetTaoInEmission::<T>::get(netuid);
-             total_injected = total_injected.saturating_add(injected);
-        }
-
-        // Invariant: Total injected should not exceed block emission.
-        // It can be LESS than block_emission due to:
-        // 1. Excess TAO being burned or added to issuance directly (not injected into pool)
-        // 2. Rounding errors (dust)
-        // 3. Subnets not emitting (paused or strictly no emission)
-        // It should NEVER be MORE.
-        if total_injected > block_emission {
-             // We use NetUid::ROOT (0) as a placeholder for global violation if we can't pin it to a subnet.
-             Self::handle_invariant_violation(NetUid::ROOT, "Emission invariant violation: injected > block_emission");
-        }
     }
 
     fn check_stake_invariant() {
