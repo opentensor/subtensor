@@ -33,7 +33,6 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::run_auto_claim_root_divs(last_block_hash);
         // --- 9. Populate root coldkey maps.
         Self::populate_root_coldkey_staking_maps();
-
         // Return ok.
         Ok(())
     }
@@ -229,9 +228,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         if next_value >= U110F18::saturating_from_num(Self::get_max_difficulty(netuid)) {
             Self::get_max_difficulty(netuid)
         } else if next_value <= U110F18::saturating_from_num(Self::get_min_difficulty(netuid)) {
-            Self::get_min_difficulty(netuid)
+            return Self::get_min_difficulty(netuid);
         } else {
-            next_value.saturating_to_num::<u64>()
+            return next_value.saturating_to_num::<u64>();
         }
     }
 
@@ -263,9 +262,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         if next_value >= U110F18::saturating_from_num(Self::get_max_burn(netuid)) {
             Self::get_max_burn(netuid)
         } else if next_value <= U110F18::saturating_from_num(Self::get_min_burn(netuid)) {
-            Self::get_min_burn(netuid)
+            return Self::get_min_burn(netuid);
         } else {
-            next_value.saturating_to_num::<u64>().into()
+            return next_value.saturating_to_num::<u64>().into();
         }
     }
 

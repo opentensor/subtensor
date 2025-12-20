@@ -1457,6 +1457,46 @@ pub mod pallet {
     pub type SubnetEmaTaoFlow<T: Config> =
         StorageMap<_, Identity, NetUid, (u64, I64F64), OptionQuery>;
 
+    /// Flow tick len
+    #[pallet::type_value]
+    pub fn DefaultFlowTickLen<T: Config>() -> u64 {
+        1
+    }
+    /// --- ITEM ( flow tick len )
+    #[pallet::storage]
+    pub type FlowTickLen<T> = StorageValue<_, u64, ValueQuery, DefaultFlowTickLen<T>>;
+
+    /// Flow delay
+    #[pallet::type_value]
+    pub fn DefaultFlowDelay<T: Config>() -> u64 {
+        0
+    }
+    /// --- ITEM ( flow tick len )
+    #[pallet::storage]
+    pub type FlowDelay<T> = StorageValue<_, u64, ValueQuery, DefaultFlowDelay<T>>;
+        
+    // Per-day Tao flow for subnets
+    #[pallet::storage]
+    pub type SubnetFlowAccumulator<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,  // subnet id
+        Identity,
+        u64,     // day
+        i64,     // taoflow
+        ValueQuery,
+        DefaultZeroI64<T>
+    >;
+
+    /// Flow delay
+    #[pallet::type_value]
+    pub fn DefaultEmissionCap<T: Config>() -> u16 {
+        u16::MAX
+    }
+    /// --- ITEM ( max emission value )
+    #[pallet::storage]
+    pub type EmissionCap<T> = StorageValue<_, u16, ValueQuery, DefaultEmissionCap<T>>;
+
     /// Default value for flow cutoff.
     #[pallet::type_value]
     pub fn DefaultFlowCutoff<T: Config>() -> I64F64 {
