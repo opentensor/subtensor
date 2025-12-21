@@ -645,6 +645,12 @@ pub mod pallet {
         T::InitialSubnetOwnerCut::get()
     }
 
+    /// Default value for start call delay.
+    #[pallet::type_value]
+    pub fn DefaultStartCallDelay<T: Config>() -> u64 {
+        T::InitialStartCallDelay::get()
+    }
+
     /// Default value for recycle or burn.
     #[pallet::type_value]
     pub fn DefaultRecycleOrBurn<T: Config>() -> RecycleOrBurnEnum {
@@ -1489,6 +1495,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkImmunityPeriod<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
+
+    /// ITEM( start_call_delay )
+    #[pallet::storage]
+    pub type StartCallDelay<T> =
+        StorageValue<_, u64, ValueQuery, DefaultStartCallDelay<T>>;
 
     /// ITEM( min_network_lock_cost )
     #[pallet::storage]

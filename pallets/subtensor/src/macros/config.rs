@@ -233,9 +233,9 @@ mod config {
         /// Initial EMA price halving period
         #[pallet::constant]
         type InitialEmaPriceHalvingPeriod: Get<u64>;
-        /// Block number after a new subnet accept the start call extrinsic.
+        /// Initial block number after a new subnet accept the start call extrinsic.
         #[pallet::constant]
-        type DurationOfStartCall: Get<u64>;
+        type InitialStartCallDelay: Get<u64>;
         /// Cost of swapping a hotkey in a subnet.
         #[pallet::constant]
         type KeySwapOnSubnetCost: Get<u64>;

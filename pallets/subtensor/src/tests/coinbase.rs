@@ -2691,7 +2691,7 @@ fn test_run_coinbase_not_started_start_after() {
         // We expect that the epoch ran.
         assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
 
-        let block_number = DurationOfStartCall::get();
+        let block_number = StartCallDelay::<Test>::get();
         run_to_block_no_epoch(netuid, block_number);
 
         let current_block = System::block_number();
