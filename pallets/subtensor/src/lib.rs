@@ -2359,10 +2359,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
-    /// Default value for pending childkey cooldown (settable by root, default 0)
+    /// Default value for pending childkey cooldown (settable by root).
+    /// Uses the same value as DefaultPendingCooldown for consistency.
     #[pallet::type_value]
     pub fn DefaultPendingChildKeyCooldown<T: Config>() -> u64 {
-        0
+        DefaultPendingCooldown::<T>::get()
     }
 
     /// Storage value for pending childkey cooldown, settable by root.
