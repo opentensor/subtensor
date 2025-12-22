@@ -1,5 +1,5 @@
 use super::*;
-extern crate alloc;
+
 use frame_support::pallet_prelude::*;
 use sp_std::vec::Vec;
 use sp_runtime::traits::Zero;
@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
             // We sum the TotalHotkeyAlpha for each hotkey.
             // Requirement matches: "sum(neuron_stake in subnet) == stored subnet_total_stake"
             for (_, hotkey) in Keys::<T>::iter_prefix(netuid) {
-                let alpha = TotalHotkeyAlpha::<T>::get(&hotkey, netuid);
+                let alpha = Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
                 calculated_total_alpha = calculated_total_alpha.saturating_add(alpha);
             }
 
