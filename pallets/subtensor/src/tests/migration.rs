@@ -2396,6 +2396,121 @@ fn test_migrate_remove_tao_dividends() {
     );
 }
 
+#[test]
+fn test_migrate_clear_rank_trust_pruning_maps_removes_entries() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0) Constants
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"clear_rank_trust_pruning_maps";
+        let empty: Vec<u16> = EmptyU16Vec::<Test>::get();
+
+        // ------------------------------
+        // 1) Pre-state: seed using the correct key type (NetUid)
+        // ------------------------------
+        let n0: NetUid = 0u16.into();
+        let n1: NetUid = 1u16.into();
+        let n2: NetUid = 42u16.into();
+
+        // Rank: n0 non-empty, n1 explicitly empty, n2 absent
+        Rank::<Test>::insert(n0, vec![10, 20, 30]);
+        Rank::<Test>::insert(n1, Vec::<u16>::new());
+
+        // Trust: n0 non-empty, n2 non-empty
+        Trust::<Test>::insert(n0, vec![7]);
+        Trust::<Test>::insert(n2, vec![1, 2, 3]);
+
+        // PruningScores: n0 non-empty, n1 empty, n2 non-empty
+        PruningScores::<Test>::insert(n0, vec![5, 5, 5]);
+        PruningScores::<Test>::insert(n1, Vec::<u16>::new());
+        PruningScores::<Test>::insert(n2, vec![9]);
+
+        // Sanity: preconditions (keys should exist where inserted)
+        assert!(Rank::<Test>::contains_key(n0));
+        assert!(Rank::<Test>::contains_key(n1));
+        assert!(!Rank::<Test>::contains_key(n2));
+
+        assert!(Trust::<Test>::contains_key(n0));
+        assert!(!Trust::<Test>::contains_key(n1));
+        assert!(Trust::<Test>::contains_key(n2));
+
+        assert!(PruningScores::<Test>::contains_key(n0));
+        assert!(PruningScores::<Test>::contains_key(n1));
+        assert!(PruningScores::<Test>::contains_key(n2));
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 2) Run migration
+        // ------------------------------
+        let w = crate::migrations::migrate_clear_rank_trust_pruning_maps::migrate_clear_rank_trust_pruning_maps::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 3) Verify: all entries removed (no keys present)
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        // Rank: all removed
+        assert!(
+            !Rank::<Test>::contains_key(n0),
+            "Rank[n0] should be removed"
+        );
+        assert!(
+            !Rank::<Test>::contains_key(n1),
+            "Rank[n1] should be removed"
+        );
+        assert!(
+            !Rank::<Test>::contains_key(n2),
+            "Rank[n2] should remain absent"
+        );
+        // ValueQuery still returns empty default
+        assert_eq!(Rank::<Test>::get(n0), empty);
+        assert_eq!(Rank::<Test>::get(n1), empty);
+        assert_eq!(Rank::<Test>::get(n2), empty);
+
+        // Trust: all removed
+        assert!(
+            !Trust::<Test>::contains_key(n0),
+            "Trust[n0] should be removed"
+        );
+        assert!(
+            !Trust::<Test>::contains_key(n1),
+            "Trust[n1] should remain absent"
+        );
+        assert!(
+            !Trust::<Test>::contains_key(n2),
+            "Trust[n2] should be removed"
+        );
+        assert_eq!(Trust::<Test>::get(n0), empty);
+        assert_eq!(Trust::<Test>::get(n1), empty);
+        assert_eq!(Trust::<Test>::get(n2), empty);
+
+        // PruningScores: all removed
+        assert!(
+            !PruningScores::<Test>::contains_key(n0),
+            "PruningScores[n0] should be removed"
+        );
+        assert!(
+            !PruningScores::<Test>::contains_key(n1),
+            "PruningScores[n1] should be removed"
+        );
+        assert!(
+            !PruningScores::<Test>::contains_key(n2),
+            "PruningScores[n2] should be removed"
+        );
+        assert_eq!(PruningScores::<Test>::get(n0), empty);
+        assert_eq!(PruningScores::<Test>::get(n1), empty);
+        assert_eq!(PruningScores::<Test>::get(n2), empty);
+
+    });
+}
 fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
     // Register some subnets
     let netuid0 = add_dynamic_network_without_emission_block(&U256::from(0), &U256::from(0));
@@ -2723,4 +2838,98 @@ fn test_migrate_reset_unactive_sn_idempotence() {
         assert_eq!(TotalStake::<Test>::get(), total_stake_before);
         assert_eq!(TotalIssuance::<Test>::get(), total_issuance_before);
     });
+}
+
+#[test]
+fn test_migrate_remove_old_identity_maps() {
+    let migration =
+        crate::migrations::migrate_remove_old_identity_maps::migrate_remove_old_identity_maps::<Test>;
+
+    const MIGRATION_NAME: &str = "migrate_remove_old_identity_maps";
+
+    let pallet_name = "SubtensorModule";
+
+    test_remove_storage_item(MIGRATION_NAME, pallet_name, "Identities", migration, 100);
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        "SubnetIdentities",
+        migration,
+        100,
+    );
+
+    test_remove_storage_item(
+        MIGRATION_NAME,
+        pallet_name,
+        "SubnetIdentitiesV2",
+        migration,
+        100,
+    );
+}
+
+#[test]
+fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
+    use crate::migrations::migrate_remove_unknown_neuron_axon_cert_prom::*;
+    const MIGRATION_NAME: &[u8] = b"migrate_remove_neuron_axon_cert_prom";
+
+    new_test_ext(1).execute_with(|| {
+        setup_for(NetUid::from(2), 64, 1231);
+        setup_for(NetUid::from(42), 256, 15151);
+        setup_for(NetUid::from(99), 1024, 32323);
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME));
+
+        let w = migrate_remove_unknown_neuron_axon_cert_prom::<Test>();
+        assert!(!w.is_zero(), "Weight must be non-zero");
+
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME));
+        assert_for(NetUid::from(2), 64, 1231);
+        assert_for(NetUid::from(42), 256, 15151);
+        assert_for(NetUid::from(99), 1024, 32323);
+    });
+
+    fn setup_for(netuid: NetUid, uids: u32, items: u32) {
+        NetworksAdded::<Test>::insert(netuid, true);
+
+        for i in 1u32..=uids {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            Uids::<Test>::insert(netuid, hk, i as u16);
+        }
+
+        for i in 1u32..=items {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            Axons::<Test>::insert(netuid, hk, AxonInfo::default());
+            NeuronCertificates::<Test>::insert(netuid, hk, NeuronCertificate::default());
+            Prometheus::<Test>::insert(netuid, hk, PrometheusInfo::default());
+        }
+    }
+
+    fn assert_for(netuid: NetUid, uids: u32, items: u32) {
+        assert_eq!(
+            Axons::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+        assert_eq!(
+            NeuronCertificates::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+        assert_eq!(
+            Prometheus::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+
+        for i in 1u32..=uids {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            assert!(Axons::<Test>::contains_key(netuid, hk));
+            assert!(NeuronCertificates::<Test>::contains_key(netuid, hk));
+            assert!(Prometheus::<Test>::contains_key(netuid, hk));
+        }
+
+        for i in uids + 1u32..=items {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            assert!(!Axons::<Test>::contains_key(netuid, hk));
+            assert!(!NeuronCertificates::<Test>::contains_key(netuid, hk));
+            assert!(!Prometheus::<Test>::contains_key(netuid, hk));
+        }
+    }
 }

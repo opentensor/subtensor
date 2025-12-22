@@ -1,8 +1,6 @@
 use super::*;
 use crate::Error;
-use crate::system::{
-    ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor,
-};
+use crate::system::{ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor};
 use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
@@ -34,15 +32,6 @@ impl<T: Config> Pallet<T> {
             Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
         }
-    }
-
-    /// Like `ensure_root` but also prohibits calls during the last N blocks of the tempo.
-    pub fn ensure_root_with_rate_limit(
-        o: T::RuntimeOrigin,
-        netuid: NetUid,
-    ) -> Result<(), DispatchError> {
-        ensure_root(o)?;
-        Self::ensure_admin_window_open(netuid)
     }
 
     /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).
@@ -221,27 +210,6 @@ impl<T: Config> Pallet<T> {
         *updated_active = active;
         Active::<T>::insert(netuid, updated_active_vec);
     }
-    pub fn set_pruning_score_for_uid(netuid: NetUid, uid: u16, pruning_score: u16) {
-        log::debug!("netuid = {netuid:?}");
-        log::debug!(
-            "SubnetworkN::<T>::get( netuid ) = {:?}",
-            SubnetworkN::<T>::get(netuid)
-        );
-        log::debug!("uid = {uid:?}");
-        if uid < SubnetworkN::<T>::get(netuid) {
-            PruningScores::<T>::mutate(netuid, |v| {
-                if let Some(s) = v.get_mut(uid as usize) {
-                    *s = pruning_score;
-                }
-            });
-        } else {
-            log::error!(
-                "set_pruning_score_for_uid: uid >= SubnetworkN::<T>::get(netuid): {:?} >= {:?}",
-                uid,
-                SubnetworkN::<T>::get(netuid)
-            );
-        }
-    }
     pub fn set_validator_permit_for_uid(netuid: NetUid, uid: u16, validator_permit: bool) {
         let mut updated_validator_permits = Self::get_validator_permit(netuid);
         let Some(updated_validator_permit) = updated_validator_permits.get_mut(uid as usize) else {
@@ -335,6 +303,16 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_neuron_block_at_registration(netuid: NetUid, neuron_uid: u16) -> u64 {
         BlockAtRegistration::<T>::get(netuid, neuron_uid)
+    }
+    /// Returns the minimum number of non-immortal & non-immune UIDs that must remain in a subnet.
+    pub fn get_min_non_immune_uids(netuid: NetUid) -> u16 {
+        MinNonImmuneUids::<T>::get(netuid)
+    }
+
+    /// Sets the minimum number of non-immortal & non-immune UIDs that must remain in a subnet.
+    pub fn set_min_non_immune_uids(netuid: NetUid, min: u16) {
+        MinNonImmuneUids::<T>::insert(netuid, min);
+        Self::deposit_event(Event::MinNonImmuneUidsSet(netuid, min));
     }
 
     // ========================

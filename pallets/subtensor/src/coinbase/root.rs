@@ -298,6 +298,8 @@ impl<T: Config> Pallet<T> {
         SubnetTaoInEmission::<T>::remove(netuid);
         SubnetVolume::<T>::remove(netuid);
         SubnetMovingPrice::<T>::remove(netuid);
+        SubnetTaoFlow::<T>::remove(netuid);
+        SubnetEmaTaoFlow::<T>::remove(netuid);
         SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
@@ -391,8 +393,6 @@ impl<T: Config> Pallet<T> {
         let _ = LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // --- 20. Identity maps across versions (netuid-scoped).
-        SubnetIdentities::<T>::remove(netuid);
-        SubnetIdentitiesV2::<T>::remove(netuid);
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));

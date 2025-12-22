@@ -95,7 +95,7 @@ pub mod pallet {
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
-    use substrate_fixed::types::{I64F64, I96F32, U64F64};
+    use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
     use subtensor_macros::freeze_struct;
     use subtensor_runtime_common::{
         AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
@@ -334,16 +334,11 @@ pub mod pallet {
         Swap,
         /// Keep all alpha emission.
         Keep,
-    }
-
-    /// Enum for the per-coldkey root claim frequency setting.
-    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
-    pub enum RootClaimFrequencyEnum {
-        /// Claim automatically.
-        #[default]
-        Auto,
-        /// Only claim manually; Never automatically.
-        Manual,
+        /// Keep all alpha emission for specified subnets.
+        KeepSubnets {
+            /// Subnets to keep alpha emissions (swap everything else).
+            subnets: BTreeSet<NetUid>,
+        },
     }
 
     /// Default minimum root claim amount.
@@ -1005,6 +1000,12 @@ pub mod pallet {
         I96F32::saturating_from_num(0.0)
     }
 
+    /// Default subnet root proportion.
+    #[pallet::type_value]
+    pub fn DefaultRootProp<T: Config>() -> U96F32 {
+        U96F32::saturating_from_num(0.0)
+    }
+
     /// Default subnet root claimable
     #[pallet::type_value]
     pub fn DefaultRootClaimable<T: Config>() -> BTreeMap<NetUid, I96F32> {
@@ -1068,7 +1069,12 @@ pub mod pallet {
         128
     }
 
-    /// Global minimum activity cutoff value
+    /// Default value for MinNonImmuneUids.
+    #[pallet::type_value]
+    pub fn DefaultMinNonImmuneUids<T: Config>() -> u16 {
+        10u16
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -1212,9 +1218,22 @@ pub mod pallet {
         DefaultAccountLinkage<T>,
     >;
 
-    /// --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo.
+    /// --- DMAP ( netuid, hotkey ) --> u64 | Last alpha dividend this hotkey got on tempo.
     #[pallet::storage]
     pub type AlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Blake2_128Concat,
+        T::AccountId,
+        AlphaCurrency,
+        ValueQuery,
+        DefaultZeroAlpha<T>,
+    >;
+
+    /// --- DMAP ( netuid, hotkey ) --> u64 | Last root alpha dividend this hotkey got on tempo.
+    #[pallet::storage]
+    pub type RootAlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
         NetUid,
@@ -1276,6 +1295,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetMovingPrice<T: Config> =
         StorageMap<_, Identity, NetUid, I96F32, ValueQuery, DefaultMovingPrice<T>>;
+
+    /// --- MAP ( netuid ) --> root_prop | The subnet root proportion.
+    #[pallet::storage]
+    pub type RootProp<T: Config> =
+        StorageMap<_, Identity, NetUid, U96F32, ValueQuery, DefaultRootProp<T>>;
 
     /// --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     #[pallet::storage]
@@ -2059,25 +2083,10 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// --- MAP ( coldkey ) --> identity. (DEPRECATED for V2)
-    #[pallet::storage]
-    pub type Identities<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
-
     /// --- MAP ( coldkey ) --> identity
     #[pallet::storage]
     pub type IdentitiesV2<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOfV2, OptionQuery>;
-
-    /// --- MAP ( netuid ) --> identity. (DEPRECATED for V2)
-    #[pallet::storage]
-    pub type SubnetIdentities<T: Config> =
-        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOf, OptionQuery>;
-
-    /// --- MAP ( netuid ) --> identityV2 (DEPRECATED for V3)
-    #[pallet::storage]
-    pub type SubnetIdentitiesV2<T: Config> =
-        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV2, OptionQuery>;
 
     /// --- MAP ( netuid ) --> SubnetIdentityOfV3
     #[pallet::storage]
@@ -2310,6 +2319,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkRegistrationStartBlock<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
+
+    /// --- MAP ( netuid ) --> minimum required number of non-immortal & non-immune UIDs
+    #[pallet::storage]
+    pub type MinNonImmuneUids<T: Config> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMinNonImmuneUids<T>>;
 
     /// ============================
     /// ==== Subnet Mechanisms =====
