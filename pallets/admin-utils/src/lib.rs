@@ -2222,10 +2222,7 @@ pub mod pallet {
 			DispatchClass::Operational,
 			Pays::Yes
 		))]
-        pub fn sudo_set_start_call_delay(
-            origin: OriginFor<T>,
-            delay: u64,
-        ) -> DispatchResult {
+        pub fn sudo_set_start_call_delay(origin: OriginFor<T>, delay: u64) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_start_call_delay(delay);
             log::debug!("StartCallDelay( delay: {delay:?} ) ");

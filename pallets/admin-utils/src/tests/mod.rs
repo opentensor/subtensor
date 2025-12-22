@@ -2876,7 +2876,10 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
 
         // Get initial delay value (should be non-zero)
         let initial_delay = pallet_subtensor::StartCallDelay::<Test>::get();
-        assert!(initial_delay > 0, "Initial delay should be greater than zero");
+        assert!(
+            initial_delay > 0,
+            "Initial delay should be greater than zero"
+        );
 
         // Test 1: Non-root account should fail to set delay
         assert_err!(
@@ -2933,9 +2936,9 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
         );
 
         // Verify event was emitted
-        frame_system::Pallet::<Test>::assert_last_event(
-            RuntimeEvent::SubtensorModule(pallet_subtensor::Event::StartCallDelaySet(0))
-        );
+        frame_system::Pallet::<Test>::assert_last_event(RuntimeEvent::SubtensorModule(
+            pallet_subtensor::Event::StartCallDelaySet(0),
+        ));
 
         // Test 5: Try to start the subnet again - should SUCCEED (delay is now zero)
         let current_block = frame_system::Pallet::<Test>::block_number();

@@ -1498,8 +1498,7 @@ pub mod pallet {
 
     /// ITEM( start_call_delay )
     #[pallet::storage]
-    pub type StartCallDelay<T> =
-        StorageValue<_, u64, ValueQuery, DefaultStartCallDelay<T>>;
+    pub type StartCallDelay<T> = StorageValue<_, u64, ValueQuery, DefaultStartCallDelay<T>>;
 
     /// ITEM( min_network_lock_cost )
     #[pallet::storage]
