@@ -173,43 +173,50 @@ mod dispatchables {
     /// in the worst case
     ///   - Do not cause price to change
     ///   - Result in the same weight change as one large injection
-    /// 
-    /// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::dispatchables::test_adjust_protocol_liquidity_small_deltas --exact --nocapture
+    ///
+    /// This is a long test that only tests validity of weights math. Run again if changing
+    /// ReserveWeight::update_weights_for_added_liquidity
+    ///
+    /// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::dispatchables::test_adjust_protocol_liquidity_deltas --exact --nocapture
+    #[ignore]
     #[test]
-    fn test_adjust_protocol_liquidity_small_deltas() {
+    fn test_adjust_protocol_liquidity_deltas() {
         // The number of times (blocks) over which gradual injections will be made
-        // const ITERATIONS: u64 = 1_000_000;
-        const ITERATIONS: u64 = 10;
-        const PRICE_PRECISION: f64 = 0.000_000_001;
+        // One year price drift due to precision is under 1e-6
+        const ITERATIONS: u64 = 2_700_000;
+        const PRICE_PRECISION: f64 = 0.000_001;
+        const PREC_LARGE_DELTA: f64 = 0.001;
         const WEIGHT_PRECISION: f64 = 0.000_000_000_000_000_001;
 
         let initial_tao_reserve = TaoCurrency::from(1_000_000_000_000_000_u64);
         let initial_alpha_reserve = AlphaCurrency::from(10_000_000_000_000_000_u64);
 
-        // test case: tao_delta, alpha_delta
+        // test case: tao_delta, alpha_delta, price_precision
         [
-            (0_u64, 0_u64),
-            // (0_u64, 1_u64),
-            // (1_u64, 0_u64),
-            // (1_u64, 1_u64),
-            // (0_u64, 10_u64),
-            // (10_u64, 0_u64),
-            // (10_u64, 10_u64),
-            // (0_u64, 100_u64),
-            // (100_u64, 0_u64),
-            // (100_u64, 100_u64),
-            // (0_u64, 987_u64),
-            // (987_u64, 0_u64),
-            // (876_u64, 987_u64),
-            // (0_u64, 1_000_u64),
-            // (1_000_u64, 0_u64),
-            // (1_000_u64, 1_000_u64),
-            // (0_u64, 1_234_u64),
-            // (1_234_u64, 0_u64),
-            // (1_234_u64, 4_321_u64),
+            (0_u64, 0_u64, PRICE_PRECISION),
+            (0_u64, 1_u64, PRICE_PRECISION),
+            (1_u64, 0_u64, PRICE_PRECISION),
+            (1_u64, 1_u64, PRICE_PRECISION),
+            (0_u64, 10_u64, PRICE_PRECISION),
+            (10_u64, 0_u64, PRICE_PRECISION),
+            (10_u64, 10_u64, PRICE_PRECISION),
+            (0_u64, 100_u64, PRICE_PRECISION),
+            (100_u64, 0_u64, PRICE_PRECISION),
+            (100_u64, 100_u64, PRICE_PRECISION),
+            (0_u64, 987_u64, PRICE_PRECISION),
+            (987_u64, 0_u64, PRICE_PRECISION),
+            (876_u64, 987_u64, PRICE_PRECISION),
+            (0_u64, 1_000_u64, PRICE_PRECISION),
+            (1_000_u64, 0_u64, PRICE_PRECISION),
+            (1_000_u64, 1_000_u64, PRICE_PRECISION),
+            (0_u64, 1_234_u64, PRICE_PRECISION),
+            (1_234_u64, 0_u64, PRICE_PRECISION),
+            (1_234_u64, 4_321_u64, PRICE_PRECISION),
+            (1_234_000_u64, 4_321_000_u64, PREC_LARGE_DELTA),
+            (1_234_u64, 4_321_000_u64, PREC_LARGE_DELTA),
         ]
         .into_iter()
-        .for_each(|(tao_delta, alpha_delta)| {
+        .for_each(|(tao_delta, alpha_delta, price_precision)| {
             new_test_ext().execute_with(|| {
                 let netuid1 = NetUid::from(1);
 
@@ -237,7 +244,7 @@ mod dispatchables {
                 assert_abs_diff_eq!(
                     price_before.to_num::<f64>(),
                     price_after.to_num::<f64>(),
-                    epsilon = PRICE_PRECISION
+                    epsilon = price_precision
                 );
 
                 /////////////////////////
@@ -260,10 +267,8 @@ mod dispatchables {
                 // Compare reserve weights for netuid 1 and 2
                 let res_weights1 = SwapReserveWeight::<Test>::get(netuid1);
                 let res_weights2 = SwapReserveWeight::<Test>::get(netuid2);
-                let actual_quote_weight1 =
-                    perquintill_to_f64(res_weights1.get_quote_weight());
-                let actual_quote_weight2 =
-                    perquintill_to_f64(res_weights2.get_quote_weight());
+                let actual_quote_weight1 = perquintill_to_f64(res_weights1.get_quote_weight());
+                let actual_quote_weight2 = perquintill_to_f64(res_weights2.get_quote_weight());
                 assert_abs_diff_eq!(
                     actual_quote_weight1,
                     actual_quote_weight2,
@@ -361,8 +366,6 @@ mod dispatchables {
                     );
                     assert_eq!(actual_quote_weight, 0.5);
                 }
-
-
             });
         });
     }
@@ -1011,7 +1014,6 @@ fn test_swap_basic() {
             netuid: NetUid,
             order: Order,
             limit_price: f64,
-            output_amount: u64,
             price_should_grow: bool,
         ) where
             Order: OrderT,
@@ -1023,8 +1025,33 @@ fn test_swap_basic() {
             // Setup swap
             assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
 
+            // Price is 0.25
+            let initial_tao_reserve = TaoCurrency::from(1_000_000_000_u64);
+            let initial_alpha_reserve = AlphaCurrency::from(4_000_000_000_u64);
+            TaoReserve::set_mock_reserve(netuid, initial_tao_reserve);
+            AlphaReserve::set_mock_reserve(netuid, initial_alpha_reserve);
+
             // Get current price
             let current_price_before = Pallet::<Test>::current_price(netuid);
+
+            // Get reserves
+            let tao_reserve = TaoReserve::reserve(netuid.into()).to_u64();
+            let alpha_reserve = AlphaReserve::reserve(netuid.into()).to_u64();
+
+            // Expected fee amount
+            let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
+            let expected_fee = (swap_amount as f64 * fee_rate) as u64;
+
+            // Calculate expected output amount using f64 math
+            // This is a simple case when w1 = w2 = 0.5, so there's no
+            // exponentiation needed
+            let x = alpha_reserve as f64;
+            let y = tao_reserve as f64;
+            let expected_output_amount = if price_should_grow {
+                x * (1.0 - y / (y + (swap_amount - expected_fee) as f64))
+            } else {
+                y * (1.0 - x / (x + (swap_amount - expected_fee) as f64))
+            };
 
             // Swap
             let limit_price_fixed = U64F64::from_num(limit_price);
@@ -1032,27 +1059,57 @@ fn test_swap_basic() {
                 Pallet::<Test>::do_swap(netuid, order.clone(), limit_price_fixed, false, false)
                     .unwrap();
             assert_abs_diff_eq!(
-                swap_result.amount_paid_out.to_u64(),
-                output_amount,
-                epsilon = output_amount / 100
+                swap_result.amount_paid_out.to_u64() as u64,
+                expected_output_amount as u64,
+                epsilon = 1
             );
 
             assert_abs_diff_eq!(
                 swap_result.paid_in_reserve_delta() as u64,
-                swap_amount,
-                epsilon = swap_amount / 10
+                (swap_amount - expected_fee) as u64,
+                epsilon = 1
             );
             assert_abs_diff_eq!(
                 swap_result.paid_out_reserve_delta() as i64,
-                -(output_amount as i64),
-                epsilon = output_amount as i64 / 10
+                -(expected_output_amount as i64),
+                epsilon = 1
             );
 
-            // Expected fee amount
-            let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
-            let expected_fee = (swap_amount as f64 * fee_rate) as u64;
+            // Update reserves (because it happens outside of do_swap in stake_utils)
+            if price_should_grow {
+                TaoReserve::set_mock_reserve(
+                    netuid,
+                    TaoCurrency::from(
+                        (u64::from(initial_tao_reserve) as i128
+                            + swap_result.paid_in_reserve_delta()) as u64,
+                    ),
+                );
+                AlphaReserve::set_mock_reserve(
+                    netuid,
+                    AlphaCurrency::from(
+                        (u64::from(initial_alpha_reserve) as i128 + swap_result.paid_out_reserve_delta())
+                            as u64,
+                    ),
+                );
+            } else {
+                TaoReserve::set_mock_reserve(
+                    netuid,
+                    TaoCurrency::from(
+                        (u64::from(initial_tao_reserve) as i128
+                            + swap_result.paid_out_reserve_delta()) as u64,
+                    ),
+                );
+                AlphaReserve::set_mock_reserve(
+                    netuid,
+                    AlphaCurrency::from(
+                        (u64::from(initial_alpha_reserve) as i128 + swap_result.paid_in_reserve_delta())
+                            as u64,
+                    ),
+                );
+            }
 
             // Liquidity position should not be updated
+            // TODO: Revise when user liquidity is in place
             // let protocol_id = Pallet::<Test>::protocol_account_id();
             // let positions =
             //     PositionsV2::<Test>::iter_prefix_values((netuid, protocol_id)).collect::<Vec<_>>();
@@ -1078,25 +1135,22 @@ fn test_swap_basic() {
 
         // Current price is 0.25
         // Test case is (order_type, liquidity, limit_price, output_amount)
+        perform_test(1.into(), GetAlphaForTao::with_amount(1_000), 1000.0, true);
+        perform_test(1.into(), GetAlphaForTao::with_amount(2_000), 1000.0, true);
+        perform_test(1.into(), GetAlphaForTao::with_amount(123_456), 1000.0, true);
+        perform_test(2.into(), GetTaoForAlpha::with_amount(1_000), 0.0001, false);
+        perform_test(2.into(), GetTaoForAlpha::with_amount(2_000), 0.0001, false);
+        perform_test(2.into(), GetTaoForAlpha::with_amount(123_456), 0.0001, false);
         perform_test(
-            1.into(),
-            GetAlphaForTao::with_amount(1_000),
+            3.into(),
+            GetAlphaForTao::with_amount(1_000_000_000),
             1000.0,
-            3990,
             true,
         );
         perform_test(
-            2.into(),
-            GetTaoForAlpha::with_amount(1_000),
-            0.0001,
-            250,
-            false,
-        );
-        perform_test(
             3.into(),
-            GetAlphaForTao::with_amount(500_000_000),
+            GetAlphaForTao::with_amount(10_000_000_000),
             1000.0,
-            2_000_000_000,
             true,
         );
     });

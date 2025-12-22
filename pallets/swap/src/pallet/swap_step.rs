@@ -49,7 +49,7 @@ where
         let requested_delta_in = amount_remaining.saturating_sub(fee);
 
         // Target and current prices
-        let target_price = Self::price_target(requested_delta_in);
+        let target_price = Self::price_target(netuid, requested_delta_in);
         let current_price = Pallet::<T>::current_price(netuid);
 
         Self {
@@ -141,26 +141,35 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
         ))
     }
 
-    fn price_target(_delta_in: TaoCurrency) -> U64F64 {
-        todo!();
+    fn price_target(netuid: NetUid, delta_in: TaoCurrency) -> U64F64 {
+        let tao_reserve = T::TaoReserve::reserve(netuid.into());
+        let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
+        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let dy = delta_in;
+        let dx = Self::convert_deltas(netuid, dy);
+        reserve_weight.calculate_price(
+            u64::from(alpha_reserve.saturating_sub(dx)),
+            u64::from(tao_reserve.saturating_add(dy)),
+        )
     }
 
     fn price_is_closer(price1: &U64F64, price2: &U64F64) -> bool {
         price1 <= price2
     }
 
-    fn add_fees(_netuid: NetUid, _fee: TaoCurrency) {
-        todo!();
+    fn add_fees(netuid: NetUid, fee: TaoCurrency) {
+        FeesTao::<T>::mutate(netuid, |total| *total = total.saturating_add(fee))
     }
 
     fn convert_deltas(netuid: NetUid, delta_in: TaoCurrency) -> AlphaCurrency {
+        let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let reserve_weight = SwapReserveWeight::<T>::get(netuid);
         let e = reserve_weight.exp_quote_base(tao_reserve.into(), delta_in.into());
         let one = U64F64::from_num(1);
-        let tao_reserve_fixed = U64F64::from_num(tao_reserve);
+        let alpha_reserve_fixed = U64F64::from_num(alpha_reserve);
         AlphaCurrency::from(
-            tao_reserve_fixed
+            alpha_reserve_fixed
                 .saturating_mul(one.saturating_sub(e))
                 .saturating_to_num::<u64>(),
         )
@@ -180,26 +189,35 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
         ))
     }
 
-    fn price_target(_delta_in: AlphaCurrency) -> U64F64 {
-        todo!();
+    fn price_target(netuid: NetUid, delta_in: AlphaCurrency) -> U64F64 {
+        let tao_reserve = T::TaoReserve::reserve(netuid.into());
+        let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
+        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let dx = delta_in;
+        let dy = Self::convert_deltas(netuid, dx);
+        reserve_weight.calculate_price(
+            u64::from(alpha_reserve.saturating_add(dx)),
+            u64::from(tao_reserve.saturating_sub(dy)),
+        )
     }
 
     fn price_is_closer(price1: &U64F64, price2: &U64F64) -> bool {
         price1 >= price2
     }
 
-    fn add_fees(_netuid: NetUid, _fee: AlphaCurrency) {
-        todo!();
+    fn add_fees(netuid: NetUid, fee: AlphaCurrency) {
+        FeesAlpha::<T>::mutate(netuid, |total| *total = total.saturating_add(fee))
     }
 
     fn convert_deltas(netuid: NetUid, delta_in: AlphaCurrency) -> TaoCurrency {
+        let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
+        let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let reserve_weight = SwapReserveWeight::<T>::get(netuid);
-        let alpha_reserve = T::TaoReserve::reserve(netuid);
         let e = reserve_weight.exp_base_quote(alpha_reserve.into(), delta_in.into());
         let one = U64F64::from_num(1);
-        let alpha_reserve_fixed = U64F64::from_num(u64::from(alpha_reserve));
+        let tao_reserve_fixed = U64F64::from_num(u64::from(tao_reserve));
         TaoCurrency::from(
-            alpha_reserve_fixed
+            tao_reserve_fixed
                 .saturating_mul(one.saturating_sub(e))
                 .saturating_to_num::<u64>(),
         )
@@ -216,7 +234,7 @@ where
     fn delta_in(netuid: NetUid, price_curr: U64F64, price_target: U64F64) -> PaidIn;
 
     /// Get the target price based on the input amount
-    fn price_target(delta_in: PaidIn) -> U64F64;
+    fn price_target(netuid: NetUid, delta_in: PaidIn) -> U64F64;
 
     /// Returns True if price1 is closer to the current price than price2
     /// in terms of order direction.

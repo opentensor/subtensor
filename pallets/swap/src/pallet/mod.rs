@@ -97,7 +97,7 @@ mod pallet {
 
     // /// Storage to determine whether swap V3 was initialized for a specific subnet.
     // #[pallet::storage]
-    // pub type PalSwapInitialized<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
+    // pub type SwapV3Initialized<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
 
     // /// Storage for the square root price of Alpha token for each subnet.
     // #[pallet::storage]
@@ -173,6 +173,14 @@ mod pallet {
     /// Storage to determine whether balancer swap was initialized for a specific subnet.
     #[pallet::storage]
     pub type PalSwapInitialized<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
+
+    /// Total fees in TAO per subnet due to be paid to users / protocol
+    #[pallet::storage]
+    pub type FeesTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+
+    /// Total fees in Alpha per subnet due to be paid to users / protocol
+    #[pallet::storage]
+    pub type FeesAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]

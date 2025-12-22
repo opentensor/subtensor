@@ -3,6 +3,7 @@ use frame_support::pallet_prelude::*;
 use safe_bigmath::*;
 use safe_math::*;
 use sp_arithmetic::Perquintill;
+use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
@@ -68,14 +69,14 @@ impl ReserveWeight {
         }
         let w1: u128 = self.get_base_weight().deconstruct() as u128;
         let w2: u128 = self.get_quote_weight().deconstruct() as u128;
+        let x_plus_dx = x.saturating_add(dx);
 
         let precision = 256;
         let x_safe = SafeInt::from(x);
-        let delta_safe = SafeInt::from(dx);
         let w1_safe = SafeInt::from(w1);
         let w2_safe = SafeInt::from(w2);
         let perquintill_scale = SafeInt::from(ACCURACY as u128);
-        let denominator = x_safe.clone() + delta_safe;
+        let denominator = SafeInt::from(x_plus_dx);
         let maybe_result_safe_int = if base_quote {
             SafeInt::pow_ratio_scaled(
                 &x_safe,
@@ -124,6 +125,58 @@ impl ReserveWeight {
         w1_fixed
             .safe_div(w2_fixed)
             .saturating_mul(y_fixed.safe_div(x_fixed))
+    }
+
+    /// Multiply a u128 value by a Perquintill with u128 result rounded to the
+    /// nearest integer
+    fn mul_perquintill_round(p: Perquintill, value: u128) -> u128 {
+        let parts = p.deconstruct() as u128;
+        let acc = ACCURACY as u128;
+
+        let num = U256::from(value) * U256::from(parts);
+        let den = U256::from(acc);
+
+        // add 0.5 ulp before integer division → round-to-nearest
+        let res = (num + den / U256::from(2u8)) / den;
+        res.min(U256::from(u128::MAX)).as_u128()
+    }
+
+    pub fn update_weights_for_added_liquidity(
+        &mut self,
+        tao_reserve: u64,
+        alpha_reserve: u64,
+        tao_delta: u64,
+        alpha_delta: u64,
+    ) -> Result<(), ReserveWeightError> {
+        // Calculate new to-be reserves (do not update here)
+        let tao_reserve_u128 = u64::from(tao_reserve) as u128;
+        let alpha_reserve_u128 = u64::from(alpha_reserve) as u128;
+        let tao_delta_u128 = u64::from(tao_delta) as u128;
+        let alpha_delta_u128 = u64::from(alpha_delta) as u128;
+        let new_tao_reserve_u128 = tao_reserve_u128.saturating_add(tao_delta_u128);
+        let new_alpha_reserve_u128 = alpha_reserve_u128.saturating_add(alpha_delta_u128);
+
+        // Calculate new weights
+        let quantity_1: u128 = Self::mul_perquintill_round(
+            self.get_base_weight(),
+            tao_reserve_u128.saturating_mul(new_alpha_reserve_u128),
+        );
+        let quantity_2: u128 = Self::mul_perquintill_round(
+            self.get_quote_weight(),
+            alpha_reserve_u128.saturating_mul(new_tao_reserve_u128),
+        );
+        let q_sum = quantity_1.saturating_add(quantity_2);
+
+        // Calculate new reserve weights
+        let new_reserve_weight = if q_sum != 0 {
+            // Both TAO and Alpha are non-zero, normal case
+            Perquintill::from_rational(quantity_2, q_sum)
+        } else {
+            // Either TAO or Alpha reserve were and/or remain zero => Initialize weights to 0.5
+            Perquintill::from_rational(1u128, 2u128)
+        };
+
+        self.set_quote_weight(new_reserve_weight)
     }
 
     /// Calculates quote delta needed to reach the price up when byuing
@@ -268,7 +321,10 @@ mod tests {
             Perquintill::from_rational(800_000_000_000_u128, 1_000_000_000_000_u128),
             Perquintill::from_rational(899_999_999_999_u128, 1_000_000_000_000_u128),
             Perquintill::from_rational(900_000_000_000_u128, 1_000_000_000_000_u128),
-            Perquintill::from_rational(102_337_248_363_782_924_u128, 1_000_000_000_000_000_000_u128),
+            Perquintill::from_rational(
+                102_337_248_363_782_924_u128,
+                1_000_000_000_000_000_000_u128,
+            ),
         ]
         .into_iter()
         .for_each(|w_quote| {
@@ -311,12 +367,19 @@ mod tests {
                 (1_000_u64, 100_000_000_000_000_u64, 1_000_u64),
                 (1_000_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
                 (10_u64, 100_000_000_000_000_u64, 100_000_000_000_000_u64),
-
                 // Extreme values of ∆x for small x
                 (1_000_000_000_u64, 4_000_000_000_u64, 1_000_000_000_000_u64),
                 (1_000_000_000_000_u64, 1_000_u64, 1_000_000_000_000_u64),
-                (5_628_038_062_729_553_u64, 400_775_553_u64, 14_446_633_907_665_582_u64),
-                (5_600_000_000_000_000_u64, 400_000_000_u64, 14_000_000_000_000_000_u64),
+                (
+                    5_628_038_062_729_553_u64,
+                    400_775_553_u64,
+                    14_446_633_907_665_582_u64,
+                ),
+                (
+                    5_600_000_000_000_000_u64,
+                    400_000_000_u64,
+                    14_000_000_000_000_000_u64,
+                ),
             ]
             .into_iter()
             .for_each(|(y, x, dx)| {

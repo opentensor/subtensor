@@ -109,39 +109,31 @@ impl<T: Config> Pallet<T> {
         tao_delta: TaoCurrency,
         alpha_delta: AlphaCurrency,
     ) {
-        // Get reserves and price
+        // Get reserves
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
-        let price = reserve_weight.calculate_price(alpha_reserve.into(), tao_reserve.into());
+        let mut reserve_weight = SwapReserveWeight::<T>::get(netuid);
 
-        // Calculate new to-be reserves (do not update here)
-        let new_tao_reserve =
-            U64F64::saturating_from_num(u64::from(tao_reserve.saturating_add(tao_delta)));
-        let new_alpha_reserve =
-            U64F64::saturating_from_num(u64::from(alpha_reserve.saturating_add(alpha_delta)));
-
-        // Calculate new reserve weights
-        // w2_new = (y + ∆y) / ( p•(x + ∆x) + (y + ∆y) )
-        let denominator = price
-            .saturating_mul(new_alpha_reserve)
-            .saturating_add(new_tao_reserve)
-            .saturating_to_num::<u64>();
-        if denominator != 0 {
-            // Both TAO and Alpha are non-zero, normal case
-            let maybe_new_reserve_weight = ReserveWeight::new(Perquintill::from_rational(
-                new_tao_reserve.saturating_to_num::<u64>(),
-                denominator,
-            ))
-            .map_err(|err| match err {
-                ReserveWeightError::InvalidValue => Error::<T>::ReservesOutOfBalance,
-            });
-            if let Ok(new_reserve_weight) = maybe_new_reserve_weight {
-                SwapReserveWeight::<T>::insert(netuid, new_reserve_weight);
-            }
+        // Update weights and log errors if they go out of range
+        if reserve_weight
+            .update_weights_for_added_liquidity(
+                u64::from(tao_reserve),
+                u64::from(alpha_reserve),
+                u64::from(tao_delta),
+                u64::from(alpha_delta),
+            )
+            .is_err()
+        {
+            log::error!(
+                "Reserves are out of range for emission: netuid = {}, tao = {}, alpha = {}, tao_delta = {}, alpha_delta = {}",
+                netuid,
+                tao_reserve,
+                alpha_reserve,
+                tao_delta,
+                alpha_delta
+            );
         } else {
-            // Either TAO or Alpha reserve were and/or remain zero => Initialize weights to 0.5
-            SwapReserveWeight::<T>::insert(netuid, DefaultReserveWeight::get());
+            SwapReserveWeight::<T>::insert(netuid, reserve_weight);
         }
     }
 
