@@ -215,6 +215,9 @@ impl<T: Config> Pallet<T> {
 
         Self::maybe_initialize_palswap(netuid)?;
 
+        println!("Self::current_price(netuid) = {:?}", Self::current_price(netuid));
+        println!("limit_price = {:?}", limit_price);
+
         // Because user specifies the limit price, check that it is in fact beoynd the current one
         ensure!(
             order.is_beyond_price_limit(Self::current_price(netuid), limit_price),
@@ -371,6 +374,9 @@ impl<T: Config> Pallet<T> {
 
     /// Dissolve all LPs and clean state.
     pub fn do_dissolve_all_liquidity_providers(_netuid: NetUid) -> DispatchResult {
+        // TODO: Revise when user liquidity is available
+        Ok(())
+
         // if PalSwapInitialized::<T>::get(netuid) {
         //     // 1) Snapshot only *non‑protocol* positions: (owner, position_id).
         //     struct CloseItem<A> {
@@ -485,17 +491,19 @@ impl<T: Config> Pallet<T> {
         // );
 
         // Ok(())
-
-        todo!();
     }
 
+    /// TODO: Revise when user liquidity is available
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
-    pub fn do_clear_protocol_liquidity(_netuid: NetUid) -> DispatchResult {
+    pub fn do_clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         // let protocol_account = Self::protocol_account_id();
 
-        // // 1) Force-close only protocol positions, burning proceeds.
-        // let mut burned_tao = TaoCurrency::ZERO;
-        // let mut burned_alpha = AlphaCurrency::ZERO;
+        // 1) Force-close only protocol positions, burning proceeds.
+        let burned_tao = T::TaoReserve::reserve(netuid.into());
+        let burned_alpha = T::AlphaReserve::reserve(netuid.into());
+
+        T::TaoReserve::decrease_provided(netuid.into(), burned_tao);
+        T::AlphaReserve::decrease_provided(netuid.into(), burned_alpha);
 
         // // Collect protocol position IDs first to avoid mutating while iterating.
         // let protocol_pos_ids: sp_std::vec::Vec<PositionId> = Positions::<T>::iter_prefix((netuid,))
@@ -535,34 +543,20 @@ impl<T: Config> Pallet<T> {
         //     }
         // }
 
-        // // 2) Clear active tick index entries, then all swap state (idempotent even if empty/non‑V3).
-        // let active_ticks: sp_std::vec::Vec<TickIndex> =
-        //     Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
-        // for ti in active_ticks {
-        //     ActiveTickIndexManager::<T>::remove(netuid, ti);
-        // }
+        let _ = PositionsV2::<T>::clear_prefix((netuid,), u32::MAX, None);
 
-        // let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
-        // let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
+        FeesTao::<T>::remove(netuid);
+        FeesAlpha::<T>::remove(netuid);
+        PalSwapInitialized::<T>::remove(netuid);
+        FeeRate::<T>::remove(netuid);
+        EnabledUserLiquidity::<T>::remove(netuid);
+        SwapReserveWeight::<T>::remove(netuid);
 
-        // FeeGlobalTao::<T>::remove(netuid);
-        // FeeGlobalAlpha::<T>::remove(netuid);
-        // CurrentLiquidity::<T>::remove(netuid);
-        // CurrentTick::<T>::remove(netuid);
-        // AlphaSqrtPrice::<T>::remove(netuid);
-        // PalSwapInitialized::<T>::remove(netuid);
+        log::debug!(
+            "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
+        );
 
-        // let _ = TickIndexBitmapWords::<T>::clear_prefix((netuid,), u32::MAX, None);
-        // FeeRate::<T>::remove(netuid);
-        // EnabledUserLiquidity::<T>::remove(netuid);
-
-        // log::debug!(
-        //     "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
-        // );
-
-        // Ok(())
-
-        todo!();
+        Ok(())
     }
 }
 
