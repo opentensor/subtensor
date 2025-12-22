@@ -197,7 +197,6 @@ fn test_simple() {
         assert!(has(
             "Combined Emission: [AlphaCurrency(500000000), AlphaCurrency(500000000)]"
         ));
-        assert!(has("Pruning Scores: [0.5, 0.5]"));
         assert!(!has("math error:"));
     });
 }
@@ -460,16 +459,10 @@ fn test_validators_weight_two_distinct_servers() {
         assert!(has("Weights (mask+norm): [[(3, 1), (4, 0)], [(3, 0), (4, 1)], [(3, 1), (4, 0)], [], []]"));
 
         // downstream signals present
-        assert!(has("Ranks (before): [0, 0, 0, 0.6666666665, 0.3333333333]"));
         assert!(has("Consensus: [0, 0, 0, 1, 0]"));
         assert!(has("Validator Trust: [1, 0, 1, 0, 0]"));
-        assert!(has("Ranks (after): [0, 0, 0, 0.6666666665, 0]"));
-        assert!(has("Trust: [0, 0, 0, 1, 0]"));
         assert!(has("Dividends: [0.5, 0, 0.5, 0, 0]"));
         assert!(has("Normalized Combined Emission: [0.25, 0, 0.25, 0.5, 0]"));
-        assert!(has("Pruning Scores: [0.25, 0, 0.25, 0.5, 0]"));
-
-        // math is ok
         assert!(!has("math error:"));
     });
 }
@@ -506,8 +499,6 @@ fn test_validator_splits_weight_across_two_servers() {
 
         assert!(has("validator_permits: [true, true, true, false, false]"));
         assert!(has("Weights (mask+norm): [[(3, 1), (4, 0)], [(3, 0), (4, 1)], [(3, 0.5), (4, 0.5)], [], []]"));
-        assert!(has("Ranks (before): [0, 0, 0, 0.4999999998, 0.4999999998]"));
-        assert!(has("Ranks (after): [0, 0, 0, 0.333333333, 0.333333333]"));
         assert!(has("ΔB (norm): [[(3, 0.5), (4, 0)], [(3, 0), (4, 0.5)], [(3, 0.5), (4, 0.5)], [], []]"));
         assert!(has("Dividends: [0.25, 0.25, 0.5, 0, 0]"));
         assert!(has("Normalized Combined Emission: [0.125, 0.125, 0.25, 0.25, 0.25]"));
@@ -564,8 +555,6 @@ fn epoch_mechanism_reads_weights_per_mechanism() {
         assert!(logs_m1.contains("Active Stake: [0.3333333333, 0.3333333333, 0.3333333333, 0, 0]"));
         assert!(logs_m0.contains("Weights (mask+norm): [[(3, 1)], [(4, 1)], [(3, 1)], [], []]"));
         assert!(logs_m1.contains("Weights (mask+norm): [[(4, 1)], [(3, 1)], [(4, 1)], [], []]"));
-        assert!(logs_m0.contains("Ranks (before): [0, 0, 0, 0.6666666665, 0.3333333333]"));
-        assert!(logs_m1.contains("Ranks (before): [0, 0, 0, 0.3333333333, 0.6666666665]"));
         assert!(logs_m0.contains("ΔB (norm): [[(3, 0.5)], [], [(3, 0.5)], [], []]"));
         assert!(logs_m1.contains("ΔB (norm): [[(4, 0.5)], [], [(4, 0.5)], [], []]"));
         assert!(logs_m0.contains("Normalized Combined Emission: [0.25, 0, 0.25, 0.5, 0]"));
@@ -631,7 +620,6 @@ fn epoch_mechanism_three_mechanisms_separate_state() {
 
         // Check major epoch indicators
         assert!(l0.contains("Weights (mask+norm): [[(2, 1)], [(2, 1)], [], []]"));
-        assert!(l0.contains("Ranks (before): [0, 0, 1, 0]"));
         assert!(l0.contains("ΔB (norm): [[(2, 0.5)], [(2, 0.5)], [], []]"));
         assert!(l0.contains("Normalized Combined Emission: [0.25, 0.25, 0.5, 0]"));
 
@@ -640,12 +628,10 @@ fn epoch_mechanism_three_mechanisms_separate_state() {
                 "Weights (mask+norm): [[(2, 0.5), (3, 0.5)], [(2, 0.5), (3, 0.5)], [], []]"
             )
         );
-        assert!(l1.contains("Ranks (before): [0, 0, 0.5, 0.5]"));
         assert!(l1.contains("ΔB (norm): [[(2, 0.5), (3, 0.5)], [(2, 0.5), (3, 0.5)], [], []]"));
         assert!(l1.contains("Normalized Combined Emission: [0.25, 0.25, 0.25, 0.25]"));
 
         assert!(l2.contains("Weights (mask+norm): [[(3, 1)], [(3, 1)], [], []]"));
-        assert!(l2.contains("Ranks (before): [0, 0, 0, 1]"));
         assert!(l2.contains("ΔB (norm): [[(3, 0.5)], [(3, 0.5)], [], []]"));
         assert!(l2.contains("Normalized Combined Emission: [0.25, 0.25, 0, 0.5]"));
 

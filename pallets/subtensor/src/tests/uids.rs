@@ -441,6 +441,7 @@ fn test_replace_neuron_subnet_owner_not_replaced_if_in_sn_owner_hotkey_map() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_get_neuron_to_prune_owner_not_pruned() {
     new_test_ext(1).execute_with(|| {
@@ -452,6 +453,12 @@ fn test_get_neuron_to_prune_owner_not_pruned() {
         SubtensorModule::set_max_registrations_per_block(netuid, 100);
         SubtensorModule::set_target_registrations_per_interval(netuid, 100);
         SubnetOwner::<Test>::insert(netuid, owner_coldkey);
+
+        // Ensure owner's hotkey is counted as immortal in this test
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 1);
+
+        // Neutralize safety floor for this test
+        SubtensorModule::set_min_non_immune_uids(netuid, 0);
 
         let owner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
             .expect("Owner neuron should already be registered by add_dynamic_network");
@@ -470,34 +477,25 @@ fn test_get_neuron_to_prune_owner_not_pruned() {
         let uid_2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_2)
             .expect("Should be registered");
 
-        SubtensorModule::set_pruning_score_for_uid(netuid, owner_uid, 0);
-        SubtensorModule::set_pruning_score_for_uid(netuid, uid_1, 1);
-        SubtensorModule::set_pruning_score_for_uid(netuid, uid_2, 2);
+        // Set emissions; owner has the lowest but is immortal, so choose uid_1
+        Emission::<Test>::mutate(netuid, |v| {
+            v[owner_uid as usize] = 0u64.into();
+            v[uid_1 as usize] = 1u64.into();
+            v[uid_2 as usize] = 2u64.into();
+        });
 
         let pruned_uid = SubtensorModule::get_neuron_to_prune(netuid);
 
-        // - The pruned UID must be `uid_1` (score=1).
-        // - The owner's UID remains unpruned.
+        // Expect to prune uid_1; owner's UID is skipped as immortal.
         assert_eq!(
-            pruned_uid, uid_1,
-            "Should prune the neuron with pruning score=1, not the owner (score=0)."
-        );
-
-        let pruned_score = SubtensorModule::get_pruning_score_for_uid(netuid, uid_1);
-        assert_eq!(
-            pruned_score,
-            u16::MAX,
-            "Pruned neuron's score should be set to u16::MAX"
-        );
-
-        let owner_score = SubtensorModule::get_pruning_score_for_uid(netuid, owner_uid);
-        assert_eq!(
-            owner_score, 0,
-            "Owner's pruning score remains 0, indicating it was skipped"
+            pruned_uid,
+            Some(uid_1),
+            "Should prune the neuron with the lowest emission among non-immortal candidates."
         );
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_get_neuron_to_prune_owner_pruned_if_not_in_sn_owner_hotkey_map() {
     new_test_ext(1).execute_with(|| {
@@ -511,10 +509,16 @@ fn test_get_neuron_to_prune_owner_pruned_if_not_in_sn_owner_hotkey_map() {
         SubtensorModule::set_target_registrations_per_interval(netuid, 100);
         SubnetOwner::<Test>::insert(netuid, owner_coldkey);
 
+        // Make only one owner hotkey immortal at a time
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 1);
+
+        // Neutralize safety floor for this test
+        SubtensorModule::set_min_non_immune_uids(netuid, 0);
+
         let owner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
             .expect("Owner neuron should already be registered by add_dynamic_network");
 
-        // Register another hotkey for the owner
+        // Register another hotkey for the owner (same coldkey)
         register_ok_neuron(netuid, other_owner_hotkey, owner_coldkey, 0);
         let other_owner_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey)
@@ -534,29 +538,121 @@ fn test_get_neuron_to_prune_owner_pruned_if_not_in_sn_owner_hotkey_map() {
         let uid_3 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_2)
             .expect("Should be registered");
 
-        SubtensorModule::set_pruning_score_for_uid(netuid, owner_uid, 0);
-        // Other owner key has pruning score not worse than the owner's first hotkey, but worse than the additional hotkeys
-        SubtensorModule::set_pruning_score_for_uid(netuid, other_owner_uid, 1);
-        SubtensorModule::set_pruning_score_for_uid(netuid, uid_2, 2);
-        SubtensorModule::set_pruning_score_for_uid(netuid, uid_3, 3);
+        // Case 1: With ImmuneOwnerUidsLimit = 1, the default SubnetOwnerHotkey is `owner_hotkey`.
+        //         That makes `owner_uid` immortal and leaves `other_owner_uid` pruneable.
+        // Emissions: owner=0 (immortal), other_owner=1, uid_2=2, uid_3=3 -> expect other_owner_uid
+        Emission::<Test>::mutate(netuid, |v| {
+            v[owner_uid as usize] = 0u64.into();
+            v[other_owner_uid as usize] = 1u64.into();
+            v[uid_2 as usize] = 2u64.into();
+            v[uid_3 as usize] = 3u64.into();
+        });
 
         let pruned_uid = SubtensorModule::get_neuron_to_prune(netuid);
-        assert_eq!(pruned_uid, other_owner_uid, "Should prune the owner");
+        assert_eq!(pruned_uid, Some(other_owner_uid), "Should prune the owner");
 
-        // Set the owner's other hotkey as the SubnetOwnerHotkey
+        // Case 2: Make the other owner's hotkey the SubnetOwnerHotkey, so it becomes the prioritized
+        //         immortal one; now `owner_uid` is not immortal and has the lowest emission -> prune it.
         SubnetOwnerHotkey::<Test>::insert(netuid, other_owner_hotkey);
 
-        // Reset pruning scores
-        SubtensorModule::set_pruning_score_for_uid(netuid, owner_uid, 0);
-        SubtensorModule::set_pruning_score_for_uid(netuid, other_owner_uid, 1);
-        SubtensorModule::set_pruning_score_for_uid(netuid, uid_2, 2);
-        SubtensorModule::set_pruning_score_for_uid(netuid, uid_3, 3);
-
+        // Emissions remain the same; `owner_uid` now becomes the lowest non-immortal candidate.
         let pruned_uid = SubtensorModule::get_neuron_to_prune(netuid);
-
         assert_eq!(
-            pruned_uid, owner_uid,
+            pruned_uid,
+            Some(owner_uid),
             "Should prune the owner, not the top-stake owner hotkey and not the additional hotkeys"
         );
+    });
+}
+
+#[test]
+fn test_prune_respects_min_non_immune_floor_prefers_immune() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(2);
+        add_network(netuid, 10_000, 0);
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 0);
+
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 1024);
+        SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
+
+        let immunity_period: u64 = 1000;
+        SubtensorModule::set_immunity_period(netuid, immunity_period as u16);
+
+        // Register three neurons, each in its own block so the per‑block counter resets.
+        for i in 0..3 {
+            register_ok_neuron(netuid, U256::from(10_000 + i), U256::from(20_000 + i), 0);
+            step_block(1);
+        }
+
+        // Jump block height forward past immunity for the first 3, without iterating 1000 blocks.
+        let target = frame_system::Pallet::<Test>::block_number() + immunity_period + 5;
+        frame_system::Pallet::<Test>::set_block_number(target - 1);
+        step_block(1);
+
+        // Register a 4th neuron now — it will be immune.
+        register_ok_neuron(netuid, U256::from(99_999), U256::from(88_888), 0);
+
+        SubtensorModule::set_min_non_immune_uids(netuid, 3);
+
+        // With floor in place (3 non‑immune + 1 immune), we must prune the immune candidate (uid = 3).
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(3));
+    });
+}
+
+#[test]
+fn test_prune_tie_breakers_non_immune_emission_block_uid() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(3);
+        add_network(netuid, 1, 0);
+
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 0);
+        SubtensorModule::set_immunity_period(netuid, 0);
+
+        // Register 3 neurons; registration blocks ascend (0,1,2).
+        for i in 0..3 {
+            register_ok_neuron(netuid, U256::from(30_000 + i), U256::from(40_000 + i), 0);
+            step_block(1);
+        }
+
+        // Allow pruning of non-immune.
+        SubtensorModule::set_min_non_immune_uids(netuid, 0);
+
+        // Equalize emissions across all 3.
+        Emission::<Test>::mutate(netuid, |v| {
+            for e in v.iter_mut() {
+                *e = 10u64.into();
+            }
+        });
+
+        // Since emission ties, the earliest registration (uid=0) should be pruned.
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(0));
+    });
+}
+
+#[test]
+fn test_prune_all_owner_immortal_returns_none() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(4);
+
+        let owner_ck = U256::from(7777);
+        let owner_hk_0 = U256::from(9001);
+        let owner_hk_1 = U256::from(9002);
+        let owner_hk_2 = U256::from(9003);
+
+        add_network(netuid, 1, 0);
+        SubnetOwner::<Test>::insert(netuid, owner_ck);
+
+        register_ok_neuron(netuid, owner_hk_0, owner_ck, 0);
+        register_ok_neuron(netuid, owner_hk_1, owner_ck, 0);
+        register_ok_neuron(netuid, owner_hk_2, owner_ck, 0);
+
+        Owner::<Test>::insert(owner_hk_0, owner_ck);
+        Owner::<Test>::insert(owner_hk_1, owner_ck);
+        Owner::<Test>::insert(owner_hk_2, owner_ck);
+        OwnedHotkeys::<Test>::insert(owner_ck, vec![owner_hk_0, owner_hk_1, owner_hk_2]);
+
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 10);
+
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), None);
     });
 }

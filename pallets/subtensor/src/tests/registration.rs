@@ -607,6 +607,7 @@ fn test_burn_adjustment() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_burn_registration_pruning_scenarios() {
     new_test_ext(1).execute_with(|| {
@@ -619,6 +620,9 @@ fn test_burn_registration_pruning_scenarios() {
 
         const IS_IMMUNE: bool = true;
         const NOT_IMMUNE: bool = false;
+
+        // --- Neutralize the safety floor for this test.
+        SubtensorModule::set_min_non_immune_uids(netuid, 0);
 
         // Initial setup
         SubtensorModule::set_burn(netuid, burn_cost.into());
@@ -634,7 +638,7 @@ fn test_burn_registration_pruning_scenarios() {
         let mint_balance = burn_cost * max_allowed_uids as u64 + 1_000_000_000;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, mint_balance);
 
-        // Register first half of neurons
+        // Register first half of neurons (uids: 0,1,2); all will be immune initially.
         for i in 0..3 {
             assert_ok!(SubtensorModule::burned_register(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -644,51 +648,49 @@ fn test_burn_registration_pruning_scenarios() {
             step_block(1);
         }
 
-        // Note: pruning score is set to u16::MAX after getting neuron to prune
-
-        // 1. Test if all immune neurons
+        // 1) All immune neurons
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), IS_IMMUNE);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), IS_IMMUNE);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), IS_IMMUNE);
 
-        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 75);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 50);
+        // Drive selection with emissions: lowest emission is pruned (among immune if all immune).
+        // Set: uid0=100, uid1=75, uid2=50 -> expect uid2
+        Emission::<Test>::mutate(netuid, |v| {
+            v[0] = 100u64.into();
+            v[1] = 75u64.into();
+            v[2] = 50u64.into();
+        });
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(2));
 
-        // The immune neuron with the lowest score should be pruned
-        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 2);
+        // 2) Tie-breaking for immune neurons: uid1=50, uid2=50 -> earliest registration among {1,2} is uid1
+        Emission::<Test>::mutate(netuid, |v| {
+            v[1] = 50u64.into();
+            v[2] = 50u64.into();
+        });
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(1));
 
-        // 2. Test tie-breaking for immune neurons
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 50);
-
-        // Should get the oldest neuron (i.e., neuron that was registered first)
-        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 1);
-
-        // 3. Test if no immune neurons
+        // 3) Make all three non-immune
         step_block(immunity_period);
-
-        // ensure all neurons are non-immune
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), NOT_IMMUNE);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), NOT_IMMUNE);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), NOT_IMMUNE);
 
-        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 75);
+        // Among non-immune, choose lowest emission: set uid0=100, uid1=50, uid2=75 -> expect uid1
+        Emission::<Test>::mutate(netuid, |v| {
+            v[0] = 100u64.into();
+            v[1] = 50u64.into();
+            v[2] = 75u64.into();
+        });
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(1));
 
-        // The non-immune neuron with the lowest score should be pruned
-        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 1);
+        // 4) Non-immune tie-breaking: uid1=50, uid2=50 -> earliest registration among {1,2} is uid1
+        Emission::<Test>::mutate(netuid, |v| {
+            v[1] = 50u64.into();
+            v[2] = 50u64.into();
+        });
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(1));
 
-        // 4. Test tie-breaking for non-immune neurons
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 50);
-
-        // Should get the oldest non-immune neuron
-        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 1);
-
-        // 5. Test mixed immunity
-        // Register second batch of neurons (these will be non-immune)
+        // 5) Mixed immunity: register another 3 immune neurons (uids: 3,4,5)
         for i in 3..6 {
             assert_ok!(SubtensorModule::burned_register(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -698,31 +700,37 @@ fn test_burn_registration_pruning_scenarios() {
             step_block(1);
         }
 
-        // Ensure all new neurons are immune
+        // Ensure new neurons are immune
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 3), IS_IMMUNE);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 4), IS_IMMUNE);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 5), IS_IMMUNE);
 
-        // Set pruning scores for all neurons
-        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 75); // non-immune
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50); // non-immune
-        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 60); // non-immune
-        SubtensorModule::set_pruning_score_for_uid(netuid, 3, 40); // immune
-        SubtensorModule::set_pruning_score_for_uid(netuid, 4, 55); // immune
-        SubtensorModule::set_pruning_score_for_uid(netuid, 5, 45); // immune
+        // Set emissions:
+        // non-immune (0..2): [75, 50, 60]  -> lowest among non-immune is uid1
+        // immune (3..5):    [40, 55, 45]  -> ignored while a non-immune exists
+        Emission::<Test>::mutate(netuid, |v| {
+            v[0] = 75u64.into();
+            v[1] = 50u64.into();
+            v[2] = 60u64.into();
+            v[3] = 40u64.into();
+            v[4] = 55u64.into();
+            v[5] = 45u64.into();
+        });
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(1));
 
-        // The non-immune neuron with the lowest score should be pruned
-        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 1);
+        // Remove lowest non-immune by making uid1 emission very high -> next lowest non-immune is uid2
+        Emission::<Test>::mutate(netuid, |v| {
+            v[1] = 10_000u64.into();
+        });
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(2));
 
-        // If we remove the lowest non-immune neuron, it should choose the next lowest non-immune
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, u16::MAX);
-        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 2);
-
-        // If we make all non-immune neurons have high scores, it should choose the oldest non-immune neuron
-        SubtensorModule::set_pruning_score_for_uid(netuid, 0, u16::MAX);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, u16::MAX);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 2, u16::MAX);
-        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 0);
+        // If all non-immune are equally high, choose the oldest non-immune -> uid0
+        Emission::<Test>::mutate(netuid, |v| {
+            v[0] = 10_000u64.into();
+            v[1] = 10_000u64.into();
+            v[2] = 10_000u64.into();
+        });
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(0));
     });
 }
 
@@ -1286,53 +1294,76 @@ fn test_registration_failed_no_signature() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_registration_get_uid_to_prune_all_in_immunity_period() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
-        log::info!("add network");
+
+        // Neutralize safety floor and owner-immortality for deterministic selection
+        SubtensorModule::set_min_non_immune_uids(netuid, 0);
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 0);
+        // Make sure the subnet owner is not one of the test coldkeys
+        SubnetOwner::<Test>::insert(netuid, U256::from(999_999u64));
+
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 110);
+
         SubtensorModule::set_immunity_period(netuid, 2);
-        assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 0), 100);
-        assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 1), 110);
         assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
         assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
         assert_eq!(
             SubtensorModule::get_neuron_block_at_registration(netuid, 0),
             0
         );
-        assert_eq!(SubtensorModule::get_neuron_to_prune(NetUid::ROOT), 0);
+
+        // Both immune; prune lowest emission among immune (uid0=100, uid1=110 => uid0)
+        Emission::<Test>::mutate(netuid, |v| {
+            v[0] = 100u64.into();
+            v[1] = 110u64.into();
+        });
+
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(0));
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn test_registration_get_uid_to_prune_none_in_immunity_period() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
-        log::info!("add network");
+
+        // Neutralize safety floor and owner-immortality for deterministic selection
+        SubtensorModule::set_min_non_immune_uids(netuid, 0);
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 0);
+        SubnetOwner::<Test>::insert(netuid, U256::from(999_999u64));
+
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 110);
+
         SubtensorModule::set_immunity_period(netuid, 2);
-        assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 0), 100);
-        assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 1), 110);
         assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
         assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
         assert_eq!(
             SubtensorModule::get_neuron_block_at_registration(netuid, 0),
             0
         );
+
+        // Advance beyond immunity -> both non-immune
         step_block(3);
         assert_eq!(SubtensorModule::get_current_block_as_u64(), 3);
-        assert_eq!(SubtensorModule::get_neuron_to_prune(NetUid::ROOT), 0);
+
+        // Among non-immune, lowest emission pruned: uid0=100, uid1=110 -> expect uid0
+        Emission::<Test>::mutate(netuid, |v| {
+            v[0] = 100u64.into();
+            v[1] = 110u64.into();
+        });
+
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), Some(0));
     });
 }
 
@@ -1341,11 +1372,9 @@ fn test_registration_get_uid_to_prune_none_in_immunity_period() {
 fn test_registration_get_uid_to_prune_owner_immortality() {
     new_test_ext(1).execute_with(|| {
         [
-            // Burn key limit to 1 - testing the limits
-            // Other owner's hotkey is pruned because there's only 1 immune key and
-            // pruning score of owner key is lower
+            // Limit = 1: only the earliest owner hotkey is immortal -> prune the other owner hotkey (uid 1)
             (1, 1),
-            // Burn key limit to 2 - both owner keys are immune
+            // Limit = 2: both owner hotkeys are immortal -> prune the non-owner (uid 2)
             (2, 2),
         ]
         .iter()
@@ -1362,6 +1391,7 @@ fn test_registration_get_uid_to_prune_owner_immortality() {
             let non_owner_hk = U256::from(3);
 
             let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+            // Make sure registration blocks are set
             BlockAtRegistration::<Test>::insert(netuid, 1, 1);
             BlockAtRegistration::<Test>::insert(netuid, 2, 2);
             Uids::<Test>::insert(netuid, other_owner_hk, 1);
@@ -1371,14 +1401,25 @@ fn test_registration_get_uid_to_prune_owner_immortality() {
             ImmunityPeriod::<Test>::insert(netuid, 1);
             SubnetworkN::<Test>::insert(netuid, 3);
 
-            step_block(10);
+            // Neutralize safety floor for this test
+            SubtensorModule::set_min_non_immune_uids(netuid, 0);
 
+            step_block(10); // all non-immune
+
+            // Configure the number of immortal owner UIDs
             ImmuneOwnerUidsLimit::<Test>::insert(netuid, *limit);
 
-            // Set lower pruning score to sn owner keys
-            PruningScores::<Test>::insert(netuid, vec![0, 0, 1]);
+            // Drive selection by emissions (lowest first)
+            // uid0=0, uid1=0, uid2=1
+            Emission::<Test>::insert(
+                netuid,
+                vec![AlphaCurrency::from(0), 0u64.into(), 1u64.into()],
+            );
 
-            assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), *uid_to_prune);
+            assert_eq!(
+                SubtensorModule::get_neuron_to_prune(netuid),
+                Some(*uid_to_prune)
+            );
         });
     });
 }
@@ -1411,90 +1452,23 @@ fn test_registration_get_uid_to_prune_owner_immortality_all_immune() {
         ImmunityPeriod::<Test>::insert(netuid, 100);
         SubnetworkN::<Test>::insert(netuid, 3);
 
-        step_block(20);
+        // Neutralize safety floor for this test
+        SubtensorModule::set_min_non_immune_uids(netuid, 0);
+
+        step_block(20); // all still immune
 
         ImmuneOwnerUidsLimit::<Test>::insert(netuid, limit);
 
-        // Set lower pruning score to sn owner keys
-        PruningScores::<Test>::insert(netuid, vec![0, 0, 1]);
-
-        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), uid_to_prune);
-    });
-}
-
-#[test]
-fn test_registration_pruning() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let block_number: u64 = 0;
-        let tempo: u16 = 13;
-        let hotkey_account_id = U256::from(1);
-        let coldkey_account_id = U256::from(667);
-        let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        // Lowest emission among non-immortal candidates -> uid2
+        Emission::<Test>::insert(
             netuid,
-            block_number,
-            3942084,
-            &hotkey_account_id,
+            vec![AlphaCurrency::from(0), 0u64.into(), 1u64.into()],
         );
 
-        //add network
-        add_network(netuid, tempo, 0);
-
-        assert_ok!(SubtensorModule::register(
-            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
-            netuid,
-            block_number,
-            nonce0,
-            work0,
-            hotkey_account_id,
-            coldkey_account_id
-        ));
-        //
-        let neuron_uid =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
-        SubtensorModule::set_pruning_score_for_uid(netuid, neuron_uid, 2);
-        //
-        let hotkey_account_id1 = U256::from(2);
-        let coldkey_account_id1 = U256::from(668);
-        let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-            netuid,
-            block_number,
-            11231312312,
-            &hotkey_account_id1,
+        assert_eq!(
+            SubtensorModule::get_neuron_to_prune(netuid),
+            Some(uid_to_prune)
         );
-
-        assert_ok!(SubtensorModule::register(
-            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id1),
-            netuid,
-            block_number,
-            nonce1,
-            work1,
-            hotkey_account_id1,
-            coldkey_account_id1
-        ));
-        //
-        let neuron_uid1 =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id1).unwrap();
-        SubtensorModule::set_pruning_score_for_uid(netuid, neuron_uid1, 3);
-        //
-        let hotkey_account_id2 = U256::from(3);
-        let coldkey_account_id2 = U256::from(669);
-        let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-            netuid,
-            block_number,
-            212312414,
-            &hotkey_account_id2,
-        );
-
-        assert_ok!(SubtensorModule::register(
-            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id2),
-            netuid,
-            block_number,
-            nonce2,
-            work2,
-            hotkey_account_id2,
-            coldkey_account_id2
-        ));
     });
 }
 
@@ -2184,6 +2158,130 @@ fn test_last_update_correctness() {
         assert_eq!(
             LastUpdate::<Test>::get(NetUidStorageIndex::from(netuid)).len(),
             (existing_neurons + 1) as usize
+        );
+    });
+}
+
+#[allow(clippy::indexing_slicing)]
+#[test]
+fn test_registration_pruning() {
+    new_test_ext(1).execute_with(|| {
+        // --- Setup a simple non-root subnet.
+        let netuid = NetUid::from(5);
+        add_network(netuid, 10_000, 0);
+
+        // No owner-based immortality: we want to test time-based immunity only.
+        ImmuneOwnerUidsLimit::<Test>::insert(netuid, 0);
+
+        // Allow registrations freely.
+        MaxRegistrationsPerBlock::<Test>::insert(netuid, 1024);
+        SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
+
+        // Cap the subnet at 3 UIDs so the 4th registration *must* prune.
+        SubtensorModule::set_max_allowed_uids(netuid, 3);
+
+        // --- Register three neurons (uids 0, 1, 2).
+        let coldkeys = [U256::from(20_001), U256::from(20_002), U256::from(20_003)];
+        let hotkeys = [U256::from(30_001), U256::from(30_002), U256::from(30_003)];
+
+        for i in 0..3 {
+            register_ok_neuron(netuid, hotkeys[i], coldkeys[i], 0);
+        }
+
+        // Sanity: ensure we got sequential UIDs.
+        let uid0 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkeys[0]).unwrap();
+        let uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkeys[1]).unwrap();
+        let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkeys[2]).unwrap();
+
+        assert_eq!(uid0, 0);
+        assert_eq!(uid1, 1);
+        assert_eq!(uid2, 2);
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
+
+        // --- Craft immunity and tie‑breaking conditions.
+
+        // Fixed "current" block.
+        let now: u64 = 1_000;
+        frame_system::Pallet::<Test>::set_block_number(now);
+
+        // Immunity lasts 100 blocks.
+        SubtensorModule::set_immunity_period(netuid, 100);
+
+        // Registration blocks:
+        //  - uid0: now - 150  -> non‑immune
+        //  - uid1: now - 200  -> non‑immune (older than uid0)
+        //  - uid2: now - 10   -> immune
+        BlockAtRegistration::<Test>::insert(netuid, uid0, now - 150);
+        BlockAtRegistration::<Test>::insert(netuid, uid1, now - 200);
+        BlockAtRegistration::<Test>::insert(netuid, uid2, now - 10);
+
+        // Check immunity flags: the 3rd neuron is immune, the first two are not.
+        assert!(!SubtensorModule::get_neuron_is_immune(netuid, uid0));
+        assert!(!SubtensorModule::get_neuron_is_immune(netuid, uid1));
+        assert!(SubtensorModule::get_neuron_is_immune(netuid, uid2));
+
+        // Emissions:
+        //  - uid0: 10
+        //  - uid1: 10  (same emission as uid0)
+        //  - uid2: 1   (better emission, but immune)
+        //
+        // Among *non‑immune* neurons, emission ties -> break on reg_block:
+        // uid1 registered earlier (now-200 < now-150), so uid1 should be pruned.
+        // The immune uid2 should **not** be chosen even though it has lower emission.
+        Emission::<Test>::mutate(netuid, |v| {
+            v[uid0 as usize] = 10u64.into();
+            v[uid1 as usize] = 10u64.into();
+            v[uid2 as usize] = 1u64.into();
+        });
+
+        // Allow pruning of any non‑immune UID (no safety floor).
+        SubtensorModule::set_min_non_immune_uids(netuid, 0);
+
+        // Check that pruning decision respects:
+        //  1. Prefer non‑immune over immune.
+        //  2. Then lowest emission.
+        //  3. Then earliest registration block.
+        //  4. Then uid (not needed here).
+        assert_eq!(
+            SubtensorModule::get_neuron_to_prune(netuid),
+            Some(uid1),
+            "Expected pruning to choose the oldest non‑immune neuron \
+             when emissions tie, even if an immune neuron has lower emission"
+        );
+
+        // --- Now actually perform a registration that forces pruning.
+
+        let new_hotkey = U256::from(40_000);
+        let new_coldkey = U256::from(50_000);
+
+        // This should internally call do_burned_registration -> register_neuron,
+        // which must reuse the UID returned by get_neuron_to_prune (uid1).
+        register_ok_neuron(netuid, new_hotkey, new_coldkey, 0);
+
+        // Still capped at 3 UIDs.
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
+
+        // Old uid1 hotkey should be gone.
+        assert!(
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkeys[1]).is_err(),
+            "Hotkey for pruned UID should no longer be registered"
+        );
+
+        // New hotkey should reuse uid1 (the pruned slot).
+        let new_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &new_hotkey).unwrap();
+        assert_eq!(
+            new_uid, uid1,
+            "New registration should reuse the UID selected by get_neuron_to_prune"
+        );
+
+        // The other two original neurons (uid0 and uid2) must remain registered.
+        assert_eq!(
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkeys[0]).unwrap(),
+            uid0
+        );
+        assert_eq!(
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkeys[2]).unwrap(),
+            uid2
         );
     });
 }
