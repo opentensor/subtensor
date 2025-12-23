@@ -368,6 +368,10 @@ fn dissolve_clears_all_per_subnet_storages() {
         SubnetTaoProvided::<Test>::insert(net, TaoCurrency::from(1));
         SubnetAlphaInProvided::<Test>::insert(net, AlphaCurrency::from(1));
 
+        // TAO Flow
+        SubnetTaoFlow::<Test>::insert(net, 0i64);
+        SubnetEmaTaoFlow::<Test>::insert(net, (0u64, substrate_fixed::types::I64F64::from_num(0)));
+
         // Subnet locks
         TransferToggle::<Test>::insert(net, true);
         SubnetLocked::<Test>::insert(net, TaoCurrency::from(1));
@@ -499,6 +503,10 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!SubnetAlphaOutEmission::<Test>::contains_key(net));
         assert!(!SubnetTaoInEmission::<Test>::contains_key(net));
         assert!(!SubnetVolume::<Test>::contains_key(net));
+
+        // TAO Flow
+        assert!(!SubnetTaoFlow::<Test>::contains_key(net));
+        assert!(!SubnetEmaTaoFlow::<Test>::contains_key(net));
 
         // These are now REMOVED
         assert!(!SubnetAlphaIn::<Test>::contains_key(net));
@@ -1930,8 +1938,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
 
         // Capture **pair‑level** α snapshot per net (pre‑LP).
         for ((hot, cold, net), amt) in Alpha::<Test>::iter() {
-            if let Some(&ni) = net_index.get(&net) {
-                if lp_sets_per_net[ni].contains(&cold) {
+            if let Some(&ni) = net_index.get(&net)
+                && lp_sets_per_net[ni].contains(&cold) {
                     let a: u128 = amt.saturating_to_num();
                     if a > 0 {
                         alpha_pairs_per_net
@@ -1940,7 +1948,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                             .push(((hot, cold), a));
                     }
                 }
-            }
         }
 
         // ────────────────────────────────────────────────────────────────────

@@ -730,10 +730,10 @@ impl<T: Config> Pallet<T> {
             // ---------- v3 ------------------------------------------------------
             for (_epoch, q) in TimelockedWeightCommits::<T>::iter_prefix(netuid_index) {
                 for (who, cb, ..) in q.iter() {
-                    if !Self::is_commit_expired(netuid, *cb) {
-                        if let Some(cell) = uid_of(who).and_then(|i| commit_blocks.get_mut(i)) {
-                            *cell = (*cell).min(*cb);
-                        }
+                    if !Self::is_commit_expired(netuid, *cb)
+                        && let Some(cell) = uid_of(who).and_then(|i| commit_blocks.get_mut(i))
+                    {
+                        *cell = (*cell).min(*cb);
                     }
                 }
             }
@@ -1477,7 +1477,7 @@ impl<T: Config> Pallet<T> {
 
         // sigmoid = 1. / (1. + e^(-steepness * (combined_diff - 0.5)))
         let sigmoid = one.saturating_div(
-            one.saturating_add(safe_exp(
+            one.saturating_add(exp_safe(
                 alpha_sigmoid_steepness
                     .saturating_div(I32F32::from_num(-100))
                     .saturating_mul(combined_diff.saturating_sub(I32F32::from_num(0.5))),

@@ -38,7 +38,7 @@ jobs:
       - name: Install Rust Nightly
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           components: rustfmt
 
       - name: Utilize Shared Rust Cache
@@ -48,7 +48,22 @@ jobs:
           cache-on-failure: true
 
       - name: cargo fmt
-        run: cargo +nightly fmt --check --all
+        run: |
+          set -euo pipefail
+          # Run cargo fmt and capture both stdout and stderr
+          output=$(cargo fmt --check --all 2>&1) || {
+            echo "❌ cargo fmt failed with non-zero exit code"
+            echo "$output"
+            exit 1
+          }
+          # Check for panic/ICE messages even if exit code was 0
+          if echo "$output" | grep -qiE "(the compiler unexpectedly panicked|panicked at|Internal Compiler Error|ICE|error: the compiler unexpectedly panicked)"; then
+            echo "❌ rustfmt panicked (ICE detected) - this should fail the build"
+            echo "$output"
+            exit 1
+          fi
+          echo "$output"
+          echo "✅ cargo fmt completed successfully"
 
   cargo-clippy-default-features:
     name: cargo clippy
