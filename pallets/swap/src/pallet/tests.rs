@@ -1917,9 +1917,9 @@ fn test_swap_subtoken_disabled() {
 //     });
 // }
 
+// TODO: Revise when user liquidity is available
 // Non‑palswap path: PalSwap not initialized (no positions, no map values); function 
 // must still clear any residual storages and succeed.
-// TODO: Revise when user liquidity is available
 // #[test]
 // fn test_liquidate_pal_uninitialized_ok_and_clears() {
 //     new_test_ext().execute_with(|| {
@@ -2512,88 +2512,68 @@ fn test_liquidate_pal_simple_ok_and_clears() {
 //     });
 // }
 
+// TODO: Revise when user liquidity is available
 #[test]
 fn test_clear_protocol_liquidity_green_path() {
-    todo!();
+    new_test_ext().execute_with(|| {
+        // --- Arrange ---
+        let netuid = NetUid::from(1);
 
-    // new_test_ext().execute_with(|| {
-    //     // --- Arrange ---
-    //     let netuid = NetUid::from(55);
+        // Ensure the "user liquidity enabled" flag exists so we can verify it's removed later.
+        EnabledUserLiquidity::<Test>::insert(netuid, true);
 
-    //     // Ensure the "user liquidity enabled" flag exists so we can verify it's removed later.
-    //     assert_ok!(Pallet::<Test>::toggle_user_liquidity(
-    //         RuntimeOrigin::root(),
-    //         netuid,
-    //         true
-    //     ));
+        // Initialize swap state
+        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+        assert!(
+            PalSwapInitialized::<Test>::get(netuid),
+            "Swap must be initialized"
+        );
 
-    //     // Initialize V3 state; this should set price/tick flags and create a protocol position.
-    //     assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
-    //     assert!(
-    //         PalSwapInitialized::<Test>::get(netuid),
-    //         "V3 must be initialized"
-    //     );
+        // Sanity: protocol positions exist before clearing.
+        // TODO: Revise when user liquidity is available
+        // let protocol_id = Pallet::<Test>::protocol_account_id();
+        // let prot_positions_before =
+        //     Positions::<Test>::iter_prefix_values((netuid, protocol_id)).collect::<Vec<_>>();
+        // assert!(
+        //     !prot_positions_before.is_empty(),
+        //     "protocol positions should exist after V3 init"
+        // );
 
-    //     // Sanity: protocol positions exist before clearing.
-    //     let protocol_id = Pallet::<Test>::protocol_account_id();
-    //     let prot_positions_before =
-    //         Positions::<Test>::iter_prefix_values((netuid, protocol_id)).collect::<Vec<_>>();
-    //     assert!(
-    //         !prot_positions_before.is_empty(),
-    //         "protocol positions should exist after V3 init"
-    //     );
+        // --- Act ---
+        // Green path: just clear protocol liquidity and wipe all V3 state.
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
 
-    //     // --- Act ---
-    //     // Green path: just clear protocol liquidity and wipe all V3 state.
-    //     assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        // --- Assert: all protocol positions removed ---
+        // TODO: Revise when user liquidity is available
+        // let prot_positions_after =
+        //     Positions::<Test>::iter_prefix_values((netuid, protocol_id)).collect::<Vec<_>>();
+        // assert!(
+        //     prot_positions_after.is_empty(),
+        //     "protocol positions must be removed by do_clear_protocol_liquidity"
+        // );
 
-    //     // --- Assert: all protocol positions removed ---
-    //     let prot_positions_after =
-    //         Positions::<Test>::iter_prefix_values((netuid, protocol_id)).collect::<Vec<_>>();
-    //     assert!(
-    //         prot_positions_after.is_empty(),
-    //         "protocol positions must be removed by do_clear_protocol_liquidity"
-    //     );
+        // --- Assert: Swap data wiped (idempotent even if some maps were empty) ---
 
-    //     // --- Assert: V3 data wiped (idempotent even if some maps were empty) ---
-    //     // Ticks / active tick bitmap
-    //     assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
-    //     assert!(
-    //         TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
-    //             .next()
-    //             .is_none(),
-    //         "active tick bitmap words must be cleared"
-    //     );
+        // Fee globals
+        assert!(!FeesTao::<Test>::contains_key(netuid));
+        assert!(!FeesAlpha::<Test>::contains_key(netuid));
 
-    //     // Fee globals
-    //     assert!(!FeeGlobalTao::<Test>::contains_key(netuid));
-    //     assert!(!FeeGlobalAlpha::<Test>::contains_key(netuid));
+        // Flags
+        assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
 
-    //     // Price / tick / liquidity / flags
-    //     assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
-    //     assert!(!CurrentTick::<Test>::contains_key(netuid));
-    //     assert!(!CurrentLiquidity::<Test>::contains_key(netuid));
-    //     assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
+        // Knobs removed
+        assert!(!FeeRate::<Test>::contains_key(netuid));
+        assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
 
-    //     // Knobs removed
-    //     assert!(!FeeRate::<Test>::contains_key(netuid));
-    //     assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
-
-    //     // --- And it's idempotent ---
-    //     assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
-    //     assert!(
-    //         Positions::<Test>::iter_prefix_values((netuid, protocol_id))
-    //             .next()
-    //             .is_none()
-    //     );
-    //     assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
-    //     assert!(
-    //         TickIndexBitmapWords::<Test>::iter_prefix((netuid,))
-    //             .next()
-    //             .is_none()
-    //     );
-    //     assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
-    // });
+        // --- And it's idempotent ---
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        // assert!(
+        //     PositionsV2::<Test>::iter_prefix_values((netuid, protocol_id))
+        //         .next()
+        //         .is_none()
+        // );
+        assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
+    });
 }
 
 #[allow(dead_code)]

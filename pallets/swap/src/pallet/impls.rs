@@ -100,6 +100,8 @@ impl<T: Config> Pallet<T> {
 
         // Positions::<T>::insert(&(netuid, protocol_account_id, position.id), position);
 
+        PalSwapInitialized::<T>::insert(netuid, true);
+
         Ok(())
     }
 
