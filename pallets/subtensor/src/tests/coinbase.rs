@@ -222,20 +222,8 @@ fn test_coinbase_tao_issuance_different_prices() {
         mock::setup_reserves(netuid2, initial_tao.into(), initial_alpha2.into());
 
         // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(
-            netuid1,
-            TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
-            false,
-        )
-        .unwrap();
-        SubtensorModule::swap_tao_for_alpha(
-            netuid2,
-            TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
-            false,
-        )
-        .unwrap();
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid1);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid2);
 
         // Make subnets dynamic.
         SubnetMechanism::<Test>::insert(netuid1, 1);
@@ -298,20 +286,8 @@ fn test_coinbase_tao_issuance_different_prices() {
 //         mock::setup_reserves(netuid2, initial_tao.into(), initial_alpha2.into());
 
 //         // Force the swap to initialize
-//         SubtensorModule::swap_tao_for_alpha(
-//             netuid1,
-//             TaoCurrency::ZERO,
-//             1_000_000_000_000.into(),
-//             false,
-//         )
-//         .unwrap();
-//         SubtensorModule::swap_tao_for_alpha(
-//             netuid2,
-//             TaoCurrency::ZERO,
-//             1_000_000_000_000.into(),
-//             false,
-//         )
-//         .unwrap();
+//         <Test as pallet::Config>::SwapInterface::init_swap(netuid1);
+//         <Test as pallet::Config>::SwapInterface::init_swap(netuid2);
 
 //         // Set subnet prices to reversed proportion to ensure they don't affect emissions.
 //         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(2));
@@ -616,20 +592,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
 
         // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(
-            netuid1,
-            TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
-            false,
-        )
-        .unwrap();
-        SubtensorModule::swap_tao_for_alpha(
-            netuid2,
-            TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
-            false,
-        )
-        .unwrap();
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid1);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid2);
 
         // Get the prices before the run_coinbase
         let price_1_before = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
@@ -2743,13 +2707,7 @@ fn test_coinbase_v3_liquidity_update() {
     //     let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
     //     // Force the swap to initialize
-    //     SubtensorModule::swap_tao_for_alpha(
-    //         netuid,
-    //         TaoCurrency::ZERO,
-    //         1_000_000_000_000.into(),
-    //         false,
-    //     )
-    //     .unwrap();
+    //     <Test as pallet::Config>::SwapInterface::init_swap(netuid);
 
     //     let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
     //     let position = pallet_subtensor_swap::Positions::<Test>::get((

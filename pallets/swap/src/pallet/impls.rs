@@ -697,4 +697,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
     }
+    fn init_swap(netuid: NetUid) {
+        Self::maybe_initialize_palswap(netuid).unwrap_or_default();
+    }
 }

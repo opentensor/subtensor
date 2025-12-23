@@ -573,13 +573,7 @@ fn test_add_stake_partial_below_min_stake_fails() {
         mock::setup_reserves(netuid, (amount * 10).into(), (amount * 10).into());
 
         // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
-            false,
-        )
-        .unwrap();
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid);
 
         // Get the current price (should be 1.0)
         let current_price =
@@ -2883,13 +2877,7 @@ fn test_max_amount_add_dynamic() {
             SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
             // Force the swap to initialize
-            SubtensorModule::swap_tao_for_alpha(
-                netuid,
-                TaoCurrency::ZERO,
-                1_000_000_000_000.into(),
-                false,
-            )
-            .unwrap();
+            <Test as pallet::Config>::SwapInterface::init_swap(netuid);
 
             if !alpha_in.is_zero() {
                 let expected_price = U96F32::from_num(tao_in) / U96F32::from_num(alpha_in);
@@ -5373,13 +5361,7 @@ fn test_large_swap() {
     //     pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
 
     //     // Force the swap to initialize
-    //     SubtensorModule::swap_tao_for_alpha(
-    //         netuid,
-    //         TaoCurrency::ZERO,
-    //         1_000_000_000_000.into(),
-    //         false,
-    //     )
-    //     .unwrap();
+    //     <Test as pallet::Config>::SwapInterface::init_swap(netuid);
 
     //     setup_positions(netuid.into());
 
