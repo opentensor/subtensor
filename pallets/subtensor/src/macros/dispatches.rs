@@ -2381,6 +2381,7 @@ mod dispatches {
                 let new_when = when.saturating_add(reannouncement_delay);
                 ensure!(now >= new_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
             } else {
+                // Only charge the swap cost on the first announcement
                 let swap_cost = Self::get_key_swap_cost();
                 Self::charge_swap_cost(&who, swap_cost)?;
             }

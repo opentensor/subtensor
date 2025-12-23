@@ -119,7 +119,8 @@ where
         if ColdkeySwapAnnouncements::<T>::contains_key(who)
             && !matches!(
                 call.is_sub_type(),
-                Some(Call::swap_coldkey_announced { .. })
+                Some(Call::announce_coldkey_swap { .. })
+                    | Some(Call::swap_coldkey_announced { .. })
             )
         {
             return Err(CustomTransactionError::ColdkeySwapAnnounced.into());

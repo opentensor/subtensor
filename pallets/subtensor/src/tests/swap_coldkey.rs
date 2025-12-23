@@ -1272,12 +1272,15 @@ fn test_remove_coldkey_swap_announcement_with_bad_origin_fails() {
 }
 
 #[test]
-fn test_subtensor_extension_rejects_any_call_that_is_not_swap_coldkey_announced() {
+fn test_subtensor_extension_rejects_any_call_that_is_not_announce_or_swap() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
         let who = U256::from(0);
         let new_coldkey = U256::from(1);
+        let another_coldkey = U256::from(3);
         let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let another_coldkey_hash =
+            <Test as frame_system::Config>::Hashing::hash_of(&another_coldkey);
         let hotkey = U256::from(2);
         let stake = DefaultMinStake::<Test>::get().to_u64();
         assert_ne!(hotkey, who);
@@ -1379,6 +1382,14 @@ fn test_subtensor_extension_rejects_any_call_that_is_not_swap_coldkey_announced(
                 CustomTransactionError::ColdkeySwapAnnounced
             );
         }
+
+        // Reannounce coldkey swap should succeed
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::announce_coldkey_swap {
+            new_coldkey_hash: another_coldkey_hash,
+        });
+        let info = call.get_dispatch_info();
+        let ext = SubtensorTransactionExtension::<Test>::new();
+        assert_ok!(ext.dispatch_transaction(RuntimeOrigin::signed(who).into(), call, &info, 0, 0));
 
         // Swap coldkey announced should succeed
         let call =
