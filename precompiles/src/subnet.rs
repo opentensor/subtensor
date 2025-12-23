@@ -4,9 +4,10 @@ use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::ConstU32;
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
+use pallet_rate_limiting::{RateLimitKind, RateLimitTarget};
 use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{Dispatchable, SaturatedConversion};
 use sp_std::vec;
 use subtensor_runtime_common::{Currency, NetUid};
 
@@ -19,10 +20,15 @@ where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_admin_utils::Config,
+        + pallet_admin_utils::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+        >,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
@@ -36,10 +42,15 @@ where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_admin_utils::Config,
+        + pallet_admin_utils::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+        >,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
@@ -141,9 +152,9 @@ where
     #[precompile::public("getServingRateLimit(uint16)")]
     #[precompile::view]
     fn get_serving_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::ServingRateLimit::<R>::get(NetUid::from(
-            netuid,
-        )))
+        Ok(pallet_subtensor::Pallet::<R>::get_serving_rate_limit(
+            NetUid::from(netuid),
+        ))
     }
 
     #[precompile::public("setServingRateLimit(uint16,uint64)")]
@@ -153,9 +164,10 @@ where
         netuid: u16,
         serving_rate_limit: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_serving_rate_limit {
-            netuid: netuid.into(),
-            serving_rate_limit,
+        let call = pallet_rate_limiting::Call::<R>::set_rate_limit {
+            target: RateLimitTarget::Group(subtensor_runtime_common::rate_limiting::GROUP_SERVE),
+            scope: Some(netuid.into()),
+            limit: RateLimitKind::Exact(serving_rate_limit.saturated_into()),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(

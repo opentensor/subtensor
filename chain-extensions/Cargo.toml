@@ -36,6 +36,9 @@ subtensor-swap-interface.workspace = true
 num_enum.workspace = true
 substrate-fixed.workspace = true
 
+[dev-dependencies]
+rate-limiting-interface.workspace = true
+
 [lints]
 workspace = true
 

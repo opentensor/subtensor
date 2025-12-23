@@ -70,9 +70,6 @@ where
                     CustomTransactionError::HotKeyNotRegisteredInNetwork.into()
                 }
                 Error::<T>::InvalidIpAddress => CustomTransactionError::InvalidIpAddress.into(),
-                Error::<T>::ServingRateLimitExceeded => {
-                    CustomTransactionError::ServingRateLimitExceeded.into()
-                }
                 Error::<T>::InvalidPort => CustomTransactionError::InvalidPort.into(),
                 _ => CustomTransactionError::BadRequest.into(),
             })

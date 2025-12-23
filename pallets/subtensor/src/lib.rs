@@ -908,12 +908,6 @@ pub mod pallet {
         0
     }
 
-    /// Default value for serving rate limit.
-    #[pallet::type_value]
-    pub fn DefaultServingRateLimit<T: Config>() -> u64 {
-        T::InitialServingRateLimit::get()
-    }
-
     /// Default value for weight commit/reveal enabled.
     #[pallet::type_value]
     pub fn DefaultCommitRevealWeightsEnabled<T: Config>() -> bool {
@@ -1241,7 +1235,7 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    /// --- ITEM ( global_block_emission )    
+    /// --- ITEM ( global_block_emission )
     #[pallet::storage]
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
 
@@ -1281,7 +1275,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type TotalStake<T> = StorageValue<_, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
 
-    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.         
+    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.
     #[pallet::storage]
     pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
 
@@ -1673,11 +1667,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type RecycleOrBurn<T: Config> =
         StorageMap<_, Identity, NetUid, RecycleOrBurnEnum, ValueQuery, DefaultRecycleOrBurn<T>>;
-
-    /// --- MAP ( netuid ) --> serving_rate_limit
-    #[pallet::storage]
-    pub type ServingRateLimit<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultServingRateLimit<T>>;
 
     /// --- MAP ( netuid ) --> Rho
     #[pallet::storage]
@@ -2445,7 +2434,6 @@ pub enum CustomTransactionError {
     TransferDisallowed,
     HotKeyNotRegisteredInNetwork,
     InvalidIpAddress,
-    ServingRateLimitExceeded,
     InvalidPort,
     BadRequest,
     ZeroMaxAmount,
@@ -2472,7 +2460,6 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::TransferDisallowed => 9,
             CustomTransactionError::HotKeyNotRegisteredInNetwork => 10,
             CustomTransactionError::InvalidIpAddress => 11,
-            CustomTransactionError::ServingRateLimitExceeded => 12,
             CustomTransactionError::InvalidPort => 13,
             CustomTransactionError::BadRequest => 255,
             CustomTransactionError::ZeroMaxAmount => 14,

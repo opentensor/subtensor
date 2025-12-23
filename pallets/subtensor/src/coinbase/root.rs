@@ -325,7 +325,6 @@ impl<T: Config> Pallet<T> {
         LastAdjustmentBlock::<T>::remove(netuid);
 
         // --- 16. Serving / rho / curves, and other per-net controls.
-        ServingRateLimit::<T>::remove(netuid);
         Rho::<T>::remove(netuid);
         AlphaSigmoidSteepness::<T>::remove(netuid);
 

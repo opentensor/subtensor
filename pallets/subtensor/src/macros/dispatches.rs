@@ -814,10 +814,6 @@ mod dispatches {
         ///
         /// * 'InvalidIpAddress':
         /// 	- The numerically encoded ip address does not resolve to a proper ip.
-        ///
-        /// * 'ServingRateLimitExceeded':
-        /// 	- Attempting to set prometheus information withing the rate limit min.
-        ///
         #[pallet::call_index(4)]
         #[pallet::weight((Weight::from_parts(33_010_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
@@ -898,10 +894,6 @@ mod dispatches {
         ///
         /// * 'InvalidIpAddress':
         /// 	- The numerically encoded ip address does not resolve to a proper ip.
-        ///
-        /// * 'ServingRateLimitExceeded':
-        /// 	- Attempting to set prometheus information withing the rate limit min.
-        ///
         #[pallet::call_index(40)]
         #[pallet::weight((Weight::from_parts(32_510_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))

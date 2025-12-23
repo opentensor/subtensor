@@ -101,7 +101,7 @@ mod events {
         MinDifficultySet(NetUid, u64),
         /// setting max difficulty on a network.
         MaxDifficultySet(NetUid, u64),
-        /// setting the prometheus serving rate limit.
+        /// [DEPRECATED] setting the prometheus serving rate limit.
         ServingRateLimitSet(NetUid, u64),
         /// setting burn on a network.
         BurnSet(NetUid, TaoCurrency),

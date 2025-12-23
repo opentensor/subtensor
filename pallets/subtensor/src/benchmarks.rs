@@ -157,7 +157,6 @@ mod pallet_benchmarks {
             netuid,
             caller.clone()
         ));
-        Subtensor::<T>::set_serving_rate_limit(netuid, 0);
 
         #[extrinsic_call]
         _(
@@ -195,7 +194,6 @@ mod pallet_benchmarks {
             netuid,
             caller.clone()
         ));
-        Subtensor::<T>::set_serving_rate_limit(netuid, 0);
 
         #[extrinsic_call]
         _(
