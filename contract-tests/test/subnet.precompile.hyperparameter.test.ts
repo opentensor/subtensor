@@ -91,7 +91,65 @@ describe("Test the Subnet precompile contract", () => {
         const tx = await contract.setServingRateLimit(netuid, newValue);
         await tx.wait();
 
-        let onchainValue = await api.query.SubtensorModule.ServingRateLimit.getValue(netuid)
+        const unwrapEnum = (value: unknown): { tag: string; value: unknown } | null => {
+            if (!value || typeof value !== "object") {
+                return null;
+            }
+            if ("type" in value && "value" in value) {
+                return { tag: (value as { type: string }).type, value: (value as { value: unknown }).value };
+            }
+            const keys = Object.keys(value);
+            if (keys.length === 1) {
+                const key = keys[0];
+                return { tag: key, value: (value as Record<string, unknown>)[key] };
+            }
+            return null;
+        };
+
+        const toNumber = (value: unknown): number | undefined => {
+            if (typeof value === "number") {
+                return value;
+            }
+            if (typeof value === "bigint") {
+                return Number(value);
+            }
+            if (typeof value === "string") {
+                const parsed = Number(value);
+                return Number.isNaN(parsed) ? undefined : parsed;
+            }
+            return undefined;
+        };
+
+        const extractRateLimit = (limits: unknown, scope: number): number | undefined => {
+            const decoded = unwrapEnum(limits);
+            if (!decoded) {
+                return undefined;
+            }
+            if (decoded.tag === "Global") {
+                const kind = unwrapEnum(decoded.value);
+                return kind?.tag === "Exact" ? toNumber(kind.value) : undefined;
+            }
+            if (decoded.tag !== "Scoped") {
+                return undefined;
+            }
+            const scopedEntries = decoded.value instanceof Map
+                ? Array.from(decoded.value.entries())
+                : Array.isArray(decoded.value)
+                    ? decoded.value
+                    : [];
+            const entry = scopedEntries.find(
+                (item: unknown) =>
+                    Array.isArray(item) && item.length === 2 && toNumber(item[0]) === scope,
+            ) as [unknown, unknown] | undefined;
+            if (!entry) {
+                return undefined;
+            }
+            const kind = unwrapEnum(entry[1]);
+            return kind?.tag === "Exact" ? toNumber(kind.value) : undefined;
+        };
+
+        const limits = await api.query.RateLimiting.Limits.getValue({ Group: 0 } as any);
+        const onchainValue = extractRateLimit(limits, netuid);
 
 
         let valueFromContract = Number(

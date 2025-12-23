@@ -6,12 +6,23 @@ import { contracts } from "../.papi/descriptors";
 import { getInkClient, InkClient, } from "@polkadot-api/ink-contracts"
 import { forceSetBalanceToSs58Address, startCall, burnedRegister } from "../src/subtensor";
 import fs from "fs"
+import path from "path";
 import { convertPublicKeyToSs58 } from "../src/address-utils";
 import { addNewSubnetwork, sendWasmContractExtrinsic } from "../src/subtensor";
 import { tao } from "../src/balance-math";
 
-const bittensorWasmPath = "./bittensor/target/ink/bittensor.wasm"
-const bittensorBytecode = fs.readFileSync(bittensorWasmPath)
+const bittensorWasmPath = path.resolve(__dirname, "../bittensor/target/ink/bittensor.wasm")
+const loadBittensorBytecode = () => {
+    if (!fs.existsSync(bittensorWasmPath)) {
+        throw new Error(
+            `Missing Ink wasm at ${bittensorWasmPath}. Run ` +
+                "`cd contract-tests/bittensor && cargo contract build --release` to generate it."
+        )
+    }
+
+    return fs.readFileSync(bittensorWasmPath)
+}
+let bittensorBytecode: Buffer;
 
 describe("Test wasm contract", () => {
 
@@ -60,6 +71,7 @@ describe("Test wasm contract", () => {
 
 
     before(async () => {
+        bittensorBytecode = loadBittensorBytecode()
         // init variables got from await and async  
         api = await getDevnetApi()
 
