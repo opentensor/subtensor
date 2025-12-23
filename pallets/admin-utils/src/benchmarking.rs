@@ -73,8 +73,8 @@ mod benchmarks {
             #[allow(deprecated)]
             let _ = AdminUtils::<T>::sudo_set_serving_rate_limit(
                 RawOrigin::Root.into(),
-                1u16.into(),  /*netuid*/
-                100u64,       /*serving_rate_limit*/
+                1u16.into(), /*netuid*/
+                100u64,      /*serving_rate_limit*/
             );
         }
     }

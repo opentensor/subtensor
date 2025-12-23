@@ -70,6 +70,7 @@ frame-system.workspace = true
 pallet-transaction-payment.workspace = true
 pallet-commitments.workspace = true
 pallet-drand.workspace = true
+pallet-rate-limiting.workspace = true
 sp-crypto-ec-utils = { workspace = true, default-features = true, features = [
 	"bls12-381",
 ] }
@@ -173,6 +174,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-shield/runtime-benchmarks",
+	"pallet-rate-limiting/runtime-benchmarks",
 ]
 
 pow-faucet = []

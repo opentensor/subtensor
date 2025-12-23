@@ -175,15 +175,17 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             frame_system::CheckEra::<Runtime>::from(Era::Immortal),
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
-            pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new(),
             ChargeTransactionPaymentWrapper::new(
                 pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
             ),
             SudoTransactionExtension::<Runtime>::new(),
             pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(
             ),
-            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
-            frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+            (
+                pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+                frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+            ),
+            pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new(),
         );
 
         let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
@@ -1679,6 +1681,8 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 // Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 // The extensions to the basic transaction logic.
+// Note: The SDK only implements TransactionExtension for tuples up to 12 items, so we nest the last
+// two extensions to keep order/encoding while staying under the limit.
 pub type TransactionExtensions = (
     frame_system::CheckNonZeroSender<Runtime>,
     frame_system::CheckSpecVersion<Runtime>,
@@ -1691,8 +1695,11 @@ pub type TransactionExtensions = (
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
-    pallet_drand::drand_priority::DrandPriority<Runtime>,
-    frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+    (
+        pallet_drand::drand_priority::DrandPriority<Runtime>,
+        frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+    ),
+    pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
 );
 
 type Migrations = (
