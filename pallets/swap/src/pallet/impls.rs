@@ -217,9 +217,6 @@ impl<T: Config> Pallet<T> {
 
         Self::maybe_initialize_palswap(netuid)?;
 
-        println!("Self::current_price(netuid) = {:?}", Self::current_price(netuid));
-        println!("limit_price = {:?}", limit_price);
-
         // Because user specifies the limit price, check that it is in fact beoynd the current one
         ensure!(
             order.is_beyond_price_limit(Self::current_price(netuid), limit_price),

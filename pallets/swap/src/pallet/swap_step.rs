@@ -53,9 +53,6 @@ where
         let target_price = Self::price_target(netuid, requested_delta_in);
         let current_price = Pallet::<T>::current_price(netuid);
 
-        println!("requested_delta_in = {}", requested_delta_in);
-        println!("target_price = {}", target_price);
-
         Self {
             netuid,
             drop_fees,
@@ -113,9 +110,6 @@ where
                 .saturating_to_num::<u64>()
                 .into();
         }
-
-
-        println!("=========== debug 1 (end of determine_action)");
     }
 
     /// Process a single step of a swap
@@ -123,7 +117,6 @@ where
         // Convert amounts, actual swap happens here
         let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
         log::trace!("\tDelta Out        : {delta_out}");
-        println!("delta_out = {}", delta_out);
         ensure!(
             delta_out > 0.into(),
             Error::<T>::ReservesTooLow
@@ -226,12 +219,6 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let reserve_weight = SwapReserveWeight::<T>::get(netuid);
         let e = reserve_weight.exp_base_quote(alpha_reserve.into(), delta_in.into());
-
-        println!("alpha_reserve = {}", alpha_reserve);
-        println!("tao_reserve = {}", tao_reserve);
-        println!("reserve_weight = {:?}", reserve_weight);
-        println!("e = {}", e);
-
         let one = U64F64::from_num(1);
         let tao_reserve_fixed = U64F64::from_num(u64::from(tao_reserve));
         TaoCurrency::from(

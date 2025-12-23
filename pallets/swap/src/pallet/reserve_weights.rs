@@ -264,6 +264,7 @@ impl ReserveWeight {
 
 // cargo test --package pallet-subtensor-swap --lib -- pallet::reserve_weights::tests --nocapture
 #[cfg(test)]
+#[cfg(feature = "std")]
 mod tests {
     use crate::pallet::ReserveWeight;
     use crate::pallet::reserve_weights::*;

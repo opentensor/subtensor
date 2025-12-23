@@ -29,7 +29,7 @@ subtensor-swap-interface.workspace = true
 
 [dev-dependencies]
 sp-tracing.workspace = true
-rand = "0.8"
+rand  = { version = "0.8", default-features = false }
 rayon = "1.10"
 
 [lints]
@@ -46,6 +46,7 @@ std = [
 	"log/std",
 	"pallet-subtensor-swap-runtime-api/std",
 	"safe-math/std",
+	"safe-bigmath/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-arithmetic/std",
