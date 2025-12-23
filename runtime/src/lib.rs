@@ -1033,7 +1033,6 @@ parameter_types! {
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
-    pub const SubtensorInitialServingRateLimit: u64 = 50;
     pub const SubtensorInitialBurn: u64 = 100_000_000; // 0.1 tao
     pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
@@ -1106,7 +1105,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialWeightsVersionKey = SubtensorInitialWeightsVersionKey;
     type InitialMaxDifficulty = SubtensorInitialMaxDifficulty;
     type InitialMinDifficulty = SubtensorInitialMinDifficulty;
-    type InitialServingRateLimit = SubtensorInitialServingRateLimit;
     type InitialBurn = SubtensorInitialBurn;
     type InitialMaxBurn = SubtensorInitialMaxBurn;
     type InitialMinBurn = SubtensorInitialMinBurn;
@@ -1691,7 +1689,6 @@ pub type TransactionExtensions = (
     frame_system::CheckEra<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
-    pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,

@@ -436,11 +436,6 @@ impl<T: Config> Pallet<T> {
             .saturated_into()
     }
 
-    pub fn set_serving_rate_limit(netuid: NetUid, serving_rate_limit: u64) {
-        ServingRateLimit::<T>::insert(netuid, serving_rate_limit);
-        Self::deposit_event(Event::ServingRateLimitSet(netuid, serving_rate_limit));
-    }
-
     pub fn get_min_difficulty(netuid: NetUid) -> u64 {
         MinDifficulty::<T>::get(netuid)
     }

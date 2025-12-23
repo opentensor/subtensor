@@ -908,12 +908,6 @@ pub mod pallet {
         0
     }
 
-    /// Default value for serving rate limit.
-    #[pallet::type_value]
-    pub fn DefaultServingRateLimit<T: Config>() -> u64 {
-        T::InitialServingRateLimit::get()
-    }
-
     /// Default value for weight commit/reveal enabled.
     #[pallet::type_value]
     pub fn DefaultCommitRevealWeightsEnabled<T: Config>() -> bool {
@@ -1673,11 +1667,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type RecycleOrBurn<T: Config> =
         StorageMap<_, Identity, NetUid, RecycleOrBurnEnum, ValueQuery, DefaultRecycleOrBurn<T>>;
-
-    /// --- MAP ( netuid ) --> serving_rate_limit
-    #[pallet::storage]
-    pub type ServingRateLimit<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultServingRateLimit<T>>;
 
     /// --- MAP ( netuid ) --> Rho
     #[pallet::storage]

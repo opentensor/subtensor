@@ -281,23 +281,19 @@ fn test_axon_serving_rate_limit_exceeded() {
             placeholder1,
             placeholder2
         ));
-        SubtensorModule::set_serving_rate_limit(netuid, 2);
         run_to_block(2); // Go to block 2
-        // Needs to be 2 blocks apart, we are only 1 block apart
-        assert_eq!(
-            SubtensorModule::serve_axon(
-                <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
-                netuid,
-                version,
-                ip,
-                port,
-                ip_type,
-                protocol,
-                placeholder1,
-                placeholder2
-            ),
-            Err(Error::<Test>::ServingRateLimitExceeded.into())
-        );
+        // Rate limiting is enforced by the transaction extension, not the pallet call.
+        assert_ok!(SubtensorModule::serve_axon(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2
+        ));
     });
 }
 
@@ -479,19 +475,15 @@ fn test_prometheus_serving_rate_limit_exceeded() {
             port,
             ip_type
         ));
-        SubtensorModule::set_serving_rate_limit(netuid, 1);
-        // Same block, need 1 block to pass
-        assert_eq!(
-            SubtensorModule::serve_prometheus(
-                <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
-                netuid,
-                version,
-                ip,
-                port,
-                ip_type
-            ),
-            Err(Error::<Test>::ServingRateLimitExceeded.into())
-        );
+        // Rate limiting is enforced by the transaction extension, not the pallet call.
+        assert_ok!(SubtensorModule::serve_prometheus(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type
+        ));
     });
 }
 

@@ -183,9 +183,6 @@ mod config {
         /// Initial weights version key.
         #[pallet::constant]
         type InitialWeightsVersionKey: Get<u64>;
-        /// Initial serving rate limit.
-        #[pallet::constant]
-        type InitialServingRateLimit: Get<u64>;
         /// Initial transaction rate limit.
         #[pallet::constant]
         type InitialTxRateLimit: Get<u64>;

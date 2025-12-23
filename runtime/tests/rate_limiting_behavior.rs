@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
+use codec::Encode;
 use frame_support::traits::OnRuntimeUpgrade;
 use frame_system::pallet_prelude::BlockNumberFor;
 use node_subtensor_runtime::{
@@ -11,10 +12,11 @@ use pallet_rate_limiting::{RateLimitTarget, TransactionIdentifier};
 use pallet_subtensor::Call as SubtensorCall;
 use pallet_subtensor::{
     AxonInfo, HasMigrationRun, LastRateLimitedBlock, LastUpdate, NetworksAdded, PrometheusInfo,
-    RateLimitKey, ServingRateLimit, TransactionKeyLastBlock, WeightsSetRateLimit,
-    WeightsVersionKeyRateLimit, utils::rate_limiting::TransactionType,
+    RateLimitKey, TransactionKeyLastBlock, WeightsSetRateLimit, WeightsVersionKeyRateLimit,
+    utils::rate_limiting::TransactionType,
 };
 use sp_core::{H160, ecdsa};
+use sp_io::{hashing::twox_128, storage};
 use sp_runtime::traits::SaturatedConversion;
 use subtensor_runtime_common::{
     NetUid, NetUidStorageIndex,
@@ -61,6 +63,13 @@ fn clear_rate_limiting_storage() {
     let _ = pallet_rate_limiting::GroupNameIndex::<Runtime>::clear(limit, None);
     let _ = pallet_rate_limiting::CallGroups::<Runtime>::clear(limit, None);
     pallet_rate_limiting::NextGroupId::<Runtime>::kill();
+}
+
+fn set_legacy_serving_rate_limit(netuid: NetUid, span: u64) {
+    let mut key = twox_128(b"SubtensorModule").to_vec();
+    key.extend(twox_128(b"ServingRateLimit"));
+    key.extend(netuid.encode());
+    storage::set(&key, &span.encode());
 }
 
 fn parity_check<F>(
@@ -247,7 +256,7 @@ fn serving_parity() {
         let hot = account(50);
         let netuid = NetUid::from(3u16);
         let span = 5u64;
-        ServingRateLimit::<Runtime>::insert(netuid, span);
+        set_legacy_serving_rate_limit(netuid, span);
         pallet_subtensor::Axons::<Runtime>::insert(
             netuid,
             hot.clone(),
@@ -282,7 +291,7 @@ fn serving_parity() {
                 block: now.saturating_sub(1),
                 ..Default::default()
             };
-            now.saturating_sub(info.block) >= ServingRateLimit::<Runtime>::get(netuid)
+            now.saturating_sub(info.block) >= span
         };
         parity_check(now, axon_call, origin.clone(), None, None, legacy_axon);
 
@@ -299,7 +308,7 @@ fn serving_parity() {
                 block: now.saturating_sub(1),
                 ..Default::default()
             };
-            now.saturating_sub(info.block) >= ServingRateLimit::<Runtime>::get(netuid)
+            now.saturating_sub(info.block) >= span
         };
         parity_check(now, prom_call, origin, None, None, legacy_prom);
     });

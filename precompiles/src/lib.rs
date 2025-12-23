@@ -66,12 +66,17 @@ where
         + pallet_subtensor::Config
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_crowdloan::Config,
+        + pallet_crowdloan::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+        >,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
@@ -93,12 +98,17 @@ where
         + pallet_subtensor::Config
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_crowdloan::Config,
+        + pallet_crowdloan::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+        >,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
@@ -149,12 +159,17 @@ where
         + pallet_subtensor::Config
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_crowdloan::Config,
+        + pallet_crowdloan::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+        >,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>

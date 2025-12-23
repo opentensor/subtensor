@@ -34,6 +34,7 @@ substrate-fixed.workspace = true
 pallet-subtensor.workspace = true
 pallet-subtensor-swap.workspace = true
 pallet-admin-utils.workspace = true
+pallet-rate-limiting.workspace = true
 subtensor-swap-interface.workspace = true
 pallet-crowdloan.workspace = true
 
@@ -50,6 +51,7 @@ std = [
 	"log/std",
 	"pallet-admin-utils/std",
 	"pallet-balances/std",
+	"pallet-rate-limiting/std",
 	"pallet-evm-precompile-dispatch/std",
 	"pallet-evm-precompile-modexp/std",
 	"pallet-evm-precompile-sha3fips/std",

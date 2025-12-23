@@ -11,9 +11,8 @@ use subtensor_runtime_common::NetUid;
 
 use super::AccountId;
 use crate::{
-    SubtensorInitialNetworkRateLimit, SubtensorInitialServingRateLimit,
-    SubtensorInitialTxChildKeyTakeRateLimit, SubtensorInitialTxDelegateTakeRateLimit,
-    SubtensorInitialTxRateLimit,
+    SubtensorInitialNetworkRateLimit, SubtensorInitialTxChildKeyTakeRateLimit,
+    SubtensorInitialTxDelegateTakeRateLimit, SubtensorInitialTxRateLimit,
 };
 
 pub use types::{Hyperparameter, RateLimitKey, TransactionType};
@@ -146,7 +145,8 @@ pub mod defaults {
     use super::*;
 
     pub fn serving_rate_limit() -> u64 {
-        SubtensorInitialServingRateLimit::get()
+        // SubtensorInitialServingRateLimit::get()
+        50
     }
 
     pub fn weights_set_rate_limit() -> u64 {
