@@ -117,13 +117,15 @@ where
         // Convert amounts, actual swap happens here
         let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
         log::trace!("\tDelta Out        : {delta_out}");
-        ensure!(
-            delta_out > 0.into(),
-            Error::<T>::ReservesTooLow
-        );
+        if self.delta_in > 0.into() {
+            ensure!(
+                delta_out > 0.into(),
+                Error::<T>::ReservesTooLow
+            );
 
-        // Hold the fees
-        Self::add_fees(self.netuid, self.fee);
+            // Hold the fees
+            Self::add_fees(self.netuid, self.fee);
+        }
 
         Ok(SwapStepResult {
             fee_paid: self.fee,

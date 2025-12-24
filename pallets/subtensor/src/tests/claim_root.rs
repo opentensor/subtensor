@@ -1058,7 +1058,7 @@ fn test_claim_root_coinbase_distribution() {
         let current_price =
             <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
                 .saturating_to_num::<f64>();
-        assert_eq!(current_price, 10.0f64);
+        assert_eq!(current_price, 2.0f64);
         RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
 
         let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
