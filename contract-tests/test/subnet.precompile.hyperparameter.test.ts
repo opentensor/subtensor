@@ -16,6 +16,7 @@ describe("Test the Subnet precompile contract", () => {
 
     const hotkey1 = getRandomSubstrateKeypair();
     const hotkey2 = getRandomSubstrateKeypair();
+    const hotkey3 = getRandomSubstrateKeypair();
     let api: TypedApi<typeof devnet>
 
     before(async () => {
@@ -24,9 +25,15 @@ describe("Test the Subnet precompile contract", () => {
 
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey1.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey2.publicKey))
+        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey3.publicKey))
         await forceSetBalanceToEthAddress(api, wallet.address)
 
         await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
+
+        // Ensure the EVM wallet owns a subnet so owner-only calls pass when tests run in isolation.
+        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+        const tx = await contract.registerNetwork(hotkey3.publicKey);
+        await tx.wait();
     })
 
     it("Can register network without identity info", async () => {

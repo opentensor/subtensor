@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used)]
 
 use super::*;
+use subtensor_runtime_common::rate_limiting::GROUP_SERVE;
 
 pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
@@ -123,6 +124,16 @@ fn localnet_genesis(
         },
         "evmChainId": {
             "chainId": 42,
+        },
+        "rateLimiting": {
+            "defaultLimit": 0,
+            "limits": [],
+            "groups": vec![
+                (GROUP_SERVE, b"serving".to_vec(), "ConfigAndUsage"),
+            ],
+            "limitSettingRules": vec![
+                (serde_json::json!({ "Group": GROUP_SERVE }), "RootOrSubnetOwnerAdminWindow"),
+            ],
         },
     })
 }

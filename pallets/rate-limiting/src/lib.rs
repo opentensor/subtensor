@@ -496,6 +496,10 @@ pub mod pallet {
             RateLimitKind<BlockNumberFor<T>>,
         )>,
         pub groups: Vec<(<T as Config<I>>::GroupId, Vec<u8>, GroupSharing)>,
+        pub limit_setting_rules: Vec<(
+            RateLimitTarget<<T as Config<I>>::GroupId>,
+            <T as Config<I>>::LimitSettingRule,
+        )>,
     }
 
     impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
@@ -504,6 +508,7 @@ pub mod pallet {
                 default_limit: Zero::zero(),
                 limits: Vec::new(),
                 groups: Vec::new(),
+                limit_setting_rules: Vec::new(),
             }
         }
     }
@@ -565,6 +570,10 @@ pub mod pallet {
                         }
                     }
                 });
+            }
+
+            for (target, rule) in &self.limit_setting_rules {
+                LimitSettingRules::<T, I>::insert(target, rule.clone());
             }
         }
     }

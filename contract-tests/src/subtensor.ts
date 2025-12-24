@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { devnet, MultiAddress } from '@polkadot-api/descriptors';
-import { TypedApi, TxCallData, Binary, Enum } from 'polkadot-api';
+import { TypedApi, TxCallData, Binary } from 'polkadot-api';
 import { KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair, waitForTransactionWithRetry } from './substrate'
 import { convertH160ToSS58, convertPublicKeyToSs58, ethAddressToH160 } from './address-utils'
