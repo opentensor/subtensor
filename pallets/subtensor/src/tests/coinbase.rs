@@ -2693,49 +2693,49 @@ fn test_run_coinbase_not_started_start_after() {
     });
 }
 
-/// Test that coinbase updates protocol position liquidity
-/// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_v3_liquidity_update --exact --show-output
-#[test]
-fn test_coinbase_v3_liquidity_update() {
-    todo!();
 
-    // new_test_ext(1).execute_with(|| {
-    //     let owner_hotkey = U256::from(1);
-    //     let owner_coldkey = U256::from(2);
+// TODO: Revise when user liquidity is available
+// Test that coinbase updates protocol position liquidity
+// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_v3_liquidity_update --exact --show-output
+// #[test]
+// fn test_coinbase_v3_liquidity_update() {
+//     new_test_ext(1).execute_with(|| {
+//         let owner_hotkey = U256::from(1);
+//         let owner_coldkey = U256::from(2);
 
-    //     // add network
-    //     let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+//         // add network
+//         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-    //     // Force the swap to initialize
-    //     <Test as pallet::Config>::SwapInterface::init_swap(netuid);
+//         // Force the swap to initialize
+//         <Test as pallet::Config>::SwapInterface::init_swap(netuid);
 
-    //     let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
-    //     let position = pallet_subtensor_swap::Positions::<Test>::get((
-    //         netuid,
-    //         protocol_account_id,
-    //         PositionId::from(1),
-    //     ))
-    //     .unwrap();
-    //     let liquidity_before = position.liquidity;
+//         let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
+//         let position = pallet_subtensor_swap::Positions::<Test>::get((
+//             netuid,
+//             protocol_account_id,
+//             PositionId::from(1),
+//         ))
+//         .unwrap();
+//         let liquidity_before = position.liquidity;
 
-    //     // Enable emissions and run coinbase (which will increase position liquidity)
-    //     let emission: u64 = 1_234_567;
-    //     // Set the TAO flow to non-zero
-    //     SubnetTaoFlow::<Test>::insert(netuid, 8348383_i64);
-    //     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
-    //     SubtensorModule::run_coinbase(U96F32::from_num(emission));
+//         // Enable emissions and run coinbase (which will increase position liquidity)
+//         let emission: u64 = 1_234_567;
+//         // Set the TAO flow to non-zero
+//         SubnetTaoFlow::<Test>::insert(netuid, 8348383_i64);
+//         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+//         SubtensorModule::run_coinbase(U96F32::from_num(emission));
 
-    //     let position_after = pallet_subtensor_swap::Positions::<Test>::get((
-    //         netuid,
-    //         protocol_account_id,
-    //         PositionId::from(1),
-    //     ))
-    //     .unwrap();
-    //     let liquidity_after = position_after.liquidity;
+//         let position_after = pallet_subtensor_swap::Positions::<Test>::get((
+//             netuid,
+//             protocol_account_id,
+//             PositionId::from(1),
+//         ))
+//         .unwrap();
+//         let liquidity_after = position_after.liquidity;
 
-    //     assert!(liquidity_before < liquidity_after);
-    // });
-}
+//         assert!(liquidity_before < liquidity_after);
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_alpha_childkey_parentkey_with_burn --exact --show-output --nocapture
 #[test]
@@ -2938,196 +2938,192 @@ fn test_zero_shares_zero_emission() {
 
 #[test]
 fn test_mining_emission_distribution_with_no_root_sell() {
-    todo!();
+    new_test_ext(1).execute_with(|| {
+        let validator_coldkey = U256::from(1);
+        let validator_hotkey = U256::from(2);
+        let validator_miner_coldkey = U256::from(3);
+        let validator_miner_hotkey = U256::from(4);
+        let miner_coldkey = U256::from(5);
+        let miner_hotkey = U256::from(6);
+        let netuid = NetUid::from(1);
+        let subnet_tempo = 10;
+        let stake: u64 = 100_000_000_000;
+        let root_stake: u64 = 200_000_000_000; // 200 TAO
 
-    // new_test_ext(1).execute_with(|| {
-    //     let validator_coldkey = U256::from(1);
-    //     let validator_hotkey = U256::from(2);
-    //     let validator_miner_coldkey = U256::from(3);
-    //     let validator_miner_hotkey = U256::from(4);
-    //     let miner_coldkey = U256::from(5);
-    //     let miner_hotkey = U256::from(6);
-    //     let netuid = NetUid::from(1);
-    //     let subnet_tempo = 10;
-    //     let stake: u64 = 100_000_000_000;
-    //     let root_stake: u64 = 200_000_000_000; // 200 TAO
+        // Create root network
+        SubtensorModule::set_tao_weight(0); // Start tao weight at 0
+        SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
+        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
 
-    //     // Create root network
-    //     SubtensorModule::set_tao_weight(0); // Start tao weight at 0
-    //     SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
-    //     NetworksAdded::<Test>::insert(NetUid::ROOT, true);
+        // Add network, register hotkeys, and setup network parameters
+        add_network(netuid, subnet_tempo, 0);
+        SubnetMechanism::<Test>::insert(netuid, 1); // Set mechanism to 1
 
-    //     // Add network, register hotkeys, and setup network parameters
-    //     add_network(netuid, subnet_tempo, 0);
-    //     SubnetMechanism::<Test>::insert(netuid, 1); // Set mechanism to 1
+        // Setup large LPs to prevent slippage
+        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
 
-    //     // Setup large LPs to prevent slippage
-    //     SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000));
-    //     SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
+        register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
+        register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
+        register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &validator_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &validator_miner_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &miner_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        step_block(subnet_tempo);
+        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        // There are two validators and three neurons
+        MaxAllowedUids::<Test>::set(netuid, 3);
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
 
-    //     register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
-    //     register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
-    //     register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
-    //     SubtensorModule::add_balance_to_coldkey_account(
-    //         &validator_coldkey,
-    //         stake + ExistentialDeposit::get(),
-    //     );
-    //     SubtensorModule::add_balance_to_coldkey_account(
-    //         &validator_miner_coldkey,
-    //         stake + ExistentialDeposit::get(),
-    //     );
-    //     SubtensorModule::add_balance_to_coldkey_account(
-    //         &miner_coldkey,
-    //         stake + ExistentialDeposit::get(),
-    //     );
-    //     SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-    //     step_block(subnet_tempo);
-    //     SubnetOwnerCut::<Test>::set(u16::MAX / 10);
-    //     // There are two validators and three neurons
-    //     MaxAllowedUids::<Test>::set(netuid, 3);
-    //     SubtensorModule::set_max_allowed_validators(netuid, 2);
+        // Setup stakes:
+        //   Stake from validator
+        //   Stake from valiminer
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            netuid,
+            stake.into()
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_miner_coldkey),
+            validator_miner_hotkey,
+            netuid,
+            stake.into()
+        ));
 
-    //     // Setup stakes:
-    //     //   Stake from validator
-    //     //   Stake from valiminer
-    //     assert_ok!(SubtensorModule::add_stake(
-    //         RuntimeOrigin::signed(validator_coldkey),
-    //         validator_hotkey,
-    //         netuid,
-    //         stake.into()
-    //     ));
-    //     assert_ok!(SubtensorModule::add_stake(
-    //         RuntimeOrigin::signed(validator_miner_coldkey),
-    //         validator_miner_hotkey,
-    //         netuid,
-    //         stake.into()
-    //     ));
+        // Setup YUMA so that it creates emissions
+        Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 0, vec![(1, 0xFFFF)]);
+        Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 1, vec![(2, 0xFFFF)]);
+        BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        BlockAtRegistration::<Test>::set(netuid, 1, 1);
+        BlockAtRegistration::<Test>::set(netuid, 2, 1);
+        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
+        Kappa::<Test>::set(netuid, u16::MAX / 5);
+        ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
+        ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
 
-    //     // Setup YUMA so that it creates emissions
-    //     Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 0, vec![(1, 0xFFFF)]);
-    //     Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 1, vec![(2, 0xFFFF)]);
-    //     BlockAtRegistration::<Test>::set(netuid, 0, 1);
-    //     BlockAtRegistration::<Test>::set(netuid, 1, 1);
-    //     BlockAtRegistration::<Test>::set(netuid, 2, 1);
-    //     LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
-    //     Kappa::<Test>::set(netuid, u16::MAX / 5);
-    //     ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
-    //     ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
+        // Run run_coinbase until emissions are drained
+        step_block(subnet_tempo);
 
-    //     // Run run_coinbase until emissions are drained
-    //     step_block(subnet_tempo);
+        // Add stake to validator so it has root stake
+        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        // init root
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            NetUid::ROOT,
+            root_stake.into()
+        ));
+        // Set tao weight non zero
+        SubtensorModule::set_tao_weight(u64::MAX / 10);
 
-    //     // Add stake to validator so it has root stake
-    //     SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
-    //     // init root
-    //     assert_ok!(SubtensorModule::add_stake(
-    //         RuntimeOrigin::signed(validator_coldkey),
-    //         validator_hotkey,
-    //         NetUid::ROOT,
-    //         root_stake.into()
-    //     ));
-    //     // Set tao weight non zero
-    //     SubtensorModule::set_tao_weight(u64::MAX / 10);
+        // Make root sell NOT happen
+        // set price very low, e.g. a lot of alpha in
+        //SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
+        let alpha = AlphaCurrency::from(1_000_000_000_000_000_000_u64);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
 
-    //     // Make root sell NOT happen
-    //     // set price very low, e.g. a lot of alpha in
-    //     //SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
-    //     pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-    //         netuid,
-    //         U64F64::saturating_from_num(0.01),
-    //     );
+        // Make sure we ARE NOT root selling, so we do not have root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(!root_sell_flag, "Root sell flag should be false");
 
-    //     // Make sure we ARE NOT root selling, so we do not have root alpha divs.
-    //     let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
-    //     assert!(!root_sell_flag, "Root sell flag should be false");
+        // Run run_coinbase until emissions are drained
+        step_block(subnet_tempo);
 
-    //     // Run run_coinbase until emissions are drained
-    //     step_block(subnet_tempo);
+        let old_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
+        let per_block_emission = SubtensorModule::get_block_emission_for_issuance(
+            SubtensorModule::get_alpha_issuance(netuid).into(),
+        )
+        .unwrap_or(0);
 
-    //     let old_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
-    //     let per_block_emission = SubtensorModule::get_block_emission_for_issuance(
-    //         SubtensorModule::get_alpha_issuance(netuid).into(),
-    //     )
-    //     .unwrap_or(0);
+        // step by one block
+        step_block(1);
+        // Verify that root alpha divs
+        let new_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
+        // Check that we are indeed NOT root selling, i.e. that root alpha divs are NOT increasing
+        assert_eq!(
+            new_root_alpha_divs, old_root_alpha_divs,
+            "Root alpha divs should not increase"
+        );
+        // Check root divs are zero
+        assert_eq!(
+            new_root_alpha_divs,
+            AlphaCurrency::ZERO,
+            "Root alpha divs should be zero"
+        );
+        let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        );
+        // Run again but with some root stake
+        step_block(subnet_tempo - 2);
+        assert_abs_diff_eq!(
+            PendingServerEmission::<Test>::get(netuid).to_u64(),
+            U96F32::saturating_from_num(per_block_emission)
+                .saturating_mul(U96F32::saturating_from_num(subnet_tempo as u64))
+                .saturating_mul(U96F32::saturating_from_num(0.5)) // miner cut
+                .saturating_mul(U96F32::saturating_from_num(0.90))
+                .saturating_to_num::<u64>(),
+            epsilon = 100_000_u64.into()
+        );
+        step_block(1);
+        assert!(
+            BlocksSinceLastStep::<Test>::get(netuid) == 0,
+            "Blocks since last step should be 0"
+        );
 
-    //     // step by one block
-    //     step_block(1);
-    //     // Verify that root alpha divs
-    //     let new_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
-    //     // Check that we are indeed NOT root selling, i.e. that root alpha divs are NOT increasing
-    //     assert_eq!(
-    //         new_root_alpha_divs, old_root_alpha_divs,
-    //         "Root alpha divs should not increase"
-    //     );
-    //     // Check root divs are zero
-    //     assert_eq!(
-    //         new_root_alpha_divs,
-    //         AlphaCurrency::ZERO,
-    //         "Root alpha divs should be zero"
-    //     );
-    //     let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-    //         &miner_hotkey,
-    //         &miner_coldkey,
-    //         netuid,
-    //     );
-    //     // Run again but with some root stake
-    //     step_block(subnet_tempo - 2);
-    //     assert_abs_diff_eq!(
-    //         PendingServerEmission::<Test>::get(netuid).to_u64(),
-    //         U96F32::saturating_from_num(per_block_emission)
-    //             .saturating_mul(U96F32::saturating_from_num(subnet_tempo as u64))
-    //             .saturating_mul(U96F32::saturating_from_num(0.5)) // miner cut
-    //             .saturating_mul(U96F32::saturating_from_num(0.90))
-    //             .saturating_to_num::<u64>(),
-    //         epsilon = 100_000_u64.into()
-    //     );
-    //     step_block(1);
-    //     assert!(
-    //         BlocksSinceLastStep::<Test>::get(netuid) == 0,
-    //         "Blocks since last step should be 0"
-    //     );
+        let miner_uid = Uids::<Test>::get(netuid, miner_hotkey).unwrap_or(0);
+        log::info!("Miner uid: {miner_uid:?}");
+        let miner_incentive: AlphaCurrency = {
+            let miner_incentive = Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
+                .get(miner_uid as usize)
+                .copied();
 
-    //     let miner_uid = Uids::<Test>::get(netuid, miner_hotkey).unwrap_or(0);
-    //     log::info!("Miner uid: {miner_uid:?}");
-    //     let miner_incentive: AlphaCurrency = {
-    //         let miner_incentive = Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
-    //             .get(miner_uid as usize)
-    //             .copied();
+            assert!(miner_incentive.is_some());
 
-    //         assert!(miner_incentive.is_some());
+            (miner_incentive.unwrap_or_default() as u64).into()
+        };
+        log::info!("Miner incentive: {miner_incentive:?}");
 
-    //         (miner_incentive.unwrap_or_default() as u64).into()
-    //     };
-    //     log::info!("Miner incentive: {miner_incentive:?}");
+        // Miner emissions
+        let miner_emission_1: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        )
+        .to_u64()
+            - miner_stake_before_epoch.to_u64();
 
-    //     // Miner emissions
-    //     let miner_emission_1: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-    //         &miner_hotkey,
-    //         &miner_coldkey,
-    //         netuid,
-    //     )
-    //     .to_u64()
-    //         - miner_stake_before_epoch.to_u64();
+        assert_abs_diff_eq!(
+            Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
+                .iter()
+                .sum::<u16>(),
+            u16::MAX,
+            epsilon = 10
+        );
 
-    //     assert_abs_diff_eq!(
-    //         Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
-    //             .iter()
-    //             .sum::<u16>(),
-    //         u16::MAX,
-    //         epsilon = 10
-    //     );
-
-    //     assert_abs_diff_eq!(
-    //         miner_emission_1,
-    //         U96F32::saturating_from_num(miner_incentive)
-    //             .saturating_div(u16::MAX.into())
-    //             .saturating_mul(U96F32::saturating_from_num(per_block_emission))
-    //             .saturating_mul(U96F32::saturating_from_num(subnet_tempo + 1))
-    //             .saturating_mul(U96F32::saturating_from_num(0.45)) // miner cut
-    //             .saturating_to_num::<u64>(),
-    //         epsilon = 1_000_000_u64
-    //     );
-    // });
+        assert_abs_diff_eq!(
+            miner_emission_1,
+            U96F32::saturating_from_num(miner_incentive)
+                .saturating_div(u16::MAX.into())
+                .saturating_mul(U96F32::saturating_from_num(per_block_emission))
+                .saturating_mul(U96F32::saturating_from_num(subnet_tempo + 1))
+                .saturating_mul(U96F32::saturating_from_num(0.45)) // miner cut
+                .saturating_to_num::<u64>(),
+            epsilon = 1_000_000_u64
+        );
+    });
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_mining_emission_distribution_with_root_sell --exact --show-output --nocapture
