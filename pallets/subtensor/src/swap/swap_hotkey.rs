@@ -25,11 +25,6 @@ impl<T: Config> Pallet<T> {
     /// * `NewHotKeyIsSameWithOld` - If the new hotkey is the same as the old hotkey.
     /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
     /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
-    ///
-    /// # Note
-    ///
-    /// If the new hotkey is a child of the old hotkey, the swap will proceed but the self-loop
-    /// edge will be automatically removed to prevent cycles.
     pub fn do_swap_hotkey(
         origin: T::RuntimeOrigin,
         old_hotkey: &T::AccountId,
