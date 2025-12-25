@@ -64,8 +64,6 @@ mod errors {
         HotKeyAlreadyRegisteredInSubNet,
         /// The new hotkey is the same as old one
         NewHotKeyIsSameWithOld,
-        /// The new hotkey is a child of the old hotkey
-        NewHotKeyIsChildOfOld,
         /// The supplied PoW hash block is in the future or negative.
         InvalidWorkBlock,
         /// The supplied PoW hash block does not meet the network difficulty.

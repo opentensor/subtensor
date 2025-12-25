@@ -24,8 +24,12 @@ impl<T: Config> Pallet<T> {
     /// * `HotKeySetTxRateLimitExceeded` - If the transaction rate limit is exceeded.
     /// * `NewHotKeyIsSameWithOld` - If the new hotkey is the same as the old hotkey.
     /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
-    /// * `NewHotKeyIsChildOfOld` - If the new hotkey is a child of the old hotkey.
     /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
+    ///
+    /// # Note
+    ///
+    /// If the new hotkey is a child of the old hotkey, the swap will proceed but the self-loop
+    /// edge will be automatically removed to prevent cycles.
     pub fn do_swap_hotkey(
         origin: T::RuntimeOrigin,
         old_hotkey: &T::AccountId,
@@ -63,18 +67,6 @@ impl<T: Config> Pallet<T> {
             !Self::is_hotkey_registered_on_any_network(new_hotkey),
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
-
-        // 7.5. Ensure the new hotkey is not a child of the old hotkey
-        // Check across all networks to prevent creating cycles
-        for netuid in Self::get_all_subnet_netuids() {
-            let children = ChildKeys::<T>::get(old_hotkey, netuid);
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            for (_, child) in children {
-                if child == *new_hotkey {
-                    return Err(Error::<T>::NewHotKeyIsChildOfOld.into());
-                }
-            }
-        }
 
         // 8. Swap LastTxBlock
         let last_tx_block: u64 = Self::get_last_tx_block(old_hotkey);
@@ -276,15 +268,6 @@ impl<T: Config> Pallet<T> {
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
 
-        // 2.5. Ensure the new hotkey is not a child of the old hotkey on this subnet
-        let children = ChildKeys::<T>::get(old_hotkey, netuid);
-        weight.saturating_accrue(T::DbWeight::get().reads(1));
-        for (_, child) in children {
-            if child == *new_hotkey {
-                return Err(Error::<T>::NewHotKeyIsChildOfOld.into());
-            }
-        }
-
         // 3. Get the cost for swapping the key on the subnet
         let swap_cost = T::KeySwapOnSubnetCost::get();
         log::debug!("Swap cost in subnet {netuid:?}: {swap_cost:?}");
@@ -452,6 +435,7 @@ impl<T: Config> Pallet<T> {
         Self::parent_child_swap_hotkey(old_hotkey, new_hotkey, netuid, weight)?;
 
         // Also check for others with our hotkey as a child
+        // Update PendingChildKeys for other hotkeys that have old_hotkey as a pending child
         for (hotkey, (children, cool_down_block)) in PendingChildKeys::<T>::iter_prefix(netuid) {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
 
@@ -460,10 +444,17 @@ impl<T: Config> Pallet<T> {
             {
                 let mut new_children = children.clone();
                 let entry_to_remove = new_children.remove(potential_idx);
-                new_children.push((entry_to_remove.0, new_hotkey.clone())); // Keep the proportion.
-
-                PendingChildKeys::<T>::remove(netuid, hotkey.clone());
-                PendingChildKeys::<T>::insert(netuid, hotkey, (new_children, cool_down_block));
+                // Only add new_hotkey if it's not the same as hotkey (to prevent self-loop)
+                if new_hotkey != &hotkey {
+                    new_children.push((entry_to_remove.0, new_hotkey.clone())); // Keep the proportion.
+                }
+                // If new_children is empty after filtering, remove the pending entry
+                if new_children.is_empty() {
+                    PendingChildKeys::<T>::remove(netuid, hotkey.clone());
+                } else {
+                    PendingChildKeys::<T>::remove(netuid, hotkey.clone());
+                    PendingChildKeys::<T>::insert(netuid, hotkey, (new_children, cool_down_block));
+                }
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
             }
         }
