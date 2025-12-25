@@ -16,12 +16,12 @@ pub type BalanceOf<T> =
     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Theoretical maximum of subnets on bittensor. This value is used in indexed
-/// storage of epoch values for sub-subnets as
+/// storage of epoch values for mechanisms as
 ///
-/// `storage_index = netuid + sub_id * GLOBAL_MAX_SUBNET_COUNT`
+/// `storage_index = netuid + mecid * GLOBAL_MAX_SUBNET_COUNT`
 ///
-/// For sub_id = 0 this index results in netuid and provides backward compatibility
-/// for subnets with default sub-subnet count of 1.
+/// For mecid = 0 this index results in netuid and provides backward compatibility
+/// for subnets with default mechanism count of 1.
 ///
 /// Changing this value will require a migration of all epoch maps.
 ///
@@ -32,8 +32,8 @@ pub const GLOBAL_MAX_SUBNET_COUNT: u16 = 4096;
 pub const MAX_MECHANISM_COUNT_PER_SUBNET: u8 = 16;
 
 impl<T: Config> Pallet<T> {
-    pub fn get_mechanism_storage_index(netuid: NetUid, sub_id: MechId) -> NetUidStorageIndex {
-        u16::from(sub_id)
+    pub fn get_mechanism_storage_index(netuid: NetUid, mecid: MechId) -> NetUidStorageIndex {
+        u16::from(mecid)
             .saturating_mul(GLOBAL_MAX_SUBNET_COUNT)
             .saturating_add(u16::from(netuid))
             .into()
@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_netuid_and_subid(
+    pub fn get_netuid_and_mecid(
         netuid_index: NetUidStorageIndex,
     ) -> Result<(NetUid, MechId), Error<T>> {
         let maybe_netuid = u16::from(netuid_index).checked_rem(GLOBAL_MAX_SUBNET_COUNT);
@@ -61,13 +61,13 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::MechanismDoesNotExist
             );
 
-            // Extract sub_id
-            let sub_id_u8 = u8::try_from(u16::from(netuid_index).safe_div(GLOBAL_MAX_SUBNET_COUNT))
+            // Extract mecid
+            let mecid_u8 = u8::try_from(u16::from(netuid_index).safe_div(GLOBAL_MAX_SUBNET_COUNT))
                 .map_err(|_| Error::<T>::MechanismDoesNotExist)?;
-            let sub_id = MechId::from(sub_id_u8);
+            let mecid = MechId::from(mecid_u8);
 
-            if MechanismCountCurrent::<T>::get(netuid) > sub_id {
-                Ok((netuid, sub_id))
+            if MechanismCountCurrent::<T>::get(netuid) > mecid {
+                Ok((netuid, mecid))
             } else {
                 Err(Error::<T>::MechanismDoesNotExist.into())
             }
@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
         MechanismCountCurrent::<T>::get(netuid)
     }
 
-    pub fn ensure_mechanism_exists(netuid: NetUid, sub_id: MechId) -> DispatchResult {
+    pub fn ensure_mechanism_exists(netuid: NetUid, mecid: MechId) -> DispatchResult {
         // Make sure the base subnet exists
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
 
         // Make sure the mechanism limit is not exceeded
         ensure!(
-            MechanismCountCurrent::<T>::get(netuid) > sub_id,
+            MechanismCountCurrent::<T>::get(netuid) > mecid,
             Error::<T>::MechanismDoesNotExist
         );
         Ok(())
@@ -260,30 +260,30 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .enumerate()
                 // Run epoch function for each mechanism to distribute its portion of emissions
-                .flat_map(|(sub_id_usize, sub_emission)| {
-                    let sub_id_u8: u8 = sub_id_usize.try_into().unwrap_or_default();
-                    let sub_id = MechId::from(sub_id_u8);
+                .flat_map(|(mecid_usize, mech_emission)| {
+                    let mecid_u8: u8 = mecid_usize.try_into().unwrap_or_default();
+                    let mecid = MechId::from(mecid_u8);
 
                     // Run epoch function on the mechanism emission
-                    let epoch_output = Self::epoch_mechanism(netuid, sub_id, sub_emission);
-                    Self::persist_mechanism_epoch_terms(netuid, sub_id, epoch_output.as_map());
+                    let epoch_output = Self::epoch_mechanism(netuid, mecid, mech_emission);
+                    Self::persist_mechanism_epoch_terms(netuid, mecid, epoch_output.as_map());
 
                     // Calculate mechanism weight from the split emission (not the other way because preserving
                     // emission accuracy is the priority)
                     // For zero emission the first mechanism gets full weight
-                    let sub_weight = U64F64::saturating_from_num(sub_emission).safe_div_or(
+                    let mech_weight = U64F64::saturating_from_num(mech_emission).safe_div_or(
                         U64F64::saturating_from_num(rao_emission),
-                        U64F64::saturating_from_num(if sub_id_u8 == 0 { 1 } else { 0 }),
+                        U64F64::saturating_from_num(if mecid_u8 == 0 { 1 } else { 0 }),
                     );
 
-                    // Produce an iterator of (hotkey, (terms, sub_weight)) tuples
+                    // Produce an iterator of (hotkey, (terms, mech_weight)) tuples
                     epoch_output
                         .0
                         .into_iter()
-                        .map(move |(hotkey, terms)| (hotkey, (terms, sub_weight)))
+                        .map(move |(hotkey, terms)| (hotkey, (terms, mech_weight)))
                 })
                 // Consolidate the hotkey emissions into a single BTreeMap
-                .fold(BTreeMap::new(), |mut acc, (hotkey, (terms, sub_weight))| {
+                .fold(BTreeMap::new(), |mut acc, (hotkey, (terms, mech_weight))| {
                     acc.entry(hotkey)
                         .and_modify(|acc_terms| {
                             // Server and validator emission come from mechanism emission and need to be added up

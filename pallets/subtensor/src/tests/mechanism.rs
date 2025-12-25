@@ -116,7 +116,7 @@ fn test_netuid_and_subnet_from_index() {
             );
 
             let (netuid, mecid) =
-                SubtensorModule::get_netuid_and_subid(NetUidStorageIndex::from(*netuid_index))
+                SubtensorModule::get_netuid_and_mecid(NetUidStorageIndex::from(*netuid_index))
                     .unwrap();
             assert_eq!(netuid, NetUid::from(expected_netuid));
             assert_eq!(mecid, MechId::from(expected_subid));
