@@ -143,6 +143,11 @@ impl<T: Config> PCRelations<T> {
         list.retain(|(_, who)| who != id);
     }
 
+    /// Remove a child from the relations.
+    pub fn unlink_child(&mut self, child: T::AccountId) {
+        self.children.remove(&child);
+    }
+
     /// Change the pivot hotkey for these relations.
     /// Ensures there are no self-loops with the new pivot.
     pub fn rebind_pivot(&mut self, new_pivot: T::AccountId) -> DispatchResult {
@@ -400,6 +405,12 @@ impl<T: Config> Pallet<T> {
         let mut relations = Self::load_child_parent_relations(old_hotkey, netuid)?;
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 0));
 
+        // 1.5) Remove new_hotkey from children if it exists to prevent self-loop after swap
+        // This allows the swap to proceed even if new_hotkey is a child of old_hotkey
+        if relations.children().contains_key(new_hotkey) {
+            relations.unlink_child(new_hotkey.clone());
+        }
+
         // 2) Clean up all storage entries that reference old_hotkey
         //    2a) For each child of old_hotkey: remove old_hotkey from ParentKeys(child, netuid)
         for (child, _) in relations.children().iter() {
@@ -432,13 +443,20 @@ impl<T: Config> Pallet<T> {
         relations.rebind_pivot(new_hotkey.clone())?;
 
         // 4) Swap PendingChildKeys( netuid, parent ) --> Vec<(proportion,child), cool_down_block>
-        // Fail if consistency breaks
+        // Filter out new_hotkey from pending children to prevent self-loop
         if PendingChildKeys::<T>::contains_key(netuid, old_hotkey) {
-            let (children, cool_down_block) = PendingChildKeys::<T>::get(netuid, old_hotkey);
-            relations.ensure_pending_consistency(&children)?;
-
-            PendingChildKeys::<T>::remove(netuid, old_hotkey);
-            PendingChildKeys::<T>::insert(netuid, new_hotkey, (children, cool_down_block));
+            let (mut children, cool_down_block) = PendingChildKeys::<T>::get(netuid, old_hotkey);
+            // Remove new_hotkey from pending children to prevent self-loop
+            children.retain(|(_, child)| *child != *new_hotkey);
+            
+            if !children.is_empty() {
+                relations.ensure_pending_consistency(&children)?;
+                PendingChildKeys::<T>::remove(netuid, old_hotkey);
+                PendingChildKeys::<T>::insert(netuid, new_hotkey, (children, cool_down_block));
+            } else {
+                // If all children were filtered out, just remove the pending entry
+                PendingChildKeys::<T>::remove(netuid, old_hotkey);
+            }
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
 
