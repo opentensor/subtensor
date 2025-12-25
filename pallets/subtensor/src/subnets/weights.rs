@@ -1108,8 +1108,8 @@ impl<T: Config> Pallet<T> {
         neuron_uid: u16,
         current_block: u64,
     ) -> bool {
-        let maybe_netuid_and_subid = Self::get_netuid_and_subid(netuid_index);
-        if let Ok((netuid, _)) = maybe_netuid_and_subid
+        let maybe_netuid_and_mecid = Self::get_netuid_and_mecid(netuid_index);
+        if let Ok((netuid, _)) = maybe_netuid_and_mecid
             && Self::is_uid_exist_on_network(netuid, neuron_uid)
         {
             // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
