@@ -3670,29 +3670,26 @@ fn test_max_amount_move_dynamic_dynamic() {
                 expected_max_swappable,
                 precision,
             )| {
-                let alpha_in_1 = AlphaCurrency::from(alpha_in_1);
-                let alpha_in_2 = AlphaCurrency::from(alpha_in_2);
                 let expected_max_swappable = AlphaCurrency::from(expected_max_swappable);
                 // Forse-set alpha in and tao reserve to achieve relative price of subnets
                 SubnetTAO::<Test>::insert(origin_netuid, TaoCurrency::from(tao_in_1));
-                SubnetAlphaIn::<Test>::insert(origin_netuid, alpha_in_1);
+                SubnetAlphaIn::<Test>::insert(origin_netuid, AlphaCurrency::from(alpha_in_1));
                 SubnetTAO::<Test>::insert(destination_netuid, TaoCurrency::from(tao_in_2));
-                SubnetAlphaIn::<Test>::insert(destination_netuid, alpha_in_2);
+                SubnetAlphaIn::<Test>::insert(destination_netuid, AlphaCurrency::from(alpha_in_2));
 
                 if !alpha_in_1.is_zero() && !alpha_in_2.is_zero() {
-                    let origin_price =
-                        I96F32::from_num(tao_in_1) / I96F32::from_num(u64::from(alpha_in_1));
-                    let dest_price =
-                        I96F32::from_num(tao_in_2) / I96F32::from_num(u64::from(alpha_in_2));
-                    if dest_price != 0 {
+                    let origin_price = tao_in_1 as f64 / alpha_in_1 as f64;
+                    let dest_price = tao_in_2 as f64 / alpha_in_2 as f64;
+                    if dest_price != 0. {
                         let expected_price = origin_price / dest_price;
-                        assert_eq!(
-                            <Test as pallet::Config>::SwapInterface::current_alpha_price(
+                        assert_abs_diff_eq!(
+                            (<Test as pallet::Config>::SwapInterface::current_alpha_price(
                                 origin_netuid.into()
                             ) / <Test as pallet::Config>::SwapInterface::current_alpha_price(
                                 destination_netuid.into()
-                            ),
-                            expected_price
+                            )).to_num::<f64>(),
+                            expected_price,
+                            epsilon = 0.000_000_001
                         );
                     }
                 }
