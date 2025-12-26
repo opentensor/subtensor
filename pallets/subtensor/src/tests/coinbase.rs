@@ -2693,7 +2693,6 @@ fn test_run_coinbase_not_started_start_after() {
     });
 }
 
-
 // TODO: Revise when user liquidity is available
 // Test that coinbase updates protocol position liquidity
 // cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_v3_liquidity_update --exact --show-output
@@ -3368,7 +3367,9 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
 
         // Set the price
         let tao = TaoCurrency::from(1_000_000_000_u64);
-        let alpha = AlphaCurrency::from((U64F64::saturating_from_num(u64::from(tao)) / price_to_set).to_num::<u64>());
+        let alpha = AlphaCurrency::from(
+            (U64F64::saturating_from_num(u64::from(tao)) / price_to_set).to_num::<u64>(),
+        );
         SubnetTAO::<Test>::insert(netuid0, tao);
         SubnetAlphaIn::<Test>::insert(netuid0, alpha);
 

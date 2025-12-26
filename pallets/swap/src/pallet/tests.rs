@@ -29,12 +29,14 @@ use crate::pallet::swap_step::*;
 
 #[allow(dead_code)]
 fn get_min_price() -> U64F64 {
-    U64F64::from_num(Pallet::<Test>::min_price_inner::<TaoCurrency>()) / U64F64::from_num(1_000_000_000)
+    U64F64::from_num(Pallet::<Test>::min_price_inner::<TaoCurrency>())
+        / U64F64::from_num(1_000_000_000)
 }
 
 #[allow(dead_code)]
 fn get_max_price() -> U64F64 {
-    U64F64::from_num(Pallet::<Test>::max_price_inner::<TaoCurrency>()) / U64F64::from_num(1_000_000_000)
+    U64F64::from_num(Pallet::<Test>::max_price_inner::<TaoCurrency>())
+        / U64F64::from_num(1_000_000_000)
 }
 
 mod dispatchables {
@@ -1087,8 +1089,8 @@ fn test_swap_basic() {
                 AlphaReserve::set_mock_reserve(
                     netuid,
                     AlphaCurrency::from(
-                        (u64::from(initial_alpha_reserve) as i128 + swap_result.paid_out_reserve_delta())
-                            as u64,
+                        (u64::from(initial_alpha_reserve) as i128
+                            + swap_result.paid_out_reserve_delta()) as u64,
                     ),
                 );
             } else {
@@ -1102,8 +1104,8 @@ fn test_swap_basic() {
                 AlphaReserve::set_mock_reserve(
                     netuid,
                     AlphaCurrency::from(
-                        (u64::from(initial_alpha_reserve) as i128 + swap_result.paid_in_reserve_delta())
-                            as u64,
+                        (u64::from(initial_alpha_reserve) as i128
+                            + swap_result.paid_in_reserve_delta()) as u64,
                     ),
                 );
             }
@@ -1140,7 +1142,12 @@ fn test_swap_basic() {
         perform_test(1.into(), GetAlphaForTao::with_amount(123_456), 1000.0, true);
         perform_test(2.into(), GetTaoForAlpha::with_amount(1_000), 0.0001, false);
         perform_test(2.into(), GetTaoForAlpha::with_amount(2_000), 0.0001, false);
-        perform_test(2.into(), GetTaoForAlpha::with_amount(123_456), 0.0001, false);
+        perform_test(
+            2.into(),
+            GetTaoForAlpha::with_amount(123_456),
+            0.0001,
+            false,
+        );
         perform_test(
             3.into(),
             GetAlphaForTao::with_amount(1_000_000_000),
@@ -1162,7 +1169,7 @@ fn test_swap_precision_edge_case() {
     // Test case: tao_reserve, alpha_reserve, swap_amount
     [
         (1_000_u64, 1_000_u64, 999_500_u64),
-        (1_000_000_u64, 1_000_000_u64, 999_500_000_u64)
+        (1_000_000_u64, 1_000_000_u64, 999_500_000_u64),
     ]
     .into_iter()
     .for_each(|(tao_reserve, alpha_reserve, swap_amount)| {
@@ -1179,7 +1186,8 @@ fn test_swap_precision_edge_case() {
             println!("limit_price = {:?}", limit_price);
 
             // Swap
-            let swap_result = Pallet::<Test>::do_swap(netuid, order, limit_price, false, true).unwrap();
+            let swap_result =
+                Pallet::<Test>::do_swap(netuid, order, limit_price, false, true).unwrap();
 
             assert!(swap_result.amount_paid_out > TaoCurrency::ZERO);
         });
@@ -1237,7 +1245,10 @@ fn test_convert_deltas() {
             TaoReserve::set_mock_reserve(netuid, TaoCurrency::from(tao));
             AlphaReserve::set_mock_reserve(netuid, AlphaCurrency::from(alpha));
             let w_accuracy = 1_000_000_000_f64;
-            let w_quote_pt = Perquintill::from_rational((w_quote as f64 * w_accuracy) as u128, w_accuracy as u128);
+            let w_quote_pt = Perquintill::from_rational(
+                (w_quote as f64 * w_accuracy) as u128,
+                w_accuracy as u128,
+            );
             let rw = ReserveWeight::new(w_quote_pt).unwrap();
             SwapReserveWeight::<Test>::insert(netuid, rw);
 
@@ -1251,18 +1262,22 @@ fn test_convert_deltas() {
             let expected_buy = x * (1. - (y / (y + d)).powf(w2_div_w1));
 
             assert_abs_diff_eq!(
-                u64::from(BasicSwapStep::<Test, AlphaCurrency, TaoCurrency>::convert_deltas(
-                    netuid,
-                    delta_in.into()
-                )),
+                u64::from(
+                    BasicSwapStep::<Test, AlphaCurrency, TaoCurrency>::convert_deltas(
+                        netuid,
+                        delta_in.into()
+                    )
+                ),
                 expected_sell as u64,
                 epsilon = 2u64
             );
             assert_abs_diff_eq!(
-                u64::from(BasicSwapStep::<Test, TaoCurrency, AlphaCurrency>::convert_deltas(
-                    netuid,
-                    delta_in.into()
-                )),
+                u64::from(
+                    BasicSwapStep::<Test, TaoCurrency, AlphaCurrency>::convert_deltas(
+                        netuid,
+                        delta_in.into()
+                    )
+                ),
                 expected_buy as u64,
                 epsilon = 2u64
             );
@@ -1918,7 +1933,7 @@ fn test_swap_subtoken_disabled() {
 // }
 
 // TODO: Revise when user liquidity is available
-// Non‑palswap path: PalSwap not initialized (no positions, no map values); function 
+// Non‑palswap path: PalSwap not initialized (no positions, no map values); function
 // must still clear any residual storages and succeed.
 // #[test]
 // fn test_liquidate_pal_uninitialized_ok_and_clears() {
@@ -1947,7 +1962,7 @@ fn test_swap_subtoken_disabled() {
 //         );
 
 //         // All single-key maps should not have the key after liquidation
-//         assert!(!FeeRate::<Test>::contains_key(netuid));        
+//         assert!(!FeeRate::<Test>::contains_key(netuid));
 //         assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
 //         assert!(!FeesTao::<Test>::contains_key(netuid));
 //         assert!(!FeesAlpha::<Test>::contains_key(netuid));
@@ -1956,7 +1971,7 @@ fn test_swap_subtoken_disabled() {
 //     });
 // }
 
-/// Simple palswap path: PalSwap is initialized, but no positions, only protocol; function 
+/// Simple palswap path: PalSwap is initialized, but no positions, only protocol; function
 /// must still clear any residual storages and succeed.
 /// TODO: Revise when user liquidity is available
 #[test]
@@ -1965,7 +1980,7 @@ fn test_liquidate_pal_simple_ok_and_clears() {
         let netuid = NetUid::from(202);
 
         // Insert map values
-        FeeRate::<Test>::insert(netuid, 1_000);        
+        FeeRate::<Test>::insert(netuid, 1_000);
         EnabledUserLiquidity::<Test>::insert(netuid, false);
         FeesTao::<Test>::insert(netuid, TaoCurrency::from(1_000));
         FeesAlpha::<Test>::insert(netuid, AlphaCurrency::from(1_000));
@@ -1993,7 +2008,7 @@ fn test_liquidate_pal_simple_ok_and_clears() {
         );
 
         // All single-key maps should not have the key after liquidation
-        assert!(!FeeRate::<Test>::contains_key(netuid));        
+        assert!(!FeeRate::<Test>::contains_key(netuid));
         assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
         assert!(!FeesTao::<Test>::contains_key(netuid));
         assert!(!FeesAlpha::<Test>::contains_key(netuid));

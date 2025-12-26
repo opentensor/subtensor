@@ -78,7 +78,6 @@ impl ReserveWeight {
         let perquintill_scale = SafeInt::from(ACCURACY as u128);
         let denominator = SafeInt::from(x_plus_dx);
         let maybe_result_safe_int = if base_quote {
-
             println!("x = {:?}", x);
             println!("dx = {:?}", dx);
             println!("x_safe = {:?}", x_safe);
@@ -87,7 +86,7 @@ impl ReserveWeight {
             println!("w2_safe = {:?}", w2_safe);
             println!("precision = {:?}", precision);
             println!("perquintill_scale = {:?}", perquintill_scale);
-            
+
             SafeInt::pow_ratio_scaled(
                 &x_safe,
                 &denominator,
@@ -410,7 +409,7 @@ mod tests {
                 let w2 = perquintill_to_f64(rw.get_quote_weight());
                 let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
                 let dy_expected = y as f64 * (1. - e_expected);
-                
+
                 println!("debug 3: dy_expected = {:?}", dy_expected);
 
                 let mut eps = dy_expected / 100000.;

@@ -1205,9 +1205,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        SubnetTaoProvided::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(tao);
-        });
+        if !tao.is_zero() {
+            SubnetTaoProvided::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(tao);
+            });
+        }
     }
 
     pub fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
@@ -1217,17 +1219,23 @@ impl<T: Config> Pallet<T> {
         let remainder = subnet_tao_provided.saturating_sub(tao);
         let carry_over = tao.saturating_sub(subnet_tao_provided);
         if carry_over.is_zero() {
-            SubnetTaoProvided::<T>::set(netuid, remainder);
+            if remainder.is_zero() {
+                SubnetTaoProvided::<T>::remove(netuid);
+            } else {
+                SubnetTaoProvided::<T>::set(netuid, remainder);
+            }
         } else {
-            SubnetTaoProvided::<T>::set(netuid, TaoCurrency::ZERO);
+            SubnetTaoProvided::<T>::remove(netuid);
             SubnetTAO::<T>::set(netuid, subnet_tao.saturating_sub(carry_over));
         }
     }
 
     pub fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        SubnetAlphaInProvided::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(alpha);
-        });
+        if !alpha.is_zero() {
+            SubnetAlphaInProvided::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(alpha);
+            });
+        }
     }
 
     pub fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
@@ -1237,9 +1245,13 @@ impl<T: Config> Pallet<T> {
         let remainder = subnet_alpha_provided.saturating_sub(alpha);
         let carry_over = alpha.saturating_sub(subnet_alpha_provided);
         if carry_over.is_zero() {
-            SubnetAlphaInProvided::<T>::set(netuid, remainder);
+            if remainder.is_zero() {
+                SubnetAlphaInProvided::<T>::remove(netuid);
+            } else {
+                SubnetAlphaInProvided::<T>::set(netuid, remainder);
+            }
         } else {
-            SubnetAlphaInProvided::<T>::set(netuid, AlphaCurrency::ZERO);
+            SubnetAlphaInProvided::<T>::remove(netuid);
             SubnetAlphaIn::<T>::set(netuid, subnet_alpha.saturating_sub(carry_over));
         }
     }

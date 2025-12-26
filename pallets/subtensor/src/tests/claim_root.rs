@@ -5,26 +5,10 @@ use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };
 use crate::{
-    DefaultMinRootClaimAmount,
-    Error,
-    MAX_NUM_ROOT_CLAIMS,
-    MAX_ROOT_CLAIM_THRESHOLD,
-    NetworksAdded,
-    NumRootClaim,
-    NumStakingColdkeys,
-    PendingRootAlphaDivs,
-    RootClaimable,
-    RootClaimableThreshold,
-    StakingColdkeys,
-    StakingColdkeysByIndex,
-    SubnetAlphaIn,
-    SubnetMechanism,
-    SubnetMovingPrice,
-    SubnetTAO,
-    SubnetTaoFlow,
-    SubtokenEnabled,
-    Tempo,
-    pallet,
+    DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
+    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
+    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
+    SubnetTAO, SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
@@ -1016,7 +1000,6 @@ fn test_populate_staking_maps() {
         assert!(!StakingColdkeys::<Test>::contains_key(coldkey3));
     });
 }
-
 
 #[test]
 fn test_claim_root_coinbase_distribution() {
