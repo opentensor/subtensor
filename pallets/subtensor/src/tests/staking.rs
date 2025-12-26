@@ -2853,8 +2853,15 @@ fn test_max_amount_add_dynamic() {
                 pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
             )),
         ),
-        (150_000_000_000, 100_000_000_000, 1_500_000_000, Ok(5)),
-        (150_000_000_000, 100_000_000_000, 1_500_000_001, Ok(51)),
+        (
+            150_000_000_000,
+            100_000_000_000,
+            1_500_000_000,
+            Err(DispatchError::from(
+                pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
+            )),
+        ),
+        (150_000_000_000, 100_000_000_000, 1_500_000_001, Ok(49)),
         (
             150_000_000_000,
             100_000_000_000,
