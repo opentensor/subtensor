@@ -19,7 +19,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
-use substrate_fixed::types::{I96F32, U64F64, U96F32};
+use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -758,6 +758,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
     });
 }
 
+/// cargo test --package pallet-subtensor --lib -- tests::claim_root::test_claim_root_with_run_coinbase --exact --nocapture
 #[test]
 fn test_claim_root_with_run_coinbase() {
     new_test_ext(1).execute_with(|| {
@@ -790,10 +791,15 @@ fn test_claim_root_with_run_coinbase() {
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-            netuid,
-            U64F64::saturating_from_num(10.0),
-        );
+        let tao = TaoCurrency::from(10_000_000_000_000_u64);
+        let alpha = AlphaCurrency::from(1_000_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                .saturating_to_num::<f64>();
+        assert_eq!(current_price, 10.0f64);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
 
         // Make sure we are root selling, so we have root alpha divs.
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
@@ -901,10 +907,15 @@ fn test_claim_root_with_block_emissions() {
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-            netuid,
-            U64F64::saturating_from_num(10.0),
-        );
+        let tao = TaoCurrency::from(10_000_000_000_000_u64);
+        let alpha = AlphaCurrency::from(1_000_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                .saturating_to_num::<f64>();
+        assert_eq!(current_price, 10.0f64);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
 
         // Make sure we are root selling, so we have root alpha divs.
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
@@ -1020,16 +1031,21 @@ fn test_claim_root_coinbase_distribution() {
             initial_total_hotkey_alpha.into(),
         );
 
-        let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
-
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-            netuid,
-            U64F64::saturating_from_num(10.0),
-        );
+        let tao = TaoCurrency::from(20_000_000_000_u64);
+        let alpha = AlphaCurrency::from(10_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                .saturating_to_num::<f64>();
+        assert_eq!(current_price, 2.0f64);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
+        let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
 
         // Make sure we are root selling, so we have root alpha divs.
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
@@ -1081,6 +1097,103 @@ fn test_claim_root_coinbase_distribution() {
         );
     });
 }
+
+// #[test]
+// fn test_claim_root_coinbase_distribution() {
+//     new_test_ext(1).execute_with(|| {
+//         let owner_coldkey = U256::from(1001);
+//         let hotkey = U256::from(1002);
+//         let coldkey = U256::from(1003);
+//         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+//         Tempo::<Test>::insert(netuid, 1);
+//         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+//         let root_stake = 200_000_000u64;
+//         let initial_tao = 200_000_000u64;
+//         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(initial_tao));
+
+//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//             &hotkey,
+//             &coldkey,
+//             NetUid::ROOT,
+//             root_stake.into(),
+//         );
+
+//         let initial_total_hotkey_alpha = 10_000_000u64;
+//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//             &hotkey,
+//             &owner_coldkey,
+//             netuid,
+//             initial_total_hotkey_alpha.into(),
+//         );
+
+//         let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
+//         let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
+
+//         // Set moving price > 1.0 and price > 1.0
+//         // So we turn ON root sell
+//         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+//         let tao = TaoCurrency::from(10_000_000_000_000_u64);
+//         let alpha = AlphaCurrency::from(1_000_000_000_000_u64);
+//         SubnetTAO::<Test>::insert(netuid, tao);
+//         SubnetAlphaIn::<Test>::insert(netuid, alpha);
+//         let current_price =
+//             <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+//                 .saturating_to_num::<f64>();
+//         assert_eq!(current_price, 10.0f64);
+//         RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+//         // Make sure we are root selling, so we have root alpha divs.
+//         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+//         assert!(root_sell_flag, "Root sell flag should be true");
+
+//         // Set TAOFlow > 0
+//         SubnetTaoFlow::<Test>::insert(netuid, 2222_i64);
+
+//         // Check total issuance (saved to pending alpha divs)
+//         run_to_block(2);
+
+//         let alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
+//         // We went two blocks so we should have 2x the alpha emissions
+//         assert_eq!(
+//             initial_alpha_issuance + alpha_emissions.saturating_mul(2.into()),
+//             alpha_issuance
+//         );
+
+//         let root_prop = initial_tao as f64 / (u64::from(alpha_issuance) + initial_tao) as f64;
+//         let root_validators_share = 0.5f64;
+
+//         let expected_pending_root_alpha_divs =
+//             u64::from(alpha_emissions) as f64 * root_prop * root_validators_share;
+//         assert_abs_diff_eq!(
+//             u64::from(PendingRootAlphaDivs::<Test>::get(netuid)) as f64,
+//             expected_pending_root_alpha_divs,
+//             epsilon = 100f64
+//         );
+
+//         // Epoch pending alphas divs is distributed
+
+//         run_to_block(3);
+
+//         assert_eq!(u64::from(PendingRootAlphaDivs::<Test>::get(netuid)), 0u64);
+
+//         let claimable = *RootClaimable::<Test>::get(hotkey)
+//             .get(&netuid)
+//             .expect("claimable must exist at this point");
+
+//         let validator_take_percent = 0.18f64;
+//         let calculated_rate = (expected_pending_root_alpha_divs * 2f64)
+//             * (1f64 - validator_take_percent)
+//             / (root_stake as f64);
+
+//         assert_abs_diff_eq!(
+//             claimable.saturating_to_num::<f64>(),
+//             calculated_rate,
+//             epsilon = 0.001f64,
+//         );
+//     });
+// }
 
 #[test]
 fn test_sudo_set_num_root_claims() {
