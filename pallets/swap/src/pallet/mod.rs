@@ -303,6 +303,9 @@ mod pallet {
 
         /// Swap reserves are too imbalanced
         ReservesOutOfBalance,
+
+        /// Swap amount is too high and target price will be out of range
+        AmountTooHigh,
     }
 
     #[pallet::call]

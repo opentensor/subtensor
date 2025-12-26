@@ -5348,31 +5348,34 @@ fn test_update_position_fees() {
 
 #[test]
 fn test_large_swap() {
-    todo!();
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let coldkey = U256::from(100);
 
-    // new_test_ext(1).execute_with(|| {
-    //     let owner_hotkey = U256::from(1);
-    //     let owner_coldkey = U256::from(2);
-    //     let coldkey = U256::from(100);
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+        pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
+        let tao = TaoCurrency::from(100_000_000u64);
+        let alpha = AlphaCurrency::from(1_000_000_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
 
-    //     // add network
-    //     let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-    //     SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
-    //     pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
+        // Force the swap to initialize
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid);
 
-    //     // Force the swap to initialize
-    //     <Test as pallet::Config>::SwapInterface::init_swap(netuid);
+        // TODO: Revise when user liquidity is available
+        // setup_positions(netuid.into());
 
-    //     setup_positions(netuid.into());
-
-    //     let swap_amount = TaoCurrency::from(100_000_000_000_000);
-    //     assert_ok!(SubtensorModule::add_stake(
-    //         RuntimeOrigin::signed(coldkey),
-    //         owner_hotkey,
-    //         netuid,
-    //         swap_amount,
-    //     ));
-    // });
+        let swap_amount = TaoCurrency::from(100_000_000_000_000);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            owner_hotkey,
+            netuid,
+            swap_amount,
+        ));
+    });
 }
 
 #[test]

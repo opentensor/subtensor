@@ -114,6 +114,15 @@ where
 
     /// Process a single step of a swap
     fn process_swap(&self) -> Result<SwapStepResult<PaidIn, PaidOut>, Error<T>> {
+        // Check if the target price is valid
+        let tao = U64F64::saturating_from_num(1_000_000_000u64);
+        let min_price = U64F64::saturating_from_num(Pallet::<T>::min_price_inner::<TaoCurrency>()).safe_div(tao);
+        let max_price = U64F64::saturating_from_num(Pallet::<T>::max_price_inner::<TaoCurrency>()).safe_div(tao);
+        ensure!(
+            (self.target_price <= max_price) && (self.target_price >= min_price),
+            Error::<T>::AmountTooHigh
+        );
+
         // Convert amounts, actual swap happens here
         let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
         log::trace!("\tDelta Out        : {delta_out}");
