@@ -3782,7 +3782,7 @@ fn test_add_stake_limit_fill_or_kill() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
-        let amount = 900_000_000_000; // over the maximum
+        let amount = 300_000_000_000; // over the maximum
 
         // add network
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
@@ -3802,9 +3802,7 @@ fn test_add_stake_limit_fill_or_kill() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
         // Setup limit price so that it doesn't peak above 4x of current price
-        // The amount that can be executed at this price is 450 TAO only
-        // Alpha produced will be equal to 25 = 100 - 450*100/(150+450)
-        let limit_price = TaoCurrency::from(24_000_000_000);
+        let limit_price = TaoCurrency::from(6_000_000_000);
 
         // Add stake with slippage safety and check if it fails
         assert_noop!(
@@ -3820,7 +3818,7 @@ fn test_add_stake_limit_fill_or_kill() {
         );
 
         // Lower the amount and it should succeed now
-        let amount_ok = TaoCurrency::from(450_000_000_000); // fits the maximum
+        let amount_ok = TaoCurrency::from(150_000_000_000); // fits the maximum
         assert_ok!(SubtensorModule::add_stake_limit(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
