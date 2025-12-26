@@ -797,7 +797,7 @@ fn test_add_stake_insufficient_liquidity_one_side_ok() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
 
         // Set the liquidity at lowest possible value so that all staking requests fail
-        let reserve_alpha = u64::from(mock::SwapMinimumReserve::get());
+        let reserve_alpha = 1_000_000_000_u64;
         let reserve_tao = u64::from(mock::SwapMinimumReserve::get()) - 1;
         mock::setup_reserves(netuid, reserve_tao.into(), reserve_alpha.into());
 
