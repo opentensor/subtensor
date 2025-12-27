@@ -27,7 +27,7 @@ fn test_do_start_call_ok() {
         // account 0 is the default owner for any subnet
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
-        let block_number = System::block_number() + DurationOfStartCall::get();
+        let block_number = System::block_number() + StartCallDelay::<Test>::get();
         System::set_block_number(block_number);
 
         assert_ok!(SubtensorModule::start_call(
@@ -76,7 +76,7 @@ fn test_do_start_call_fail_not_owner() {
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
-        System::set_block_number(System::block_number() + DurationOfStartCall::get());
+        System::set_block_number(System::block_number() + StartCallDelay::<Test>::get());
 
         assert_noop!(
             SubtensorModule::start_call(
@@ -143,7 +143,7 @@ fn test_do_start_call_fail_for_set_again() {
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
-        let block_number = System::block_number() + DurationOfStartCall::get();
+        let block_number = System::block_number() + StartCallDelay::<Test>::get();
         System::set_block_number(block_number);
 
         assert_ok!(SubtensorModule::start_call(
@@ -174,7 +174,7 @@ fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
-        let block_number = System::block_number() + DurationOfStartCall::get();
+        let block_number = System::block_number() + StartCallDelay::<Test>::get();
         System::set_block_number(block_number);
 
         assert_ok!(SubtensorModule::start_call(
@@ -368,7 +368,7 @@ fn test_subtoken_enable() {
         add_network_disable_subtoken(netuid, 10, 0);
         assert!(!SubtokenEnabled::<Test>::get(netuid));
 
-        let block_number = System::block_number() + DurationOfStartCall::get();
+        let block_number = System::block_number() + StartCallDelay::<Test>::get();
         System::set_block_number(block_number);
 
         assert_ok!(SubtensorModule::start_call(

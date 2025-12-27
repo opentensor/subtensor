@@ -147,6 +147,8 @@ mod events {
         NetworkRateLimitSet(u64),
         /// the network immunity period is set.
         NetworkImmunityPeriodSet(u64),
+        /// the start call delay is set.
+        StartCallDelaySet(u64),
         /// the network minimum locking cost is set.
         NetworkMinLockCostSet(TaoCurrency),
         /// the maximum number of subnets is set
