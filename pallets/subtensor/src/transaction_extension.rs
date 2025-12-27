@@ -54,7 +54,8 @@ where
             Err(match err {
                 Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow.into(),
                 Error::<T>::SubnetNotExists => CustomTransactionError::SubnetNotExists.into(),
-                Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow.into(),
+                Error::<T>::NotEnoughBalanceToPayFee => CustomTransactionError::BalanceTooLow.into(),
+                Error::<T>::NotEnoughBalanceToPayStake => CustomTransactionError::BalanceTooLow.into(),
                 Error::<T>::HotKeyAccountNotExists => {
                     CustomTransactionError::HotkeyAccountDoesntExist.into()
                 }
