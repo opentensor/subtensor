@@ -164,37 +164,38 @@ impl<T: Config> Pallet<T> {
         };
 
         if swap {
-            // Increase stake on root. Swap the alpha owed to TAO
-            let owed_tao = match Self::swap_alpha_for_tao(
-                netuid,
-                owed_u64.into(),
-                T::SwapInterface::min_price::<TaoCurrency>(),
-                true,
-            ) {
-                Ok(owed_tao) => owed_tao,
-                Err(err) => {
-                    log::error!("Error swapping alpha for TAO: {err:?}");
+            // Root claim is defunct and not allowed.
+            // let owed_tao = match Self::swap_alpha_for_tao(
+            //     netuid,
+            //     owed_u64.into(),
+            //     T::SwapInterface::min_price::<TaoCurrency>(),
+            //     true,
+            // ) {
+            //     Ok(owed_tao) => owed_tao,
+            //     Err(err) => {
+            //         log::error!("Error swapping alpha for TAO: {err:?}");
 
-                    return;
-                }
-            };
+            //         return;
+            //     }
+            // };
 
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                coldkey,
-                NetUid::ROOT,
-                owed_tao.amount_paid_out.to_u64().into(),
-            );
+            // Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            //     hotkey,
+            //     coldkey,
+            //     NetUid::ROOT,
+            //     owed_tao.amount_paid_out.to_u64().into(),
+            // );
 
-            Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
-                hotkey,
-                coldkey,
-                owed_tao.amount_paid_out.into(),
-            );
+            // Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+            //     hotkey,
+            //     coldkey,
+            //     owed_tao.amount_paid_out.into(),
+            // );
+            pass
         } else
         /* Keep */
         {
-            // Increase the stake with the alpha owned
+            // Only keep is allowed.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 hotkey,
                 coldkey,
