@@ -274,13 +274,6 @@ impl<T: Config> Pallet<T> {
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
 // ... (rest of logic) ...
 
-        // Get total TAO on root.
-        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
-        log::debug!("root_tao: {root_tao:?}");
-        // Get tao_weight
-        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-        log::debug!("tao_weight: {tao_weight:?}");
-
         for netuid_i in subnets_to_emit_to.iter() {
             // Get alpha_out for this block.
             let mut alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
@@ -301,14 +294,8 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tou64!(owner_cut_i).into());
             });
 
-            // Get ALPHA issuance.
-            let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
-            log::debug!("alpha_issuance: {alpha_issuance:?}");
-
             // Get root proportional dividends.
-            let root_proportion: U96F32 = tao_weight
-                .checked_div(tao_weight.saturating_add(alpha_issuance))
-                .unwrap_or(asfloat!(0.0));
+            let root_proportion = Self::root_proportion(*netuid_i);
             log::debug!("root_proportion: {root_proportion:?}");
 
             // Get root alpha from root prop.
@@ -594,10 +581,11 @@ impl<T: Config> Pallet<T> {
 
         // Insert subnet owner hotkey in the beginning of the list if valid and not
         // already present
-        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-            if Uids::<T>::get(netuid, &owner_hk).is_some() && !owner_hotkeys.contains(&owner_hk) {
-                owner_hotkeys.insert(0, owner_hk);
-            }
+        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid)
+            && Uids::<T>::get(netuid, &owner_hk).is_some()
+            && !owner_hotkeys.contains(&owner_hk)
+        {
+            owner_hotkeys.insert(0, owner_hk);
         }
 
         owner_hotkeys
@@ -611,22 +599,22 @@ impl<T: Config> Pallet<T> {
         root_alpha_dividends: BTreeMap<T::AccountId, U96F32>,
     ) {
         // Distribute the owner cut.
-        if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
-            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                // Increase stake for owner hotkey and coldkey.
-                log::debug!(
-                    "owner_hotkey: {owner_hotkey:?} owner_coldkey: {owner_coldkey:?}, owner_cut: {owner_cut:?}"
-                );
-                let real_owner_cut = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    &owner_hotkey,
-                    &owner_coldkey,
-                    netuid,
-                    owner_cut,
-                );
-                // If the subnet is leased, notify the lease logic that owner cut has been distributed.
-                if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
-                    Self::distribute_leased_network_dividends(lease_id, real_owner_cut);
-                }
+        if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid)
+            && let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid)
+        {
+            // Increase stake for owner hotkey and coldkey.
+            log::debug!(
+                "owner_hotkey: {owner_hotkey:?} owner_coldkey: {owner_coldkey:?}, owner_cut: {owner_cut:?}"
+            );
+            let real_owner_cut = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &owner_hotkey,
+                &owner_coldkey,
+                netuid,
+                owner_cut,
+            );
+            // If the subnet is leased, notify the lease logic that owner cut has been distributed.
+            if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
+                Self::distribute_leased_network_dividends(lease_id, real_owner_cut);
             }
         }
 

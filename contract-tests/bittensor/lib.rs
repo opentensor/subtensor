@@ -22,6 +22,7 @@ pub enum FunctionId {
     SetColdkeyAutoStakeHotkeyV1 = 12,
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
+    GetAlphaPriceV1 = 15,
 }
 
 #[ink::chain_extension(extension = 0x1000)]
@@ -127,6 +128,9 @@ pub trait RuntimeReadWrite {
 
     #[ink(function = 14)]
     fn remove_proxy(delegate: <CustomEnvironment as ink::env::Environment>::AccountId);
+
+    #[ink(function = 15)]
+    fn get_alpha_price(netuid: NetUid) -> u64;
 }
 
 #[ink::scale_derive(Encode, Decode, TypeInfo)]
@@ -411,6 +415,14 @@ mod bittensor {
                 .extension()
                 .remove_proxy(delegate.into())
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn get_alpha_price(&self, netuid: u16) -> Result<u64, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .get_alpha_price(netuid.into())
+                .map_err(|_e| ReadWriteErrorCode::ReadFailed)
         }
     }
 }

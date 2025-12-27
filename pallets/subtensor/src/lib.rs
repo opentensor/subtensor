@@ -96,7 +96,7 @@ pub mod pallet {
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
-    use substrate_fixed::types::{I64F64, I96F32, U64F64};
+    use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
     use subtensor_macros::freeze_struct;
     use subtensor_runtime_common::{
         AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
@@ -995,6 +995,12 @@ pub mod pallet {
         I96F32::saturating_from_num(0.0)
     }
 
+    /// Default subnet root proportion.
+    #[pallet::type_value]
+    pub fn DefaultRootProp<T: Config>() -> U96F32 {
+        U96F32::saturating_from_num(0.0)
+    }
+
     /// Default subnet root claimable
     #[pallet::type_value]
     pub fn DefaultRootClaimable<T: Config>() -> BTreeMap<NetUid, I96F32> {
@@ -1058,7 +1064,12 @@ pub mod pallet {
         128
     }
 
-    /// Global minimum activity cutoff value
+    /// Default value for MinNonImmuneUids.
+    #[pallet::type_value]
+    pub fn DefaultMinNonImmuneUids<T: Config>() -> u16 {
+        10u16
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -1279,6 +1290,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetMovingPrice<T: Config> =
         StorageMap<_, Identity, NetUid, I96F32, ValueQuery, DefaultMovingPrice<T>>;
+
+    /// --- MAP ( netuid ) --> root_prop | The subnet root proportion.
+    #[pallet::storage]
+    pub type RootProp<T: Config> =
+        StorageMap<_, Identity, NetUid, U96F32, ValueQuery, DefaultRootProp<T>>;
 
     /// --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     #[pallet::storage]
@@ -2299,6 +2315,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkRegistrationStartBlock<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
+
+    /// --- MAP ( netuid ) --> minimum required number of non-immortal & non-immune UIDs
+    #[pallet::storage]
+    pub type MinNonImmuneUids<T: Config> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMinNonImmuneUids<T>>;
 
     /// ============================
     /// ==== Subnet Mechanisms =====

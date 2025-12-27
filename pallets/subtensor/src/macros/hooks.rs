@@ -152,6 +152,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>())
                 // Remove obsolete map entries
                 .saturating_add(migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<T>())
+                // Remove Trust, Rank, and Pruning Score
+                .saturating_add(migrations::migrate_clear_rank_trust_pruning_maps::migrate_clear_rank_trust_pruning_maps::<T>())
                 // Re-init tao flows
                 .saturating_add(migrations::migrate_init_tao_flow::migrate_init_tao_flow::<T>())
                 // Migrate pending emissions
