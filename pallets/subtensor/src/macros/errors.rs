@@ -38,7 +38,9 @@ mod errors {
         NotEnoughStakeToSetChildkeys,
         /// The caller is requesting adding more stake than there exists in the coldkey account.
         /// See: "[add_stake()]"
-        NotEnoughBalanceToStake,
+        /// The caller is requesting adding more stake than there exists in the coldkey account.
+        /// See: "[add_stake()]"
+        // NotEnoughBalanceToStake,
         /// The caller is trying to add stake, but for some reason the requested amount could not be
         /// withdrawn from the coldkey account.
         BalanceWithdrawalError,
@@ -210,8 +212,10 @@ mod errors {
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
-        /// The caller does not have enough balance for the operation.
-        InsufficientBalance,
+        /// The caller does not have enough balance to pay the fee.
+        NotEnoughBalanceToPayFee,
+        /// The caller does not have enough balance to pay the stake.
+        NotEnoughBalanceToPayStake,
         /// Too frequent staking operations
         StakingOperationRateLimitExceeded,
         /// Invalid lease beneficiary to register the leased network.
