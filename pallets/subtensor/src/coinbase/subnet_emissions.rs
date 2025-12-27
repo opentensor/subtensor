@@ -18,6 +18,7 @@ impl<T: Config> Pallet<T> {
                 Self::get_network_registration_allowed(*netuid)
                     || Self::get_network_pow_registration_allowed(*netuid)
             })
+            .filter(|netuid| !crate::pallet::SubnetEmissionPaused::<T>::get(*netuid))
             .copied()
             .collect()
     }

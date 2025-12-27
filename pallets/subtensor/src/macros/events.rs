@@ -479,5 +479,10 @@ mod events {
             /// The amount of alpha distributed
             alpha: AlphaCurrency,
         },
+
+        /// A critical invariant violation has been detected.
+        CriticalInvariantViolation(NetUid, Vec<u8>),
+        /// Subnet emission has been resumed after a pause.
+        SubnetEmissionResumed(NetUid),
     }
 }
