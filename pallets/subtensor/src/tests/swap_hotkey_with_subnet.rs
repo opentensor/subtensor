@@ -1114,23 +1114,23 @@ fn test_swap_child_keys_self_loop() {
 
         // Perform the swap extrinsic
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
-        assert_err!(
-            SubtensorModule::swap_hotkey(
-                RuntimeOrigin::signed(coldkey),
-                old_hotkey,
-                new_hotkey,
-                Some(netuid)
-            ),
-            Error::<Test>::InvalidChild
-        );
+        assert_ok!(SubtensorModule::swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            old_hotkey,
+            new_hotkey,
+            Some(netuid)
+        ));
 
-        // Verify the swap didn't happen
-        assert_eq!(ChildKeys::<Test>::get(old_hotkey, netuid), children);
+        // Verify the swap happened and self-loop was removed
+        // The old_hotkey should have no children (self-loop was removed)
+        assert!(ChildKeys::<Test>::get(old_hotkey, netuid).is_empty());
+        // The new_hotkey should have no children (self-loop was prevented)
         assert!(ChildKeys::<Test>::get(new_hotkey, netuid).is_empty());
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), amount);
+        // Alpha should have been transferred
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), AlphaCurrency::from(0));
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
-            AlphaCurrency::from(0)
+            amount
         );
     });
 }
