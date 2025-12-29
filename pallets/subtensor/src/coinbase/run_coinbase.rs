@@ -78,7 +78,7 @@ impl<T: Config> Pallet<T> {
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
                     let bought_alpha: AlphaCurrency = buy_swap_result_ok.amount_paid_out.into();
-                    Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
+                    Self::distribute_alpha_to_subnet_owners(*netuid_i, bought_alpha);
                 }
             }
 
@@ -108,6 +108,84 @@ impl<T: Config> Pallet<T> {
                     .saturating_add(injected_tao.into())
                     .saturating_add(difference_tao.into());
             });
+        }
+    }
+
+    /// Distributes bought alpha to all subnet owners proportionally based on their
+    /// moving average price, excluding the owner of the source subnet.
+    ///
+    /// # Arguments
+    /// * `source_netuid` - The subnet where the alpha was bought (owner of this subnet is excluded)
+    /// * `alpha_to_distribute` - The total alpha amount to distribute
+    ///
+    /// For each other subnet, the alpha is staked to the subnet owner's coldkey
+    /// on the subnet owner's hotkey for that subnet.
+    pub fn distribute_alpha_to_subnet_owners(source_netuid: NetUid, alpha_to_distribute: AlphaCurrency) {
+        if alpha_to_distribute.is_zero() {
+            return;
+        }
+
+        // Get the owner of the source subnet (to exclude)
+        let source_owner = SubnetOwner::<T>::get(source_netuid);
+
+        // Get all subnets except root and the source subnet
+        let all_subnets: Vec<NetUid> = Self::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|netuid| *netuid != NetUid::ROOT && *netuid != source_netuid)
+            .collect();
+
+        // Calculate moving average prices for each subnet (excluding those owned by source owner)
+        let mut subnet_prices: Vec<(NetUid, U96F32)> = Vec::new();
+        let mut total_price: U96F32 = asfloat!(0);
+
+        for netuid in all_subnets.iter() {
+            // Skip if this subnet is owned by the same owner as the source subnet
+            let owner = SubnetOwner::<T>::get(*netuid);
+            if owner == source_owner {
+                continue;
+            }
+
+            let moving_price = Self::get_moving_alpha_price(*netuid);
+            if moving_price > asfloat!(0) {
+                subnet_prices.push((*netuid, moving_price));
+                total_price = total_price.saturating_add(moving_price);
+            }
+        }
+
+        // If no valid subnets to distribute to, recycle the alpha instead
+        if subnet_prices.is_empty() || total_price == asfloat!(0) {
+            Self::recycle_subnet_alpha(source_netuid, alpha_to_distribute);
+            return;
+        }
+
+        let alpha_float: U96F32 = asfloat!(alpha_to_distribute);
+
+        // Distribute proportionally to each subnet owner
+        for (netuid, moving_price) in subnet_prices {
+            // Calculate the proportion of alpha for this subnet
+            let proportion: U96F32 = moving_price.safe_div_or(total_price, asfloat!(0));
+            let alpha_share: AlphaCurrency = tou64!(alpha_float.saturating_mul(proportion)).into();
+
+            if alpha_share.is_zero() {
+                continue;
+            }
+
+            // Get the owner coldkey and hotkey for this subnet
+            if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid)
+                && let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid)
+            {
+                log::debug!(
+                    "Distributing alpha {alpha_share:?} to subnet {netuid:?} owner (coldkey: {owner_coldkey:?}, hotkey: {owner_hotkey:?})"
+                );
+
+                // Stake the alpha share to the owner coldkey on the owner hotkey for this subnet
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &owner_hotkey,
+                    &owner_coldkey,
+                    netuid,
+                    alpha_share,
+                );
+            }
         }
     }
 
