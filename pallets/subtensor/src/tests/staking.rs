@@ -3020,13 +3020,16 @@ fn test_max_amount_remove_dynamic() {
             (10_000_000_000, 10_000_000_000, 0, Ok(u64::MAX)),
             // Low bounds (numbers are empirical, it is only important that result
             // is sharply decreasing when limit price increases)
-            (1_000, 1_000, 0, Ok(4_308_000_000_000)),
-            (1_001, 1_001, 0, Ok(4_310_000_000_000)),
-            (1_001, 1_001, 1, Ok(31_750_000)),
-            (1_001, 1_001, 2, Ok(22_500_000)),
-            (1_001, 1_001, 1_001, Ok(1_000_000)),
-            (1_001, 1_001, 10_000, Ok(316_000)),
-            (1_001, 1_001, 100_000, Ok(100_000)),
+            (1_000, 1_000, 0, Ok(u64::MAX)),
+            (1_001, 1_001, 0, Ok(u64::MAX)),
+            (1_001, 1_001, 1, Ok(17_472)),
+            (1_001, 1_001, 2, Ok(17_472)),
+            (1_001, 1_001, 1_001, Ok(17_472)),
+            (1_001, 1_001, 10_000, Ok(17_472)),
+            (1_001, 1_001, 100_000, Ok(17_472)),
+            (1_001, 1_001, 1_000_000, Ok(17_472)),
+            (1_001, 1_001, 10_000_000, Ok(9_013)),
+            (1_001, 1_001, 100_000_000, Ok(2_165)),
             // Basic math
             (1_000_000, 1_000_000, 250_000_000, Ok(1_000_000)),
             (1_000_000, 1_000_000, 62_500_000, Ok(3_000_000)),
@@ -3073,7 +3076,7 @@ fn test_max_amount_remove_dynamic() {
                 21_000_000_000_000_000,
                 1_000_000,
                 21_000_000_000_000_000,
-                Ok(30_700_000),
+                Ok(17_455_533),
             ),
             (21_000_000_000_000_000, 1_000_000, u64::MAX, Ok(67_164)),
             (
@@ -3111,7 +3114,7 @@ fn test_max_amount_remove_dynamic() {
             SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
             if !alpha_in.is_zero() {
-                let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
+                let expected_price = U64F64::from_num(tao_in) / U64F64::from_num(alpha_in);
                 assert_eq!(
                     <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
                     expected_price
