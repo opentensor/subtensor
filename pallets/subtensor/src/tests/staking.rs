@@ -4557,13 +4557,13 @@ fn test_stake_into_subnet_low_amount() {
             false,
             false,
         ));
-        let expected_stake = AlphaCurrency::from(((amount as f64) * 0.997 / current_price) as u64);
+        let expected_stake = (amount as f64) * 0.997 / current_price;
 
         // Check if stake has increased
         assert_abs_diff_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            u64::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)) as f64,
             expected_stake,
-            epsilon = expected_stake / 100.into()
+            epsilon = expected_stake / 100.
         );
     });
 }
