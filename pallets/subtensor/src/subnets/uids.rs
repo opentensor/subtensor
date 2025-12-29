@@ -24,8 +24,8 @@ impl<T: Config> Pallet<T> {
         let neuron_index: usize = neuron_uid.into();
         Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
         Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
-            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+        for mechid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mechid.into());
             Incentive::<T>::mutate(netuid_index, |v| Self::set_element_at(v, neuron_index, 0));
             Bonds::<T>::remove(netuid_index, neuron_uid); // Remove bonds for Validator.
 
@@ -111,8 +111,8 @@ impl<T: Config> Pallet<T> {
         Active::<T>::mutate(netuid, |v| v.push(true));
         Emission::<T>::mutate(netuid, |v| v.push(0.into()));
         Consensus::<T>::mutate(netuid, |v| v.push(0));
-        for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
-            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+        for mechid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mechid.into());
             Incentive::<T>::mutate(netuid_index, |v| v.push(0));
             Self::set_last_update_for_uid(netuid_index, next_uid, block_number);
         }
@@ -205,8 +205,8 @@ impl<T: Config> Pallet<T> {
                     Keys::<T>::remove(netuid, neuron_uid);
                     BlockAtRegistration::<T>::remove(netuid, neuron_uid);
                     AssociatedEvmAddress::<T>::remove(netuid, neuron_uid);
-                    for mecid in 0..mechanisms_count {
-                        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+                    for mechid in 0..mechanisms_count {
+                        let netuid_index = Self::get_mechanism_storage_index(netuid, mechid.into());
                         Weights::<T>::remove(netuid_index, neuron_uid);
                         Bonds::<T>::remove(netuid_index, neuron_uid);
                     }
@@ -264,8 +264,8 @@ impl<T: Config> Pallet<T> {
             StakeWeight::<T>::insert(netuid, trimmed_stake_weight);
 
             // Update incentives/lastupdates for mechanisms
-            for mecid in 0..mechanisms_count {
-                let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+            for mechid in 0..mechanisms_count {
+                let netuid_index = Self::get_mechanism_storage_index(netuid, mechid.into());
                 let incentive = Incentive::<T>::get(netuid_index);
                 let lastupdate = LastUpdate::<T>::get(netuid_index);
                 let mut trimmed_incentive = Vec::with_capacity(trimmed_uids.len());
@@ -302,8 +302,8 @@ impl<T: Config> Pallet<T> {
                 AssociatedEvmAddress::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
                 BlockAtRegistration::<T>::swap(netuid, old_neuron_uid, netuid, new_neuron_uid);
 
-                for mecid in 0..mechanisms_count {
-                    let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+                for mechid in 0..mechanisms_count {
+                    let netuid_index = Self::get_mechanism_storage_index(netuid, mechid.into());
 
                     // Swap to new position and remap all target uids
                     Weights::<T>::swap(netuid_index, old_neuron_uid, netuid_index, new_neuron_uid);

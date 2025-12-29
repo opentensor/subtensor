@@ -52,23 +52,23 @@ impl<T: Config> Pallet<T> {
     pub fn do_commit_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         commit_hash: H256,
     ) -> DispatchResult {
-        Self::internal_commit_weights(origin, netuid, mecid, commit_hash)
+        Self::internal_commit_weights(origin, netuid, mechid, commit_hash)
     }
 
     fn internal_commit_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         commit_hash: H256,
     ) -> DispatchResult {
-        // Ensure netuid and mecid exist
-        Self::ensure_mechanism_exists(netuid, mecid)?;
+        // Ensure netuid and mechid exist
+        Self::ensure_mechanism_exists(netuid, mechid)?;
 
         // Calculate subnet storage index
-        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mechid);
 
         // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
@@ -277,7 +277,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_commit_timelocked_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
         reveal_round: u64,
         commit_reveal_version: u16,
@@ -285,7 +285,7 @@ impl<T: Config> Pallet<T> {
         Self::internal_commit_timelocked_weights(
             origin,
             netuid,
-            mecid,
+            mechid,
             commit,
             reveal_round,
             commit_reveal_version,
@@ -295,16 +295,16 @@ impl<T: Config> Pallet<T> {
     pub fn internal_commit_timelocked_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
         reveal_round: u64,
         commit_reveal_version: u16,
     ) -> DispatchResult {
-        // Ensure netuid and mecid exist
-        Self::ensure_mechanism_exists(netuid, mecid)?;
+        // Ensure netuid and mechid exist
+        Self::ensure_mechanism_exists(netuid, mechid)?;
 
         // Calculate netuid storage index
-        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mechid);
 
         // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
@@ -439,26 +439,26 @@ impl<T: Config> Pallet<T> {
     pub fn do_reveal_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         uids: Vec<u16>,
         values: Vec<u16>,
         salt: Vec<u16>,
         version_key: u64,
     ) -> DispatchResult {
-        Self::internal_reveal_weights(origin, netuid, mecid, uids, values, salt, version_key)
+        Self::internal_reveal_weights(origin, netuid, mechid, uids, values, salt, version_key)
     }
 
     fn internal_reveal_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         uids: Vec<u16>,
         values: Vec<u16>,
         salt: Vec<u16>,
         version_key: u64,
     ) -> DispatchResult {
         // Calculate netuid storage index
-        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mechid);
 
         // --- 1. Check the caller's signature (hotkey).
         let who = ensure_signed(origin.clone())?;
@@ -536,7 +536,7 @@ impl<T: Config> Pallet<T> {
                     Self::do_set_mechanism_weights(
                         origin,
                         netuid,
-                        mecid,
+                        mechid,
                         uids.clone(),
                         values.clone(),
                         version_key,
@@ -748,13 +748,13 @@ impl<T: Config> Pallet<T> {
     fn internal_set_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         uids: Vec<u16>,
         values: Vec<u16>,
         version_key: u64,
     ) -> dispatch::DispatchResult {
         // Calculate subnet storage index
-        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mechid);
 
         // --- 1. Check the caller's signature. This is the hotkey of a registered account.
         let hotkey = ensure_signed(origin)?;
@@ -772,7 +772,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Check to see if this is a valid network and sub-subnet.
-        Self::ensure_mechanism_exists(netuid, mecid)?;
+        Self::ensure_mechanism_exists(netuid, mechid)?;
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
         ensure!(
@@ -935,7 +935,7 @@ impl<T: Config> Pallet<T> {
     ///  * 'netuid' (u16):
     ///    - The u16 network identifier.
     ///
-    ///  * 'mecid' (u8):
+    ///  * 'mechid' (u8):
     ///    - The u8 identifier of sub-subnet.
     ///
     ///  * 'uids' ( Vec<u16> ):
@@ -988,12 +988,12 @@ impl<T: Config> Pallet<T> {
     pub fn do_set_mechanism_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         uids: Vec<u16>,
         values: Vec<u16>,
         version_key: u64,
     ) -> dispatch::DispatchResult {
-        Self::internal_set_weights(origin, netuid, mecid, uids, values, version_key)
+        Self::internal_set_weights(origin, netuid, mechid, uids, values, version_key)
     }
 
     /// ---- The implementation for the extrinsic batch_set_weights.
@@ -1108,8 +1108,8 @@ impl<T: Config> Pallet<T> {
         neuron_uid: u16,
         current_block: u64,
     ) -> bool {
-        let maybe_netuid_and_mecid = Self::get_netuid_and_mecid(netuid_index);
-        if let Ok((netuid, _)) = maybe_netuid_and_mecid
+        let maybe_netuid_and_mechid = Self::get_netuid_and_mechid(netuid_index);
+        if let Ok((netuid, _)) = maybe_netuid_and_mechid
             && Self::is_uid_exist_on_network(netuid, neuron_uid)
         {
             // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
@@ -1121,7 +1121,7 @@ impl<T: Config> Pallet<T> {
                 >= Self::get_weights_set_rate_limit(netuid);
         }
 
-        // --- 3. Non registered peers cant pass. Neither can non-existing mecid
+        // --- 3. Non registered peers cant pass. Neither can non-existing mechid
         false
     }
 

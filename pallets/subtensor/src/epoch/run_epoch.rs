@@ -87,10 +87,10 @@ impl<T: Config> Pallet<T> {
     /// Persists per-mechanism epoch output in state
     pub fn persist_mechanism_epoch_terms(
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         output: &BTreeMap<T::AccountId, EpochTerms>,
     ) {
-        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mechid);
         let mut terms_sorted: sp_std::vec::Vec<&EpochTerms> = output.values().collect();
         terms_sorted.sort_unstable_by_key(|t| t.uid);
 
@@ -145,11 +145,11 @@ impl<T: Config> Pallet<T> {
     #[allow(clippy::indexing_slicing)]
     pub fn epoch_dense_mechanism(
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         rao_emission: AlphaCurrency,
     ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
         // Calculate netuid storage index
-        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mechid);
 
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
@@ -558,11 +558,11 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn epoch_mechanism(
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         rao_emission: AlphaCurrency,
     ) -> EpochOutput<T> {
         // Calculate netuid storage index
-        let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+        let netuid_index = Self::get_mechanism_storage_index(netuid, mechid);
 
         // Initialize output keys (neuron hotkeys) and UIDs
         let mut terms_map: BTreeMap<T::AccountId, EpochTerms> = Keys::<T>::iter_prefix(netuid)
@@ -1061,7 +1061,7 @@ impl<T: Config> Pallet<T> {
 
     /// Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
     pub fn get_weights_sparse(netuid_index: NetUidStorageIndex) -> Vec<Vec<(u16, I32F32)>> {
-        let (netuid, _) = Self::get_netuid_and_mecid(netuid_index).unwrap_or_default();
+        let (netuid, _) = Self::get_netuid_and_mechid(netuid_index).unwrap_or_default();
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
         for (uid_i, weights_i) in
@@ -1080,7 +1080,7 @@ impl<T: Config> Pallet<T> {
 
     /// Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
     pub fn get_weights(netuid_index: NetUidStorageIndex) -> Vec<Vec<I32F32>> {
-        let (netuid, _) = Self::get_netuid_and_mecid(netuid_index).unwrap_or_default();
+        let (netuid, _) = Self::get_netuid_and_mechid(netuid_index).unwrap_or_default();
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, weights_vec) in
@@ -1103,7 +1103,7 @@ impl<T: Config> Pallet<T> {
 
     /// Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
     pub fn get_bonds_sparse(netuid_index: NetUidStorageIndex) -> Vec<Vec<(u16, I32F32)>> {
-        let (netuid, _) = Self::get_netuid_and_mecid(netuid_index).unwrap_or_default();
+        let (netuid, _) = Self::get_netuid_and_mechid(netuid_index).unwrap_or_default();
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
         for (uid_i, bonds_vec) in
@@ -1126,7 +1126,7 @@ impl<T: Config> Pallet<T> {
 
     /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
     pub fn get_bonds(netuid_index: NetUidStorageIndex) -> Vec<Vec<I32F32>> {
-        let (netuid, _) = Self::get_netuid_and_mecid(netuid_index).unwrap_or_default();
+        let (netuid, _) = Self::get_netuid_and_mechid(netuid_index).unwrap_or_default();
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, bonds_vec) in
@@ -1188,7 +1188,7 @@ impl<T: Config> Pallet<T> {
         bonds: &[Vec<(u16, I32F32)>],
         netuid_index: NetUidStorageIndex,
     ) -> Vec<Vec<(u16, I32F32)>> {
-        let (netuid, _) = Self::get_netuid_and_mecid(netuid_index).unwrap_or_default();
+        let (netuid, _) = Self::get_netuid_and_mechid(netuid_index).unwrap_or_default();
 
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 =
@@ -1301,7 +1301,7 @@ impl<T: Config> Pallet<T> {
         bonds: &[Vec<(u16, I32F32)>],
         consensus: &[I32F32],
     ) -> Vec<Vec<(u16, I32F32)>> {
-        let (netuid, _) = Self::get_netuid_and_mecid(netuid_index).unwrap_or_default();
+        let (netuid, _) = Self::get_netuid_and_mechid(netuid_index).unwrap_or_default();
 
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
@@ -1537,7 +1537,7 @@ impl<T: Config> Pallet<T> {
         netuid_index: NetUidStorageIndex,
         account_id: &T::AccountId,
     ) -> Result<(), DispatchError> {
-        let (netuid, _) = Self::get_netuid_and_mecid(netuid_index).unwrap_or_default();
+        let (netuid, _) = Self::get_netuid_and_mechid(netuid_index).unwrap_or_default();
 
         // check bonds reset enabled for this subnet
         let bonds_reset_enabled: bool = Self::get_bonds_reset(netuid);

@@ -115,11 +115,11 @@ fn test_netuid_and_subnet_from_index() {
                 MechId::from(expected_subid + 1),
             );
 
-            let (netuid, mecid) =
-                SubtensorModule::get_netuid_and_mecid(NetUidStorageIndex::from(*netuid_index))
+            let (netuid, mechid) =
+                SubtensorModule::get_netuid_and_mechid(NetUidStorageIndex::from(*netuid_index))
                     .unwrap();
             assert_eq!(netuid, NetUid::from(expected_netuid));
-            assert_eq!(mecid, MechId::from(expected_subid));
+            assert_eq!(mechid, MechId::from(expected_subid));
         });
     });
 }
@@ -296,7 +296,7 @@ fn update_mechanism_counts_decreases_and_cleans() {
         // Set non-default subnet emission split
         MechanismEmissionSplit::<Test>::insert(netuid, vec![123u16, 234u16, 345u16]);
 
-        // Seed data at a kept mecid (1) and a removed mecid (2)
+        // Seed data at a kept mechid (1) and a removed mechid (2)
         let idx_keep = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(1u8));
         let idx_rm3 = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(2u8));
 
@@ -346,7 +346,7 @@ fn update_mechanism_counts_decreases_and_cleans() {
             idx_keep, 1u64
         ));
 
-        // Removed prefix (mecid 3) cleared
+        // Removed prefix (mechid 3) cleared
         assert!(Weights::<Test>::iter_prefix(idx_rm3).next().is_none());
         assert_eq!(Incentive::<Test>::get(idx_rm3), Vec::<u16>::new());
         assert!(!LastUpdate::<Test>::contains_key(idx_rm3));
@@ -848,7 +848,7 @@ fn neuron_dereg_cleans_weights_across_subids() {
         Consensus::<Test>::insert(netuid, vec![21u16, 88u16, 44u16]);
         Dividends::<Test>::insert(netuid, vec![7u16, 77u16, 17u16]);
 
-        // Clearing per-mecid maps
+        // Clearing per-mechid maps
         for sub in [0u8, 1u8] {
             let idx = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(sub));
 
@@ -879,7 +879,7 @@ fn neuron_dereg_cleans_weights_across_subids() {
         let d = Dividends::<Test>::get(netuid);
         assert_eq!(d, vec![7, 0, 17]);
 
-        // Per-mecid cleanup
+        // Per-mechid cleanup
         for sub in [0u8, 1u8] {
             let idx = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(sub));
 
@@ -958,9 +958,9 @@ fn test_set_mechanism_weights_happy_path_sets_row_under_subid() {
             1.into(),
         );
 
-        // Have at least two sub-subnets; write under mecid = 1
+        // Have at least two sub-subnets; write under mechid = 1
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8));
-        let mecid = MechId::from(1u8);
+        let mechid = MechId::from(1u8);
 
         // Call extrinsic
         let dests = vec![uid2, uid3];
@@ -968,14 +968,14 @@ fn test_set_mechanism_weights_happy_path_sets_row_under_subid() {
         assert_ok!(SubtensorModule::set_mechanism_weights(
             RawOrigin::Signed(hk1).into(),
             netuid,
-            mecid,
+            mechid,
             dests.clone(),
             weights.clone(),
             0, // version_key
         ));
 
-        // Verify row exists under the chosen mecid and not under a different mecid
-        let idx1 = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
+        // Verify row exists under the chosen mechid and not under a different mechid
+        let idx1 = SubtensorModule::get_mechanism_storage_index(netuid, mechid);
         assert_eq!(
             Weights::<Test>::get(idx1, uid1),
             vec![(uid2, 88u16), (uid3, 0xFFFF)]
@@ -1015,7 +1015,7 @@ fn test_set_mechanism_weights_above_mechanism_count_fails() {
             1.into(),
         );
 
-        // Have exactly two sub-subnets; write under mecid = 1
+        // Have exactly two sub-subnets; write under mechid = 1
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8));
         let subid_above = MechId::from(2u8);
 
@@ -1073,13 +1073,13 @@ fn test_commit_reveal_mechanism_weights_ok() {
             1.into(),
         );
 
-        // Ensure sub-subnet exists; write under mecid = 1
+        // Ensure sub-subnet exists; write under mechid = 1
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8));
-        let mecid = MechId::from(1u8);
+        let mechid = MechId::from(1u8);
         let idx0 = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(0u8));
-        let idx1 = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
+        let idx1 = SubtensorModule::get_mechanism_storage_index(netuid, mechid);
 
-        // Prepare payload and commit hash (include mecid!)
+        // Prepare payload and commit hash (include mechid!)
         let dests = vec![uid2, uid3];
         let weights = vec![88u16, 0xFFFFu16];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -1097,7 +1097,7 @@ fn test_commit_reveal_mechanism_weights_ok() {
         assert_ok!(SubtensorModule::commit_mechanism_weights(
             RuntimeOrigin::signed(hk1),
             netuid,
-            mecid,
+            mechid,
             commit_hash
         ));
 
@@ -1106,20 +1106,20 @@ fn test_commit_reveal_mechanism_weights_ok() {
         assert_ok!(SubtensorModule::reveal_mechanism_weights(
             RuntimeOrigin::signed(hk1),
             netuid,
-            mecid,
+            mechid,
             dests.clone(),
             weights.clone(),
             salt,
             version_key
         ));
 
-        // Verify weights stored under the chosen mecid (normalized keeps max=0xFFFF here)
+        // Verify weights stored under the chosen mechid (normalized keeps max=0xFFFF here)
         assert_eq!(
             Weights::<Test>::get(idx1, uid1),
             vec![(uid2, 88u16), (uid3, 0xFFFFu16)]
         );
 
-        // And not under a different mecid
+        // And not under a different mechid
         assert!(Weights::<Test>::get(idx0, uid1).is_empty());
     });
 }
@@ -1214,13 +1214,13 @@ fn test_reveal_crv3_commits_sub_success() {
         System::set_block_number(0);
 
         let netuid = NetUid::from(1);
-        let mecid  = MechId::from(1u8); // write under sub-subnet #1
+        let mechid  = MechId::from(1u8); // write under sub-subnet #1
         let hotkey1: AccountId = U256::from(1);
         let hotkey2: AccountId = U256::from(2);
         let reveal_round: u64 = 1000;
 
         add_network(netuid, 5, 0);
-        // ensure we actually have mecid=1 available
+        // ensure we actually have mechid=1 available
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8));
 
         // Register neurons and set up configs
@@ -1243,7 +1243,7 @@ fn test_reveal_crv3_commits_sub_success() {
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-        // Payload (same as legacy; mecid is provided to the extrinsic)
+        // Payload (same as legacy; mechid is provided to the extrinsic)
         let payload = WeightsTlockPayload {
             hotkey: hotkey1.encode(),
             values: vec![10, 20],
@@ -1273,7 +1273,7 @@ fn test_reveal_crv3_commits_sub_success() {
         assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
-            mecid,
+            mechid,
             commit_bytes.clone().try_into().expect("bounded"),
             reveal_round,
             SubtensorModule::get_commit_reveal_weights_version()
@@ -1293,11 +1293,11 @@ fn test_reveal_crv3_commits_sub_success() {
         // Run epochs so the commit is processed
         step_epochs(3, netuid);
 
-        // Verify weights applied under the selected mecid index
-        let idx = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
+        // Verify weights applied under the selected mechid index
+        let idx = SubtensorModule::get_mechanism_storage_index(netuid, mechid);
         let weights_sparse = SubtensorModule::get_weights_sparse(idx);
         let row = weights_sparse.get(uid1 as usize).cloned().unwrap_or_default();
-        assert!(!row.is_empty(), "expected weights set for validator uid1 under mecid");
+        assert!(!row.is_empty(), "expected weights set for validator uid1 under mechid");
 
         // Compare rounded normalized weights to expected proportions (like legacy test)
         let expected: Vec<(u16, I32F32)> = payload.uids.iter().zip(payload.values.iter()).map(|(&u,&v)|(u, I32F32::from_num(v))).collect();
@@ -1326,7 +1326,7 @@ fn test_crv3_above_mechanism_count_fails() {
         let reveal_round: u64 = 1000;
 
         add_network(netuid, 5, 0);
-        // ensure we actually have mecid=1 available
+        // ensure we actually have mechid=1 available
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8));
 
         // Register neurons and set up configs
@@ -1346,7 +1346,7 @@ fn test_crv3_above_mechanism_count_fails() {
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-        // Payload (same as legacy; mecid is provided to the extrinsic)
+        // Payload (same as legacy; mechid is provided to the extrinsic)
         let payload = WeightsTlockPayload {
             hotkey: hotkey1.encode(),
             values: vec![10, 20],
@@ -1391,7 +1391,7 @@ fn test_crv3_above_mechanism_count_fails() {
 fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        let mecid = MechId::from(1u8);
+        let mechid = MechId::from(1u8);
         let hotkey: AccountId = U256::from(1);
         let commit_data_1: Vec<u8> = vec![1, 2, 3];
         let commit_data_2: Vec<u8> = vec![4, 5, 6];
@@ -1405,7 +1405,7 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("uid");
-        let idx1 = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
+        let idx1 = SubtensorModule::get_mechanism_storage_index(netuid, mechid);
         SubtensorModule::set_last_update_for_uid(idx1, uid, 0);
 
         // make validator with stake
@@ -1419,22 +1419,22 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
             1.into(),
         );
 
-        // first commit OK on mecid=1
+        // first commit OK on mechid=1
         assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
-            mecid,
+            mechid,
             commit_data_1.clone().try_into().expect("bounded"),
             reveal_round,
             SubtensorModule::get_commit_reveal_weights_version()
         ));
 
-        // immediate second commit on SAME mecid blocked
+        // immediate second commit on SAME mechid blocked
         assert_noop!(
             SubtensorModule::commit_timelocked_mechanism_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
-                mecid,
+                mechid,
                 commit_data_2.clone().try_into().expect("bounded"),
                 reveal_round,
                 SubtensorModule::get_commit_reveal_weights_version()
@@ -1442,7 +1442,7 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
             Error::<Test>::CommittingWeightsTooFast
         );
 
-        // BUT committing too soon on a DIFFERENT mecid is allowed
+        // BUT committing too soon on a DIFFERENT mechid is allowed
         let other_subid = MechId::from(0u8);
         let idx0 = SubtensorModule::get_mechanism_storage_index(netuid, other_subid);
         SubtensorModule::set_last_update_for_uid(idx0, uid, 0); // baseline like above
@@ -1455,13 +1455,13 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
             SubtensorModule::get_commit_reveal_weights_version()
         ));
 
-        // still too fast on original mecid after 2 blocks
+        // still too fast on original mechid after 2 blocks
         step_block(2);
         assert_noop!(
             SubtensorModule::commit_timelocked_mechanism_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
-                mecid,
+                mechid,
                 commit_data_2.clone().try_into().expect("bounded"),
                 reveal_round,
                 SubtensorModule::get_commit_reveal_weights_version()
@@ -1469,12 +1469,12 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
             Error::<Test>::CommittingWeightsTooFast
         );
 
-        // after enough blocks, OK again on original mecid
+        // after enough blocks, OK again on original mechid
         step_block(3);
         assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
-            mecid,
+            mechid,
             commit_data_2.try_into().expect("bounded"),
             reveal_round,
             SubtensorModule::get_commit_reveal_weights_version()
@@ -1487,8 +1487,8 @@ fn epoch_mechanism_emergency_mode_distributes_by_stake() {
     new_test_ext(1).execute_with(|| {
         // setup a single sub-subnet where consensus sum becomes 0
         let netuid = NetUid::from(1u16);
-        let mecid = MechId::from(1u8);
-        let idx = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
+        let mechid = MechId::from(1u8);
+        let idx = SubtensorModule::get_mechanism_storage_index(netuid, mechid);
         let tempo: u16 = 5;
         add_network(netuid, tempo, 0);
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8)); // allow subids {0,1}
@@ -1547,7 +1547,7 @@ fn epoch_mechanism_emergency_mode_distributes_by_stake() {
         let emission = AlphaCurrency::from(1_000_000u64);
 
         // --- act: run epoch on this sub-subnet only ---
-        let out = SubtensorModule::epoch_mechanism(netuid, mecid, emission);
+        let out = SubtensorModule::epoch_mechanism(netuid, mechid, emission);
 
         // collect validator emissions per hotkey
         let t0 = out.0.get(&hk0).unwrap();

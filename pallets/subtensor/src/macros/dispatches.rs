@@ -120,7 +120,7 @@ mod dispatches {
         /// * `netuid` (u16):
         /// 	- The network uid we are setting these weights on.
         ///
-        /// * `mecid` (`u8`):
+        /// * `mechid` (`u8`):
         ///   - The u8 mechnism identifier.
         ///
         /// * `dests` (Vec<u16>):
@@ -168,7 +168,7 @@ mod dispatches {
         pub fn set_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
-            mecid: MechId,
+            mechid: MechId,
             dests: Vec<u16>,
             weights: Vec<u16>,
             version_key: u64,
@@ -176,7 +176,7 @@ mod dispatches {
             if Self::get_commit_reveal_weights_enabled(netuid) {
                 Err(Error::<T>::CommitRevealEnabled.into())
             } else {
-                Self::do_set_mechanism_weights(origin, netuid, mecid, dests, weights, version_key)
+                Self::do_set_mechanism_weights(origin, netuid, mechid, dests, weights, version_key)
             }
         }
 
@@ -258,7 +258,7 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `mecid` (`u8`):
+        /// * `mechid` (`u8`):
         ///   - The u8 mechanism identifier.
         ///
         /// * `commit_hash` (`H256`):
@@ -278,10 +278,10 @@ mod dispatches {
         pub fn commit_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            mecid: MechId,
+            mechid: MechId,
             commit_hash: H256,
         ) -> DispatchResult {
-            Self::do_commit_mechanism_weights(origin, netuid, mecid, commit_hash)
+            Self::do_commit_mechanism_weights(origin, netuid, mechid, commit_hash)
         }
 
         /// --- Allows a hotkey to commit weight hashes for multiple netuids as a batch.
@@ -379,7 +379,7 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `mecid` (`u8`):
+        /// * `mechid` (`u8`):
         ///   - The u8 mechanism identifier.
         ///
         /// * `uids` (`Vec<u16>`):
@@ -417,7 +417,7 @@ mod dispatches {
         pub fn reveal_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            mecid: MechId,
+            mechid: MechId,
             uids: Vec<u16>,
             values: Vec<u16>,
             salt: Vec<u16>,
@@ -426,7 +426,7 @@ mod dispatches {
             Self::do_reveal_mechanism_weights(
                 origin,
                 netuid,
-                mecid,
+                mechid,
                 uids,
                 values,
                 salt,
@@ -485,7 +485,7 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `mecid` (`u8`):
+        /// * `mechid` (`u8`):
         ///   - The u8 mechanism identifier.
         ///
         /// * `commit` (`Vec<u8>`):
@@ -515,14 +515,14 @@ mod dispatches {
         pub fn commit_crv3_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            mecid: MechId,
+            mechid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
         ) -> DispatchResult {
             Self::do_commit_timelocked_mechanism_weights(
                 origin,
                 netuid,
-                mecid,
+                mechid,
                 commit,
                 reveal_round,
                 4,
@@ -2264,7 +2264,7 @@ mod dispatches {
         /// * `netuid` (`u16`):
         ///   - The u16 network identifier.
         ///
-        /// * `mecid` (`u8`):
+        /// * `mechid` (`u8`):
         ///   - The u8 mechanism identifier.
         ///
         /// * `commit` (`Vec<u8>`):
@@ -2289,7 +2289,7 @@ mod dispatches {
         pub fn commit_timelocked_mechanism_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            mecid: MechId,
+            mechid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
             commit_reveal_version: u16,
@@ -2297,7 +2297,7 @@ mod dispatches {
             Self::do_commit_timelocked_mechanism_weights(
                 origin,
                 netuid,
-                mecid,
+                mechid,
                 commit,
                 reveal_round,
                 commit_reveal_version,

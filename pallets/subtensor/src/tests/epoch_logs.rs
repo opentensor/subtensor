@@ -108,8 +108,8 @@ fn set_weights(netuid: NetUid, weights: Vec<Vec<u16>>, indices: Vec<u16>) {
 
 /// Write sparse weight rows **for a specific mechanism**.
 /// `rows` is a list of `(validator_uid, row)` where `row` is `[(dest_uid, weight_u16)]`.
-fn set_weights_for_mech(netuid: NetUid, mecid: MechId, rows: Vec<(u16, Vec<(u16, u16)>)>) {
-    let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
+fn set_weights_for_mech(netuid: NetUid, mechid: MechId, rows: Vec<(u16, Vec<(u16, u16)>)>) {
+    let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mechid);
     for (uid, sparse_row) in rows {
         Weights::<Test>::insert(netuid_index, uid, sparse_row);
     }

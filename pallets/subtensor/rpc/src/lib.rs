@@ -78,7 +78,7 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_mechagraph(
         &self,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
@@ -103,7 +103,7 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_selective_mechagraph(
         &self,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         metagraph_index: Vec<u16>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
@@ -391,12 +391,12 @@ where
     fn get_mechagraph(
         &self,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        match api.get_mechagraph(at, netuid, mecid) {
+        match api.get_mechagraph(at, netuid, mechid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
                 "Unable to get dynamic subnets info: {e:?}"
@@ -502,14 +502,14 @@ where
     fn get_selective_mechagraph(
         &self,
         netuid: NetUid,
-        mecid: MechId,
+        mechid: MechId,
         metagraph_index: Vec<u16>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        match api.get_selective_mechagraph(at, netuid, mecid, metagraph_index) {
+        match api.get_selective_mechagraph(at, netuid, mechid, metagraph_index) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
                 Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())

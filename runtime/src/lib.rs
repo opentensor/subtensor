@@ -946,8 +946,8 @@ impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
         // Reset bonds for each mechanism of this subnet
         let mechanism_count = SubtensorModule::get_current_mechanism_count(netuid);
-        for mecid in 0..u8::from(mechanism_count) {
-            let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid.into());
+        for mechid in 0..u8::from(mechanism_count) {
+            let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mechid.into());
             let _ = SubtensorModule::do_reset_bonds(netuid_index, address);
         }
     }
@@ -2427,8 +2427,8 @@ impl_runtime_apis! {
             SubtensorModule::get_metagraph(netuid)
         }
 
-        fn get_mechagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<AccountId32>> {
-            SubtensorModule::get_mechagraph(netuid, mecid)
+        fn get_mechagraph(netuid: NetUid, mechid: MechId) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_mechagraph(netuid, mechid)
         }
 
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>> {
@@ -2458,8 +2458,8 @@ impl_runtime_apis! {
             SubtensorModule::get_coldkey_auto_stake_hotkey(coldkey, netuid)
         }
 
-        fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
-            SubtensorModule::get_selective_mechagraph(netuid, mecid, metagraph_indexes)
+        fn get_selective_mechagraph(netuid: NetUid, mechid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_mechagraph(netuid, mechid, metagraph_indexes)
         }
     }
 

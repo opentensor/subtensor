@@ -2491,9 +2491,9 @@ fn test_trim_to_max_allowed_uids() {
         ValidatorPermit::<Test>::insert(netuid, bool_values.clone());
         Active::<Test>::insert(netuid, bool_values);
 
-        for mecid in 0..mechanism_count.into() {
+        for mechid in 0..mechanism_count.into() {
             let netuid_index =
-                SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mecid));
+                SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mechid));
             Incentive::<Test>::insert(netuid_index, values.clone());
             LastUpdate::<Test>::insert(netuid_index, u64_values.clone());
         }
@@ -2548,9 +2548,9 @@ fn test_trim_to_max_allowed_uids() {
                 }
             }
 
-            for mecid in 0..mechanism_count.into() {
+            for mechid in 0..mechanism_count.into() {
                 let netuid_index =
-                    SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mecid));
+                    SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mechid));
                 Weights::<Test>::insert(netuid_index, uid, weights.clone());
                 Bonds::<Test>::insert(netuid_index, uid, bonds.clone());
             }
@@ -2596,9 +2596,9 @@ fn test_trim_to_max_allowed_uids() {
         assert_eq!(ValidatorPermit::<Test>::get(netuid), expected_bools);
         assert_eq!(StakeWeight::<Test>::get(netuid), expected_values);
 
-        for mecid in 0..mechanism_count.into() {
+        for mechid in 0..mechanism_count.into() {
             let netuid_index =
-                SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mecid));
+                SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mechid));
             assert_eq!(Incentive::<Test>::get(netuid_index), expected_values);
             assert_eq!(LastUpdate::<Test>::get(netuid_index), expected_u64_values);
         }
@@ -2608,9 +2608,9 @@ fn test_trim_to_max_allowed_uids() {
             assert!(!Keys::<Test>::contains_key(netuid, uid));
             assert!(!BlockAtRegistration::<Test>::contains_key(netuid, uid));
             assert!(!AssociatedEvmAddress::<Test>::contains_key(netuid, uid));
-            for mecid in 0..mechanism_count.into() {
+            for mechid in 0..mechanism_count.into() {
                 let netuid_index =
-                    SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mecid));
+                    SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mechid));
                 assert!(!Weights::<Test>::contains_key(netuid_index, uid));
                 assert!(!Bonds::<Test>::contains_key(netuid_index, uid));
             }
@@ -2643,9 +2643,9 @@ fn test_trim_to_max_allowed_uids() {
 
         // Ensure trimmed uids weights and bonds connections have been trimmed correctly
         for uid in 0..new_max_n {
-            for mecid in 0..mechanism_count.into() {
+            for mechid in 0..mechanism_count.into() {
                 let netuid_index =
-                    SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mecid));
+                    SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mechid));
                 assert!(
                     Weights::<Test>::get(netuid_index, uid)
                         .iter()

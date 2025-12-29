@@ -46,8 +46,8 @@ impl<T: Config> Pallet<T> {
 
         // All mechanisms share the same epoch, so the reveal_period/reveal_epoch are also the same
         // Reveal for all mechanisms
-        for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
-            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+        for mechid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mechid.into());
 
             // Clean expired commits
             for (epoch, _) in TimelockedWeightCommits::<T>::iter_prefix(netuid_index) {
@@ -180,7 +180,7 @@ impl<T: Config> Pallet<T> {
                 if let Err(e) = Self::do_set_mechanism_weights(
                     T::RuntimeOrigin::signed(who.clone()),
                     netuid,
-                    MechId::from(mecid),
+                    MechId::from(mechid),
                     uids,
                     values,
                     version_key,

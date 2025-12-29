@@ -41,7 +41,7 @@ sp_api::decl_runtime_apis! {
         fn get_all_metagraphs() -> Vec<Option<Metagraph<AccountId32>>>;
         fn get_metagraph(netuid: NetUid) -> Option<Metagraph<AccountId32>>;
         fn get_all_mechagraphs() -> Vec<Option<Metagraph<AccountId32>>>;
-        fn get_mechagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<AccountId32>>;
+        fn get_mechagraph(netuid: NetUid, mechid: MechId) -> Option<Metagraph<AccountId32>>;
         fn get_dynamic_info(netuid: NetUid) -> Option<DynamicInfo<AccountId32>>;
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>>;
         fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>>;

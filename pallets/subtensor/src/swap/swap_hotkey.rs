@@ -388,8 +388,8 @@ impl<T: Config> Pallet<T> {
         // 3.5 Swap WeightCommits
         // WeightCommits( hotkey ) --> Vec<u64> -- the weight commits for the hotkey.
         if is_network_member {
-            for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
-                let netuid_index = Self::get_mechanism_storage_index(netuid, MechId::from(mecid));
+            for mechid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+                let netuid_index = Self::get_mechanism_storage_index(netuid, MechId::from(mechid));
                 if let Ok(old_weight_commits) =
                     WeightCommits::<T>::try_get(netuid_index, old_hotkey)
                 {
