@@ -162,9 +162,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 13. Deposit successful events.
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
-        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey.clone()));
-        Self::deposit_event(Event::NeuronRegistrationBurn(
+        Self::deposit_event(Event::NeuronRegistered(
             netuid,
+            neuron_uid,
             hotkey,
             actual_burn_amount.into(),
             burned_alpha.into(),
@@ -334,7 +334,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 15. Deposit successful event.
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
-        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
+        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey, 0, 0));
 
         // --- 16. Ok and done.
         Ok(())

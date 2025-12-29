@@ -43,10 +43,8 @@ mod events {
         /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(NetUidStorageIndex, u16),
         /// a new neuron account has been registered to the chain.
-        NeuronRegistered(NetUid, u16, T::AccountId),
-        /// alpha has been burned during neuron registration.
-        /// (netuid, hotkey, tao_cost, alpha_burned)
-        NeuronRegistrationBurn(NetUid, T::AccountId, TaoCurrency, AlphaCurrency),
+        /// (netuid, uid, hotkey, tao_cost, alpha_burned)
+        NeuronRegistered(NetUid, u16, T::AccountId, TaoCurrency, AlphaCurrency),
         /// multiple uids have been concurrently registered.
         BulkNeuronsRegistered(u16, u16),
         /// FIXME: Not used yet

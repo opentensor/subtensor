@@ -184,6 +184,8 @@ impl<T: Config> Pallet<T> {
             NetUid::ROOT,
             subnetwork_uid,
             hotkey,
+            0,
+            0,
         ));
 
         // --- 16. Finish and return success.
