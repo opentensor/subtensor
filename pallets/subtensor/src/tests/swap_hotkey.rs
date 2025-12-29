@@ -1468,7 +1468,11 @@ fn test_swap_parent_hotkey_self_loops_in_pending() {
 
         // Verify that parent_new does NOT have child_other as a child (self-loop prevented)
         // The swap should have filtered out child_other since it equals parent_new
-        assert!(!ChildKeys::<Test>::get(parent_new, netuid).iter().any(|(_, c)| *c == child_other));
+        assert!(
+            !ChildKeys::<Test>::get(parent_new, netuid)
+                .iter()
+                .any(|(_, c)| *c == child_other)
+        );
     })
 }
 
@@ -1563,7 +1567,10 @@ fn test_swap_hotkey_filters_pending_child_self_loop() {
         PendingChildKeys::<Test>::insert(
             netuid,
             old_hotkey,
-            (vec![(100u64, new_hotkey), (200u64, U256::from(4))], cooldown_block),
+            (
+                vec![(100u64, new_hotkey), (200u64, U256::from(4))],
+                cooldown_block,
+            ),
         );
 
         // Perform the swap - should succeed

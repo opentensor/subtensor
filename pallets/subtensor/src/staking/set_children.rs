@@ -448,7 +448,7 @@ impl<T: Config> Pallet<T> {
             let (mut children, cool_down_block) = PendingChildKeys::<T>::get(netuid, old_hotkey);
             // Remove new_hotkey from pending children to prevent self-loop
             children.retain(|(_, child)| *child != *new_hotkey);
-            
+
             if !children.is_empty() {
                 relations.ensure_pending_consistency(&children)?;
                 PendingChildKeys::<T>::remove(netuid, old_hotkey);
