@@ -137,7 +137,7 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
 {
     fn delta_in(netuid: NetUid, price_curr: U64F64, price_target: U64F64) -> TaoCurrency {
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let reserve_weight = SwapBalancer::<T>::get(netuid);
         TaoCurrency::from(reserve_weight.calculate_quote_delta_in(
             price_curr,
             price_target,
@@ -148,7 +148,7 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
     fn price_target(netuid: NetUid, delta_in: TaoCurrency) -> U64F64 {
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
-        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let reserve_weight = SwapBalancer::<T>::get(netuid);
         let dy = delta_in;
         let dx = Self::convert_deltas(netuid, dy);
         reserve_weight.calculate_price(
@@ -168,7 +168,7 @@ impl<T: Config> SwapStep<T, TaoCurrency, AlphaCurrency>
     fn convert_deltas(netuid: NetUid, delta_in: TaoCurrency) -> AlphaCurrency {
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let reserve_weight = SwapBalancer::<T>::get(netuid);
         let e = reserve_weight.exp_quote_base(tao_reserve.into(), delta_in.into());
         let one = U64F64::from_num(1);
         let alpha_reserve_fixed = U64F64::from_num(alpha_reserve);
@@ -185,7 +185,7 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
 {
     fn delta_in(netuid: NetUid, price_curr: U64F64, price_target: U64F64) -> AlphaCurrency {
         let alpha_reserve = T::AlphaReserve::reserve(netuid);
-        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let reserve_weight = SwapBalancer::<T>::get(netuid);
         AlphaCurrency::from(reserve_weight.calculate_base_delta_in(
             price_curr,
             price_target,
@@ -196,7 +196,7 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
     fn price_target(netuid: NetUid, delta_in: AlphaCurrency) -> U64F64 {
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
-        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let reserve_weight = SwapBalancer::<T>::get(netuid);
         let dx = delta_in;
         let dy = Self::convert_deltas(netuid, dx);
         reserve_weight.calculate_price(
@@ -216,7 +216,7 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
     fn convert_deltas(netuid: NetUid, delta_in: AlphaCurrency) -> TaoCurrency {
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let reserve_weight = SwapBalancer::<T>::get(netuid);
         let e = reserve_weight.exp_base_quote(alpha_reserve.into(), delta_in.into());
         let one = U64F64::from_num(1);
         let tao_reserve_fixed = U64F64::from_num(u64::from(tao_reserve));

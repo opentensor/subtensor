@@ -8,9 +8,9 @@ use sp_runtime::Saturating;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("8c6bbe52ef752203")]
+#[freeze_struct("7fa3cbcf1d419808")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct ReserveWeight {
+pub struct Balancer {
     quote: Perquintill,
 }
 
@@ -20,11 +20,11 @@ pub const MIN_WEIGHT: Perquintill = Perquintill::from_parts(ACCURACY / 100);
 pub const ONE: Perquintill = Perquintill::from_parts(ACCURACY);
 
 #[derive(Debug)]
-pub enum ReserveWeightError {
+pub enum BalancerError {
     InvalidValue,
 }
 
-impl Default for ReserveWeight {
+impl Default for Balancer {
     fn default() -> Self {
         Self {
             quote: Perquintill::from_rational(1u128, 2u128),
@@ -32,12 +32,12 @@ impl Default for ReserveWeight {
     }
 }
 
-impl ReserveWeight {
-    pub fn new(quote: Perquintill) -> Result<Self, ReserveWeightError> {
+impl Balancer {
+    pub fn new(quote: Perquintill) -> Result<Self, BalancerError> {
         if Self::check_constraints(quote) {
-            Ok(ReserveWeight { quote })
+            Ok(Balancer { quote })
         } else {
-            Err(ReserveWeightError::InvalidValue)
+            Err(BalancerError::InvalidValue)
         }
     }
 
@@ -54,11 +54,11 @@ impl ReserveWeight {
         ONE.saturating_sub(self.quote)
     }
 
-    pub fn set_quote_weight(&self, new_value: Perquintill) -> Result<(), ReserveWeightError> {
+    pub fn set_quote_weight(&self, new_value: Perquintill) -> Result<(), BalancerError> {
         if Self::check_constraints(new_value) {
             Ok(())
         } else {
-            Err(ReserveWeightError::InvalidValue)
+            Err(BalancerError::InvalidValue)
         }
     }
 
@@ -156,7 +156,7 @@ impl ReserveWeight {
         alpha_reserve: u64,
         tao_delta: u64,
         alpha_delta: u64,
-    ) -> Result<(), ReserveWeightError> {
+    ) -> Result<(), BalancerError> {
         // Calculate new to-be reserves (do not update here)
         let tao_reserve_u128 = u64::from(tao_reserve) as u128;
         let alpha_reserve_u128 = u64::from(alpha_reserve) as u128;
@@ -269,12 +269,12 @@ impl ReserveWeight {
     }
 }
 
-// cargo test --package pallet-subtensor-swap --lib -- pallet::reserve_weights::tests --nocapture
+// cargo test --package pallet-subtensor-swap --lib -- pallet::balancer::tests --nocapture
 #[cfg(test)]
 #[cfg(feature = "std")]
 mod tests {
-    use crate::pallet::ReserveWeight;
-    use crate::pallet::reserve_weights::*;
+    use crate::pallet::Balancer;
+    use crate::pallet::balancer::*;
     use approx::assert_abs_diff_eq;
     use sp_arithmetic::Perquintill;
 
@@ -405,16 +405,16 @@ mod tests {
             ]
             .into_iter()
             .for_each(|(y, x, dx)| {
-                let rw = ReserveWeight::new(w_quote).unwrap();
-                let e = rw.exp_base_quote(x, dx);
+                let bal = Balancer::new(w_quote).unwrap();
+                let e = bal.exp_base_quote(x, dx);
                 let one = U64F64::from_num(1);
                 let y_fixed = U64F64::from_num(y);
                 println!("debug 1: e = {:?}", e);
                 let dy = y_fixed * (one - e);
                 println!("debug 2: dy = {:?}", dy);
 
-                let w1 = perquintill_to_f64(rw.get_base_weight());
-                let w2 = perquintill_to_f64(rw.get_quote_weight());
+                let w1 = perquintill_to_f64(bal.get_base_weight());
+                let w2 = perquintill_to_f64(bal.get_quote_weight());
                 let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
                 let dy_expected = y as f64 * (1. - e_expected);
 
@@ -489,11 +489,11 @@ mod tests {
         ]
         .into_iter()
         .for_each(|(y, x1, dx1, w_quote1, x2, dx2, w_quote2)| {
-            let rw1 = ReserveWeight::new(w_quote1).unwrap();
-            let rw2 = ReserveWeight::new(w_quote2).unwrap();
+            let bal1 = Balancer::new(w_quote1).unwrap();
+            let bal2 = Balancer::new(w_quote2).unwrap();
 
-            let exp1 = rw1.exp_base_quote(x1, dx1);
-            let exp2 = rw2.exp_base_quote(x2, dx2);
+            let exp1 = bal1.exp_base_quote(x1, dx1);
+            let exp2 = bal2.exp_base_quote(x2, dx2);
 
             let one = U64F64::from_num(1);
             let y_fixed = U64F64::from_num(y);
@@ -522,8 +522,8 @@ mod tests {
         let stop = 900_000_000_000_u128;
         for num in (start..=stop).step_by(1000 as usize) {
             let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
-            let rw = ReserveWeight::new(w_quote).unwrap();
-            let e = rw.exp_base_quote(x, dx);
+            let bal = Balancer::new(w_quote).unwrap();
+            let e = bal.exp_base_quote(x, dx);
 
             let one = U64F64::from_num(1);
             // println!("e = {:?}", e);
@@ -585,15 +585,15 @@ mod tests {
             let w_numerator: u64 = rng.gen_range(ACCURACY / 10..=ACCURACY / 10 * 9);
             let w_quote = Perquintill::from_rational(w_numerator, ACCURACY);
 
-            let rw = ReserveWeight::new(w_quote).unwrap();
-            let e = rw.exp_base_quote(x, dx);
+            let bal = Balancer::new(w_quote).unwrap();
+            let e = bal.exp_base_quote(x, dx);
 
             let one = U64F64::from_num(1);
             let dy = U64F64::from_num(y) * (one - e);
 
             // Calculate expected in f64 and approx-assert
-            let w1 = perquintill_to_f64(rw.get_base_weight());
-            let w2 = perquintill_to_f64(rw.get_quote_weight());
+            let w1 = perquintill_to_f64(bal.get_base_weight());
+            let w2 = perquintill_to_f64(bal.get_quote_weight());
             let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
             let dy_expected = y as f64 * (1. - e_expected);
 
@@ -628,13 +628,13 @@ mod tests {
     fn test_calculate_quote_delta_in() {
         let num = 250_000_000_000_u128; // w1 = 0.75 
         let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
-        let rw = ReserveWeight::new(w_quote).unwrap();
+        let bal = Balancer::new(w_quote).unwrap();
 
         let current_price: U64F64 = U64F64::from_num(0.1);
         let target_price: U64F64 = U64F64::from_num(0.2);
         let tao_reserve: u64 = 1_000_000_000;
 
-        let dy = rw.calculate_quote_delta_in(current_price, target_price, tao_reserve);
+        let dy = bal.calculate_quote_delta_in(current_price, target_price, tao_reserve);
 
         // ∆y = y•[(p'/p)^w1 - 1]
         let dy_expected = tao_reserve as f64
@@ -647,13 +647,13 @@ mod tests {
     fn test_calculate_base_delta_in() {
         let num = 250_000_000_000_u128; // w2 = 0.25 
         let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
-        let rw = ReserveWeight::new(w_quote).unwrap();
+        let bal = Balancer::new(w_quote).unwrap();
 
         let current_price: U64F64 = U64F64::from_num(0.2);
         let target_price: U64F64 = U64F64::from_num(0.1);
         let alpha_reserve: u64 = 1_000_000_000;
 
-        let dx = rw.calculate_base_delta_in(current_price, target_price, alpha_reserve);
+        let dx = bal.calculate_base_delta_in(current_price, target_price, alpha_reserve);
 
         // ∆x = x•[(p/p')^w2 - 1]
         let dx_expected = alpha_reserve as f64
@@ -666,14 +666,14 @@ mod tests {
     fn test_calculate_quote_delta_in_impossible() {
         let num = 250_000_000_000_u128; // w1 = 0.75 
         let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
-        let rw = ReserveWeight::new(w_quote).unwrap();
+        let bal = Balancer::new(w_quote).unwrap();
 
         // Impossible price (lower)
         let current_price: U64F64 = U64F64::from_num(0.1);
         let target_price: U64F64 = U64F64::from_num(0.05);
         let tao_reserve: u64 = 1_000_000_000;
 
-        let dy = rw.calculate_quote_delta_in(current_price, target_price, tao_reserve);
+        let dy = bal.calculate_quote_delta_in(current_price, target_price, tao_reserve);
         let dy_expected = 0u64;
 
         assert_eq!(dy, dy_expected as u64,);
@@ -683,14 +683,14 @@ mod tests {
     fn test_calculate_base_delta_in_impossible() {
         let num = 250_000_000_000_u128; // w2 = 0.25 
         let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
-        let rw = ReserveWeight::new(w_quote).unwrap();
+        let bal = Balancer::new(w_quote).unwrap();
 
         // Impossible price (higher)
         let current_price: U64F64 = U64F64::from_num(0.1);
         let target_price: U64F64 = U64F64::from_num(0.2);
         let alpha_reserve: u64 = 1_000_000_000;
 
-        let dx = rw.calculate_base_delta_in(current_price, target_price, alpha_reserve);
+        let dx = bal.calculate_base_delta_in(current_price, target_price, alpha_reserve);
         let dx_expected = 0u64;
 
         assert_eq!(dx, dx_expected as u64,);
@@ -700,7 +700,7 @@ mod tests {
     fn test_calculate_delta_in_reverse_swap() {
         let num = 500_000_000_000_u128;
         let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
-        let rw = ReserveWeight::new(w_quote).unwrap();
+        let bal = Balancer::new(w_quote).unwrap();
 
         let current_price: U64F64 = U64F64::from_num(0.1);
         let target_price: U64F64 = U64F64::from_num(0.2);
@@ -709,14 +709,14 @@ mod tests {
         // Here is the simple case of w1 = w2 = 0.5, so alpha = tao / price
         let alpha_reserve: u64 = (tao_reserve as f64 / current_price.to_num::<f64>()) as u64;
 
-        let dy = rw.calculate_quote_delta_in(current_price, target_price, tao_reserve);
+        let dy = bal.calculate_quote_delta_in(current_price, target_price, tao_reserve);
         let dx = alpha_reserve as f64
             * (1.0
                 - (tao_reserve as f64 / (tao_reserve as f64 + dy as f64))
                     .powf(num as f64 / (1_000_000_000_000 - num) as f64));
 
         // Verify that buying with dy will in fact bring the price to target_price
-        let actual_price = rw.calculate_price(alpha_reserve - dx as u64, tao_reserve + dy);
+        let actual_price = bal.calculate_price(alpha_reserve - dx as u64, tao_reserve + dy);
         assert_abs_diff_eq!(
             actual_price.to_num::<f64>(),
             target_price.to_num::<f64>(),

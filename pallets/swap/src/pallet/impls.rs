@@ -23,7 +23,7 @@ use subtensor_swap_interface::{
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep};
 use crate::{
-    pallet::ReserveWeight, pallet::reserve_weights::ReserveWeightError, position::PositionId,
+    pallet::Balancer, pallet::balancer::BalancerError, position::PositionId,
 };
 
 #[derive(Debug, PartialEq)]
@@ -51,7 +51,7 @@ impl<T: Config> Pallet<T> {
                 let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
                 if !alpha_reserve.is_zero() {
                     let tao_reserve = T::TaoReserve::reserve(netuid.into());
-                    let reserve_weight = SwapReserveWeight::<T>::get(netuid);
+                    let reserve_weight = SwapBalancer::<T>::get(netuid);
                     reserve_weight.calculate_price(alpha_reserve.into(), tao_reserve.into())
                 } else {
                     U64F64::saturating_from_num(0)
@@ -67,13 +67,13 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        // Insert 0.5 into SwapReserveWeight
-        let reserve_weight = ReserveWeight::new(Perquintill::from_rational(1_u64, 2_u64)).map_err(
+        // Insert 0.5 into SwapBalancer
+        let reserve_weight = Balancer::new(Perquintill::from_rational(1_u64, 2_u64)).map_err(
             |err| match err {
-                ReserveWeightError::InvalidValue => Error::<T>::ReservesOutOfBalance,
+                BalancerError::InvalidValue => Error::<T>::ReservesOutOfBalance,
             },
         )?;
-        SwapReserveWeight::<T>::insert(netuid, reserve_weight);
+        SwapBalancer::<T>::insert(netuid, reserve_weight);
 
         // TODO: Review when/if we have user liquidity
         // Initialize the pal-swap:
@@ -114,7 +114,7 @@ impl<T: Config> Pallet<T> {
         // Get reserves
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        let mut reserve_weight = SwapReserveWeight::<T>::get(netuid);
+        let mut reserve_weight = SwapBalancer::<T>::get(netuid);
 
         // Update weights and log errors if they go out of range
         if reserve_weight
@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
                 alpha_delta
             );
         } else {
-            SwapReserveWeight::<T>::insert(netuid, reserve_weight);
+            SwapBalancer::<T>::insert(netuid, reserve_weight);
         }
     }
 
@@ -549,7 +549,7 @@ impl<T: Config> Pallet<T> {
         PalSwapInitialized::<T>::remove(netuid);
         FeeRate::<T>::remove(netuid);
         EnabledUserLiquidity::<T>::remove(netuid);
-        SwapReserveWeight::<T>::remove(netuid);
+        SwapBalancer::<T>::remove(netuid);
 
         log::debug!(
             "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"

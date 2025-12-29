@@ -158,7 +158,7 @@ mod dispatchables {
                 let expected_quote_weight =
                     new_tao / (new_alpha * price_before.to_num::<f64>() + new_tao);
                 let expected_quote_weight_delta = expected_quote_weight - 0.5;
-                let res_weights = SwapReserveWeight::<Test>::get(netuid);
+                let res_weights = SwapBalancer::<Test>::get(netuid);
                 let actual_quote_weight_delta =
                     perquintill_to_f64(res_weights.get_quote_weight()) - 0.5;
                 let eps = expected_quote_weight / 1_000_000_000_000.;
@@ -177,7 +177,7 @@ mod dispatchables {
     ///   - Result in the same weight change as one large injection
     ///
     /// This is a long test that only tests validity of weights math. Run again if changing
-    /// ReserveWeight::update_weights_for_added_liquidity
+    /// Balancer::update_weights_for_added_liquidity
     ///
     /// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::dispatchables::test_adjust_protocol_liquidity_deltas --exact --nocapture
     #[ignore]
@@ -267,8 +267,8 @@ mod dispatchables {
                 AlphaReserve::set_mock_reserve(netuid2, initial_alpha_reserve + alpha_delta_once);
 
                 // Compare reserve weights for netuid 1 and 2
-                let res_weights1 = SwapReserveWeight::<Test>::get(netuid1);
-                let res_weights2 = SwapReserveWeight::<Test>::get(netuid2);
+                let res_weights1 = SwapBalancer::<Test>::get(netuid1);
+                let res_weights2 = SwapBalancer::<Test>::get(netuid2);
                 let actual_quote_weight1 = perquintill_to_f64(res_weights1.get_quote_weight());
                 let actual_quote_weight2 = perquintill_to_f64(res_weights2.get_quote_weight());
                 assert_abs_diff_eq!(
@@ -349,7 +349,7 @@ mod dispatchables {
                 TaoReserve::set_mock_reserve(netuid, tao + tao_delta);
                 AlphaReserve::set_mock_reserve(netuid, alpha + alpha_delta);
 
-                let res_weights = SwapReserveWeight::<Test>::get(netuid);
+                let res_weights = SwapBalancer::<Test>::get(netuid);
                 let actual_quote_weight = perquintill_to_f64(res_weights.get_quote_weight());
 
                 // Check that price didn't change
@@ -432,7 +432,7 @@ fn test_swap_initialization() {
         );
 
         // Verify that swap reserve weight is initialized
-        let reserve_weight = SwapReserveWeight::<Test>::get(netuid);
+        let reserve_weight = SwapBalancer::<Test>::get(netuid);
         assert_eq!(
             reserve_weight.get_quote_weight(),
             Perquintill::from_rational(1_u64, 2_u64),
@@ -1249,8 +1249,8 @@ fn test_convert_deltas() {
                 (w_quote as f64 * w_accuracy) as u128,
                 w_accuracy as u128,
             );
-            let rw = ReserveWeight::new(w_quote_pt).unwrap();
-            SwapReserveWeight::<Test>::insert(netuid, rw);
+            let bal = Balancer::new(w_quote_pt).unwrap();
+            SwapBalancer::<Test>::insert(netuid, bal);
 
             // Calculate expected swap results (buy and sell) using f64 math
             let y = tao as f64;
@@ -1967,7 +1967,7 @@ fn test_swap_subtoken_disabled() {
 //         assert!(!FeesTao::<Test>::contains_key(netuid));
 //         assert!(!FeesAlpha::<Test>::contains_key(netuid));
 //         assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
-//         assert!(!SwapReserveWeight::<Test>::contains_key(netuid));
+//         assert!(!SwapBalancer::<Test>::contains_key(netuid));
 //     });
 // }
 
@@ -1986,8 +1986,8 @@ fn test_liquidate_pal_simple_ok_and_clears() {
         FeesAlpha::<Test>::insert(netuid, AlphaCurrency::from(1_000));
         PalSwapInitialized::<Test>::insert(netuid, true);
         let w_quote_pt = Perquintill::from_rational(1u128, 2u128);
-        let rw = ReserveWeight::new(w_quote_pt).unwrap();
-        SwapReserveWeight::<Test>::insert(netuid, rw);
+        let bal = Balancer::new(w_quote_pt).unwrap();
+        SwapBalancer::<Test>::insert(netuid, bal);
 
         // Sanity: PalSwap is not initialized
         assert!(PalSwapInitialized::<Test>::get(netuid));
@@ -2013,7 +2013,7 @@ fn test_liquidate_pal_simple_ok_and_clears() {
         assert!(!FeesTao::<Test>::contains_key(netuid));
         assert!(!FeesAlpha::<Test>::contains_key(netuid));
         assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
-        assert!(!SwapReserveWeight::<Test>::contains_key(netuid));
+        assert!(!SwapBalancer::<Test>::contains_key(netuid));
     });
 }
 

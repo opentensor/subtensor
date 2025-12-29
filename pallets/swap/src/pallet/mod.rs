@@ -9,7 +9,7 @@ use subtensor_runtime_common::{
 };
 
 use crate::{
-    pallet::reserve_weights::ReserveWeight,
+    pallet::balancer::Balancer,
     position::{Position, PositionId},
     weights::WeightInfo,
 };
@@ -17,7 +17,7 @@ use crate::{
 pub use pallet::*;
 
 mod impls;
-mod reserve_weights;
+mod balancer;
 mod swap_step;
 #[cfg(test)]
 mod tests;
@@ -162,13 +162,13 @@ mod pallet {
 
     /// Default reserve weight
     #[pallet::type_value]
-    pub fn DefaultReserveWeight() -> ReserveWeight {
-        ReserveWeight::default()
+    pub fn DefaultBalancer() -> Balancer {
+        Balancer::default()
     }
     /// u64-normalized reserve weight
     #[pallet::storage]
-    pub type SwapReserveWeight<T> =
-        StorageMap<_, Twox64Concat, NetUid, ReserveWeight, ValueQuery, DefaultReserveWeight>;
+    pub type SwapBalancer<T> =
+        StorageMap<_, Twox64Concat, NetUid, Balancer, ValueQuery, DefaultBalancer>;
 
     /// Storage to determine whether balancer swap was initialized for a specific subnet.
     #[pallet::storage]
