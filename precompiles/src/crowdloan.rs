@@ -2,7 +2,8 @@ use alloc::string::String;
 use core::marker::PhantomData;
 
 use fp_evm::{ExitError, PrecompileFailure};
-use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
+use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::AddressMapping;
 use pallet_evm::PrecompileHandle;
@@ -10,7 +11,7 @@ use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::prelude::Address;
 use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256};
-use sp_runtime::traits::{Dispatchable, UniqueSaturatedInto};
+use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, UniqueSaturatedInto};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -18,11 +19,22 @@ pub struct CrowdloanPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for CrowdloanPrecompile<R>
 where
-    R: frame_system::Config + pallet_evm::Config + pallet_crowdloan::Config + pallet_proxy::Config,
+    R: frame_system::Config
+        + pallet_balances::Config
+        + pallet_crowdloan::Config
+        + pallet_evm::Config
+        + pallet_proxy::Config
+        + pallet_subtensor::Config
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + ByteArray,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     const INDEX: u64 = 2057;
@@ -31,14 +43,25 @@ where
 #[precompile_utils::precompile]
 impl<R> CrowdloanPrecompile<R>
 where
-    R: frame_system::Config + pallet_evm::Config + pallet_crowdloan::Config + pallet_proxy::Config,
+    R: frame_system::Config
+        + pallet_balances::Config
+        + pallet_crowdloan::Config
+        + pallet_evm::Config
+        + pallet_proxy::Config
+        + pallet_subtensor::Config
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + ByteArray,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     #[precompile::public("getCrowdloan(uint32)")]
