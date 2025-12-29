@@ -184,7 +184,7 @@ impl<T: Config> SwapStep<T, AlphaCurrency, TaoCurrency>
     for BasicSwapStep<T, AlphaCurrency, TaoCurrency>
 {
     fn delta_in(netuid: NetUid, price_curr: U64F64, price_target: U64F64) -> AlphaCurrency {
-        let alpha_reserve = T::TaoReserve::reserve(netuid);
+        let alpha_reserve = T::AlphaReserve::reserve(netuid);
         let reserve_weight = SwapReserveWeight::<T>::get(netuid);
         AlphaCurrency::from(reserve_weight.calculate_base_delta_in(
             price_curr,

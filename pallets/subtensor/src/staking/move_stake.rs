@@ -418,7 +418,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// In the corner case when SubnetTAO(2) == SubnetTAO(1), no slippage is going to occur.
     ///
-    /// TODO: This formula only works for a single swap step, so it is not 100% correct for swap v3. We need an updated one.
+    /// TODO: This formula only works for a single swap step, so it is not 100% correct for swap v3 or balancers. 
+    /// We need an updated one.
     ///
     pub fn get_max_amount_move(
         origin_netuid: NetUid,

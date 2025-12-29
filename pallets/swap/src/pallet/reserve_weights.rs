@@ -203,26 +203,29 @@ impl ReserveWeight {
         let maybe_exp_result = SafeInt::pow_ratio_scaled(
             &SafeInt::from(base_numerator),
             &SafeInt::from(base_denominator),
-            // &SafeInt::from(3u128),
-            // &SafeInt::from(4u128),
             &SafeInt::from(w1_fixed),
             &SafeInt::from(ACCURACY),
-            160,
+            1024,
             &SafeInt::from(scale),
         );
 
         if let Some(exp_result_safe_int) = maybe_exp_result {
-            if let Some(exp_result_u64) = exp_result_safe_int.to_u64() {
-                let reserve_fixed = U64F64::saturating_from_num(reserve);
-                let exp_result_fixed = U64F64::saturating_from_num(exp_result_u64);
-                let one = U64F64::saturating_from_num(1);
-                let scale_fixed = U64F64::saturating_from_num(scale);
-                return reserve_fixed
-                    .saturating_mul(exp_result_fixed.safe_div(scale_fixed).saturating_sub(one))
-                    .saturating_to_num::<u64>();
-            }
+            let reserve_fixed = U64F64::saturating_from_num(reserve);
+            let one = U64F64::saturating_from_num(1);
+            let scale_fixed = U64F64::saturating_from_num(scale);
+            let exp_result_fixed = if let Some(exp_result_u64) = exp_result_safe_int.to_u64() {
+                U64F64::saturating_from_num(exp_result_u64)
+            } else if SafeInt::from(u64::MAX) < exp_result_safe_int {
+                U64F64::saturating_from_num(u64::MAX)
+            } else {
+                U64F64::saturating_from_num(0)
+            };
+            reserve_fixed
+                .saturating_mul(exp_result_fixed.safe_div(scale_fixed).saturating_sub(one))
+                .saturating_to_num::<u64>()
+        } else {
+            0u64
         }
-        return 0u64;
     }
 
     /// Calculates base delta needed to reach the price down when selling
@@ -242,22 +245,27 @@ impl ReserveWeight {
             &SafeInt::from(base_denominator),
             &SafeInt::from(w2_fixed),
             &SafeInt::from(ACCURACY),
-            160,
+            1024,
             &SafeInt::from(scale),
         );
 
         if let Some(exp_result_safe_int) = maybe_exp_result {
-            if let Some(exp_result_u64) = exp_result_safe_int.to_u64() {
-                let reserve_fixed = U64F64::saturating_from_num(reserve);
-                let exp_result_fixed = U64F64::saturating_from_num(exp_result_u64);
-                let one = U64F64::saturating_from_num(1);
-                let scale_fixed = U64F64::saturating_from_num(scale);
-                return reserve_fixed
-                    .saturating_mul(exp_result_fixed.safe_div(scale_fixed).saturating_sub(one))
-                    .saturating_to_num::<u64>();
-            }
+            let one = U64F64::saturating_from_num(1);
+            let scale_fixed = U64F64::saturating_from_num(scale);
+            let reserve_fixed = U64F64::saturating_from_num(reserve);
+            let exp_result_fixed = if let Some(exp_result_u64) = exp_result_safe_int.to_u64() {
+                U64F64::saturating_from_num(exp_result_u64)
+            } else if SafeInt::from(u64::MAX) < exp_result_safe_int {
+                U64F64::saturating_from_num(u64::MAX)
+            } else {
+                U64F64::saturating_from_num(0)
+            };
+            reserve_fixed
+                .saturating_mul(exp_result_fixed.safe_div(scale_fixed).saturating_sub(one))
+                .saturating_to_num::<u64>()
+        } else {
+            0u64
         }
-        return 0u64;
     }
 }
 
