@@ -9,6 +9,10 @@ on:
         description: "The branch or tag to use as the Docker image tag (optional)."
         required: false
         default: ""
+      pr-number:
+        description: "PR number to build (e.g., 2283). If specified, creates tag pr-{number} and does not update latest."
+        required: false
+        default: ""
   push:
     branches:
       - devnet-ready
@@ -25,6 +29,7 @@ permissions:
   packages: write
   actions: read
   security-events: write
+  pull-requests: read
 
 jobs:
   setup:
@@ -34,22 +39,52 @@ jobs:
       ref: ${{ steps.vars.outputs.ref }}
       latest_tag: ${{ steps.vars.outputs.latest_tag }}
     steps:
+      - name: Get PR branch (if pr-number is specified)
+        id: pr-info
+        if: ${{ github.event.inputs.pr-number != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = '${{ github.event.inputs.pr-number }}';
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: parseInt(prNumber)
+            });
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_sha', pr.head.sha);
+
       - name: Determine Docker tag and ref
         id: vars
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "ref=${{ github.head_ref }}" >> $GITHUB_OUTPUT
             echo "tag=${{ github.base_ref }}" >> $GITHUB_OUTPUT
+          elif [[ -n "${{ github.event.inputs.pr-number }}" ]]; then
+            # PR build mode: use pr-{number} as tag, don't update latest
+            pr_number="${{ github.event.inputs.pr-number }}"
+            tag="pr-${pr_number}"
+            echo "tag=$tag" >> $GITHUB_OUTPUT
+
+            # Use branch from PR info if available, otherwise use branch-or-tag input
+            if [[ -n "${{ steps.pr-info.outputs.head_ref }}" ]]; then
+              echo "ref=${{ steps.pr-info.outputs.head_ref }}" >> $GITHUB_OUTPUT
+            elif [[ -n "${{ github.event.inputs.branch-or-tag }}" ]]; then
+              echo "ref=${{ github.event.inputs.branch-or-tag }}" >> $GITHUB_OUTPUT
+            else
+              echo "ref=main" >> $GITHUB_OUTPUT
+            fi
+            echo "latest_tag=false" >> $GITHUB_OUTPUT
           else
             tag="${{ github.event.inputs.branch-or-tag || github.ref_name }}"
-            echo "ref=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "ref=${{ github.event.inputs.branch-or-tag || github.ref_name }}" >> $GITHUB_OUTPUT
             echo "tag=$tag" >> $GITHUB_OUTPUT
-          fi
-      
-          if [[ "$tag" != "devnet-ready" ]]; then
-            echo "latest_tag=true" >> $GITHUB_OUTPUT
-          else
-            echo "latest_tag=false" >> $GITHUB_OUTPUT
+
+            if [[ "$tag" != "devnet-ready" ]]; then
+              echo "latest_tag=true" >> $GITHUB_OUTPUT
+            else
+              echo "latest_tag=false" >> $GITHUB_OUTPUT
+            fi
           fi
 
   # build artifacts for fast-runtime and non-fast-runtime

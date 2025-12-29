@@ -389,6 +389,8 @@ where
             >::new(pallet_transaction_payment::ChargeTransactionPayment::<
                 runtime::Runtime,
             >::from(0u64)),
+            node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(
+            ),
             pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<
                 runtime::Runtime,
             >::new(),
@@ -425,6 +427,7 @@ where
         (),           // CheckNonce::Implicit = ()
         (),           // CheckWeight::Implicit = ()
         (),           // ChargeTransactionPaymentWrapper::Implicit = ()
+        (),           // SudoTransactionExtension::Implicit = ()
         (),           // SubtensorTransactionExtension::Implicit = ()
         (),           // DrandPriority::Implicit = ()
         None,         // CheckMetadataHash::Implicit = Option<[u8; 32]>
