@@ -3300,7 +3300,7 @@ fn test_max_amount_move_stable_dynamic() {
                 dynamic_netuid,
                 TaoCurrency::from(2_000_000_000)
             ),
-            Err(Error::<Test>::ZeroMaxStakeAmount.into())
+            Err(pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded.into())
         );
 
         // 3.0 price => max is 0
