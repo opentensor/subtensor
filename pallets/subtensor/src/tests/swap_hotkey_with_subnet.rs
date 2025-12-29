@@ -1127,11 +1127,11 @@ fn test_swap_child_keys_self_loop() {
         // The new_hotkey should have no children (self-loop was prevented)
         assert!(ChildKeys::<Test>::get(new_hotkey, netuid).is_empty());
         // Alpha should have been transferred
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), AlphaCurrency::from(0));
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
-            amount
+            TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid),
+            AlphaCurrency::from(0)
         );
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid), amount);
     });
 }
 
