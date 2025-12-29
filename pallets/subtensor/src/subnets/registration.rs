@@ -334,7 +334,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 15. Deposit successful event.
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
-        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey, 0, 0));
+        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey, 0u64.into(), 0u64.into()));
 
         // --- 16. Ok and done.
         Ok(())
