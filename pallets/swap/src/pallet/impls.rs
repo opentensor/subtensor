@@ -22,9 +22,7 @@ use subtensor_swap_interface::{
 
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep};
-use crate::{
-    pallet::Balancer, pallet::balancer::BalancerError, position::PositionId,
-};
+use crate::{pallet::Balancer, pallet::balancer::BalancerError, position::PositionId};
 
 #[derive(Debug, PartialEq)]
 pub struct UpdateLiquidityResult {
@@ -68,11 +66,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Insert 0.5 into SwapBalancer
-        let reserve_weight = Balancer::new(Perquintill::from_rational(1_u64, 2_u64)).map_err(
-            |err| match err {
+        let reserve_weight =
+            Balancer::new(Perquintill::from_rational(1_u64, 2_u64)).map_err(|err| match err {
                 BalancerError::InvalidValue => Error::<T>::ReservesOutOfBalance,
-            },
-        )?;
+            })?;
         SwapBalancer::<T>::insert(netuid, reserve_weight);
 
         // TODO: Review when/if we have user liquidity

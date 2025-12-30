@@ -16,8 +16,8 @@ use crate::{
 
 pub use pallet::*;
 
-mod impls;
 mod balancer;
+mod impls;
 mod swap_step;
 #[cfg(test)]
 mod tests;

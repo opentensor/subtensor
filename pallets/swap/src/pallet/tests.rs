@@ -416,15 +416,17 @@ fn test_swap_initialization() {
         let netuid = NetUid::from(1);
 
         // Get reserves from the mock provider
-        // let tao = TaoReserve::reserve(netuid.into());
-        // let alpha = AlphaReserve::reserve(netuid.into());
+        let tao = TaoCurrency::from(1_000_000_000u64);
+        let alpha = AlphaCurrency::from(4_000_000_000u64);
+        TaoReserve::set_mock_reserve(netuid, tao);
+        AlphaReserve::set_mock_reserve(netuid, alpha);
 
         assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
         assert!(PalSwapInitialized::<Test>::get(netuid));
 
         // Verify current price is set
         let price = Pallet::<Test>::current_price(netuid);
-        let expected_price = U64F64::from_num(0.5_f64);
+        let expected_price = U64F64::from_num(0.25_f64);
         assert_abs_diff_eq!(
             price.to_num::<f64>(),
             expected_price.to_num::<f64>(),
@@ -438,6 +440,7 @@ fn test_swap_initialization() {
             Perquintill::from_rational(1_u64, 2_u64),
         );
 
+        // TODO: Revise when user liquidity is available
         // // Calculate expected liquidity
         // let expected_liquidity =
         //     helpers_128bit::sqrt((tao.to_u64() as u128).saturating_mul(alpha.to_u64() as u128))
@@ -455,558 +458,549 @@ fn test_swap_initialization() {
         // assert_eq!(position.liquidity, expected_liquidity);
         // assert_eq!(position.fees_tao, 0);
         // assert_eq!(position.fees_alpha, 0);
-
-        todo!();
     });
 }
 
+// TODO: Revise when user liquidity is available
 // Test adding liquidity on top of the existing protocol liquidity
-#[test]
-fn test_add_liquidity_basic() {
-    todo!();
+// #[test]
+// fn test_add_liquidity_basic() {
+//     new_test_ext().execute_with(|| {
+//         let min_price = tick_to_price(TickIndex::MIN);
+//         let max_price = tick_to_price(TickIndex::MAX);
+//         let max_tick = price_to_tick(max_price);
+//         assert_eq!(max_tick, TickIndex::MAX);
 
-    // new_test_ext().execute_with(|| {
-    //     let min_price = tick_to_price(TickIndex::MIN);
-    //     let max_price = tick_to_price(TickIndex::MAX);
-    //     let max_tick = price_to_tick(max_price);
-    //     assert_eq!(max_tick, TickIndex::MAX);
+//         assert_ok!(Pallet::<Test>::maybe_initialize_palswap(NetUid::from(1)));
+//         let current_price = Pallet::<Test>::current_price(NetUid::from(1)).to_num::<f64>();
+//         let (current_price_low, current_price_high) = get_ticked_prices_around_current_price();
 
-    //     assert_ok!(Pallet::<Test>::maybe_initialize_palswap(NetUid::from(1)));
-    //     let current_price = Pallet::<Test>::current_price(NetUid::from(1)).to_num::<f64>();
-    //     let (current_price_low, current_price_high) = get_ticked_prices_around_current_price();
+//         // As a user add liquidity with all possible corner cases
+//         //   - Initial price is 0.25
+//         //   - liquidity is expressed in RAO units
+//         // Test case is (price_low, price_high, liquidity, tao, alpha)
+//         [
+//             // Repeat the protocol liquidity at maximum range: Expect all the same values
+//             (
+//                 min_price,
+//                 max_price,
+//                 2_000_000_000_u64,
+//                 1_000_000_000_u64,
+//                 4_000_000_000_u64,
+//             ),
+//             // Repeat the protocol liquidity at current to max range: Expect the same alpha
+//             (
+//                 current_price_high,
+//                 max_price,
+//                 2_000_000_000_u64,
+//                 0,
+//                 4_000_000_000,
+//             ),
+//             // Repeat the protocol liquidity at min to current range: Expect all the same tao
+//             (
+//                 min_price,
+//                 current_price_low,
+//                 2_000_000_000_u64,
+//                 1_000_000_000,
+//                 0,
+//             ),
+//             // Half to double price - just some sane wothdraw amounts
+//             (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
+//             // Both below price - tao is non-zero, alpha is zero
+//             (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
+//             // Both above price - tao is zero, alpha is non-zero
+//             (0.3, 0.4, 2_000_000_000_u64, 0, 489_200_000),
+//         ]
+//         .into_iter()
+//         .enumerate()
+//         .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2, v.3, v.4))
+//         .for_each(
+//             |(netuid, price_low, price_high, liquidity, expected_tao, expected_alpha)| {
+//                 assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
 
-    //     // As a user add liquidity with all possible corner cases
-    //     //   - Initial price is 0.25
-    //     //   - liquidity is expressed in RAO units
-    //     // Test case is (price_low, price_high, liquidity, tao, alpha)
-    //     [
-    //         // Repeat the protocol liquidity at maximum range: Expect all the same values
-    //         (
-    //             min_price,
-    //             max_price,
-    //             2_000_000_000_u64,
-    //             1_000_000_000_u64,
-    //             4_000_000_000_u64,
-    //         ),
-    //         // Repeat the protocol liquidity at current to max range: Expect the same alpha
-    //         (
-    //             current_price_high,
-    //             max_price,
-    //             2_000_000_000_u64,
-    //             0,
-    //             4_000_000_000,
-    //         ),
-    //         // Repeat the protocol liquidity at min to current range: Expect all the same tao
-    //         (
-    //             min_price,
-    //             current_price_low,
-    //             2_000_000_000_u64,
-    //             1_000_000_000,
-    //             0,
-    //         ),
-    //         // Half to double price - just some sane wothdraw amounts
-    //         (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
-    //         // Both below price - tao is non-zero, alpha is zero
-    //         (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
-    //         // Both above price - tao is zero, alpha is non-zero
-    //         (0.3, 0.4, 2_000_000_000_u64, 0, 489_200_000),
-    //     ]
-    //     .into_iter()
-    //     .enumerate()
-    //     .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2, v.3, v.4))
-    //     .for_each(
-    //         |(netuid, price_low, price_high, liquidity, expected_tao, expected_alpha)| {
-    //             assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+//                 // Calculate ticks (assuming tick math is tested separately)
+//                 let tick_low = price_to_tick(price_low);
+//                 let tick_high = price_to_tick(price_high);
 
-    //             // Calculate ticks (assuming tick math is tested separately)
-    //             let tick_low = price_to_tick(price_low);
-    //             let tick_high = price_to_tick(price_high);
+//                 // Get tick infos and liquidity before adding (to account for protocol liquidity)
+//                 let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
+//                 let tick_high_info_before =
+//                     Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
+//                 let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
 
-    //             // Get tick infos and liquidity before adding (to account for protocol liquidity)
-    //             let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
-    //             let tick_high_info_before =
-    //                 Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
-    //             let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+//                 // Add liquidity
+//                 let (position_id, tao, alpha) = Pallet::<Test>::do_add_liquidity(
+//                     netuid,
+//                     &OK_COLDKEY_ACCOUNT_ID,
+//                     &OK_HOTKEY_ACCOUNT_ID,
+//                     tick_low,
+//                     tick_high,
+//                     liquidity,
+//                 )
+//                 .unwrap();
 
-    //             // Add liquidity
-    //             let (position_id, tao, alpha) = Pallet::<Test>::do_add_liquidity(
-    //                 netuid,
-    //                 &OK_COLDKEY_ACCOUNT_ID,
-    //                 &OK_HOTKEY_ACCOUNT_ID,
-    //                 tick_low,
-    //                 tick_high,
-    //                 liquidity,
-    //             )
-    //             .unwrap();
+//                 assert_abs_diff_eq!(tao, expected_tao, epsilon = tao / 1000);
+//                 assert_abs_diff_eq!(alpha, expected_alpha, epsilon = alpha / 1000);
 
-    //             assert_abs_diff_eq!(tao, expected_tao, epsilon = tao / 1000);
-    //             assert_abs_diff_eq!(alpha, expected_alpha, epsilon = alpha / 1000);
+//                 // Check that low and high ticks appear in the state and are properly updated
+//                 let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
+//                 let tick_high_info = Ticks::<Test>::get(netuid, tick_high).unwrap();
+//                 let expected_liquidity_net_low = liquidity as i128;
+//                 let expected_liquidity_gross_low = liquidity;
+//                 let expected_liquidity_net_high = -(liquidity as i128);
+//                 let expected_liquidity_gross_high = liquidity;
 
-    //             // Check that low and high ticks appear in the state and are properly updated
-    //             let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
-    //             let tick_high_info = Ticks::<Test>::get(netuid, tick_high).unwrap();
-    //             let expected_liquidity_net_low = liquidity as i128;
-    //             let expected_liquidity_gross_low = liquidity;
-    //             let expected_liquidity_net_high = -(liquidity as i128);
-    //             let expected_liquidity_gross_high = liquidity;
+//                 assert_eq!(
+//                     tick_low_info.liquidity_net - tick_low_info_before.liquidity_net,
+//                     expected_liquidity_net_low,
+//                 );
+//                 assert_eq!(
+//                     tick_low_info.liquidity_gross - tick_low_info_before.liquidity_gross,
+//                     expected_liquidity_gross_low,
+//                 );
+//                 assert_eq!(
+//                     tick_high_info.liquidity_net - tick_high_info_before.liquidity_net,
+//                     expected_liquidity_net_high,
+//                 );
+//                 assert_eq!(
+//                     tick_high_info.liquidity_gross - tick_high_info_before.liquidity_gross,
+//                     expected_liquidity_gross_high,
+//                 );
 
-    //             assert_eq!(
-    //                 tick_low_info.liquidity_net - tick_low_info_before.liquidity_net,
-    //                 expected_liquidity_net_low,
-    //             );
-    //             assert_eq!(
-    //                 tick_low_info.liquidity_gross - tick_low_info_before.liquidity_gross,
-    //                 expected_liquidity_gross_low,
-    //             );
-    //             assert_eq!(
-    //                 tick_high_info.liquidity_net - tick_high_info_before.liquidity_net,
-    //                 expected_liquidity_net_high,
-    //             );
-    //             assert_eq!(
-    //                 tick_high_info.liquidity_gross - tick_high_info_before.liquidity_gross,
-    //                 expected_liquidity_gross_high,
-    //             );
+//                 // Liquidity position at correct ticks
+//                 assert_eq!(
+//                     Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
+//                     1
+//                 );
 
-    //             // Liquidity position at correct ticks
-    //             assert_eq!(
-    //                 Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
-    //                 1
-    //             );
+//                 let position =
+//                     Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).unwrap();
+//                 assert_eq!(position.liquidity, liquidity);
+//                 assert_eq!(position.tick_low, tick_low);
+//                 assert_eq!(position.tick_high, tick_high);
+//                 assert_eq!(position.fees_alpha, 0);
+//                 assert_eq!(position.fees_tao, 0);
 
-    //             let position =
-    //                 Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).unwrap();
-    //             assert_eq!(position.liquidity, liquidity);
-    //             assert_eq!(position.tick_low, tick_low);
-    //             assert_eq!(position.tick_high, tick_high);
-    //             assert_eq!(position.fees_alpha, 0);
-    //             assert_eq!(position.fees_tao, 0);
+//                 // Current liquidity is updated only when price range includes the current price
+//                 let expected_liquidity =
+//                     if (price_high > current_price) && (price_low <= current_price) {
+//                         liquidity_before + liquidity
+//                     } else {
+//                         liquidity_before
+//                     };
 
-    //             // Current liquidity is updated only when price range includes the current price
-    //             let expected_liquidity =
-    //                 if (price_high > current_price) && (price_low <= current_price) {
-    //                     liquidity_before + liquidity
-    //                 } else {
-    //                     liquidity_before
-    //                 };
+//                 assert_eq!(CurrentLiquidity::<Test>::get(netuid), expected_liquidity)
+//             },
+//         );
+//     });
+// }
 
-    //             assert_eq!(CurrentLiquidity::<Test>::get(netuid), expected_liquidity)
-    //         },
-    //     );
-    // });
-}
+// TODO: Revise when user liquidity is available
+// #[test]
+// fn test_add_liquidity_max_limit_enforced() {
+//     new_test_ext().execute_with(|| {
+//         let netuid = NetUid::from(1);
+//         let liquidity = 2_000_000_000_u64;
+//         assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
 
-#[test]
-fn test_add_liquidity_max_limit_enforced() {
-    todo!();
+//         let limit = MaxPositions::get() as usize;
 
-    // new_test_ext().execute_with(|| {
-    //     let netuid = NetUid::from(1);
-    //     let liquidity = 2_000_000_000_u64;
-    //     assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+//         for _ in 0..limit {
+//             Pallet::<Test>::do_add_liquidity(
+//                 netuid,
+//                 &OK_COLDKEY_ACCOUNT_ID,
+//                 &OK_HOTKEY_ACCOUNT_ID,
+//                 TickIndex::MIN,
+//                 TickIndex::MAX,
+//                 liquidity,
+//             )
+//             .unwrap();
+//         }
 
-    //     let limit = MaxPositions::get() as usize;
+//         let test_result = Pallet::<Test>::do_add_liquidity(
+//             netuid,
+//             &OK_COLDKEY_ACCOUNT_ID,
+//             &OK_HOTKEY_ACCOUNT_ID,
+//             TickIndex::MIN,
+//             TickIndex::MAX,
+//             liquidity,
+//         );
 
-    //     for _ in 0..limit {
-    //         Pallet::<Test>::do_add_liquidity(
-    //             netuid,
-    //             &OK_COLDKEY_ACCOUNT_ID,
-    //             &OK_HOTKEY_ACCOUNT_ID,
-    //             TickIndex::MIN,
-    //             TickIndex::MAX,
-    //             liquidity,
-    //         )
-    //         .unwrap();
-    //     }
+//         assert_err!(test_result, Error::<Test>::MaxPositionsExceeded);
+//     });
+// }
 
-    //     let test_result = Pallet::<Test>::do_add_liquidity(
-    //         netuid,
-    //         &OK_COLDKEY_ACCOUNT_ID,
-    //         &OK_HOTKEY_ACCOUNT_ID,
-    //         TickIndex::MIN,
-    //         TickIndex::MAX,
-    //         liquidity,
-    //     );
+// TODO: Revise when user liquidity is available
+// #[test]
+// fn test_add_liquidity_out_of_bounds() {
+//     new_test_ext().execute_with(|| {
+//         [
+//             // For our tests, we'll construct TickIndex values that are intentionally
+//             // outside the valid range for testing purposes only
+//             (
+//                 TickIndex::new_unchecked(TickIndex::MIN.get() - 1),
+//                 TickIndex::MAX,
+//                 1_000_000_000_u64,
+//             ),
+//             (
+//                 TickIndex::MIN,
+//                 TickIndex::new_unchecked(TickIndex::MAX.get() + 1),
+//                 1_000_000_000_u64,
+//             ),
+//             (
+//                 TickIndex::new_unchecked(TickIndex::MIN.get() - 1),
+//                 TickIndex::new_unchecked(TickIndex::MAX.get() + 1),
+//                 1_000_000_000_u64,
+//             ),
+//             (
+//                 TickIndex::new_unchecked(TickIndex::MIN.get() - 100),
+//                 TickIndex::new_unchecked(TickIndex::MAX.get() + 100),
+//                 1_000_000_000_u64,
+//             ),
+//             // Inverted ticks: high < low
+//             (
+//                 TickIndex::new_unchecked(-900),
+//                 TickIndex::new_unchecked(-1000),
+//                 1_000_000_000_u64,
+//             ),
+//             // Equal ticks: high == low
+//             (
+//                 TickIndex::new_unchecked(-10_000),
+//                 TickIndex::new_unchecked(-10_000),
+//                 1_000_000_000_u64,
+//             ),
+//         ]
+//         .into_iter()
+//         .enumerate()
+//         .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2))
+//         .for_each(|(netuid, tick_low, tick_high, liquidity)| {
+//             assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
 
-    //     assert_err!(test_result, Error::<Test>::MaxPositionsExceeded);
-    // });
-}
+//             // Add liquidity
+//             assert_err!(
+//                 Swap::do_add_liquidity(
+//                     netuid,
+//                     &OK_COLDKEY_ACCOUNT_ID,
+//                     &OK_HOTKEY_ACCOUNT_ID,
+//                     tick_low,
+//                     tick_high,
+//                     liquidity
+//                 ),
+//                 Error::<Test>::InvalidTickRange,
+//             );
+//         });
+//     });
+// }
 
-#[test]
-fn test_add_liquidity_out_of_bounds() {
-    todo!();
+// TODO: Revise when user liquidity is available
+// #[test]
+// fn test_add_liquidity_over_balance() {
+//     new_test_ext().execute_with(|| {
+//         let coldkey_account_id = 3;
+//         let hotkey_account_id = 1002;
 
-    // new_test_ext().execute_with(|| {
-    //     [
-    //         // For our tests, we'll construct TickIndex values that are intentionally
-    //         // outside the valid range for testing purposes only
-    //         (
-    //             TickIndex::new_unchecked(TickIndex::MIN.get() - 1),
-    //             TickIndex::MAX,
-    //             1_000_000_000_u64,
-    //         ),
-    //         (
-    //             TickIndex::MIN,
-    //             TickIndex::new_unchecked(TickIndex::MAX.get() + 1),
-    //             1_000_000_000_u64,
-    //         ),
-    //         (
-    //             TickIndex::new_unchecked(TickIndex::MIN.get() - 1),
-    //             TickIndex::new_unchecked(TickIndex::MAX.get() + 1),
-    //             1_000_000_000_u64,
-    //         ),
-    //         (
-    //             TickIndex::new_unchecked(TickIndex::MIN.get() - 100),
-    //             TickIndex::new_unchecked(TickIndex::MAX.get() + 100),
-    //             1_000_000_000_u64,
-    //         ),
-    //         // Inverted ticks: high < low
-    //         (
-    //             TickIndex::new_unchecked(-900),
-    //             TickIndex::new_unchecked(-1000),
-    //             1_000_000_000_u64,
-    //         ),
-    //         // Equal ticks: high == low
-    //         (
-    //             TickIndex::new_unchecked(-10_000),
-    //             TickIndex::new_unchecked(-10_000),
-    //             1_000_000_000_u64,
-    //         ),
-    //     ]
-    //     .into_iter()
-    //     .enumerate()
-    //     .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2))
-    //     .for_each(|(netuid, tick_low, tick_high, liquidity)| {
-    //         assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+//         [
+//             // Lower than price (not enough tao)
+//             (0.1, 0.2, 100_000_000_000_u64),
+//             // Higher than price (not enough alpha)
+//             (0.3, 0.4, 100_000_000_000_u64),
+//             // Around the price (not enough both)
+//             (0.1, 0.4, 100_000_000_000_u64),
+//         ]
+//         .into_iter()
+//         .enumerate()
+//         .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2))
+//         .for_each(|(netuid, price_low, price_high, liquidity)| {
+//             // Calculate ticks
+//             let tick_low = price_to_tick(price_low);
+//             let tick_high = price_to_tick(price_high);
 
-    //         // Add liquidity
-    //         assert_err!(
-    //             Swap::do_add_liquidity(
-    //                 netuid,
-    //                 &OK_COLDKEY_ACCOUNT_ID,
-    //                 &OK_HOTKEY_ACCOUNT_ID,
-    //                 tick_low,
-    //                 tick_high,
-    //                 liquidity
-    //             ),
-    //             Error::<Test>::InvalidTickRange,
-    //         );
-    //     });
-    // });
-}
+//             assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
 
-#[test]
-fn test_add_liquidity_over_balance() {
-    todo!();
+//             // Add liquidity
+//             assert_err!(
+//                 Pallet::<Test>::do_add_liquidity(
+//                     netuid,
+//                     &coldkey_account_id,
+//                     &hotkey_account_id,
+//                     tick_low,
+//                     tick_high,
+//                     liquidity
+//                 ),
+//                 Error::<Test>::InsufficientBalance,
+//             );
+//         });
+//     });
+// }
 
-    // new_test_ext().execute_with(|| {
-    //     let coldkey_account_id = 3;
-    //     let hotkey_account_id = 1002;
-
-    //     [
-    //         // Lower than price (not enough tao)
-    //         (0.1, 0.2, 100_000_000_000_u64),
-    //         // Higher than price (not enough alpha)
-    //         (0.3, 0.4, 100_000_000_000_u64),
-    //         // Around the price (not enough both)
-    //         (0.1, 0.4, 100_000_000_000_u64),
-    //     ]
-    //     .into_iter()
-    //     .enumerate()
-    //     .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2))
-    //     .for_each(|(netuid, price_low, price_high, liquidity)| {
-    //         // Calculate ticks
-    //         let tick_low = price_to_tick(price_low);
-    //         let tick_high = price_to_tick(price_high);
-
-    //         assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
-
-    //         // Add liquidity
-    //         assert_err!(
-    //             Pallet::<Test>::do_add_liquidity(
-    //                 netuid,
-    //                 &coldkey_account_id,
-    //                 &hotkey_account_id,
-    //                 tick_low,
-    //                 tick_high,
-    //                 liquidity
-    //             ),
-    //             Error::<Test>::InsufficientBalance,
-    //         );
-    //     });
-    // });
-}
-
+// TODO: Revise when user liquidity is available
 // cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_remove_liquidity_basic --exact --show-output
-#[test]
-fn test_remove_liquidity_basic() {
-    todo!();
+// #[test]
+// fn test_remove_liquidity_basic() {
+//     new_test_ext().execute_with(|| {
+//         let min_price = tick_to_price(TickIndex::MIN);
+//         let max_price = tick_to_price(TickIndex::MAX);
+//         let max_tick = price_to_tick(max_price);
+//         assert_eq!(max_tick, TickIndex::MAX);
 
-    // new_test_ext().execute_with(|| {
-    //     let min_price = tick_to_price(TickIndex::MIN);
-    //     let max_price = tick_to_price(TickIndex::MAX);
-    //     let max_tick = price_to_tick(max_price);
-    //     assert_eq!(max_tick, TickIndex::MAX);
+//         let (current_price_low, current_price_high) = get_ticked_prices_around_current_price();
 
-    //     let (current_price_low, current_price_high) = get_ticked_prices_around_current_price();
+//         // As a user add liquidity with all possible corner cases
+//         //   - Initial price is 0.25
+//         //   - liquidity is expressed in RAO units
+//         // Test case is (price_low, price_high, liquidity, tao, alpha)
+//         [
+//             // Repeat the protocol liquidity at maximum range: Expect all the same values
+//             (
+//                 min_price,
+//                 max_price,
+//                 2_000_000_000_u64,
+//                 1_000_000_000_u64,
+//                 4_000_000_000_u64,
+//             ),
+//             // Repeat the protocol liquidity at current to max range: Expect the same alpha
+//             (
+//                 current_price_high,
+//                 max_price,
+//                 2_000_000_000_u64,
+//                 0,
+//                 4_000_000_000,
+//             ),
+//             // Repeat the protocol liquidity at min to current range: Expect all the same tao
+//             (
+//                 min_price,
+//                 current_price_low,
+//                 2_000_000_000_u64,
+//                 1_000_000_000,
+//                 0,
+//             ),
+//             // Half to double price - just some sane wothdraw amounts
+//             (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
+//             // Both below price - tao is non-zero, alpha is zero
+//             (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
+//             // Both above price - tao is zero, alpha is non-zero
+//             (0.3, 0.4, 2_000_000_000_u64, 0, 489_200_000),
+//         ]
+//         .into_iter()
+//         .enumerate()
+//         .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2, v.3, v.4))
+//         .for_each(|(netuid, price_low, price_high, liquidity, tao, alpha)| {
+//             // Calculate ticks (assuming tick math is tested separately)
+//             let tick_low = price_to_tick(price_low);
+//             let tick_high = price_to_tick(price_high);
 
-    //     // As a user add liquidity with all possible corner cases
-    //     //   - Initial price is 0.25
-    //     //   - liquidity is expressed in RAO units
-    //     // Test case is (price_low, price_high, liquidity, tao, alpha)
-    //     [
-    //         // Repeat the protocol liquidity at maximum range: Expect all the same values
-    //         (
-    //             min_price,
-    //             max_price,
-    //             2_000_000_000_u64,
-    //             1_000_000_000_u64,
-    //             4_000_000_000_u64,
-    //         ),
-    //         // Repeat the protocol liquidity at current to max range: Expect the same alpha
-    //         (
-    //             current_price_high,
-    //             max_price,
-    //             2_000_000_000_u64,
-    //             0,
-    //             4_000_000_000,
-    //         ),
-    //         // Repeat the protocol liquidity at min to current range: Expect all the same tao
-    //         (
-    //             min_price,
-    //             current_price_low,
-    //             2_000_000_000_u64,
-    //             1_000_000_000,
-    //             0,
-    //         ),
-    //         // Half to double price - just some sane wothdraw amounts
-    //         (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
-    //         // Both below price - tao is non-zero, alpha is zero
-    //         (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
-    //         // Both above price - tao is zero, alpha is non-zero
-    //         (0.3, 0.4, 2_000_000_000_u64, 0, 489_200_000),
-    //     ]
-    //     .into_iter()
-    //     .enumerate()
-    //     .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2, v.3, v.4))
-    //     .for_each(|(netuid, price_low, price_high, liquidity, tao, alpha)| {
-    //         // Calculate ticks (assuming tick math is tested separately)
-    //         let tick_low = price_to_tick(price_low);
-    //         let tick_high = price_to_tick(price_high);
+//             assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+//             let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
 
-    //         assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
-    //         let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+//             // Add liquidity
+//             let (position_id, _, _) = Pallet::<Test>::do_add_liquidity(
+//                 netuid,
+//                 &OK_COLDKEY_ACCOUNT_ID,
+//                 &OK_HOTKEY_ACCOUNT_ID,
+//                 tick_low,
+//                 tick_high,
+//                 liquidity,
+//             )
+//             .unwrap();
 
-    //         // Add liquidity
-    //         let (position_id, _, _) = Pallet::<Test>::do_add_liquidity(
-    //             netuid,
-    //             &OK_COLDKEY_ACCOUNT_ID,
-    //             &OK_HOTKEY_ACCOUNT_ID,
-    //             tick_low,
-    //             tick_high,
-    //             liquidity,
-    //         )
-    //         .unwrap();
+//             // Remove liquidity
+//             let remove_result =
+//                 Pallet::<Test>::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id)
+//                     .unwrap();
+//             assert_abs_diff_eq!(remove_result.tao.to_u64(), tao, epsilon = tao / 1000);
+//             assert_abs_diff_eq!(
+//                 u64::from(remove_result.alpha),
+//                 alpha,
+//                 epsilon = alpha / 1000
+//             );
+//             assert_eq!(remove_result.fee_tao, TaoCurrency::ZERO);
+//             assert_eq!(remove_result.fee_alpha, AlphaCurrency::ZERO);
 
-    //         // Remove liquidity
-    //         let remove_result =
-    //             Pallet::<Test>::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id)
-    //                 .unwrap();
-    //         assert_abs_diff_eq!(remove_result.tao.to_u64(), tao, epsilon = tao / 1000);
-    //         assert_abs_diff_eq!(
-    //             u64::from(remove_result.alpha),
-    //             alpha,
-    //             epsilon = alpha / 1000
-    //         );
-    //         assert_eq!(remove_result.fee_tao, TaoCurrency::ZERO);
-    //         assert_eq!(remove_result.fee_alpha, AlphaCurrency::ZERO);
+//             // Liquidity position is removed
+//             assert_eq!(
+//                 Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
+//                 0
+//             );
+//             assert!(Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).is_none());
 
-    //         // Liquidity position is removed
-    //         assert_eq!(
-    //             Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
-    //             0
-    //         );
-    //         assert!(Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).is_none());
+//             // Current liquidity is updated (back where it was)
+//             assert_eq!(CurrentLiquidity::<Test>::get(netuid), liquidity_before);
+//         });
+//     });
+// }
 
-    //         // Current liquidity is updated (back where it was)
-    //         assert_eq!(CurrentLiquidity::<Test>::get(netuid), liquidity_before);
-    //     });
-    // });
-}
+// TODO: Revise when user liquidity is available
+// #[test]
+// fn test_remove_liquidity_nonexisting_position() {
+//     new_test_ext().execute_with(|| {
+//         let min_price = tick_to_price(TickIndex::MIN);
+//         let max_price = tick_to_price(TickIndex::MAX);
+//         let max_tick = price_to_tick(max_price);
+//         assert_eq!(max_tick.get(), TickIndex::MAX.get());
 
-#[test]
-fn test_remove_liquidity_nonexisting_position() {
-    todo!();
+//         let liquidity = 2_000_000_000_u64;
+//         let netuid = NetUid::from(1);
 
-    // new_test_ext().execute_with(|| {
-    //     let min_price = tick_to_price(TickIndex::MIN);
-    //     let max_price = tick_to_price(TickIndex::MAX);
-    //     let max_tick = price_to_tick(max_price);
-    //     assert_eq!(max_tick.get(), TickIndex::MAX.get());
+//         // Calculate ticks (assuming tick math is tested separately)
+//         let tick_low = price_to_tick(min_price);
+//         let tick_high = price_to_tick(max_price);
 
-    //     let liquidity = 2_000_000_000_u64;
-    //     let netuid = NetUid::from(1);
+//         // Setup swap
+//         assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
 
-    //     // Calculate ticks (assuming tick math is tested separately)
-    //     let tick_low = price_to_tick(min_price);
-    //     let tick_high = price_to_tick(max_price);
+//         // Add liquidity
+//         assert_ok!(Pallet::<Test>::do_add_liquidity(
+//             netuid,
+//             &OK_COLDKEY_ACCOUNT_ID,
+//             &OK_HOTKEY_ACCOUNT_ID,
+//             tick_low,
+//             tick_high,
+//             liquidity,
+//         ));
 
-    //     // Setup swap
-    //     assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+//         assert!(Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID) > 0);
 
-    //     // Add liquidity
-    //     assert_ok!(Pallet::<Test>::do_add_liquidity(
-    //         netuid,
-    //         &OK_COLDKEY_ACCOUNT_ID,
-    //         &OK_HOTKEY_ACCOUNT_ID,
-    //         tick_low,
-    //         tick_high,
-    //         liquidity,
-    //     ));
+//         // Remove liquidity
+//         assert_err!(
+//             Pallet::<Test>::do_remove_liquidity(
+//                 netuid,
+//                 &OK_COLDKEY_ACCOUNT_ID,
+//                 PositionId::new::<Test>()
+//             ),
+//             Error::<Test>::LiquidityNotFound,
+//         );
+//     });
+// }
 
-    //     assert!(Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID) > 0);
-
-    //     // Remove liquidity
-    //     assert_err!(
-    //         Pallet::<Test>::do_remove_liquidity(
-    //             netuid,
-    //             &OK_COLDKEY_ACCOUNT_ID,
-    //             PositionId::new::<Test>()
-    //         ),
-    //         Error::<Test>::LiquidityNotFound,
-    //     );
-    // });
-}
-
+// TODO: Revise when user liquidity is available
 // cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_modify_position_basic --exact --show-output
-#[test]
-fn test_modify_position_basic() {
-    todo!();
+// #[test]
+// fn test_modify_position_basic() {
+//     new_test_ext().execute_with(|| {
+//         let max_price = tick_to_price(TickIndex::MAX);
+//         let max_tick = price_to_tick(max_price);
+//         let limit_price = 1000.0_f64;
+//         assert_eq!(max_tick, TickIndex::MAX);
+//         let (current_price_low, _current_price_high) = get_ticked_prices_around_current_price();
 
-    // new_test_ext().execute_with(|| {
-    //     let max_price = tick_to_price(TickIndex::MAX);
-    //     let max_tick = price_to_tick(max_price);
-    //     let limit_price = 1000.0_f64;
-    //     assert_eq!(max_tick, TickIndex::MAX);
-    //     let (current_price_low, _current_price_high) = get_ticked_prices_around_current_price();
+//         // As a user add liquidity with all possible corner cases
+//         //   - Initial price is 0.25
+//         //   - liquidity is expressed in RAO units
+//         // Test case is (price_low, price_high, liquidity, tao, alpha)
+//         [
+//             // Repeat the protocol liquidity at current to max range: Expect the same alpha
+//             (
+//                 current_price_low,
+//                 max_price,
+//                 2_000_000_000_u64,
+//                 4_000_000_000,
+//             ),
+//         ]
+//         .into_iter()
+//         .enumerate()
+//         .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2, v.3))
+//         .for_each(|(netuid, price_low, price_high, liquidity, alpha)| {
+//             // Calculate ticks (assuming tick math is tested separately)
+//             let tick_low = price_to_tick(price_low);
+//             let tick_high = price_to_tick(price_high);
 
-    //     // As a user add liquidity with all possible corner cases
-    //     //   - Initial price is 0.25
-    //     //   - liquidity is expressed in RAO units
-    //     // Test case is (price_low, price_high, liquidity, tao, alpha)
-    //     [
-    //         // Repeat the protocol liquidity at current to max range: Expect the same alpha
-    //         (
-    //             current_price_low,
-    //             max_price,
-    //             2_000_000_000_u64,
-    //             4_000_000_000,
-    //         ),
-    //     ]
-    //     .into_iter()
-    //     .enumerate()
-    //     .map(|(n, v)| (NetUid::from(n as u16 + 1), v.0, v.1, v.2, v.3))
-    //     .for_each(|(netuid, price_low, price_high, liquidity, alpha)| {
-    //         // Calculate ticks (assuming tick math is tested separately)
-    //         let tick_low = price_to_tick(price_low);
-    //         let tick_high = price_to_tick(price_high);
+//             assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
 
-    //         assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+//             // Add liquidity
+//             let (position_id, _, _) = Pallet::<Test>::do_add_liquidity(
+//                 netuid,
+//                 &OK_COLDKEY_ACCOUNT_ID,
+//                 &OK_HOTKEY_ACCOUNT_ID,
+//                 tick_low,
+//                 tick_high,
+//                 liquidity,
+//             )
+//             .unwrap();
 
-    //         // Add liquidity
-    //         let (position_id, _, _) = Pallet::<Test>::do_add_liquidity(
-    //             netuid,
-    //             &OK_COLDKEY_ACCOUNT_ID,
-    //             &OK_HOTKEY_ACCOUNT_ID,
-    //             tick_low,
-    //             tick_high,
-    //             liquidity,
-    //         )
-    //         .unwrap();
+//             // Get tick infos before the swap/update
+//             let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap();
+//             let tick_high_info_before = Ticks::<Test>::get(netuid, tick_high).unwrap();
 
-    //         // Get tick infos before the swap/update
-    //         let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap();
-    //         let tick_high_info_before = Ticks::<Test>::get(netuid, tick_high).unwrap();
+//             // Swap to create fees on the position
+//             let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
+//             let order = GetAlphaForTao::with_amount(liquidity / 10);
+//             Pallet::<Test>::do_swap(netuid, order, sqrt_limit_price, false, false).unwrap();
 
-    //         // Swap to create fees on the position
-    //         let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-    //         let order = GetAlphaForTao::with_amount(liquidity / 10);
-    //         Pallet::<Test>::do_swap(netuid, order, sqrt_limit_price, false, false).unwrap();
+//             // Modify liquidity (also causes claiming of fees)
+//             let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+//             let modify_result = Pallet::<Test>::do_modify_position(
+//                 netuid,
+//                 &OK_COLDKEY_ACCOUNT_ID,
+//                 &OK_HOTKEY_ACCOUNT_ID,
+//                 position_id,
+//                 -((liquidity / 10) as i64),
+//             )
+//             .unwrap();
+//             assert_abs_diff_eq!(
+//                 u64::from(modify_result.alpha),
+//                 alpha / 10,
+//                 epsilon = alpha / 1000
+//             );
+//             assert!(modify_result.fee_tao > TaoCurrency::ZERO);
+//             assert_eq!(modify_result.fee_alpha, AlphaCurrency::ZERO);
 
-    //         // Modify liquidity (also causes claiming of fees)
-    //         let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
-    //         let modify_result = Pallet::<Test>::do_modify_position(
-    //             netuid,
-    //             &OK_COLDKEY_ACCOUNT_ID,
-    //             &OK_HOTKEY_ACCOUNT_ID,
-    //             position_id,
-    //             -((liquidity / 10) as i64),
-    //         )
-    //         .unwrap();
-    //         assert_abs_diff_eq!(
-    //             u64::from(modify_result.alpha),
-    //             alpha / 10,
-    //             epsilon = alpha / 1000
-    //         );
-    //         assert!(modify_result.fee_tao > TaoCurrency::ZERO);
-    //         assert_eq!(modify_result.fee_alpha, AlphaCurrency::ZERO);
+//             // Liquidity position is reduced
+//             assert_eq!(
+//                 Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
+//                 1
+//             );
 
-    //         // Liquidity position is reduced
-    //         assert_eq!(
-    //             Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
-    //             1
-    //         );
+//             // Current liquidity is reduced with modify_position
+//             assert!(CurrentLiquidity::<Test>::get(netuid) < liquidity_before);
 
-    //         // Current liquidity is reduced with modify_position
-    //         assert!(CurrentLiquidity::<Test>::get(netuid) < liquidity_before);
+//             // Position liquidity is reduced
+//             let position =
+//                 Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).unwrap();
+//             assert_eq!(position.liquidity, liquidity * 9 / 10);
+//             assert_eq!(position.tick_low, tick_low);
+//             assert_eq!(position.tick_high, tick_high);
 
-    //         // Position liquidity is reduced
-    //         let position =
-    //             Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).unwrap();
-    //         assert_eq!(position.liquidity, liquidity * 9 / 10);
-    //         assert_eq!(position.tick_low, tick_low);
-    //         assert_eq!(position.tick_high, tick_high);
+//             // Tick liquidity is updated properly for low and high position ticks
+//             let tick_low_info_after = Ticks::<Test>::get(netuid, tick_low).unwrap();
+//             let tick_high_info_after = Ticks::<Test>::get(netuid, tick_high).unwrap();
 
-    //         // Tick liquidity is updated properly for low and high position ticks
-    //         let tick_low_info_after = Ticks::<Test>::get(netuid, tick_low).unwrap();
-    //         let tick_high_info_after = Ticks::<Test>::get(netuid, tick_high).unwrap();
+//             assert_eq!(
+//                 tick_low_info_before.liquidity_net - (liquidity / 10) as i128,
+//                 tick_low_info_after.liquidity_net,
+//             );
+//             assert_eq!(
+//                 tick_low_info_before.liquidity_gross - (liquidity / 10),
+//                 tick_low_info_after.liquidity_gross,
+//             );
+//             assert_eq!(
+//                 tick_high_info_before.liquidity_net + (liquidity / 10) as i128,
+//                 tick_high_info_after.liquidity_net,
+//             );
+//             assert_eq!(
+//                 tick_high_info_before.liquidity_gross - (liquidity / 10),
+//                 tick_high_info_after.liquidity_gross,
+//             );
 
-    //         assert_eq!(
-    //             tick_low_info_before.liquidity_net - (liquidity / 10) as i128,
-    //             tick_low_info_after.liquidity_net,
-    //         );
-    //         assert_eq!(
-    //             tick_low_info_before.liquidity_gross - (liquidity / 10),
-    //             tick_low_info_after.liquidity_gross,
-    //         );
-    //         assert_eq!(
-    //             tick_high_info_before.liquidity_net + (liquidity / 10) as i128,
-    //             tick_high_info_after.liquidity_net,
-    //         );
-    //         assert_eq!(
-    //             tick_high_info_before.liquidity_gross - (liquidity / 10),
-    //             tick_high_info_after.liquidity_gross,
-    //         );
+//             // Modify liquidity again (ensure fees aren't double-collected)
+//             let modify_result = Pallet::<Test>::do_modify_position(
+//                 netuid,
+//                 &OK_COLDKEY_ACCOUNT_ID,
+//                 &OK_HOTKEY_ACCOUNT_ID,
+//                 position_id,
+//                 -((liquidity / 100) as i64),
+//             )
+//             .unwrap();
 
-    //         // Modify liquidity again (ensure fees aren't double-collected)
-    //         let modify_result = Pallet::<Test>::do_modify_position(
-    //             netuid,
-    //             &OK_COLDKEY_ACCOUNT_ID,
-    //             &OK_HOTKEY_ACCOUNT_ID,
-    //             position_id,
-    //             -((liquidity / 100) as i64),
-    //         )
-    //         .unwrap();
-
-    //         assert_abs_diff_eq!(
-    //             u64::from(modify_result.alpha),
-    //             alpha / 100,
-    //             epsilon = alpha / 1000
-    //         );
-    //         assert_eq!(modify_result.fee_tao, TaoCurrency::ZERO);
-    //         assert_eq!(modify_result.fee_alpha, AlphaCurrency::ZERO);
-    //     });
-    // });
-}
+//             assert_abs_diff_eq!(
+//                 u64::from(modify_result.alpha),
+//                 alpha / 100,
+//                 epsilon = alpha / 1000
+//             );
+//             assert_eq!(modify_result.fee_tao, TaoCurrency::ZERO);
+//             assert_eq!(modify_result.fee_alpha, AlphaCurrency::ZERO);
+//         });
+//     });
+// }
 
 // cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_swap_basic --exact --nocapture
 #[test]

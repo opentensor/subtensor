@@ -3690,7 +3690,8 @@ fn test_max_amount_move_dynamic_dynamic() {
                                 origin_netuid.into()
                             ) / <Test as pallet::Config>::SwapInterface::current_alpha_price(
                                 destination_netuid.into()
-                            )).to_num::<f64>(),
+                            ))
+                            .to_num::<f64>(),
                             expected_price,
                             epsilon = 0.000_000_001
                         );
@@ -4561,7 +4562,9 @@ fn test_stake_into_subnet_low_amount() {
 
         // Check if stake has increased
         assert_abs_diff_eq!(
-            u64::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)) as f64,
+            u64::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid
+            )) as f64,
             expected_stake,
             epsilon = expected_stake / 100.
         );
