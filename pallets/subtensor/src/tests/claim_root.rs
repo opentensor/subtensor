@@ -1034,8 +1034,8 @@ fn test_claim_root_coinbase_distribution() {
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        let tao = TaoCurrency::from(10_000_000_000_u64);
-        let alpha = AlphaCurrency::from(10_000_000_000_u64);
+        let tao = TaoCurrency::from(100_000_000_000_u64);
+        let alpha = AlphaCurrency::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao);
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
         // let current_price =
