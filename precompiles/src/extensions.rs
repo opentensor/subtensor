@@ -105,7 +105,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                 TransactionSource::External,
             )
             .map_err(extension_error)?;
-        let subtensor_pre = subtensor_extension
+        subtensor_extension
             .prepare(val, &origin, &call, &info, 0)
             .map_err(extension_error)?;
 
@@ -115,7 +115,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                 let result: DispatchResult = Ok(());
                 <SubtensorTransactionExtension<R> as TransactionExtension<
                     <R as frame_system::Config>::RuntimeCall,
-                >>::post_dispatch(subtensor_pre, &info, &mut post_info, 0, &result)
+                >>::post_dispatch((), &info, &mut post_info, 0, &result)
                 .map_err(extension_error)?;
                 log::debug!("Dispatch succeeded. Post info: {post_info:?}");
                 self.charge_and_refund_after_dispatch::<R, Call>(&info, &post_info)?;
@@ -129,7 +129,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                 let result: DispatchResult = Err(e.error);
                 <SubtensorTransactionExtension<R> as TransactionExtension<
                     <R as frame_system::Config>::RuntimeCall,
-                >>::post_dispatch(subtensor_pre, &info, &mut post_info, 0, &result)
+                >>::post_dispatch((), &info, &mut post_info, 0, &result)
                 .map_err(extension_error)?;
                 log::error!("Dispatch failed. Error: {e:?}");
                 log::warn!("Returning error PrecompileFailure::Error");
