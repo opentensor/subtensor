@@ -54,8 +54,9 @@ impl Balancer {
         ONE.saturating_sub(self.quote)
     }
 
-    pub fn set_quote_weight(&self, new_value: Perquintill) -> Result<(), BalancerError> {
+    pub fn set_quote_weight(&mut self, new_value: Perquintill) -> Result<(), BalancerError> {
         if Self::check_constraints(new_value) {
+            self.quote = new_value;
             Ok(())
         } else {
             Err(BalancerError::InvalidValue)
@@ -78,14 +79,14 @@ impl Balancer {
         let perquintill_scale = SafeInt::from(ACCURACY as u128);
         let denominator = SafeInt::from(x_plus_dx);
         let maybe_result_safe_int = if base_quote {
-            println!("x = {:?}", x);
-            println!("dx = {:?}", dx);
-            println!("x_safe = {:?}", x_safe);
-            println!("denominator = {:?}", denominator);
-            println!("w1_safe = {:?}", w1_safe);
-            println!("w2_safe = {:?}", w2_safe);
-            println!("precision = {:?}", precision);
-            println!("perquintill_scale = {:?}", perquintill_scale);
+            log::debug!("x = {:?}", x);
+            log::debug!("dx = {:?}", dx);
+            log::debug!("x_safe = {:?}", x_safe);
+            log::debug!("denominator = {:?}", denominator);
+            log::debug!("w1_safe = {:?}", w1_safe);
+            log::debug!("w2_safe = {:?}", w2_safe);
+            log::debug!("precision = {:?}", precision);
+            log::debug!("perquintill_scale = {:?}", perquintill_scale);
 
             SafeInt::pow_ratio_scaled(
                 &x_safe,
@@ -409,16 +410,12 @@ mod tests {
                 let e = bal.exp_base_quote(x, dx);
                 let one = U64F64::from_num(1);
                 let y_fixed = U64F64::from_num(y);
-                println!("debug 1: e = {:?}", e);
                 let dy = y_fixed * (one - e);
-                println!("debug 2: dy = {:?}", dy);
 
                 let w1 = perquintill_to_f64(bal.get_base_weight());
                 let w2 = perquintill_to_f64(bal.get_quote_weight());
                 let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
                 let dy_expected = y as f64 * (1. - e_expected);
-
-                println!("debug 3: dy_expected = {:?}", dy_expected);
 
                 let mut eps = dy_expected / 100000.;
                 if eps > 1.0 {
@@ -526,17 +523,13 @@ mod tests {
             let e = bal.exp_base_quote(x, dx);
 
             let one = U64F64::from_num(1);
-            // println!("e = {:?}", e);
-            // println!("1 - e = {:?}", one - e);
-
             let dy = U64F64::from_num(y) * (one - e);
-            // println!("dy = {:?}", dy);
 
             let progress = (num as f64 - start as f64) / (stop as f64 - start as f64);
-
             if progress - last_progress >= 0.0001 {
-                println!("progress = {:?}%", progress * 100.);
-                println!("dy = {:?}", dy);
+                // Replace with println for real-time progress
+                log::debug!("progress = {:?}%", progress * 100.);
+                log::debug!("dy = {:?}", dy);
                 last_progress = progress;
             }
 
@@ -619,7 +612,8 @@ mod tests {
             let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
             if done % 100_000_000 == 0 {
                 let progress = done as f64 / ITERATIONS as f64 * 100.0;
-                println!("progress = {progress:.4}%");
+                // Replace with println for real-time progress
+                log::debug!("progress = {progress:.4}%");
             }
         });
     }

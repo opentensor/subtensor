@@ -51,8 +51,8 @@ impl<T: Config> Pallet<T> {
                 let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
                 if !alpha_reserve.is_zero() {
                     let tao_reserve = T::TaoReserve::reserve(netuid.into());
-                    let reserve_weight = SwapBalancer::<T>::get(netuid);
-                    reserve_weight.calculate_price(alpha_reserve.into(), tao_reserve.into())
+                    let balancer = SwapBalancer::<T>::get(netuid);
+                    balancer.calculate_price(alpha_reserve.into(), tao_reserve.into())
                 } else {
                     U64F64::saturating_from_num(0)
                 }
@@ -114,10 +114,10 @@ impl<T: Config> Pallet<T> {
         // Get reserves
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        let mut reserve_weight = SwapBalancer::<T>::get(netuid);
+        let mut balancer = SwapBalancer::<T>::get(netuid);
 
         // Update weights and log errors if they go out of range
-        if reserve_weight
+        if balancer
             .update_weights_for_added_liquidity(
                 u64::from(tao_reserve),
                 u64::from(alpha_reserve),
@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
                 alpha_delta
             );
         } else {
-            SwapBalancer::<T>::insert(netuid, reserve_weight);
+            SwapBalancer::<T>::insert(netuid, balancer);
         }
     }
 
