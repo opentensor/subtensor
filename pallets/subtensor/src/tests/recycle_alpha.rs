@@ -246,7 +246,7 @@ fn test_burn_success() {
         ));
 
         assert!(TotalHotkeyAlpha::<Test>::get(hotkey, netuid) < initial_alpha);
-        assert!(SubnetAlphaOut::<Test>::get(netuid) == initial_net_alpha);
+        assert!(SubnetAlphaOut::<Test>::get(netuid) < initial_net_alpha); // Expect decrease
         assert!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
                 < stake.into()
@@ -307,7 +307,7 @@ fn test_burn_staker_is_nominator() {
         ));
 
         assert!(TotalHotkeyAlpha::<Test>::get(hotkey, netuid) < initial_alpha);
-        assert!(SubnetAlphaOut::<Test>::get(netuid) == initial_net_alpha);
+        assert!(SubnetAlphaOut::<Test>::get(netuid) < initial_net_alpha); // Expect decrease
         assert!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
@@ -376,7 +376,7 @@ fn test_burn_two_stakers() {
         ));
 
         assert!(TotalHotkeyAlpha::<Test>::get(hotkey, netuid) < initial_alpha);
-        assert!(SubnetAlphaOut::<Test>::get(netuid) == initial_net_alpha);
+        assert!(SubnetAlphaOut::<Test>::get(netuid) < initial_net_alpha); // Expect decrease
         assert!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
                 < stake.into()
