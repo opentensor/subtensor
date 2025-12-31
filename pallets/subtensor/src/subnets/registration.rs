@@ -160,9 +160,15 @@ impl<T: Config> Pallet<T> {
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
         Self::increase_rao_recycled(netuid, Self::get_burn(netuid).into());
 
-        // --- 13. Deposit successful event.
+        // --- 13. Deposit successful events.
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
-        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
+        Self::deposit_event(Event::NeuronRegistered(
+            netuid,
+            neuron_uid,
+            hotkey,
+            actual_burn_amount.into(),
+            burned_alpha.into(),
+        ));
 
         // --- 14. Ok and done.
         Ok(())
@@ -328,7 +334,13 @@ impl<T: Config> Pallet<T> {
 
         // --- 15. Deposit successful event.
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
-        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
+        Self::deposit_event(Event::NeuronRegistered(
+            netuid,
+            neuron_uid,
+            hotkey,
+            0u64.into(),
+            0u64.into(),
+        ));
 
         // --- 16. Ok and done.
         Ok(())
