@@ -99,6 +99,216 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
     }
 }
 
-// TODO: Add unit tests for this migration
-// TODO: Consider adding error handling for edge cases
-// TODO: Verify that all possible states of the old format are handled correctly
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::mock::*;
+    use frame_support::traits::{GetStorageVersion, StorageVersion};
+    use sp_core::U256;
+
+    /// Test successful migration from old to new emission format
+    #[test]
+    fn test_migrate_to_v1_separate_emission_success() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Set storage version to 0 (old version)
+            StorageVersion::new(0).put::<Pallet<Test>>();
+            
+            // Create test data in old format: Vec<(AccountId, validator_emission)>
+            let netuid = NetUid::from(1);
+            let server1 = U256::from(100);
+            let server2 = U256::from(200);
+            let old_emissions = vec![
+                (server1, 1000_u64),
+                (server2, 2000_u64),
+            ];
+            
+            // Insert old format data using deprecated storage
+            deprecated_loaded_emission_format::LoadedEmission::<Test>::insert(
+                netuid.into(),
+                old_emissions.clone(),
+            );
+            
+            // Run migration
+            let weight = migrate_to_v1_separate_emission::<Test>();
+            
+            // Verify migration executed (non-zero weight)
+            assert!(weight != Weight::zero());
+            
+            // Verify storage version updated to 1
+            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
+            
+            // Verify data translated to new format: Vec<(AccountId, server_emission, validator_emission)>
+            let new_emissions = LoadedEmission::<Test>::get(netuid).unwrap();
+            assert_eq!(new_emissions.len(), 2);
+            
+            // Old validator emissions should be preserved, server emissions should be 0
+            assert_eq!(new_emissions[0], (server1, 0_u64, 1000_u64));
+            assert_eq!(new_emissions[1], (server2, 0_u64, 2000_u64));
+        });
+    }
+
+    /// Test that migration skips when already completed
+    #[test]
+    fn test_migrate_to_v1_separate_emission_already_migrated() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Set storage version to 1 or higher
+            StorageVersion::new(1).put::<Pallet<Test>>();
+            
+            // Run migration
+            let weight = migrate_to_v1_separate_emission::<Test>();
+            
+            // Verify migration was skipped (zero weight)
+            assert_eq!(weight, Weight::zero());
+            
+            // Verify version unchanged
+            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
+        });
+    }
+
+    /// Test handling of multiple netuids with old format data
+    #[test]
+    fn test_migrate_to_v1_separate_emission_multiple_netuids() {
+        new_test_ext(1).execute_with(|| {
+            StorageVersion::new(0).put::<Pallet<Test>>();
+            
+            // Setup multiple netuids with old format data
+            for netuid_val in 1..=3 {
+                let netuid = NetUid::from(netuid_val);
+                let server = U256::from(netuid_val as u64 * 100);
+                let old_emissions = vec![(server, netuid_val as u64 * 1000)];
+                
+                deprecated_loaded_emission_format::LoadedEmission::<Test>::insert(
+                    netuid.into(),
+                    old_emissions,
+                );
+            }
+            
+            // Run migration
+            let weight = migrate_to_v1_separate_emission::<Test>();
+            
+            // Verify migration executed
+            assert!(weight != Weight::zero());
+            
+            // Verify all netuids migrated correctly
+            for netuid_val in 1..=3 {
+                let netuid = NetUid::from(netuid_val);
+                let new_emissions = LoadedEmission::<Test>::get(netuid).unwrap();
+                assert_eq!(new_emissions.len(), 1);
+                
+                let expected_server = U256::from(netuid_val as u64 * 100);
+                let expected_validator_emission = netuid_val as u64 * 1000;
+                assert_eq!(new_emissions[0], (expected_server, 0_u64, expected_validator_emission));
+            }
+        });
+    }
+
+    /// Test handling of empty emissions data
+    #[test]
+    fn test_migrate_to_v1_separate_emission_empty_data() {
+        new_test_ext(1).execute_with(|| {
+            StorageVersion::new(0).put::<Pallet<Test>>();
+            
+            // Setup netuid with empty emissions
+            let netuid = NetUid::from(1);
+            let empty_emissions: Vec<(U256, u64)> = vec![];
+            
+            deprecated_loaded_emission_format::LoadedEmission::<Test>::insert(
+                netuid.into(),
+                empty_emissions,
+            );
+            
+            // Run migration
+            let weight = migrate_to_v1_separate_emission::<Test>();
+            
+            // Verify migration executed
+            assert!(weight != Weight::zero());
+            
+            // Verify empty data handled correctly
+            let new_emissions = LoadedEmission::<Test>::get(netuid).unwrap();
+            assert_eq!(new_emissions.len(), 0);
+        });
+    }
+
+    /// Test weight calculation includes all operations
+    #[test]
+    fn test_migrate_to_v1_separate_emission_weight_calculation() {
+        new_test_ext(1).execute_with(|| {
+            StorageVersion::new(0).put::<Pallet<Test>>();
+            
+            // Setup test data
+            let netuid = NetUid::from(1);
+            let server = U256::from(100);
+            let old_emissions = vec![(server, 1000_u64)];
+            
+            deprecated_loaded_emission_format::LoadedEmission::<Test>::insert(
+                netuid.into(),
+                old_emissions,
+            );
+            
+            // Run migration
+            let weight = migrate_to_v1_separate_emission::<Test>();
+            
+            // Verify weight includes:
+            // - Initial version read
+            // - Read old emission data
+            // - Write new emission data
+            // - Write storage version
+            assert!(weight.ref_time() > 0);
+            
+            let expected_min_weight = Test::DbWeight::get().reads(2)
+                .saturating_add(Test::DbWeight::get().writes(2));
+            
+            assert!(weight.ref_time() >= expected_min_weight.ref_time());
+        });
+    }
+
+    /// Test that old format states are handled correctly
+    #[test]
+    fn test_migrate_to_v1_separate_emission_preserves_validator_emissions() {
+        new_test_ext(1).execute_with(|| {
+            StorageVersion::new(0).put::<Pallet<Test>>();
+            
+            // Setup with various validator emission values
+            let netuid = NetUid::from(1);
+            let test_cases = vec![
+                (U256::from(1), 0_u64),           // Zero emission
+                (U256::from(2), 1_u64),           // Minimal emission
+                (U256::from(3), u64::MAX / 2),    // Large emission
+            ];
+            
+            deprecated_loaded_emission_format::LoadedEmission::<Test>::insert(
+                netuid.into(),
+                test_cases.clone(),
+            );
+            
+            // Run migration
+            migrate_to_v1_separate_emission::<Test>();
+            
+            // Verify all values preserved correctly
+            let new_emissions = LoadedEmission::<Test>::get(netuid).unwrap();
+            assert_eq!(new_emissions.len(), test_cases.len());
+            
+            for (idx, (server, validator_emission)) in test_cases.iter().enumerate() {
+                assert_eq!(new_emissions[idx], (*server, 0_u64, *validator_emission));
+            }
+        });
+    }
+
+    /// Test migration with no old data present
+    #[test]
+    fn test_migrate_to_v1_separate_emission_no_old_data() {
+        new_test_ext(1).execute_with(|| {
+            StorageVersion::new(0).put::<Pallet<Test>>();
+            
+            // Don't insert any old data
+            
+            // Run migration
+            let weight = migrate_to_v1_separate_emission::<Test>();
+            
+            // Verify migration still completes and updates version
+            assert!(weight != Weight::zero());
+            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
+        });
+    }
+}
