@@ -296,7 +296,7 @@ export async function setSubtokenEnable(api: TypedApi<typeof devnet>, netuid: nu
 export async function startCall(api: TypedApi<typeof devnet>, netuid: number, keypair: KeyPair) {
     const registerBlock = Number(await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid))
     let currentBlock = await api.query.System.Number.getValue()
-    const duration = Number(await api.constants.SubtensorModule.DurationOfStartCall)
+    const duration = Number(await api.constants.SubtensorModule.InitialStartCallDelay)
 
     while (currentBlock - registerBlock <= duration) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
