@@ -372,7 +372,7 @@ fn test_remove_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                call_weight: frame_support::weights::Weight::from_parts(1_671_800_000, 0)
+                call_weight: frame_support::weights::Weight::from_parts(848_800_000, 0)
                     .add_proof_size(0),
                 extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
