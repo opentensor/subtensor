@@ -2432,5 +2432,35 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// --- Resets the subnet EMA to zero by burning TAO.
+        ///
+        /// This extrinsic allows subnet owners to reset negative EMA values that
+        /// prevent their subnet from receiving emissions. The cost is proportional
+        /// to |EMA| × (1/α), capped at MaxEmaResetCost.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, must be the subnet owner.
+        /// * `netuid` - The network identifier of the subnet to reset.
+        ///
+        /// # Errors
+        /// * `SubnetNotExists` - The subnet does not exist.
+        /// * `EmaNotInitialized` - The subnet EMA has not been initialized.
+        /// * `SubnetEmaNotNegative` - The subnet EMA is not negative, reset not needed.
+        /// * `NotEnoughBalanceToPayEmaResetCost` - Insufficient balance to pay reset cost.
+        ///
+        /// # Events
+        /// Emits a `SubnetEmaReset` event on success.
+        #[pallet::call_index(125)]
+        #[pallet::weight((
+            Weight::from_parts(35_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(5_u64))
+                .saturating_add(T::DbWeight::get().writes(3_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn reset_subnet_ema(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            Self::do_reset_subnet_ema(origin, netuid)
+        }
     }
 }
