@@ -2335,7 +2335,8 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
         // Transfer stake
         let call = RuntimeCall::SubtensorModule(SubtensorCall::transfer_stake {
             destination_coldkey: new_coldkey,
-            hotkey,
+            origin_hotkey: hotkey,
+            destination_hotkey: hotkey,
             origin_netuid: netuid,
             destination_netuid: netuid,
             alpha_amount: stake.into(),
