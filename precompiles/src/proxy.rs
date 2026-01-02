@@ -4,7 +4,8 @@ use crate::{PrecompileExt, PrecompileHandleExt};
 
 use alloc::format;
 use fp_evm::{ExitError, PrecompileFailure};
-use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
+use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
 use pallet_subtensor_proxy as pallet_proxy;
@@ -12,7 +13,7 @@ use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::{
     codec::DecodeLimit,
-    traits::{Dispatchable, StaticLookup},
+    traits::{AsSystemOriginSigner, Dispatchable, StaticLookup},
 };
 use sp_std::boxed::Box;
 use sp_std::convert::{TryFrom, TryInto};
@@ -25,15 +26,22 @@ const MAX_DECODE_DEPTH: u32 = 8;
 impl<R> PrecompileExt<R::AccountId> for ProxyPrecompile<R>
 where
     R: frame_system::Config
+        + pallet_balances::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy::Config<ProxyType = ProxyType>
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
@@ -44,15 +52,22 @@ where
 impl<R> ProxyPrecompile<R>
 where
     R: frame_system::Config
+        + pallet_balances::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy::Config<ProxyType = ProxyType>
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     #[precompile::public("createPureProxy(uint8,uint32,uint16)")]

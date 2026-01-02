@@ -4,15 +4,30 @@ use ml_kem::kem::{Decapsulate, DecapsulationKey};
 use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
 use sc_service::SpawnTaskHandle;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
+use sp_consensus::BlockOrigin;
 use sp_core::H256;
 use sp_runtime::traits::{Header, SaturatedConversion};
 use sp_runtime::{AccountId32, OpaqueExtrinsic};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
-    time::Duration,
 };
-use tokio::time::sleep;
+
+/// Helper to build a `mark_decryption_failed` runtime call with a bounded reason string.
+fn create_failed_call(id: H256, reason: &str) -> node_subtensor_runtime::RuntimeCall {
+    use sp_runtime::BoundedVec;
+
+    let reason_bytes = reason.as_bytes();
+    let reason_bounded = BoundedVec::try_from(reason_bytes.to_vec()).unwrap_or_else(|_| {
+        // Fallback if the reason is too long for the bounded vector.
+        BoundedVec::try_from(b"Decryption failed".to_vec()).unwrap_or_default()
+    });
+
+    node_subtensor_runtime::RuntimeCall::MevShield(pallet_shield::Call::mark_decryption_failed {
+        id,
+        reason: reason_bounded,
+    })
+}
 
 /// Buffer of wrappers keyed by the block number in which they were included.
 #[derive(Default, Clone)]
@@ -33,11 +48,13 @@ impl WrapperBuffer {
     }
 
     /// Drain only wrappers whose `block_number` matches the given `block`.
-    ///   - Wrappers with `block_number > block` are kept for future decrypt windows.
-    ///   - Wrappers with `block_number < block` are considered stale and dropped.
+    ///   - Wrappers with `block_number > block` are kept for future decrypt passes.
+    ///   - Wrappers with `block_number < block` are considered stale and dropped, and
+    ///     we emit `mark_decryption_failed` calls for them so they are visible on-chain.
     fn drain_for_block(
         &mut self,
         block: u64,
+        failed_calls: &mut Vec<(H256, node_subtensor_runtime::RuntimeCall)>,
     ) -> Vec<(H256, u64, sp_runtime::AccountId32, Vec<u8>)> {
         let mut ready = Vec::new();
         let mut kept_future: usize = 0;
@@ -53,7 +70,7 @@ impl WrapperBuffer {
                 kept_future = kept_future.saturating_add(1);
                 true
             } else {
-                // block_number < block => stale / missed reveal window; drop.
+                // block_number < block => stale / missed decrypt opportunity; drop and mark failed.
                 dropped_past = dropped_past.saturating_add(1);
                 log::debug!(
                     target: "mev-shield",
@@ -62,6 +79,16 @@ impl WrapperBuffer {
                     *block_number,
                     block
                 );
+
+                // Mark decryption failed on-chain so clients can observe the missed wrapper.
+                failed_calls.push((
+                    *id,
+                    create_failed_call(
+                        *id,
+                        "missed decrypt window (wrapper submitted in an earlier block)",
+                    ),
+                ));
+
                 false
             }
         });
@@ -82,7 +109,8 @@ impl WrapperBuffer {
 /// Start a background worker that:
 ///   • watches imported blocks and captures `MevShield::submit_encrypted`
 ///   • buffers those wrappers per originating block,
-///   • during the last `decrypt_window_ms` of the slot: decrypt & submit `submit_one`
+///   • on each **locally authored** block: decrypt & submit wrappers for that block.
+///
 pub fn spawn_revealer<B, C, Pool>(
     task_spawner: &SpawnTaskHandle,
     client: Arc<C>,
@@ -105,19 +133,24 @@ pub fn spawn_revealer<B, C, Pool>(
 
     let buffer: Arc<Mutex<WrapperBuffer>> = Arc::new(Mutex::new(WrapperBuffer::default()));
 
-    // ── 1) buffer wrappers ───────────────────────────────────────
     {
         let client = Arc::clone(&client);
+        let pool = Arc::clone(&pool);
         let buffer = Arc::clone(&buffer);
+        let ctx = ctx.clone();
 
         task_spawner.spawn(
-            "mev-shield-buffer-wrappers",
+            "mev-shield-block-revealer",
             None,
             async move {
-                log::debug!(target: "mev-shield", "buffer-wrappers task started");
+                log::debug!(target: "mev-shield", "Revealer task started");
                 let mut import_stream = client.import_notification_stream();
 
                 while let Some(notif) = import_stream.next().await {
+                    if notif.origin != BlockOrigin::Own {
+                        continue;
+                    }
+
                     let at_hash = notif.hash;
                     let block_number_u64: u64 = (*notif.header.number()).saturated_into();
 
@@ -129,6 +162,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         notif.origin
                     );
 
+                    // ── 1) buffer wrappers from this (locally authored) block ───────────
                     match client.block_body(at_hash) {
                         Ok(Some(body)) => {
                             log::debug!(
@@ -232,55 +266,8 @@ pub fn spawn_revealer<B, C, Pool>(
                             "  block_body error for hash={at_hash:?}: {e:?}",
                         ),
                     }
-                }
-            },
-        );
-    }
 
-    // ── 2) decrypt window revealer ──────────────────────────────
-    {
-        let client = Arc::clone(&client);
-        let pool = Arc::clone(&pool);
-        let buffer = Arc::clone(&buffer);
-        let ctx = ctx.clone();
-
-        task_spawner.spawn(
-            "mev-shield-last-window-revealer",
-            None,
-            async move {
-                log::debug!(target: "mev-shield", "last-window-revealer task started");
-
-                // Respect the configured slot_ms, but clamp the decrypt window so it never
-                // exceeds the slot length (important for fast runtimes).
-                let slot_ms = ctx.timing.slot_ms;
-                let mut decrypt_window_ms = ctx.timing.decrypt_window_ms;
-
-                if decrypt_window_ms > slot_ms {
-                    log::warn!(
-                        target: "mev-shield",
-                        "spawn_revealer: decrypt_window_ms ({decrypt_window_ms}) > slot_ms ({slot_ms}); clamping to slot_ms",
-                    );
-                    decrypt_window_ms = slot_ms;
-                }
-
-                let tail_ms = slot_ms.saturating_sub(decrypt_window_ms);
-
-                log::debug!(
-                    target: "mev-shield",
-                    "revealer timing: slot_ms={slot_ms} decrypt_window_ms={decrypt_window_ms} (effective) tail_ms={tail_ms}",
-                );
-
-                loop {
-                    log::debug!(
-                        target: "mev-shield",
-                        "revealer: sleeping {tail_ms} ms before decrypt window (slot_ms={slot_ms}, decrypt_window_ms={decrypt_window_ms})",
-                    );
-
-                    if tail_ms > 0 {
-                        sleep(Duration::from_millis(tail_ms)).await;
-                    }
-
-                    // Snapshot the current ML‑KEM secret.
+                    // ── 2) snapshot current ML‑KEM secret for this block ────────────────
                     let snapshot_opt = match ctx.keys.lock() {
                         Ok(k) => {
                             let sk_hash = sp_core::hashing::blake2_256(&k.current_sk);
@@ -300,24 +287,23 @@ pub fn spawn_revealer<B, C, Pool>(
                         }
                     };
 
-                    let (curr_sk_bytes, curr_pk_len, next_pk_len, sk_hash) =
-                        match snapshot_opt {
-                            Some(v) => v,
-                            None => {
-                                // Skip this decrypt window entirely, without holding any guard.
-                                if decrypt_window_ms > 0 {
-                                    sleep(Duration::from_millis(decrypt_window_ms)).await;
-                                }
-                                continue;
-                            }
-                        };
+                    let (curr_sk_bytes, curr_pk_len, next_pk_len, sk_hash) = match snapshot_opt {
+                        Some(v) => v,
+                        None => {
+                            log::debug!(
+                                target: "mev-shield",
+                                "revealer: Cannot snapshot key for this block",
+                            );
+                            continue;
+                        }
+                    };
 
-                    // Use best block number as the block whose submissions we reveal now.
-                    let curr_block: u64 = client.info().best_number.saturated_into();
+                    // Use this block as the reveal block.
+                    let curr_block: u64 = block_number_u64;
 
                     log::debug!(
                         target: "mev-shield",
-                        "revealer: decrypt window start. reveal_block={} sk_len={} sk_hash=0x{} curr_pk_len={} next_pk_len={}",
+                        "revealer: decrypt for block {}. sk_len={} sk_hash=0x{} curr_pk_len={} next_pk_len={}",
                         curr_block,
                         curr_sk_bytes.len(),
                         hex::encode(sk_hash),
@@ -325,10 +311,16 @@ pub fn spawn_revealer<B, C, Pool>(
                         next_pk_len
                     );
 
-                    // Only process wrappers whose originating block matches the reveal_block.
+                    // ── 3) drain & decrypt wrappers for this block ─────────────────────
+                    let mut to_submit: Vec<(H256, node_subtensor_runtime::UncheckedExtrinsic)> =
+                        Vec::new();
+                    let mut failed_calls: Vec<(H256, node_subtensor_runtime::RuntimeCall)> =
+                        Vec::new();
+
+                    // Only process wrappers whose originating block matches this block.
                     let drained: Vec<(H256, u64, sp_runtime::AccountId32, Vec<u8>)> =
                         match buffer.lock() {
-                            Ok(mut buf) => buf.drain_for_block(curr_block),
+                            Ok(mut buf) => buf.drain_for_block(curr_block, &mut failed_calls),
                             Err(e) => {
                                 log::debug!(
                                     target: "mev-shield",
@@ -340,37 +332,15 @@ pub fn spawn_revealer<B, C, Pool>(
 
                     log::debug!(
                         target: "mev-shield",
-                        "revealer: drained {} buffered wrappers for reveal_block={}",
+                        "revealer: drained {} buffered wrappers for block={}",
                         drained.len(),
                         curr_block
                     );
 
-                    let mut to_submit: Vec<(H256, node_subtensor_runtime::UncheckedExtrinsic)> =
-                        Vec::new();
-                    let mut failed_calls: Vec<(H256, node_subtensor_runtime::RuntimeCall)> =
-                        Vec::new();
-
-                    // Helper to create mark_decryption_failed call
-                    let create_failed_call = |id: H256, reason: &str| -> node_subtensor_runtime::RuntimeCall {
-                        use sp_runtime::BoundedVec;
-                        let reason_bytes = reason.as_bytes();
-                        let reason_bounded = BoundedVec::try_from(reason_bytes.to_vec())
-                            .unwrap_or_else(|_| { // Fallback if the reason is too long
-                                BoundedVec::try_from(b"Decryption failed".to_vec()).unwrap_or_default()
-                            });
-
-                        node_subtensor_runtime::RuntimeCall::MevShield(
-                            pallet_shield::Call::mark_decryption_failed {
-                                id,
-                                reason: reason_bounded,
-                            },
-                        )
-                    };
-
                     for (id, block_number, author, blob) in drained.into_iter() {
                         log::debug!(
                             target: "mev-shield",
-                            "revealer: candidate id=0x{} submitted_in={} (reveal_block={}) author={} blob_len={}",
+                            "revealer: candidate id=0x{} submitted_in={} (block={}) author={} blob_len={}",
                             hex::encode(id.as_bytes()),
                             block_number,
                             curr_block,
@@ -387,10 +357,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 hex::encode(id.as_bytes()),
                                 error_message
                             );
-                            failed_calls.push((
-                                id,
-                                create_failed_call(id, error_message),
-                            ));
+                            failed_calls.push((id, create_failed_call(id, error_message)));
                             continue;
                         }
 
@@ -407,10 +374,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     hex::encode(id.as_bytes()),
                                     error_message
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -427,10 +391,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     cursor,
                                     kem_len_end
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -445,10 +406,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     hex::encode(id.as_bytes()),
                                     error_message
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -469,10 +427,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     cursor,
                                     kem_len
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -489,10 +444,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     cursor,
                                     kem_ct_end
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -511,10 +463,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     error_message,
                                     cursor
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -531,10 +480,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     cursor,
                                     nonce_end
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -552,10 +498,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     error_message,
                                     cursor
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -590,10 +533,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                         curr_sk_bytes.len(),
                                         e
                                     );
-                                    failed_calls.push((
-                                        id,
-                                        create_failed_call(id, error_message),
-                                    ));
+                                    failed_calls.push((id, create_failed_call(id, error_message)));
                                     continue;
                                 }
                             };
@@ -610,10 +550,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     error_message,
                                     e
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -628,10 +565,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     hex::encode(id.as_bytes()),
                                     error_message
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -646,10 +580,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 error_message,
                                 ss_bytes.len()
                             );
-                            failed_calls.push((
-                                id,
-                                create_failed_call(id, error_message),
-                            ));
+                            failed_calls.push((id, create_failed_call(id, error_message)));
                             continue;
                         }
                         let mut ss32 = [0u8; 32];
@@ -700,6 +631,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     error_message,
                                     hex::encode(aead_body_hash),
                                 );
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
@@ -723,10 +655,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                 plaintext.len(),
                                 1
                             );
-                            failed_calls.push((
-                                id,
-                                create_failed_call(id, error_message),
-                            ));
+                            failed_calls.push((id, create_failed_call(id, error_message)));
                             continue;
                         }
 
@@ -740,14 +669,10 @@ pub fn spawn_revealer<B, C, Pool>(
                                     hex::encode(id.as_bytes()),
                                     error_message
                                 );
-                                failed_calls.push((
-                                    id,
-                                    create_failed_call(id, error_message),
-                                ));
+                                failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
-
 
                         let signed_extrinsic: node_subtensor_runtime::UncheckedExtrinsic =
                             match Decode::decode(&mut &signed_extrinsic_bytes[..]) {
@@ -762,10 +687,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                         signed_extrinsic_bytes.len(),
                                         e
                                     );
-                                    failed_calls.push((
-                                        id,
-                                        create_failed_call(id, error_message),
-                                    ));
+                                    failed_calls.push((id, create_failed_call(id, error_message)));
                                     continue;
                                 }
                             };
@@ -773,7 +695,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         to_submit.push((id, signed_extrinsic));
                     }
 
-                    // Submit as external the signed extrinsics.
+                    // ── 4) submit decrypted extrinsics to pool ──────────────────────────
                     let at = client.info().best_hash;
                     log::debug!(
                         target: "mev-shield",
@@ -829,7 +751,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         }
                     }
 
-                    // Submit failed decryption calls
+                    // ── 5) submit decryption-failed markers ─────────────────────────────
                     if !failed_calls.is_empty() {
                         log::debug!(
                             target: "mev-shield",
@@ -886,11 +808,6 @@ pub fn spawn_revealer<B, C, Pool>(
                                 }
                             }
                         }
-                    }
-
-                    // Let the decrypt window elapse.
-                    if decrypt_window_ms > 0 {
-                        sleep(Duration::from_millis(decrypt_window_ms)).await;
                     }
                 }
             },
