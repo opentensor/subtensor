@@ -6,7 +6,7 @@ use frame_support::traits::{
     },
 };
 use safe_math::*;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
 
@@ -48,15 +48,13 @@ impl<T: Config> Pallet<T> {
         Self::get_all_subnet_netuids()
             .into_iter()
             .map(|netuid| {
-                let alpha = U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
+                let alpha = U64F64::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
                     hotkey, netuid,
                 ));
-                let alpha_price = U96F32::saturating_from_num(
-                    T::SwapInterface::current_alpha_price(netuid.into()),
-                );
+                let alpha_price = T::SwapInterface::current_alpha_price(netuid.into());
                 alpha.saturating_mul(alpha_price)
             })
-            .sum::<U96F32>()
+            .sum::<U64F64>()
             .saturating_to_num::<u64>()
             .into()
     }
@@ -76,7 +74,7 @@ impl<T: Config> Pallet<T> {
                         let order = GetTaoForAlpha::<T>::with_amount(alpha_stake);
                         T::SwapInterface::sim_swap(netuid.into(), order)
                             .map(|r| {
-                                let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
+                                let fee: u64 = U64F64::saturating_from_num(r.fee_paid)
                                     .saturating_mul(T::SwapInterface::current_alpha_price(
                                         netuid.into(),
                                     ))
@@ -186,7 +184,7 @@ impl<T: Config> Pallet<T> {
             let alpha_stake =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
             let min_alpha_stake =
-                U96F32::saturating_from_num(Self::get_nominator_min_required_stake())
+                U64F64::saturating_from_num(Self::get_nominator_min_required_stake())
                     .safe_div(T::SwapInterface::current_alpha_price(netuid))
                     .saturating_to_num::<u64>();
             if alpha_stake > 0.into() && alpha_stake < min_alpha_stake.into() {

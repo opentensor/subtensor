@@ -2692,9 +2692,6 @@ fn test_migrate_reset_unactive_sn() {
                 RAORecycledForRegistration::<Test>::get(netuid),
                 actual_tao_lock_amount_less_pool_tao
             );
-            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                *netuid
-            ));
             assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
@@ -2765,9 +2762,6 @@ fn test_migrate_reset_unactive_sn() {
                 SubnetAlphaOutEmission::<Test>::get(netuid),
                 AlphaCurrency::ZERO
             );
-            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                *netuid
-            ));
             assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
