@@ -1679,6 +1679,11 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 // Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 // The extensions to the basic transaction logic.
+// =================================================================================================
+// IMPORTANT: If you add a new TransactionExtension here, review precompile runtime-call dispatch
+// paths (currently `PrecompileHandleExt::try_dispatch_runtime_call`) and decide whether the new
+// extension must be triggered manually (not all extensions apply to precompiles).
+// =================================================================================================
 // Note: The SDK only implements TransactionExtension for tuples up to 12 items, so we nest the last
 // two extensions to keep order/encoding while staying under the limit.
 pub type TransactionExtensions = (
@@ -1700,8 +1705,9 @@ pub type TransactionExtensions = (
 );
 
 type Migrations = (
-    // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
-    // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
+    // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions
+    // of fractions of a cent) are cleaned up. These tiny rounding errors occur due to floating
+    // point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
