@@ -17,6 +17,7 @@ where
     R: frame_system::Config
         + pallet_balances::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + Send
         + Sync
@@ -42,6 +43,7 @@ where
     R: frame_system::Config
         + pallet_balances::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + Send
         + Sync

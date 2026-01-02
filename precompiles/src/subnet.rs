@@ -26,6 +26,7 @@ where
         + pallet_rate_limiting::Config<
             LimitScope = NetUid,
             GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
         > + Send
         + Sync
         + scale_info::TypeInfo,
@@ -54,6 +55,7 @@ where
         + pallet_rate_limiting::Config<
             LimitScope = NetUid,
             GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
         > + Send
         + Sync
         + scale_info::TypeInfo,
