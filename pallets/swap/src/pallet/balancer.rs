@@ -8,23 +8,38 @@ use sp_runtime::Saturating;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("7fa3cbcf1d419808")]
+/// Balancer implements all high complexity math for swap operations such as:
+///   - Swapping x for y, which includes limit orders
+///   - Adding and removing liquidity (including unbalanced)
+///
+/// Notation used in this file:
+///   - x: Base reserve (alplha reserve)
+///   - y: Quote reserve (tao reserve)
+///   - ∆x: Alpha paid in/out
+///   - ∆y: Tao paid in/out
+///   - w1: Base weight (a.k.a weight_base)
+///   - w2: Quote weight (a.k.a weight_quote)
+#[freeze_struct("33a4fb0774da77c7")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Balancer {
     quote: Perquintill,
 }
 
-// Lower imit of weights is 0.01
+/// Accuracy matches to 18 decimal digits used to represent weights
 pub const ACCURACY: u64 = 1_000_000_000_000_000_000_u64;
+/// Lower imit of weights is 0.01
 pub const MIN_WEIGHT: Perquintill = Perquintill::from_parts(ACCURACY / 100);
+/// 1.0 in Perquintill
 pub const ONE: Perquintill = Perquintill::from_parts(ACCURACY);
 
 #[derive(Debug)]
 pub enum BalancerError {
+    /// The provided weight value is out of range
     InvalidValue,
 }
 
 impl Default for Balancer {
+    /// The default value of weights is 0.5 for pool initialization
     fn default() -> Self {
         Self {
             quote: Perquintill::from_rational(1u128, 2u128),
@@ -33,6 +48,7 @@ impl Default for Balancer {
 }
 
 impl Balancer {
+    /// Creates a new instance of balancer with a given quote weight
     pub fn new(quote: Perquintill) -> Result<Self, BalancerError> {
         if Self::check_constraints(quote) {
             Ok(Balancer { quote })
@@ -41,19 +57,27 @@ impl Balancer {
         }
     }
 
+    /// Constraints limit balancer weights within certain range of values:
+    ///   - Both weights are above minimum
+    ///   - Sum of weights is equal to 1.0
     fn check_constraints(quote: Perquintill) -> bool {
         let base = ONE.saturating_sub(quote);
         (base >= MIN_WEIGHT) && (quote >= MIN_WEIGHT)
     }
 
+    /// We store quote weight as Perquintill
     pub fn get_quote_weight(&self) -> Perquintill {
         self.quote
     }
 
+    /// Base weight is calculated as 1.0 - quote_weight
     pub fn get_base_weight(&self) -> Perquintill {
         ONE.saturating_sub(self.quote)
     }
 
+    /// Sets quote currency weight in the balancer.
+    /// Because sum of weights is always 1.0, there is no need to
+    /// store base currency weight
     pub fn set_quote_weight(&mut self, new_value: Perquintill) -> Result<(), BalancerError> {
         if Self::check_constraints(new_value) {
             self.quote = new_value;
@@ -63,6 +87,11 @@ impl Balancer {
         }
     }
 
+    /// If base_quote is true, calculate (x / (x + ∆x))^(weight_base / weight_quote),
+    /// otherwise, calculate (x / (x + ∆x))^(weight_quote / weight_base)
+    ///
+    /// Here we use SafeInt from bigmath crate for high-precision exponentiation,
+    /// which exposes the function pow_ratio_scaled.
     fn exp_scaled(&self, x: u64, dx: u64, base_quote: bool) -> U64F64 {
         let den = x.saturating_add(dx);
         if den == 0 {
@@ -78,16 +107,16 @@ impl Balancer {
         let w2_safe = SafeInt::from(w2);
         let perquintill_scale = SafeInt::from(ACCURACY as u128);
         let denominator = SafeInt::from(x_plus_dx);
-        let maybe_result_safe_int = if base_quote {
-            log::debug!("x = {:?}", x);
-            log::debug!("dx = {:?}", dx);
-            log::debug!("x_safe = {:?}", x_safe);
-            log::debug!("denominator = {:?}", denominator);
-            log::debug!("w1_safe = {:?}", w1_safe);
-            log::debug!("w2_safe = {:?}", w2_safe);
-            log::debug!("precision = {:?}", precision);
-            log::debug!("perquintill_scale = {:?}", perquintill_scale);
+        log::debug!("x = {:?}", x);
+        log::debug!("dx = {:?}", dx);
+        log::debug!("x_safe = {:?}", x_safe);
+        log::debug!("denominator = {:?}", denominator);
+        log::debug!("w1_safe = {:?}", w1_safe);
+        log::debug!("w2_safe = {:?}", w2_safe);
+        log::debug!("precision = {:?}", precision);
+        log::debug!("perquintill_scale = {:?}", perquintill_scale);
 
+        let maybe_result_safe_int = if base_quote {
             SafeInt::pow_ratio_scaled(
                 &x_safe,
                 &denominator,
@@ -117,16 +146,24 @@ impl Balancer {
     }
 
     /// Calculates exponent of (x / (x + ∆x)) ^ (w_base/w_quote)
+    /// This method is used in sell swaps
+    /// (∆x is given by user, ∆y is paid out by the pool)
     pub fn exp_base_quote(&self, x: u64, dx: u64) -> U64F64 {
         self.exp_scaled(x, dx, true)
     }
 
     /// Calculates exponent of (y / (y + ∆y)) ^ (w_quote/w_base)
+    /// This method is used in buy swaps
+    /// (∆y is given by user, ∆x is paid out by the pool)
     pub fn exp_quote_base(&self, y: u64, dy: u64) -> U64F64 {
         self.exp_scaled(y, dy, false)
     }
 
-    /// Calculates price as (w1/w2) * (y/x)
+    /// Calculates price as (w1/w2) * (y/x), where
+    ///   - w1 is base weight
+    ///   - w2 is quote weight
+    ///   - x is base reserve
+    ///   - y is quote reserve
     pub fn calculate_price(&self, x: u64, y: u64) -> U64F64 {
         let w2_fixed = U64F64::saturating_from_num(self.get_quote_weight().deconstruct());
         let w1_fixed = U64F64::saturating_from_num(self.get_base_weight().deconstruct());
@@ -146,11 +183,20 @@ impl Balancer {
         let num = U256::from(value) * U256::from(parts);
         let den = U256::from(acc);
 
-        // add 0.5 ulp before integer division → round-to-nearest
+        // Add 0.5 before integer division to achieve rounding to the nearest
+        // integer
         let res = (num + den / U256::from(2u8)) / den;
         res.min(U256::from(u128::MAX)).as_u128()
     }
 
+    /// When liquidity is added to balancer swap, it may be added with arbitrary proportion,
+    /// not necessarily in the proportion of price, like with uniswap v2 or v3. In order to
+    /// stay within balancer pool invariant, the weights need to be updated. Invariant:
+    ///
+    ///   L = x ^ weight_base * y ^ weight_quote
+    ///
+    /// Note that weights must remain within the proper range (both be above MIN_WEIGHT),
+    /// so only reasonably small disproportions of updates are appropriate.
     pub fn update_weights_for_added_liquidity(
         &mut self,
         tao_reserve: u64,
@@ -190,6 +236,11 @@ impl Balancer {
     }
 
     /// Calculates quote delta needed to reach the price up when byuing
+    /// This method is needed for limit orders.
+    ///
+    /// Formula is:
+    ///   ∆y = y * ((price_new / price)^weight_base - 1)
+    /// price_new >= price
     pub fn calculate_quote_delta_in(
         &self,
         current_price: U64F64,
@@ -230,6 +281,11 @@ impl Balancer {
     }
 
     /// Calculates base delta needed to reach the price down when selling
+    /// This method is needed for limit orders.
+    ///
+    /// Formula is:
+    ///   ∆x = x * ((price / price_new)^weight_quote - 1)
+    /// price_new <= price
     pub fn calculate_base_delta_in(
         &self,
         current_price: U64F64,
@@ -279,9 +335,15 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use sp_arithmetic::Perquintill;
 
+    // Helper: convert Perquintill to f64 for comparison
     fn perquintill_to_f64(p: Perquintill) -> f64 {
         let parts = p.deconstruct() as f64;
         parts / ACCURACY as f64
+    }
+
+    // Helper: convert U64F64 to f64 for comparison
+    fn f(v: U64F64) -> f64 {
+        v.to_num::<f64>()
     }
 
     #[test]
@@ -407,21 +469,33 @@ mod tests {
             .into_iter()
             .for_each(|(y, x, dx)| {
                 let bal = Balancer::new(w_quote).unwrap();
-                let e = bal.exp_base_quote(x, dx);
+                let e1 = bal.exp_base_quote(x, dx);
+                let e2 = bal.exp_quote_base(x, dx);
                 let one = U64F64::from_num(1);
                 let y_fixed = U64F64::from_num(y);
-                let dy = y_fixed * (one - e);
+                let dy1 = y_fixed * (one - e1);
+                let dy2 = y_fixed * (one - e2);
 
                 let w1 = perquintill_to_f64(bal.get_base_weight());
                 let w2 = perquintill_to_f64(bal.get_quote_weight());
-                let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
-                let dy_expected = y as f64 * (1. - e_expected);
+                let e1_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
+                let dy1_expected = y as f64 * (1. - e1_expected);
+                let e2_expected = (x as f64 / (x as f64 + dx as f64)).powf(w2 / w1);
+                let dy2_expected = y as f64 * (1. - e2_expected);
 
-                let mut eps = dy_expected / 100000.;
-                if eps > 1.0 {
-                    eps = 1.0;
+                // Start tolerance with 0.001 rao
+                let mut eps1 = 0.001;
+                let mut eps2 = 0.001;
+
+                // If swapping more than 100k tao/alpha, relax tolerance to 1.0 rao
+                if dy1_expected > 100_000_000_000_000_f64 {
+                    eps1 = 1.0;
                 }
-                assert_abs_diff_eq!(dy.to_num::<f64>(), dy_expected, epsilon = eps);
+                if dy2_expected > 100_000_000_000_000_f64 {
+                    eps2 = 1.0;
+                }
+                assert_abs_diff_eq!(f(dy1), dy1_expected, epsilon = eps1);
+                assert_abs_diff_eq!(f(dy2), dy2_expected, epsilon = eps2);
             })
         });
     }
@@ -716,5 +790,175 @@ mod tests {
             target_price.to_num::<f64>(),
             epsilon = target_price.to_num::<f64>() / 1_000_000_000.
         );
+    }
+
+    #[test]
+    fn mul_round_zero_and_one() {
+        let v = 1_000_000u128;
+
+        // p = 0 -> always 0
+        assert_eq!(Balancer::mul_perquintill_round(Perquintill::zero(), v), 0);
+
+        // p = 1 -> identity
+        assert_eq!(Balancer::mul_perquintill_round(Perquintill::one(), v), v);
+    }
+
+    #[test]
+    fn mul_round_half_behaviour() {
+        // p = 1/2
+        let p = Perquintill::from_rational(1u128, 2u128);
+
+        // Check rounding around .5 boundaries
+        // value * 1/2, rounded to nearest
+        assert_eq!(Balancer::mul_perquintill_round(p, 0), 0); // 0.0  -> 0
+        assert_eq!(Balancer::mul_perquintill_round(p, 1), 1); // 0.5  -> 1 (round up)
+        assert_eq!(Balancer::mul_perquintill_round(p, 2), 1); // 1.0  -> 1
+        assert_eq!(Balancer::mul_perquintill_round(p, 3), 2); // 1.5  -> 2
+        assert_eq!(Balancer::mul_perquintill_round(p, 4), 2); // 2.0  -> 2
+        assert_eq!(Balancer::mul_perquintill_round(p, 5), 3); // 2.5  -> 3
+        assert_eq!(Balancer::mul_perquintill_round(p, 1023), 512); // 511.5  -> 512
+        assert_eq!(Balancer::mul_perquintill_round(p, 1025), 513); // 512.5  -> 513
+    }
+
+    #[test]
+    fn mul_round_third_behaviour() {
+        // p = 1/3
+        let p = Perquintill::from_rational(1u128, 3u128);
+
+        // value * 1/3, rounded to nearest
+        assert_eq!(Balancer::mul_perquintill_round(p, 3), 1); // 1.0      -> 1
+        assert_eq!(Balancer::mul_perquintill_round(p, 4), 1); // 1.333... -> 1
+        assert_eq!(Balancer::mul_perquintill_round(p, 5), 2); // 1.666... -> 2
+        assert_eq!(Balancer::mul_perquintill_round(p, 6), 2); // 2.0      -> 2
+    }
+
+    #[test]
+    fn mul_round_large_values_simple_rational() {
+        // p = 7/10 (exact in perquintill: 0.7)
+        let p = Perquintill::from_rational(7u128, 10u128);
+        let v: u128 = 1_000_000_000_000_000_000;
+
+        let res = Balancer::mul_perquintill_round(p, v);
+
+        // Expected = round(0.7 * v) with pure integer math:
+        // round(v * 7 / 10) = (v*7 + 10/2) / 10
+        let expected = (v.saturating_mul(7) + 10 / 2) / 10;
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn mul_round_max_value_with_one() {
+        let v = u128::MAX;
+        let p = ONE;
+
+        // For p = 1, result must be exactly value, and must not overflow
+        let res = Balancer::mul_perquintill_round(p, v);
+        assert_eq!(res, v);
+    }
+
+    #[test]
+    fn price_with_equal_weights_is_y_over_x() {
+        // quote = 0.5, base = 0.5 -> w1 / w2 = 1, so price = y/x
+        let quote = Perquintill::from_rational(1u128, 2u128);
+        let bal = Balancer::new(quote).unwrap();
+
+        let x = 2u64;
+        let y = 5u64;
+
+        let price = bal.calculate_price(x, y);
+        let price_f = f(price);
+
+        let expected_f = (y as f64) / (x as f64);
+        assert_abs_diff_eq!(price_f, expected_f, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn price_scales_with_weight_ratio_two_to_one() {
+        // Assume base = 1 - quote.
+        // quote = 1/3 -> base = 2/3, so w1 / w2 = 2.
+        // Then price = 2 * (y/x).
+        let quote = Perquintill::from_rational(1u128, 3u128);
+        let bal = Balancer::new(quote).unwrap();
+
+        let x = 4u64;
+        let y = 10u64;
+
+        let price_f = f(bal.calculate_price(x, y));
+        let expected_f = 2.0 * (y as f64 / x as f64);
+
+        assert_abs_diff_eq!(price_f, expected_f, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn price_is_zero_when_y_is_zero() {
+        // If y = 0, y/x = 0 so price must be 0 regardless of weights (for x > 0).
+        let quote = Perquintill::from_rational(3u128, 10u128); // 0.3
+        let bal = Balancer::new(quote).unwrap();
+
+        let x = 10u64;
+        let y = 0u64;
+
+        let price_f = f(bal.calculate_price(x, y));
+        assert_abs_diff_eq!(price_f, 0.0, epsilon = 0.0);
+    }
+
+    #[test]
+    fn price_invariant_when_scaling_x_and_y_with_equal_weights() {
+        // For equal weights, price(x, y) == price(kx, ky).
+        let quote = Perquintill::from_rational(1u128, 2u128); // 0.5
+        let bal = Balancer::new(quote).unwrap();
+
+        let x1 = 3u64;
+        let y1 = 7u64;
+        let k = 10u64;
+        let x2 = x1 * k;
+        let y2 = y1 * k;
+
+        let p1 = f(bal.calculate_price(x1, y1));
+        let p2 = f(bal.calculate_price(x2, y2));
+
+        assert_abs_diff_eq!(p1, p2, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn price_matches_formula_for_general_quote() {
+        // General check: price = (w1 / w2) * (y/x),
+        // where w1 = base_weight, w2 = quote_weight.
+        // Here we assume get_base_weight = 1 - quote.
+        let quote = Perquintill::from_rational(2u128, 5u128); // 0.4
+        let bal = Balancer::new(quote).unwrap();
+
+        let x = 9u64;
+        let y = 25u64;
+
+        let price_f = f(bal.calculate_price(x, y));
+
+        let base = Perquintill::one() - quote;
+        let w1 = base.deconstruct() as f64;
+        let w2 = quote.deconstruct() as f64;
+
+        let expected_f = (w1 / w2) * (y as f64 / x as f64);
+        assert_abs_diff_eq!(price_f, expected_f, epsilon = 1e-9);
+    }
+
+    #[test]
+    fn price_high_values_non_equal_weights() {
+        // Non-equal weights, high x and y (up to 21e15)
+        let quote = Perquintill::from_rational(3u128, 10u128); // 0.3
+        let bal = Balancer::new(quote).unwrap();
+
+        let x: u64 = 21_000_000_000_000_000;
+        let y: u64 = 15_000_000_000_000_000;
+
+        let price = bal.calculate_price(x, y);
+        let price_f = f(price);
+
+        // Expected: (w1 / w2) * (y / x), using Balancer's actual weights
+        let w1 = bal.get_base_weight().deconstruct() as f64;
+        let w2 = bal.get_quote_weight().deconstruct() as f64;
+        let expected_f = (w1 / w2) * (y as f64 / x as f64);
+
+        assert_abs_diff_eq!(price_f, expected_f, epsilon = 1e-9);
     }
 }

@@ -13686,9 +13686,9 @@ dependencies = [
 
 [[package]]
 name = "quoth"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3fcb67d48b8ef70eda1c84514f4ba26e4904c40c36940cec7aa2c45cd8d114b"
+checksum = "76d9da82a5dc3ff2fb2eee43d2b434fb197a9bf6a2a243850505b61584f888d2"
 dependencies = [
  "quoth-macros",
  "regex",
@@ -13698,9 +13698,9 @@ dependencies = [
 
 [[package]]
 name = "quoth-macros"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9e5bab2cb57954711cf4165382479a56c3b9d2c94f513ab2a634aea00baed4a"
+checksum = "58547202bec9896e773db7ef04b4d47c444f9c97bc4386f36e55718c347db440"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -14585,8 +14585,8 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 
 [[package]]
 name = "safe-bigmath"
-version = "0.2.0"
-source = "git+https://github.com/sam0x17/safe-math?rev=fd8e816#fd8e8167ff95761d9b6407e2feec47032c2311ca"
+version = "0.3.0"
+source = "git+https://github.com/sam0x17/safe-math#0a94bf14f8235f82d30d23d91e0b63ed28861ece"
 dependencies = [
  "crabtime",
  "num-bigint",
@@ -14616,9 +14616,9 @@ dependencies = [
 
 [[package]]
 name = "safe-string"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "828a62cafa42d2d1b5ad4592c47946c156972e1e8d6e929e566256d841177b59"
+checksum = "f2fc51f1e562058dee569383bfdb5a58752bfeb7fa7f0823f5c07c4c45381b5a"
 
 [[package]]
 name = "safe_arch"
