@@ -2365,9 +2365,9 @@ mod dispatches {
         ///
         #[pallet::call_index(125)]
         #[pallet::weight(
-            Weight::from_parts(16_150_000, 0)
-            .saturating_add(T::DbWeight::get().reads(1_u64))
-            .saturating_add(T::DbWeight::get().writes(1_u64))
+            Weight::from_parts(55_700_000, 0)
+            .saturating_add(T::DbWeight::get().reads(4_u64))
+            .saturating_add(T::DbWeight::get().writes(3_u64))
         )]
         pub fn announce_coldkey_swap(
             origin: OriginFor<T>,
@@ -2407,9 +2407,9 @@ mod dispatches {
         /// The `ColdkeySwapped` event is emitted on successful swap.
         #[pallet::call_index(126)]
         #[pallet::weight(
-            Weight::from_parts(207_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(19_u64))
-            .saturating_add(T::DbWeight::get().writes(9_u64))
+            Weight::from_parts(110_700_000, 0)
+            .saturating_add(T::DbWeight::get().reads(16_u64))
+            .saturating_add(T::DbWeight::get().writes(6_u64))
         )]
         pub fn swap_coldkey_announced(
             origin: OriginFor<T>,
