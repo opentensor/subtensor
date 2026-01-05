@@ -1,25 +1,43 @@
 use core::marker::PhantomData;
 
 use frame_support::{traits::Get, traits::OnRuntimeUpgrade, weights::Weight};
+use frame_system::pallet_prelude::BlockNumberFor;
 use log;
+use pallet_rate_limiting::{RateLimit, RateLimitKind, RateLimitTarget};
 use scale_info::prelude::string::String;
+use sp_runtime::traits::SaturatedConversion;
 use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::rate_limiting::{GROUP_REGISTER_NETWORK, GroupId};
 
 use pallet_subtensor::{
-    Config as SubtensorConfig, HasMigrationRun, NetworkLockReductionInterval, NetworkRateLimit,
+    Config as SubtensorConfig, HasMigrationRun, NetworkLockReductionInterval,
     NetworkRegistrationStartBlock, Pallet as SubtensorPallet,
 };
 
 pub struct Migration<T: SubtensorConfig>(PhantomData<T>);
 
-impl<T: SubtensorConfig> OnRuntimeUpgrade for Migration<T> {
+impl<T> OnRuntimeUpgrade for Migration<T>
+where
+    T: SubtensorConfig
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = GroupId,
+        >,
+{
     fn on_runtime_upgrade() -> Weight {
         migrate_network_lock_reduction_interval::<T>()
             .saturating_add(migrate_network_lock_cost_2500::<T>())
     }
 }
 
-pub fn migrate_network_lock_reduction_interval<T: SubtensorConfig>() -> Weight {
+pub fn migrate_network_lock_reduction_interval<T>() -> Weight
+where
+    T: SubtensorConfig
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = GroupId,
+        >,
+{
     const FOUR_DAYS: u64 = 28_800;
     const EIGHT_DAYS: u64 = 57_600;
     const ONE_WEEK_BLOCKS: u64 = 50_400;
@@ -43,20 +61,29 @@ pub fn migrate_network_lock_reduction_interval<T: SubtensorConfig>() -> Weight {
     NetworkLockReductionInterval::<T>::put(EIGHT_DAYS);
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-    NetworkRateLimit::<T>::put(FOUR_DAYS);
+    pallet_rate_limiting::Limits::<T>::insert(
+        RateLimitTarget::Group(GROUP_REGISTER_NETWORK),
+        RateLimit::Global(RateLimitKind::Exact(FOUR_DAYS.saturated_into())),
+    );
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     SubtensorPallet::<T>::set_network_last_lock(TaoCurrency::from(1_000_000_000_000));
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     // Hold price at 2000 TAO until day 7, then begin linear decay
-    SubtensorPallet::<T>::set_network_last_lock_block(
-        current_block.saturating_add(ONE_WEEK_BLOCKS),
-    );
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+    let last_lock_block = current_block.saturating_add(ONE_WEEK_BLOCKS);
 
     // Allow registrations starting at day 7
-    NetworkRegistrationStartBlock::<T>::put(current_block.saturating_add(ONE_WEEK_BLOCKS));
+    NetworkRegistrationStartBlock::<T>::put(last_lock_block);
+    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+    // Mirror the register-network last seen in pallet-rate-limiting.
+    let last_seen_block: BlockNumberFor<T> = last_lock_block.saturated_into();
+    pallet_rate_limiting::LastSeen::<T>::insert(
+        RateLimitTarget::Group(GROUP_REGISTER_NETWORK),
+        None::<T::UsageKey>,
+        last_seen_block,
+    );
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     // -- 2) Mark migration done --------------------------------------------
@@ -72,7 +99,14 @@ pub fn migrate_network_lock_reduction_interval<T: SubtensorConfig>() -> Weight {
     weight
 }
 
-pub fn migrate_network_lock_cost_2500<T: SubtensorConfig>() -> Weight {
+pub fn migrate_network_lock_cost_2500<T>() -> Weight
+where
+    T: SubtensorConfig
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = GroupId,
+        >,
+{
     const RAO_PER_TAO: u64 = 1_000_000_000;
     const TARGET_COST_TAO: u64 = 2_500;
     const NEW_LAST_LOCK_RAO: u64 = (TARGET_COST_TAO / 2) * RAO_PER_TAO; // 1,250 TAO
@@ -98,8 +132,13 @@ pub fn migrate_network_lock_cost_2500<T: SubtensorConfig>() -> Weight {
     SubtensorPallet::<T>::set_network_last_lock(TaoCurrency::from(NEW_LAST_LOCK_RAO));
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-    // Start decay from "now" (no backdated decay)
-    SubtensorPallet::<T>::set_network_last_lock_block(block_to_set);
+    // Mirror the register-network last seen in pallet-rate-limiting.
+    let last_seen_block: BlockNumberFor<T> = block_to_set.saturated_into();
+    pallet_rate_limiting::LastSeen::<T>::insert(
+        RateLimitTarget::Group(GROUP_REGISTER_NETWORK),
+        None::<T::UsageKey>,
+        last_seen_block,
+    );
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     // Mark migration done
@@ -120,9 +159,12 @@ pub fn migrate_network_lock_cost_2500<T: SubtensorConfig>() -> Weight {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use frame_support::pallet_prelude::Zero;
+    use frame_system::pallet_prelude::BlockNumberFor;
+    use pallet_rate_limiting::{RateLimit, RateLimitKind, RateLimitTarget};
     use sp_io::TestExternalities;
     use sp_runtime::traits::SaturatedConversion;
     use subtensor_runtime_common::Currency;
+    use subtensor_runtime_common::rate_limiting::GROUP_REGISTER_NETWORK;
 
     use super::*;
     use crate::{BuildStorage, Runtime, System};
@@ -140,6 +182,13 @@ mod tests {
     fn step_block(blocks: u64) {
         let next = System::block_number().saturating_add(blocks.saturated_into());
         System::set_block_number(next);
+    }
+
+    fn register_network_last_seen() -> Option<BlockNumberFor<Runtime>> {
+        pallet_rate_limiting::LastSeen::<Runtime>::get(
+            RateLimitTarget::Group(GROUP_REGISTER_NETWORK),
+            None::<<Runtime as pallet_rate_limiting::Config>::UsageKey>,
+        )
     }
 
     #[test]
@@ -167,7 +216,14 @@ mod tests {
 
             // -- params & flags --------------------------------------------------
             assert_eq!(NetworkLockReductionInterval::<Runtime>::get(), EIGHT_DAYS);
-            assert_eq!(NetworkRateLimit::<Runtime>::get(), FOUR_DAYS);
+            assert_eq!(
+                pallet_rate_limiting::Limits::<Runtime>::get(RateLimitTarget::Group(
+                    GROUP_REGISTER_NETWORK
+                )),
+                Some(RateLimit::Global(RateLimitKind::Exact(
+                    FOUR_DAYS.saturated_into()
+                )))
+            );
             assert_eq!(
                 SubtensorPallet::<Runtime>::get_network_last_lock(),
                 1_000_000_000_000u64.into(), // 1000 TAO in rao
@@ -175,10 +231,11 @@ mod tests {
             );
 
             // last_lock_block should be set one week in the future
-            let last_lock_block = SubtensorPallet::<Runtime>::get_network_last_lock_block();
+            let last_lock_block = register_network_last_seen().expect("last seen entry");
             let expected_block = current_block_before + ONE_WEEK_BLOCKS;
             assert_eq!(
-                last_lock_block, expected_block,
+                last_lock_block,
+                expected_block.saturated_into::<BlockNumberFor<Runtime>>(),
                 "last_lock_block should be current + ONE_WEEK_BLOCKS"
             );
 
@@ -241,8 +298,8 @@ mod tests {
                 "last_lock should be set to 1,250 TAO (in rao)"
             );
             assert_eq!(
-                SubtensorPallet::<Runtime>::get_network_last_lock_block(),
-                current_block_before,
+                register_network_last_seen().expect("last seen entry"),
+                current_block_before.saturated_into::<BlockNumberFor<Runtime>>(),
                 "last_lock_block should be set to the current block"
             );
 
@@ -290,7 +347,7 @@ mod tests {
             // -- idempotency: running the migration again should do nothing ------
             let last_lock_before_rerun = SubtensorPallet::<Runtime>::get_network_last_lock();
             let last_lock_block_before_rerun =
-                SubtensorPallet::<Runtime>::get_network_last_lock_block();
+                register_network_last_seen().expect("last seen entry");
             let cost_before_rerun = SubtensorPallet::<Runtime>::get_network_lock_cost();
 
             let _weight2 = migrate_network_lock_cost_2500::<Runtime>();
@@ -305,7 +362,7 @@ mod tests {
                 "second run should not modify last_lock"
             );
             assert_eq!(
-                SubtensorPallet::<Runtime>::get_network_last_lock_block(),
+                register_network_last_seen().expect("last seen entry"),
                 last_lock_block_before_rerun,
                 "second run should not modify last_lock_block"
             );

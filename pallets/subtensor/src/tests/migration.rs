@@ -22,13 +22,15 @@ use frame_support::{
 use crate::migrations::migrate_storage;
 use frame_system::Config;
 use pallet_drand::types::RoundNumber;
+use rate_limiting_interface::RateLimitingInfo;
 use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
+use sp_runtime::SaturatedConversion;
 use sp_runtime::traits::Zero;
 use substrate_fixed::types::extra::U2;
 use substrate_fixed::types::{I96F32, U64F64};
-use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency, rate_limiting};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -884,9 +886,14 @@ fn test_migrate_rate_limit_keys() {
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
 
         // Legacy entries were migrated and cleared.
+        let network_last_lock_block: u64 = <Test as crate::Config>::RateLimiting::last_seen(
+            rate_limiting::GROUP_REGISTER_NETWORK,
+            None,
+        )
+        .unwrap_or_default()
+        .saturated_into();
         assert_eq!(
-            SubtensorModule::get_network_last_lock_block(),
-            111u64,
+            network_last_lock_block, 111,
             "Network last lock block should match migrated value"
         );
         assert!(
@@ -1786,7 +1793,6 @@ fn test_migrate_subnet_limit_to_default() {
 
 #[test]
 fn test_migrate_restore_subnet_locked_65_128() {
-    use sp_runtime::traits::SaturatedConversion;
     new_test_ext(0).execute_with(|| {
         let name = b"migrate_restore_subnet_locked".to_vec();
         assert!(

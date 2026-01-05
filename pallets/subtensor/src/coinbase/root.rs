@@ -17,9 +17,13 @@
 
 use super::*;
 use crate::CommitmentsInterface;
+use rate_limiting_interface::RateLimitingInfo;
 use safe_math::*;
+use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::{I64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{
+    AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency, rate_limiting,
+};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -507,7 +511,10 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_lock_cost() -> TaoCurrency {
         let last_lock = Self::get_network_last_lock();
         let min_lock = Self::get_network_min_lock();
-        let last_lock_block = Self::get_network_last_lock_block();
+        let last_lock_block: u64 =
+            T::RateLimiting::last_seen(rate_limiting::GROUP_REGISTER_NETWORK, None)
+                .unwrap_or_default()
+                .saturated_into();
         let current_block = Self::get_current_block_as_u64();
         let lock_reduction_interval = Self::get_lock_reduction_interval();
         let mult: TaoCurrency = if last_lock_block == 0 { 1 } else { 2 }.into();
@@ -553,12 +560,6 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_network_last_lock() -> TaoCurrency {
         NetworkLastLockCost::<T>::get()
-    }
-    pub fn get_network_last_lock_block() -> u64 {
-        Self::get_rate_limited_last_block(&RateLimitKey::NetworkLastRegistered)
-    }
-    pub fn set_network_last_lock_block(block: u64) {
-        Self::set_rate_limited_last_block(&RateLimitKey::NetworkLastRegistered, block);
     }
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);

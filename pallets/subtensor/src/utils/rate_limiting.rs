@@ -1,6 +1,8 @@
 use codec::{Decode, Encode};
+use rate_limiting_interface::RateLimitingInfo;
 use scale_info::TypeInfo;
-use subtensor_runtime_common::NetUid;
+use sp_runtime::SaturatedConversion;
+use subtensor_runtime_common::{NetUid, rate_limiting};
 
 use super::*;
 
@@ -80,7 +82,11 @@ impl TransactionType {
     /// Get the block number of the last transaction for a specific key, and transaction type
     pub fn last_block<T: Config>(&self, key: &T::AccountId) -> u64 {
         match self {
-            Self::RegisterNetwork => Pallet::<T>::get_network_last_lock_block(),
+            Self::RegisterNetwork => {
+                T::RateLimiting::last_seen(rate_limiting::GROUP_REGISTER_NETWORK, None)
+                    .unwrap_or_default()
+                    .saturated_into()
+            }
             _ => self.last_block_on_subnet::<T>(key, NetUid::ROOT),
         }
     }
@@ -89,7 +95,11 @@ impl TransactionType {
     /// type
     pub fn last_block_on_subnet<T: Config>(&self, hotkey: &T::AccountId, netuid: NetUid) -> u64 {
         match self {
-            Self::RegisterNetwork => Pallet::<T>::get_network_last_lock_block(),
+            Self::RegisterNetwork => {
+                T::RateLimiting::last_seen(rate_limiting::GROUP_REGISTER_NETWORK, None)
+                    .unwrap_or_default()
+                    .saturated_into()
+            }
             Self::SetSNOwnerHotkey => {
                 Pallet::<T>::get_rate_limited_last_block(&RateLimitKey::SetSNOwnerHotkey(netuid))
             }
@@ -112,7 +122,7 @@ impl TransactionType {
         block: u64,
     ) {
         match self {
-            Self::RegisterNetwork => Pallet::<T>::set_network_last_lock_block(block),
+            Self::RegisterNetwork => { /*DEPRECATED*/ }
             Self::SetSNOwnerHotkey => Pallet::<T>::set_rate_limited_last_block(
                 &RateLimitKey::SetSNOwnerHotkey(netuid),
                 block,

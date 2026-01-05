@@ -171,7 +171,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 8. Set the lock amount for use to determine pricing.
         Self::set_network_last_lock(actual_tao_lock_amount);
-        Self::set_network_last_lock_block(current_block);
 
         // --- 9. If we identified a subnet to prune, do it now.
         if let Some(prune_netuid) = recycle_netuid {
