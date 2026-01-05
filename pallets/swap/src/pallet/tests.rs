@@ -7,7 +7,7 @@
 
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok};
-use sp_arithmetic::Perquintill;
+use sp_arithmetic::{Perquintill, helpers_128bit};
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::NetUid;
@@ -431,6 +431,16 @@ fn test_swap_initialization() {
         assert_eq!(
             reserve_weight.get_quote_weight(),
             Perquintill::from_rational(1_u64, 2_u64),
+        );
+
+        // Current liquidity is initialized
+        let expected_liquidity =
+            helpers_128bit::sqrt((tao.to_u64() as u128).saturating_mul(alpha.to_u64() as u128))
+                as u64;
+        assert_abs_diff_eq!(
+            CurrentLiquidity::<Test>::get(netuid),
+            expected_liquidity,
+            epsilon = 1
         );
 
         // TODO: Revise when user liquidity is available
