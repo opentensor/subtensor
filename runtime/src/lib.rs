@@ -1711,7 +1711,8 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    rate_limiting::migration::Migration<Runtime>,
+    migrations::rate_limiting::Migration<Runtime>,
+    migrations::subtensor_module::Migration<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.

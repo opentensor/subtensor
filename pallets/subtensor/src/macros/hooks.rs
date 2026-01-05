@@ -127,8 +127,6 @@ mod hooks {
                 .saturating_add(migrations::migrate_crv3_v2_to_timelocked::migrate_crv3_v2_to_timelocked::<T>())
                 // Migrate to fix root counters
                 .saturating_add(migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<T>())
-                // Migrate last block rate limiting storage items
-                .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>())
                 // Re-encode rate limit keys after introducing OwnerHyperparamUpdate variant
                 .saturating_add(migrations::migrate_rate_limit_keys::migrate_rate_limit_keys::<T>())
                 // Migrate remove network modality
@@ -137,12 +135,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_network_immunity_period::migrate_network_immunity_period::<T>())
                 // Migrate Subnet Limit
                 .saturating_add(migrations::migrate_subnet_limit_to_default::migrate_subnet_limit_to_default::<T>())
-                // Migrate Lock Reduction Interval
-                .saturating_add(migrations::migrate_network_lock_reduction_interval::migrate_network_lock_reduction_interval::<T>())
                 // Migrate subnet locked balances
                 .saturating_add(migrations::migrate_subnet_locked::migrate_restore_subnet_locked::<T>())
-                // Migrate subnet burn cost to 2500
-                .saturating_add(migrations::migrate_network_lock_cost_2500::migrate_network_lock_cost_2500::<T>())
                 // Cleanup child/parent keys
                 .saturating_add(migrations::migrate_fix_childkeys::migrate_fix_childkeys::<T>())
                 // Migrate AutoStakeDestinationColdkeys
