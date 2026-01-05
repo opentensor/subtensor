@@ -66,18 +66,21 @@ impl<T: Config> Pallet<T> {
         }
 
         // Insert 0.5 into SwapBalancer
-        let reserve_weight =
+        let balancer =
             Balancer::new(Perquintill::from_rational(1_u64, 2_u64)).map_err(|err| match err {
                 BalancerError::InvalidValue => Error::<T>::ReservesOutOfBalance,
             })?;
-        SwapBalancer::<T>::insert(netuid, reserve_weight);
+        SwapBalancer::<T>::insert(netuid, balancer.clone());
+
+        // Insert current liquidity
+        let tao_reserve = T::TaoReserve::reserve(netuid.into());
+        let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
+        let liquidity =
+            balancer.calculate_current_liquidity(u64::from(tao_reserve), u64::from(alpha_reserve));
+        CurrentLiquidity::<T>::insert(netuid, liquidity);
 
         // TODO: Review when/if we have user liquidity
         // Initialize the pal-swap:
-        // Reserves are re-purposed, nothing to set, just query values for creation
-        // of protocol position
-        // let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        // let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
 
         // Set initial (protocol owned) liquidity and positions
         // Protocol liquidity makes one position

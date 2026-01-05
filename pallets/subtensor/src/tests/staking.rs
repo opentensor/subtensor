@@ -881,9 +881,9 @@ fn test_remove_stake_insufficient_liquidity() {
             Error::<Test>::InsufficientLiquidity
         );
 
-        // Mock provided liquidity - remove becomes successful
-        SubnetTaoProvided::<Test>::insert(netuid, TaoCurrency::from(amount_staked + 1));
-        SubnetAlphaInProvided::<Test>::insert(netuid, AlphaCurrency::from(1));
+        // Mock more liquidity - remove becomes successful
+        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(amount_staked + 1));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1));
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,

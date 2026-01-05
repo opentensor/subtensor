@@ -2927,3 +2927,51 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
         }
     }
 }
+
+// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_cleanup_swap_v3 --exact --nocapture
+#[test]
+fn test_migrate_cleanup_swap_v3() {
+    use crate::migrations::migrate_cleanup_swap_v3::deprecated_swap_maps;
+    use substrate_fixed::types::U64F64;
+
+    new_test_ext(1).execute_with(|| {
+        let migration = crate::migrations::migrate_cleanup_swap_v3::migrate_cleanup_swap_v3::<Test>;
+
+        const MIGRATION_NAME: &str = "migrate_cleanup_swap_v3";
+
+        let provided: u64 = 9876;
+        let reserves: u64 = 1_000_000;
+
+        SubnetTAO::<Test>::insert(NetUid::from(1), TaoCurrency::from(reserves));
+        SubnetAlphaIn::<Test>::insert(NetUid::from(1), AlphaCurrency::from(reserves));
+
+        // Insert deprecated maps values
+        deprecated_swap_maps::SubnetTaoProvided::<Test>::insert(
+            NetUid::from(1),
+            TaoCurrency::from(provided),
+        );
+        deprecated_swap_maps::SubnetAlphaInProvided::<Test>::insert(
+            NetUid::from(1),
+            AlphaCurrency::from(provided),
+        );
+
+        // Run migration
+        let weight = migration();
+
+        // Test that values are removed from state
+        assert!(!deprecated_swap_maps::SubnetTaoProvided::<Test>::contains_key(NetUid::from(1)),);
+        assert!(
+            !deprecated_swap_maps::SubnetAlphaInProvided::<Test>::contains_key(NetUid::from(1)),
+        );
+
+        // Provided got added to reserves
+        assert_eq!(
+            u64::from(SubnetTAO::<Test>::get(NetUid::from(1))),
+            reserves + provided
+        );
+        assert_eq!(
+            u64::from(SubnetAlphaIn::<Test>::get(NetUid::from(1))),
+            reserves + provided
+        );
+    });
+}

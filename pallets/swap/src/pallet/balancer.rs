@@ -324,6 +324,40 @@ impl Balancer {
             0u64
         }
     }
+
+    pub fn calculate_current_liquidity(&self, tao_reserve: u64, alpha_reserve: u64) -> u64 {
+        let base_numerator_x: u128 = alpha_reserve as u128;
+        let base_numerator_y: u128 = tao_reserve as u128;
+        let base_denominator: u128 = 1_u128;
+        let w1_fixed: u128 = self.get_base_weight().deconstruct() as u128;
+        let w2_fixed: u128 = self.get_quote_weight().deconstruct() as u128;
+        let scale: u128 = 10u128.pow(18);
+
+        let accuracy = SafeInt::from(ACCURACY);
+        let exp_x = SafeInt::pow_ratio_scaled(
+            &SafeInt::from(base_numerator_x),
+            &SafeInt::from(base_denominator),
+            &SafeInt::from(w1_fixed),
+            &SafeInt::from(ACCURACY),
+            1024,
+            &SafeInt::from(scale),
+        )
+        .unwrap_or(SafeInt::from(0));
+        let exp_y = SafeInt::pow_ratio_scaled(
+            &SafeInt::from(base_numerator_y),
+            &SafeInt::from(base_denominator),
+            &SafeInt::from(w2_fixed),
+            &SafeInt::from(ACCURACY),
+            1024,
+            &SafeInt::from(scale),
+        )
+        .unwrap_or(SafeInt::from(0));
+
+        ((exp_x * exp_y / accuracy.clone()).unwrap_or_default() / accuracy)
+            .unwrap_or_default()
+            .to_u64()
+            .unwrap_or(0)
+    }
 }
 
 // cargo test --package pallet-subtensor-swap --lib -- pallet::balancer::tests --nocapture
@@ -793,7 +827,7 @@ mod tests {
     }
 
     #[test]
-    fn mul_round_zero_and_one() {
+    fn test_mul_round_zero_and_one() {
         let v = 1_000_000u128;
 
         // p = 0 -> always 0
@@ -804,7 +838,7 @@ mod tests {
     }
 
     #[test]
-    fn mul_round_half_behaviour() {
+    fn test_mul_round_half_behaviour() {
         // p = 1/2
         let p = Perquintill::from_rational(1u128, 2u128);
 
@@ -821,7 +855,7 @@ mod tests {
     }
 
     #[test]
-    fn mul_round_third_behaviour() {
+    fn test_mul_round_third_behaviour() {
         // p = 1/3
         let p = Perquintill::from_rational(1u128, 3u128);
 
@@ -833,7 +867,7 @@ mod tests {
     }
 
     #[test]
-    fn mul_round_large_values_simple_rational() {
+    fn test_mul_round_large_values_simple_rational() {
         // p = 7/10 (exact in perquintill: 0.7)
         let p = Perquintill::from_rational(7u128, 10u128);
         let v: u128 = 1_000_000_000_000_000_000;
@@ -848,7 +882,7 @@ mod tests {
     }
 
     #[test]
-    fn mul_round_max_value_with_one() {
+    fn test_mul_round_max_value_with_one() {
         let v = u128::MAX;
         let p = ONE;
 
@@ -858,7 +892,7 @@ mod tests {
     }
 
     #[test]
-    fn price_with_equal_weights_is_y_over_x() {
+    fn test_price_with_equal_weights_is_y_over_x() {
         // quote = 0.5, base = 0.5 -> w1 / w2 = 1, so price = y/x
         let quote = Perquintill::from_rational(1u128, 2u128);
         let bal = Balancer::new(quote).unwrap();
@@ -874,7 +908,7 @@ mod tests {
     }
 
     #[test]
-    fn price_scales_with_weight_ratio_two_to_one() {
+    fn test_price_scales_with_weight_ratio_two_to_one() {
         // Assume base = 1 - quote.
         // quote = 1/3 -> base = 2/3, so w1 / w2 = 2.
         // Then price = 2 * (y/x).
@@ -891,7 +925,7 @@ mod tests {
     }
 
     #[test]
-    fn price_is_zero_when_y_is_zero() {
+    fn test_price_is_zero_when_y_is_zero() {
         // If y = 0, y/x = 0 so price must be 0 regardless of weights (for x > 0).
         let quote = Perquintill::from_rational(3u128, 10u128); // 0.3
         let bal = Balancer::new(quote).unwrap();
@@ -904,7 +938,7 @@ mod tests {
     }
 
     #[test]
-    fn price_invariant_when_scaling_x_and_y_with_equal_weights() {
+    fn test_price_invariant_when_scaling_x_and_y_with_equal_weights() {
         // For equal weights, price(x, y) == price(kx, ky).
         let quote = Perquintill::from_rational(1u128, 2u128); // 0.5
         let bal = Balancer::new(quote).unwrap();
@@ -922,7 +956,7 @@ mod tests {
     }
 
     #[test]
-    fn price_matches_formula_for_general_quote() {
+    fn test_price_matches_formula_for_general_quote() {
         // General check: price = (w1 / w2) * (y/x),
         // where w1 = base_weight, w2 = quote_weight.
         // Here we assume get_base_weight = 1 - quote.
@@ -943,7 +977,7 @@ mod tests {
     }
 
     #[test]
-    fn price_high_values_non_equal_weights() {
+    fn test_price_high_values_non_equal_weights() {
         // Non-equal weights, high x and y (up to 21e15)
         let quote = Perquintill::from_rational(3u128, 10u128); // 0.3
         let bal = Balancer::new(quote).unwrap();
@@ -960,5 +994,76 @@ mod tests {
         let expected_f = (w1 / w2) * (y as f64 / x as f64);
 
         assert_abs_diff_eq!(price_f, expected_f, epsilon = 1e-9);
+    }
+
+    #[test]
+    fn test_calculate_current_liquidity() {
+        // Test case: quote weight (numerator), alpha, tao
+        // Outer test cases: w_quote
+        [
+            500_000_000_000_000_000_u64,
+            500_000_000_001_000_000,
+            499_999_999_999_000_000,
+            500_000_000_100_000_000,
+            500_000_001_000_000_000,
+            500_000_010_000_000_000,
+            500_000_100_000_000_000,
+            500_001_000_000_000_000,
+            500_010_000_000_000_000,
+            500_100_000_000_000_000,
+            501_000_000_000_000_000,
+            510_000_000_000_000_000,
+            100_000_000_000_000_000,
+            100_000_000_001_000_000,
+            200_000_000_000_000_000,
+            300_000_000_000_000_000,
+            400_000_000_000_000_000,
+            600_000_000_000_000_000,
+            700_000_000_000_000_000,
+            800_000_000_000_000_000,
+            899_999_999_999_000_000,
+            900_000_000_000_000_000,
+            102_337_248_363_782_924,
+        ]
+        .into_iter()
+        .for_each(|w_quote| {
+            [
+                (0_u64, 0_u64),
+                (1_000_u64, 0_u64),
+                (0_u64, 1_000_u64),
+                (1_u64, 1_u64),
+                (2_u64, 1_u64),
+                (1_u64, 2_u64),
+                (1_000_u64, 1_000_u64),
+                (2_000_u64, 1_000_u64),
+                (1_000_u64, 2_000_u64),
+                (1_000_000_u64, 1_000_000_u64),
+                (2_000_000_u64, 1_000_000_u64),
+                (1_000_000_u64, 2_000_000_u64),
+                (1_000_000_000_u64, 1_000_000_000_u64),
+                (2_000_000_000_u64, 1_000_000_000_u64),
+                (1_000_000_000_u64, 2_000_000_000_u64),
+                (1_000_000_000_000_u64, 1_000_u64),
+                (1_000_u64, 1_000_000_000_000_u64),
+                (1_000_000_000_000_000_u64, 1_u64),
+                (1_u64, 1_000_000_000_000_000_u64),
+                (1_000_000_000_000_000_u64, 1_000_u64),
+                (1_000_u64, 1_000_000_000_000_000_u64),
+                (21_000_000_000_000_000_u64, 21_000_000_000_000_000_u64),
+            ]
+            .into_iter()
+            .for_each(|(alpha, tao)| {
+                let quote = Perquintill::from_rational(w_quote, ACCURACY);
+                let bal = Balancer::new(quote).unwrap();
+
+                let actual = bal.calculate_current_liquidity(tao, alpha);
+
+                let w1 = w_quote as f64 / ACCURACY as f64;
+                let w2 = (ACCURACY - w_quote) as f64 / ACCURACY as f64;
+                let expected = ((alpha as f64).powf(w1) * (tao as f64).powf(w2)) as u64;
+
+                assert_abs_diff_eq!(actual, expected, epsilon = expected / 1_000_000_000);
+            });
+        });
     }
 }

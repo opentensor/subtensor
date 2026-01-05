@@ -6,15 +6,8 @@
 )]
 
 use approx::assert_abs_diff_eq;
-use frame_support::{
-    //assert_err,
-    assert_noop,
-    assert_ok,
-};
-use sp_arithmetic::{
-    //helpers_128bit,
-    Perquintill,
-};
+use frame_support::{assert_noop, assert_ok};
+use sp_arithmetic::Perquintill;
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::NetUid;
@@ -2595,4 +2588,39 @@ fn as_tuple(
         u64::from(t_rem),
         u64::from(a_rem),
     )
+}
+
+// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_migrate_swapv3_to_balancer --exact --nocapture
+#[test]
+fn test_migrate_swapv3_to_balancer() {
+    use crate::migrations::migrate_swapv3_to_balancer::deprecated_swap_maps;
+    use substrate_fixed::types::U64F64;
+
+    new_test_ext().execute_with(|| {
+        let migration =
+            crate::migrations::migrate_swapv3_to_balancer::migrate_swapv3_to_balancer::<Test>;
+
+        // Insert deprecated maps values
+        deprecated_swap_maps::AlphaSqrtPrice::<Test>::insert(
+            NetUid::from(1),
+            U64F64::from_num(1.23),
+        );
+        deprecated_swap_maps::ScrapReservoirTao::<Test>::insert(
+            NetUid::from(1),
+            TaoCurrency::from(9876),
+        );
+        deprecated_swap_maps::ScrapReservoirAlpha::<Test>::insert(
+            NetUid::from(1),
+            AlphaCurrency::from(9876),
+        );
+
+        // Run migration
+        migration();
+
+        // Test that values are removed from state
+        assert!(!deprecated_swap_maps::AlphaSqrtPrice::<Test>::contains_key(
+            NetUid::from(1)
+        ),);
+        assert!(!deprecated_swap_maps::ScrapReservoirAlpha::<Test>::contains_key(NetUid::from(1)),);
+    });
 }

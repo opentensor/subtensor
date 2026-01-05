@@ -372,8 +372,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         TokenSymbol::<Test>::insert(net, b"XX".to_vec());
         SubnetMovingPrice::<Test>::insert(net, substrate_fixed::types::I96F32::from_num(1));
-        SubnetTaoProvided::<Test>::insert(net, TaoCurrency::from(1));
-        SubnetAlphaInProvided::<Test>::insert(net, AlphaCurrency::from(1));
 
         // TAO Flow
         SubnetTaoFlow::<Test>::insert(net, 0i64);
@@ -536,8 +534,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         assert!(!TokenSymbol::<Test>::contains_key(net));
         assert!(!SubnetMovingPrice::<Test>::contains_key(net));
-        assert!(!SubnetTaoProvided::<Test>::contains_key(net));
-        assert!(!SubnetAlphaInProvided::<Test>::contains_key(net));
 
         // Subnet locks
         assert!(!TransferToggle::<Test>::contains_key(net));

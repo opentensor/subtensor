@@ -17,10 +17,15 @@ use crate::{
 pub use pallet::*;
 
 mod balancer;
+mod hooks;
 mod impls;
+pub mod migrations;
 mod swap_step;
 #[cfg(test)]
 mod tests;
+
+// Define a maximum length for the migration key
+type MigrationKeyMaxLen = ConstU32<128>;
 
 #[allow(clippy::module_inception)]
 #[frame_support::pallet]
@@ -107,9 +112,9 @@ mod pallet {
     // #[pallet::storage]
     // pub type CurrentTick<T> = StorageMap<_, Twox64Concat, NetUid, TickIndex, ValueQuery>;
 
-    // /// Storage for the current liquidity amount for each subnet.
-    // #[pallet::storage]
-    // pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
+    /// Storage for the current liquidity amount for each subnet.
+    #[pallet::storage]
+    pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
 
     /// Indicates whether a subnet has been switched to V3 swap from V2.
     /// If `true`, the subnet is permanently on V3 swap mode allowing add/remove liquidity
@@ -135,28 +140,6 @@ mod pallet {
     #[pallet::storage]
     pub type LastPositionId<T> = StorageValue<_, u128, ValueQuery>;
 
-    // /// Tick index bitmap words storage
-    // #[pallet::storage]
-    // pub type TickIndexBitmapWords<T: Config> = StorageNMap<
-    //     _,
-    //     (
-    //         NMapKey<Twox64Concat, NetUid>,     // Subnet ID
-    //         NMapKey<Twox64Concat, LayerLevel>, // Layer level
-    //         NMapKey<Twox64Concat, u32>,        // word index
-    //     ),
-    //     u128,
-    //     ValueQuery,
-    // >;
-
-    // /// TAO reservoir for scraps of protocol claimed fees.
-    // #[pallet::storage]
-    // pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
-
-    // /// Alpha reservoir for scraps of protocol claimed fees.
-    // #[pallet::storage]
-    // pub type ScrapReservoirAlpha<T> =
-    //     StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
-
     ////////////////////////////////////////////////////
     // Balancer (PalSwap) maps and variables
 
@@ -181,6 +164,11 @@ mod pallet {
     /// Total fees in Alpha per subnet due to be paid to users / protocol
     #[pallet::storage]
     pub type FeesAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
+
+    /// --- Storage for migration run status
+    #[pallet::storage]
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]

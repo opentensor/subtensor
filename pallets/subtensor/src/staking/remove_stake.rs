@@ -587,7 +587,6 @@ impl<T: Config> Pallet<T> {
         }
         // 7.c) Remove α‑in/α‑out counters (fully destroyed).
         SubnetAlphaIn::<T>::remove(netuid);
-        SubnetAlphaInProvided::<T>::remove(netuid);
         SubnetAlphaOut::<T>::remove(netuid);
 
         // Clear the locked balance on the subnet.

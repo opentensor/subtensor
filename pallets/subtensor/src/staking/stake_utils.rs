@@ -18,9 +18,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The total alpha issuance for the specified subnet.
     pub fn get_alpha_issuance(netuid: NetUid) -> AlphaCurrency {
-        SubnetAlphaIn::<T>::get(netuid)
-            .saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
-            .saturating_add(SubnetAlphaOut::<T>::get(netuid))
+        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
     pub fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
@@ -1206,53 +1204,33 @@ impl<T: Config> Pallet<T> {
 
     pub fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
         if !tao.is_zero() {
-            SubnetTaoProvided::<T>::mutate(netuid, |total| {
+            SubnetTAO::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(tao);
             });
         }
     }
 
     pub fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        // First, decrease SubnetTaoProvided, then deduct the rest from SubnetTAO
-        let subnet_tao = SubnetTAO::<T>::get(netuid);
-        let subnet_tao_provided = SubnetTaoProvided::<T>::get(netuid);
-        let remainder = subnet_tao_provided.saturating_sub(tao);
-        let carry_over = tao.saturating_sub(subnet_tao_provided);
-        if carry_over.is_zero() {
-            if remainder.is_zero() {
-                SubnetTaoProvided::<T>::remove(netuid);
-            } else {
-                SubnetTaoProvided::<T>::set(netuid, remainder);
-            }
-        } else {
-            SubnetTaoProvided::<T>::remove(netuid);
-            SubnetTAO::<T>::set(netuid, subnet_tao.saturating_sub(carry_over));
+        if !tao.is_zero() {
+            SubnetTAO::<T>::mutate(netuid, |total| {
+                *total = total.saturating_sub(tao);
+            });
         }
     }
 
     pub fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
         if !alpha.is_zero() {
-            SubnetAlphaInProvided::<T>::mutate(netuid, |total| {
+            SubnetAlphaIn::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(alpha);
             });
         }
     }
 
     pub fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        // First, decrease SubnetAlphaInProvided, then deduct the rest from SubnetAlphaIn
-        let subnet_alpha = SubnetAlphaIn::<T>::get(netuid);
-        let subnet_alpha_provided = SubnetAlphaInProvided::<T>::get(netuid);
-        let remainder = subnet_alpha_provided.saturating_sub(alpha);
-        let carry_over = alpha.saturating_sub(subnet_alpha_provided);
-        if carry_over.is_zero() {
-            if remainder.is_zero() {
-                SubnetAlphaInProvided::<T>::remove(netuid);
-            } else {
-                SubnetAlphaInProvided::<T>::set(netuid, remainder);
-            }
-        } else {
-            SubnetAlphaInProvided::<T>::remove(netuid);
-            SubnetAlphaIn::<T>::set(netuid, subnet_alpha.saturating_sub(carry_over));
+        if !alpha.is_zero() {
+            SubnetAlphaIn::<T>::mutate(netuid, |total| {
+                *total = total.saturating_sub(alpha);
+            });
         }
     }
 
