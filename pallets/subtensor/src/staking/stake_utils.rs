@@ -862,6 +862,9 @@ impl<T: Config> Pallet<T> {
             netuid,
             alpha,
         );
+		if netuid == NetUid::ROOT {
+			Self::remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(origin_hotkey, origin_coldkey, alpha);
+		}
 
         // Increase alpha on destination keys
         let actual_alpha_moved = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -870,6 +873,9 @@ impl<T: Config> Pallet<T> {
             netuid,
             actual_alpha_decrease,
         );
+		if netuid == NetUid::ROOT {
+			Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(destination_hotkey, destination_coldkey, actual_alpha_decrease.into());
+		}
 
         // Calculate TAO equivalent based on current price (it is accurate because
         // there's no slippage in this move)
