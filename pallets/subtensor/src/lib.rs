@@ -648,15 +648,6 @@ pub mod pallet {
 
     /// Default value for network rate limit.
     #[pallet::type_value]
-    pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
-        if cfg!(feature = "pow-faucet") {
-            return 0;
-        }
-        T::InitialNetworkRateLimit::get()
-    }
-
-    /// Default value for network rate limit.
-    #[pallet::type_value]
     pub fn DefaultNetworkRegistrationStartBlock<T: Config>() -> u64 {
         0
     }
@@ -1526,10 +1517,6 @@ pub mod pallet {
     /// ITEM( subnet_owner_cut )
     #[pallet::storage]
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
-
-    /// ITEM( network_rate_limit )
-    #[pallet::storage]
-    pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
 
     /// --- ITEM( nominator_min_required_stake ) --- Factor of DefaultMinStake in per-mill format.
     #[pallet::storage]

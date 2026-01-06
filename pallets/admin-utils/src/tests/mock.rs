@@ -132,7 +132,6 @@ parameter_types! {
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     // pub const InitialSubnetLimit: u16 = 10; // (DEPRECATED)
-    pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
@@ -202,7 +201,6 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
-    type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;

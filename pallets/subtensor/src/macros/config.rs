@@ -207,9 +207,6 @@ mod config {
         /// Initial lock reduction interval.
         #[pallet::constant]
         type InitialNetworkLockReductionInterval: Get<u64>;
-        /// Initial network creation rate limit
-        #[pallet::constant]
-        type InitialNetworkRateLimit: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
         type KeySwapCost: Get<u64>;

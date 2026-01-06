@@ -101,8 +101,6 @@ mod events {
         MinDifficultySet(NetUid, u64),
         /// setting max difficulty on a network.
         MaxDifficultySet(NetUid, u64),
-        /// [DEPRECATED] setting the prometheus serving rate limit.
-        ServingRateLimitSet(NetUid, u64),
         /// setting burn on a network.
         BurnSet(NetUid, TaoCurrency),
         /// setting max burn on a network.
@@ -143,8 +141,6 @@ mod events {
         Faucet(T::AccountId, u64),
         /// the subnet owner cut is set.
         SubnetOwnerCutSet(u16),
-        /// the network creation rate limit is set.
-        NetworkRateLimitSet(u64),
         /// the network immunity period is set.
         NetworkImmunityPeriodSet(u64),
         /// the network minimum locking cost is set.

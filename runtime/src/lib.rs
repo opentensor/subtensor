@@ -1119,7 +1119,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
-    type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type KeySwapCost = SubtensorInitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;

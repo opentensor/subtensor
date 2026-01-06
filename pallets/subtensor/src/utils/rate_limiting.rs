@@ -1,8 +1,7 @@
 use codec::{Decode, Encode};
 use rate_limiting_interface::RateLimitingInfo;
 use scale_info::TypeInfo;
-use sp_runtime::SaturatedConversion;
-use subtensor_runtime_common::{NetUid, rate_limiting};
+use subtensor_runtime_common::NetUid;
 
 use super::*;
 
@@ -28,7 +27,10 @@ impl TransactionType {
         match self {
             Self::SetChildren => 150, // 30 minutes
             Self::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
-            Self::RegisterNetwork => NetworkRateLimit::<T>::get(),
+            Self::RegisterNetwork => {
+                /*DEPRECATED*/
+                0
+            }
             Self::MechanismCountUpdate => MechanismCountSetRateLimit::<T>::get(),
             Self::MechanismEmission => MechanismEmissionRateLimit::<T>::get(),
             Self::MaxUidsTrimming => MaxUidsTrimmingRateLimit::<T>::get(),
@@ -83,9 +85,8 @@ impl TransactionType {
     pub fn last_block<T: Config>(&self, key: &T::AccountId) -> u64 {
         match self {
             Self::RegisterNetwork => {
-                T::RateLimiting::last_seen(rate_limiting::GROUP_REGISTER_NETWORK, None)
-                    .unwrap_or_default()
-                    .saturated_into()
+                /*DEPRECATED*/
+                0
             }
             _ => self.last_block_on_subnet::<T>(key, NetUid::ROOT),
         }
@@ -96,9 +97,8 @@ impl TransactionType {
     pub fn last_block_on_subnet<T: Config>(&self, hotkey: &T::AccountId, netuid: NetUid) -> u64 {
         match self {
             Self::RegisterNetwork => {
-                T::RateLimiting::last_seen(rate_limiting::GROUP_REGISTER_NETWORK, None)
-                    .unwrap_or_default()
-                    .saturated_into()
+                /*DEPRECATED*/
+                0
             }
             Self::SetSNOwnerHotkey => {
                 Pallet::<T>::get_rate_limited_last_block(&RateLimitKey::SetSNOwnerHotkey(netuid))
