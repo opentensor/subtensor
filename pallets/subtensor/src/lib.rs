@@ -1587,6 +1587,11 @@ pub mod pallet {
     pub type FirstEmissionBlockNumber<T: Config> =
         StorageMap<_, Identity, NetUid, u64, OptionQuery>;
 
+    /// --- MAP ( netuid ) --> emissions_disabled | Whether emissions are disabled for this subnet
+    #[pallet::storage]
+    pub type EmissionsDisabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
+
     /// --- MAP ( netuid ) --> subnet mechanism
     #[pallet::storage]
     pub type SubnetMechanism<T: Config> =

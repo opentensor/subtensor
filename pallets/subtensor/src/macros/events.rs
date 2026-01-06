@@ -131,6 +131,8 @@ mod events {
         RegistrationAllowed(NetUid, bool),
         /// POW registration is allowed/disallowed for a subnet.
         PowRegistrationAllowed(NetUid, bool),
+        /// emissions are enabled/disabled for a subnet.
+        EmissionsDisabledSet(NetUid, bool),
         /// setting tempo on a network
         TempoSet(NetUid, u16),
         /// setting the RAO recycled for registration.
