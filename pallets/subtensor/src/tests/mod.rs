@@ -31,4 +31,3 @@ mod swap_hotkey;
 mod swap_hotkey_with_subnet;
 mod uids;
 mod weights;
-
