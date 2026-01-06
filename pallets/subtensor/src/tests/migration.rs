@@ -829,6 +829,7 @@ fn test_migrate_remove_commitments_rate_limit() {
     });
 }
 
+// TODO this must be removed after the legacy rate-limiting deprecation
 #[test]
 fn test_migrate_rate_limit_keys() {
     new_test_ext(1).execute_with(|| {

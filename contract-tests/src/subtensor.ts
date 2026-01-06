@@ -12,9 +12,18 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     const alice = getAliceSigner()
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
 
-    const rateLimit = await api.query.SubtensorModule.NetworkRateLimit.getValue()
+    const registerNetworkGroupId = 3; // GROUP_REGISTER_NETWORK constant
+    const target = { Group: registerNetworkGroupId } as const;
+    const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    const rateLimit = limits?.tag === "Global" && limits?.value?.tag === "Exact"
+        ? BigInt(limits.value.value)
+        : BigInt(0);
     if (rateLimit !== BigInt(0)) {
-        const internalCall = api.tx.AdminUtils.sudo_set_network_rate_limit({ rate_limit: BigInt(0) })
+        const internalCall = api.tx.RateLimiting.set_rate_limit({
+            target: target as any,
+            scope: undefined,
+            limit: { Exact: BigInt(0) },
+        })
         const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
         await waitForTransactionWithRetry(api, tx, alice)
     }
@@ -398,4 +407,4 @@ export async function sendWasmContractExtrinsic(api: TypedApi<typeof devnet>, co
         storage_deposit_limit: BigInt(1000000000)
     })
     await waitForTransactionWithRetry(api, tx, signer)
-}   
+}

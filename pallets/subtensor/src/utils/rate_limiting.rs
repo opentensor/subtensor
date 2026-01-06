@@ -1,5 +1,4 @@
 use codec::{Decode, Encode};
-use rate_limiting_interface::RateLimitingInfo;
 use scale_info::TypeInfo;
 use subtensor_runtime_common::NetUid;
 
