@@ -1833,7 +1833,7 @@ fn test_claim_root_with_moved_stake() {
         let hotkey = U256::from(1002);
         let alice_coldkey = U256::from(1003);
         let bob_coldkey = U256::from(1004);
-		let eve_coldkey = U256::from(1005);
+        let eve_coldkey = U256::from(1005);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
 
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
@@ -1873,10 +1873,10 @@ fn test_claim_root_with_moved_stake() {
             RootClaimTypeEnum::Keep
         ),);
 
-		assert_ok!(SubtensorModule::set_root_claim_type(
-			RuntimeOrigin::signed(eve_coldkey),
-			RootClaimTypeEnum::Keep
-		),);
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(eve_coldkey),
+            RootClaimTypeEnum::Keep
+        ),);
 
         // Distribute pending root alpha
 
@@ -1921,7 +1921,6 @@ fn test_claim_root_with_moved_stake() {
 
         assert_abs_diff_eq!(alice_stake, estimated_stake as u64, epsilon = 100u64,);
 
-
         // Distribute pending root alpha
 
         let pending_root_alpha = 10_000_000u64;
@@ -1938,19 +1937,19 @@ fn test_claim_root_with_moved_stake() {
 
         assert_ok!(SubtensorModule::transfer_stake(
             RuntimeOrigin::signed(bob_coldkey,),
-			eve_coldkey,
+            eve_coldkey,
             hotkey,
             NetUid::ROOT,
             NetUid::ROOT,
             stake_decrement.into(),
         ));
 
-		let eve_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-			&hotkey,
-			&eve_coldkey,
-			netuid,
-		)
-		.into();
+        let eve_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &eve_coldkey,
+            netuid,
+        )
+        .into();
 
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(alice_coldkey),
@@ -1961,10 +1960,10 @@ fn test_claim_root_with_moved_stake() {
             BTreeSet::from([netuid])
         ));
 
-		assert_ok!(SubtensorModule::claim_root(
-			RuntimeOrigin::signed(eve_coldkey),
-			BTreeSet::from([netuid])
-		));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(eve_coldkey),
+            BTreeSet::from([netuid])
+        ));
 
         // Check new stakes
 
@@ -1982,16 +1981,16 @@ fn test_claim_root_with_moved_stake() {
         )
         .into();
 
-		let eve_stake2: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-			&hotkey,
-			&eve_coldkey,
-			netuid,
-		)
-		.into();
+        let eve_stake2: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &eve_coldkey,
+            netuid,
+        )
+        .into();
 
-		// Eve should not have gotten any root claim
-		let eve_stake_diff = eve_stake2 - eve_stake;
-		assert_abs_diff_eq!(eve_stake_diff, 0, epsilon = 100u64,);
+        // Eve should not have gotten any root claim
+        let eve_stake_diff = eve_stake2 - eve_stake;
+        assert_abs_diff_eq!(eve_stake_diff, 0, epsilon = 100u64,);
 
         let estimated_stake = (pending_root_alpha as f64) * (1f64 - validator_take_percent) / 2f64;
 
@@ -2005,7 +2004,7 @@ fn test_claim_root_with_moved_stake() {
         let stake_increment = stake_decrement;
 
         assert_ok!(SubtensorModule::transfer_stake(
-			RuntimeOrigin::signed(eve_coldkey,),
+            RuntimeOrigin::signed(eve_coldkey,),
             bob_coldkey,
             hotkey,
             NetUid::ROOT,
