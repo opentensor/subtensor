@@ -325,35 +325,41 @@ impl Balancer {
         }
     }
 
+    /// Calculates current liquidity from alpha and tao reserves using the formula:
+    ///   L = x^w1 * y^w2
+    /// where
+    ///   x - alpha reserve
+    ///   y - tao reserve
+    ///   w1 - base weight
+    ///   w2 - quote weight
     pub fn calculate_current_liquidity(&self, tao_reserve: u64, alpha_reserve: u64) -> u64 {
         let base_numerator_x: u128 = alpha_reserve as u128;
         let base_numerator_y: u128 = tao_reserve as u128;
-        let base_denominator: u128 = 1_u128;
+        // let base_denominator: u128 = 1_u128;
         let w1_fixed: u128 = self.get_base_weight().deconstruct() as u128;
         let w2_fixed: u128 = self.get_quote_weight().deconstruct() as u128;
-        let scale: u128 = 10u128.pow(18);
+        let scale = SafeInt::from(10u128.pow(18));
 
-        let accuracy = SafeInt::from(ACCURACY);
-        let exp_x = SafeInt::pow_ratio_scaled(
+        let exp_x = SafeInt::pow_bigint_base(
             &SafeInt::from(base_numerator_x),
-            &SafeInt::from(base_denominator),
             &SafeInt::from(w1_fixed),
             &SafeInt::from(ACCURACY),
             1024,
-            &SafeInt::from(scale),
+            &scale,
         )
         .unwrap_or(SafeInt::from(0));
-        let exp_y = SafeInt::pow_ratio_scaled(
+        let exp_y = SafeInt::pow_bigint_base(
             &SafeInt::from(base_numerator_y),
-            &SafeInt::from(base_denominator),
             &SafeInt::from(w2_fixed),
             &SafeInt::from(ACCURACY),
             1024,
-            &SafeInt::from(scale),
+            &scale,
         )
         .unwrap_or(SafeInt::from(0));
 
-        ((exp_x * exp_y / accuracy.clone()).unwrap_or_default() / accuracy)
+        // 0.5 scaled for rounding to the nearest integer
+        let round_nearest_offset = (scale.clone() / SafeInt::from(2)).unwrap_or_default();
+        ((((exp_x * exp_y) / scale.clone()).unwrap_or_default() + round_nearest_offset) / scale)
             .unwrap_or_default()
             .to_u64()
             .unwrap_or(0)
@@ -1049,7 +1055,18 @@ mod tests {
                 (1_u64, 1_000_000_000_000_000_u64),
                 (1_000_000_000_000_000_u64, 1_000_u64),
                 (1_000_u64, 1_000_000_000_000_000_u64),
+                (1_000_u64, 21_000_000_000_000_000_u64),
+                (21_000_000_000_000_000_u64, 1_000_u64),
+                (1_u64, 21_000_000_000_000_000_u64),
+                (21_000_000_000_000_000_u64, 1_u64),
+                (2_u64, 21_000_000_000_000_000_u64),
+                (21_000_000_000_000_000_u64, 2_u64),
                 (21_000_000_000_000_000_u64, 21_000_000_000_000_000_u64),
+                (2, u64::MAX),
+                (u64::MAX, 2),
+                (2, u64::MAX - 1),
+                (u64::MAX - 1, 2),
+                (u64::MAX, u64::MAX),
             ]
             .into_iter()
             .for_each(|(alpha, tao)| {
@@ -1060,9 +1077,9 @@ mod tests {
 
                 let w1 = w_quote as f64 / ACCURACY as f64;
                 let w2 = (ACCURACY - w_quote) as f64 / ACCURACY as f64;
-                let expected = ((alpha as f64).powf(w1) * (tao as f64).powf(w2)) as u64;
+                let expected = (((alpha as f64).powf(w2) * (tao as f64).powf(w1)) + 0.5) as u64;
 
-                assert_abs_diff_eq!(actual, expected, epsilon = expected / 1_000_000_000);
+                assert_abs_diff_eq!(actual, expected, epsilon = expected / 1_000_000_000_000);
             });
         });
     }

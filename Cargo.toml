@@ -61,7 +61,7 @@ pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default
 pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
 procedural-fork = { path = "support/procedural-fork", default-features = false }
 safe-math = { path = "primitives/safe-math", default-features = false }
-safe-bigmath = { version = "0.3.0", package = "safe-bigmath", git = "https://github.com/sam0x17/safe-math", default-features = false }
+safe-bigmath = { rev = "2a2b6e4", package = "safe-bigmath", git = "https://github.com/gztensor/safe-bigmath.git", default-features = false }
 share-pool = { path = "primitives/share-pool", default-features = false }
 subtensor-macros = { path = "support/macros", default-features = false }
 subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }

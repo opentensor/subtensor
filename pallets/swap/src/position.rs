@@ -10,10 +10,7 @@ use subtensor_runtime_common::NetUid;
 use crate::pallet::{Config, Error, LastPositionId};
 
 /// Position designates one liquidity position.
-///
-/// Alpha price is expressed in rao units per one 10^9 unit. For example,
-/// price 1_000_000 is equal to 0.001 TAO per Alpha.
-#[freeze_struct("3f68e54e8969f976")]
+#[freeze_struct("6d7ff015e0a73860")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 #[scale_info(skip_type_params(T))]
 pub struct Position<T: Config> {
