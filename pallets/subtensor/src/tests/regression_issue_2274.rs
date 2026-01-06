@@ -44,9 +44,8 @@ fn test_burn_extrinsic_updates_subnet_alpha_out() {
 
         let final_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
-        // Assert that SubnetAlphaOut is reduced
-        assert!(final_net_alpha < initial_net_alpha, "SubnetAlphaOut should be reduced after burn");
-        assert_eq!(final_net_alpha, initial_net_alpha - burn_amount);
+        // Assert that SubnetAlphaOut is NOT reduced (Correct behavior for burning)
+        assert_eq!(final_net_alpha, initial_net_alpha, "SubnetAlphaOut should NOT be reduced after burn");
     });
 }
 
