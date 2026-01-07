@@ -388,6 +388,19 @@ impl<T: Config> Pallet<T> {
         RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
     }
 
+    pub fn transfer_pending_root_alpha_for_new_hotkey(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+    ) {
+        let src_pending_root_alpha = PendingRootAlpha::<T>::get(old_hotkey);
+        let dst_pending_root_alpha = PendingRootAlpha::<T>::get(new_hotkey);
+        PendingRootAlpha::<T>::remove(old_hotkey);
+        PendingRootAlpha::<T>::insert(
+            new_hotkey,
+            dst_pending_root_alpha.saturating_add(src_pending_root_alpha),
+        );
+    }
+
     /// Claim all root dividends for subnet and remove all associated data.
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
         let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();

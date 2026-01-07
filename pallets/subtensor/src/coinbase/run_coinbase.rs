@@ -631,6 +631,10 @@ impl<T: Config> Pallet<T> {
                 tou64!(root_alpha).into(),
             );
 
+            PendingRootAlpha::<T>::mutate(&hotkey, |alpha| {
+                *alpha = alpha.saturating_add(tou64!(root_alpha).into())
+            });
+
             // Record root alpha dividends for this validator on this subnet.
             RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
                 *divs = divs.saturating_add(tou64!(root_alpha).into());

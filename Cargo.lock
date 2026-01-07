@@ -9708,6 +9708,7 @@ dependencies = [
  "fp-storage",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-evm",
  "parity-scale-codec",
  "scale-info",

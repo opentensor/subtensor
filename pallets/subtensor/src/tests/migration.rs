@@ -2968,3 +2968,158 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
         }
     }
 }
+
+#[test]
+fn test_migrate_init_pending_root_alpha() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_init_pending_root_alpha";
+
+        // Setup: Create networks
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        // Setup: Create hotkeys and coldkeys
+        let hotkey1 = U256::from(1001);
+        let hotkey2 = U256::from(1002);
+        let coldkey1 = U256::from(2001);
+        let coldkey2 = U256::from(2002);
+        let coldkey3 = U256::from(2003);
+
+        // Setup: Set root stake for hotkeys
+        let root_stake1 = 1_000_000u64; // 1M TAO
+        let root_stake2 = 2_000_000u64; // 2M TAO
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey1,
+            NetUid::ROOT,
+            root_stake1.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey2,
+            NetUid::ROOT,
+            root_stake2.into(),
+        );
+
+        // Setup: Set RootClaimable for hotkeys
+        // Hotkey1: netuid1 with rate 0.1, netuid2 with rate 0.2
+        // Total rate = 0.3, claimable = 0.3 * 1M = 300k
+        RootClaimable::<Test>::mutate(hotkey1, |claimable| {
+            claimable.insert(netuid1, I96F32::from_num(0.1));
+            claimable.insert(netuid2, I96F32::from_num(0.2));
+        });
+
+        // Hotkey2: netuid1 with rate 0.15
+        // Total rate = 0.15, claimable = 0.15 * 2M = 300k
+        RootClaimable::<Test>::mutate(hotkey2, |claimable| {
+            claimable.insert(netuid1, I96F32::from_num(0.15));
+        });
+
+        // Setup: Set RootClaimed entries
+        // Hotkey1: claimed 50k from netuid1 (coldkey1) + 30k from netuid2 (coldkey2) = 80k total
+        RootClaimed::<Test>::insert((netuid1, hotkey1, coldkey1), 50_000u128);
+        RootClaimed::<Test>::insert((netuid2, hotkey1, coldkey2), 30_000u128);
+
+        // Hotkey2: claimed 100k from netuid1 (coldkey2) + 50k from netuid1 (coldkey3) = 150k total
+        RootClaimed::<Test>::insert((netuid1, hotkey2, coldkey2), 100_000u128);
+        RootClaimed::<Test>::insert((netuid1, hotkey2, coldkey3), 50_000u128);
+
+        // Verify initial state: PendingRootAlpha should be empty
+        assert_eq!(PendingRootAlpha::<Test>::get(hotkey1), 0_u128);
+        assert_eq!(PendingRootAlpha::<Test>::get(hotkey2), 0_u128);
+
+        // Verify migration hasn't run yet
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet."
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_init_pending_root_alpha::migrate_init_pending_root_alpha::<
+                Test,
+            >();
+
+        // Verify migration has run
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run."
+        );
+
+        // Verify weight is non-zero
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+
+        // Verify PendingRootAlpha for hotkey1
+        // Expected: claimable (300k) - claimed (80k) = 220k
+        let expected_pending1 = 300_000u128 - 80_000u128; // 220k
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(hotkey1),
+            expected_pending1,
+            "Hotkey1 pending root alpha should be claimable - claimed"
+        );
+
+        // Verify PendingRootAlpha for hotkey2
+        // Expected: claimable (300k) - claimed (150k) = 150k
+        let expected_pending2 = 300_000u128 - 150_000u128; // 150k
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(hotkey2),
+            expected_pending2,
+            "Hotkey2 pending root alpha should be claimable - claimed"
+        );
+
+        // Test: Migration should be idempotent (running twice should not change values)
+        let weight_second_run =
+            crate::migrations::migrate_init_pending_root_alpha::migrate_init_pending_root_alpha::<
+                Test,
+            >();
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(hotkey1),
+            expected_pending1,
+            "Second migration run should not change values"
+        );
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(hotkey2),
+            expected_pending2,
+            "Second migration run should not change values"
+        );
+        // Second run should return early with just the read weight
+        assert_eq!(
+            weight_second_run,
+            <Test as Config>::DbWeight::get().reads(1),
+            "Second run should only read the migration flag"
+        );
+
+        // Test: Hotkey with no RootClaimable should not have PendingRootAlpha set
+        let hotkey3 = U256::from(1003);
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(hotkey3),
+            0_u128,
+            "Hotkey without RootClaimable should have zero pending"
+        );
+
+        // Test: Hotkey with RootClaimable but no RootClaimed should have full claimable as pending
+        let hotkey4 = U256::from(1004);
+        let root_stake4 = 500_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey4,
+            &coldkey1,
+            NetUid::ROOT,
+            root_stake4.into(),
+        );
+        RootClaimable::<Test>::mutate(hotkey4, |claimable| {
+            claimable.insert(netuid1, I96F32::from_num(0.1));
+        });
+        // Re-run migration to pick up new hotkey
+        HasMigrationRun::<Test>::remove(MIGRATION_NAME.as_bytes().to_vec());
+        crate::migrations::migrate_init_pending_root_alpha::migrate_init_pending_root_alpha::<Test>(
+        );
+        // Expected: 0.1 * 500k = 50k, no claimed = 50k pending
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(hotkey4),
+            50_000u128,
+            "Hotkey with claimable but no claimed should have full claimable as pending"
+        );
+    });
+}
