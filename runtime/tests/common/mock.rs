@@ -1,8 +1,8 @@
-use frame_support::traits::BuildStorage;
-use sp_io::TestExternalities;
-use subtensor_runtime_common::{AccountId, Balance};
-
 use node_subtensor_runtime::{RuntimeGenesisConfig, System};
+use sp_io::TestExternalities;
+use sp_runtime::BuildStorage;
+use sp_runtime::traits::SaturatedConversion;
+use subtensor_runtime_common::{AccountId, Balance};
 
 pub struct ExtBuilder {
     balances: Vec<(AccountId, Balance)>,
@@ -42,7 +42,7 @@ impl ExtBuilder {
         .into();
 
         let block_number = self.block_number;
-        ext.execute_with(|| System::set_block_number(block_number));
+        ext.execute_with(|| System::set_block_number(block_number.saturated_into()));
         ext
     }
 }

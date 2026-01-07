@@ -6,6 +6,7 @@ use codec::Decode;
 use frame_benchmarking::v2::*;
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 use sp_runtime::traits::{One, Saturating};
+use sp_std::boxed::Box;
 
 use super::*;
 use crate::CallReadOnly;

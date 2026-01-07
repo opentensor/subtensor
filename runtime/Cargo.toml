@@ -282,7 +282,7 @@ std = [
 	"ethereum/std",
 	"pallet-shield/std",
 ]
-integration-tests = ["std"]
+integration-tests = []
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -322,6 +322,7 @@ runtime-benchmarks = [
 	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-rate-limiting/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 
 	# Smart Tx fees pallet

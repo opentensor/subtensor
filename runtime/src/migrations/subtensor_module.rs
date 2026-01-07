@@ -14,6 +14,10 @@ use pallet_subtensor::{
     NetworkRegistrationStartBlock, Pallet as SubtensorPallet,
 };
 
+const FOUR_DAYS: u64 = 28_800;
+const EIGHT_DAYS: u64 = 57_600;
+const ONE_WEEK_BLOCKS: u64 = 50_400;
+
 pub struct Migration<T: SubtensorConfig>(PhantomData<T>);
 
 impl<T> OnRuntimeUpgrade for Migration<T>
@@ -38,10 +42,6 @@ where
             GroupId = GroupId,
         >,
 {
-    const FOUR_DAYS: u64 = 28_800;
-    const EIGHT_DAYS: u64 = 57_600;
-    const ONE_WEEK_BLOCKS: u64 = 50_400;
-
     let migration_name = b"migrate_network_lock_reduction_interval".to_vec();
     let mut weight = T::DbWeight::get().reads(1);
 
@@ -194,10 +194,6 @@ mod tests {
     #[test]
     fn test_migrate_network_lock_reduction_interval_and_decay() {
         new_test_ext().execute_with(|| {
-            const FOUR_DAYS: u64 = 28_800;
-            const EIGHT_DAYS: u64 = 57_600;
-            const ONE_WEEK_BLOCKS: u64 = 50_400;
-
             // -- pre --------------------------------------------------------------
             assert!(
                 !HasMigrationRun::<Runtime>::get(

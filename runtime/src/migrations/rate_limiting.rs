@@ -1097,6 +1097,12 @@ mod tests {
         storage::set(&key, &span.encode());
     }
 
+    fn set_legacy_network_rate_limit(span: u64) {
+        let mut key = twox_128(b"SubtensorModule").to_vec();
+        key.extend(twox_128(b"NetworkRateLimit"));
+        storage::set(&key, &span.encode());
+    }
+
     fn parity_check<F>(
         now: u64,
         call: RuntimeCall,
@@ -1290,18 +1296,24 @@ mod tests {
     #[test]
     fn register_network_parity() {
         new_ext().execute_with(|| {
+            HasMigrationRun::<Runtime>::remove(MIGRATION_NAME);
             let now = 100u64;
-            let cold = account(1);
-            let hot = account(2);
             let span = 5u64;
+            System::set_block_number(now.saturated_into());
             LastRateLimitedBlock::<Runtime>::insert(RateLimitKey::NetworkLastRegistered, now - 1);
-            pallet_subtensor::NetworkRateLimit::<Runtime>::put(span);
+            set_legacy_network_rate_limit(span);
 
-            let call =
-                RuntimeCall::SubtensorModule(SubtensorCall::register_network { hotkey: hot });
-            let origin = RuntimeOrigin::signed(cold.clone());
-            let legacy = || TransactionType::RegisterNetwork.passes_rate_limit::<Runtime>(&cold);
-            parity_check(now, call, origin, None, None, legacy);
+            Migration::<Runtime>::on_runtime_upgrade();
+
+            let target = RateLimitTarget::Group(GROUP_REGISTER_NETWORK);
+            let limit = pallet_rate_limiting::Limits::<Runtime>::get(target).expect("limit stored");
+            assert!(
+                matches!(limit, RateLimit::Global(kind) if kind == RateLimitKind::Exact(exact_span(span)))
+            );
+
+            let stored = pallet_rate_limiting::LastSeen::<Runtime>::get(target, None::<UsageKey>)
+                .expect("last seen entry");
+            assert_eq!(stored, (now - 1).saturated_into::<BlockNumberFor<Runtime>>());
         });
     }
 
