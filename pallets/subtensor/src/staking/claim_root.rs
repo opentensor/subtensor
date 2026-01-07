@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
-use sp_std::collections::btree_set::BTreeSet;
+use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
 
@@ -405,12 +405,45 @@ impl<T: Config> Pallet<T> {
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
         let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
 
+        let mut root_claimable_alpha_map: BTreeMap<T::AccountId, u128> = BTreeMap::new();
+
         for hotkey in hotkeys.iter() {
+            let root_stake = Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT);
+            let claimable_rate = RootClaimable::<T>::get(hotkey)
+                .values()
+                .fold(I96F32::from(0), |acc, x| acc.saturating_add(*x));
+            let total = claimable_rate.saturating_mul(I96F32::saturating_from_num(root_stake));
+            // let pending_root_alpha = PendingRootAlpha::<T>::get(hotkey);
+
+            root_claimable_alpha_map.insert(hotkey.clone(), total.saturating_to_num::<u128>());
+
             RootClaimable::<T>::mutate(hotkey, |claimable| {
                 claimable.remove(&netuid);
             });
         }
 
+        let mut root_claimed_alpha_map: BTreeMap<T::AccountId, u128> = BTreeMap::new();
+
+        for ((_netuid, hotkey, _coldkey), root_claimed) in RootClaimed::<T>::iter() {
+            if !hotkeys.contains(&hotkey) {
+                continue;
+            }
+
+            root_claimed_alpha_map
+                .entry(hotkey.clone())
+                .and_modify(|total| *total = total.saturating_add(root_claimed))
+                .or_insert(root_claimed);
+        }
+
         let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+
+        for (hotkey, claimable) in root_claimable_alpha_map {
+            let claimed = root_claimed_alpha_map.get(&hotkey).unwrap_or(&0);
+            // still some root alpha not claimed
+            let pending = claimable.saturating_sub(*claimed);
+            PendingRootAlpha::<T>::mutate(&hotkey, |value| {
+                *value = value.saturating_sub(pending);
+            });
+        }
     }
 }
