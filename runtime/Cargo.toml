@@ -282,6 +282,7 @@ std = [
 	"ethereum/std",
 	"pallet-shield/std",
 ]
+integration-tests = ["std"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
