@@ -207,6 +207,10 @@ impl<T: Config> Pallet<T> {
         RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {
             *root_claimed = root_claimed.saturating_add(owed_u64.into());
         });
+
+        PendingRootAlpha::<T>::mutate(hotkey, |value| {
+            *value = value.saturating_sub(owed_u64.into());
+        });
     }
 
     fn root_claim_on_subnet_weight(_root_claim_type: RootClaimTypeEnum) -> Weight {
@@ -257,11 +261,14 @@ impl<T: Config> Pallet<T> {
             let root_claimed: u128 = RootClaimed::<T>::get((netuid, hotkey, coldkey));
 
             // Increase root claimed based on the claimable rate.
-            let new_root_claimed = root_claimed.saturating_add(
-                claimable_rate
-                    .saturating_mul(I96F32::from(u64::from(amount)))
-                    .saturating_to_num(),
-            );
+            let added_amount = claimable_rate
+                .saturating_mul(I96F32::from(u64::from(amount)))
+                .saturating_to_num();
+            let new_root_claimed = root_claimed.saturating_add(added_amount);
+
+            PendingRootAlpha::<T>::mutate(hotkey, |value| {
+                *value = value.saturating_sub(added_amount);
+            });
 
             // Set the new root claimed value.
             RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
@@ -284,11 +291,14 @@ impl<T: Config> Pallet<T> {
             let root_claimed: u128 = RootClaimed::<T>::get((netuid, hotkey, coldkey));
 
             // Decrease root claimed based on the claimable rate.
-            let new_root_claimed = root_claimed.saturating_sub(
-                claimable_rate
-                    .saturating_mul(I96F32::from(u64::from(amount)))
-                    .saturating_to_num(),
-            );
+            let subed_amount = claimable_rate
+                .saturating_mul(I96F32::from(u64::from(amount)))
+                .saturating_to_num();
+            let new_root_claimed = root_claimed.saturating_sub(subed_amount);
+
+            PendingRootAlpha::<T>::mutate(hotkey, |value| {
+                *value = value.saturating_add(subed_amount);
+            });
 
             // Set the new root_claimed value.
             RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
