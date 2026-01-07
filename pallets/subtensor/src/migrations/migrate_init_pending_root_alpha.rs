@@ -25,13 +25,16 @@ pub fn migrate_init_pending_root_alpha<T: Config>() -> Weight {
 
     let mut root_claimable_alpha_map: BTreeMap<T::AccountId, u128> = BTreeMap::new();
     for (hotkey, root_claimable) in RootClaimable::<T>::iter() {
-        let rate: I96F32 = root_claimable.values().sum();
-        let total: I96F32 = I96F32::saturating_from_num(
-            Pallet::<T>::get_stake_for_hotkey_on_subnet(&hotkey, NetUid::ROOT),
-        );
-        let value = rate.saturating_mul(total);
+        let total = root_claimable
+            .iter()
+            .map(|(netuid, claimable_rate)| {
+                let stake = Pallet::<T>::get_stake_for_hotkey_on_subnet(&hotkey, *netuid);
+                let value = claimable_rate.saturating_mul(I96F32::saturating_from_num(stake));
+                value.saturating_to_num::<u128>()
+            })
+            .fold(0_u128, |acc, x| acc.saturating_add(x));
 
-        root_claimable_alpha_map.insert(hotkey, value.saturating_to_num::<u128>());
+        root_claimable_alpha_map.insert(hotkey, total);
     }
 
     // Aggregate RootClaimed values by hotkey

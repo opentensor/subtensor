@@ -531,6 +531,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        // 9.3 update pending root alpha for the hotkeys.
+        Self::transfer_pending_root_alpha_for_new_hotkey(old_hotkey, new_hotkey);
+
         Ok(())
     }
 }
