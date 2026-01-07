@@ -435,6 +435,21 @@ pub mod pallet {
             source: TransactionSource,
         ) -> ValidateResult<Self::Val, RuntimeCallFor<T>> {
             match call.is_sub_type() {
+                Some(Call::announce_next_key { .. }) => {
+                    // Only accept if produced locally (authoring node) or already in the block.
+                    match source {
+                        TransactionSource::Local | TransactionSource::InBlock => {}
+                        _ => return Err(InvalidTransaction::Call.into()),
+                    }
+
+                    let origin_clone = origin.clone();
+                    if T::AuthorityOrigin::ensure_validator(origin_clone).is_err() {
+                        return Err(InvalidTransaction::Call.into());
+                    }
+
+                    Ok((Default::default(), (), origin))
+                }
+
                 Some(Call::mark_decryption_failed { id, .. }) => {
                     match source {
                         TransactionSource::Local | TransactionSource::InBlock => {
