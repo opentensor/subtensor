@@ -74,7 +74,6 @@ fn test_remove_stake_fees_tao() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -143,7 +142,6 @@ fn test_remove_stake_fees_alpha() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_root --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_root() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -202,7 +200,6 @@ fn test_remove_stake_root() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_completely_root --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_completely_root() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -254,7 +251,6 @@ fn test_remove_stake_completely_root() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_completely_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_completely_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -385,7 +381,6 @@ fn test_remove_stake_not_enough_balance_for_fees() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_edge_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_edge_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -524,7 +519,6 @@ fn test_remove_stake_failing_transaction_tao_fees() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_failing_transaction_alpha_fees --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_failing_transaction_alpha_fees() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -590,7 +584,6 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_limit_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -658,7 +651,6 @@ fn test_remove_stake_limit_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_unstake_all_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_unstake_all_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -731,7 +723,6 @@ fn test_unstake_all_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_unstake_all_alpha_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_unstake_all_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -799,7 +790,6 @@ fn test_unstake_all_alpha_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_move_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_move_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -871,7 +861,6 @@ fn test_move_stake_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_transfer_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_transfer_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let destination_coldkey = U256::from(100000);
@@ -944,7 +933,6 @@ fn test_transfer_stake_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_swap_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_swap_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1015,7 +1003,6 @@ fn test_swap_stake_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_swap_stake_limit_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_swap_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1088,7 +1075,6 @@ fn test_swap_stake_limit_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_burn_alpha_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_burn_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1150,7 +1136,6 @@ fn test_burn_alpha_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_recycle_alpha_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_recycle_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
