@@ -2521,28 +2521,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crabtime"
-version = "1.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81605e11aed454fb3838bc408f091d17f2f6d31613fb897f561a45bc8fb98378"
-dependencies = [
- "crabtime-internal",
-]
-
-[[package]]
-name = "crabtime-internal"
-version = "1.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e49bfb43e6dfb9026c045fc1fd5cde79f4927ea6d1d89a2d346c55879e85900c"
-dependencies = [
- "proc-macro2",
- "quote",
- "rustc_version 0.4.1",
- "syn 2.0.106",
- "toml 0.8.23",
-]
-
-[[package]]
 name = "cranelift-bforest"
 version = "0.95.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14586,8 +14564,8 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 [[package]]
 name = "safe-bigmath"
 version = "0.3.0"
+source = "git+https://github.com/sam0x17/safe-bigmath#1da0a09c5bcf143fa7c464b431bfaeff5476b080"
 dependencies = [
- "crabtime",
  "num-bigint",
  "num-integer",
  "num-traits",

@@ -3,6 +3,7 @@ use frame_support::pallet_prelude::Weight;
 use sp_io::KillStorageResult;
 use sp_io::hashing::twox_128;
 use sp_io::storage::clear_prefix;
+use sp_std::vec::Vec;
 
 pub mod migrate_swapv3_to_balancer;
 
@@ -16,7 +17,6 @@ pub(crate) fn remove_prefix<T: Config>(module: &str, old_map: &str, weight: &mut
         KillStorageResult::AllRemoved(removed) => removed as u64,
         KillStorageResult::SomeRemaining(removed) => {
             log::info!("Failed To Remove Some Items During migration");
-            println!("Failed To Remove Some Items During migration");
             removed as u64
         }
     };
