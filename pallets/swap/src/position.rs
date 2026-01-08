@@ -34,19 +34,14 @@ impl<T: Config> Position<T> {
         netuid: NetUid,
         // liquidity: u64,
     ) -> Self {
-        let position = Position {
+        Position {
             id,
             netuid,
             // liquidity,
             // fees_tao: I64F64::saturating_from_num(0),
             // fees_alpha: I64F64::saturating_from_num(0),
             _phantom: PhantomData,
-        };
-
-        // position.fees_tao = position.fees_in_range(true);
-        // position.fees_alpha = position.fees_in_range(false);
-
-        position
+        }
     }
 
     /// Converts position to token amounts

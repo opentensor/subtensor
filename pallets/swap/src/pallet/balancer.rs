@@ -136,13 +136,13 @@ impl Balancer {
             )
         };
 
-        if let Some(result_safe_int) = maybe_result_safe_int {
-            if let Some(result_u64) = result_safe_int.to_u64() {
-                return U64F64::saturating_from_num(result_u64)
-                    .safe_div(U64F64::saturating_from_num(ACCURACY));
-            }
+        if let Some(result_safe_int) = maybe_result_safe_int
+            && let Some(result_u64) = result_safe_int.to_u64()
+        {
+            return U64F64::saturating_from_num(result_u64)
+                .safe_div(U64F64::saturating_from_num(ACCURACY));
         }
-        return U64F64::saturating_from_num(0);
+        U64F64::saturating_from_num(0)
     }
 
     /// Calculates exponent of (x / (x + ∆x)) ^ (w_base/w_quote)
@@ -180,12 +180,16 @@ impl Balancer {
         let parts = p.deconstruct() as u128;
         let acc = ACCURACY as u128;
 
-        let num = U256::from(value) * U256::from(parts);
+        let num = U256::from(value).saturating_mul(U256::from(parts));
         let den = U256::from(acc);
 
         // Add 0.5 before integer division to achieve rounding to the nearest
         // integer
-        let res = (num + den / U256::from(2u8)) / den;
+        let zero = U256::from(0);
+        let res = num
+            .saturating_add(den.checked_div(U256::from(2u8)).unwrap_or(zero))
+            .checked_div(den)
+            .unwrap_or(zero);
         res.min(U256::from(u128::MAX)).as_u128()
     }
 
@@ -267,7 +271,7 @@ impl Balancer {
             let scale_fixed = U64F64::saturating_from_num(scale);
             let exp_result_fixed = if let Some(exp_result_u64) = exp_result_safe_int.to_u64() {
                 U64F64::saturating_from_num(exp_result_u64)
-            } else if SafeInt::from(u64::MAX) < exp_result_safe_int {
+            } else if u64::MAX < exp_result_safe_int {
                 U64F64::saturating_from_num(u64::MAX)
             } else {
                 U64F64::saturating_from_num(0)
@@ -312,7 +316,7 @@ impl Balancer {
             let reserve_fixed = U64F64::saturating_from_num(reserve);
             let exp_result_fixed = if let Some(exp_result_u64) = exp_result_safe_int.to_u64() {
                 U64F64::saturating_from_num(exp_result_u64)
-            } else if SafeInt::from(u64::MAX) < exp_result_safe_int {
+            } else if u64::MAX < exp_result_safe_int {
                 U64F64::saturating_from_num(u64::MAX)
             } else {
                 U64F64::saturating_from_num(0)
@@ -368,6 +372,7 @@ impl Balancer {
 
 // cargo test --package pallet-subtensor-swap --lib -- pallet::balancer::tests --nocapture
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 #[cfg(feature = "std")]
 mod tests {
     use crate::pallet::Balancer;
@@ -631,7 +636,7 @@ mod tests {
         let mut last_progress = 0.;
         let start = 100_000_000_000_u128;
         let stop = 900_000_000_000_u128;
-        for num in (start..=stop).step_by(1000 as usize) {
+        for num in (start..=stop).step_by(1000_usize) {
             let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
             let bal = Balancer::new(w_quote).unwrap();
             let e = bal.exp_base_quote(x, dx);
@@ -705,13 +710,7 @@ mod tests {
             let dy_expected = y as f64 * (1. - e_expected);
 
             let actual = dy.to_num::<f64>();
-            let mut eps = dy_expected / 1_000_000.;
-            if eps > 1000.0 {
-                eps = 1000.0;
-            }
-            if eps < 1.0 {
-                eps = 1.0;
-            }
+            let eps = (dy_expected / 1_000_000.).clamp(1.0, 1000.0);
 
             assert!(
                 (actual - dy_expected).abs() <= eps,
@@ -784,7 +783,7 @@ mod tests {
         let dy = bal.calculate_quote_delta_in(current_price, target_price, tao_reserve);
         let dy_expected = 0u64;
 
-        assert_eq!(dy, dy_expected as u64,);
+        assert_eq!(dy, dy_expected);
     }
 
     #[test]
@@ -801,7 +800,7 @@ mod tests {
         let dx = bal.calculate_base_delta_in(current_price, target_price, alpha_reserve);
         let dx_expected = 0u64;
 
-        assert_eq!(dx, dx_expected as u64,);
+        assert_eq!(dx, dx_expected);
     }
 
     #[test]

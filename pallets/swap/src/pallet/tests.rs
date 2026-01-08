@@ -1097,14 +1097,14 @@ fn test_swap_basic() {
                 Pallet::<Test>::do_swap(netuid, order.clone(), limit_price_fixed, false, false)
                     .unwrap();
             assert_abs_diff_eq!(
-                swap_result.amount_paid_out.to_u64() as u64,
+                swap_result.amount_paid_out.to_u64(),
                 expected_output_amount as u64,
                 epsilon = 1
             );
 
             assert_abs_diff_eq!(
                 swap_result.paid_in_reserve_delta() as u64,
-                (swap_amount - expected_fee) as u64,
+                (swap_amount - expected_fee),
                 epsilon = 1
             );
             assert_abs_diff_eq!(
@@ -1281,10 +1281,8 @@ fn test_convert_deltas() {
             TaoReserve::set_mock_reserve(netuid, TaoCurrency::from(tao));
             AlphaReserve::set_mock_reserve(netuid, AlphaCurrency::from(alpha));
             let w_accuracy = 1_000_000_000_f64;
-            let w_quote_pt = Perquintill::from_rational(
-                (w_quote as f64 * w_accuracy) as u128,
-                w_accuracy as u128,
-            );
+            let w_quote_pt =
+                Perquintill::from_rational((w_quote * w_accuracy) as u128, w_accuracy as u128);
             let bal = Balancer::new(w_quote_pt).unwrap();
             SwapBalancer::<Test>::insert(netuid, bal);
 
