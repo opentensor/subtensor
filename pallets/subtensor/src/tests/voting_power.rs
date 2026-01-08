@@ -552,6 +552,87 @@ fn test_voting_power_not_removed_if_never_above_threshold() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::voting_power::test_voting_power_not_removed_with_small_dip_below_threshold --exact --nocapture
+#[test]
+fn test_voting_power_not_removed_with_small_dip_below_threshold() {
+    new_test_ext(1).execute_with(|| {
+        let f = VotingPowerTestFixture::new();
+        f.setup_for_staking();
+        f.enable_tracking();
+        f.set_validator_permit(true);
+
+        let min_stake = SubtensorModule::get_stake_threshold();
+
+        // Set voting power above threshold (validator was established)
+        let above_threshold = min_stake + 100;
+        VotingPower::<Test>::insert(f.netuid, f.hotkey, above_threshold);
+
+        // Simulate a small dip: new EMA drops to 95% of threshold (within 10% buffer)
+        // This is above the removal threshold (90%) so should NOT be removed
+        let small_dip = min_stake * 95 / 100;
+        VotingPower::<Test>::insert(f.netuid, f.hotkey, small_dip);
+
+        // Manually trigger the removal check by setting previous to above threshold
+        // and running with stake that would produce EMA in the buffer zone
+        VotingPower::<Test>::insert(f.netuid, f.hotkey, above_threshold);
+
+        // Build epoch output with stake that will produce EMA around 95% of threshold
+        let mut epoch_output = build_mock_epoch_output(f.netuid);
+        if let Some(terms) = epoch_output.get_mut(&f.hotkey) {
+            terms.stake = small_dip; // Stake drops but stays in buffer zone
+        }
+
+        SubtensorModule::update_voting_power_for_subnet(f.netuid, &epoch_output);
+
+        // Should NOT be removed - dip is within hysteresis buffer
+        assert!(
+            VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
+            "Entry should exist - small dip within 10% buffer should not trigger removal"
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::voting_power::test_voting_power_removed_with_significant_drop_below_threshold --exact --nocapture
+#[test]
+fn test_voting_power_removed_with_significant_drop_below_threshold() {
+    new_test_ext(1).execute_with(|| {
+        let f = VotingPowerTestFixture::new();
+        f.enable_tracking();
+
+        // Use explicit values since get_stake_threshold() may return 0 in tests
+        let min_stake: u64 = 1_000_000_000;
+        StakeThreshold::<Test>::put(min_stake);
+
+        // Set voting power above threshold (validator was established)
+        VotingPower::<Test>::insert(f.netuid, f.hotkey, min_stake);
+
+        // Set alpha to 100% so new_ema = current_stake directly (for testing removal)
+        VotingPowerEmaAlpha::<Test>::insert(f.netuid, MAX_VOTING_POWER_EMA_ALPHA);
+
+        // Build epoch output manually with stake = 0 and validator permit = true
+        let mut epoch_output = BTreeMap::new();
+        epoch_output.insert(
+            f.hotkey,
+            EpochTerms {
+                uid: 0,
+                new_validator_permit: true,
+                stake: 0, // Complete unstake
+                ..Default::default()
+            },
+        );
+
+        // With alpha = 1.0: new_ema = 1.0 * 0 + 0 * previous = 0
+        // 0 < removal_threshold (90% of min_stake = 900M) AND previous (1B) >= min_stake (1B)
+        // Should trigger removal
+        SubtensorModule::update_voting_power_for_subnet(f.netuid, &epoch_output);
+
+        assert!(
+            !VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
+            "Entry should be removed - stake dropped to 0 with alpha=1.0"
+        );
+    });
+}
+
 // ============================================
 // === Test Tracking Not Active ===
 // ============================================
