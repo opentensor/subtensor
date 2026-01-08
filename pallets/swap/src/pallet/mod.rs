@@ -88,30 +88,6 @@ mod pallet {
     #[pallet::storage]
     pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, u16, ValueQuery, DefaultFeeRate>;
 
-    // // Global accrued fees in tao per subnet
-    // #[pallet::storage]
-    // pub type FeeGlobalTao<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
-
-    // // Global accrued fees in alpha per subnet
-    // #[pallet::storage]
-    // pub type FeeGlobalAlpha<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
-
-    // /// Storage for all ticks, using subnet ID as the primary key and tick index as the secondary key
-    // #[pallet::storage]
-    // pub type Ticks<T> = StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, TickIndex, Tick>;
-
-    // /// Storage to determine whether swap V3 was initialized for a specific subnet.
-    // #[pallet::storage]
-    // pub type SwapV3Initialized<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
-
-    // /// Storage for the square root price of Alpha token for each subnet.
-    // #[pallet::storage]
-    // pub type AlphaSqrtPrice<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
-
-    // /// Storage for the current price tick.
-    // #[pallet::storage]
-    // pub type CurrentTick<T> = StorageMap<_, Twox64Concat, NetUid, TickIndex, ValueQuery>;
-
     /// Storage for the current liquidity amount for each subnet.
     #[pallet::storage]
     pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
