@@ -2904,17 +2904,12 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
         );
 
         // Test 1: Non-root account should fail to set delay
-        assert_err!(
+        assert_noop!(
             AdminUtils::sudo_set_start_call_delay(
                 <<Test as Config>::RuntimeOrigin>::signed(non_root_account),
                 0
             ),
             DispatchError::BadOrigin
-        );
-        assert_eq!(
-            pallet_subtensor::StartCallDelay::<Test>::get(),
-            initial_delay,
-            "Delay should not have changed"
         );
 
         // Test 2: Create a subnet
