@@ -1,5 +1,6 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 
+use alloc::collections::BTreeMap;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -8,6 +9,7 @@ use subtensor_runtime_common::NetUid;
 
 use super::mock;
 use super::mock::*;
+use crate::epoch::run_epoch::EpochTerms;
 use crate::utils::voting_power::{
     MAX_VOTING_POWER_EMA_ALPHA, VOTING_POWER_DISABLE_GRACE_PERIOD_BLOCKS,
 };
@@ -18,6 +20,30 @@ use crate::*;
 // ============================================
 
 const DEFAULT_STAKE_AMOUNT: u64 = 1_000_000_000_000; // 1 million RAO
+
+/// Build epoch output from current state for testing voting power updates.
+fn build_mock_epoch_output(netuid: NetUid) -> BTreeMap<U256, EpochTerms> {
+    let n = SubtensorModule::get_subnetwork_n(netuid);
+    let validator_permits = ValidatorPermit::<Test>::get(netuid);
+
+    let mut output = BTreeMap::new();
+    for uid in 0..n {
+        if let Ok(hotkey) = SubtensorModule::get_hotkey_for_net_and_uid(netuid, uid) {
+            let has_permit = validator_permits.get(uid as usize).copied().unwrap_or(false);
+            let stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid).to_u64();
+            output.insert(
+                hotkey,
+                EpochTerms {
+                    uid: uid as usize,
+                    new_validator_permit: has_permit,
+                    stake,
+                    ..Default::default()
+                },
+            );
+        }
+    }
+    output
+}
 
 /// Test fixture containing common test setup data
 struct VotingPowerTestFixture {
@@ -76,7 +102,8 @@ impl VotingPowerTestFixture {
     /// Run voting power update for N epochs
     fn run_epochs(&self, n: u32) {
         for _ in 0..n {
-            SubtensorModule::update_voting_power_for_subnet(self.netuid);
+            let epoch_output = build_mock_epoch_output(self.netuid);
+            SubtensorModule::update_voting_power_for_subnet(self.netuid, &epoch_output);
         }
     }
 
@@ -399,7 +426,8 @@ fn test_only_validators_get_voting_power() {
         ValidatorPermit::<Test>::insert(netuid, vec![true, false]);
 
         // Run epoch
-        SubtensorModule::update_voting_power_for_subnet(netuid);
+        let epoch_output = build_mock_epoch_output(netuid);
+        SubtensorModule::update_voting_power_for_subnet(netuid, &epoch_output);
 
         // Only validator should have voting power
         assert!(SubtensorModule::get_voting_power(netuid, &validator_hotkey) > 0);

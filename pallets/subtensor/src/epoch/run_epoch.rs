@@ -22,6 +22,7 @@ pub struct EpochTerms {
     pub validator_trust: u16,
     pub new_validator_permit: bool,
     pub bond: Vec<(u16, u16)>,
+    pub stake: u64,
 }
 
 pub struct EpochOutput<T: frame_system::Config>(pub BTreeMap<T::AccountId, EpochTerms>);
@@ -140,7 +141,7 @@ impl<T: Config> Pallet<T> {
         StakeWeight::<T>::insert(netuid, stake_weight);
 
         // Update voting power EMA for all validators on this subnet
-        Self::update_voting_power_for_subnet(netuid);
+        Self::update_voting_power_for_subnet(netuid, output);
     }
 
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
@@ -991,6 +992,10 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
+        let raw_stake: Vec<u64> = total_stake
+            .iter()
+            .map(|s| s.saturating_to_num::<u64>())
+            .collect::<Vec<u64>>();
 
         for (_hotkey, terms) in terms_map.iter_mut() {
             terms.dividend = cloned_dividends.get(terms.uid).copied().unwrap_or_default();
@@ -1015,6 +1020,7 @@ impl<T: Config> Pallet<T> {
                 .get(terms.uid)
                 .copied()
                 .unwrap_or_default();
+            terms.stake = raw_stake.get(terms.uid).copied().unwrap_or_default();
             let old_validator_permit = validator_permits
                 .get(terms.uid)
                 .copied()

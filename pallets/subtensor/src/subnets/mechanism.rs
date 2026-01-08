@@ -322,6 +322,7 @@ impl<T: Config> Pallet<T> {
                                 sub_weight,
                             );
                             acc_terms.new_validator_permit |= terms.new_validator_permit;
+                            acc_terms.stake = acc_terms.stake.saturating_add(terms.stake);
                         })
                         .or_insert_with(|| {
                             // weighted insert for the first sub-subnet seen for this hotkey
@@ -349,7 +350,8 @@ impl<T: Config> Pallet<T> {
                                     sub_weight,
                                 ),
                                 new_validator_permit: terms.new_validator_permit,
-                                bond: Vec::new(), // aggregated map doesn’t use bonds; keep empty
+                                bond: Vec::new(), // aggregated map doesn't use bonds; keep empty
+                                stake: terms.stake,
                             }
                         });
                     acc

@@ -1,5 +1,7 @@
 use super::*;
-use subtensor_runtime_common::{Currency, NetUid};
+use crate::epoch::run_epoch::EpochTerms;
+use alloc::collections::BTreeMap;
+use subtensor_runtime_common::NetUid;
 
 /// 14 days in blocks (assuming ~12 second blocks)
 /// 14 * 24 * 60 * 60 / 12 = 100800 blocks
@@ -108,9 +110,11 @@ impl<T: Config> Pallet<T> {
     // === Epoch Processing ===
     // ========================
 
-    /// Update voting power for all validators on a subnet during epoch.
-    /// Called from persist_netuid_epoch_terms or similar epoch processing function.
-    pub fn update_voting_power_for_subnet(netuid: NetUid) {
+    /// Update voting power for all validators on a subnet using pre-calculated epoch terms.
+    pub fn update_voting_power_for_subnet(
+        netuid: NetUid,
+        epoch_output: &BTreeMap<T::AccountId, EpochTerms>,
+    ) {
         // Early exit if tracking not enabled
         if !Self::get_voting_power_tracking_enabled(netuid) {
             return;
@@ -133,18 +137,21 @@ impl<T: Config> Pallet<T> {
         // Get minimum stake threshold for validator permit
         let min_stake = Self::get_stake_threshold();
 
-        // Get all hotkeys registered on this subnet
-        let n = Self::get_subnetwork_n(netuid);
-
-        for uid in 0..n {
-            if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, uid) {
-                // Only validators (with vpermit) get voting power, not miners
-                if Self::get_validator_permit_for_uid(netuid, uid) {
-                    Self::update_voting_power_for_hotkey(netuid, &hotkey, alpha, min_stake);
-                } else {
-                    // Miner without vpermit - remove any existing voting power
-                    VotingPower::<T>::remove(netuid, &hotkey);
-                }
+        // Iterate over epoch output using pre-calculated values
+        for (hotkey, terms) in epoch_output.iter() {
+            // Only validators (with vpermit) get voting power, not miners
+            if terms.new_validator_permit {
+                // Use the subnet-specific stake from epoch calculation
+                Self::update_voting_power_for_hotkey(
+                    netuid,
+                    hotkey,
+                    terms.stake,
+                    alpha,
+                    min_stake,
+                );
+            } else {
+                // Miner without vpermit - remove any existing voting power
+                VotingPower::<T>::remove(netuid, hotkey);
             }
         }
 
@@ -177,21 +184,14 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Update voting power for a single hotkey.
+    /// Update voting power EMA for a single hotkey using subnet-specific stake.
     fn update_voting_power_for_hotkey(
         netuid: NetUid,
         hotkey: &T::AccountId,
+        current_stake: u64,
         alpha: u64,
         min_stake: u64,
     ) {
-        // Get current stake for the hotkey on this subnet
-        // If deregistered (not in IsNetworkMember), stake is treated as 0
-        let current_stake = if IsNetworkMember::<T>::get(hotkey, netuid) {
-            Self::get_total_stake_for_hotkey(hotkey).to_u64()
-        } else {
-            0
-        };
-
         // Get previous EMA value
         let previous_ema = VotingPower::<T>::get(netuid, hotkey);
 
