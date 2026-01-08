@@ -30,7 +30,6 @@ use subtensor_swap_interface::SwapHandler;
 use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{Balance, Currency, NetUid};
 
 // Tests
@@ -119,9 +118,9 @@ where
     T: pallet_subtensor_swap::Config,
 {
     /// This function checks if tao_amount fee can be withdraw in Alpha currency
-    /// by converting Alpha to TAO at the current price and ignoring slippage.
+    /// by converting Alpha to TAO using the current pool conditions.
     ///
-    /// If this function returns true, the transaction will be included in the block
+    /// If this function returns true, the transaction will be added to the mempool
     /// and Alpha will be withdraw from the account, no matter whether transaction
     /// is successful or not.
     ///
@@ -145,13 +144,14 @@ where
         // This is not ideal because it may not pay all fees, but UX is the priority
         // and this approach still provides spam protection.
         alpha_vec.iter().any(|(hotkey, netuid)| {
-            let alpha_balance = U96F32::saturating_from_num(
-                pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            let alpha_balance = pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey, coldkey, *netuid,
-                ),
+                );
+            let alpha_per_entry = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
+                *netuid,
+                tao_per_entry.into(),
             );
-            let alpha_price = pallet_subtensor_swap::Pallet::<T>::current_alpha_price(*netuid);
-            alpha_price.saturating_mul(alpha_balance) >= tao_per_entry
+            alpha_balance >= alpha_per_entry
         })
     }
 
@@ -165,28 +165,27 @@ where
         }
 
         let tao_per_entry = tao_amount.checked_div(alpha_vec.len() as u64).unwrap_or(0);
+        if !tao_per_entry.is_zero() {
+            alpha_vec.iter().for_each(|(hotkey, netuid)| {
+                // Divide tao_amount evenly among all alpha entries
+                let alpha_balance = pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                        hotkey, coldkey, *netuid,
+                    );
+                let mut alpha_equivalent =
+                    pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
+                        *netuid,
+                        tao_per_entry.into(),
+                    );
+                if alpha_equivalent.is_zero() {
+                    alpha_equivalent = alpha_balance;
+                }
+                let alpha_fee = alpha_equivalent
+                    .min(alpha_balance);
 
-        alpha_vec.iter().for_each(|(hotkey, netuid)| {
-            // Divide tao_amount evenly among all alpha entries
-            let alpha_balance = U96F32::saturating_from_num(
-                pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey, coldkey, *netuid,
-                ),
-            );
-            let alpha_price = pallet_subtensor_swap::Pallet::<T>::current_alpha_price(*netuid);
-            let alpha_fee = U96F32::saturating_from_num(tao_per_entry)
-                .checked_div(alpha_price)
-                .unwrap_or(alpha_balance)
-                .min(alpha_balance)
-                .saturating_to_num::<u64>();
-
-            pallet_subtensor::Pallet::<T>::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                coldkey,
-                *netuid,
-                alpha_fee.into(),
-            );
-        });
+                // Sell alpha_fee and burn received tao (ignore unstake_from_subnet return)
+                let _ = pallet_subtensor::Pallet::<T>::unstake_from_subnet(hotkey, coldkey, *netuid, alpha_fee, 0.into(), true);
+            });
+        }
     }
 
     fn get_all_netuids_for_coldkey_and_hotkey(
@@ -308,7 +307,7 @@ where
 
     fn withdraw_fee(
         who: &AccountIdOf<T>,
-        _call: &CallOf<T>,
+        call: &CallOf<T>,
         _dispatch_info: &DispatchInfoOf<CallOf<T>>,
         fee: Self::Balance,
         _tip: Self::Balance,
@@ -327,12 +326,12 @@ where
         ) {
             Ok(imbalance) => Ok(Some(WithdrawnFee::Tao(imbalance))),
             Err(_) => {
-                // let alpha_vec = Self::fees_in_alpha::<T>(who, call);
-                // if !alpha_vec.is_empty() {
-                //     let fee_u64: u64 = fee.into();
-                //     OU::withdraw_in_alpha(who, &alpha_vec, fee_u64);
-                //     return Ok(Some(WithdrawnFee::Alpha));
-                // }
+                let alpha_vec = Self::fees_in_alpha::<T>(who, call);
+                if !alpha_vec.is_empty() {
+                    let fee_u64: u64 = fee.into();
+                    OU::withdraw_in_alpha(who, &alpha_vec, fee_u64);
+                    return Ok(Some(WithdrawnFee::Alpha));
+                }
                 Err(InvalidTransaction::Payment.into())
             }
         }
@@ -340,7 +339,7 @@ where
 
     fn can_withdraw_fee(
         who: &AccountIdOf<T>,
-        _call: &CallOf<T>,
+        call: &CallOf<T>,
         _dispatch_info: &DispatchInfoOf<CallOf<T>>,
         fee: Self::Balance,
         _tip: Self::Balance,
@@ -353,14 +352,14 @@ where
         match F::can_withdraw(who, fee) {
             WithdrawConsequence::Success => Ok(()),
             _ => {
-                // // Fallback to fees in Alpha if possible
-                // let alpha_vec = Self::fees_in_alpha::<T>(who, call);
-                // if !alpha_vec.is_empty() {
-                //     let fee_u64: u64 = fee.into();
-                //     if OU::can_withdraw_in_alpha(who, &alpha_vec, fee_u64) {
-                //         return Ok(());
-                //     }
-                // }
+                // Fallback to fees in Alpha if possible
+                let alpha_vec = Self::fees_in_alpha::<T>(who, call);
+                if !alpha_vec.is_empty() {
+                    let fee_u64: u64 = fee.into();
+                    if OU::can_withdraw_in_alpha(who, &alpha_vec, fee_u64) {
+                        return Ok(());
+                    }
+                }
                 Err(InvalidTransaction::Payment.into())
             }
         }

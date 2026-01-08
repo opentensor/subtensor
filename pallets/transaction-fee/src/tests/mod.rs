@@ -597,8 +597,12 @@ fn test_remove_stake_limit_fees_alpha() {
         );
 
         // Simulate stake removal to get how much TAO should we get for unstaked Alpha
-        let (expected_unstaked_tao, _swap_fee) =
-            mock::swap_alpha_to_tao(sn.subnets[0].netuid, unstake_amount);
+        let alpha_fee = AlphaCurrency::from(24229); // This is measured alpha fee that matches the withdrawn tx fee
+        let (expected_burned_tao_fees, _swap_fee) =
+            mock::swap_alpha_to_tao(sn.subnets[0].netuid, alpha_fee);
+        let (expected_unstaked_tao_plus_fees, _swap_fee) =
+            mock::swap_alpha_to_tao(sn.subnets[0].netuid, unstake_amount + alpha_fee);
+        let expected_unstaked_tao = expected_unstaked_tao_plus_fees - expected_burned_tao_fees;
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
