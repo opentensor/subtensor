@@ -106,11 +106,21 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Adjusts protocol liquidity with new values of TAO and Alpha reserve
+    /// Returns actually added Tao and Alpha, which includes fees
     pub(super) fn adjust_protocol_liquidity(
         netuid: NetUid,
         tao_delta: TaoCurrency,
         alpha_delta: AlphaCurrency,
-    ) {
+    ) -> (TaoCurrency, AlphaCurrency) {
+        // Collect fees
+        // TODO: Revise when user liquidity is available
+        let tao_fees = FeesTao::<T>::get(netuid);
+        let alpha_fees = FeesAlpha::<T>::get(netuid);
+        FeesTao::<T>::insert(netuid, TaoCurrency::ZERO);
+        FeesAlpha::<T>::insert(netuid, AlphaCurrency::ZERO);
+        let actual_tao_delta = tao_delta.saturating_add(tao_fees);
+        let actual_alpha_delta = alpha_delta.saturating_add(alpha_fees);
+
         // Get reserves
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
@@ -121,8 +131,8 @@ impl<T: Config> Pallet<T> {
             .update_weights_for_added_liquidity(
                 u64::from(tao_reserve),
                 u64::from(alpha_reserve),
-                u64::from(tao_delta),
-                u64::from(alpha_delta),
+                u64::from(actual_tao_delta),
+                u64::from(actual_alpha_delta),
             )
             .is_err()
         {
@@ -131,11 +141,16 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 tao_reserve,
                 alpha_reserve,
-                tao_delta,
-                alpha_delta
+                actual_tao_delta,
+                actual_alpha_delta
             );
+            // Return fees back into fee storage and return zeroes
+            FeesTao::<T>::insert(netuid, tao_fees);
+            FeesAlpha::<T>::insert(netuid, alpha_fees);
+            (TaoCurrency::ZERO, AlphaCurrency::ZERO)
         } else {
             SwapBalancer::<T>::insert(netuid, balancer);
+            (actual_tao_delta, actual_alpha_delta)
         }
     }
 
@@ -681,8 +696,8 @@ impl<T: Config> SwapHandler for Pallet<T> {
         netuid: NetUid,
         tao_delta: TaoCurrency,
         alpha_delta: AlphaCurrency,
-    ) {
-        Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
+    ) -> (TaoCurrency, AlphaCurrency) {
+        Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta)
     }
 
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {

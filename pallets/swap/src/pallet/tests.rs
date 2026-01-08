@@ -365,6 +365,45 @@ mod dispatchables {
         });
     }
 
+    /// Collects the fees and adds them to protocol liquidity
+    /// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::dispatchables::test_adjust_protocol_liquidity_collects_fees --exact --nocapture
+    #[test]
+    fn test_adjust_protocol_liquidity_collects_fees() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+
+            let tao_delta = TaoCurrency::ZERO;
+            let alpha_delta = AlphaCurrency::ZERO;
+
+            // Initialize reserves and price
+            // 0.1 price
+            let tao = TaoCurrency::from(1_000_000_000_u64);
+            let alpha = AlphaCurrency::from(10_000_000_000_u64);
+            TaoReserve::set_mock_reserve(netuid, tao);
+            AlphaReserve::set_mock_reserve(netuid, alpha);
+
+            // Insert fees
+            let tao_fees = TaoCurrency::from(1_000);
+            let alpha_fees = AlphaCurrency::from(1_000);
+            FeesTao::<Test>::insert(netuid, tao_fees);
+            FeesAlpha::<Test>::insert(netuid, alpha_fees);
+
+            // Adjust reserves
+            let (actual_tao_delta, actual_alpha_delta) =
+                Swap::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
+            TaoReserve::set_mock_reserve(netuid, tao + tao_delta);
+            AlphaReserve::set_mock_reserve(netuid, alpha + alpha_delta);
+
+            // Check that returned reserve deltas are correct (include fees)
+            assert_eq!(actual_tao_delta, tao_fees);
+            assert_eq!(actual_alpha_delta, alpha_fees);
+
+            // Check that fees got reset
+            assert_eq!(FeesTao::<Test>::get(netuid), TaoCurrency::ZERO);
+            assert_eq!(FeesAlpha::<Test>::get(netuid), AlphaCurrency::ZERO);
+        });
+    }
+
     // #[test]
     // fn test_toggle_user_liquidity() {
     //     new_test_ext().execute_with(|| {

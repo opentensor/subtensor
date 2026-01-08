@@ -46,7 +46,7 @@ pub trait SwapHandler {
         netuid: NetUid,
         tao_delta: TaoCurrency,
         alpha_delta: AlphaCurrency,
-    );
+    ) -> (TaoCurrency, AlphaCurrency);
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
     fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
