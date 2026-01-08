@@ -386,80 +386,80 @@ fn test_remove_stake_not_enough_balance_for_fees() {
 #[test]
 #[ignore]
 fn test_remove_stake_edge_alpha() {
-    todo!();
+    new_test_ext().execute_with(|| {
+        let stake_amount = TAO;
+        let sn = setup_subnets(1, 1);
+        setup_stake(
+            sn.subnets[0].netuid,
+            &sn.coldkey,
+            &sn.hotkeys[0],
+            stake_amount,
+        );
 
-    // new_test_ext().execute_with(|| {
-    //     let stake_amount = TAO;
-    //     let sn = setup_subnets(1, 1);
-    //     setup_stake(
-    //         sn.subnets[0].netuid,
-    //         &sn.coldkey,
-    //         &sn.hotkeys[0],
-    //         stake_amount,
-    //     );
+        // Simulate stake removal to get how much TAO should we get for unstaked Alpha
+        let current_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[0].netuid,
+        );
 
-    //     // Simulate stake removal to get how much TAO should we get for unstaked Alpha
-    //     let current_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-    //         &sn.hotkeys[0],
-    //         &sn.coldkey,
-    //         sn.subnets[0].netuid,
-    //     );
+        // Forse-set signer balance to ED
+        let current_balance = Balances::free_balance(sn.coldkey);
+        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+            &sn.coldkey,
+            current_balance - ExistentialDeposit::get(),
+        );
 
-    //     // Forse-set signer balance to ED
-    //     let current_balance = Balances::free_balance(sn.coldkey);
-    //     let _ = SubtensorModule::remove_balance_from_coldkey_account(
-    //         &sn.coldkey,
-    //         current_balance - ExistentialDeposit::get(),
-    //     );
+        // For-set Alpha balance to low, but enough to pay tx fees at the current Alpha price
+        let new_current_stake = AlphaCurrency::from(1_000_000);
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[0].netuid,
+            current_stake - new_current_stake,
+        );
 
-    //     // For-set Alpha balance to low, but enough to pay tx fees at the current Alpha price
-    //     let new_current_stake = AlphaCurrency::from(1_000_000);
-    //     SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-    //         &sn.hotkeys[0],
-    //         &sn.coldkey,
-    //         sn.subnets[0].netuid,
-    //         current_stake - new_current_stake,
-    //     );
+        // Remove stake
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+            hotkey: sn.hotkeys[0],
+            netuid: sn.subnets[0].netuid,
+            amount_unstaked: new_current_stake,
+        });
 
-    //     // Remove stake
-    //     let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
-    //         hotkey: sn.hotkeys[0],
-    //         netuid: sn.subnets[0].netuid,
-    //         amount_unstaked: new_current_stake,
-    //     });
+        // Dispatch the extrinsic with ChargeTransactionPayment extension
+        let info = call.get_dispatch_info();
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let result = ext.validate(
+            RuntimeOrigin::signed(sn.coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
-    //     // Dispatch the extrinsic with ChargeTransactionPayment extension
-    //     let info = call.get_dispatch_info();
-    //     let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
-    //     let result = ext.validate(
-    //         RuntimeOrigin::signed(sn.coldkey).into(),
-    //         &call.clone(),
-    //         &info,
-    //         10,
-    //         (),
-    //         &TxBaseImplication(()),
-    //         TransactionSource::External,
-    //     );
+        // Ok - Validation passed
+        assert_ok!(result);
 
-    //     // Ok - Validation passed
-    //     assert_ok!(result);
+        // Lower Alpha price to 0.0001 so that there is not enough alpha to cover tx fees
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1_000_000));
+        SubnetAlphaIn::<Test>::insert(sn.subnets[0].netuid, AlphaCurrency::from(10_000_000_000));
 
-    //     // Lower Alpha price to 0.0001 so that there is not enough alpha to cover tx fees
-    //     AlphaSqrtPrice::<Test>::insert(sn.subnets[0].netuid, U64F64::from_num(0.01));
-    //     let result_low_alpha_price = ext.validate(
-    //         RuntimeOrigin::signed(sn.coldkey).into(),
-    //         &call.clone(),
-    //         &info,
-    //         10,
-    //         (),
-    //         &TxBaseImplication(()),
-    //         TransactionSource::External,
-    //     );
-    //     assert_eq!(
-    //         result_low_alpha_price.unwrap_err(),
-    //         TransactionValidityError::Invalid(InvalidTransaction::Payment)
-    //     );
-    // });
+        let result_low_alpha_price = ext.validate(
+            RuntimeOrigin::signed(sn.coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_eq!(
+            result_low_alpha_price.unwrap_err(),
+            TransactionValidityError::Invalid(InvalidTransaction::Payment)
+        );
+    });
 }
 
 // Validation passes, but transaction fails => TAO fees are paid
