@@ -318,17 +318,18 @@ impl<T: Config> Pallet<T> {
     /// - [`SwapError::InvalidTickRange`] if `tick_low` is greater than or equal to `tick_high`.
     /// - Other [`SwapError`] variants as applicable.
     pub fn do_add_liquidity(
-        netuid: NetUid,
+        _netuid: NetUid,
         _coldkey_account_id: &T::AccountId,
         _hotkey_account_id: &T::AccountId,
         _liquidity: u64,
     ) -> Result<(PositionId, u64, u64), Error<T>> {
-        ensure!(
-            EnabledUserLiquidity::<T>::get(netuid),
-            Error::<T>::UserLiquidityDisabled
-        );
+        // ensure!(
+        //     EnabledUserLiquidity::<T>::get(netuid),
+        //     Error::<T>::UserLiquidityDisabled
+        // );
 
-        todo!();
+        // TODO: Revise when user liquidity is enabled
+        Err(Error::<T>::UserLiquidityDisabled)
     }
 
     /// Remove liquidity and credit balances back to (coldkey_account_id, hotkey_account_id) stake.
@@ -340,22 +341,24 @@ impl<T: Config> Pallet<T> {
         _coldkey_account_id: &T::AccountId,
         _position_id: PositionId,
     ) -> Result<RemoveLiquidityResult, Error<T>> {
-        todo!();
+        // TODO: Revise when user liquidity is enabled
+        Err(Error::<T>::UserLiquidityDisabled)
     }
 
     pub fn do_modify_position(
-        netuid: NetUid,
+        _netuid: NetUid,
         _coldkey_account_id: &T::AccountId,
         _hotkey_account_id: &T::AccountId,
         _position_id: PositionId,
         _liquidity_delta: i64,
     ) -> Result<UpdateLiquidityResult, Error<T>> {
-        ensure!(
-            EnabledUserLiquidity::<T>::get(netuid),
-            Error::<T>::UserLiquidityDisabled
-        );
+        // ensure!(
+        //     EnabledUserLiquidity::<T>::get(netuid),
+        //     Error::<T>::UserLiquidityDisabled
+        // );
 
-        todo!();
+        // TODO: Revise when user liquidity is enabled
+        Err(Error::<T>::UserLiquidityDisabled)
     }
 
     // /// Returns the number of positions for an account in a specific subnet
