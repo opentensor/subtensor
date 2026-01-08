@@ -1,7 +1,6 @@
 use super::*;
 use sp_core::Get;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
     ///
@@ -247,7 +246,6 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        T::SwapInterface::toggle_user_liquidity(netuid_to_register, true);
         // --- 18. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
