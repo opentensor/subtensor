@@ -54,56 +54,15 @@ impl<T: Config> Position<T> {
     /// returns tuple of (TAO, Alpha)
     ///
     pub fn to_token_amounts(&self, _price_curr: U64F64) -> Result<(u64, u64), Error<T>> {
-        // let one = U64F64::saturating_from_num(1);
-
-        // let sqrt_price_low = self
-        //     .tick_low
-        //     .try_to_sqrt_price()
-        //     .map_err(|_| Error::<T>::InvalidTickRange)?;
-        // let sqrt_price_high = self
-        //     .tick_high
-        //     .try_to_sqrt_price()
-        //     .map_err(|_| Error::<T>::InvalidTickRange)?;
-        // let liquidity_fixed = U64F64::saturating_from_num(self.liquidity);
-
-        // Ok(if sqrt_price_curr < sqrt_price_low {
-        //     (
-        //         0,
-        //         liquidity_fixed
-        //             .saturating_mul(
-        //                 one.safe_div(sqrt_price_low)
-        //                     .saturating_sub(one.safe_div(sqrt_price_high)),
-        //             )
-        //             .saturating_to_num::<u64>(),
-        //     )
-        // } else if sqrt_price_curr > sqrt_price_high {
-        //     (
-        //         liquidity_fixed
-        //             .saturating_mul(sqrt_price_high.saturating_sub(sqrt_price_low))
-        //             .saturating_to_num::<u64>(),
-        //         0,
-        //     )
-        // } else {
-        //     (
-        //         liquidity_fixed
-        //             .saturating_mul(sqrt_price_curr.saturating_sub(sqrt_price_low))
-        //             .saturating_to_num::<u64>(),
-        //         liquidity_fixed
-        //             .saturating_mul(
-        //                 one.safe_div(sqrt_price_curr)
-        //                     .saturating_sub(one.safe_div(sqrt_price_high)),
-        //             )
-        //             .saturating_to_num::<u64>(),
-        //     )
-        // })
-
-        todo!()
+        // TODO: Revise when user liquidity is available
+        Ok((0, 0))
     }
 
     /// Collect fees for a position
     /// Updates the position
     pub fn collect_fees(&mut self) -> (u64, u64) {
-        todo!()
+        // TODO: Revise when user liquidity is available
+        (0, 0)
     }
 }
 
