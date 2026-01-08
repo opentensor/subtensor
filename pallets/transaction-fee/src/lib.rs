@@ -144,7 +144,8 @@ where
         // This is not ideal because it may not pay all fees, but UX is the priority
         // and this approach still provides spam protection.
         alpha_vec.iter().any(|(hotkey, netuid)| {
-            let alpha_balance = pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            let alpha_balance =
+                pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey, coldkey, *netuid,
                 );
             let alpha_per_entry = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
@@ -168,7 +169,8 @@ where
         if !tao_per_entry.is_zero() {
             alpha_vec.iter().for_each(|(hotkey, netuid)| {
                 // Divide tao_amount evenly among all alpha entries
-                let alpha_balance = pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                let alpha_balance =
+                    pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
                         hotkey, coldkey, *netuid,
                     );
                 let mut alpha_equivalent =
@@ -179,11 +181,17 @@ where
                 if alpha_equivalent.is_zero() {
                     alpha_equivalent = alpha_balance;
                 }
-                let alpha_fee = alpha_equivalent
-                    .min(alpha_balance);
+                let alpha_fee = alpha_equivalent.min(alpha_balance);
 
                 // Sell alpha_fee and burn received tao (ignore unstake_from_subnet return)
-                let _ = pallet_subtensor::Pallet::<T>::unstake_from_subnet(hotkey, coldkey, *netuid, alpha_fee, 0.into(), true);
+                let _ = pallet_subtensor::Pallet::<T>::unstake_from_subnet(
+                    hotkey,
+                    coldkey,
+                    *netuid,
+                    alpha_fee,
+                    0.into(),
+                    true,
+                );
             });
         }
     }
