@@ -29,7 +29,10 @@ fn build_mock_epoch_output(netuid: NetUid) -> BTreeMap<U256, EpochTerms> {
     let mut output = BTreeMap::new();
     for uid in 0..n {
         if let Ok(hotkey) = SubtensorModule::get_hotkey_for_net_and_uid(netuid, uid) {
-            let has_permit = validator_permits.get(uid as usize).copied().unwrap_or(false);
+            let has_permit = validator_permits
+                .get(uid as usize)
+                .copied()
+                .unwrap_or(false);
             let stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid).to_u64();
             output.insert(
                 hotkey,

@@ -139,9 +139,6 @@ impl<T: Config> Pallet<T> {
         ValidatorTrust::<T>::insert(netuid, validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permit);
         StakeWeight::<T>::insert(netuid, stake_weight);
-
-        // Update voting power EMA for all validators on this subnet
-        Self::update_voting_power_for_subnet(netuid, output);
     }
 
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.

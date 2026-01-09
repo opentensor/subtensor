@@ -360,6 +360,9 @@ impl<T: Config> Pallet<T> {
         // State updates from epoch function
         Self::persist_netuid_epoch_terms(netuid, &aggregated);
 
+        // Update voting power EMA for all validators on this subnet
+        Self::update_voting_power_for_subnet(netuid, &aggregated);
+
         // Remap BTreeMap back to Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> format
         // for processing emissions in run_coinbase
         // Emission tuples ( hotkeys, server_emission, validator_emission )

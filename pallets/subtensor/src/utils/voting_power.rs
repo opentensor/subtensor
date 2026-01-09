@@ -1,6 +1,7 @@
 use super::*;
 use crate::epoch::run_epoch::EpochTerms;
 use alloc::collections::BTreeMap;
+use safe_math::*;
 use subtensor_runtime_common::NetUid;
 
 /// 14 days in blocks (assuming ~12 second blocks)
@@ -142,13 +143,7 @@ impl<T: Config> Pallet<T> {
             // Only validators (with vpermit) get voting power, not miners
             if terms.new_validator_permit {
                 // Use the subnet-specific stake from epoch calculation
-                Self::update_voting_power_for_hotkey(
-                    netuid,
-                    hotkey,
-                    terms.stake,
-                    alpha,
-                    min_stake,
-                );
+                Self::update_voting_power_for_hotkey(netuid, hotkey, terms.stake, alpha, min_stake);
             } else {
                 // Miner without vpermit - remove any existing voting power
                 VotingPower::<T>::remove(netuid, hotkey);
@@ -201,7 +196,7 @@ impl<T: Config> Pallet<T> {
         let new_ema = Self::calculate_voting_power_ema(current_stake, previous_ema, alpha);
 
         // Use 90% of min_stake as removal threshold (hysteresis to prevent noise-triggered removal)
-        let removal_threshold = min_stake.saturating_mul(9) / 10;
+        let removal_threshold = min_stake.saturating_mul(9).safe_div(10);
 
         // Only remove if they previously had voting power ABOVE threshold and decayed significantly below.
         // This allows new validators to build up voting power from 0 without being removed.
