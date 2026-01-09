@@ -29,76 +29,76 @@ mod benchmarks {
         set_fee_rate(RawOrigin::Root, netuid, rate);
     }
 
-    #[benchmark]
-    fn add_liquidity() {
-        let netuid = NetUid::from(1);
+    // #[benchmark]
+    // fn add_liquidity() {
+    //     let netuid = NetUid::from(1);
 
-        init_swap::<T>(netuid);
+    //     init_swap::<T>(netuid);
 
-        let caller: T::AccountId = whitelisted_caller();
-        let hotkey: T::AccountId = account("hotkey", 0, 0);
+    //     let caller: T::AccountId = whitelisted_caller();
+    //     let hotkey: T::AccountId = account("hotkey", 0, 0);
 
-        #[extrinsic_call]
-        add_liquidity(RawOrigin::Signed(caller), hotkey, netuid, 1000);
-    }
+    //     #[extrinsic_call]
+    //     add_liquidity(RawOrigin::Signed(caller), hotkey, netuid, 1000);
+    // }
 
-    #[benchmark]
-    fn remove_liquidity() {
-        let netuid = NetUid::from(1);
+    // #[benchmark]
+    // fn remove_liquidity() {
+    //     let netuid = NetUid::from(1);
 
-        init_swap::<T>(netuid);
+    //     init_swap::<T>(netuid);
 
-        let caller: T::AccountId = whitelisted_caller();
-        let hotkey: T::AccountId = account("hotkey", 0, 0);
-        let id = PositionId::from(1u128);
+    //     let caller: T::AccountId = whitelisted_caller();
+    //     let hotkey: T::AccountId = account("hotkey", 0, 0);
+    //     let id = PositionId::from(1u128);
 
-        PositionsV2::<T>::insert(
-            (netuid, caller.clone(), id),
-            Position {
-                id,
-                netuid,
-                // liquidity: 1000,
-                // fees_tao: I64F64::from_num(0),
-                // fees_alpha: I64F64::from_num(0),
-                _phantom: PhantomData,
-            },
-        );
+    //     PositionsV2::<T>::insert(
+    //         (netuid, caller.clone(), id),
+    //         Position {
+    //             id,
+    //             netuid,
+    //             // liquidity: 1000,
+    //             // fees_tao: I64F64::from_num(0),
+    //             // fees_alpha: I64F64::from_num(0),
+    //             _phantom: PhantomData,
+    //         },
+    //     );
 
-        #[extrinsic_call]
-        remove_liquidity(RawOrigin::Signed(caller), hotkey, netuid.into(), id.into());
-    }
+    //     #[extrinsic_call]
+    //     remove_liquidity(RawOrigin::Signed(caller), hotkey, netuid.into(), id.into());
+    // }
 
-    #[benchmark]
-    fn modify_position() {
-        let netuid = NetUid::from(1);
+    // #[benchmark]
+    // fn modify_position() {
+    //     let netuid = NetUid::from(1);
 
-        init_swap::<T>(netuid);
+    //     init_swap::<T>(netuid);
 
-        let caller: T::AccountId = whitelisted_caller();
-        let hotkey: T::AccountId = account("hotkey", 0, 0);
-        let id = PositionId::from(1u128);
+    //     let caller: T::AccountId = whitelisted_caller();
+    //     let hotkey: T::AccountId = account("hotkey", 0, 0);
+    //     let id = PositionId::from(1u128);
 
-        PositionsV2::<T>::insert(
-            (netuid, caller.clone(), id),
-            Position {
-                id,
-                netuid,
-                // liquidity: 10000,
-                // fees_tao: I64F64::from_num(0),
-                // fees_alpha: I64F64::from_num(0),
-                _phantom: PhantomData,
-            },
-        );
+    //     PositionsV2::<T>::insert(
+    //         (netuid, caller.clone(), id),
+    //         Position {
+    //             id,
+    //             netuid,
+    //             // liquidity: 10000,
+    //             // fees_tao: I64F64::from_num(0),
+    //             // fees_alpha: I64F64::from_num(0),
+    //             _phantom: PhantomData,
+    //         },
+    //     );
 
-        #[extrinsic_call]
-        modify_position(
-            RawOrigin::Signed(caller),
-            hotkey,
-            netuid.into(),
-            id.into(),
-            -5000,
-        );
-    }
+    //     #[extrinsic_call]
+    //     modify_position(
+    //         RawOrigin::Signed(caller),
+    //         hotkey,
+    //         netuid.into(),
+    //         id.into(),
+    //         -5000,
+    //     );
+    // }
 
     // #[benchmark]
     // fn toggle_user_liquidity() {
