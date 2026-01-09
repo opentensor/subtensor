@@ -3,16 +3,15 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::{BoundedVec, pallet_prelude::ConstU32};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
-use sp_core::{crypto::KeyTypeId, sr25519};
-use sp_io::crypto::sr25519_generate;
-use sp_runtime::{AccountId32, traits::Hash as HashT};
+use sp_core::sr25519;
+use sp_runtime::traits::Hash as HashT;
 use sp_std::vec;
 
-/// Helper to build bounded bytes (public key) of a given length.
-fn bounded_pk<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
-    let v = vec![7u8; len];
-    BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
-}
+// /// Helper to build bounded bytes (public key) of a given length.
+// fn bounded_pk<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
+//     let v = vec![7u8; len];
+//     BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
+// }
 
 /// Helper to build bounded bytes (ciphertext) of a given length.
 fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
@@ -20,20 +19,20 @@ fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
     BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
 }
 
-/// Seed Aura authorities so `EnsureAuraAuthority` passes for a given sr25519 pubkey.
-///
-/// We avoid requiring `ByteArray` on `AuthorityId` by relying on:
-/// `<T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>`.
-fn seed_aura_authority_from_sr25519<T>(pubkey: &sr25519::Public)
-where
-    T: pallet::Config + pallet_aura::Config,
-    <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
-{
-    let auth_id: <T as pallet_aura::Config>::AuthorityId = (*pubkey).into();
-    pallet_aura::Authorities::<T>::mutate(|auths| {
-        let _ = auths.try_push(auth_id);
-    });
-}
+// /// Seed Aura authorities so `EnsureAuraAuthority` passes for a given sr25519 pubkey.
+// ///
+// /// We avoid requiring `ByteArray` on `AuthorityId` by relying on:
+// /// `<T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>`.
+// fn seed_aura_authority_from_sr25519<T>(pubkey: &sr25519::Public)
+// where
+//     T: pallet::Config + pallet_aura::Config,
+//     <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
+// {
+//     let auth_id: <T as pallet_aura::Config>::AuthorityId = (*pubkey).into();
+//     pallet_aura::Authorities::<T>::mutate(|auths| {
+//         let _ = auths.try_push(auth_id);
+//     });
+// }
 
 #[benchmarks(
     where
@@ -46,7 +45,7 @@ mod benches {
     use super::*;
 
     // We use the custom value for announce_next_key to charge a higher fee, not the benchmark result.
-    /// Benchmark `announce_next_key`.
+    // /// Benchmark `announce_next_key`.
     // #[benchmark]
     // fn announce_next_key() {
     //     // Generate a deterministic dev key in the host keystore (for benchmarks).
