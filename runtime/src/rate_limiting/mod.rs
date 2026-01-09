@@ -218,7 +218,8 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                         RateLimitUsageKey::<AccountId>::Account(new_hotkey.clone()),
                     ])
                 }
-                SubtensorCall::increase_take { hotkey, .. } => {
+                SubtensorCall::increase_take { hotkey, .. }
+                | SubtensorCall::decrease_take { hotkey, .. } => {
                     Some(vec![RateLimitUsageKey::<AccountId>::Account(
                         hotkey.clone(),
                     )])

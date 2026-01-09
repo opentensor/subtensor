@@ -1203,9 +1203,9 @@ pub mod pallet {
 
         /// The extrinsic sets the rate limit for delegate take transactions.
         /// It is only callable by the root account.
-		/// The extrinsic will call the Subtensor pallet to set the rate limit for delegate take
-		/// transactions.
-		///
+        /// The extrinsic will call the Subtensor pallet to set the rate limit for delegate take
+        /// transactions.
+        ///
         /// Deprecated: delegate take rate limit is now configured via `pallet-rate-limiting` on the
         /// delegate take group target (`GROUP_DELEGATE_TAKE`).
         #[pallet::call_index(45)]

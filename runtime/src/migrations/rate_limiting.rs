@@ -1352,15 +1352,20 @@ mod tests {
                 RateLimitKey::LastTxBlockDelegateTake(hot.clone()),
                 now - 1,
             );
-            pallet_subtensor::TxDelegateTakeRateLimit::<Runtime>::put(span);
+            put_legacy_value(b"TxDelegateTakeRateLimit", span);
 
             let call = RuntimeCall::SubtensorModule(SubtensorCall::increase_take {
                 hotkey: hot.clone(),
                 take: 5,
             });
             let origin = RuntimeOrigin::signed(account(21));
-			// FIXME exceeds_tx_delegate_take_rate_limit is removed
-            // let legacy = || !SubtensorModule::exceeds_tx_delegate_take_rate_limit(now - 1, now);
+            let legacy = || {
+                let last = now - 1;
+                if span == 0 || last == 0 {
+                    return true;
+                }
+                now - last > span
+            };
             parity_check(now, call, origin, None, None, legacy);
         });
     }

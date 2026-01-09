@@ -4,8 +4,9 @@
 use codec::Encode;
 use frame_support::assert_ok;
 use node_subtensor_runtime::{
-    Executive, Runtime, RuntimeCall, SignedPayload, System, TransactionExtensions,
-    UncheckedExtrinsic, check_nonce, sudo_wrapper, transaction_payment_wrapper,
+    Executive, Runtime, RuntimeCall, SignedPayload, SubtensorInitialTxDelegateTakeRateLimit,
+    System, TransactionExtensions, UncheckedExtrinsic, check_nonce, sudo_wrapper,
+    transaction_payment_wrapper,
 };
 use sp_core::{Pair, sr25519};
 use sp_runtime::{
@@ -101,7 +102,7 @@ fn register_network_is_rate_limited_after_migration() {
             assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, call_b.clone());
 
             // Migration sets register-network limit to 4 days (28_800 blocks).
-            let limit = start_block.saturating_add(28_800);
+            let limit = start_block + 28_800;
 
             // Should still be rate-limited.
             System::set_block_number(limit - 1);
@@ -114,7 +115,7 @@ fn register_network_is_rate_limited_after_migration() {
             // Both calls share the same usage key and window.
             assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, call_a.clone());
 
-            System::set_block_number(limit.saturating_add(28_800));
+            System::set_block_number(limit + 28_800);
             assert_extrinsic_ok(&coldkey, &coldkey_pair, call_a);
         });
 }
@@ -185,7 +186,7 @@ fn serving_is_rate_limited_after_migration() {
             assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, serve_prometheus.clone());
 
             // Migration sets serving limit to 50 blocks by default.
-            let limit = start_block.saturating_add(50);
+            let limit = start_block + 50;
 
             // Should still be rate-limited.
             System::set_block_number(limit - 1);
@@ -200,5 +201,158 @@ fn serving_is_rate_limited_after_migration() {
             assert_extrinsic_ok(&hotkey, &hotkey_pair, serve_prometheus.clone());
 
             assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, serve_prometheus);
+        });
+}
+
+#[test]
+fn delegate_take_increase_is_rate_limited_after_migration() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[6u8; 32]);
+    let hotkey_pair = sr25519::Pair::from_seed(&[7u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let hotkey = AccountId::from(hotkey_pair.public());
+    let balance = 10_000_000_000_000_u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), balance)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            // Run runtime upgrades explicitly so rate-limiting config is seeded for tests.
+            Executive::execute_on_runtime_upgrade();
+
+            assert_extrinsic_ok(
+                &coldkey,
+                &coldkey_pair,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register {
+                    hotkey: hotkey.clone(),
+                }),
+            );
+
+            // Seed current take so increase_take passes take checks.
+            pallet_subtensor::Delegates::<Runtime>::insert(&hotkey, 1u16);
+
+            let increase_once =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::increase_take {
+                    hotkey: hotkey.clone(),
+                    take: 2u16,
+                });
+            let increase_twice =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::increase_take {
+                    hotkey: hotkey.clone(),
+                    take: 3u16,
+                });
+
+            let start_block = System::block_number();
+
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, increase_once);
+
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, increase_twice.clone());
+
+            let limit = SubtensorInitialTxDelegateTakeRateLimit::get();
+            let limit_block = start_block + limit.saturated_into::<u32>();
+            let allowed_block = limit_block + 1;
+
+            System::set_block_number(limit_block - 1);
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, increase_twice.clone());
+
+            System::set_block_number(allowed_block);
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, increase_twice);
+        });
+}
+
+#[test]
+fn delegate_take_decrease_is_not_rate_limited_after_migration() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[10u8; 32]);
+    let hotkey_pair = sr25519::Pair::from_seed(&[11u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let hotkey = AccountId::from(hotkey_pair.public());
+    let balance = 10_000_000_000_000_u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), balance)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            // Run runtime upgrades explicitly so rate-limiting config is seeded for tests.
+            Executive::execute_on_runtime_upgrade();
+
+            assert_extrinsic_ok(
+                &coldkey,
+                &coldkey_pair,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register {
+                    hotkey: hotkey.clone(),
+                }),
+            );
+
+            // Seed current take so decreases are valid and deterministic.
+            pallet_subtensor::Delegates::<Runtime>::insert(&hotkey, 3u16);
+
+            let decrease_once =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::decrease_take {
+                    hotkey: hotkey.clone(),
+                    take: 2u16,
+                });
+            let decrease_twice =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::decrease_take {
+                    hotkey: hotkey.clone(),
+                    take: 1u16,
+                });
+
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, decrease_once);
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, decrease_twice);
+        });
+}
+
+#[test]
+fn delegate_take_decrease_blocks_immediate_increase_after_migration() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[8u8; 32]);
+    let hotkey_pair = sr25519::Pair::from_seed(&[9u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let hotkey = AccountId::from(hotkey_pair.public());
+    let balance = 10_000_000_000_000_u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), balance)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            // Run runtime upgrades explicitly so rate-limiting config is seeded for tests.
+            Executive::execute_on_runtime_upgrade();
+
+            assert_extrinsic_ok(
+                &coldkey,
+                &coldkey_pair,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register {
+                    hotkey: hotkey.clone(),
+                }),
+            );
+
+            // Seed current take so decrease then increase remains valid.
+            pallet_subtensor::Delegates::<Runtime>::insert(&hotkey, 2u16);
+
+            let decrease = RuntimeCall::SubtensorModule(pallet_subtensor::Call::decrease_take {
+                hotkey: hotkey.clone(),
+                take: 1u16,
+            });
+            let increase = RuntimeCall::SubtensorModule(pallet_subtensor::Call::increase_take {
+                hotkey: hotkey.clone(),
+                take: 2u16,
+            });
+
+            let start_block = System::block_number();
+
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, decrease);
+
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, increase.clone());
+
+            let limit = SubtensorInitialTxDelegateTakeRateLimit::get();
+            let limit_block = start_block + limit.saturated_into::<u32>();
+            let allowed_block = limit_block + 1;
+
+            System::set_block_number(limit_block - 1);
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, increase.clone());
+
+            System::set_block_number(allowed_block);
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, increase);
         });
 }
