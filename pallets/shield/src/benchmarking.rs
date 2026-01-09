@@ -45,30 +45,31 @@ where
 mod benches {
     use super::*;
 
+    // We use the custom value for announce_next_key to charge a higher fee, not the benchmark result.
     /// Benchmark `announce_next_key`.
-    #[benchmark]
-    fn announce_next_key() {
-        // Generate a deterministic dev key in the host keystore (for benchmarks).
-        // Any 4-byte KeyTypeId works for generation; it does not affect AccountId derivation.
-        const KT: KeyTypeId = KeyTypeId(*b"benc");
-        let alice_pub: sr25519::Public = sr25519_generate(KT, Some("//Alice".as_bytes().to_vec()));
-        let alice_acc: AccountId32 = alice_pub.into();
+    // #[benchmark]
+    // fn announce_next_key() {
+    //     // Generate a deterministic dev key in the host keystore (for benchmarks).
+    //     // Any 4-byte KeyTypeId works for generation; it does not affect AccountId derivation.
+    //     const KT: KeyTypeId = KeyTypeId(*b"benc");
+    //     let alice_pub: sr25519::Public = sr25519_generate(KT, Some("//Alice".as_bytes().to_vec()));
+    //     let alice_acc: AccountId32 = alice_pub.into();
 
-        // Make this account an Aura authority for the generic runtime.
-        seed_aura_authority_from_sr25519::<T>(&alice_pub);
+    //     // Make this account an Aura authority for the generic runtime.
+    //     seed_aura_authority_from_sr25519::<T>(&alice_pub);
 
-        // Valid Kyber768 public key length per pallet check.
-        const KYBER768_PK_LEN: usize = 1184;
-        let public_key: BoundedVec<u8, ConstU32<2048>> = bounded_pk::<2048>(KYBER768_PK_LEN);
+    //     // Valid Kyber768 public key length per pallet check.
+    //     const KYBER768_PK_LEN: usize = 1184;
+    //     let public_key: BoundedVec<u8, ConstU32<2048>> = bounded_pk::<2048>(KYBER768_PK_LEN);
 
-        // Measure: dispatch the extrinsic.
-        #[extrinsic_call]
-        announce_next_key(RawOrigin::Signed(alice_acc.clone()), public_key.clone());
+    //     // Measure: dispatch the extrinsic.
+    //     #[extrinsic_call]
+    //     announce_next_key(RawOrigin::Signed(alice_acc.clone()), public_key.clone());
 
-        // Assert: NextKey should be set exactly.
-        let stored = NextKey::<T>::get().expect("must be set by announce_next_key");
-        assert_eq!(stored, public_key);
-    }
+    //     // Assert: NextKey should be set exactly.
+    //     let stored = NextKey::<T>::get().expect("must be set by announce_next_key");
+    //     assert_eq!(stored, public_key);
+    // }
 
     /// Benchmark `submit_encrypted`.
     #[benchmark]
