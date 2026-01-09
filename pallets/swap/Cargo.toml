@@ -45,6 +45,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-subtensor-swap-runtime-api/std",
+	"rand/std",
 	"safe-math/std",
 	"safe-bigmath/std",
 	"scale-info/std",
