@@ -91,7 +91,10 @@ try-runtime = [
 	"pallet-crowdloan/try-runtime",
 	"pallet-drand/try-runtime",
 	"pallet-subtensor-proxy/try-runtime",
-	"pallet-subtensor-utility/try-runtime"
+	"pallet-subtensor-utility/try-runtime",
+	"pallet-shield/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-aura/try-runtime",
 ]
 default = ["std"]
 std = [
@@ -120,6 +123,9 @@ std = [
 	"pallet-subtensor-proxy/std",
 	"pallet-subtensor-swap/std",
 	"pallet-shield/std",
+	"pallet-timestamp/std",
+	"pallet-aura/std",
+	"sp-consensus-aura/std",
 	"subtensor-swap-interface/std",
 	"pallet-subtensor-utility/std",
 	"safe-math/std",
@@ -153,7 +159,8 @@ runtime-benchmarks = [
 	"pallet-subtensor-proxy/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-subtensor-utility/runtime-benchmarks",
-	"pallet-shield/runtime-benchmarks"
+	"pallet-shield/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks"
 ]
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]
