@@ -58,6 +58,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             + pallet_balances::Config
             + pallet_evm::Config
             + pallet_subtensor::Config
+            + pallet_shield::Config
             + Send
             + Sync
             + TypeInfo,
@@ -65,7 +66,8 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         <R as frame_system::Config>::RuntimeCall: GetDispatchInfo
             + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
             + IsSubType<pallet_balances::Call<R>>
-            + IsSubType<pallet_subtensor::Call<R>>,
+            + IsSubType<pallet_subtensor::Call<R>>
+            + IsSubType<pallet_shield::Call<R>>,
         <R as frame_system::Config>::RuntimeOrigin:
             From<RawOrigin<R::AccountId>> + AsSystemOriginSigner<R::AccountId> + Clone,
     {

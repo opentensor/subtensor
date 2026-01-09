@@ -68,6 +68,7 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_shield::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -81,7 +82,8 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -101,6 +103,7 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_shield::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -114,7 +117,8 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -163,6 +167,7 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_shield::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -177,6 +182,7 @@ where
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
         + Decode,
     <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
         From<Option<pallet_evm::AccountIdOf<R>>>,

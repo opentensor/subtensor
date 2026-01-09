@@ -18,6 +18,7 @@ where
         + pallet_balances::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
+        + pallet_shield::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -26,7 +27,8 @@ where
     <R as frame_system::Config>::RuntimeCall: GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -43,6 +45,7 @@ where
         + pallet_balances::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
+        + pallet_shield::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -51,7 +54,8 @@ where
     <R as frame_system::Config>::RuntimeCall: GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,

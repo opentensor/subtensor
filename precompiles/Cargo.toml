@@ -38,6 +38,7 @@ pallet-subtensor-swap.workspace = true
 pallet-admin-utils.workspace = true
 subtensor-swap-interface.workspace = true
 pallet-crowdloan.workspace = true
+pallet-shield.workspace = true
 
 [lints]
 workspace = true
