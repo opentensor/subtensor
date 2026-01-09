@@ -29,6 +29,7 @@ mod benchmarks {
         set_fee_rate(RawOrigin::Root, netuid, rate);
     }
 
+    // TODO: Revise when user liquidity is available
     // #[benchmark]
     // fn add_liquidity() {
     //     let netuid = NetUid::from(1);
@@ -42,6 +43,7 @@ mod benchmarks {
     //     add_liquidity(RawOrigin::Signed(caller), hotkey, netuid, 1000);
     // }
 
+    // TODO: Revise when user liquidity is available
     // #[benchmark]
     // fn remove_liquidity() {
     //     let netuid = NetUid::from(1);
@@ -68,6 +70,7 @@ mod benchmarks {
     //     remove_liquidity(RawOrigin::Signed(caller), hotkey, netuid.into(), id.into());
     // }
 
+    // TODO: Revise when user liquidity is available
     // #[benchmark]
     // fn modify_position() {
     //     let netuid = NetUid::from(1);
