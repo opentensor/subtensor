@@ -41,6 +41,8 @@ where
         <T as pallet::Config>::RuntimeCall: From<frame_system::Call<T>>,
         // Needed so we can seed Authorities from a dev sr25519 pubkey.
         <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
+        <T as frame_system::Config>::AccountId: From<AccountId32> + Into<AccountId32>,
+        <T as frame_system::Config>::RuntimeOrigin: From<RawOrigin<AccountId32>>
 )]
 mod benches {
     use super::*;
