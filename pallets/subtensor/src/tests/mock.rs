@@ -20,11 +20,12 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
     BuildStorage, Percent,
-    traits::{BlakeTwo256, IdentityLookup},
+    traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
@@ -37,16 +38,19 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
-        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>} = 2,
-        SubtensorModule: crate::{Pallet, Call, Storage, Event<T>} = 7,
-        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
-        Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
-        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
-        Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
-        Proxy: pallet_subtensor_proxy = 14,
+        System: frame_system = 1,
+        Balances: pallet_balances = 2,
+        Timestamp: pallet_timestamp = 3,
+        Aura: pallet_aura = 4,
+        Shield: pallet_shield = 5,
+        SubtensorModule: crate = 6,
+        Utility: pallet_utility = 7,
+        Scheduler: pallet_scheduler = 8,
+        Preimage: pallet_preimage = 9,
+        Drand: pallet_drand = 10,
+        Swap: pallet_subtensor_swap = 11,
+        Crowdloan: pallet_crowdloan = 12,
+        Proxy: pallet_subtensor_proxy = 13,
     }
 );
 
@@ -549,6 +553,41 @@ where
     ) -> Option<Self::Extrinsic> {
         Some(UncheckedExtrinsic::new_signed(call, nonce.into(), (), ()))
     }
+}
+
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {
+    type MinimumPeriod = ConstU64<0>;
+}
+
+parameter_types! {
+    pub const MaxAuthorities: u32 = 32;
+    pub const AllowMultipleBlocksPerSlot: bool = false;
+    pub const SlotDuration: u64 = 6000;
+}
+
+impl pallet_aura::Config for Test {
+    type AuthorityId = AuraId;
+    // For tests we don't need dynamic disabling; just use unit type.
+    type DisabledValidators = ();
+    type MaxAuthorities = MaxAuthorities;
+    type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
+    type SlotDuration = SlotDuration;
+}
+
+pub struct TestAuthorityOrigin;
+
+impl pallet_shield::AuthorityOriginExt<RuntimeOrigin> for TestAuthorityOrigin {
+    type AccountId = U256;
+
+    fn ensure_validator(_origin: RuntimeOrigin) -> Result<Self::AccountId, BadOrigin> {
+        Ok(U256::from(0))
+    }
+}
+
+impl pallet_shield::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type AuthorityOrigin = TestAuthorityOrigin;
 }
 
 static TEST_LOGS_INIT: OnceLock<()> = OnceLock::new();
