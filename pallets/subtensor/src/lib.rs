@@ -640,7 +640,6 @@ pub mod pallet {
         T::InitialSubnetOwnerCut::get()
     }
 
-
     /// Default value for recycle or burn.
     #[pallet::type_value]
     pub fn DefaultRecycleOrBurn<T: Config>() -> RecycleOrBurnEnum {
