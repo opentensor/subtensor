@@ -1061,13 +1061,12 @@ fn test_swap_basic() {
             let swap_amount = order.amount().to_u64();
 
             // Setup swap
-            assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
-
             // Price is 0.25
             let initial_tao_reserve = TaoCurrency::from(1_000_000_000_u64);
             let initial_alpha_reserve = AlphaCurrency::from(4_000_000_000_u64);
             TaoReserve::set_mock_reserve(netuid, initial_tao_reserve);
             AlphaReserve::set_mock_reserve(netuid, initial_alpha_reserve);
+            assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
 
             // Get current price
             let current_price_before = Pallet::<Test>::current_price(netuid);
@@ -1233,10 +1232,6 @@ fn test_swap_precision_edge_case() {
 #[test]
 fn test_convert_deltas() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
-
-        // TODO: Add more test cases with different weights and edge cases for reserves
         for (tao, alpha, w_quote, delta_in) in [
             (1500, 1000, 0.5, 1),
             (1500, 1000, 0.5, 10000),
@@ -1250,6 +1245,30 @@ fn test_convert_deltas() {
             (1000000, 1, 0.5, 10000),
             (1000000, 1, 0.5, 1000000),
             (1000000, 1, 0.5, u64::MAX),
+            (1500, 1000, 0.50000001, 1),
+            (1500, 1000, 0.50000001, 10000),
+            (1500, 1000, 0.50000001, 1000000),
+            (1500, 1000, 0.50000001, u64::MAX),
+            (1, 1000000, 0.50000001, 1),
+            (1, 1000000, 0.50000001, 10000),
+            (1, 1000000, 0.50000001, 1000000),
+            (1, 1000000, 0.50000001, u64::MAX),
+            (1000000, 1, 0.50000001, 1),
+            (1000000, 1, 0.50000001, 10000),
+            (1000000, 1, 0.50000001, 1000000),
+            (1000000, 1, 0.50000001, u64::MAX),
+            (1500, 1000, 0.49999999, 1),
+            (1500, 1000, 0.49999999, 10000),
+            (1500, 1000, 0.49999999, 1000000),
+            (1500, 1000, 0.49999999, u64::MAX),
+            (1, 1000000, 0.49999999, 1),
+            (1, 1000000, 0.49999999, 10000),
+            (1, 1000000, 0.49999999, 1000000),
+            (1, 1000000, 0.49999999, u64::MAX),
+            (1000000, 1, 0.49999999, 1),
+            (1000000, 1, 0.49999999, 10000),
+            (1000000, 1, 0.49999999, 1000000),
+            (1000000, 1, 0.49999999, u64::MAX),
             // Low quote weight
             (1500, 1000, 0.1, 1),
             (1500, 1000, 0.1, 10000),
@@ -1278,8 +1297,11 @@ fn test_convert_deltas() {
             (1000000, 1, 0.9, u64::MAX),
         ] {
             // Initialize reserves and weights
+            let netuid = NetUid::from(1);
             TaoReserve::set_mock_reserve(netuid, TaoCurrency::from(tao));
             AlphaReserve::set_mock_reserve(netuid, AlphaCurrency::from(alpha));
+            assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+
             let w_accuracy = 1_000_000_000_f64;
             let w_quote_pt =
                 Perquintill::from_rational((w_quote * w_accuracy) as u128, w_accuracy as u128);
