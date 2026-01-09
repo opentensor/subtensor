@@ -30,6 +30,15 @@ use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
 use crate::{Call, Error};
 
+fn run_to_block(n: u64) {
+    System::run_to_block_with::<AllPalletsWithSystem>(
+        n,
+        frame_system::RunToBlockHooks::default().before_finalize(|bn| {
+            Timestamp::set_timestamp(bn);
+        }),
+    );
+}
+
 #[test]
 fn test_announce_coldkey_swap_works() {
     new_test_ext(1).execute_with(|| {
@@ -96,7 +105,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
         );
 
         let reannouncement_delay = ColdkeySwapReannouncementDelay::<Test>::get();
-        System::run_to_block::<AllPalletsWithSystem>(now + delay + reannouncement_delay);
+        run_to_block(now + delay + reannouncement_delay);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
@@ -137,7 +146,7 @@ fn test_announce_coldkey_swap_only_pays_swap_cost_if_no_announcement_exists() {
         let now = System::block_number();
         let base_delay = ColdkeySwapAnnouncementDelay::<Test>::get();
         let reannouncement_delay = ColdkeySwapReannouncementDelay::<Test>::get();
-        System::run_to_block::<AllPalletsWithSystem>(now + base_delay + reannouncement_delay);
+        run_to_block(now + base_delay + reannouncement_delay);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
@@ -218,7 +227,7 @@ fn test_swap_coldkey_announced_works() {
 
         // Run some blocks for the announcement to be past the delay
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
-        System::run_to_block::<AllPalletsWithSystem>(now + delay);
+        run_to_block(now + delay);
 
         let (
             netuid1,
@@ -358,7 +367,7 @@ fn test_swap_coldkey_announced_with_already_associated_coldkey_fails() {
 
         let now = System::block_number();
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
-        System::run_to_block::<AllPalletsWithSystem>(now + delay);
+        run_to_block(now + delay);
 
         SubtensorModule::create_account_if_non_existent(&new_coldkey, &hotkey);
 
@@ -385,7 +394,7 @@ fn test_swap_coldkey_announced_with_hotkey_fails() {
 
         let now = System::block_number();
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
-        System::run_to_block::<AllPalletsWithSystem>(now + delay);
+        run_to_block(now + delay);
 
         SubtensorModule::create_account_if_non_existent(&new_coldkey, &hotkey);
 
@@ -1383,20 +1392,28 @@ fn test_subtensor_extension_rejects_any_call_that_is_not_announce_or_swap() {
             );
         }
 
-        // Reannounce coldkey swap should succeed
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::announce_coldkey_swap {
-            new_coldkey_hash: another_coldkey_hash,
-        });
-        let info = call.get_dispatch_info();
-        let ext = SubtensorTransactionExtension::<Test>::new();
-        assert_ok!(ext.dispatch_transaction(RuntimeOrigin::signed(who).into(), call, &info, 0, 0));
+        let authorized_calls: Vec<RuntimeCall> = vec![
+            RuntimeCall::SubtensorModule(SubtensorCall::announce_coldkey_swap {
+                new_coldkey_hash: another_coldkey_hash,
+            }),
+            RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey_announced { new_coldkey }),
+            RuntimeCall::Shield(pallet_shield::Call::submit_encrypted {
+                commitment: <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey),
+                ciphertext: BoundedVec::truncate_from(vec![1, 2, 3, 4]),
+            }),
+        ];
 
-        // Swap coldkey announced should succeed
-        let call =
-            RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey_announced { new_coldkey });
-        let info = call.get_dispatch_info();
-        let ext = SubtensorTransactionExtension::<Test>::new();
-        assert_ok!(ext.dispatch_transaction(RuntimeOrigin::signed(who).into(), call, &info, 0, 0));
+        for call in authorized_calls {
+            let info = call.get_dispatch_info();
+            let ext = SubtensorTransactionExtension::<Test>::new();
+            assert_ok!(ext.dispatch_transaction(
+                RuntimeOrigin::signed(who).into(),
+                call,
+                &info,
+                0,
+                0
+            ));
+        }
     });
 }
 

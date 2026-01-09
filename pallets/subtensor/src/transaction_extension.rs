@@ -85,13 +85,14 @@ where
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config>
+impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config + pallet_shield::Config>
     TransactionExtension<<T as frame_system::Config>::RuntimeCall>
     for SubtensorTransactionExtension<T>
 where
     CallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<Call<T>>
-        + IsSubType<BalancesCall<T>>,
+        + IsSubType<BalancesCall<T>>
+        + IsSubType<pallet_shield::Call<T>>,
     OriginOf<T>: AsSystemOriginSigner<T::AccountId> + Clone,
 {
     const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
@@ -115,15 +116,21 @@ where
             return Ok((Default::default(), (), origin));
         };
 
-        // Ensure the origin coldkey is not announced for a swap.
-        if ColdkeySwapAnnouncements::<T>::contains_key(who)
-            && !matches!(
+        if ColdkeySwapAnnouncements::<T>::contains_key(who) {
+            let is_allowed_direct = matches!(
                 call.is_sub_type(),
                 Some(Call::announce_coldkey_swap { .. })
                     | Some(Call::swap_coldkey_announced { .. })
-            )
-        {
-            return Err(CustomTransactionError::ColdkeySwapAnnounced.into());
+            );
+
+            let is_mev_protected = matches!(
+                IsSubType::<pallet_shield::Call<T>>::is_sub_type(call),
+                Some(pallet_shield::Call::submit_encrypted { .. })
+            );
+
+            if !is_allowed_direct && !is_mev_protected {
+                return Err(CustomTransactionError::ColdkeySwapAnnounced.into());
+            }
         }
 
         match call.is_sub_type() {
