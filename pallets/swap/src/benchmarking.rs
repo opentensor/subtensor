@@ -2,16 +2,13 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::multiple_bound_locations)]
 
-use core::marker::PhantomData;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use subtensor_runtime_common::NetUid;
 
-use crate::{
-    pallet::{Call, Config, Pallet, PositionsV2},
-    position::{Position, PositionId},
-};
+use crate::pallet::{Call, Config, Pallet};
 
+#[allow(dead_code)]
 fn init_swap<T: Config>(netuid: NetUid) {
     let _ = Pallet::<T>::maybe_initialize_palswap(netuid);
 }
