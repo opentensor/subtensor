@@ -186,9 +186,6 @@ mod config {
         /// Initial transaction rate limit.
         #[pallet::constant]
         type InitialTxRateLimit: Get<u64>;
-        /// Initial delegate take transaction rate limit.
-        #[pallet::constant]
-        type InitialTxDelegateTakeRateLimit: Get<u64>;
         /// Initial childkey take transaction rate limit.
         #[pallet::constant]
         type InitialTxChildKeyTakeRateLimit: Get<u64>;

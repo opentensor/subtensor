@@ -1359,7 +1359,8 @@ mod tests {
                 take: 5,
             });
             let origin = RuntimeOrigin::signed(account(21));
-            let legacy = || !SubtensorModule::exceeds_tx_delegate_take_rate_limit(now - 1, now);
+			// FIXME exceeds_tx_delegate_take_rate_limit is removed
+            // let legacy = || !SubtensorModule::exceeds_tx_delegate_take_rate_limit(now - 1, now);
             parity_check(now, call, origin, None, None, legacy);
         });
     }

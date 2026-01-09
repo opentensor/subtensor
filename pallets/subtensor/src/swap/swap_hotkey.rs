@@ -68,11 +68,6 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(new_hotkey, last_tx_block);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-        // 9. Swap LastTxBlockDelegateTake
-        let last_tx_block_delegate_take: u64 = Self::get_last_tx_block_delegate_take(old_hotkey);
-        Self::set_last_tx_block_delegate_take(new_hotkey, last_tx_block_delegate_take);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-
         // 10. Swap LastTxBlockChildKeyTake
         let last_tx_block_child_key_take: u64 = Self::get_last_tx_block_childkey_take(old_hotkey);
         Self::set_last_tx_block_childkey(new_hotkey, last_tx_block_child_key_take);

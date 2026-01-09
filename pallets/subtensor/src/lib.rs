@@ -881,12 +881,6 @@ pub mod pallet {
         T::InitialTxRateLimit::get()
     }
 
-    /// Default value for delegate take rate limiting
-    #[pallet::type_value]
-    pub fn DefaultTxDelegateTakeRateLimit<T: Config>() -> u64 {
-        T::InitialTxDelegateTakeRateLimit::get()
-    }
-
     /// Default value for chidlkey take rate limiting
     #[pallet::type_value]
     pub fn DefaultTxChildKeyTakeRateLimit<T: Config>() -> u64 {
@@ -1835,11 +1829,6 @@ pub mod pallet {
     /// --- ITEM ( tx_rate_limit )
     #[pallet::storage]
     pub type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
-
-    /// --- ITEM ( tx_delegate_take_rate_limit )
-    #[pallet::storage]
-    pub type TxDelegateTakeRateLimit<T> =
-        StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
 
     /// --- ITEM ( tx_childkey_take_rate_limit )
     #[pallet::storage]

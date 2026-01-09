@@ -845,8 +845,6 @@ fn test_migrate_rate_limit_keys() {
         SubtensorModule::set_last_tx_block(&new_last_account, 555);
         let new_child_account = U256::from(11);
         SubtensorModule::set_last_tx_block_childkey(&new_child_account, 777);
-        let new_delegate_account = U256::from(12);
-        SubtensorModule::set_last_tx_block_delegate_take(&new_delegate_account, 888);
 
         // Legacy NetworkLastRegistered entry (index 1)
         let mut legacy_network_key = prefix.clone();
@@ -922,11 +920,6 @@ fn test_migrate_rate_limit_keys() {
             "Legacy child take entry should be cleared"
         );
 
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_delegate_take(&legacy_delegate_account),
-            444u64,
-            "Delegate take block should be migrated"
-        );
         assert!(
             sp_io::storage::get(&legacy_delegate_key).is_none(),
             "Legacy delegate take entry should be cleared"
@@ -937,11 +930,6 @@ fn test_migrate_rate_limit_keys() {
             SubtensorModule::get_last_tx_block_childkey_take(&new_child_account),
             777u64,
             "Existing child take entry should be preserved"
-        );
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_delegate_take(&new_delegate_account),
-            888u64,
-            "Existing delegate take entry should be preserved"
         );
     });
 }

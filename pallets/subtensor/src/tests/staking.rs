@@ -1871,7 +1871,7 @@ fn test_delegate_take_can_be_increased() {
             SubtensorModule::get_min_delegate_take()
         );
 
-        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+        step_block(1);
 
         // Coldkey / hotkey 0 decreases take to 12.5%
         assert_ok!(SubtensorModule::do_increase_take(
@@ -1945,7 +1945,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
             SubtensorModule::get_min_delegate_take()
         );
 
-        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+        step_block(1);
 
         // Coldkey / hotkey 0 tries to increase take to InitialDefaultDelegateTake+1
         assert_ok!(SubtensorModule::do_increase_take(
@@ -1998,129 +1998,6 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
             SubtensorModule::get_min_delegate_take()
-        );
-    });
-}
-
-// Test rate-limiting on increase_take
-#[test]
-fn test_rate_limits_enforced_on_increase_take() {
-    new_test_ext(1).execute_with(|| {
-        // Make account
-        let hotkey0 = U256::from(1);
-        let coldkey0 = U256::from(3);
-
-        // Add balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
-
-        // Register the neuron to a new network
-        let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
-        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-
-        // Coldkey / hotkey 0 become delegates with 9% take
-        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take());
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take()
-        );
-
-        // Increase take first time
-        assert_ok!(SubtensorModule::do_increase_take(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take() + 1
-        ));
-
-        // Increase again
-        assert_eq!(
-            SubtensorModule::do_increase_take(
-                RuntimeOrigin::signed(coldkey0),
-                hotkey0,
-                SubtensorModule::get_min_delegate_take() + 2
-            ),
-            Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
-        );
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take() + 1
-        );
-
-        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
-
-        // Can increase after waiting
-        assert_ok!(SubtensorModule::do_increase_take(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take() + 2
-        ));
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take() + 2
-        );
-    });
-}
-
-// Test rate-limiting on an increase take just after a decrease take
-// Prevents a Validator from decreasing take and then increasing it immediately after.
-#[test]
-fn test_rate_limits_enforced_on_decrease_before_increase_take() {
-    new_test_ext(1).execute_with(|| {
-        // Make account
-        let hotkey0 = U256::from(1);
-        let coldkey0 = U256::from(3);
-
-        // Add balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
-
-        // Register the neuron to a new network
-        let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
-        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-
-        // Coldkey / hotkey 0 become delegates with 9% take
-        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take() + 1);
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take() + 1
-        );
-
-        // Decrease take
-        assert_ok!(SubtensorModule::do_decrease_take(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take()
-        )); // Verify decrease
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take()
-        );
-
-        // Increase take immediately after
-        assert_eq!(
-            SubtensorModule::do_increase_take(
-                RuntimeOrigin::signed(coldkey0),
-                hotkey0,
-                SubtensorModule::get_min_delegate_take() + 1
-            ),
-            Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
-        ); // Verify no change
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take()
-        );
-
-        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
-
-        // Can increase after waiting
-        assert_ok!(SubtensorModule::do_increase_take(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take() + 1
-        )); // Verify increase
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take() + 1
         );
     });
 }

@@ -1391,13 +1391,10 @@ fn test_swap_hotkey_swap_rate_limits() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         let last_tx_block = 123;
-        let delegate_take_block = 4567;
         let child_key_take_block = 8910;
 
         // Set the last tx block for the old hotkey
         SubtensorModule::set_last_tx_block(&old_hotkey, last_tx_block);
-        // Set the last delegate take block for the old hotkey
-        SubtensorModule::set_last_tx_block_delegate_take(&old_hotkey, delegate_take_block);
         // Set last childkey take block for the old hotkey
         SubtensorModule::set_last_tx_block_childkey(&old_hotkey, child_key_take_block);
 
@@ -1413,10 +1410,6 @@ fn test_swap_hotkey_swap_rate_limits() {
         assert_eq!(
             SubtensorModule::get_last_tx_block(&new_hotkey),
             last_tx_block
-        );
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_delegate_take(&new_hotkey),
-            delegate_take_block
         );
         assert_eq!(
             SubtensorModule::get_last_tx_block_childkey_take(&new_hotkey),

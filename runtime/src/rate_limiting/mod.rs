@@ -39,8 +39,8 @@ pub(crate) mod legacy;
 ///
 /// Legacy note: historically, all rate-limit setters were `Root`-only except
 /// `admin-utils::sudo_set_serving_rate_limit` (subnet-owner-or-root). We preserve that behavior by
-/// requiring a `scope` value when using the [`LimitSettingRule::RootOrSubnetOwnerAdminWindow`] rule and
-/// validating subnet ownership against that `scope` (`netuid`).
+/// requiring a `scope` value when using the [`LimitSettingRule::RootOrSubnetOwnerAdminWindow`] rule
+/// and validating subnet ownership against that `scope` (`netuid`).
 #[derive(
     Encode,
     Decode,

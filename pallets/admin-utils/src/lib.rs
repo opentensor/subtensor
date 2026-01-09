@@ -1203,7 +1203,11 @@ pub mod pallet {
 
         /// The extrinsic sets the rate limit for delegate take transactions.
         /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the rate limit for delegate take transactions.
+		/// The extrinsic will call the Subtensor pallet to set the rate limit for delegate take
+		/// transactions.
+		///
+        /// Deprecated: delegate take rate limit is now configured via `pallet-rate-limiting` on the
+        /// delegate take group target (`GROUP_DELEGATE_TAKE`).
         #[pallet::call_index(45)]
         #[pallet::weight((
             Weight::from_parts(5_019_000, 0)
@@ -1212,16 +1216,14 @@ pub mod pallet {
             DispatchClass::Operational,
             Pays::Yes
         ))]
+        #[deprecated(
+            note = "deprecated: configure via pallet-rate-limiting::set_rate_limit(target=Group(GROUP_DELEGATE_TAKE), ...)"
+        )]
         pub fn sudo_set_tx_delegate_take_rate_limit(
-            origin: OriginFor<T>,
-            tx_rate_limit: u64,
+            _origin: OriginFor<T>,
+            _tx_rate_limit: u64,
         ) -> DispatchResult {
-            ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_tx_delegate_take_rate_limit(tx_rate_limit);
-            log::debug!(
-                "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {tx_rate_limit:?} ) "
-            );
-            Ok(())
+            Err(Error::<T>::Deprecated.into())
         }
 
         /// The extrinsic sets the minimum delegate take.
