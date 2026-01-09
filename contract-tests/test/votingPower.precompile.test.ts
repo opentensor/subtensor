@@ -114,6 +114,19 @@ describe("Test VotingPower Precompile", () => {
             assert.ok(votingPower !== undefined, "getVotingPower should return a value");
             assert.strictEqual(votingPower, BigInt(0), "Voting power should be 0 for unknown hotkey");
         });
+
+        it("getTotalVotingPower returns 0 when no voting power exists", async () => {
+            const totalVotingPower = await publicClient.readContract({
+                abi: IVotingPowerABI,
+                address: toViemAddress(IVOTING_POWER_ADDRESS),
+                functionName: "getTotalVotingPower",
+                args: [subnetId]
+            })
+
+            assert.ok(totalVotingPower !== undefined, "getTotalVotingPower should return a value");
+            assert.strictEqual(typeof totalVotingPower, 'bigint', "getTotalVotingPower should return a bigint");
+            assert.strictEqual(totalVotingPower, BigInt(0), "Total voting power should be 0 when tracking is disabled");
+        });
     });
 
     describe("VotingPower with Tracking Enabled", () => {
@@ -163,7 +176,7 @@ describe("Test VotingPower Precompile", () => {
         it("All VotingPower precompile functions can be called", async () => {
             const hotkeyBytes32 = '0x' + Buffer.from(hotkey.publicKey).toString('hex');
 
-            // Test all four functions
+            // Test all five functions
             const results = await Promise.all([
                 publicClient.readContract({
                     abi: IVotingPowerABI,
@@ -188,11 +201,17 @@ describe("Test VotingPower Precompile", () => {
                     address: toViemAddress(IVOTING_POWER_ADDRESS),
                     functionName: "getVotingPowerEmaAlpha",
                     args: [subnetId]
+                }),
+                publicClient.readContract({
+                    abi: IVotingPowerABI,
+                    address: toViemAddress(IVOTING_POWER_ADDRESS),
+                    functionName: "getTotalVotingPower",
+                    args: [subnetId]
                 })
             ]);
 
             // All functions should return defined values
-            results.forEach((result, index) => {
+            results.forEach((result: unknown, index: number) => {
                 assert.ok(result !== undefined, `Function ${index} should return a value`);
             });
 
@@ -201,6 +220,7 @@ describe("Test VotingPower Precompile", () => {
             assert.strictEqual(typeof results[1], 'boolean', "isVotingPowerTrackingEnabled should return boolean");
             assert.strictEqual(typeof results[2], 'bigint', "getVotingPowerDisableAtBlock should return bigint");
             assert.strictEqual(typeof results[3], 'bigint', "getVotingPowerEmaAlpha should return bigint");
+            assert.strictEqual(typeof results[4], 'bigint', "getTotalVotingPower should return bigint");
         });
     });
 });

@@ -109,4 +109,23 @@ where
             NetUid::from(netuid),
         ))
     }
+
+    /// Get total voting power for a subnet.
+    ///
+    /// Returns the sum of all voting power for all validators on the subnet.
+    /// Useful for calculating voting thresholds (e.g., 51% quorum).
+    ///
+    /// # Arguments
+    /// * `netuid` - The subnet identifier (u16)
+    ///
+    /// # Returns
+    /// * `u256` - The total voting power across all validators
+    #[precompile::public("getTotalVotingPower(uint16)")]
+    #[precompile::view]
+    fn get_total_voting_power(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        let total: u64 = pallet_subtensor::VotingPower::<R>::iter_prefix(NetUid::from(netuid))
+            .map(|(_, voting_power)| voting_power)
+            .fold(0u64, |acc, vp| acc.saturating_add(vp));
+        Ok(U256::from(total))
+    }
 }
