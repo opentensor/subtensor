@@ -1139,6 +1139,41 @@ fn test_migrate_rate_limit_keys() {
 }
 
 #[test]
+fn test_migrate_fix_staking_hot_keys() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_fix_staking_hot_keys";
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Add some data
+        Alpha::<Test>::insert(
+            (U256::from(1), U256::from(2), NetUid::ROOT),
+            U64F64::from(1_u64),
+        );
+        // Run migration
+        let weight =
+            migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        // Verify results
+        assert_eq!(
+            StakingHotkeys::<Test>::get(U256::from(2)),
+            vec![U256::from(1)]
+        );
+    });
+}
+
+#[test]
 fn test_migrate_fix_root_subnet_tao() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_fix_root_subnet_tao";

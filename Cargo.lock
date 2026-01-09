@@ -18113,6 +18113,7 @@ dependencies = [
  "pallet-subtensor-proxy",
  "pallet-subtensor-swap",
  "precompile-utils",
+ "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
