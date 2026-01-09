@@ -64,6 +64,7 @@ std = [
 	"pallet-subtensor-proxy/std",
 	"pallet-subtensor-swap/std",
 	"pallet-subtensor/std",
+	"pallet-shield/std",
 	"precompile-utils/std",
 	"scale-info/std",
 	"sp-core/std",
