@@ -190,7 +190,9 @@ impl Balancer {
             .saturating_add(den.checked_div(U256::from(2u8)).unwrap_or(zero))
             .checked_div(den)
             .unwrap_or(zero);
-        res.min(U256::from(u128::MAX)).as_u128()
+        res.min(U256::from(u128::MAX))
+            .try_into()
+            .unwrap_or_default()
     }
 
     /// When liquidity is added to balancer swap, it may be added with arbitrary proportion,
