@@ -120,7 +120,35 @@ fn register_call_seeds_scoped_limit() {
         assert!(matches!(
             event,
             RuntimeEvent::RateLimiting(crate::Event::CallRegistered { transaction, scope, .. })
-            if transaction == identifier && scope == Some(1u16)
+            if transaction == identifier && scope == Some(vec![1u16])
+        ));
+    });
+}
+
+#[test]
+fn register_call_seeds_multi_scoped_limit() {
+    new_test_ext().execute_with(|| {
+        let call = RuntimeCall::RateLimiting(RateLimitingCall::set_rate_limit {
+            target: RateLimitTarget::Transaction(TransactionIdentifier::new(0, 0)),
+            scope: None,
+            limit: RateLimitKind::Exact(42),
+        });
+        let identifier = register(call, None);
+        let tx_target = target(identifier);
+        let stored = Limits::<Test, ()>::get(tx_target).expect("limit");
+        match stored {
+            RateLimit::Scoped(map) => {
+                assert_eq!(map.get(&42u16), Some(&RateLimitKind::Default));
+                assert_eq!(map.get(&43u16), Some(&RateLimitKind::Default));
+            }
+            _ => panic!("expected scoped entry"),
+        }
+
+        let event = last_event();
+        assert!(matches!(
+            event,
+            RuntimeEvent::RateLimiting(crate::Event::CallRegistered { transaction, scope, .. })
+            if transaction == identifier && scope == Some(vec![42u16, 43u16])
         ));
     });
 }
@@ -629,7 +657,7 @@ fn is_within_limit_detects_rate_limited_scope() {
             &RuntimeOrigin::signed(1),
             &call,
             &identifier,
-            &Some(1u16),
+            &Some(vec![1u16]),
             &Some(1u16),
         )
         .expect("ok");

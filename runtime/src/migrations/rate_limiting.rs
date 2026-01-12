@@ -1507,7 +1507,7 @@ mod tests {
             let scope = Some(netuid);
             let usage = Some(vec![UsageKey::SubnetNeuron { netuid, uid }]);
 
-			// FIXME check_rate_limit is removed
+            // FIXME check_rate_limit is removed
             // let legacy_weights = || SubtensorModule::check_rate_limit(netuid.into(), uid, now);
             parity_check(
                 now,

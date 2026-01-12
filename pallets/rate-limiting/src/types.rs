@@ -8,9 +8,9 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 /// Resolves the optional identifier within which a rate limit applies and can optionally adjust
 /// enforcement behaviour.
 pub trait RateLimitScopeResolver<Origin, Call, Scope, Span> {
-    /// Returns `Some(scope)` when the limit should be applied per-scope, or `None` for global
+    /// Returns `Some(scopes)` when the limit should be applied per-scope, or `None` for global
     /// limits.
-    fn context(origin: &Origin, call: &Call) -> Option<Scope>;
+    fn context(origin: &Origin, call: &Call) -> Option<Vec<Scope>>;
 
     /// Returns how the call should interact with enforcement and usage tracking.
     fn should_bypass(_origin: &Origin, _call: &Call) -> BypassDecision {

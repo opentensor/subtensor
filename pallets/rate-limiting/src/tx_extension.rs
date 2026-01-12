@@ -125,7 +125,7 @@ where
             return Ok((ValidTransaction::default(), None, origin));
         }
 
-        let scope = <T as Config<I>>::LimitScopeResolver::context(&origin, call);
+        let scopes = <T as Config<I>>::LimitScopeResolver::context(&origin, call);
         let usage = <T as Config<I>>::UsageResolver::context(&origin, call);
 
         let config_target = Pallet::<T, I>::config_target(&identifier)
@@ -136,12 +136,6 @@ where
         let should_record =
             bypass.record_usage && Pallet::<T, I>::should_record_usage(&identifier, &usage_target);
 
-        let Some(block_span) =
-            Pallet::<T, I>::effective_span(&origin, call, &config_target, &scope)
-        else {
-            return Ok((ValidTransaction::default(), None, origin));
-        };
-
         if bypass.bypass_enforcement {
             return Ok((
                 ValidTransaction::default(),
@@ -150,23 +144,40 @@ where
             ));
         }
 
-        if block_span.is_zero() {
-            return Ok((ValidTransaction::default(), None, origin));
-        }
-
         let usage_keys: Vec<Option<<T as Config<I>>::UsageKey>> = match usage.clone() {
             None => vec![None],
             Some(keys) => keys.into_iter().map(Some).collect(),
         };
 
-        let within_limit = usage_keys
-            .iter()
-            .all(|key| Pallet::<T, I>::within_span(&usage_target, key, block_span));
+        let scope_list: Vec<Option<<T as Config<I>>::LimitScope>> = match scopes {
+            None => vec![None],
+            Some(resolved) if resolved.is_empty() => vec![None],
+            Some(resolved) => resolved.into_iter().map(Some).collect(),
+        };
 
-        if !within_limit {
-            return Err(TransactionValidityError::Invalid(
-                InvalidTransaction::Custom(RATE_LIMIT_DENIED),
-            ));
+        let mut enforced = false;
+        for scope in scope_list {
+            let Some(block_span) =
+                Pallet::<T, I>::effective_span(&origin, call, &config_target, &scope)
+            else {
+                continue;
+            };
+            if block_span.is_zero() {
+                continue;
+            }
+            enforced = true;
+            let within_limit = usage_keys
+                .iter()
+                .all(|key| Pallet::<T, I>::within_span(&usage_target, key, block_span));
+            if !within_limit {
+                return Err(TransactionValidityError::Invalid(
+                    InvalidTransaction::Custom(RATE_LIMIT_DENIED),
+                ));
+            }
+        }
+
+        if !enforced {
+            return Ok((ValidTransaction::default(), None, origin));
         }
 
         Ok((
@@ -237,6 +248,7 @@ mod tests {
 
     use super::*;
     use crate::mock::*;
+    use sp_std::collections::btree_map::BTreeMap;
 
     fn remark_call() -> RuntimeCall {
         RuntimeCall::System(frame_system::Call::<Test>::remark { remark: Vec::new() })
@@ -253,6 +265,14 @@ mod tests {
             transaction: TransactionIdentifier::new(0, 0),
             scope: None,
             clear_usage: false,
+        })
+    }
+
+    fn multi_scope_call(block_span: u64) -> RuntimeCall {
+        RuntimeCall::RateLimiting(RateLimitingCall::set_rate_limit {
+            target: RateLimitTarget::Transaction(TransactionIdentifier::new(0, 0)),
+            scope: None,
+            limit: RateLimitKind::Exact(block_span),
         })
     }
 
@@ -358,6 +378,73 @@ mod tests {
             // Stored span (4) would allow the call, but adjusted span (8) should block it.
             let err = validate_with_tx_extension(&extension, &call)
                 .expect_err("adjusted span should apply");
+            match err {
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(code)) => {
+                    assert_eq!(code, RATE_LIMIT_DENIED);
+                }
+                other => panic!("unexpected error: {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn tx_extension_rejects_when_any_scope_fails() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = multi_scope_call(43);
+            let identifier = identifier_for(&call);
+            let target = RateLimitTarget::Transaction(identifier);
+
+            assert_ok!(RateLimiting::register_call(
+                RuntimeOrigin::root(),
+                Box::new(call.clone()),
+                None,
+            ));
+
+            let mut scopes = BTreeMap::new();
+            scopes.insert(43u16, RateLimitKind::Exact(5));
+            scopes.insert(44u16, RateLimitKind::Exact(3));
+            Limits::<Test, ()>::insert(target, RateLimit::Scoped(scopes));
+            LastSeen::<Test, ()>::insert(target, Some(43u16), 10);
+
+            System::set_block_number(14);
+
+            let err =
+                validate_with_tx_extension(&extension, &call).expect_err("one scope should block");
+            match err {
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(code)) => {
+                    assert_eq!(code, RATE_LIMIT_DENIED);
+                }
+                other => panic!("unexpected error: {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn tx_extension_rejects_when_any_usage_key_fails() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = multi_scope_call(42);
+            let identifier = identifier_for(&call);
+            let target = RateLimitTarget::Transaction(identifier);
+
+            assert_ok!(RateLimiting::register_call(
+                RuntimeOrigin::root(),
+                Box::new(call.clone()),
+                None,
+            ));
+
+            let mut scopes = BTreeMap::new();
+            scopes.insert(42u16, RateLimitKind::Exact(5));
+            scopes.insert(43u16, RateLimitKind::Exact(5));
+            Limits::<Test, ()>::insert(target, RateLimit::Scoped(scopes));
+            LastSeen::<Test, ()>::insert(target, Some(42u16), 8);
+            LastSeen::<Test, ()>::insert(target, Some(43u16), 12);
+
+            System::set_block_number(14);
+
+            let err = validate_with_tx_extension(&extension, &call)
+                .expect_err("one usage key should block");
             match err {
                 TransactionValidityError::Invalid(InvalidTransaction::Custom(code)) => {
                     assert_eq!(code, RATE_LIMIT_DENIED);

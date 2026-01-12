@@ -18,8 +18,8 @@
 //! - [`set_rate_limit`](pallet::Pallet::set_rate_limit): assign or override the limit at a specific
 //!   target/scope by supplying a [`RateLimitKind`] span.
 //! - [`assign_call_to_group`](pallet::Pallet::assign_call_to_group) and
-//!   [`remove_call_from_group`](pallet::Pallet::remove_call_from_group): manage group membership for
-//!   registered calls.
+//!   [`remove_call_from_group`](pallet::Pallet::remove_call_from_group): manage group membership
+//!   for registered calls.
 //! - [`set_call_read_only`](pallet::Pallet::set_call_read_only): for grouped calls, choose whether
 //!   successful dispatches should update the shared usage row (`false` by default).
 //! - [`deregister_call`](pallet::Pallet::deregister_call): remove scoped configuration or wipe the
@@ -88,10 +88,10 @@
 //!     NetUid,
 //!     BlockNumber,
 //! > for ScopeResolver {
-//!     fn context(origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<NetUid> {
+//!     fn context(origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<Vec<NetUid>> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_weights { netuid, .. }) => {
-//!                 Some(*netuid)
+//!                 Some(vec![*netuid])
 //!             }
 //!             _ => None,
 //!         }
@@ -173,14 +173,16 @@ pub mod pallet {
     use sp_runtime::traits::{
         AtLeast32BitUnsigned, DispatchOriginOf, Dispatchable, Member, One, Saturating, Zero,
     };
-    use sp_std::{boxed::Box, convert::TryFrom, marker::PhantomData, vec::Vec};
+    use sp_std::{
+        boxed::Box, collections::btree_map::BTreeMap, convert::TryFrom, marker::PhantomData,
+        vec::Vec,
+    };
 
     #[cfg(feature = "runtime-benchmarks")]
     use crate::benchmarking::BenchmarkHelper as BenchmarkHelperTrait;
     use crate::types::{
-        BypassDecision, EnsureLimitSettingRule, GroupSharing, RateLimit, RateLimitGroup,
-        RateLimitKind, RateLimitScopeResolver, RateLimitTarget, RateLimitUsageResolver,
-        TransactionIdentifier,
+        EnsureLimitSettingRule, GroupSharing, RateLimit, RateLimitGroup, RateLimitKind,
+        RateLimitScopeResolver, RateLimitTarget, RateLimitUsageResolver, TransactionIdentifier,
     };
 
     type GroupNameOf<T, I> = BoundedVec<u8, <T as Config<I>>::MaxGroupNameLength>;
@@ -365,7 +367,7 @@ pub mod pallet {
             /// Identifier of the registered transaction.
             transaction: TransactionIdentifier,
             /// Scope seeded during registration (if any).
-            scope: Option<<T as Config<I>>::LimitScope>,
+            scope: Option<Vec<<T as Config<I>>::LimitScope>>,
             /// Optional group assignment applied at registration time.
             group: Option<<T as Config<I>>::GroupId>,
             /// Pallet name associated with the transaction.
@@ -589,24 +591,34 @@ pub mod pallet {
             origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
             call: &<T as Config<I>>::RuntimeCall,
             identifier: &TransactionIdentifier,
-            scope: &Option<<T as Config<I>>::LimitScope>,
+            scopes: &Option<Vec<<T as Config<I>>::LimitScope>>,
             usage_key: &Option<<T as Config<I>>::UsageKey>,
         ) -> Result<bool, DispatchError> {
-            let bypass: BypassDecision =
-                <T as Config<I>>::LimitScopeResolver::should_bypass(origin, call);
+            let bypass = <T as Config<I>>::LimitScopeResolver::should_bypass(origin, call);
             if bypass.bypass_enforcement {
                 return Ok(true);
             }
 
             let target = Self::config_target(identifier)?;
-            Self::ensure_scope_available(&target, scope)?;
-
-            let Some(block_span) = Self::effective_span(origin, call, &target, scope) else {
-                return Ok(true);
-            };
+            Self::ensure_scope_available(&target, scopes)?;
 
             let usage_target = Self::usage_target(identifier)?;
-            Ok(Self::within_span(&usage_target, usage_key, block_span))
+            let scope_list: Vec<Option<<T as Config<I>>::LimitScope>> = match scopes {
+                None => vec![None],
+                Some(resolved) if resolved.is_empty() => vec![None],
+                Some(resolved) => resolved.iter().cloned().map(Some).collect(),
+            };
+
+            for scope in scope_list {
+                let Some(block_span) = Self::effective_span(origin, call, &target, &scope) else {
+                    continue;
+                };
+                if !Self::within_span(&usage_target, usage_key, block_span) {
+                    return Ok(false);
+                }
+            }
+
+            Ok(true)
         }
 
         /// Resolves the configured span for the provided target/scope, applying the pallet default
@@ -880,9 +892,10 @@ pub mod pallet {
 
         fn ensure_scope_available(
             target: &RateLimitTarget<<T as Config<I>>::GroupId>,
-            scope: &Option<<T as Config<I>>::LimitScope>,
+            scopes: &Option<Vec<<T as Config<I>>::LimitScope>>,
         ) -> Result<(), DispatchError> {
-            if scope.is_some() {
+            let has_scope = scopes.as_ref().map_or(false, |scopes| !scopes.is_empty());
+            if has_scope {
                 return Ok(());
             }
 
@@ -960,7 +973,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let resolver_origin: DispatchOriginOf<<T as Config<I>>::RuntimeCall> =
                 Into::<DispatchOriginOf<<T as Config<I>>::RuntimeCall>>::into(origin.clone());
-            let scope =
+            let scopes =
                 <T as Config<I>>::LimitScopeResolver::context(&resolver_origin, call.as_ref());
 
             T::AdminOrigin::ensure_origin(origin)?;
@@ -971,11 +984,19 @@ pub mod pallet {
 
             let target = RateLimitTarget::Transaction(identifier);
 
-            if let Some(ref sc) = scope {
-                Limits::<T, I>::insert(
-                    target,
-                    RateLimit::scoped_single(sc.clone(), RateLimitKind::Default),
-                );
+            let scopes = scopes.and_then(|scopes| {
+                if scopes.is_empty() {
+                    None
+                } else {
+                    Some(scopes)
+                }
+            });
+            if let Some(ref resolved) = scopes {
+                let mut map = BTreeMap::new();
+                for scope in resolved {
+                    map.insert(scope.clone(), RateLimitKind::Default);
+                }
+                Limits::<T, I>::insert(target, RateLimit::Scoped(map));
             } else {
                 Limits::<T, I>::insert(target, RateLimit::global(RateLimitKind::Default));
             }
@@ -992,10 +1013,10 @@ pub mod pallet {
             let (pallet, extrinsic) = Self::call_metadata(&identifier)?;
             Self::deposit_event(Event::CallRegistered {
                 transaction: identifier,
-                scope: scope.clone(),
+                scope: scopes,
                 group: assigned_group,
-                pallet: pallet.clone(),
-                extrinsic: extrinsic.clone(),
+                pallet: pallet,
+                extrinsic: extrinsic,
             });
 
             if let Some(group_id) = assigned_group {

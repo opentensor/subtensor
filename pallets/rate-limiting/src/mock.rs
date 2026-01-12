@@ -18,7 +18,7 @@ use sp_io::TestExternalities;
 use sp_std::vec::Vec;
 
 use crate as pallet_rate_limiting;
-use crate::TransactionIdentifier;
+use crate::{RateLimitKind, TransactionIdentifier};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 pub type Block = frame_system::mocking::MockBlock<Test>;
@@ -112,12 +112,25 @@ pub struct TestUsageResolver;
 impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, LimitScope, u64>
     for TestScopeResolver
 {
-    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<LimitScope> {
+    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<Vec<LimitScope>> {
         match call {
-            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
-                (*block_span).try_into().ok()
+            RuntimeCall::RateLimiting(RateLimitingCall::set_rate_limit { limit, .. }) => {
+                let RateLimitKind::Exact(span) = limit else {
+                    return Some(vec![1]);
+                };
+                let scope = (*span).try_into().ok()?;
+                // Multi-scope path used by tests: Exact(42/43) returns two scopes.
+                if *span == 42 || *span == 43 {
+                    Some(vec![scope, scope.saturating_add(1)])
+                } else {
+                    Some(vec![scope])
+                }
             }
-            RuntimeCall::RateLimiting(_) => Some(1),
+            RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
+                let scope = (*block_span).try_into().ok()?;
+                Some(vec![scope])
+            }
+            RuntimeCall::RateLimiting(_) => Some(vec![1]),
             _ => None,
         }
     }
@@ -154,8 +167,21 @@ impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, Us
 {
     fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<Vec<UsageKey>> {
         match call {
+            RuntimeCall::RateLimiting(RateLimitingCall::set_rate_limit { limit, .. }) => {
+                let RateLimitKind::Exact(span) = limit else {
+                    return Some(vec![1]);
+                };
+                let key = (*span).try_into().ok()?;
+                // Multi-usage path used by tests: Exact(42) returns two usage keys.
+                if *span == 42 {
+                    Some(vec![key, key.saturating_add(1)])
+                } else {
+                    Some(vec![key])
+                }
+            }
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
-                (*block_span).try_into().ok().map(|key| vec![key])
+                let key = (*block_span).try_into().ok()?;
+                Some(vec![key])
             }
             RuntimeCall::RateLimiting(_) => Some(vec![1]),
             _ => None,
