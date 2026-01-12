@@ -30,6 +30,11 @@ mod genesis {
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
+            // Set start call delay if provided in genesis config
+            if let Some(delay) = self.start_call_delay {
+                StartCallDelay::<T>::put(delay);
+            }
+
             // Set the root network as added.
             NetworksAdded::<T>::insert(NetUid::ROOT, true);
 

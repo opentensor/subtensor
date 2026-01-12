@@ -2825,3 +2825,96 @@ fn test_sudo_set_min_non_immune_uids() {
         assert_eq!(SubtensorModule::get_min_non_immune_uids(netuid), to_be_set);
     });
 }
+
+#[test]
+fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 13;
+        let coldkey_account_id = U256::from(0);
+        let non_root_account = U256::from(1);
+
+        // Get initial delay value (should be non-zero)
+        let initial_delay = pallet_subtensor::StartCallDelay::<Test>::get();
+        assert!(
+            initial_delay > 0,
+            "Initial delay should be greater than zero"
+        );
+
+        // Test 1: Non-root account should fail to set delay
+        assert_noop!(
+            AdminUtils::sudo_set_start_call_delay(
+                <<Test as Config>::RuntimeOrigin>::signed(non_root_account),
+                0
+            ),
+            DispatchError::BadOrigin
+        );
+
+        // Test 2: Create a subnet
+        add_network(netuid, tempo);
+        assert_eq!(
+            pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid),
+            None,
+            "Emission block should not be set yet"
+        );
+        assert_eq!(
+            pallet_subtensor::SubnetOwner::<Test>::get(netuid),
+            coldkey_account_id,
+            "Default owner should be account 0"
+        );
+
+        // Test 3: Try to start the subnet immediately - should FAIL (delay not passed)
+        assert_err!(
+            pallet_subtensor::Pallet::<Test>::start_call(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                netuid
+            ),
+            pallet_subtensor::Error::<Test>::NeedWaitingMoreBlocksToStarCall
+        );
+
+        // Verify emission has not been set
+        assert_eq!(
+            pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid),
+            None,
+            "Emission should not be set yet"
+        );
+
+        // Test 4: Root sets delay to zero
+        assert_ok!(AdminUtils::sudo_set_start_call_delay(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            0
+        ));
+        assert_eq!(
+            pallet_subtensor::StartCallDelay::<Test>::get(),
+            0,
+            "Delay should now be zero"
+        );
+
+        // Verify event was emitted
+        frame_system::Pallet::<Test>::assert_last_event(RuntimeEvent::SubtensorModule(
+            pallet_subtensor::Event::StartCallDelaySet(0),
+        ));
+
+        // Test 5: Try to start the subnet again - should SUCCEED (delay is now zero)
+        let current_block = frame_system::Pallet::<Test>::block_number();
+        assert_ok!(pallet_subtensor::Pallet::<Test>::start_call(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid
+        ));
+
+        assert_eq!(
+            pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid),
+            Some(current_block + 1),
+            "Emission should start at next block"
+        );
+
+        // Test 6: Try to start it a third time - should FAIL (already started)
+        assert_err!(
+            pallet_subtensor::Pallet::<Test>::start_call(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                netuid
+            ),
+            pallet_subtensor::Error::<Test>::FirstEmissionBlockNumberAlreadySet
+        );
+    });
+}

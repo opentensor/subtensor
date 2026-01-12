@@ -2229,6 +2229,21 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_min_non_immune_uids(netuid, min);
             Ok(())
         }
+
+        /// Sets the delay before a subnet can call start
+        #[pallet::call_index(85)]
+        #[pallet::weight((
+            Weight::from_parts(14_000_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_start_call_delay(origin: OriginFor<T>, delay: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_start_call_delay(delay);
+            log::debug!("StartCallDelay( delay: {delay:?} ) ");
+            Ok(())
+        }
     }
 }
 

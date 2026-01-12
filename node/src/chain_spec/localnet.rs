@@ -125,6 +125,9 @@ fn localnet_genesis(
         "evmChainId": {
             "chainId": 42,
         },
+        "subtensorModule": {
+            "startCallDelay": 10,
+        },
         "rateLimiting": {
             "defaultLimit": 0,
             "limits": [],
