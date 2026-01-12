@@ -1437,6 +1437,31 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet, stores bigmath vector.
+    #[pallet::storage]
+    pub type TotalHotkeySharesV2<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId, // hot
+        Identity,
+        NetUid, // subnet
+        Vec<u8>, // Hotkey shares in unlimited precision
+        ValueQuery,
+    >;
+
+    /// --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet, stores bigmath vector.
+    #[pallet::storage]
+    pub type AlphaV2<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        Vec<u8>, // Shares in unlimited precision
+        ValueQuery,
+    >;
+
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]
     pub type AlphaMapLastKey<T: Config> =
