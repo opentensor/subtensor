@@ -3062,26 +3062,31 @@ fn test_migrate_init_pending_root_alpha() {
 
         // Verify PendingRootAlpha for hotkey2
         // Expected: claimable (300k) - claimed (150k) = 150k
+        // Note: Fixed-point arithmetic may cause small rounding differences
         let expected_pending2 = 300_000u128 - 150_000u128; // 150k
-        assert_eq!(
-            PendingRootAlpha::<Test>::get(hotkey2),
+        let actual_pending2 = PendingRootAlpha::<Test>::get(hotkey2);
+        assert!(
+            actual_pending2 >= expected_pending2.saturating_sub(1) && actual_pending2 <= expected_pending2.saturating_add(1),
+            "Hotkey2 pending root alpha should be approximately claimable - claimed. Expected: {}, Got: {}",
             expected_pending2,
-            "Hotkey2 pending root alpha should be claimable - claimed"
+            actual_pending2
         );
 
         // Test: Migration should be idempotent (running twice should not change values)
+        let actual_pending1_first = PendingRootAlpha::<Test>::get(hotkey1);
+        let actual_pending2_first = PendingRootAlpha::<Test>::get(hotkey2);
         let weight_second_run =
             crate::migrations::migrate_init_pending_root_alpha::migrate_init_pending_root_alpha::<
                 Test,
             >();
         assert_eq!(
             PendingRootAlpha::<Test>::get(hotkey1),
-            expected_pending1,
+            actual_pending1_first,
             "Second migration run should not change values"
         );
         assert_eq!(
             PendingRootAlpha::<Test>::get(hotkey2),
-            expected_pending2,
+            actual_pending2_first,
             "Second migration run should not change values"
         );
         // Second run should return early with just the read weight
@@ -3115,11 +3120,447 @@ fn test_migrate_init_pending_root_alpha() {
         HasMigrationRun::<Test>::remove(MIGRATION_NAME.as_bytes().to_vec());
         crate::migrations::migrate_init_pending_root_alpha::migrate_init_pending_root_alpha::<Test>(
         );
-        // Expected: 0.1 * 500k = 50k, no claimed = 50k pending
+        // Expected: 0.1 * 500k = 50k, no claimed = 50k pending (may have small rounding differences)
+        let expected_hotkey4 = 50_000u128;
+        let actual_hotkey4 = PendingRootAlpha::<Test>::get(hotkey4);
+        assert!(
+            actual_hotkey4 >= expected_hotkey4.saturating_sub(1) && actual_hotkey4 <= expected_hotkey4.saturating_add(1),
+            "Hotkey with claimable but no claimed should have full claimable as pending. Expected: {}, Got: {}",
+            expected_hotkey4,
+            actual_hotkey4
+        );
+    });
+}
+
+#[test]
+fn test_migrate_init_pending_root_alpha_edge_cases() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_init_pending_root_alpha";
+
+        // Test 1: Hotkey with zero root stake
+        let hotkey_zero_stake = U256::from(2001);
+        let coldkey_zero_stake = U256::from(2002);
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+
+        RootClaimable::<Test>::mutate(hotkey_zero_stake, |claimable| {
+            claimable.insert(netuid, I96F32::from_num(0.1));
+        });
+        // No root stake set
+
+        HasMigrationRun::<Test>::remove(MIGRATION_NAME.as_bytes().to_vec());
+        crate::migrations::migrate_init_pending_root_alpha::migrate_init_pending_root_alpha::<Test>(
+        );
+
+        // With zero stake, claimable = rate * 0 = 0
         assert_eq!(
-            PendingRootAlpha::<Test>::get(hotkey4),
-            50_000u128,
-            "Hotkey with claimable but no claimed should have full claimable as pending"
+            PendingRootAlpha::<Test>::get(hotkey_zero_stake),
+            0_u128,
+            "Hotkey with zero root stake should have zero pending"
+        );
+
+        // Test 2: Hotkey with claimed > claimable (should not go negative)
+        let hotkey_overclaimed = U256::from(2003);
+        let coldkey_overclaimed = U256::from(2004);
+        let root_stake_overclaimed = 1_000_000u64;
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_overclaimed,
+            &coldkey_overclaimed,
+            NetUid::ROOT,
+            root_stake_overclaimed.into(),
+        );
+
+        RootClaimable::<Test>::mutate(hotkey_overclaimed, |claimable| {
+            claimable.insert(netuid, I96F32::from_num(0.1));
+        });
+
+        // Claim more than claimable: claimable = 0.1 * 1M = 100k, claimed = 150k
+        RootClaimed::<Test>::insert(
+            (netuid, hotkey_overclaimed, coldkey_overclaimed),
+            150_000u128,
+        );
+
+        HasMigrationRun::<Test>::remove(MIGRATION_NAME.as_bytes().to_vec());
+        crate::migrations::migrate_init_pending_root_alpha::migrate_init_pending_root_alpha::<Test>(
+        );
+
+        // Pending should be 0, not negative (100k - 150k = 0 due to saturating_sub)
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(hotkey_overclaimed),
+            0_u128,
+            "Hotkey with claimed > claimable should have zero pending (not negative)"
+        );
+
+        // Test 3: Hotkey with multiple subnets
+        let hotkey_multi = U256::from(2005);
+        let coldkey_multi = U256::from(2006);
+        let netuid2 = NetUid::from(2);
+        add_network(netuid2, 1, 0);
+        let root_stake_multi = 2_000_000u64;
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_multi,
+            &coldkey_multi,
+            NetUid::ROOT,
+            root_stake_multi.into(),
+        );
+
+        RootClaimable::<Test>::mutate(hotkey_multi, |claimable| {
+            claimable.insert(netuid, I96F32::from_num(0.1)); // 0.1 rate
+            claimable.insert(netuid2, I96F32::from_num(0.2)); // 0.2 rate
+        });
+        // Total rate = 0.3, claimable = 0.3 * 2M = 600k
+
+        RootClaimed::<Test>::insert((netuid, hotkey_multi, coldkey_multi), 100_000u128);
+        RootClaimed::<Test>::insert((netuid2, hotkey_multi, coldkey_multi), 150_000u128);
+        // Total claimed = 250k
+
+        HasMigrationRun::<Test>::remove(MIGRATION_NAME.as_bytes().to_vec());
+        crate::migrations::migrate_init_pending_root_alpha::migrate_init_pending_root_alpha::<Test>(
+        );
+
+        // Expected: 600k - 250k = 350k (may have small rounding differences)
+        let expected_multi = 350_000u128;
+        let actual_multi = PendingRootAlpha::<Test>::get(hotkey_multi);
+        assert!(
+            actual_multi >= expected_multi.saturating_sub(1) && actual_multi <= expected_multi.saturating_add(1),
+            "Hotkey with multiple subnets should aggregate correctly. Expected: {}, Got: {}",
+            expected_multi,
+            actual_multi
+        );
+
+        // Test 4: Hotkey with multiple coldkeys claiming
+        let hotkey_multi_cold = U256::from(2007);
+        let coldkey_multi_cold1 = U256::from(2008);
+        let coldkey_multi_cold2 = U256::from(2009);
+        let root_stake_multi_cold = 1_000_000u64;
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_multi_cold,
+            &coldkey_multi_cold1,
+            NetUid::ROOT,
+            root_stake_multi_cold.into(),
+        );
+
+        RootClaimable::<Test>::mutate(hotkey_multi_cold, |claimable| {
+            claimable.insert(netuid, I96F32::from_num(0.2));
+        });
+        // Claimable = 0.2 * 1M = 200k
+
+        RootClaimed::<Test>::insert((netuid, hotkey_multi_cold, coldkey_multi_cold1), 80_000u128);
+        RootClaimed::<Test>::insert((netuid, hotkey_multi_cold, coldkey_multi_cold2), 50_000u128);
+        // Total claimed = 130k
+
+        HasMigrationRun::<Test>::remove(MIGRATION_NAME.as_bytes().to_vec());
+        crate::migrations::migrate_init_pending_root_alpha::migrate_init_pending_root_alpha::<Test>(
+        );
+
+        // Expected: 200k - 130k = 70k (may have small rounding differences)
+        let expected_multi_cold = 70_000u128;
+        let actual_multi_cold = PendingRootAlpha::<Test>::get(hotkey_multi_cold);
+        assert!(
+            actual_multi_cold >= expected_multi_cold.saturating_sub(1) && actual_multi_cold <= expected_multi_cold.saturating_add(1),
+            "Hotkey with multiple coldkeys should aggregate claimed correctly. Expected: {}, Got: {}",
+            expected_multi_cold,
+            actual_multi_cold
+        );
+    });
+}
+
+#[test]
+fn test_pending_root_alpha_claiming_decrements() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+
+        let hotkey = U256::from(3001);
+        let coldkey = U256::from(3002);
+        let root_stake = 1_000_000u64;
+
+        // Setup root stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        // Setup RootClaimable
+        RootClaimable::<Test>::mutate(hotkey, |claimable| {
+            claimable.insert(netuid, I96F32::from_num(0.2));
+        });
+
+        // Initialize PendingRootAlpha manually (simulating migration)
+        // Claimable = 0.2 * 1M = 200k, no claimed = 200k pending
+        PendingRootAlpha::<Test>::insert(hotkey, 200_000u128);
+
+        // Claim 50k
+        let initial_pending = PendingRootAlpha::<Test>::get(hotkey);
+        SubtensorModule::root_claim_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            RootClaimTypeEnum::Keep,
+            true, // ignore minimum condition
+        );
+
+        let final_pending = PendingRootAlpha::<Test>::get(hotkey);
+        let claimed = RootClaimed::<Test>::get((netuid, hotkey, coldkey));
+
+        // Pending should decrease by the claimed amount
+        assert!(
+            final_pending < initial_pending,
+            "PendingRootAlpha should decrease after claiming"
+        );
+        assert_eq!(
+            initial_pending.saturating_sub(final_pending),
+            claimed,
+            "PendingRootAlpha decrease should equal claimed amount"
+        );
+    });
+}
+
+#[test]
+fn test_pending_root_alpha_add_stake_decrements() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+
+        let hotkey = U256::from(3003);
+        let coldkey = U256::from(3004);
+        let initial_stake = 1_000_000u64;
+        let additional_stake = 500_000u64;
+
+        // Setup initial root stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            initial_stake.into(),
+        );
+
+        // Setup RootClaimable
+        RootClaimable::<Test>::mutate(hotkey, |claimable| {
+            claimable.insert(netuid, I96F32::from_num(0.1));
+        });
+
+        // Initialize PendingRootAlpha
+        PendingRootAlpha::<Test>::insert(hotkey, 100_000u128);
+
+        // Add stake - this should adjust RootClaimed and decrement PendingRootAlpha
+        let initial_pending = PendingRootAlpha::<Test>::get(hotkey);
+        SubtensorModule::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+            &hotkey,
+            &coldkey,
+            additional_stake,
+        );
+
+        let final_pending = PendingRootAlpha::<Test>::get(hotkey);
+        let root_claimed = RootClaimed::<Test>::get((netuid, hotkey, coldkey));
+
+        // Pending should decrease
+        assert!(
+            final_pending < initial_pending,
+            "PendingRootAlpha should decrease when adding stake"
+        );
+        // The decrease should equal the added_amount = rate * additional_stake
+        // rate = 0.1, additional_stake = 500k, added_amount = 0.1 * 500k = 50k
+        assert_eq!(
+            root_claimed, 50_000u128,
+            "RootClaimed should increase by rate * additional_stake"
+        );
+    });
+}
+
+#[test]
+fn test_pending_root_alpha_remove_stake_increments() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+
+        let hotkey = U256::from(3005);
+        let coldkey = U256::from(3006);
+        let initial_stake = 2_000_000u64;
+        let remove_stake = AlphaCurrency::from(500_000u64);
+
+        // Setup initial root stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            initial_stake.into(),
+        );
+
+        // Setup RootClaimable
+        RootClaimable::<Test>::mutate(hotkey, |claimable| {
+            claimable.insert(netuid, I96F32::from_num(0.15));
+        });
+
+        // Set initial RootClaimed
+        RootClaimed::<Test>::insert((netuid, hotkey, coldkey), 100_000u128);
+
+        // Initialize PendingRootAlpha
+        PendingRootAlpha::<Test>::insert(hotkey, 200_000u128);
+
+        // Remove stake - this should adjust RootClaimed and increment PendingRootAlpha
+        let initial_pending = PendingRootAlpha::<Test>::get(hotkey);
+        SubtensorModule::remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+            &hotkey,
+            &coldkey,
+            remove_stake,
+        );
+
+        let final_pending = PendingRootAlpha::<Test>::get(hotkey);
+        let root_claimed = RootClaimed::<Test>::get((netuid, hotkey, coldkey));
+
+        // Pending should increase
+        assert!(
+            final_pending > initial_pending,
+            "PendingRootAlpha should increase when removing stake"
+        );
+        // The increase should equal the subed_amount = rate * remove_stake
+        // rate = 0.15, remove_stake = 500k, subed_amount = 0.15 * 500k = 75k
+        // RootClaimed should decrease from 100k to 25k (may have small rounding differences)
+        let expected_root_claimed = 25_000u128;
+        assert!(
+            root_claimed >= expected_root_claimed.saturating_sub(1) && root_claimed <= expected_root_claimed.saturating_add(1),
+            "RootClaimed should decrease by rate * remove_stake. Expected: {}, Got: {}",
+            expected_root_claimed,
+            root_claimed
+        );
+        // PendingRootAlpha should increase by subed_amount (may have small rounding differences)
+        let expected_pending_increase = 75_000u128;
+        let actual_increase = final_pending.saturating_sub(initial_pending);
+        assert!(
+            actual_increase >= expected_pending_increase.saturating_sub(1) && actual_increase <= expected_pending_increase.saturating_add(1),
+            "PendingRootAlpha should increase by subed_amount. Expected increase: {}, Actual increase: {}",
+            expected_pending_increase,
+            actual_increase
+        );
+    });
+}
+
+#[test]
+fn test_transfer_pending_root_alpha_for_new_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(3007);
+        let new_hotkey = U256::from(3008);
+        let old_pending = 150_000u128;
+        let new_pending = 50_000u128;
+
+        // Setup initial pending values
+        PendingRootAlpha::<Test>::insert(old_hotkey, old_pending);
+        PendingRootAlpha::<Test>::insert(new_hotkey, new_pending);
+
+        // Transfer pending root alpha
+        SubtensorModule::transfer_pending_root_alpha_for_new_hotkey(&old_hotkey, &new_hotkey);
+
+        // Old hotkey should have zero pending
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(old_hotkey),
+            0_u128,
+            "Old hotkey should have zero pending after transfer"
+        );
+
+        // New hotkey should have sum of both
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(new_hotkey),
+            old_pending.saturating_add(new_pending),
+            "New hotkey should have sum of old and new pending"
+        );
+
+        // Test with new_hotkey having zero initial pending
+        let old_hotkey2 = U256::from(3009);
+        let new_hotkey2 = U256::from(3010);
+        PendingRootAlpha::<Test>::insert(old_hotkey2, 100_000u128);
+        PendingRootAlpha::<Test>::insert(new_hotkey2, 0_u128);
+
+        SubtensorModule::transfer_pending_root_alpha_for_new_hotkey(&old_hotkey2, &new_hotkey2);
+
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(old_hotkey2),
+            0_u128,
+            "Old hotkey2 should have zero pending"
+        );
+        assert_eq!(
+            PendingRootAlpha::<Test>::get(new_hotkey2),
+            100_000u128,
+            "New hotkey2 should receive all pending"
+        );
+    });
+}
+
+#[test]
+fn test_finalize_all_subnet_root_dividends_decrements_pending() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+
+        let hotkey1 = U256::from(3011);
+        let hotkey2 = U256::from(3012);
+        let coldkey1 = U256::from(3013);
+        let coldkey2 = U256::from(3014);
+
+        // Setup root stake for both hotkeys
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey1,
+            NetUid::ROOT,
+            1_000_000u64.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey2,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+
+        // Setup RootClaimable
+        RootClaimable::<Test>::mutate(hotkey1, |claimable| {
+            claimable.insert(netuid, I96F32::from_num(0.1));
+        });
+        RootClaimable::<Test>::mutate(hotkey2, |claimable| {
+            claimable.insert(netuid, I96F32::from_num(0.15));
+        });
+
+        // Set RootClaimed
+        RootClaimed::<Test>::insert((netuid, hotkey1, coldkey1), 50_000u128);
+        RootClaimed::<Test>::insert((netuid, hotkey2, coldkey2), 100_000u128);
+
+        // Initialize PendingRootAlpha
+        // hotkey1: claimable = 0.1 * 1M = 100k, claimed = 50k, pending = 50k
+        // hotkey2: claimable = 0.15 * 2M = 300k, claimed = 100k, pending = 200k
+        PendingRootAlpha::<Test>::insert(hotkey1, 50_000u128);
+        PendingRootAlpha::<Test>::insert(hotkey2, 200_000u128);
+
+        // Finalize subnet root dividends
+        SubtensorModule::finalize_all_subnet_root_dividends(netuid);
+
+        // PendingRootAlpha should be decremented by the unclaimed amount
+        // hotkey1: pending = 50k - 50k = 0
+        // hotkey2: pending = 200k - 200k = 0 (may have small rounding differences)
+        let pending1 = PendingRootAlpha::<Test>::get(hotkey1);
+        let pending2 = PendingRootAlpha::<Test>::get(hotkey2);
+        assert!(
+            pending1 <= 1,
+            "Hotkey1 pending should be decremented to zero (or very close). Got: {}",
+            pending1
+        );
+        assert!(
+            pending2 <= 1,
+            "Hotkey2 pending should be decremented to zero (or very close). Got: {}",
+            pending2
+        );
+
+        // RootClaimable should have netuid removed
+        assert!(
+            !RootClaimable::<Test>::get(hotkey1).contains_key(&netuid),
+            "RootClaimable should not contain netuid after finalize"
+        );
+        assert!(
+            !RootClaimable::<Test>::get(hotkey2).contains_key(&netuid),
+            "RootClaimable should not contain netuid after finalize"
         );
     });
 }

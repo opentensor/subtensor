@@ -1,6 +1,7 @@
 use super::*;
 use alloc::{collections::BTreeMap, string::String};
 use frame_support::{traits::Get, weights::Weight};
+use substrate_fixed::types::I96F32;
 
 /// Migration to initialize PendingRootAlpha storage based on RootClaimed storage.
 /// This aggregates all RootClaimed values across all netuids and coldkeys for each hotkey.
@@ -25,13 +26,15 @@ pub fn migrate_init_pending_root_alpha<T: Config>() -> Weight {
     // Aggregate RootClaimable values by hotkey
     let mut root_claimable_alpha_map: BTreeMap<T::AccountId, u128> = BTreeMap::new();
     for (hotkey, root_claimable) in RootClaimable::<T>::iter() {
-        let total = root_claimable.values().fold(0_u128, |acc, x| {
-            acc.saturating_add(x.saturating_to_num::<u128>())
-        });
+        // Sum rates as I96F32 (not converting to u128 first, which would truncate)
+        let claimable_rate: I96F32 = root_claimable
+            .values()
+            .fold(I96F32::from(0), |acc, x| acc.saturating_add(*x));
 
-        let stake = Pallet::<T>::get_stake_for_hotkey_on_subnet(&hotkey, NetUid::ROOT);
+        let root_stake = Pallet::<T>::get_stake_for_hotkey_on_subnet(&hotkey, NetUid::ROOT);
+        let total = claimable_rate.saturating_mul(I96F32::saturating_from_num(root_stake));
 
-        root_claimable_alpha_map.insert(hotkey, total.saturating_mul(stake.to_u64().into()));
+        root_claimable_alpha_map.insert(hotkey, total.saturating_to_num::<u128>());
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
     }
 
