@@ -447,13 +447,13 @@ fn test_swap_initialization() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
 
-        // Get reserves from the mock provider
+        // Setup reserves
         let tao = TaoCurrency::from(1_000_000_000u64);
         let alpha = AlphaCurrency::from(4_000_000_000u64);
         TaoReserve::set_mock_reserve(netuid, tao);
         AlphaReserve::set_mock_reserve(netuid, alpha);
 
-        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid, None));
         assert!(PalSwapInitialized::<Test>::get(netuid));
 
         // Verify current price is set
@@ -500,6 +500,35 @@ fn test_swap_initialization() {
         // assert_eq!(position.liquidity, expected_liquidity);
         // assert_eq!(position.fees_tao, 0);
         // assert_eq!(position.fees_alpha, 0);
+    });
+}
+
+#[test]
+fn test_swap_initialization_with_price() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+
+        // Setup reserves, tao / alpha = 0.25
+        let tao = TaoCurrency::from(1_000_000_000u64);
+        let alpha = AlphaCurrency::from(4_000_000_000u64);
+        TaoReserve::set_mock_reserve(netuid, tao);
+        AlphaReserve::set_mock_reserve(netuid, alpha);
+
+        // Initialize with 0.2 price
+        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(
+            netuid,
+            Some(U64F64::from(1u16) / U64F64::from(5u16))
+        ));
+        assert!(PalSwapInitialized::<Test>::get(netuid));
+
+        // Verify current price is set to 0.2
+        let price = Pallet::<Test>::current_price(netuid);
+        let expected_price = U64F64::from_num(0.2_f64);
+        assert_abs_diff_eq!(
+            price.to_num::<f64>(),
+            expected_price.to_num::<f64>(),
+            epsilon = 0.000000001
+        );
     });
 }
 
@@ -1066,7 +1095,7 @@ fn test_swap_basic() {
             let initial_alpha_reserve = AlphaCurrency::from(4_000_000_000_u64);
             TaoReserve::set_mock_reserve(netuid, initial_tao_reserve);
             AlphaReserve::set_mock_reserve(netuid, initial_alpha_reserve);
-            assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+            assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid, None));
 
             // Get current price
             let current_price_before = Pallet::<Test>::current_price(netuid);
@@ -1300,7 +1329,7 @@ fn test_convert_deltas() {
             let netuid = NetUid::from(1);
             TaoReserve::set_mock_reserve(netuid, TaoCurrency::from(tao));
             AlphaReserve::set_mock_reserve(netuid, AlphaCurrency::from(alpha));
-            assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+            assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid, None));
 
             let w_accuracy = 1_000_000_000_f64;
             let w_quote_pt =
@@ -1786,7 +1815,7 @@ fn test_swap_subtoken_disabled() {
         let netuid = NetUid::from(SUBTOKEN_DISABLED_NETUID); // Use a netuid not used elsewhere
         let liquidity = 1_000_000_u64;
 
-        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid, None));
 
         assert_noop!(
             Pallet::<Test>::add_liquidity(
@@ -2594,7 +2623,7 @@ fn test_clear_protocol_liquidity_green_path() {
         EnabledUserLiquidity::<Test>::insert(netuid, true);
 
         // Initialize swap state
-        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid));
+        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid, None));
         assert!(
             PalSwapInitialized::<Test>::get(netuid),
             "Swap must be initialized"
@@ -2668,28 +2697,34 @@ fn test_migrate_swapv3_to_balancer() {
     new_test_ext().execute_with(|| {
         let migration =
             crate::migrations::migrate_swapv3_to_balancer::migrate_swapv3_to_balancer::<Test>;
+        let netuid = NetUid::from(1);
 
         // Insert deprecated maps values
-        deprecated_swap_maps::AlphaSqrtPrice::<Test>::insert(
-            NetUid::from(1),
-            U64F64::from_num(1.23),
-        );
-        deprecated_swap_maps::ScrapReservoirTao::<Test>::insert(
-            NetUid::from(1),
-            TaoCurrency::from(9876),
-        );
+        deprecated_swap_maps::AlphaSqrtPrice::<Test>::insert(netuid, U64F64::from_num(1.23));
+        deprecated_swap_maps::ScrapReservoirTao::<Test>::insert(netuid, TaoCurrency::from(9876));
         deprecated_swap_maps::ScrapReservoirAlpha::<Test>::insert(
-            NetUid::from(1),
+            netuid,
             AlphaCurrency::from(9876),
         );
+
+        // Insert reserves that do not match the 1.23 price
+        TaoReserve::set_mock_reserve(netuid, TaoCurrency::from(1_000_000_000));
+        AlphaReserve::set_mock_reserve(netuid, AlphaCurrency::from(4_000_000_000));
 
         // Run migration
         migration();
 
         // Test that values are removed from state
         assert!(!deprecated_swap_maps::AlphaSqrtPrice::<Test>::contains_key(
-            NetUid::from(1)
-        ),);
-        assert!(!deprecated_swap_maps::ScrapReservoirAlpha::<Test>::contains_key(NetUid::from(1)),);
+            netuid
+        ));
+        assert!(!deprecated_swap_maps::ScrapReservoirAlpha::<Test>::contains_key(netuid));
+
+        // Test that subnet price is still 1.23
+        assert_abs_diff_eq!(
+            Swap::current_price(netuid).to_num::<f64>(),
+            1.23,
+            epsilon = 0.1
+        );
     });
 }

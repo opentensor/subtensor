@@ -10,7 +10,7 @@ use crate::pallet::{Call, Config, Pallet};
 
 #[allow(dead_code)]
 fn init_swap<T: Config>(netuid: NetUid) {
-    let _ = Pallet::<T>::maybe_initialize_palswap(netuid);
+    let _ = Pallet::<T>::maybe_initialize_palswap(netuid, None);
 }
 
 #[benchmarks(where T: Config)]

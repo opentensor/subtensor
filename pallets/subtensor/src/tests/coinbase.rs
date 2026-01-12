@@ -222,8 +222,8 @@ fn test_coinbase_tao_issuance_different_prices() {
         mock::setup_reserves(netuid2, initial_tao.into(), initial_alpha2.into());
 
         // Force the swap to initialize
-        <Test as pallet::Config>::SwapInterface::init_swap(netuid1);
-        <Test as pallet::Config>::SwapInterface::init_swap(netuid2);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid1, None);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid2, None);
 
         // Make subnets dynamic.
         SubnetMechanism::<Test>::insert(netuid1, 1);
@@ -592,8 +592,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
 
         // Force the swap to initialize
-        <Test as pallet::Config>::SwapInterface::init_swap(netuid1);
-        <Test as pallet::Config>::SwapInterface::init_swap(netuid2);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid1, None);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid2, None);
 
         // Get the prices before the run_coinbase
         let price_1_before = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
@@ -3349,7 +3349,7 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
             AlphaCurrency::from(1_000_000_000_000_000),
         );
         // Initialize swap v3
-        Swap::maybe_initialize_palswap(netuid0);
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         // Set netuid0 to have price tao_emission / price > alpha_emission
         let alpha_emission = U96F32::saturating_from_num(
@@ -3430,7 +3430,7 @@ fn test_coinbase_subnet_terms_with_alpha_in_lte_alpha_emission() {
             AlphaCurrency::from(1_000_000_000_000_000),
         );
         // Initialize swap v3
-        Swap::maybe_initialize_palswap(netuid0);
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         let alpha_emission = U96F32::saturating_from_num(
             SubtensorModule::get_block_emission_for_issuance(
@@ -3493,7 +3493,7 @@ fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
             AlphaCurrency::from(1_000_000_000_000_000),
         );
         // Initialize swap v3
-        Swap::maybe_initialize_palswap(netuid0);
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         let tao_in = BTreeMap::from([(netuid0, U96F32::saturating_from_num(123))]);
         let alpha_in = BTreeMap::from([(netuid0, U96F32::saturating_from_num(456))]);
@@ -3627,7 +3627,7 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
             AlphaCurrency::from(1_000_000_000_000_000),
         );
         // Initialize swap v3
-        Swap::maybe_initialize_palswap(netuid0);
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         let tao_emission = U96F32::saturating_from_num(12345678);
         let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
@@ -3718,7 +3718,7 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
             AlphaCurrency::from(1_000_000_000_000_000),
         );
         // Initialize swap v3
-        Swap::maybe_initialize_palswap(netuid0);
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         let tao_emission = U96F32::saturating_from_num(12345678);
         let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);

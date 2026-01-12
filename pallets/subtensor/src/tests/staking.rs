@@ -573,7 +573,7 @@ fn test_add_stake_partial_below_min_stake_fails() {
         mock::setup_reserves(netuid, (amount * 10).into(), (amount * 10).into());
 
         // Force the swap to initialize
-        <Test as pallet::Config>::SwapInterface::init_swap(netuid);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid, None);
 
         // Get the current price (should be 1.0)
         let current_price =
@@ -2884,7 +2884,7 @@ fn test_max_amount_add_dynamic() {
             SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
             // Force the swap to initialize
-            <Test as pallet::Config>::SwapInterface::init_swap(netuid);
+            <Test as pallet::Config>::SwapInterface::init_swap(netuid, None);
 
             if !alpha_in.is_zero() {
                 let expected_price = U96F32::from_num(tao_in) / U96F32::from_num(alpha_in);
@@ -5370,7 +5370,7 @@ fn test_large_swap() {
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
 
         // Force the swap to initialize
-        <Test as pallet::Config>::SwapInterface::init_swap(netuid);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid, None);
 
         // TODO: Revise when user liquidity is available
         // setup_positions(netuid.into());

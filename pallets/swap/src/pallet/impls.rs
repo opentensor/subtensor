@@ -60,21 +60,46 @@ impl<T: Config> Pallet<T> {
     }
 
     // initializes pal-swap (balancer) for a subnet if needed
-    pub fn maybe_initialize_palswap(netuid: NetUid) -> Result<(), Error<T>> {
+    pub fn maybe_initialize_palswap(
+        netuid: NetUid,
+        maybe_price: Option<U64F64>,
+    ) -> Result<(), Error<T>> {
         if PalSwapInitialized::<T>::get(netuid) {
             return Ok(());
         }
 
-        // Insert 0.5 into SwapBalancer
-        let balancer =
-            Balancer::new(Perquintill::from_rational(1_u64, 2_u64)).map_err(|err| match err {
-                BalancerError::InvalidValue => Error::<T>::ReservesOutOfBalance,
-            })?;
+        // Query reserves
+        let tao_reserve = T::TaoReserve::reserve(netuid.into());
+        let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
+
+        // Create balancer based on price
+        let balancer = Balancer::new(if let Some(price) = maybe_price {
+            // Price is given, calculate weights:
+            // w_quote = y / (px + y)
+            let px_high = (price.saturating_to_num::<u64>() as u128)
+                .saturating_mul(u64::from(alpha_reserve) as u128);
+            let px_low = U64F64::saturating_from_num(alpha_reserve)
+                .saturating_mul(price.frac())
+                .saturating_to_num::<u128>();
+            let px_plus_y = px_high
+                .saturating_add(px_low)
+                .saturating_add(u64::from(tao_reserve) as u128);
+
+            // If price is given and both reserves are zero, the swap doesn't initialize
+            if px_plus_y == 0u128 {
+                return Err(Error::<T>::ReservesOutOfBalance);
+            }
+            Perquintill::from_rational(u64::from(tao_reserve) as u128, px_plus_y)
+        } else {
+            // No price = insert 0.5 into SwapBalancer
+            Perquintill::from_rational(1_u64, 2_u64)
+        })
+        .map_err(|err| match err {
+            BalancerError::InvalidValue => Error::<T>::ReservesOutOfBalance,
+        })?;
         SwapBalancer::<T>::insert(netuid, balancer.clone());
 
         // Insert current liquidity
-        let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let liquidity =
             balancer.calculate_current_liquidity(u64::from(tao_reserve), u64::from(alpha_reserve));
         CurrentLiquidity::<T>::insert(netuid, liquidity);
@@ -230,7 +255,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ReservesTooLow
         );
 
-        Self::maybe_initialize_palswap(netuid)?;
+        Self::maybe_initialize_palswap(netuid, None)?;
 
         // Because user specifies the limit price, check that it is in fact beoynd the current one
         ensure!(
@@ -715,7 +740,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
     }
-    fn init_swap(netuid: NetUid) {
-        Self::maybe_initialize_palswap(netuid).unwrap_or_default();
+    fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>) {
+        Self::maybe_initialize_palswap(netuid, maybe_price).unwrap_or_default();
     }
 }

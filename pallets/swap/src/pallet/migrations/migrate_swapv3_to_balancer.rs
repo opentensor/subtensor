@@ -40,7 +40,14 @@ pub fn migrate_swapv3_to_balancer<T: Config>() -> Weight {
     );
 
     // ------------------------------
-    // Step 1: Clear Map entries
+    // Step 1: Initialize swaps with price before price removal
+    // ------------------------------
+    for (netuid, price) in deprecated_swap_maps::AlphaSqrtPrice::<T>::iter() {
+        crate::Pallet::<T>::maybe_initialize_palswap(netuid, Some(price)).unwrap_or_default();
+    }
+
+    // ------------------------------
+    // Step 2: Clear Map entries
     // ------------------------------
     remove_prefix::<T>("Swap", "AlphaSqrtPrice", &mut weight);
     remove_prefix::<T>("Swap", "CurrentTick", &mut weight);
@@ -56,7 +63,7 @@ pub fn migrate_swapv3_to_balancer<T: Config>() -> Weight {
     remove_prefix::<T>("Swap", "Positions", &mut weight);
 
     // ------------------------------
-    // Step 2: Mark Migration as Completed
+    // Step 3: Mark Migration as Completed
     // ------------------------------
 
     HasMigrationRun::<T>::insert(&migration_name, true);

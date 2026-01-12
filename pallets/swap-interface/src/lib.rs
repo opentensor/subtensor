@@ -51,7 +51,7 @@ pub trait SwapHandler {
     fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
-    fn init_swap(netuid: NetUid);
+    fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>);
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>
