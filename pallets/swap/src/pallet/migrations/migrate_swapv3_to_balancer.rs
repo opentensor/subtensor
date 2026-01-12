@@ -42,7 +42,8 @@ pub fn migrate_swapv3_to_balancer<T: Config>() -> Weight {
     // ------------------------------
     // Step 1: Initialize swaps with price before price removal
     // ------------------------------
-    for (netuid, price) in deprecated_swap_maps::AlphaSqrtPrice::<T>::iter() {
+    for (netuid, price_sqrt) in deprecated_swap_maps::AlphaSqrtPrice::<T>::iter() {
+        let price = price_sqrt.saturating_mul(price_sqrt);
         crate::Pallet::<T>::maybe_initialize_palswap(netuid, Some(price)).unwrap_or_default();
     }
 

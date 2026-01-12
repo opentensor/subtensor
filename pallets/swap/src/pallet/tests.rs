@@ -2720,10 +2720,10 @@ fn test_migrate_swapv3_to_balancer() {
         ));
         assert!(!deprecated_swap_maps::ScrapReservoirAlpha::<Test>::contains_key(netuid));
 
-        // Test that subnet price is still 1.23
+        // Test that subnet price is still 1.23^2
         assert_abs_diff_eq!(
             Swap::current_price(netuid).to_num::<f64>(),
-            1.23,
+            1.23 * 1.23,
             epsilon = 0.1
         );
     });
