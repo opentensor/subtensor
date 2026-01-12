@@ -341,29 +341,22 @@ pub mod pallet {
         /// The extrinsic sets the weights set rate limit for a subnet.
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the weights set rate limit.
+        ///
+        /// Deprecated: weights set rate limit is now configured via `pallet-rate-limiting` on the
+        /// weights set group target (`GROUP_WEIGHTS_SUBNET`) with `scope = Some(netuid)`.
         #[pallet::call_index(7)]
         #[pallet::weight(Weight::from_parts(15_060_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        #[deprecated(
+            note = "deprecated: configure via pallet-rate-limiting::set_rate_limit(target=Group(GROUP_WEIGHTS_SUBNET), scope=Some(netuid), ...)"
+        )]
         pub fn sudo_set_weights_set_rate_limit(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            weights_set_rate_limit: u64,
+            _origin: OriginFor<T>,
+            _netuid: NetUid,
+            _weights_set_rate_limit: u64,
         ) -> DispatchResult {
-            ensure_root(origin)?;
-
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-            pallet_subtensor::Pallet::<T>::set_weights_set_rate_limit(
-                netuid,
-                weights_set_rate_limit,
-            );
-            log::debug!(
-                "WeightsSetRateLimitSet( netuid: {netuid:?} weights_set_rate_limit: {weights_set_rate_limit:?} ) "
-            );
-            Ok(())
+            Err(Error::<T>::Deprecated.into())
         }
 
         /// The extrinsic sets the adjustment interval for a subnet.

@@ -476,7 +476,6 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
         Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
-        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
         let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
         let (nonce, work) =

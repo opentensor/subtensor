@@ -1019,8 +1019,6 @@ pub fn assert_last_event<T: frame_system::pallet::Config>(
 
 #[allow(dead_code)]
 pub fn commit_dummy(who: U256, netuid: NetUid) {
-    SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
     // any 32‑byte value is fine; hash is never opened
     let hash = sp_core::H256::from_low_u64_be(0xDEAD_BEEF);
     assert_ok!(SubtensorModule::do_commit_weights(

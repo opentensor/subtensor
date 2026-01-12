@@ -454,14 +454,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_weights_set_rate_limit(netuid: NetUid) -> u64 {
-        WeightsSetRateLimit::<T>::get(netuid)
-    }
-    pub fn set_weights_set_rate_limit(netuid: NetUid, weights_set_rate_limit: u64) {
-        WeightsSetRateLimit::<T>::insert(netuid, weights_set_rate_limit);
-        Self::deposit_event(Event::WeightsSetRateLimitSet(
-            netuid,
-            weights_set_rate_limit,
-        ));
+        T::RateLimiting::rate_limit(rate_limiting::GROUP_WEIGHTS_SUBNET, Some(netuid))
+            .unwrap_or_default()
+            .saturated_into()
     }
 
     pub fn get_adjustment_interval(netuid: NetUid) -> u16 {

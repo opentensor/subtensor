@@ -412,7 +412,7 @@ fn build_delegate_take(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>)
 // Weights group (config + usage shared).
 // scope: netuid
 // usage: netuid+neuron/netuid+mechanism+neuron
-// legacy source: SubnetWeightsSetRateLimit, LastUpdate (subnet/mechanism)
+// legacy source: WeightsSetRateLimit, LastUpdate (subnet/mechanism)
 fn build_weights(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
     let mut reads: u64 = 0;
     groups.push(GroupConfig {
@@ -1507,7 +1507,8 @@ mod tests {
             let scope = Some(netuid);
             let usage = Some(vec![UsageKey::SubnetNeuron { netuid, uid }]);
 
-            let legacy_weights = || SubtensorModule::check_rate_limit(netuid.into(), uid, now);
+			// FIXME check_rate_limit is removed
+            // let legacy_weights = || SubtensorModule::check_rate_limit(netuid.into(), uid, now);
             parity_check(
                 now,
                 weights_call,
