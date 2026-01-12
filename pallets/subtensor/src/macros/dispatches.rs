@@ -1935,7 +1935,7 @@ mod dispatches {
         /// Emits a `FirstEmissionBlockNumberSet` event on success.
         #[pallet::call_index(92)]
         #[pallet::weight((
-            Weight::from_parts(29_780_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 2)),
+            Weight::from_parts(29_780_000, 0).saturating_add(T::DbWeight::get().reads_writes(5, 2)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
