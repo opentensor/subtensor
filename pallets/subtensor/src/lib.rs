@@ -1504,6 +1504,10 @@ pub mod pallet {
     pub type NetworkImmunityPeriod<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
 
+    /// ITEM( start_call_delay )
+    #[pallet::storage]
+    pub type StartCallDelay<T: Config> = StorageValue<_, u64, ValueQuery, T::InitialStartCallDelay>;
+
     /// ITEM( min_network_lock_cost )
     #[pallet::storage]
     pub type NetworkMinLockCost<T> =
@@ -2366,6 +2370,8 @@ pub mod pallet {
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
         /// The total issued balance in genesis
         pub balances_issuance: TaoCurrency,
+        /// The delay before a subnet can call start
+        pub start_call_delay: Option<u64>,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -2373,6 +2379,7 @@ pub mod pallet {
             Self {
                 stakes: Default::default(),
                 balances_issuance: TaoCurrency::ZERO,
+                start_call_delay: None,
             }
         }
     }
