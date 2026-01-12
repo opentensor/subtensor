@@ -364,7 +364,10 @@ impl Balancer {
         .unwrap_or(SafeInt::from(0));
 
         // 0.5 scaled for rounding to the nearest integer
+        // Allow arithmetic side effects here: SafeInt doesn't panic
+        #[allow(clippy::arithmetic_side_effects)]
         let round_nearest_offset = (scale.clone() / SafeInt::from(2)).unwrap_or_default();
+        #[allow(clippy::arithmetic_side_effects)]
         ((((exp_x * exp_y) / scale.clone()).unwrap_or_default() + round_nearest_offset) / scale)
             .unwrap_or_default()
             .to_u64()
