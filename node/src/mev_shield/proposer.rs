@@ -13,6 +13,18 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+/// Truncate a UTF-8 string to at most `max_bytes` bytes without splitting codepoints.
+fn truncate_utf8_to_bytes(s: &str, max_bytes: usize) -> String {
+    if s.len() <= max_bytes {
+        return s.to_string();
+    }
+    let mut end = max_bytes;
+    while end > 0 && !s.is_char_boundary(end) {
+        end = end.saturating_sub(1);
+    }
+    s[..end].to_string()
+}
+
 /// Helper to build a `mark_decryption_failed` runtime call with a bounded reason string.
 fn create_failed_call(id: H256, reason: &str) -> node_subtensor_runtime::RuntimeCall {
     use sp_runtime::BoundedVec;
@@ -587,8 +599,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         ss32.copy_from_slice(ss_bytes);
 
                         let ss_hash = sp_core::hashing::blake2_256(&ss32);
-                        let aead_key =
-                            crate::mev_shield::author::derive_aead_key(&ss32);
+                        let aead_key = crate::mev_shield::author::derive_aead_key(&ss32);
                         let key_hash_dbg = sp_core::hashing::blake2_256(&aead_key);
 
                         log::debug!(
@@ -644,7 +655,6 @@ pub fn spawn_revealer<B, C, Pool>(
                         );
 
                         // Safely parse plaintext layout without panics.
-
                         if plaintext.is_empty() {
                             let error_message = "plaintext too short";
                             log::debug!(
@@ -731,22 +741,39 @@ pub fn spawn_revealer<B, C, Pool>(
                                         );
                                     }
                                     Err(e) => {
+                                        let err_dbg = format!("{e:?}");
+                                        let reason = truncate_utf8_to_bytes(
+                                            &format!(
+                                                "inner extrinsic rejected by tx-pool (pre-dispatch): {err_dbg}"
+                                            ),
+                                            240,
+                                        );
                                         log::debug!(
                                             target: "mev-shield",
-                                            "  id=0x{}: submit_one(...) FAILED: {:?}",
+                                            "  id=0x{}: submit_one(...) FAILED (will mark_decryption_failed): {:?}",
                                             hex::encode(id.as_bytes()),
                                             e
                                         );
+                                        failed_calls.push((id, create_failed_call(id, &reason)));
                                     }
                                 }
                             }
                             Err(e) => {
+                                // Defensive: if we cannot even construct an OpaqueExtrinsic, mark it failed.
+                                let err_dbg = format!("{e:?}");
+                                let reason = truncate_utf8_to_bytes(
+                                    &format!(
+                                        "invalid decrypted extrinsic bytes (OpaqueExtrinsic::from_bytes): {err_dbg}"
+                                    ),
+                                    240,
+                                );
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: OpaqueExtrinsic::from_bytes failed: {:?}",
+                                    "  id=0x{}: OpaqueExtrinsic::from_bytes failed (will mark_decryption_failed): {:?}",
                                     hex::encode(id.as_bytes()),
                                     e
                                 );
+                                failed_calls.push((id, create_failed_call(id, &reason)));
                             }
                         }
                     }
