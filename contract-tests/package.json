@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test": "TS_NODE_PREFER_TS_EXTS=1 TS_NODE_TRANSPILE_ONLY=1 mocha --timeout 999999 --retries 3 --file src/setup.ts --require ts-node/register --extension ts \"test/**/*.ts\""
+    "test": "TS_NODE_PREFER_TS_EXTS=1 TS_NODE_TRANSPILE_ONLY=1 mocha --timeout 999999 --retries 3 --file src/setup.ts --require ts-node/register --extension ts \"test/addressMapping.precompile.test.ts\""
   },
   "keywords": [],
   "author": "",

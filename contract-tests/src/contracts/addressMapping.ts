@@ -17,7 +17,7 @@ export const IAddressMappingABI = [
                 "type": "bytes32"
             }
         ],
-        "stateMutability": "payable",
+        "stateMutability": "view",
         "type": "function"
     }
 ];

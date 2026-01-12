@@ -66,7 +66,7 @@ where
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     #[precompile::public("addressMapping(address)")]
-    #[precompile::payable]
+    #[precompile::view]
     fn address_mapping(
         _handle: &mut impl PrecompileHandle,
         target_address: Address,

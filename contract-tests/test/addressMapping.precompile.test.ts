@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { generateRandomEthersWallet } from "../src/utils";
 import { IADDRESS_MAPPING_ADDRESS, IAddressMappingABI } from "../src/contracts/addressMapping";
 import { convertH160ToPublicKey } from "../src/address-utils";
+import { u8aToHex } from "@polkadot/util";
 
 describe("Test address mapping precompile", () => {
     const wallet1 = generateRandomEthersWallet();
@@ -31,7 +32,10 @@ describe("Test address mapping precompile", () => {
             "AccountId32 should not be all zeros"
         );
 
-        assert.equal(accountId32, expectedAcccountId32, "AccountId32 should be the same as the expected AccountId32");
+        console.log("accountId32: {}", accountId32);
+        console.log("expectedAcccountId32: {}", expectedAcccountId32);
+
+        assert.equal(accountId32, u8aToHex(expectedAcccountId32), "AccountId32 should be the same as the expected AccountId32");
     });
 
     it("Address mapping works with different addresses", async () => {

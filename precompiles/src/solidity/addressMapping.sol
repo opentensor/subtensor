@@ -17,5 +17,5 @@ interface IAddressMapping {
      */
     function addressMapping(
         address target_address
-    ) external payable returns (bytes32);
+    ) external view returns (bytes32);
 }
