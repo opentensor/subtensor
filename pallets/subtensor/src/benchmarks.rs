@@ -1346,11 +1346,11 @@ mod pallet_benchmarks {
             hotkey.clone()
         ));
 
-        // Read current price and set limit price 50% higher, which is not getting hit
+        // Read current price and set limit price 50% lower, which is not getting hit
         // by swapping 1 TAO
         let current_price = T::SwapInterface::current_alpha_price(netuid);
         let limit = current_price
-            .saturating_mul(U64F64::saturating_from_num(1_500_000_000))
+            .saturating_mul(U64F64::saturating_from_num(500_000_000))
             .saturating_to_num::<u64>();
         let u64_staked_amt = 1_000_000_000;
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
