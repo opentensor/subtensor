@@ -421,6 +421,7 @@ fn build_weights(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u6
         sharing: GroupSharing::ConfigAndUsage,
         members: vec![
             MigratedCall::subtensor(0, false),   // set_weights
+            MigratedCall::subtensor(80, false),  // batch_set_weights
             MigratedCall::subtensor(96, false),  // commit_weights
             MigratedCall::subtensor(100, false), // batch_commit_weights
             MigratedCall::subtensor(113, false), // commit_timelocked_weights
@@ -1108,7 +1109,7 @@ mod tests {
         call: RuntimeCall,
         origin: RuntimeOrigin,
         usage_override: Option<Vec<UsageKey>>,
-        scope_override: Option<NetUid>,
+        scope_override: Option<Vec<NetUid>>,
         legacy_check: F,
     ) where
         F: Fn() -> bool,
@@ -1127,13 +1128,27 @@ mod tests {
         let target = resolve_target(identifier);
 
         // Use the runtime-adjusted span (handles tempo scaling for admin-utils).
-        let span = pallet_rate_limiting::Pallet::<Runtime>::effective_span(
-            &origin.clone().into(),
-            &call,
-            &target,
-            &scope,
-        )
-        .unwrap_or_default();
+        let span = match scope.as_ref() {
+            None => pallet_rate_limiting::Pallet::<Runtime>::effective_span(
+                &origin.clone().into(),
+                &call,
+                &target,
+                &None,
+            )
+            .unwrap_or_default(),
+            Some(scopes) => scopes
+                .iter()
+                .filter_map(|scope| {
+                    pallet_rate_limiting::Pallet::<Runtime>::effective_span(
+                        &origin.clone().into(),
+                        &call,
+                        &target,
+                        &Some(*scope),
+                    )
+                })
+                .max()
+                .unwrap_or_default(),
+        };
         let span_u64: u64 = span.saturated_into();
 
         let usage_keys: Vec<Option<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
@@ -1504,11 +1519,17 @@ mod tests {
                 version_key: 0,
             });
             let origin = RuntimeOrigin::signed(hot.clone());
-            let scope = Some(netuid);
+            let scope = Some(vec![netuid]);
             let usage = Some(vec![UsageKey::SubnetNeuron { netuid, uid }]);
 
-            // FIXME check_rate_limit is removed
-            // let legacy_weights = || SubtensorModule::check_rate_limit(netuid.into(), uid, now);
+            let legacy_weights = || {
+                let last = LastUpdate::<Runtime>::get(NetUidStorageIndex::from(netuid))
+                    .get(uid as usize)
+                    .copied()
+                    .unwrap_or_default();
+                let limit = WeightsSetRateLimit::<Runtime>::get(netuid);
+                now.saturating_sub(last) >= limit
+            };
             parity_check(
                 now,
                 weights_call,
@@ -1595,7 +1616,7 @@ mod tests {
             });
             let origin = RuntimeOrigin::signed(hot.clone());
             let usage = Some(vec![UsageKey::SubnetNeuron { netuid, uid }]);
-            let scope = Some(netuid);
+            let scope = Some(vec![netuid]);
             let limit = <Runtime as pallet_subtensor::Config>::EvmKeyAssociateRateLimit::get();
             let legacy = || {
                 let last = now - 1;

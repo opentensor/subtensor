@@ -174,7 +174,7 @@ pub mod pallet {
         AtLeast32BitUnsigned, DispatchOriginOf, Dispatchable, Member, One, Saturating, Zero,
     };
     use sp_std::{
-        boxed::Box, collections::btree_map::BTreeMap, convert::TryFrom, marker::PhantomData,
+        boxed::Box, collections::btree_map::BTreeMap, convert::TryFrom, marker::PhantomData, vec,
         vec::Vec,
     };
 

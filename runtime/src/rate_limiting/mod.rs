@@ -25,7 +25,7 @@ use pallet_subtensor::{Call as SubtensorCall, Tempo};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::DispatchError;
-use sp_std::{vec, vec::Vec};
+use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
 use subtensor_runtime_common::{
     BlockNumber, NetUid,
     rate_limiting::{RateLimitUsageKey, ServingEndpoint},
@@ -96,7 +96,7 @@ impl EnsureLimitSettingRule<RuntimeOrigin, LimitSettingRule, NetUid> for LimitSe
 pub struct ScopeResolver;
 
 impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for ScopeResolver {
-    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<NetUid> {
+    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<Vec<NetUid>> {
         match call {
             RuntimeCall::SubtensorModule(inner) => match inner {
                 SubtensorCall::serve_axon { netuid, .. }
@@ -112,7 +112,17 @@ impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for
                 | SubtensorCall::reveal_mechanism_weights { netuid, .. }
                 | SubtensorCall::commit_crv3_mechanism_weights { netuid, .. }
                 | SubtensorCall::commit_timelocked_mechanism_weights { netuid, .. } => {
-                    Some(*netuid)
+                    Some(vec![*netuid])
+                }
+                SubtensorCall::batch_set_weights { netuids, .. }
+                | SubtensorCall::batch_commit_weights { netuids, .. } => {
+                    let scopes: BTreeSet<NetUid> =
+                        netuids.iter().map(|netuid| (*netuid).into()).collect();
+                    if scopes.is_empty() {
+                        None
+                    } else {
+                        Some(scopes.into_iter().collect())
+                    }
                 }
                 _ => None,
             },
@@ -231,12 +241,26 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                         netuid: *netuid,
                     }])
                 }
+                SubtensorCall::batch_set_weights { netuids, .. }
+                | SubtensorCall::batch_commit_weights { netuids, .. } => {
+                    let mut usage = BTreeSet::new();
+                    for netuid in netuids {
+                        let netuid: NetUid = (*netuid).into();
+                        let uid = neuron_identity(origin, netuid)?;
+                        usage.insert(RateLimitUsageKey::<AccountId>::SubnetNeuron { netuid, uid });
+                    }
+                    if usage.is_empty() {
+                        None
+                    } else {
+                        Some(usage.into_iter().collect())
+                    }
+                }
                 SubtensorCall::set_weights { netuid, .. }
                 | SubtensorCall::commit_weights { netuid, .. }
                 | SubtensorCall::reveal_weights { netuid, .. }
                 | SubtensorCall::batch_reveal_weights { netuid, .. }
                 | SubtensorCall::commit_timelocked_weights { netuid, .. } => {
-                    let (_, uid) = neuron_identity(origin, *netuid)?;
+                    let uid = neuron_identity(origin, *netuid)?;
                     Some(vec![RateLimitUsageKey::<AccountId>::SubnetNeuron {
                         netuid: *netuid,
                         uid,
@@ -249,7 +273,7 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                 | SubtensorCall::reveal_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::commit_crv3_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::commit_timelocked_mechanism_weights { netuid, mecid, .. } => {
-                    let (_, uid) = neuron_identity(origin, *netuid)?;
+                    let uid = neuron_identity(origin, *netuid)?;
                     Some(vec![
                         RateLimitUsageKey::<AccountId>::SubnetMechanismNeuron {
                             netuid: *netuid,
@@ -349,11 +373,11 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
     }
 }
 
-fn neuron_identity(origin: &RuntimeOrigin, netuid: NetUid) -> Option<(AccountId, u16)> {
+fn neuron_identity(origin: &RuntimeOrigin, netuid: NetUid) -> Option<u16> {
     let hotkey = signed_origin(origin)?;
     let uid =
         pallet_subtensor::Pallet::<Runtime>::get_uid_for_net_and_hotkey(netuid, &hotkey).ok()?;
-    Some((hotkey, uid))
+    Some(uid)
 }
 
 fn signed_origin(origin: &RuntimeOrigin) -> Option<AccountId> {
