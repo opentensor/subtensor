@@ -1820,6 +1820,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             let ct = pallet_subtensor_swap::CurrentTick::<Test>::get(net);
             let lo = ct.saturating_sub(band);
             let hi = ct.saturating_add(band);
+            pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(net, true);
             assert_ok!(pallet_subtensor_swap::Pallet::<Test>::add_liquidity(
                 RuntimeOrigin::signed(cold),
                 hot,
