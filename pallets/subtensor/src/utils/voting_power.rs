@@ -195,16 +195,13 @@ impl<T: Config> Pallet<T> {
         // All values use 18 decimal precision for alpha (alpha is in range [0, 10^18])
         let new_ema = Self::calculate_voting_power_ema(current_stake, previous_ema, alpha);
 
-        // Use 90% of min_stake as removal threshold (hysteresis to prevent noise-triggered removal)
-        let removal_threshold = min_stake.saturating_mul(9).safe_div(10);
-
-        // Only remove if they previously had voting power ABOVE threshold and decayed significantly below.
+        // Only remove if they previously had voting power ABOVE threshold and decayed below.
         // This allows new validators to build up voting power from 0 without being removed.
-        if new_ema < removal_threshold && previous_ema >= min_stake {
-            // Was above threshold, now decayed significantly below - remove
+        if new_ema < min_stake && previous_ema >= min_stake {
+            // Was above threshold, now decayed below - remove
             VotingPower::<T>::remove(netuid, hotkey);
             log::trace!(
-                "VotingPower removed for hotkey {hotkey:?} on netuid {netuid:?} (decayed below removal threshold: {new_ema:?} < {removal_threshold:?})"
+                "VotingPower removed for hotkey {hotkey:?} on netuid {netuid:?} (decayed below removal threshold: {new_ema:?} < {min_stake:?})"
             );
         } else if new_ema > 0 {
             // Update voting power (building up or maintaining)
