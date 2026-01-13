@@ -13,6 +13,26 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+/// Truncate a UTF-8 string to at most `max_bytes` bytes without splitting codepoints.
+fn truncate_utf8_to_bytes(s: &str, max_bytes: usize) -> String {
+    if s.len() <= max_bytes {
+        return s.to_string();
+    }
+
+    let mut end = max_bytes.min(s.len());
+
+    // Decrement until we find a valid UTF-8 boundary.
+    while end > 0 {
+        if let Some(prefix) = s.get(..end) {
+            return prefix.to_string();
+        }
+        end = end.saturating_sub(1);
+    }
+
+    // If max_bytes was 0 or we couldn't find a boundary (extremely defensive), return empty.
+    String::new()
+}
+
 /// Helper to build a `mark_decryption_failed` runtime call with a bounded reason string.
 fn create_failed_call(id: H256, reason: &str) -> node_subtensor_runtime::RuntimeCall {
     use sp_runtime::BoundedVec;
@@ -587,8 +607,7 @@ pub fn spawn_revealer<B, C, Pool>(
                         ss32.copy_from_slice(ss_bytes);
 
                         let ss_hash = sp_core::hashing::blake2_256(&ss32);
-                        let aead_key =
-                            crate::mev_shield::author::derive_aead_key(&ss32);
+                        let aead_key = crate::mev_shield::author::derive_aead_key(&ss32);
                         let key_hash_dbg = sp_core::hashing::blake2_256(&aead_key);
 
                         log::debug!(
@@ -642,8 +661,6 @@ pub fn spawn_revealer<B, C, Pool>(
                             hex::encode(id.as_bytes()),
                             plaintext.len()
                         );
-
-                        // Safely parse plaintext layout without panics.
 
                         if plaintext.is_empty() {
                             let error_message = "plaintext too short";
@@ -731,22 +748,40 @@ pub fn spawn_revealer<B, C, Pool>(
                                         );
                                     }
                                     Err(e) => {
+                                        // Emit an on-chain failure event even when the *inner*
+                                        // transaction fails pre-dispatch validation in the pool.
+                                        let err_dbg = format!("{e:?}");
+                                        let reason = truncate_utf8_to_bytes(
+                                            &format!(
+                                                "inner extrinsic rejected by tx-pool (pre-dispatch): {err_dbg}"
+                                            ),
+                                            240,
+                                        );
                                         log::debug!(
                                             target: "mev-shield",
-                                            "  id=0x{}: submit_one(...) FAILED: {:?}",
+                                            "  id=0x{}: submit_one(...) FAILED (will mark_decryption_failed): {:?}",
                                             hex::encode(id.as_bytes()),
                                             e
                                         );
+                                        failed_calls.push((id, create_failed_call(id, &reason)));
                                     }
                                 }
                             }
                             Err(e) => {
+                                let err_dbg = format!("{e:?}");
+                                let reason = truncate_utf8_to_bytes(
+                                    &format!(
+                                        "invalid decrypted extrinsic bytes (OpaqueExtrinsic::from_bytes): {err_dbg}"
+                                    ),
+                                    240,
+                                );
                                 log::debug!(
                                     target: "mev-shield",
-                                    "  id=0x{}: OpaqueExtrinsic::from_bytes failed: {:?}",
+                                    "  id=0x{}: OpaqueExtrinsic::from_bytes failed (will mark_decryption_failed): {:?}",
                                     hex::encode(id.as_bytes()),
                                     e
                                 );
+                                failed_calls.push((id, create_failed_call(id, &reason)));
                             }
                         }
                     }
