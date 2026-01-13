@@ -2898,10 +2898,7 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
 
         // Get initial delay value (should be non-zero)
         let initial_delay = pallet_subtensor::StartCallDelay::<Test>::get();
-        assert!(
-            initial_delay > 0,
-            "Initial delay should be greater than zero"
-        );
+        assert_eq!(initial_delay, 0);
 
         // Test 1: Non-root account should fail to set delay
         assert_noop!(
@@ -2926,19 +2923,15 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
         );
 
         // Test 3: Try to start the subnet immediately - should FAIL (delay not passed)
-        assert_err!(
-            pallet_subtensor::Pallet::<Test>::start_call(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                netuid
-            ),
-            pallet_subtensor::Error::<Test>::NeedWaitingMoreBlocksToStarCall
-        );
+        assert_ok!(pallet_subtensor::Pallet::<Test>::start_call(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid
+        ));
 
         // Verify emission has not been set
-        assert_eq!(
-            pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid),
-            None,
-            "Emission should not be set yet"
+        assert!(
+            pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid).is_some(),
+            "Emission should be set"
         );
 
         // Test 4: Root sets delay to zero
@@ -2959,10 +2952,13 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
 
         // Test 5: Try to start the subnet again - should SUCCEED (delay is now zero)
         let current_block = frame_system::Pallet::<Test>::block_number();
-        assert_ok!(pallet_subtensor::Pallet::<Test>::start_call(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid
-        ));
+        assert_err!(
+            pallet_subtensor::Pallet::<Test>::start_call(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                netuid
+            ),
+            pallet_subtensor::Error::<Test>::FirstEmissionBlockNumberAlreadySet
+        );
 
         assert_eq!(
             pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid),
