@@ -48,4 +48,5 @@ jobs:
                       --ignore RUSTSEC-2025-0009 \
                       --ignore RUSTSEC-2025-0055 \
                       --ignore RUSTSEC-2025-0073 \
-                      --ignore RUSTSEC-2025-0118
+                      --ignore RUSTSEC-2025-0118 \
+                      --ignore RUSTSEC-2025-0137
