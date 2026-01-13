@@ -8,7 +8,7 @@ mod config {
 
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use pallet_commitments::GetCommitments;
-    use rate_limiting_interface::RateLimitingInfo;
+    use rate_limiting_interface::RateLimitingInterface;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -58,7 +58,7 @@ mod config {
         type CommitmentsInterface: CommitmentsInterface;
 
         /// Read-only interface for querying rate limiting configuration and usage.
-        type RateLimiting: RateLimitingInfo<
+        type RateLimiting: RateLimitingInterface<
                 GroupId = subtensor_runtime_common::rate_limiting::GroupId,
                 CallMetadata = <Self as Config>::RuntimeCall,
                 Limit = BlockNumberFor<Self>,

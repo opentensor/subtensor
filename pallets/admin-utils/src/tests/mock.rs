@@ -8,7 +8,7 @@ use frame_support::{
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureRoot, limits};
-use rate_limiting_interface::{RateLimitingInfo, TryIntoRateLimitTarget};
+use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
@@ -354,7 +354,7 @@ impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
 
 pub struct NoRateLimiting;
 
-impl RateLimitingInfo for NoRateLimiting {
+impl RateLimitingInterface for NoRateLimiting {
     type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
     type CallMetadata = RuntimeCall;
     type Limit = u64;
@@ -376,6 +376,15 @@ impl RateLimitingInfo for NoRateLimiting {
         TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
     {
         None
+    }
+
+    fn set_last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+        _block: Option<Self::Limit>,
+    ) where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
     }
 }
 

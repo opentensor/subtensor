@@ -1,3 +1,3 @@
 # `rate-limiting-interface`
 
-Small, `no_std`-friendly interface crate that defines [`RateLimitingInfo`](src/lib.rs).
+Small, `no_std`-friendly interface crate that defines [`RateLimitingInterface`](src/lib.rs).

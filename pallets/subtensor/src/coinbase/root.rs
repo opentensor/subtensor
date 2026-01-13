@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::CommitmentsInterface;
-use rate_limiting_interface::RateLimitingInfo;
+use rate_limiting_interface::RateLimitingInterface;
 use safe_math::*;
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::{I64F64, U96F32};

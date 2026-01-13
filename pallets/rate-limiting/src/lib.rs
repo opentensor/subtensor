@@ -143,7 +143,7 @@
 pub use benchmarking::BenchmarkHelper;
 pub use pallet::*;
 pub use rate_limiting_interface::{RateLimitTarget, TransactionIdentifier};
-pub use rate_limiting_interface::{RateLimitingInfo, TryIntoRateLimitTarget};
+pub use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
 pub use tx_extension::RateLimitTransactionExtension;
 pub use types::{
     BypassDecision, EnsureLimitSettingRule, GroupSharing, RateLimit, RateLimitGroup, RateLimitKind,
@@ -1381,7 +1381,7 @@ pub mod pallet {
     }
 }
 
-impl<T: pallet::Config<I>, I: 'static> RateLimitingInfo for pallet::Pallet<T, I> {
+impl<T: pallet::Config<I>, I: 'static> RateLimitingInterface for pallet::Pallet<T, I> {
     type GroupId = <T as pallet::Config<I>>::GroupId;
     type CallMetadata = <T as pallet::Config<I>>::RuntimeCall;
     type Limit = frame_system::pallet_prelude::BlockNumberFor<T>;
@@ -1421,5 +1421,36 @@ impl<T: pallet::Config<I>, I: 'static> RateLimitingInfo for pallet::Pallet<T, I>
             _ => raw_target,
         };
         pallet::LastSeen::<T, I>::get(usage_target, usage_key)
+    }
+
+    fn set_last_seen<TargetArg>(
+        target: TargetArg,
+        usage_key: Option<Self::UsageKey>,
+        block: Option<Self::Limit>,
+    ) where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        let Some(raw_target) = target
+            .try_into_rate_limit_target::<Self::CallMetadata>()
+            .ok()
+        else {
+            return;
+        };
+
+        let usage_target = match raw_target {
+            RateLimitTarget::Transaction(identifier) => {
+                if let Ok(resolved) = Self::usage_target(&identifier) {
+                    resolved
+                } else {
+                    return;
+                }
+            }
+            _ => raw_target,
+        };
+
+        match block {
+            Some(block) => pallet::LastSeen::<T, I>::insert(usage_target, usage_key, block),
+            None => pallet::LastSeen::<T, I>::remove(usage_target, usage_key),
+        }
     }
 }

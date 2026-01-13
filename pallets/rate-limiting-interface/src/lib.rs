@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! Read-only interface for querying rate limits and last-seen usage.
+//! Interface for querying rate limits and last-seen usage, with optional write access.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::GetCallMetadata;
@@ -8,8 +8,8 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 
-/// Read-only queries for rate-limiting configuration and usage tracking.
-pub trait RateLimitingInfo {
+/// Interface for rate-limiting configuration and usage tracking.
+pub trait RateLimitingInterface {
     /// Group id type used by rate-limiting targets.
     type GroupId;
     /// Call type used for name/index resolution.
@@ -32,6 +32,16 @@ pub trait RateLimitingInfo {
         usage_key: Option<Self::UsageKey>,
     ) -> Option<Self::Limit>
     where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>;
+
+    /// Sets the last-seen block for `target` and optional `usage_key`.
+    ///
+    /// Passing `None` clears the value.
+    fn set_last_seen<TargetArg>(
+        target: TargetArg,
+        usage_key: Option<Self::UsageKey>,
+        block: Option<Self::Limit>,
+    ) where
         TargetArg: TryIntoRateLimitTarget<Self::GroupId>;
 }
 

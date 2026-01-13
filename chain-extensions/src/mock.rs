@@ -18,7 +18,7 @@ use pallet_contracts::HoldReason as ContractsHoldReason;
 use pallet_subtensor::*;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
-use rate_limiting_interface::{RateLimitingInfo, TryIntoRateLimitTarget};
+use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
 use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -449,7 +449,7 @@ impl CommitmentsInterface for CommitmentsI {
 
 pub struct NoRateLimiting;
 
-impl RateLimitingInfo for NoRateLimiting {
+impl RateLimitingInterface for NoRateLimiting {
     type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
     type CallMetadata = RuntimeCall;
     type Limit = BlockNumber;
@@ -471,6 +471,15 @@ impl RateLimitingInfo for NoRateLimiting {
         TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
     {
         None
+    }
+
+    fn set_last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+        _block: Option<Self::Limit>,
+    ) where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
     }
 }
 

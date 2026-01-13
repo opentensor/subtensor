@@ -1,7 +1,7 @@
 use super::*;
 use crate::Error;
 use crate::system::{ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor};
-use rate_limiting_interface::RateLimitingInfo;
+use rate_limiting_interface::RateLimitingInterface;
 use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;

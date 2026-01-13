@@ -12,7 +12,7 @@ use frame_system::{
     self as system, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase,
 };
 pub use pallet_subtensor::*;
-use rate_limiting_interface::{RateLimitingInfo, TryIntoRateLimitTarget};
+use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
 pub use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
@@ -421,7 +421,7 @@ impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
 
 pub struct NoRateLimiting;
 
-impl RateLimitingInfo for NoRateLimiting {
+impl RateLimitingInterface for NoRateLimiting {
     type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
     type CallMetadata = RuntimeCall;
     type Limit = u64;
@@ -443,6 +443,15 @@ impl RateLimitingInfo for NoRateLimiting {
         TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
     {
         None
+    }
+
+    fn set_last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+        _block: Option<Self::Limit>,
+    ) where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
     }
 }
 

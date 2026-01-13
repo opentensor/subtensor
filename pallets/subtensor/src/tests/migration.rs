@@ -22,7 +22,7 @@ use frame_support::{
 use crate::migrations::migrate_storage;
 use frame_system::Config;
 use pallet_drand::types::RoundNumber;
-use rate_limiting_interface::RateLimitingInfo;
+use rate_limiting_interface::RateLimitingInterface;
 use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
