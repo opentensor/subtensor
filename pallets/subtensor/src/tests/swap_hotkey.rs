@@ -1457,16 +1457,21 @@ fn test_swap_parent_hotkey_self_loops_in_pending() {
         let existing_pending_child_keys = PendingChildKeys::<Test>::get(netuid, parent_old);
         assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_other)]);
 
-        // Swap
+        // Swap - should succeed but remove self-loop
         let mut weight = Weight::zero();
-        assert_err!(
-            SubtensorModule::perform_hotkey_swap_on_all_subnets(
-                &parent_old,
-                &parent_new,
-                &coldkey,
-                &mut weight
-            ),
-            Error::<Test>::InvalidChild
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &parent_old,
+            &parent_new,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify that parent_new does NOT have child_other as a child (self-loop prevented)
+        // The swap should have filtered out child_other since it equals parent_new
+        assert!(
+            !ChildKeys::<Test>::get(parent_new, netuid)
+                .iter()
+                .any(|(_, c)| *c == child_other)
         );
     })
 }
@@ -1504,5 +1509,125 @@ fn test_swap_auto_stake_destination_coldkeys() {
             AutoStakeDestination::<Test>::get(coldkey, netuid),
             Some(new_hotkey)
         );
+    });
+}
+
+// Test that swapping to a child hotkey removes the self-loop instead of failing
+#[test]
+fn test_swap_hotkey_to_child_removes_self_loop() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2); // This will be a child of old_hotkey
+        let coldkey = U256::from(3);
+        let netuid = NetUid::from(1u16);
+        let mut weight = Weight::zero();
+
+        add_network(netuid, 1, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &old_hotkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &new_hotkey);
+
+        // Set up: new_hotkey is a child of old_hotkey
+        ChildKeys::<Test>::insert(old_hotkey, netuid, vec![(100u64, new_hotkey)]);
+        ParentKeys::<Test>::insert(new_hotkey, netuid, vec![(100u64, old_hotkey)]);
+
+        // Perform the swap - should succeed
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify that new_hotkey does NOT have itself as a child (self-loop was removed)
+        let children = ChildKeys::<Test>::get(new_hotkey, netuid);
+        assert!(!children.iter().any(|(_, child)| *child == new_hotkey));
+
+        // Verify old_hotkey has no children
+        assert!(ChildKeys::<Test>::get(old_hotkey, netuid).is_empty());
+    });
+}
+
+// Test that swapping filters out new_hotkey from PendingChildKeys
+#[test]
+fn test_swap_hotkey_filters_pending_child_self_loop() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2); // This will be in PendingChildKeys for old_hotkey
+        let coldkey = U256::from(3);
+        let netuid = NetUid::from(1u16);
+        let mut weight = Weight::zero();
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let cooldown_block = current_block + 100;
+
+        add_network(netuid, 1, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &old_hotkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &new_hotkey);
+
+        // Set up: new_hotkey is in PendingChildKeys for old_hotkey
+        PendingChildKeys::<Test>::insert(
+            netuid,
+            old_hotkey,
+            (
+                vec![(100u64, new_hotkey), (200u64, U256::from(4))],
+                cooldown_block,
+            ),
+        );
+
+        // Perform the swap - should succeed
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify that new_hotkey's PendingChildKeys does NOT contain itself
+        let pending = PendingChildKeys::<Test>::get(netuid, new_hotkey);
+        assert!(!pending.0.iter().any(|(_, child)| *child == new_hotkey));
+        // Should only contain the other child (U256::from(4))
+        assert_eq!(pending.0.len(), 1);
+        assert_eq!(pending.0[0].1, U256::from(4));
+    });
+}
+
+// Test that swapping when new_hotkey is a child with other children preserves other children
+#[test]
+fn test_swap_hotkey_to_child_preserves_other_children() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2); // This will be a child of old_hotkey
+        let other_child = U256::from(5);
+        let coldkey = U256::from(3);
+        let netuid = NetUid::from(1u16);
+        let mut weight = Weight::zero();
+
+        add_network(netuid, 1, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &old_hotkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &new_hotkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &other_child);
+
+        // Set up: old_hotkey has both new_hotkey and other_child as children
+        ChildKeys::<Test>::insert(
+            old_hotkey,
+            netuid,
+            vec![(100u64, new_hotkey), (200u64, other_child)],
+        );
+        ParentKeys::<Test>::insert(new_hotkey, netuid, vec![(100u64, old_hotkey)]);
+        ParentKeys::<Test>::insert(other_child, netuid, vec![(200u64, old_hotkey)]);
+
+        // Perform the swap - should succeed
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify that new_hotkey has other_child as a child (self-loop was removed, but other_child preserved)
+        let children = ChildKeys::<Test>::get(new_hotkey, netuid);
+        assert!(!children.iter().any(|(_, child)| *child == new_hotkey)); // No self-loop
+        assert!(children.iter().any(|(_, child)| *child == other_child)); // Other child preserved
+        assert_eq!(children.len(), 1); // Only other_child remains
+        assert_eq!(children[0].1, other_child);
     });
 }

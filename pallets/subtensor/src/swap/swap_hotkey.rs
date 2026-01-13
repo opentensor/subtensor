@@ -430,6 +430,7 @@ impl<T: Config> Pallet<T> {
         Self::parent_child_swap_hotkey(old_hotkey, new_hotkey, netuid, weight)?;
 
         // Also check for others with our hotkey as a child
+        // Update PendingChildKeys for other hotkeys that have old_hotkey as a pending child
         for (hotkey, (children, cool_down_block)) in PendingChildKeys::<T>::iter_prefix(netuid) {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
 
@@ -438,10 +439,17 @@ impl<T: Config> Pallet<T> {
             {
                 let mut new_children = children.clone();
                 let entry_to_remove = new_children.remove(potential_idx);
-                new_children.push((entry_to_remove.0, new_hotkey.clone())); // Keep the proportion.
-
-                PendingChildKeys::<T>::remove(netuid, hotkey.clone());
-                PendingChildKeys::<T>::insert(netuid, hotkey, (new_children, cool_down_block));
+                // Only add new_hotkey if it's not the same as hotkey (to prevent self-loop)
+                if new_hotkey != &hotkey {
+                    new_children.push((entry_to_remove.0, new_hotkey.clone())); // Keep the proportion.
+                }
+                // If new_children is empty after filtering, remove the pending entry
+                if new_children.is_empty() {
+                    PendingChildKeys::<T>::remove(netuid, hotkey.clone());
+                } else {
+                    PendingChildKeys::<T>::remove(netuid, hotkey.clone());
+                    PendingChildKeys::<T>::insert(netuid, hotkey, (new_children, cool_down_block));
+                }
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
             }
         }
