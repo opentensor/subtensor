@@ -7,9 +7,14 @@ use frame_support::sp_runtime::{DispatchError, transaction_validity::Transaction
 use frame_support::traits::Currency;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
+use rate_limiting_interface::RateLimitingInterface;
 use sp_core::U256;
-use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, NetUidStorageIndex};
+use sp_runtime::traits::{
+    DispatchInfoOf, SaturatedConversion, TransactionExtension, TxBaseImplication,
+};
+use subtensor_runtime_common::{
+    AlphaCurrency, Currency as CurrencyT, MechId, NetUid, rate_limiting,
+};
 
 use super::mock;
 use super::mock::*;
@@ -2142,8 +2147,16 @@ fn test_last_update_correctness() {
         let existing_neurons = 3;
         SubnetworkN::<Test>::insert(netuid, existing_neurons);
 
-        // Simulate no LastUpdate so far (can happen on mechanisms)
-        LastUpdate::<Test>::remove(NetUidStorageIndex::from(netuid));
+        // Simulate no last-seen so far (can happen on mechanisms)
+        let mecid = MechId::from(0u8);
+        let existing_usage = SubtensorModule::weights_rl_usage_key_for_uid(netuid, mecid, 0);
+        assert!(
+            <Test as crate::Config>::RateLimiting::last_seen(
+                rate_limiting::GROUP_WEIGHTS_SUBNET,
+                Some(existing_usage),
+            )
+            .is_none()
+        );
 
         // Give some $$$ to coldkey
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -2154,11 +2167,15 @@ fn test_last_update_correctness() {
             hotkey_account_id
         ));
 
-        // Check that LastUpdate has existing_neurons + 1 elements now
-        assert_eq!(
-            LastUpdate::<Test>::get(NetUidStorageIndex::from(netuid)).len(),
-            (existing_neurons + 1) as usize
-        );
+        // Check that last-seen is set for the new uid
+        let new_uid = existing_neurons;
+        let usage = SubtensorModule::weights_rl_usage_key_for_uid(netuid, mecid, new_uid);
+        let last_seen = <Test as crate::Config>::RateLimiting::last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(usage),
+        )
+        .map(|block| block.saturated_into::<u64>());
+        assert_eq!(last_seen, Some(SubtensorModule::get_current_block_as_u64()));
     });
 }
 

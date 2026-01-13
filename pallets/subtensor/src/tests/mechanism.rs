@@ -27,7 +27,7 @@
 //   - [x] Incentives are per mechanism
 //   - [x] Per-mechanism incentives are distributed proportionally to miner weights
 //   - [x] Mechanism limit can be set up to 8 (with admin pallet)
-//   - [x] When reduction of mechanism limit occurs, Weights, Incentive, LastUpdate, Bonds, and WeightCommits are cleared
+//   - [x] When reduction of mechanism limit occurs, Weights, Incentive, last-seen, Bonds, and WeightCommits are cleared
 //   - [x] Epoch terms of subnet are weighted sum (or logical OR) of all mechanism epoch terms
 //   - [x] Subnet epoch terms persist in state
 //   - [x] Mechanism epoch terms persist in state
@@ -48,12 +48,13 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use pallet_drand::types::Pulse;
 use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
+use rate_limiting_interface::RateLimitingInterface;
 use sha2::Digest;
 use sp_core::{H256, U256};
-use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_runtime::traits::{BlakeTwo256, Hash, SaturatedConversion};
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::{I32F32, U64F64};
-use subtensor_runtime_common::{MechId, NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{MechId, NetUid, NetUidStorageIndex, rate_limiting};
 use tle::{
     curves::drand::TinyBLS381, ibe::fullident::Identity,
     stream_ciphers::AESGCMStreamCipherProvider, tlock::tle,
@@ -302,7 +303,13 @@ fn update_mechanism_counts_decreases_and_cleans() {
 
         Weights::<Test>::insert(idx_keep, 0u16, vec![(1u16, 1u16)]);
         Incentive::<Test>::insert(idx_keep, vec![1u16]);
-        LastUpdate::<Test>::insert(idx_keep, vec![123u64]);
+        let keep_usage =
+            SubtensorModule::weights_rl_usage_key_for_uid(netuid, MechId::from(1u8), 0);
+        <Test as crate::Config>::RateLimiting::set_last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(keep_usage),
+            Some(123u64.saturated_into()),
+        );
         Bonds::<Test>::insert(idx_keep, 0u16, vec![(1u16, 2u16)]);
         WeightCommits::<Test>::insert(
             idx_keep,
@@ -317,7 +324,13 @@ fn update_mechanism_counts_decreases_and_cleans() {
 
         Weights::<Test>::insert(idx_rm3, 0u16, vec![(9u16, 9u16)]);
         Incentive::<Test>::insert(idx_rm3, vec![9u16]);
-        LastUpdate::<Test>::insert(idx_rm3, vec![999u64]);
+        let removed_usage =
+            SubtensorModule::weights_rl_usage_key_for_uid(netuid, MechId::from(2u8), 0);
+        <Test as crate::Config>::RateLimiting::set_last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(removed_usage),
+            Some(999u64.saturated_into()),
+        );
         Bonds::<Test>::insert(idx_rm3, 0u16, vec![(9u16, 9u16)]);
         WeightCommits::<Test>::insert(
             idx_rm3,
@@ -339,7 +352,14 @@ fn update_mechanism_counts_decreases_and_cleans() {
         // Kept prefix intact
         assert_eq!(Incentive::<Test>::get(idx_keep), vec![1u16]);
         assert!(Weights::<Test>::iter_prefix(idx_keep).next().is_some());
-        assert!(LastUpdate::<Test>::contains_key(idx_keep));
+        let keep_usage =
+            SubtensorModule::weights_rl_usage_key_for_uid(netuid, MechId::from(1u8), 0);
+        let kept_last_seen = <Test as crate::Config>::RateLimiting::last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(keep_usage),
+        )
+        .map(|block| block.saturated_into::<u64>());
+        assert_eq!(kept_last_seen, Some(123));
         assert!(Bonds::<Test>::iter_prefix(idx_keep).next().is_some());
         assert!(WeightCommits::<Test>::contains_key(idx_keep, hotkey));
         assert!(TimelockedWeightCommits::<Test>::contains_key(
@@ -349,7 +369,15 @@ fn update_mechanism_counts_decreases_and_cleans() {
         // Removed prefix (mecid 3) cleared
         assert!(Weights::<Test>::iter_prefix(idx_rm3).next().is_none());
         assert_eq!(Incentive::<Test>::get(idx_rm3), Vec::<u16>::new());
-        assert!(!LastUpdate::<Test>::contains_key(idx_rm3));
+        let removed_usage =
+            SubtensorModule::weights_rl_usage_key_for_uid(netuid, MechId::from(2u8), 0);
+        assert!(
+            <Test as crate::Config>::RateLimiting::last_seen(
+                rate_limiting::GROUP_WEIGHTS_SUBNET,
+                Some(removed_usage),
+            )
+            .is_none()
+        );
         assert!(Bonds::<Test>::iter_prefix(idx_rm3).next().is_none());
         assert!(!WeightCommits::<Test>::contains_key(idx_rm3, hotkey));
         assert!(!TimelockedWeightCommits::<Test>::contains_key(
@@ -454,8 +482,18 @@ pub fn mock_epoch_state(netuid: NetUid, ck0: U256, hk0: U256, ck1: U256, hk1: U2
     // Make both ACTIVE: recent updates & old registrations.
     Tempo::<Test>::insert(netuid, 1u16);
     ActivityCutoff::<Test>::insert(netuid, u16::MAX); // large cutoff keeps them active
-    LastUpdate::<Test>::insert(idx0, vec![2, 2]);
-    LastUpdate::<Test>::insert(idx1, vec![2, 2]);
+    SubtensorModule::set_weights_rl_last_seen_for_uids(
+        netuid,
+        MechId::from(0u8),
+        2,
+        Some(2u64.saturated_into()),
+    );
+    SubtensorModule::set_weights_rl_last_seen_for_uids(
+        netuid,
+        MechId::from(1u8),
+        2,
+        Some(2u64.saturated_into()),
+    );
     BlockAtRegistration::<Test>::insert(netuid, 0, 1u64); // registered long ago
     BlockAtRegistration::<Test>::insert(netuid, 1, 1u64);
 
@@ -490,13 +528,20 @@ pub fn mock_epoch_state(netuid: NetUid, ck0: U256, hk0: U256, ck1: U256, hk1: U2
 }
 
 pub fn mock_3_neurons(netuid: NetUid, hk: U256) {
-    let idx0 = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(0));
-    let idx1 = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(1));
-
     SubnetworkN::<Test>::insert(netuid, 3);
     Keys::<Test>::insert(netuid, 2u16, hk);
-    LastUpdate::<Test>::insert(idx0, vec![2, 2, 2]);
-    LastUpdate::<Test>::insert(idx1, vec![2, 2, 2]);
+    SubtensorModule::set_weights_rl_last_seen_for_uids(
+        netuid,
+        MechId::from(0u8),
+        3,
+        Some(2u64.saturated_into()),
+    );
+    SubtensorModule::set_weights_rl_last_seen_for_uids(
+        netuid,
+        MechId::from(1u8),
+        3,
+        Some(2u64.saturated_into()),
+    );
     BlockAtRegistration::<Test>::insert(netuid, 2, 1u64);
 }
 
@@ -1389,7 +1434,6 @@ fn epoch_mechanism_emergency_mode_distributes_by_stake() {
         // setup a single sub-subnet where consensus sum becomes 0
         let netuid = NetUid::from(1u16);
         let mecid = MechId::from(1u8);
-        let idx = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
         let tempo: u16 = 5;
         add_network(netuid, tempo, 0);
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8)); // allow subids {0,1}
@@ -1413,7 +1457,12 @@ fn epoch_mechanism_emergency_mode_distributes_by_stake() {
         // active + recent updates so they're all active
         let now = SubtensorModule::get_current_block_as_u64();
         ActivityCutoff::<Test>::insert(netuid, 1_000u16);
-        LastUpdate::<Test>::insert(idx, vec![now, now, now, now]);
+        SubtensorModule::set_weights_rl_last_seen_for_uids(
+            netuid,
+            mecid,
+            4,
+            Some(now.saturated_into()),
+        );
 
         // All staking validators permitted => active_stake = stake
         ValidatorPermit::<Test>::insert(netuid, vec![true, true, true, false]);

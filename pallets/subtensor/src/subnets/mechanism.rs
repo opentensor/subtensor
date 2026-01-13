@@ -132,6 +132,7 @@ impl<T: Config> Pallet<T> {
         let new_count_u8 = u8::from(new_count);
         if old_count != new_count_u8 {
             if old_count > new_count_u8 {
+                let subnet_n = SubnetworkN::<T>::get(netuid);
                 for mecid in new_count_u8..old_count {
                     let netuid_index =
                         Self::get_mechanism_storage_index(netuid, MechId::from(mecid));
@@ -142,8 +143,13 @@ impl<T: Config> Pallet<T> {
                     // Cleanup Incentive
                     Incentive::<T>::remove(netuid_index);
 
-                    // Cleanup LastUpdate
-                    LastUpdate::<T>::remove(netuid_index);
+                    // Cleanup last-seen
+                    Self::set_weights_rl_last_seen_for_uids(
+                        netuid,
+                        MechId::from(mecid),
+                        subnet_n,
+                        None,
+                    );
 
                     // Cleanup Bonds
                     let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);

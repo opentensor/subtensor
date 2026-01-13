@@ -57,6 +57,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         );
 
         let netuid = NetUid::from(3);
+        let subnetwork_n = SubnetworkN::<T>::get(netuid);
 
         // Remove network count
         SubnetworkN::<T>::remove(netuid);
@@ -89,7 +90,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
         PruningScores::<T>::remove(netuid);
-        LastUpdate::<T>::remove(NetUidStorageIndex::from(netuid));
+        Pallet::<T>::set_weights_rl_last_seen_for_uids(netuid, 0.into(), subnetwork_n, None);
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 

@@ -1947,11 +1947,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type Emission<T: Config> = StorageMap<_, Identity, NetUid, Vec<AlphaCurrency>, ValueQuery>;
 
-    /// --- MAP ( netuid ) --> last_update
-    #[pallet::storage]
-    pub type LastUpdate<T: Config> =
-        StorageMap<_, Identity, NetUidStorageIndex, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
-
     /// --- MAP ( netuid ) --> validator_trust
     #[pallet::storage]
     pub type ValidatorTrust<T: Config> =

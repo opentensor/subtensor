@@ -752,10 +752,14 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Pruning per UID
-            last_update: LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
-                .into_iter()
-                .map(Compact::from)
-                .collect(), // Last update per UID
+            last_update: Self::weights_rl_last_seen_for_uids(
+                netuid,
+                MechId::from(0u8),
+                Self::get_subnetwork_n(netuid),
+            )
+            .into_iter()
+            .map(Compact::from)
+            .collect(), // Last update per UID
             emission: Emission::<T>::get(netuid)
                 .into_iter()
                 .map(Compact::from)
@@ -820,10 +824,11 @@ impl<T: Config> Pallet<T> {
 
             // Update with mechanism information
             meta.netuid = NetUid::from(u16::from(netuid_index)).into();
-            meta.last_update = LastUpdate::<T>::get(netuid_index)
-                .into_iter()
-                .map(Compact::from)
-                .collect();
+            meta.last_update =
+                Self::weights_rl_last_seen_for_uids(netuid, mecid, Self::get_subnetwork_n(netuid))
+                    .into_iter()
+                    .map(Compact::from)
+                    .collect();
             meta.incentives = Incentive::<T>::get(netuid_index)
                 .into_iter()
                 .map(Compact::from)
@@ -1274,10 +1279,14 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::LastUpdate) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 last_update: Some(
-                    LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
-                        .into_iter()
-                        .map(Compact::from)
-                        .collect(),
+                    Self::weights_rl_last_seen_for_uids(
+                        netuid,
+                        MechId::from(0u8),
+                        Self::get_subnetwork_n(netuid),
+                    )
+                    .into_iter()
+                    .map(Compact::from)
+                    .collect(),
                 ),
                 ..Default::default()
             },
@@ -1476,10 +1485,14 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::LastUpdate) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 last_update: Some(
-                    LastUpdate::<T>::get(netuid_index)
-                        .into_iter()
-                        .map(Compact::from)
-                        .collect(),
+                    Self::weights_rl_last_seen_for_uids(
+                        netuid,
+                        mecid,
+                        Self::get_subnetwork_n(netuid),
+                    )
+                    .into_iter()
+                    .map(Compact::from)
+                    .collect(),
                 ),
                 ..Default::default()
             },

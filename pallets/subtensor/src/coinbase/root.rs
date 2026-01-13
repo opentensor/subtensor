@@ -237,6 +237,8 @@ impl<T: Config> Pallet<T> {
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         SubnetOwner::<T>::remove(netuid);
 
+        let subnetwork_n = SubnetworkN::<T>::get(netuid);
+
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
 
@@ -379,7 +381,7 @@ impl<T: Config> Pallet<T> {
         let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
         for subid in 0..mechanisms {
             let netuid_index = Self::get_mechanism_storage_index(netuid, subid.into());
-            LastUpdate::<T>::remove(netuid_index);
+            Self::set_weights_rl_last_seen_for_uids(netuid, subid.into(), subnetwork_n, None);
             Incentive::<T>::remove(netuid_index);
             let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
             let _ = TimelockedWeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);

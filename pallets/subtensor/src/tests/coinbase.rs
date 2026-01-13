@@ -14,11 +14,12 @@ use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use pallet_subtensor_swap::position::PositionId;
 use sp_core::U256;
+use sp_runtime::traits::SaturatedConversion;
 use substrate_fixed::{
     transcendental::sqrt,
     types::{I64F64, I96F32, U64F64, U96F32},
 };
-use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUidStorageIndex};
 use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
 #[allow(clippy::arithmetic_side_effects)]
@@ -3040,7 +3041,12 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         BlockAtRegistration::<Test>::set(netuid, 0, 1);
         BlockAtRegistration::<Test>::set(netuid, 1, 1);
         BlockAtRegistration::<Test>::set(netuid, 2, 1);
-        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
+        SubtensorModule::set_weights_rl_last_seen_for_uids(
+            netuid,
+            MechId::from(0u8),
+            3,
+            Some(2u64.saturated_into()),
+        );
         Kappa::<Test>::set(netuid, u16::MAX / 5);
         ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
         ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
@@ -3234,7 +3240,12 @@ fn test_mining_emission_distribution_with_root_sell() {
         BlockAtRegistration::<Test>::set(netuid, 0, 1);
         BlockAtRegistration::<Test>::set(netuid, 1, 1);
         BlockAtRegistration::<Test>::set(netuid, 2, 1);
-        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
+        SubtensorModule::set_weights_rl_last_seen_for_uids(
+            netuid,
+            MechId::from(0u8),
+            3,
+            Some(2u64.saturated_into()),
+        );
         Kappa::<Test>::set(netuid, u16::MAX / 5);
         ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
         ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);

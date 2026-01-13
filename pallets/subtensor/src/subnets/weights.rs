@@ -128,9 +128,6 @@ impl<T: Config> Pallet<T> {
                 commit_hash,
             ));
 
-            // 12. Update the last commit block for the hotkey's UID.
-            Self::set_last_update_for_uid(netuid_index, neuron_uid, commit_block);
-
             // 13. Return success.
             Ok(())
         })
@@ -238,8 +235,6 @@ impl<T: Config> Pallet<T> {
     /// 4. Appends `(hotkey, commit_block, commit, reveal_round)` to
     ///    `TimelockedWeightCommits[netuid][epoch]`.
     /// 5. Emits `TimelockedWeightsCommitted` with the Blake2 hash of `commit`.
-    /// 6. Updates `LastUpdateForUid` so subsequent rate-limit checks include this
-    ///    commit.
     ///
     /// # Raises
     /// * `CommitRevealDisabled` – Commit-reveal is disabled on `netuid`.
@@ -358,9 +353,6 @@ impl<T: Config> Pallet<T> {
                     commit_hash,
                     reveal_round,
                 ));
-
-                // 10. Update the last commit block for the hotkey's UID.
-                Self::set_last_update_for_uid(netuid_index, neuron_uid, commit_block);
 
                 // 11. Return success.
                 Ok(())
@@ -826,11 +818,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 17. Set weights under netuid_index (sub-subnet), uid double map entry.
         Weights::<T>::insert(netuid_index, neuron_uid, zipped_weights);
-
-        // --- 18. Set the activity for the weights on this network.
-        if !Self::get_commit_reveal_weights_enabled(netuid) {
-            Self::set_last_update_for_uid(netuid_index, neuron_uid, current_block);
-        }
 
         // --- 19. Emit the tracking event.
         log::debug!("WeightsSet( netuid:{netuid_index:?}, neuron_uid:{neuron_uid:?} )");

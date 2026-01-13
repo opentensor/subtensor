@@ -54,6 +54,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         info!(target: LOG_TARGET, ">>> Removing subnet 21 {onchain_version:?}");
 
         let netuid = NetUid::from(21);
+        let subnetwork_n = SubnetworkN::<T>::get(netuid);
 
         // We do this all manually as we don't want to call code related to giving subnet owner back their locked token cost.
         // Remove network count
@@ -87,7 +88,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
         PruningScores::<T>::remove(netuid);
-        LastUpdate::<T>::remove(NetUidStorageIndex::from(netuid));
+        Pallet::<T>::set_weights_rl_last_seen_for_uids(netuid, 0.into(), subnetwork_n, None);
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 

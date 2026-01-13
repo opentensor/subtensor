@@ -11,10 +11,12 @@ use pallet_subtensor::{
 };
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
+use rate_limiting_interface::RateLimitingInterface;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
+use sp_runtime::traits::SaturatedConversion;
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::{Currency, MechId, NetUid, TaoCurrency};
+use subtensor_runtime_common::{Currency, MechId, NetUid, TaoCurrency, rate_limiting};
 
 use crate::Error;
 use crate::pallet::PrecompileEnable;
@@ -2430,10 +2432,18 @@ fn test_trim_to_max_allowed_uids() {
         Active::<Test>::insert(netuid, bool_values);
 
         for mecid in 0..mechanism_count.into() {
-            let netuid_index =
-                SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mecid));
+            let mecid = MechId::from(mecid);
+            let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
             Incentive::<Test>::insert(netuid_index, values.clone());
-            LastUpdate::<Test>::insert(netuid_index, u64_values.clone());
+            for (uid, last_seen) in u64_values.iter().copied().enumerate() {
+                let usage =
+                    SubtensorModule::weights_rl_usage_key_for_uid(netuid, mecid, uid as u16);
+                <Test as pallet_subtensor::Config>::RateLimiting::set_last_seen(
+                    rate_limiting::GROUP_WEIGHTS_SUBNET,
+                    Some(usage),
+                    Some(last_seen.saturated_into()),
+                );
+            }
         }
 
         // We set some owner immune uids
@@ -2535,10 +2545,13 @@ fn test_trim_to_max_allowed_uids() {
         assert_eq!(StakeWeight::<Test>::get(netuid), expected_values);
 
         for mecid in 0..mechanism_count.into() {
-            let netuid_index =
-                SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(mecid));
+            let mecid = MechId::from(mecid);
+            let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
             assert_eq!(Incentive::<Test>::get(netuid_index), expected_values);
-            assert_eq!(LastUpdate::<Test>::get(netuid_index), expected_u64_values);
+            assert_eq!(
+                SubtensorModule::weights_rl_last_seen_for_uids(netuid, mecid, new_max_n),
+                expected_u64_values,
+            );
         }
 
         // Ensure trimmed uids related storage has been cleared

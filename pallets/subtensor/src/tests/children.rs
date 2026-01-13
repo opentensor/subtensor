@@ -5,8 +5,9 @@ use super::mock;
 use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
+use sp_runtime::traits::SaturatedConversion;
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use crate::{utils::rate_limiting::TransactionType, *};
@@ -2906,7 +2907,12 @@ fn test_childkey_take_drain() {
             BlockAtRegistration::<Test>::set(netuid, 0, 1);
             BlockAtRegistration::<Test>::set(netuid, 1, 1);
             BlockAtRegistration::<Test>::set(netuid, 2, 1);
-            LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
+            SubtensorModule::set_weights_rl_last_seen_for_uids(
+                netuid,
+                MechId::from(0u8),
+                3,
+                Some(2u64.saturated_into()),
+            );
             Kappa::<Test>::set(netuid, u16::MAX / 5);
             ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
             ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);

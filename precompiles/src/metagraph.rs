@@ -2,10 +2,12 @@ use alloc::string::String;
 use core::marker::PhantomData;
 
 use fp_evm::{ExitError, PrecompileFailure, PrecompileHandle};
+use pallet_rate_limiting::RateLimitingInterface;
 use pallet_subtensor::AxonInfo as SubtensorModuleAxonInfo;
 use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256};
-use subtensor_runtime_common::{Currency, NetUid};
+use sp_runtime::SaturatedConversion;
+use subtensor_runtime_common::{Currency, NetUid, rate_limiting};
 
 use crate::PrecompileExt;
 
@@ -120,10 +122,18 @@ where
     #[precompile::public("getLastUpdate(uint16,uint16)")]
     #[precompile::view]
     fn get_last_update(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::Pallet::<R>::get_last_update_for_uid(
-            netuid.into(),
+        let usage = rate_limiting::RateLimitUsageKey::<R::AccountId>::SubnetNeuron {
+            netuid: netuid.into(),
             uid,
-        ))
+        };
+        let block = <R as pallet_subtensor::Config>::RateLimiting::last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(usage),
+        )
+        .map(|block| block.saturated_into::<u64>())
+        .unwrap_or(0);
+
+        Ok(block)
     }
 
     #[precompile::public("getIsActive(uint16,uint16)")]

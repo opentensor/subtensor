@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use codec::{Decode, Encode};
 use frame_support::{Identity, migration::storage_key_iter};
 use runtime_common::prod_or_fast;
@@ -7,7 +9,7 @@ use sp_io::{
     storage::{self as io_storage, next_key},
 };
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 
 use super::AccountId;
 use crate::{
@@ -38,8 +40,43 @@ pub mod storage {
         (items.into_iter().collect(), reads)
     }
 
+    pub fn last_updates() -> (Vec<(NetUidStorageIndex, Vec<u64>)>, u64) {
+        let items: Vec<_> = storage_key_iter::<NetUidStorageIndex, Vec<u64>, Identity>(
+            PALLET_PREFIX,
+            b"LastUpdate",
+        )
+        .collect();
+        let reads = items.len() as u64;
+        (items, reads)
+    }
+
+    pub fn set_last_update(netuid_index: NetUidStorageIndex, blocks: Vec<u64>) {
+        let mut key = storage_prefix(PALLET_PREFIX, b"LastUpdate");
+        key.extend(netuid_index.encode());
+        io_storage::set(&key, &blocks.encode());
+    }
+
+    pub fn get_last_update(netuid_index: NetUidStorageIndex) -> Vec<u64> {
+        let mut key = storage_prefix(PALLET_PREFIX, b"LastUpdate");
+        key.extend(netuid_index.encode());
+        io_storage::get(&key)
+            .and_then(|bytes| Decode::decode(&mut &bytes[..]).ok())
+            .unwrap_or_default()
+    }
+
+    pub fn set_serving_rate_limit(netuid: NetUid, span: u64) {
+        let mut key = storage_prefix(PALLET_PREFIX, b"ServingRateLimit");
+        key.extend(netuid.encode());
+        io_storage::set(&key, &span.encode());
+    }
+
     pub fn tx_rate_limit() -> (u64, u64) {
         value_with_default(b"TxRateLimit", defaults::tx_rate_limit())
+    }
+
+    pub fn set_tx_rate_limit(span: u64) {
+        let key = storage_prefix(PALLET_PREFIX, b"TxRateLimit");
+        io_storage::set(&key, &span.encode());
     }
 
     pub fn tx_delegate_take_rate_limit() -> (u64, u64) {
@@ -47,6 +84,11 @@ pub mod storage {
             b"TxDelegateTakeRateLimit",
             defaults::tx_delegate_take_rate_limit(),
         )
+    }
+
+    pub fn set_tx_delegate_take_rate_limit(span: u64) {
+        let key = storage_prefix(PALLET_PREFIX, b"TxDelegateTakeRateLimit");
+        io_storage::set(&key, &span.encode());
     }
 
     pub fn tx_childkey_take_rate_limit() -> (u64, u64) {
@@ -58,6 +100,11 @@ pub mod storage {
 
     pub fn network_rate_limit() -> (u64, u64) {
         value_with_default(b"NetworkRateLimit", defaults::network_rate_limit())
+    }
+
+    pub fn set_network_rate_limit(span: u64) {
+        let key = storage_prefix(PALLET_PREFIX, b"NetworkRateLimit");
+        io_storage::set(&key, &span.encode());
     }
 
     pub fn owner_hyperparam_rate_limit() -> (u64, u64) {
@@ -83,6 +130,12 @@ pub mod storage {
         .collect();
         let reads = entries.len() as u64;
         (entries, reads)
+    }
+
+    pub fn set_last_rate_limited_block(key: RateLimitKey<AccountId>, block: u64) {
+        let mut storage_key = storage_prefix(PALLET_PREFIX, b"LastRateLimitedBlock");
+        storage_key.extend(key.encode());
+        io_storage::set(&storage_key, &block.encode());
     }
 
     pub fn transaction_key_last_block() -> (Vec<((AccountId, NetUid, u16), u64)>, u64) {

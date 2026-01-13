@@ -5,10 +5,12 @@ use crate::migrations::migrate_network_immunity_period;
 use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
+use rate_limiting_interface::RateLimitingInterface;
 use sp_core::U256;
+use sp_runtime::traits::SaturatedConversion;
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency, rate_limiting};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 #[test]
@@ -325,7 +327,12 @@ fn dissolve_clears_all_per_subnet_storages() {
         Consensus::<Test>::insert(net, vec![1u16]);
         Dividends::<Test>::insert(net, vec![1u16]);
         PruningScores::<Test>::insert(net, vec![1u16]);
-        LastUpdate::<Test>::insert(NetUidStorageIndex::from(net), vec![0u64]);
+        let usage = SubtensorModule::weights_rl_usage_key_for_uid(net, MechId::from(0u8), 0);
+        <Test as crate::Config>::RateLimiting::set_last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(usage),
+            Some(1u64.saturated_into()),
+        );
         ValidatorPermit::<Test>::insert(net, vec![true]);
         ValidatorTrust::<Test>::insert(net, vec![1u16]);
 
@@ -475,9 +482,14 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!Consensus::<Test>::contains_key(net));
         assert!(!Dividends::<Test>::contains_key(net));
         assert!(!PruningScores::<Test>::contains_key(net));
-        assert!(!LastUpdate::<Test>::contains_key(NetUidStorageIndex::from(
-            net
-        )));
+        let usage = SubtensorModule::weights_rl_usage_key_for_uid(net, MechId::from(0u8), 0);
+        assert!(
+            <Test as crate::Config>::RateLimiting::last_seen(
+                rate_limiting::GROUP_WEIGHTS_SUBNET,
+                Some(usage),
+            )
+            .is_none()
+        );
 
         assert!(!ValidatorPermit::<Test>::contains_key(net));
         assert!(!ValidatorTrust::<Test>::contains_key(net));
@@ -2246,9 +2258,19 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
         Incentive::<Test>::insert(idx0, vec![1u16, 2u16]);
         Incentive::<Test>::insert(idx1, vec![3u16, 4u16]);
 
-        // --- LastUpdate (MAP: netuid_index -> Vec<u64>)
-        LastUpdate::<Test>::insert(idx0, vec![42u64]);
-        LastUpdate::<Test>::insert(idx1, vec![84u64]);
+        // --- Last-seen (usage-key -> block)
+        let usage0 = SubtensorModule::weights_rl_usage_key_for_uid(net, m0, 0);
+        let usage1 = SubtensorModule::weights_rl_usage_key_for_uid(net, m1, 0);
+        <Test as crate::Config>::RateLimiting::set_last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(usage0),
+            Some(42u64.saturated_into()),
+        );
+        <Test as crate::Config>::RateLimiting::set_last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(usage1),
+            Some(84u64.saturated_into()),
+        );
 
         // Sanity: keys are present before dissolve.
         assert!(Weights::<Test>::contains_key(idx0, 0u16));
@@ -2259,8 +2281,20 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
         assert!(TimelockedWeightCommits::<Test>::contains_key(idx1, 2u64));
         assert!(Incentive::<Test>::contains_key(idx0));
         assert!(Incentive::<Test>::contains_key(idx1));
-        assert!(LastUpdate::<Test>::contains_key(idx0));
-        assert!(LastUpdate::<Test>::contains_key(idx1));
+        let usage0 = SubtensorModule::weights_rl_usage_key_for_uid(net, m0, 0);
+        let usage1 = SubtensorModule::weights_rl_usage_key_for_uid(net, m1, 0);
+        let last0 = <Test as crate::Config>::RateLimiting::last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(usage0),
+        )
+        .map(|block| block.saturated_into::<u64>());
+        let last1 = <Test as crate::Config>::RateLimiting::last_seen(
+            rate_limiting::GROUP_WEIGHTS_SUBNET,
+            Some(usage1),
+        )
+        .map(|block| block.saturated_into::<u64>());
+        assert_eq!(last0, Some(42));
+        assert_eq!(last1, Some(84));
         assert!(MechanismCountCurrent::<Test>::contains_key(net));
 
         // --- Dissolve the subnet ---
@@ -2297,8 +2331,22 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
         // Single-map per-mechanism vectors cleared.
         assert!(!Incentive::<Test>::contains_key(idx0));
         assert!(!Incentive::<Test>::contains_key(idx1));
-        assert!(!LastUpdate::<Test>::contains_key(idx0));
-        assert!(!LastUpdate::<Test>::contains_key(idx1));
+        let usage0 = SubtensorModule::weights_rl_usage_key_for_uid(net, m0, 0);
+        let usage1 = SubtensorModule::weights_rl_usage_key_for_uid(net, m1, 0);
+        assert!(
+            <Test as crate::Config>::RateLimiting::last_seen(
+                rate_limiting::GROUP_WEIGHTS_SUBNET,
+                Some(usage0),
+            )
+            .is_none()
+        );
+        assert!(
+            <Test as crate::Config>::RateLimiting::last_seen(
+                rate_limiting::GROUP_WEIGHTS_SUBNET,
+                Some(usage1),
+            )
+            .is_none()
+        );
 
         // MechanismCountCurrent cleared
         assert!(!MechanismCountCurrent::<Test>::contains_key(net));
