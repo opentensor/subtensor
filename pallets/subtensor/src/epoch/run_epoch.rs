@@ -172,7 +172,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
-        let last_update = Self::weights_rl_last_seen_padded(netuid_index);
+        let last_update: Vec<u64> = Self::get_last_update(netuid_index);
         log::trace!("Last update: {:?}", &last_update);
 
         // Inactive mask.
@@ -598,7 +598,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
-        let last_update = Self::weights_rl_last_seen_padded(netuid_index);
+        let last_update: Vec<u64> = Self::get_last_update(netuid_index);
         log::trace!("Last update: {:?}", &last_update);
 
         // Inactive mask.
@@ -1581,14 +1581,5 @@ impl<T: Config> Pallet<T> {
             }
         }
         true
-    }
-
-    fn weights_rl_last_seen_padded(netuid_index: NetUidStorageIndex) -> Vec<u64> {
-        let netuid = Self::get_netuid(netuid_index);
-        let subnet_n = Self::get_subnetwork_n(netuid);
-        match Self::get_netuid_and_subid(netuid_index) {
-            Ok((_, mecid)) => Self::weights_rl_last_seen_for_uids(netuid, mecid, subnet_n),
-            Err(_) => vec![0; subnet_n as usize],
-        }
     }
 }

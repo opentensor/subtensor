@@ -10,13 +10,9 @@ use std::time::Instant;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_ok};
 use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
-use rate_limiting_interface::RateLimitingInterface;
 use sp_core::{Get, U256};
-use sp_runtime::traits::SaturatedConversion;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{
-    AlphaCurrency, MechId, NetUidStorageIndex, TaoCurrency, rate_limiting,
-};
+use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
@@ -2495,15 +2491,7 @@ fn test_can_set_self_weight_as_subnet_owner() {
 
         step_block(1);
         // Set updated so weights are valid
-        let mecid = MechId::from(0u8);
-        for (uid, last_seen) in [2u64, 0u64].iter().copied().enumerate() {
-            let usage = SubtensorModule::weights_rl_usage_key_for_uid(netuid, mecid, uid as u16);
-            <Test as crate::Config>::RateLimiting::set_last_seen(
-                rate_limiting::GROUP_WEIGHTS_SUBNET,
-                Some(usage),
-                Some(last_seen.saturated_into()),
-            );
-        }
+        LastUpdate::<Test>::insert(NetUidStorageIndex::from(netuid), vec![2, 0]);
 
         // Run epoch
         let hotkey_emission = SubtensorModule::epoch(netuid, to_emit.into());
@@ -3821,10 +3809,10 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
     });
 }
 
-// Test an epoch doesn't panic when weights last-seen entries are missing.
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::epoch::test_missing_last_seen_does_not_panic --exact --show-output --nocapture
+// Test an epoch doesn't panic when LastUpdate size doesn't match to Weights size.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::epoch::test_last_update_size_mismatch --exact --show-output --nocapture
 #[test]
-fn test_missing_last_seen_does_not_panic() {
+fn test_last_update_size_mismatch() {
     new_test_ext(1).execute_with(|| {
         log::info!("test_1_graph:");
         let netuid = NetUid::from(1);
@@ -3856,6 +3844,9 @@ fn test_missing_last_seen_does_not_panic() {
             vec![u16::MAX],
             0
         ));
+
+        // Set mismatching LastUpdate vector
+        LastUpdate::<Test>::insert(NetUidStorageIndex::from(netuid), vec![1, 1, 1]);
 
         SubtensorModule::epoch(netuid, 1_000_000_000.into());
         assert_eq!(

@@ -103,14 +103,10 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .map(Compact::from)
             .collect();
-        let last_update: Vec<Compact<u64>> = Self::weights_rl_last_seen_for_uids(
-            netuid,
-            subtensor_runtime_common::MechId::from(0u8),
-            n,
-        )
-        .into_iter()
-        .map(Compact::from)
-        .collect();
+        let last_update: Vec<Compact<u64>> = LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
+            .into_iter()
+            .map(Compact::from)
+            .collect();
         let emission = Emission::<T>::get(netuid)
             .into_iter()
             .map(Compact::from)

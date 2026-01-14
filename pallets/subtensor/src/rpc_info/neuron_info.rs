@@ -2,9 +2,7 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
-use rate_limiting_interface::RateLimitingInterface;
-use sp_runtime::SaturatedConversion;
-use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex, rate_limiting};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex};
 
 #[freeze_struct("9e5a291e7e71482d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -95,11 +93,7 @@ impl<T: Config> Pallet<T> {
         let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
         let dividends = Self::get_dividends_for_uid(netuid, uid);
         let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
-        let usage = Self::weights_rl_usage_key_for_uid(netuid, MechId::from(0u8), uid);
-        let last_update =
-            T::RateLimiting::last_seen(rate_limiting::GROUP_WEIGHTS_SUBNET, Some(usage))
-                .map(|block| block.saturated_into::<u64>())
-                .unwrap_or(0);
+        let last_update = Self::get_last_update_for_uid(NetUidStorageIndex::from(netuid), uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
         let weights = Weights::<T>::get(NetUidStorageIndex::from(netuid), uid)
@@ -185,11 +179,7 @@ impl<T: Config> Pallet<T> {
         let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
         let dividends = Self::get_dividends_for_uid(netuid, uid);
         let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
-        let usage = Self::weights_rl_usage_key_for_uid(netuid, MechId::from(0u8), uid);
-        let last_update =
-            T::RateLimiting::last_seen(rate_limiting::GROUP_WEIGHTS_SUBNET, Some(usage))
-                .map(|block| block.saturated_into::<u64>())
-                .unwrap_or(0);
+        let last_update = Self::get_last_update_for_uid(NetUidStorageIndex::from(netuid), uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
         let stake: Vec<(T::AccountId, Compact<AlphaCurrency>)> = vec![(

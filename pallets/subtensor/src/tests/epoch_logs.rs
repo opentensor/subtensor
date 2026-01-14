@@ -10,12 +10,10 @@
 use super::mock::*;
 use crate::*;
 use frame_support::assert_ok;
-use rate_limiting_interface::RateLimitingInterface;
 use sp_core::U256;
-use sp_runtime::traits::SaturatedConversion;
 use std::io::{Result as IoResult, Write};
 use std::sync::{Arc, Mutex};
-use subtensor_runtime_common::{AlphaCurrency, MechId, rate_limiting};
+use subtensor_runtime_common::{AlphaCurrency, MechId};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt};
 
 const NETUID: u16 = 1;
@@ -89,15 +87,8 @@ fn setup_epoch(neurons: Vec<Neuron>, mechanism_count: u8) {
 
     ValidatorPermit::<Test>::insert(netuid, permit_vec);
     for m in 0..mechanism_count {
-        let mecid = MechId::from(m);
-        for (uid, last_seen) in last_update_vec.iter().copied().enumerate() {
-            let usage = SubtensorModule::weights_rl_usage_key_for_uid(netuid, mecid, uid as u16);
-            <Test as crate::Config>::RateLimiting::set_last_seen(
-                rate_limiting::GROUP_WEIGHTS_SUBNET,
-                Some(usage),
-                Some(last_seen.saturated_into()),
-            );
-        }
+        let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, m.into());
+        LastUpdate::<Test>::insert(netuid_index, last_update_vec.clone());
     }
 }
 

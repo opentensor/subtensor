@@ -11,11 +11,10 @@ use pallet_subtensor_swap::tick::TickIndex;
 use safe_math::FixedExt;
 use sp_core::{Get, H256, U256};
 use sp_runtime::traits::Dispatchable;
-use sp_runtime::traits::SaturatedConversion;
 use substrate_fixed::traits::FromFixed;
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
 use subtensor_runtime_common::{
-    AlphaCurrency, Currency as CurrencyT, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
+    AlphaCurrency, Currency as CurrencyT, NetUid, NetUidStorageIndex, TaoCurrency,
 };
 use subtensor_swap_interface::{Order, SwapHandler};
 
@@ -2330,12 +2329,7 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         BlockAtRegistration::<Test>::set(netuid, 0, 1);
         BlockAtRegistration::<Test>::set(netuid, 1, 1);
         BlockAtRegistration::<Test>::set(netuid, 2, 1);
-        SubtensorModule::set_weights_rl_last_seen_for_uids(
-            netuid,
-            MechId::from(0u8),
-            3,
-            Some(2u64.saturated_into()),
-        );
+        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
         Kappa::<Test>::set(netuid, u16::MAX / 5);
         ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
         ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);

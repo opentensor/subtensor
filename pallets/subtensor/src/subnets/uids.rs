@@ -1,10 +1,9 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
-use rate_limiting_interface::RateLimitingInterface;
-use sp_runtime::{Percent, SaturatedConversion};
+use sp_runtime::Percent;
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use sp_std::{cmp, vec};
-use subtensor_runtime_common::{NetUid, rate_limiting};
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// Returns the number of filled slots on a network.
@@ -115,12 +114,7 @@ impl<T: Config> Pallet<T> {
         for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
             let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
             Incentive::<T>::mutate(netuid_index, |v| v.push(0));
-            let usage = Self::weights_rl_usage_key_for_uid(netuid, mecid.into(), next_uid);
-            T::RateLimiting::set_last_seen(
-                rate_limiting::GROUP_WEIGHTS_SUBNET,
-                Some(usage),
-                Some(block_number.saturated_into()),
-            );
+            Self::set_last_update_for_uid(netuid_index, next_uid, block_number);
         }
         Dividends::<T>::mutate(netuid, |v| v.push(0));
         ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
@@ -271,37 +265,19 @@ impl<T: Config> Pallet<T> {
 
             // Update incentives/lastupdates for mechanisms
             for mecid in 0..mechanisms_count {
-                let mecid = mecid.into();
-                let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
+                let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
                 let incentive = Incentive::<T>::get(netuid_index);
+                let lastupdate = LastUpdate::<T>::get(netuid_index);
                 let mut trimmed_incentive = Vec::with_capacity(trimmed_uids.len());
-                let mut trimmed_last_seen = Vec::with_capacity(trimmed_uids.len());
+                let mut trimmed_lastupdate = Vec::with_capacity(trimmed_uids.len());
 
                 for uid in &trimmed_uids {
                     trimmed_incentive.push(incentive.get(*uid).cloned().unwrap_or_default());
-                    let usage = Self::weights_rl_usage_key_for_uid(netuid, mecid, *uid as u16);
-                    let last_seen = T::RateLimiting::last_seen(
-                        subtensor_runtime_common::rate_limiting::GROUP_WEIGHTS_SUBNET,
-                        Some(usage),
-                    );
-                    trimmed_last_seen.push(last_seen);
+                    trimmed_lastupdate.push(lastupdate.get(*uid).cloned().unwrap_or_default());
                 }
 
                 Incentive::<T>::insert(netuid_index, trimmed_incentive);
-
-                Self::set_weights_rl_last_seen_for_uids(netuid, mecid, current_n, None);
-
-                for (uid, last_seen) in trimmed_last_seen.into_iter().enumerate() {
-                    let Some(block) = last_seen else {
-                        continue;
-                    };
-                    let usage = Self::weights_rl_usage_key_for_uid(netuid, mecid, uid as u16);
-                    T::RateLimiting::set_last_seen(
-                        subtensor_runtime_common::rate_limiting::GROUP_WEIGHTS_SUBNET,
-                        Some(usage),
-                        Some(block),
-                    );
-                }
+                LastUpdate::<T>::insert(netuid_index, trimmed_lastupdate);
             }
 
             // Create mapping from old uid to new compressed uid

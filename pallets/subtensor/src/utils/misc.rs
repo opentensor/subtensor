@@ -8,7 +8,7 @@ use sp_core::U256;
 use sp_runtime::{SaturatedConversion, Saturating};
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
-    AlphaCurrency, MechId, NetUid, NetUidStorageIndex, TaoCurrency, rate_limiting,
+    AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency, rate_limiting,
 };
 
 impl<T: Config> Pallet<T> {
@@ -173,7 +173,17 @@ impl<T: Config> Pallet<T> {
     pub fn get_dividends(netuid: NetUid) -> Vec<u16> {
         Dividends::<T>::get(netuid)
     }
-
+    /// Fetch LastUpdate for `netuid` and ensure its length is at least `get_subnetwork_n(netuid)`,
+    /// padding with zeros if needed. Returns the (possibly padded) vector.
+    pub fn get_last_update(netuid_index: NetUidStorageIndex) -> Vec<u64> {
+        let netuid = Self::get_netuid(netuid_index);
+        let target_len = Self::get_subnetwork_n(netuid) as usize;
+        let mut v = LastUpdate::<T>::get(netuid_index);
+        if v.len() < target_len {
+            v.resize(target_len, 0);
+        }
+        v
+    }
     pub fn get_pruning_score(netuid: NetUid) -> Vec<u16> {
         PruningScores::<T>::get(netuid)
     }
@@ -187,47 +197,14 @@ impl<T: Config> Pallet<T> {
     // ==================================
     // ==== YumaConsensus UID params ====
     // ==================================
-    pub fn weights_rl_usage_key_for_uid(
-        netuid: NetUid,
-        mecid: MechId,
-        uid: u16,
-    ) -> rate_limiting::RateLimitUsageKey<T::AccountId> {
-        if mecid == 0.into() {
-            rate_limiting::RateLimitUsageKey::<T::AccountId>::SubnetNeuron { netuid, uid }
-        } else {
-            rate_limiting::RateLimitUsageKey::<T::AccountId>::SubnetMechanismNeuron {
-                netuid,
-                mecid,
-                uid,
-            }
-        }
+    pub fn set_last_update_for_uid(netuid: NetUidStorageIndex, uid: u16, last_update: u64) {
+        let mut updated_last_update_vec = Self::get_last_update(netuid);
+        let Some(updated_last_update) = updated_last_update_vec.get_mut(uid as usize) else {
+            return;
+        };
+        *updated_last_update = last_update;
+        LastUpdate::<T>::insert(netuid, updated_last_update_vec);
     }
-
-    pub fn weights_rl_last_seen_for_uids(netuid: NetUid, mecid: MechId, subnet_n: u16) -> Vec<u64> {
-        let mut last_seen = Vec::with_capacity(subnet_n as usize);
-        for uid in 0..subnet_n {
-            let usage = Self::weights_rl_usage_key_for_uid(netuid, mecid, uid);
-            let block =
-                T::RateLimiting::last_seen(rate_limiting::GROUP_WEIGHTS_SUBNET, Some(usage))
-                    .map(|block| block.saturated_into::<u64>())
-                    .unwrap_or(0);
-            last_seen.push(block);
-        }
-        last_seen
-    }
-
-    pub(crate) fn set_weights_rl_last_seen_for_uids(
-        netuid: NetUid,
-        mecid: MechId,
-        subnet_n: u16,
-        block: Option<BlockNumberFor<T>>,
-    ) {
-        for uid in 0..subnet_n {
-            let usage = Self::weights_rl_usage_key_for_uid(netuid, mecid, uid);
-            T::RateLimiting::set_last_seen(rate_limiting::GROUP_WEIGHTS_SUBNET, Some(usage), block);
-        }
-    }
-
     pub fn set_active_for_uid(netuid: NetUid, uid: u16, active: bool) {
         let mut updated_active_vec = Self::get_active(netuid);
         let Some(updated_active) = updated_active_vec.get_mut(uid as usize) else {
@@ -275,6 +252,10 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_dividends_for_uid(netuid: NetUid, uid: u16) -> u16 {
         let vec = Dividends::<T>::get(netuid);
+        vec.get(uid as usize).copied().unwrap_or(0)
+    }
+    pub fn get_last_update_for_uid(netuid: NetUidStorageIndex, uid: u16) -> u64 {
+        let vec = LastUpdate::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_pruning_score_for_uid(netuid: NetUid, uid: u16) -> u16 {
