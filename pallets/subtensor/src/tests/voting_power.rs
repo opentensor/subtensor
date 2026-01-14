@@ -74,6 +74,7 @@ impl VotingPowerTestFixture {
     }
 
     /// Setup reserves and add balance with custom amount
+    #[allow(clippy::arithmetic_side_effects)]
     fn setup_for_staking_with_amount(&self, amount: u64) {
         mock::setup_reserves(self.netuid, (amount * 100).into(), (amount * 100).into());
         SubtensorModule::add_balance_to_coldkey_account(&self.coldkey, amount * 10);
