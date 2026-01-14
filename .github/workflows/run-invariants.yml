@@ -3,6 +3,7 @@ name: Run invariants on the local mainnet clone
 # Manual trigger only
 on:
   workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
@@ -16,6 +17,7 @@ env:
 
 jobs:
   localnet:
+    name: localnet
     runs-on: [self-hosted, type-ccx33]
 
     steps:
