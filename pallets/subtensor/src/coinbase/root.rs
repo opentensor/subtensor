@@ -542,6 +542,10 @@ impl<T: Config> Pallet<T> {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
         Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
     }
+    pub fn set_start_call_delay(delay: u64) {
+        StartCallDelay::<T>::set(delay);
+        Self::deposit_event(Event::StartCallDelaySet(delay));
+    }
     pub fn set_network_min_lock(net_min_lock: TaoCurrency) {
         NetworkMinLockCost::<T>::set(net_min_lock);
         Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
