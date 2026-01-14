@@ -67,9 +67,11 @@ jobs:
       # -------------------------------
       # Start localnet nodes (background)
       # -------------------------------
-      - name: Start localnet
-        run: scripts/invariants/run_localnet.sh ./subtensor/target/release ./.bdk-env/specs/subtensor.json
-        background: true
+      - name: Start localnet nodes
+        run: |
+          scripts/run_localnet.sh ./subtensor/target/release ./.bdk-env/specs/subtensor.json &
+          echo $! > /tmp/localnet.pid
+          sleep 5
 
       # -------------------------------
       # Wait until chain is producing blocks
