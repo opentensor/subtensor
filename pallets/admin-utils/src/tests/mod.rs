@@ -2922,13 +2922,13 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
             "Default owner should be account 0"
         );
 
-        // Test 3: Try to start the subnet immediately - should FAIL (delay not passed)
+        // Test 3: Can successfully start the subnet immediately
         assert_ok!(pallet_subtensor::Pallet::<Test>::start_call(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid
         ));
 
-        // Verify emission has not been set
+        // Verify emission has been set
         assert!(
             pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid).is_some(),
             "Emission should be set"
@@ -2950,7 +2950,7 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
             pallet_subtensor::Event::StartCallDelaySet(0),
         ));
 
-        // Test 5: Try to start the subnet again - should SUCCEED (delay is now zero)
+        // Test 5: Try to start the subnet again - should be FAILED (first emission block already set)
         let current_block = frame_system::Pallet::<Test>::block_number();
         assert_err!(
             pallet_subtensor::Pallet::<Test>::start_call(
