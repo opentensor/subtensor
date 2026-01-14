@@ -367,7 +367,7 @@ fn test_voting_power_cleared_when_deregistered() {
         assert!(voting_power_before > 0, "Voting power should be built up");
 
         // Deregister the hotkey (simulate by removing from IsNetworkMember)
-        IsNetworkMember::<Test>::remove(&f.hotkey, f.netuid);
+        IsNetworkMember::<Test>::remove(f.hotkey, f.netuid);
 
         // Run epoch - voting power should be cleared for deregistered hotkey
         f.run_epochs(1);
@@ -375,7 +375,7 @@ fn test_voting_power_cleared_when_deregistered() {
         // Should be removed from storage immediately when deregistered
         assert_eq!(f.get_voting_power(), 0);
         assert!(
-            !VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
+            !VotingPower::<Test>::contains_key(f.netuid, f.hotkey),
             "Entry should be removed when hotkey is deregistered"
         );
     });
@@ -549,7 +549,7 @@ fn test_voting_power_not_removed_if_never_above_threshold() {
             "Voting power should still exist - it was never above threshold"
         );
         assert!(
-            VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
+            VotingPower::<Test>::contains_key(f.netuid, f.hotkey),
             "Entry should exist - it was never above threshold so shouldn't be removed"
         );
     });
@@ -589,7 +589,7 @@ fn test_voting_power_not_removed_with_small_dip_below_threshold() {
 
         // Should NOT be removed - dip is within hysteresis buffer
         assert!(
-            VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
+            VotingPower::<Test>::contains_key(f.netuid, f.hotkey),
             "Entry should exist - small dip within 10% buffer should not trigger removal"
         );
     });
@@ -630,7 +630,7 @@ fn test_voting_power_removed_with_significant_drop_below_threshold() {
         SubtensorModule::update_voting_power_for_subnet(f.netuid, &epoch_output);
 
         assert!(
-            !VotingPower::<Test>::contains_key(f.netuid, &f.hotkey),
+            !VotingPower::<Test>::contains_key(f.netuid, f.hotkey),
             "Entry should be removed - stake dropped to 0 with alpha=1.0"
         );
     });
