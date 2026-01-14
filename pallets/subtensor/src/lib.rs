@@ -1902,7 +1902,11 @@ pub mod pallet {
     /// Default VotingPower EMA alpha value (0.1 represented as u64 with 18 decimals)
     /// alpha = 0.1 means slow response, 10% weight to new values per epoch
     pub fn DefaultVotingPowerEmaAlpha<T: Config>() -> u64 {
-        100_000_000_000_000_000 // 0.1 * 10^18
+        0_003_570_000_000_000_000 // 0.00357 * 10^18 = 2 weeks e-folding (time-constant) @ 361
+                                  // blocks per tempo
+                                  // After 2 weeks  -> EMA reaches 63.2% of a step change
+                                  // After ~4 weeks -> 86.5%
+                                  // After ~6 weeks -> 95%
     }
 
     #[pallet::storage]
