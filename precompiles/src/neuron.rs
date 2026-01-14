@@ -1,11 +1,12 @@
 use core::marker::PhantomData;
 
-use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
+use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::{EvmResult, prelude::UnboundedBytes};
 use sp_core::H256;
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable};
 use sp_std::vec::Vec;
 
 use crate::{PrecompileExt, PrecompileHandleExt};
@@ -14,11 +15,20 @@ pub struct NeuronPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for NeuronPrecompile<R>
 where
-    R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
+    R: frame_system::Config
+        + pallet_balances::Config
+        + pallet_evm::Config
+        + pallet_subtensor::Config
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     const INDEX: u64 = 2052;
@@ -27,11 +37,20 @@ where
 #[precompile_utils::precompile]
 impl<R> NeuronPrecompile<R>
 where
-    R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
+    R: frame_system::Config
+        + pallet_balances::Config
+        + pallet_evm::Config
+        + pallet_subtensor::Config
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     #[precompile::public("setWeights(uint16,uint16[],uint16[],uint64)")]

@@ -5,8 +5,9 @@ extern crate alloc;
 use core::marker::PhantomData;
 
 use fp_evm::{ExitError, PrecompileFailure};
+use frame_support::traits::IsSubType;
 use frame_support::{
-    dispatch::{GetDispatchInfo, PostDispatchInfo},
+    dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::Decode,
 };
 use pallet_evm::{
@@ -20,8 +21,7 @@ use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
 use pallet_subtensor_proxy as pallet_proxy;
 use sp_core::{H160, U256, crypto::ByteArray};
-use sp_runtime::traits::Dispatchable;
-use sp_runtime::traits::StaticLookup;
+use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup};
 use subtensor_runtime_common::ProxyType;
 
 use pallet_admin_utils::PrecompileEnum;
@@ -55,6 +55,7 @@ mod staking;
 mod storage_query;
 mod subnet;
 mod uid_lookup;
+
 pub struct Precompiles<R>(PhantomData<R>);
 
 impl<R> Default for Precompiles<R>
@@ -66,15 +67,21 @@ where
         + pallet_subtensor::Config
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_crowdloan::Config,
+        + pallet_crowdloan::Config
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -93,15 +100,21 @@ where
         + pallet_subtensor::Config
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_crowdloan::Config,
+        + pallet_crowdloan::Config
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -149,15 +162,21 @@ where
         + pallet_subtensor::Config
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_crowdloan::Config,
+        + pallet_crowdloan::Config
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>
         + Decode,
     <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
         From<Option<pallet_evm::AccountIdOf<R>>>,

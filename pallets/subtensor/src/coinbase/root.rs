@@ -542,9 +542,6 @@ impl<T: Config> Pallet<T> {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
         Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
     }
-    pub fn get_start_call_delay() -> u64 {
-        StartCallDelay::<T>::get()
-    }
     pub fn set_start_call_delay(delay: u64) {
         StartCallDelay::<T>::set(delay);
         Self::deposit_event(Event::StartCallDelaySet(delay));
