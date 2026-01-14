@@ -1,0 +1,86 @@
+name: Run invariants on the local mainnet clone
+
+# Manual trigger only
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: run-invariants-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  localnet:
+    runs-on: [self-hosted, type-ccx33]
+
+    steps:
+      # -------------------------------
+      # Checkout repo
+      # -------------------------------
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      # -------------------------------
+      # Install system dependencies
+      # -------------------------------
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+
+      # -------------------------------
+      # Install Rust
+      # -------------------------------
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      # -------------------------------
+      # Cache Cargo
+      # -------------------------------
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "run-invariants"
+
+      # -------------------------------
+      # Build Subtensor node
+      # -------------------------------
+      - name: Build Subtensor node
+        run: cargo build --release -p node-subtensor
+
+      # -------------------------------
+      # Install Baedeker
+      # -------------------------------
+      - name: Install Baedeker
+        run: scripts/invariants/install_baedeker.sh
+
+      # -------------------------------
+      # Generate chain spec
+      # -------------------------------
+      - name: Generate chain spec
+        run: scripts/invariants/generate_spec.sh
+
+      # -------------------------------
+      # Start localnet nodes (background)
+      # -------------------------------
+      - name: Start localnet
+        run: scripts/invariants/run_localnet.sh ./subtensor/target/release ./.bdk-env/specs/subtensor.json
+        background: true
+
+      # -------------------------------
+      # Wait until chain is producing blocks
+      # -------------------------------
+      - name: Wait for chain to produce blocks
+        run: scripts/invariants/wait_for_chain.sh
+
+      # -------------------------------
+      # Pull JS RPC test image from GHCR
+      # -------------------------------
+
+      # -------------------------------
+      # Run JS RPC tests
+      # -------------------------------
