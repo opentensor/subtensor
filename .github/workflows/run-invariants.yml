@@ -19,6 +19,8 @@ jobs:
   localnet:
     name: localnet
     runs-on: [self-hosted, type-ccx33]
+    permissions:
+      contents: write
 
     steps:
       # -------------------------------
