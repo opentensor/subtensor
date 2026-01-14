@@ -1021,7 +1021,6 @@ fn block_number<T: SubtensorConfig>(value: u64) -> Option<BlockNumberFor<T>> {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
-    use codec::Encode;
     use frame_support::traits::OnRuntimeUpgrade;
     use frame_system::pallet_prelude::BlockNumberFor;
     use pallet_rate_limiting::{
@@ -1035,7 +1034,6 @@ mod tests {
     };
     use sp_core::{H160, ecdsa};
     use sp_io::TestExternalities;
-    use sp_io::{hashing::twox_128, storage};
     use sp_runtime::traits::{SaturatedConversion, Zero};
 
     use super::*;
@@ -1047,7 +1045,6 @@ mod tests {
 
     const ACCOUNT: [u8; 32] = [7u8; 32];
     const DELEGATE_TAKE_GROUP_ID: GroupId = GROUP_DELEGATE_TAKE;
-    const PALLET_PREFIX: &[u8] = b"SubtensorModule";
     type UsageKey = RateLimitUsageKey<AccountId>;
 
     fn new_test_ext() -> TestExternalities {
@@ -1089,19 +1086,6 @@ mod tests {
         let _ = pallet_rate_limiting::GroupNameIndex::<Runtime>::clear(limit, None);
         let _ = pallet_rate_limiting::CallGroups::<Runtime>::clear(limit, None);
         pallet_rate_limiting::NextGroupId::<Runtime>::kill();
-    }
-
-    fn set_legacy_serving_rate_limit(netuid: NetUid, span: u64) {
-        let mut key = twox_128(b"SubtensorModule").to_vec();
-        key.extend(twox_128(b"ServingRateLimit"));
-        key.extend(netuid.encode());
-        storage::set(&key, &span.encode());
-    }
-
-    fn set_legacy_network_rate_limit(span: u64) {
-        let mut key = twox_128(b"SubtensorModule").to_vec();
-        key.extend(twox_128(b"NetworkRateLimit"));
-        storage::set(&key, &span.encode());
     }
 
     fn parity_check<F>(
@@ -1205,9 +1189,12 @@ mod tests {
             let account: AccountId = ACCOUNT.into();
             pallet_subtensor::HasMigrationRun::<Runtime>::remove(MIGRATION_NAME);
 
-            put_legacy_value(b"TxRateLimit", 10u64);
-            put_legacy_value(b"TxDelegateTakeRateLimit", 3u64);
-            put_last_rate_limited_block(RateLimitKey::LastTxBlock(account.clone()), 5);
+            legacy_storage::set_tx_rate_limit(10);
+            legacy_storage::set_tx_delegate_take_rate_limit(3);
+            legacy_storage::set_last_rate_limited_block(
+                super::RateLimitKey::LastTxBlock(account.clone()),
+                5,
+            );
 
             let weight = migrate_rate_limiting();
             assert!(!weight.is_zero());
@@ -1316,7 +1303,7 @@ mod tests {
             let span = 5u64;
             System::set_block_number(now.saturated_into());
             LastRateLimitedBlock::<Runtime>::insert(RateLimitKey::NetworkLastRegistered, now - 1);
-            set_legacy_network_rate_limit(span);
+            legacy_storage::set_network_rate_limit(span);
 
             Migration::<Runtime>::on_runtime_upgrade();
 
@@ -1367,7 +1354,7 @@ mod tests {
                 RateLimitKey::LastTxBlockDelegateTake(hot.clone()),
                 now - 1,
             );
-            put_legacy_value(b"TxDelegateTakeRateLimit", span);
+            legacy_storage::set_tx_delegate_take_rate_limit(span);
 
             let call = RuntimeCall::SubtensorModule(SubtensorCall::increase_take {
                 hotkey: hot.clone(),
@@ -1439,7 +1426,7 @@ mod tests {
             let hot = account(50);
             let netuid = NetUid::from(3u16);
             let span = 5u64;
-            set_legacy_serving_rate_limit(netuid, span);
+            legacy_storage::set_serving_rate_limit(netuid, span);
             pallet_subtensor::Axons::<Runtime>::insert(
                 netuid,
                 hot.clone(),
@@ -1631,7 +1618,7 @@ mod tests {
     fn migration_skips_when_already_run() {
         new_test_ext().execute_with(|| {
             pallet_subtensor::HasMigrationRun::<Runtime>::insert(MIGRATION_NAME, true);
-            put_legacy_value(b"TxRateLimit", 99u64);
+            legacy_storage::set_tx_rate_limit(99);
 
             let base_weight = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
             let weight = migrate_rate_limiting();
@@ -1648,20 +1635,5 @@ mod tests {
                     .is_none()
             );
         });
-    }
-
-    fn put_legacy_value(storage_name: &[u8], value: impl Encode) {
-        let key = storage_key(storage_name);
-        storage::set(&key, &value.encode());
-    }
-
-    fn put_last_rate_limited_block(key: RateLimitKey<AccountId>, block: u64) {
-        let mut storage_key = storage_key(b"LastRateLimitedBlock");
-        storage_key.extend(key.encode());
-        storage::set(&storage_key, &block.encode());
-    }
-
-    fn storage_key(storage_name: &[u8]) -> Vec<u8> {
-        [twox_128(PALLET_PREFIX), twox_128(storage_name)].concat()
     }
 }
