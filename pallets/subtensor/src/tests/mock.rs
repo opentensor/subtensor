@@ -6,8 +6,7 @@
 
 use core::num::NonZeroU64;
 
-use crate::utils::rate_limiting::TransactionType;
-use crate::*;
+use codec::{Decode, Encode};
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth, InstanceFilter};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
@@ -20,7 +19,7 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
-use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
+use rate_limiting_interface::{RateLimitTarget, RateLimitingInterface, TryIntoRateLimitTarget};
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -32,6 +31,10 @@ use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{NetUid, TaoCurrency, rate_limiting::RateLimitUsageKey};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+
+use crate::utils::rate_limiting::TransactionType;
+use crate::*;
+
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
@@ -293,7 +296,7 @@ impl crate::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
-    type RateLimiting = NoRateLimiting;
+    type RateLimiting = MockRateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
@@ -332,9 +335,9 @@ impl CommitmentsInterface for CommitmentsI {
     fn purge_netuid(_netuid: NetUid) {}
 }
 
-pub struct NoRateLimiting;
+pub struct MockRateLimiting;
 
-impl RateLimitingInterface for NoRateLimiting {
+impl RateLimitingInterface for MockRateLimiting {
     type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
     type CallMetadata = RuntimeCall;
     type Limit = BlockNumber;
@@ -349,22 +352,39 @@ impl RateLimitingInterface for NoRateLimiting {
     }
 
     fn last_seen<TargetArg>(
-        _target: TargetArg,
-        _usage_key: Option<Self::UsageKey>,
+        target: TargetArg,
+        usage_key: Option<Self::UsageKey>,
     ) -> Option<Self::Limit>
     where
         TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
     {
-        None
+        let target = target
+            .try_into_rate_limit_target::<Self::CallMetadata>()
+            .ok()?;
+        let mut key = b"mock_rate_limiting:last_seen".to_vec();
+        key.extend_from_slice(&target.encode());
+        key.extend_from_slice(&usage_key.encode());
+        let raw = sp_io::storage::get(&key)?;
+        Decode::decode(&mut &raw[..]).ok()
     }
 
     fn set_last_seen<TargetArg>(
-        _target: TargetArg,
-        _usage_key: Option<Self::UsageKey>,
-        _block: Option<Self::Limit>,
+        target: TargetArg,
+        usage_key: Option<Self::UsageKey>,
+        block: Option<Self::Limit>,
     ) where
         TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
     {
+        let Ok(target) = target.try_into_rate_limit_target::<Self::CallMetadata>() else {
+            return;
+        };
+        let mut key = b"mock_rate_limiting:last_seen".to_vec();
+        key.extend_from_slice(&target.encode());
+        key.extend_from_slice(&usage_key.encode());
+        match block {
+            Some(value) => sp_io::storage::set(&key, &value.encode()),
+            None => sp_io::storage::clear(&key),
+        }
     }
 }
 
