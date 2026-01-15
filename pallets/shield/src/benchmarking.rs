@@ -3,16 +3,15 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::{BoundedVec, pallet_prelude::ConstU32};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
-use sp_core::{crypto::KeyTypeId, sr25519};
-use sp_io::crypto::sr25519_generate;
-use sp_runtime::{AccountId32, traits::Hash as HashT};
+use sp_core::sr25519;
+use sp_runtime::traits::Hash as HashT;
 use sp_std::vec;
 
-/// Helper to build bounded bytes (public key) of a given length.
-fn bounded_pk<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
-    let v = vec![7u8; len];
-    BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
-}
+// /// Helper to build bounded bytes (public key) of a given length.
+// fn bounded_pk<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
+//     let v = vec![7u8; len];
+//     BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
+// }
 
 /// Helper to build bounded bytes (ciphertext) of a given length.
 fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
@@ -20,20 +19,20 @@ fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
     BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
 }
 
-/// Seed Aura authorities so `EnsureAuraAuthority` passes for a given sr25519 pubkey.
-///
-/// We avoid requiring `ByteArray` on `AuthorityId` by relying on:
-/// `<T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>`.
-fn seed_aura_authority_from_sr25519<T>(pubkey: &sr25519::Public)
-where
-    T: pallet::Config + pallet_aura::Config,
-    <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
-{
-    let auth_id: <T as pallet_aura::Config>::AuthorityId = (*pubkey).into();
-    pallet_aura::Authorities::<T>::mutate(|auths| {
-        let _ = auths.try_push(auth_id);
-    });
-}
+// /// Seed Aura authorities so `EnsureAuraAuthority` passes for a given sr25519 pubkey.
+// ///
+// /// We avoid requiring `ByteArray` on `AuthorityId` by relying on:
+// /// `<T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>`.
+// fn seed_aura_authority_from_sr25519<T>(pubkey: &sr25519::Public)
+// where
+//     T: pallet::Config + pallet_aura::Config,
+//     <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
+// {
+//     let auth_id: <T as pallet_aura::Config>::AuthorityId = (*pubkey).into();
+//     pallet_aura::Authorities::<T>::mutate(|auths| {
+//         let _ = auths.try_push(auth_id);
+//     });
+// }
 
 #[benchmarks(
     where
@@ -47,30 +46,31 @@ where
 mod benches {
     use super::*;
 
-    /// Benchmark `announce_next_key`.
-    #[benchmark]
-    fn announce_next_key() {
-        // Generate a deterministic dev key in the host keystore (for benchmarks).
-        // Any 4-byte KeyTypeId works for generation; it does not affect AccountId derivation.
-        const KT: KeyTypeId = KeyTypeId(*b"benc");
-        let alice_pub: sr25519::Public = sr25519_generate(KT, Some("//Alice".as_bytes().to_vec()));
-        let alice_acc: AccountId32 = alice_pub.into();
+    // We use the custom value for announce_next_key to charge a higher fee, not the benchmark result.
+    // /// Benchmark `announce_next_key`.
+    // #[benchmark]
+    // fn announce_next_key() {
+    //     // Generate a deterministic dev key in the host keystore (for benchmarks).
+    //     // Any 4-byte KeyTypeId works for generation; it does not affect AccountId derivation.
+    //     const KT: KeyTypeId = KeyTypeId(*b"benc");
+    //     let alice_pub: sr25519::Public = sr25519_generate(KT, Some("//Alice".as_bytes().to_vec()));
+    //     let alice_acc: AccountId32 = alice_pub.into();
 
-        // Make this account an Aura authority for the generic runtime.
-        seed_aura_authority_from_sr25519::<T>(&alice_pub);
+    //     // Make this account an Aura authority for the generic runtime.
+    //     seed_aura_authority_from_sr25519::<T>(&alice_pub);
 
-        // Valid Kyber768 public key length per pallet check.
-        const KYBER768_PK_LEN: usize = 1184;
-        let public_key: BoundedVec<u8, ConstU32<2048>> = bounded_pk::<2048>(KYBER768_PK_LEN);
+    //     // Valid Kyber768 public key length per pallet check.
+    //     const KYBER768_PK_LEN: usize = 1184;
+    //     let public_key: BoundedVec<u8, ConstU32<2048>> = bounded_pk::<2048>(KYBER768_PK_LEN);
 
-        // Measure: dispatch the extrinsic.
-        #[extrinsic_call]
-        announce_next_key(RawOrigin::Signed(alice_acc.clone()), public_key.clone());
+    //     // Measure: dispatch the extrinsic.
+    //     #[extrinsic_call]
+    //     announce_next_key(RawOrigin::Signed(alice_acc.clone()), public_key.clone());
 
-        // Assert: NextKey should be set exactly.
-        let stored = NextKey::<T>::get().expect("must be set by announce_next_key");
-        assert_eq!(stored, public_key);
-    }
+    //     // Assert: NextKey should be set exactly.
+    //     let stored = NextKey::<T>::get().expect("must be set by announce_next_key");
+    //     assert_eq!(stored, public_key);
+    // }
 
     /// Benchmark `submit_encrypted`.
     #[benchmark]

@@ -245,7 +245,7 @@ pub mod pallet {
         /// the following block.
         #[pallet::call_index(0)]
         #[pallet::weight((
-            Weight::from_parts(9_979_000, 0)
+            Weight::from_parts(20_999_999_999, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
