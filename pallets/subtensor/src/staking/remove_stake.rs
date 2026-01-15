@@ -437,45 +437,7 @@ impl<T: Config> Pallet<T> {
         // 1) Ensure the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
-        // 2) Owner / lock cost.
-        let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let lock_cost: TaoCurrency = Self::get_subnet_locked_balance(netuid);
-
-        // Determine if this subnet is eligible for a lock refund (legacy).
-        let reg_at: u64 = NetworkRegisteredAt::<T>::get(netuid);
-        let start_block: u64 = NetworkRegistrationStartBlock::<T>::get();
-        let should_refund_owner: bool = reg_at < start_block;
-
-        // 3) Compute owner's received emission in TAO at current price (ONLY if we may refund).
-        // We:
-        //      - get the current alpha issuance,
-        //      - apply owner fraction to get owner α,
-        //      - price that α using a *simulated* AMM swap.
-        let mut owner_emission_tao = TaoCurrency::ZERO;
-        if should_refund_owner && !lock_cost.is_zero() {
-            let total_emitted_alpha_u128: u128 = Self::get_alpha_issuance(netuid).to_u64() as u128;
-
-            if total_emitted_alpha_u128 > 0 {
-                let owner_fraction: U96F32 = Self::get_float_subnet_owner_cut();
-                let owner_alpha_u64 = U96F32::from_num(total_emitted_alpha_u128)
-                    .saturating_mul(owner_fraction)
-                    .floor()
-                    .saturating_to_num::<u64>();
-
-                owner_emission_tao = if owner_alpha_u64 > 0 {
-                    let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
-                    let val_u64 = U96F32::from_num(owner_alpha_u64)
-                        .saturating_mul(cur_price)
-                        .floor()
-                        .saturating_to_num::<u64>();
-                    TaoCurrency::from(val_u64)
-                } else {
-                    TaoCurrency::ZERO
-                };
-            }
-        }
-
-        // 4) Enumerate all α entries on this subnet to build distribution weights and cleanup lists.
+        // 2) Enumerate all α entries on this subnet to build distribution weights and cleanup lists.
         //    - collect keys to remove,
         //    - per (hot,cold) α VALUE (not shares) with fallback to raw share if pool uninitialized,
         //    - track hotkeys to clear pool totals.
@@ -591,19 +553,7 @@ impl<T: Config> Pallet<T> {
         // Clear the locked balance on the subnet.
         Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
 
-        // 8) Finalize lock handling:
-        //    - Legacy subnets (registered before NetworkRegistrationStartBlock) receive:
-        //        refund = max(0, lock_cost(τ) − owner_received_emission_in_τ).
-        //    - New subnets: no refund.
-        let refund: TaoCurrency = if should_refund_owner {
-            lock_cost.saturating_sub(owner_emission_tao)
-        } else {
-            TaoCurrency::ZERO
-        };
-
-        if !refund.is_zero() {
-            Self::add_balance_to_coldkey_account(&owner_coldkey, refund.to_u64());
-        }
+        // 8) Finalize lock handling: refunds are no longer issued.
 
         Ok(())
     }
