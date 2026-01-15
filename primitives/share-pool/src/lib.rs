@@ -11,7 +11,7 @@ use sp_std::ops::Neg;
 
 // Maximum value that can be represented with SafeFloat
 pub const SAFE_FLOAT_MAX: u128 = 1_000_000_000_000_000_000_000_u128;
-pub const SAFE_FLOAT_MAX_EXP: u128 = 18_i64;
+pub const SAFE_FLOAT_MAX_EXP: i64 = 18_i64;
 
 /// Controlled precision floating point number with efficient storage
 ///
