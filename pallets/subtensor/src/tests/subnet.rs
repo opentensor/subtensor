@@ -3,11 +3,14 @@ use super::mock::*;
 use crate::subnets::symbols::{DEFAULT_SYMBOL, SYMBOLS};
 use crate::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use frame_system::Config;
+use frame_system::{Config, RawOrigin};
 use sp_core::U256;
+use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
+use sp_runtime::transaction_validity::TransactionSource;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
 
 use super::mock;
+use crate::transaction_extension::SubtensorTransactionExtension;
 
 /***************************
   pub fn do_start_call() tests
@@ -84,6 +87,37 @@ fn test_do_start_call_fail_not_owner() {
                 netuid
             ),
             DispatchError::BadOrigin
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::subnet::test_start_call_validate_requires_owner --exact --show-output --nocapture
+#[test]
+fn test_start_call_validate_requires_owner() {
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 13;
+        let wrong_owner_account_id = U256::from(2);
+
+        add_network_without_emission_block(netuid, tempo, 0);
+
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::start_call { netuid });
+        let info = DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorTransactionExtension::<Test>::new();
+
+        let result = extension.validate(
+            RawOrigin::Signed(wrong_owner_account_id).into(),
+            &call,
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            CustomTransactionError::BadRequest.into()
         );
     });
 }

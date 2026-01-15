@@ -83,6 +83,16 @@ where
             })
         }
     }
+
+    fn ensure_subnet_owner(who: &T::AccountId, netuid: NetUid) -> TransactionValidity {
+        if !Pallet::<T>::if_subnet_exist(netuid) {
+            return Err(CustomTransactionError::SubnetNotExists.into());
+        }
+        if Pallet::<T>::get_subnet_owner(netuid) != *who {
+            return Err(CustomTransactionError::BadRequest.into());
+        }
+        Ok(ValidTransaction::default())
+    }
 }
 
 impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config>
@@ -132,6 +142,13 @@ where
             }
         }
         match call.is_sub_type() {
+            Some(Call::set_subnet_identity { netuid, .. })
+            | Some(Call::start_call { netuid })
+            | Some(Call::update_symbol { netuid, .. })
+            | Some(Call::sudo_set_root_claim_threshold { netuid, .. }) => {
+                Self::ensure_subnet_owner(who, *netuid)
+                    .map(|validity| (validity, Some(who.clone()), origin))
+            }
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     Ok((Default::default(), Some(who.clone()), origin))
