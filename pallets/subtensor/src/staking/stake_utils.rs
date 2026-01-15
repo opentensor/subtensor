@@ -687,8 +687,7 @@ impl<T: Config> Pallet<T> {
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         // Swap the alpha for TAO.
-        let swap_result =
-            Self::swap_alpha_for_tao(netuid, alpha, price_limit, drop_fees)?;
+        let swap_result = Self::swap_alpha_for_tao(netuid, alpha, price_limit, drop_fees)?;
 
         // Refund the unused alpha (in case if limit price is hit)
         let refund = alpha.saturating_sub(
@@ -865,7 +864,7 @@ impl<T: Config> Pallet<T> {
             Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
                 destination_hotkey,
                 destination_coldkey,
-                actual_alpha_decrease.into(),
+                u64::from(alpha).into(),
             );
         }
 
@@ -1315,11 +1314,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
 
     fn set_shared_value(&mut self, value: u64) {
         if value != 0 {
-            TotalHotkeyAlpha::<T>::insert(
-                &(self.hotkey),
-                self.netuid,
-                AlphaCurrency::from(value),
-            );
+            TotalHotkeyAlpha::<T>::insert(&(self.hotkey), self.netuid, AlphaCurrency::from(value));
         } else {
             TotalHotkeyAlpha::<T>::remove(&(self.hotkey), self.netuid);
         }

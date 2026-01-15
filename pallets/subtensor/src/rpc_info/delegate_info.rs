@@ -66,7 +66,9 @@ impl<T: Config> Pallet<T> {
                 alpha_share_pools.push(alpha_share_pool);
             }
 
-            for ((nominator, netuid), alpha_stake_float_serializable) in AlphaV2::<T>::iter_prefix((delegate.clone(),)) {
+            for ((nominator, netuid), alpha_stake_float_serializable) in
+                AlphaV2::<T>::iter_prefix((delegate.clone(),))
+            {
                 let alpha_stake = SafeFloat::from(&alpha_stake_float_serializable);
 
                 if alpha_stake.is_zero() {

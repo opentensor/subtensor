@@ -1445,7 +1445,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId, // hot
         Identity,
-        NetUid, // subnet
+        NetUid,                // subnet
         SafeFloatSerializable, // Hotkey shares in unlimited precision
         ValueQuery,
     >;
@@ -2670,7 +2670,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         ensure!(
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid) >= alpha,
             Error::<T>::InsufficientBalance
-        );        
+        );
 
         // Decrese alpha out counter
         SubnetAlphaOut::<T>::mutate(netuid, |total| {

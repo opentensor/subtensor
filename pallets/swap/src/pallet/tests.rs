@@ -2268,13 +2268,8 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         // Mirror extrinsic bookkeeping: withdraw funds & bump provided‑reserve counters.
         let tao_taken = <Test as Config>::BalanceOps::decrease_balance(&cold, need_tao.into())
             .expect("decrease TAO");
-        <Test as Config>::BalanceOps::decrease_stake(
-            &cold,
-            &hot,
-            netuid.into(),
-            need_alpha.into(),
-        )
-        .expect("decrease ALPHA");
+        <Test as Config>::BalanceOps::decrease_stake(&cold, &hot, netuid.into(), need_alpha.into())
+            .expect("decrease ALPHA");
         TaoReserve::increase_provided(netuid.into(), tao_taken);
         AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(need_alpha));
 
