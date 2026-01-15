@@ -61,6 +61,7 @@ pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default
 pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
 procedural-fork = { path = "support/procedural-fork", default-features = false }
 safe-math = { path = "primitives/safe-math", default-features = false }
+safe-bigmath = { rev = "367b6c6", package = "safe-bigmath", default-features = false, git = "https://github.com/sam0x17/safe-bigmath" }
 share-pool = { path = "primitives/share-pool", default-features = false }
 subtensor-macros = { path = "support/macros", default-features = false }
 subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
@@ -82,6 +83,7 @@ hex = { version = "0.4", default-features = false }
 hex-literal = "0.4.1"
 jsonrpsee = { version = "0.24.9", default-features = false }
 libsecp256k1 = { version = "0.7.2", default-features = false }
+lencode = "0.1"
 log = { version = "0.4.21", default-features = false }
 memmap2 = "0.9.8"
 ndarray = { version = "0.16.1", default-features = false }

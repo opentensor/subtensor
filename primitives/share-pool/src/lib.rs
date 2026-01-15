@@ -1,26 +1,304 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::result_unit_err)]
 
-use safe_math::*;
+use codec::{Decode, Encode};
+use lencode::{Decode as LenDecode, Encode as LenEncode};
+use lencode::io::Cursor;
+use safe_bigmath::*;
+use scale_info::TypeInfo;
 use sp_std::marker;
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I64F64, U64F64};
+
+// Maximum value that can be represented with SafeFloat
+pub const SAFE_FLOAT_MAX: u128 = 1_000_000_000_000_000_000_000_u128;
+
+/// Controlled precision floating point number with efficient storage
+/// The representation is mantissa / 10^-exponent
+/// (exponent is used as negative number unlike conventional floats)
+/// 
+/// Precision is controlled in a way that keeps enough mantissa digits so 
+/// that updating hotkey stake by 1 rao makes difference in the resulting shared 
+/// pool variables (both coldkey share and share pool denominator), but also 
+/// precision should be limited so that updating by 0.1 rao does not make the 
+/// difference (because there's no such thing as 0.1 rao, rao is integer).
+#[derive(Clone, Debug)]
+pub struct SafeFloat {
+    mantissa: SafeInt,
+    exponent: u32,
+}
+
+#[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct SafeFloatSerializable {
+    mantissa: Vec<u8>,
+    exponent: u32,
+}
+
+fn clip_to_u32(x: i32) -> u32 {
+    if x < 0 {
+        0u32
+    } else {
+        x as u32
+    }
+}
+
+impl SafeFloat {
+    pub fn zero() -> Self {
+        SafeFloat {
+            mantissa: SafeInt::zero(),
+            exponent: 0_u32,
+        }
+    }
+
+    pub fn new(mantissa: SafeInt, exponent: u32) -> Option<Self> {
+        // Cap at SAFE_FLOAT_MAX
+        let max_value = SafeInt::from(SAFE_FLOAT_MAX) + SafeInt::one();
+        if !(mantissa.clone() / max_value).unwrap_or_default().is_zero() {
+            return None;
+        }
+
+        let mut safe_float = SafeFloat {
+            mantissa,
+            exponent,
+        };
+
+        safe_float.adjust_precision();
+        Some(safe_float)
+    }
+
+    fn intlog10(a: &SafeInt) -> u64 {
+        let scale = SafeInt::from(1_000_000_000_000_000_000i128);
+        let precision = 256u32;
+        let max_iters = Some(4096);
+        (a.log10(&scale, precision, max_iters)).unwrap_or_default().to_u64().unwrap_or_default()
+    }
+
+    /// Adjusts mantissa and exponent of this floating point number so that 
+    /// SAFE_FLOAT_MAX <= mantissa < 10 * SAFE_FLOAT_MAX
+    pub fn adjust_precision(&mut self) {
+        let max_value = SafeInt::from(SAFE_FLOAT_MAX);
+        let max_value_div10 = SafeInt::from(SAFE_FLOAT_MAX.checked_div(10).unwrap_or_default());
+        let mantissa_abs = self.mantissa.clone().abs();
+        let exponent_adjustment: i32 = if max_value_div10 > mantissa_abs {
+            let scale = (max_value_div10 / mantissa_abs).unwrap_or_default();
+            (Self::intlog10(&scale) + 1) as i32
+        } else if max_value < mantissa_abs {
+            let scale = (mantissa_abs / max_value).unwrap_or_default();
+            -1 * ((Self::intlog10(&scale) + 1) as i32)
+        } else {
+            0i32
+        };
+
+        self.exponent = clip_to_u32(self.exponent as i32 + exponent_adjustment);
+
+        if exponent_adjustment > 0 {
+            let mantissa_adjustment = SafeInt::from(10).pow(exponent_adjustment as u32);
+            self.mantissa = self.mantissa.clone() * mantissa_adjustment;
+        } else {
+            let mantissa_adjustment = SafeInt::from(10).pow((-1 * exponent_adjustment as i32) as u32);
+            self.mantissa = (self.mantissa.clone() / mantissa_adjustment).unwrap_or_default();
+        }
+    }
+
+    /// Divide current value by a preserving precision (SAFE_FLOAT_MAX digits in mantissa)
+    ///   result = m1 * 10^e2 / m2 * 10^e1
+    pub fn div(&self, a: &SafeFloat) -> Option<Self> {
+        let ten = SafeInt::from(10u32);
+        let redundant_exponent = self.exponent + a.exponent;
+
+        let maybe_new_mantissa = self.mantissa.clone() * ten.pow(redundant_exponent as u32) / a.mantissa.clone();
+            if let Some(new_mantissa) = maybe_new_mantissa {
+            let mut safe_float = SafeFloat {
+                mantissa: new_mantissa,
+                exponent: self.exponent.saturating_mul(2),
+            };
+            safe_float.adjust_precision();
+            Some(safe_float)
+        } else {
+            None
+        }
+    }
+
+    pub fn add(&self, a: &SafeFloat) -> Self {
+        let ten = SafeInt::from(10u32);
+        let mut safe_float = SafeFloat {
+            mantissa: self.mantissa.clone() * ten.clone().pow(a.exponent) + a.mantissa.clone() * ten.pow(self.exponent),
+            exponent: self.exponent + a.exponent,
+        };
+        safe_float.adjust_precision();
+        safe_float
+    }
+
+    /// Calculate self * a / b without loss of precision
+    pub fn mul_div(&self, a: &SafeFloat, b: &SafeFloat) -> Option<Self> {
+        let self_a_mantissa = self.mantissa.clone() * a.mantissa.clone();
+        let self_a_exponent = self.exponent + a.exponent;
+
+        // Divide by b without adjusting precision first (preserve higher precision 
+        // of multiplication result)
+        SafeFloat{
+            mantissa: self_a_mantissa,
+            exponent: self_a_exponent
+        }.div(b)
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.mantissa.is_zero()
+    }
+
+    /// Returns true if self > a
+    pub fn gt(&self, a: &SafeFloat) -> bool {
+        // Shortcut: same exponent → compare mantissas directly
+        if self.exponent == a.exponent {
+            return self.mantissa > a.mantissa;
+        }
+
+        let ten = SafeInt::from(10);
+
+        // Bring both to the same exponent = max(exponents)
+        let max_e = self.exponent.max(a.exponent);
+        let k1 = max_e - self.exponent;
+        let k2 = max_e - a.exponent;
+
+        let scale1 = ten.clone().pow(k1);
+        let scale2 = ten.pow(k2);
+
+        let lhs = &self.mantissa * &scale1;
+        let rhs = &a.mantissa * &scale2;
+
+        lhs - rhs > 0
+    }
+}
+
+// Saturating conversion: negatives -> 0, overflow -> u64::MAX
+impl From<&SafeFloat> for u64 {
+    fn from(value: &SafeFloat) -> Self {
+        // Negative values are clamped to 0
+        if value.mantissa.is_negative() {
+            return 0;
+        }
+
+        // If exponent is zero, it's just an integer mantissa
+        if value.exponent == 0 {
+            return value.mantissa.to_u64().unwrap_or(u64::MAX);
+        }
+
+        // scale = 10^exponent
+        let scale = SafeInt::from(10).pow(value.exponent);
+
+        // mantissa / 10^exponent (integer division, truncating toward zero)
+        // SafeInt division is fallible; None only if divisor is zero (can't happen here)
+        let q: SafeInt = (&value.mantissa / &scale).unwrap_or_else(SafeInt::zero);
+
+        // Convert quotient to u64, saturating on overflow
+        if q.is_zero() {
+            0
+        } else {
+            q.to_u64().unwrap_or(u64::MAX)
+        }
+    }
+}
+
+// Convenience impl for owning values
+impl From<SafeFloat> for u64 {
+    fn from(value: SafeFloat) -> Self {
+        u64::from(&value)
+    }
+}
+
+impl From<u64> for SafeFloat {
+    fn from(value: u64) -> Self {
+        SafeFloat::new(SafeInt::from(value), 0).unwrap_or_default()
+    }
+}
+
+impl From<&SafeFloat> for SafeFloatSerializable {
+    fn from(value: &SafeFloat) -> Self {
+        let mut mantissa_serializable = Vec::new();
+        value.mantissa.encode(&mut mantissa_serializable).unwrap_or_default();
+
+        SafeFloatSerializable {
+            mantissa: mantissa_serializable,
+            exponent: value.exponent
+        }
+    }
+}
+
+impl From<&SafeFloatSerializable> for SafeFloat {
+    fn from(value: &SafeFloatSerializable) -> Self {
+        let decoded = SafeInt::decode(&mut Cursor::new(&value.mantissa)).unwrap_or_default();
+        SafeFloat {
+            mantissa: decoded,
+            exponent: value.exponent
+        }
+    }
+}
+
+impl From<&SafeFloat> for f64 {
+    fn from(value: &SafeFloat) -> Self {
+        // Zero shortcut
+        if value.mantissa.is_zero() {
+            return 0.0;
+        }
+
+        // If you ever allow negative mantissas, handle sign here.
+        // For now we assume mantissa >= 0 per your spec.
+        let mut mant = value.mantissa.clone();
+        let mut exp_i32 = value.exponent as i32;
+
+        let ten = SafeInt::from(10);
+
+        // Max integer exactly representable in f64: 2^53 - 1
+        let max_exact = SafeInt::from((1u64 << 53) - 1);
+
+        // While mantissa is too large to be exactly represented,
+        // discard right decimal digits: mant /= 10, and adjust exponent
+        // so that mant * 10^-exp stays the same value.
+        while mant > max_exact {
+            mant = (&mant / &ten).expect("10 is non-zero; division must succeed");
+            exp_i32 -= 1; // because value = mant * 10^-exp, and we did mant /= 10
+        }
+
+        // Now mant <= max_exact, so we can convert mant to u64 then to f64 exactly.
+        let mant_u64 = mant
+            .to_u64()
+            .expect("mant <= 2^53-1, must fit into u64");
+
+        let mant_f = mant_u64 as f64;
+        let scale = 10f64.powi(-exp_i32);
+
+        mant_f * scale
+    }
+}
+
+impl From<SafeFloat> for f64 {
+    fn from(value: SafeFloat) -> Self {
+        f64::from(&value)
+    }
+}
+
+impl Default for SafeFloat {
+    fn default() -> Self {
+        SafeFloat::zero()
+    }
+}
+
+
 
 pub trait SharePoolDataOperations<Key> {
-    /// Gets shared value
-    fn get_shared_value(&self) -> U64F64;
+    /// Gets shared value (always "the real thing" measured in rao, not fractional)
+    fn get_shared_value(&self) -> u64;
     /// Gets single share for a given key
-    fn get_share(&self, key: &Key) -> U64F64;
+    fn get_share(&self, key: &Key) -> SafeFloat;
     // Tries to get a single share for a given key, as a result.
-    fn try_get_share(&self, key: &Key) -> Result<U64F64, ()>;
+    fn try_get_share(&self, key: &Key) -> Result<SafeFloat, ()>;
     /// Gets share pool denominator
-    fn get_denominator(&self) -> U64F64;
+    fn get_denominator(&self) -> SafeFloat;
     /// Updates shared value by provided signed value
-    fn set_shared_value(&mut self, value: U64F64);
+    fn set_shared_value(&mut self, value: u64);
     /// Update single share for a given key by provided signed value
-    fn set_share(&mut self, key: &Key, share: U64F64);
+    fn set_share(&mut self, key: &Key, share: SafeFloat);
     /// Update share pool denominator by provided signed value
-    fn set_denominator(&mut self, update: U64F64);
+    fn set_denominator(&mut self, update: SafeFloat);
 }
 
 /// SharePool struct that depends on the Key type and uses the SharePoolDataOperations
@@ -47,36 +325,20 @@ where
     }
 
     pub fn get_value(&self, key: &K) -> u64 {
-        let shared_value: U64F64 = self.state_ops.get_shared_value();
-        let current_share: U64F64 = self.state_ops.get_share(key);
-        let denominator: U64F64 = self.state_ops.get_denominator();
-
-        let maybe_value_per_share = shared_value.checked_div(denominator);
-        (if let Some(value_per_share) = maybe_value_per_share {
-            value_per_share.saturating_mul(current_share)
-        } else {
-            shared_value
-                .saturating_mul(current_share)
-                .checked_div(denominator)
-                .unwrap_or(U64F64::saturating_from_num(0))
-        })
-        .saturating_to_num::<u64>()
+        let shared_value: SafeFloat = SafeFloat::new(SafeInt::from(self.state_ops.get_shared_value()), 0).unwrap_or_default();
+        let current_share: SafeFloat = self.state_ops.get_share(key);
+        let denominator: SafeFloat = self.state_ops.get_denominator();
+        shared_value.mul_div(&current_share, &denominator)
+            .unwrap_or(SafeFloat::zero())
+            .into()
     }
 
-    pub fn get_value_from_shares(&self, current_share: U64F64) -> u64 {
-        let shared_value: U64F64 = self.state_ops.get_shared_value();
-        let denominator: U64F64 = self.state_ops.get_denominator();
-
-        let maybe_value_per_share = shared_value.checked_div(denominator);
-        (if let Some(value_per_share) = maybe_value_per_share {
-            value_per_share.saturating_mul(current_share)
-        } else {
-            shared_value
-                .saturating_mul(current_share)
-                .checked_div(denominator)
-                .unwrap_or(U64F64::saturating_from_num(0))
-        })
-        .saturating_to_num::<u64>()
+    pub fn get_value_from_shares(&self, current_share: SafeFloat) -> u64 {
+        let shared_value: SafeFloat = SafeFloat::new(SafeInt::from(self.state_ops.get_shared_value()), 0).unwrap_or_default();
+        let denominator: SafeFloat = self.state_ops.get_denominator();
+        shared_value.mul_div(&current_share, &denominator)
+            .unwrap_or(SafeFloat::zero())
+            .into()
     }
 
     pub fn try_get_value(&self, key: &K) -> Result<u64, ()> {
@@ -89,164 +351,132 @@ where
     /// Update the total shared value.
     /// Every key's associated value effectively updates with this operation
     pub fn update_value_for_all(&mut self, update: i64) {
-        let shared_value: U64F64 = self.state_ops.get_shared_value();
+        let shared_value: u64 = self.state_ops.get_shared_value();
         self.state_ops.set_shared_value(if update >= 0 {
-            shared_value.saturating_add(U64F64::saturating_from_num(update))
+            shared_value.saturating_add(update as u64)
         } else {
-            shared_value.saturating_sub(U64F64::saturating_from_num(update.neg()))
+            shared_value.saturating_sub(update.neg() as u64)
         });
     }
 
     pub fn sim_update_value_for_one(&mut self, update: i64) -> bool {
-        let shared_value: U64F64 = self.state_ops.get_shared_value();
-        let denominator: U64F64 = self.state_ops.get_denominator();
+        let shared_value: u64 = self.state_ops.get_shared_value();
+        let denominator: SafeFloat = self.state_ops.get_denominator();
 
         // Then, update this key's share
-        if denominator == 0 {
+        if denominator.mantissa == 0 {
             true
         } else {
             // There are already keys in the pool, set or update this key
-            let shares_per_update: I64F64 =
-                self.get_shares_per_update(update, &shared_value, &denominator);
+            let shares_per_update =
+                self.get_shares_per_update(update, shared_value, &denominator);
 
-            shares_per_update != 0
+            !shares_per_update.is_zero()
         }
     }
 
     fn get_shares_per_update(
         &self,
         update: i64,
-        shared_value: &U64F64,
-        denominator: &U64F64,
-    ) -> I64F64 {
-        let maybe_value_per_share = shared_value.checked_div(*denominator);
-        if let Some(value_per_share) = maybe_value_per_share {
-            I64F64::saturating_from_num(update)
-                .checked_div(I64F64::saturating_from_num(value_per_share))
-                .unwrap_or(I64F64::saturating_from_num(0))
-        } else {
-            I64F64::saturating_from_num(update)
-                .checked_div(I64F64::saturating_from_num(*shared_value))
-                .unwrap_or(I64F64::saturating_from_num(0))
-                .saturating_mul(I64F64::saturating_from_num(*denominator))
-        }
+        shared_value: u64,
+        denominator: &SafeFloat,
+    ) -> SafeFloat {
+        let shared_value: SafeFloat = SafeFloat::new(SafeInt::from(shared_value), 0).unwrap_or_default();
+        let update: SafeFloat = SafeFloat::new(SafeInt::from(update), 0).unwrap_or_default();
+        update.mul_div(denominator, &shared_value).unwrap_or_default()
     }
 
     /// Update the value associated with an item identified by the Key
     /// Returns actual update
     ///
-    pub fn update_value_for_one(&mut self, key: &K, update: i64) -> i64 {
-        let shared_value: U64F64 = self.state_ops.get_shared_value();
-        let current_share: U64F64 = self.state_ops.get_share(key);
-        let denominator: U64F64 = self.state_ops.get_denominator();
-        let initial_value: i64 = self.get_value(key) as i64;
-        let mut actual_update: i64 = update;
+    pub fn update_value_for_one(&mut self, key: &K, update: i64) {
+        let shared_value: u64 = self.state_ops.get_shared_value();
+        let current_share: SafeFloat = self.state_ops.get_share(key);
+        let denominator: SafeFloat = self.state_ops.get_denominator();
 
         // Then, update this key's share
-        if denominator == 0 {
+        if denominator.is_zero() {
             // Initialize the pool. The first key gets all.
-            let update_fixed: U64F64 = U64F64::saturating_from_num(update);
-            self.state_ops.set_denominator(update_fixed);
-            self.state_ops.set_share(key, update_fixed);
+            let update_float: SafeFloat = SafeFloat::new(SafeInt::from(update), 0).unwrap_or_default();
+            self.state_ops.set_denominator(update_float.clone());
+            self.state_ops.set_share(key, update_float);
         } else {
-            let shares_per_update: I64F64 =
-                self.get_shares_per_update(update, &shared_value, &denominator);
+            let shares_per_update: SafeFloat =
+                self.get_shares_per_update(update, shared_value, &denominator);
 
-            if shares_per_update >= 0 {
-                self.state_ops.set_denominator(
-                    denominator.saturating_add(U64F64::saturating_from_num(shares_per_update)),
-                );
-                self.state_ops.set_share(
-                    key,
-                    current_share.saturating_add(U64F64::saturating_from_num(shares_per_update)),
-                );
-            } else {
-                // Check if this entry is about to break precision
-                let mut new_denominator = denominator
-                    .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg()));
-                let mut new_share = current_share
-                    .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg()));
-
-                // The condition here is either the share remainder is too little OR
-                // the new_denominator is too low compared to what shared_value + year worth of emissions would be
-                if (new_share.safe_div(current_share) < U64F64::saturating_from_num(0.00001))
-                    || shared_value
-                        .saturating_add(U64F64::saturating_from_num(2_628_000_000_000_000_u64))
-                        .checked_div(new_denominator)
-                        .is_none()
-                {
-                    // yes, precision is low, just remove all
-                    new_share = U64F64::saturating_from_num(0);
-                    new_denominator = denominator.saturating_sub(current_share);
-                    actual_update = initial_value.neg();
-                }
-
-                self.state_ops.set_denominator(new_denominator);
-                self.state_ops.set_share(key, new_share);
-            }
+            self.state_ops.set_denominator(
+                denominator.add(&shares_per_update),
+            );
+            self.state_ops.set_share(
+                key,
+                current_share.add(&shares_per_update),
+            );
         }
 
         // Update shared value
-        self.update_value_for_all(actual_update);
-
-        // Return actual udate
-        actual_update
+        self.update_value_for_all(update);
     }
 }
 
+// cargo test --package share-pool --lib -- tests --nocapture 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_abs_diff_eq;
+    use lencode::{Decode, Encode};
+    use lencode::io::Cursor;
     use std::collections::BTreeMap;
+    use substrate_fixed::types::U64F64;
 
     struct MockSharePoolDataOperations {
-        shared_value: U64F64,
-        share: BTreeMap<u16, U64F64>,
-        denominator: U64F64,
+        shared_value: u64,
+        share: BTreeMap<u16, SafeFloat>,
+        denominator: SafeFloat,
     }
 
     impl MockSharePoolDataOperations {
         fn new() -> Self {
             MockSharePoolDataOperations {
-                shared_value: U64F64::saturating_from_num(0),
+                shared_value: 0u64,
                 share: BTreeMap::new(),
-                denominator: U64F64::saturating_from_num(0),
+                denominator: SafeFloat::zero(),
             }
         }
     }
 
     impl SharePoolDataOperations<u16> for MockSharePoolDataOperations {
-        fn get_shared_value(&self) -> U64F64 {
+        fn get_shared_value(&self) -> u64 {
             self.shared_value
         }
 
-        fn get_share(&self, key: &u16) -> U64F64 {
-            *self
+        fn get_share(&self, key: &u16) -> SafeFloat {
+            self
                 .share
                 .get(key)
-                .unwrap_or(&U64F64::saturating_from_num(0))
+                .cloned()
+                .unwrap_or_else(SafeFloat::zero)
         }
 
-        fn try_get_share(&self, key: &u16) -> Result<U64F64, ()> {
-            match self.share.get(key) {
-                Some(&value) => Ok(value),
+        fn try_get_share(&self, key: &u16) -> Result<SafeFloat, ()> {
+            match self.share.get(key).cloned() {
+                Some(value) => Ok(value),
                 None => Err(()),
             }
         }
 
-        fn get_denominator(&self) -> U64F64 {
-            self.denominator
+        fn get_denominator(&self) -> SafeFloat {
+            self.denominator.clone()
         }
 
-        fn set_shared_value(&mut self, value: U64F64) {
+        fn set_shared_value(&mut self, value: u64) {
             self.shared_value = value;
         }
 
-        fn set_share(&mut self, key: &u16, share: U64F64) {
+        fn set_share(&mut self, key: &u16, share: SafeFloat) {
             self.share.insert(*key, share);
         }
 
-        fn set_denominator(&mut self, update: U64F64) {
+        fn set_denominator(&mut self, update: SafeFloat) {
             self.denominator = update;
         }
     }
@@ -254,10 +484,10 @@ mod tests {
     #[test]
     fn test_get_value() {
         let mut mock_ops = MockSharePoolDataOperations::new();
-        mock_ops.set_denominator(U64F64::saturating_from_num(10));
-        mock_ops.set_share(&1_u16, U64F64::saturating_from_num(3));
-        mock_ops.set_share(&2_u16, U64F64::saturating_from_num(7));
-        mock_ops.set_shared_value(U64F64::saturating_from_num(100));
+        mock_ops.set_denominator(10u64.into());
+        mock_ops.set_share(&1_u16, 3u64.into());
+        mock_ops.set_share(&2_u16, 7u64.into());
+        mock_ops.set_shared_value(100u64.into());
         let share_pool = SharePool::new(mock_ops);
         let result1 = share_pool.get_value(&1);
         let result2 = share_pool.get_value(&2);
@@ -268,7 +498,7 @@ mod tests {
     #[test]
     fn test_division_by_zero() {
         let mut mock_ops = MockSharePoolDataOperations::new();
-        mock_ops.set_denominator(U64F64::saturating_from_num(0)); // Zero denominator
+        mock_ops.set_denominator(SafeFloat::zero()); // Zero denominator
         let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
         let value = pool.get_value(&1);
@@ -278,10 +508,10 @@ mod tests {
     #[test]
     fn test_max_shared_value() {
         let mut mock_ops = MockSharePoolDataOperations::new();
-        mock_ops.set_shared_value(U64F64::saturating_from_num(u64::MAX));
-        mock_ops.set_share(&1, U64F64::saturating_from_num(3)); // Use a neutral value for share
-        mock_ops.set_share(&2, U64F64::saturating_from_num(7)); // Use a neutral value for share
-        mock_ops.set_denominator(U64F64::saturating_from_num(10)); // Neutral value to see max effect
+        mock_ops.set_shared_value(u64::MAX.into());
+        mock_ops.set_share(&1, 3u64.into()); // Use a neutral value for share
+        mock_ops.set_share(&2, 7u64.into()); // Use a neutral value for share
+        mock_ops.set_denominator(10u64.into()); // Neutral value to see max effect
         let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
         let max_value = pool.get_value(&1) + pool.get_value(&2);
@@ -291,16 +521,20 @@ mod tests {
     #[test]
     fn test_max_share_value() {
         let mut mock_ops = MockSharePoolDataOperations::new();
-        mock_ops.set_shared_value(U64F64::saturating_from_num(1_000_000_000)); // Use a neutral value for shared value
-        mock_ops.set_share(&1, U64F64::saturating_from_num(u64::MAX / 2));
-        mock_ops.set_share(&2, U64F64::saturating_from_num(u64::MAX / 2));
-        mock_ops.set_denominator(U64F64::saturating_from_num(u64::MAX));
+        mock_ops.set_shared_value(1_000_000_000u64); // Use a neutral value for shared value
+        mock_ops.set_share(&1, (u64::MAX / 2).into());
+        mock_ops.set_share(&2, (u64::MAX / 2).into());
+        mock_ops.set_denominator((u64::MAX).into());
         let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
         let value1 = pool.get_value(&1) as i128;
         let value2 = pool.get_value(&2) as i128;
 
-        assert!((value1 - 500_000_000).abs() <= 1);
+        assert_abs_diff_eq!(
+            value1 as f64,
+            500_000_000 as f64,
+            epsilon = 1.
+        );
         assert!((value2 - 500_000_000).abs() <= 1);
     }
 
@@ -331,26 +565,30 @@ mod tests {
         let mock_ops = MockSharePoolDataOperations::new();
         let mut pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
+        // 50%/50% stakes consisting of 1 rao each
         pool.update_value_for_one(&1, 1);
         pool.update_value_for_one(&2, 1);
 
+        // Huge emission resulting in 1M Alpha
+        // Both stakers should have 500k Alpha each
         pool.update_value_for_all(999_999_999_999_998);
 
+        // Everyone unstakes almost everything, leaving 10 rao in the stake
         pool.update_value_for_one(&1, -499_999_999_999_990);
         pool.update_value_for_one(&2, -499_999_999_999_990);
 
+        // Huge emission resulting in 1M Alpha
+        // Both stakers should have 500k Alpha each
         pool.update_value_for_all(999_999_999_999_980);
 
+        // Stakers add 1k Alpha each
         pool.update_value_for_one(&1, 1_000_000_000_000);
         pool.update_value_for_one(&2, 1_000_000_000_000);
 
-        let value1 = pool.get_value(&1) as i128;
-        let value2 = pool.get_value(&2) as i128;
-
-        // First to stake gets all accumulated emission if there are no other stakers
-        // (which is artificial situation because there will be no emissions if there is no stake)
-        assert!((value1 - 1_001_000_000_000_000).abs() < 100);
-        assert!((value2 - 1_000_000_000_000).abs() < 100);
+        let value1 = pool.get_value(&1) as f64;
+        let value2 = pool.get_value(&2) as f64;
+        assert_abs_diff_eq!(value1, 501_000_000_000_000_f64, epsilon = 1.);
+        assert_abs_diff_eq!(value2, 501_000_000_000_000_f64, epsilon = 1.);
     }
 
     // cargo test --package share-pool --lib -- tests::test_denom_high_precision_many_small_unstakes --exact --show-output
@@ -359,26 +597,45 @@ mod tests {
         let mock_ops = MockSharePoolDataOperations::new();
         let mut pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
+        // 50%/50% stakes consisting of 1 rao each
         pool.update_value_for_one(&1, 1);
         pool.update_value_for_one(&2, 1);
 
+        // Huge emission resulting in 1M Alpha
+        // Both stakers should have 500k Alpha + 1 rao each
         pool.update_value_for_all(1_000_000_000_000_000);
 
-        for _ in 0..1_000_000 {
-            pool.update_value_for_one(&1, -500_000_000);
-            pool.update_value_for_one(&2, -500_000_000);
+        // Run X number of small unstake transactions
+        let tx_count = 1000;
+        let unstake_amount = -500_000_000;
+        for _ in 0..tx_count {
+            pool.update_value_for_one(&1, unstake_amount);
+            pool.update_value_for_one(&2, unstake_amount);
         }
 
+        // Emit 1M - each gets 500k Alpha
         pool.update_value_for_all(1_000_000_000_000_000);
 
+        // Each adds 1k Alpha
         pool.update_value_for_one(&1, 1_000_000_000_000);
         pool.update_value_for_one(&2, 1_000_000_000_000);
 
+        // Result, each should get
+        //   (500k+1) + tx_count * unstake_amount + 500k + 1k
         let value1 = pool.get_value(&1) as i128;
         let value2 = pool.get_value(&2) as i128;
+        let expected = 1_001_000_000_000_000 + tx_count * unstake_amount;
 
-        assert!((value1 - 1_001_000_000_000_000).abs() < 10);
-        assert!((value2 - 1_000_000_000_000).abs() < 10);
+        assert_abs_diff_eq!(
+            value1 as f64,
+            expected as f64,
+            epsilon = 1.
+        );
+        assert_abs_diff_eq!(
+            value2 as f64,
+            expected as f64,
+            epsilon = 1.
+        );
     }
 
     #[test]
@@ -407,46 +664,79 @@ mod tests {
     // cargo test --package share-pool --lib -- tests::test_get_shares_per_update --exact --show-output
     #[test]
     fn test_get_shares_per_update() {
+
+        // Test case (update, shared_value, denominator_mantissa, denominator_exponent)
         [
-            (1_i64, 1_u64, 1.0, 1.0),
+            (1_i64, 1_u64, 1_u64, 0_u32),
+            (
+                1,
+                1_000_000_000_000_000_000,
+                1,
+                0
+            ),
+            (
+                1,
+                21_000_000_000_000_000,
+                1,
+                5
+            ),
+            (
+                1,
+                21_000_000_000_000_000,
+                1,
+                1_000_000
+            ),
             (
                 1_000,
                 21_000_000_000_000_000,
-                0.00001,
-                0.00000000000000000043,
+                1,
+                5
             ),
             (
                 21_000_000_000_000_000,
                 21_000_000_000_000_000,
-                0.00001,
-                0.00001,
+                1,
+                5
             ),
             (
                 210_000_000_000_000_000,
                 21_000_000_000_000_000,
-                0.00001,
-                0.0001,
+                1,
+                5
             ),
             (
                 1_000,
                 1_000,
-                21_000_000_000_000_000_f64,
-                21_000_000_000_000_000_f64,
+                21_000_000_000_000_000,
+                0
             ),
         ]
-        .iter()
-        .for_each(|(update, shared_value, denominator, expected)| {
+        .into_iter()
+        .for_each(|(update, shared_value, denominator_mantissa, denominator_exponent)| {
             let mock_ops = MockSharePoolDataOperations::new();
             let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
-            let shared_fixed = U64F64::from_num(*shared_value);
-            let denominator_fixed = U64F64::from_num(*denominator);
-            let expected_fixed = I64F64::from_num(*expected);
-
-            let spu: I64F64 =
-                pool.get_shares_per_update(*update, &shared_fixed, &denominator_fixed);
-            let precision: I64F64 = I64F64::from_num(1000.);
-            assert!((spu - expected_fixed).abs() <= expected_fixed / precision,);
+            let denominator_float = SafeFloat::new(SafeInt::from(denominator_mantissa), denominator_exponent).unwrap();
+            let denominator_f64: f64 = denominator_float.clone().into();
+            let spu: f64 =
+                pool.get_shares_per_update(update, shared_value, &denominator_float).into();
+            let expected = update as f64 * denominator_f64 / shared_value as f64;
+            let precision = 1000.;
+            assert_abs_diff_eq!(
+                expected,
+                spu,
+                epsilon = expected / precision
+            );
         });
+    }
+
+    #[test]
+    fn test_safeint_serialization() {
+        let safe_int = SafeInt::from(12345);
+        let mut buf = Vec::new();
+        safe_int.encode(&mut buf).unwrap();
+
+        let decoded = SafeInt::decode(&mut Cursor::new(&buf)).unwrap();
+        assert_eq!(decoded, safe_int);
     }
 }

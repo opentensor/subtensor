@@ -4,8 +4,13 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+approx.workspace = true
+codec.workspace = true
+lencode.workspace = true
+scale-info.workspace = true
 substrate-fixed.workspace = true
 sp-std.workspace = true
+safe-bigmath.workspace = true
 safe-math.workspace = true
 
 [lints]
@@ -13,4 +18,12 @@ workspace = true
 
 [features]
 default = ["std"]
-std = ["substrate-fixed/std", "sp-std/std", "safe-math/std"]
+std = [
+	"codec/std",
+	"lencode/std",
+	"scale-info/std",
+    "substrate-fixed/std",
+    "sp-std/std",
+    "safe-math/std",
+    "safe-bigmath/std"
+]

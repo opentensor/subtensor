@@ -88,6 +88,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
+    use share_pool::SafeFloatSerializable;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::btree_map::BTreeMap;
@@ -1445,7 +1446,7 @@ pub mod pallet {
         T::AccountId, // hot
         Identity,
         NetUid, // subnet
-        Vec<u8>, // Hotkey shares in unlimited precision
+        SafeFloatSerializable, // Hotkey shares in unlimited precision
         ValueQuery,
     >;
 
@@ -1458,7 +1459,7 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, NetUid>,               // subnet
         ),
-        Vec<u8>, // Shares in unlimited precision
+        SafeFloatSerializable, // Shares in unlimited precision
         ValueQuery,
     >;
 
@@ -2659,11 +2660,16 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         hotkey: &T::AccountId,
         netuid: NetUid,
         alpha: AlphaCurrency,
-    ) -> Result<AlphaCurrency, DispatchError> {
+    ) -> Result<(), DispatchError> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
+
+        ensure!(
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid) >= alpha,
+            Error::<T>::InsufficientBalance
+        );        
 
         // Decrese alpha out counter
         SubnetAlphaOut::<T>::mutate(netuid, |total| {

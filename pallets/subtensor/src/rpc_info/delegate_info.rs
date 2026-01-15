@@ -6,6 +6,7 @@ use substrate_fixed::types::U64F64;
 extern crate alloc;
 use alloc::collections::BTreeMap;
 use codec::Compact;
+use share_pool::SafeFloat;
 use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 #[freeze_struct("1fafc4fcf28cba7a")]
@@ -65,8 +66,10 @@ impl<T: Config> Pallet<T> {
                 alpha_share_pools.push(alpha_share_pool);
             }
 
-            for ((nominator, netuid), alpha_stake) in Alpha::<T>::iter_prefix((delegate.clone(),)) {
-                if alpha_stake == 0 {
+            for ((nominator, netuid), alpha_stake_float_serializable) in AlphaV2::<T>::iter_prefix((delegate.clone(),)) {
+                let alpha_stake = SafeFloat::from(&alpha_stake_float_serializable);
+
+                if alpha_stake.is_zero() {
                     continue;
                 }
 

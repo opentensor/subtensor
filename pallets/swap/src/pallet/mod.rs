@@ -405,13 +405,11 @@ mod pallet {
             let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
             ensure!(tao_provided == tao, Error::<T>::InsufficientBalance);
 
-            let alpha_provided =
-                T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), alpha)?;
-            ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
+            T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), alpha)?;
 
             // Add provided liquidity to user-provided reserves
             T::TaoReserve::increase_provided(netuid.into(), tao_provided);
-            T::AlphaReserve::increase_provided(netuid.into(), alpha_provided);
+            T::AlphaReserve::increase_provided(netuid.into(), alpha);
 
             // Emit an event
             Self::deposit_event(Event::LiquidityAdded {
@@ -527,12 +525,7 @@ mod pallet {
                 let tao_provided = T::BalanceOps::decrease_balance(&coldkey, result.tao)?;
                 ensure!(tao_provided == result.tao, Error::<T>::InsufficientBalance);
 
-                let alpha_provided =
-                    T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
-                ensure!(
-                    alpha_provided == result.alpha,
-                    Error::<T>::InsufficientBalance
-                );
+                T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
 
                 // Emit an event
                 Self::deposit_event(Event::LiquidityModified {
