@@ -162,6 +162,15 @@ describe("Test neuron precompile add remove stake", () => {
 
         assert.equal(stakeFromContractV1, tao(stakeFromContractV2))
 
+        const totalColdkeyStakeOnSubnet = Number(
+            await contractV2.getTotalColdkeyStakeOnSubnet(convertH160ToPublicKey(wallet1.address), netuid)
+        );
+
+        // check the value is not undefined and is greater than or equal to the stake from contract V2
+        assert.ok(totalColdkeyStakeOnSubnet != undefined)
+        // is greater than or equal to the stake from contract V2 because of emission 
+        assert.ok(totalColdkeyStakeOnSubnet >= stakeFromContractV2)
+
     })
 
     it("Can remove stake", async () => {

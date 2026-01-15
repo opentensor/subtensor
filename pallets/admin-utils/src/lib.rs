@@ -143,6 +143,8 @@ pub mod pallet {
         Proxy,
         /// Leasing precompile
         Leasing,
+        /// Address mapping precompile
+        AddressMapping,
         /// Voting power precompile
         VotingPower,
     }
