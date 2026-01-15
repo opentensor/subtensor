@@ -214,8 +214,22 @@ impl<T: Config> Pallet<T> {
 
     // Combines ema price method and tao flow method linearly over FlowHalfLife blocks
     pub(crate) fn get_shares(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
-        Self::get_shares_flow(subnets_to_emit_to)
-        // Self::get_shares_price_ema(subnets_to_emit_to)
+        let mut shares = Self::get_shares_flow(subnets_to_emit_to);
+        let sum = shares
+            .values()
+            .copied()
+            .fold(U64F64::saturating_from_num(0.0), |acc, v| acc.saturating_add(v));
+
+        if sum > U64F64::saturating_from_num(0.0) {
+            for share in shares.values_mut() {
+                *share = share
+                    .checked_div(sum)
+                    .unwrap_or(U64F64::saturating_from_num(0.0));
+            }
+            shares
+        } else {
+            Self::get_shares_price_ema(subnets_to_emit_to)
+        }
     }
 
     // DEPRECATED: Implementation of shares that uses EMA prices will be gradually deprecated

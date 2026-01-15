@@ -292,6 +292,28 @@ fn seed_price_and_flow(n1: NetUid, n2: NetUid, price1: f64, price2: f64, flow1: 
     SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(flow2)));
 }
 
+#[test]
+fn get_shares_falls_back_to_price_when_flow_sum_is_zero() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(80);
+        let owner_coldkey = U256::from(81);
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        frame_system::Pallet::<Test>::set_block_number(10);
+
+        // Zero flows should trigger price-EMA fallback.
+        seed_price_and_flow(n1, n2, 1.0, 3.0, 0.0, 0.0);
+
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1 + s2, 1.0_f64, epsilon = 1e-9);
+        assert!(s2 > s1, "expected price-based weighting; s1={s1}, s2={s2}");
+    });
+}
+
 // /// If one subnet has a negative EMA flow and the other positive,
 // /// the negative one should contribute no weight (treated as zero),
 // /// so the positive-flow subnet gets the full share.
