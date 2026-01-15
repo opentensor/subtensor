@@ -18,7 +18,7 @@ env:
 jobs:
   localnet:
     name: localnet
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx33]
     permissions:
       contents: write
 
@@ -63,7 +63,7 @@ jobs:
       # Install Baedeker
       # -------------------------------
       - name: Install Baedeker
-        run: ./scripts/invariants/install_baedeker.sh
+        run: ./scripts/build_all_chainspecs.sh
 
       # -------------------------------
       # Generate chain spec
