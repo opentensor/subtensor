@@ -5,6 +5,7 @@ use crate::migrations::migrate_network_immunity_period;
 use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
+use safe_math::SafeDiv;
 use sp_core::U256;
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
@@ -1754,6 +1755,32 @@ fn test_register_subnet_high_lock_cost() {
             SubnetAlphaIn::<Test>::get(netuid),
             lock_cost.to_u64().into()
         );
+    })
+}
+
+#[test]
+fn test_lock_cost_uses_multiplier_when_last_lock_block_missing() {
+    new_test_ext(1).execute_with(|| {
+        let min_lock = TaoCurrency::from(1_000);
+        let last_lock = TaoCurrency::from(10_000);
+
+        NetworkMinLockCost::<Test>::set(min_lock);
+        NetworkLastLockCost::<Test>::set(last_lock);
+        SubtensorModule::set_network_last_lock_block(0);
+
+        step_block(1);
+
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let lock_reduction_interval = SubtensorModule::get_lock_reduction_interval();
+        let per_block_decrement = last_lock
+            .to_u64()
+            .safe_div(lock_reduction_interval)
+            .saturating_mul(current_block.saturating_sub(0));
+        let expected = last_lock
+            .saturating_mul(2u64.into())
+            .saturating_sub(per_block_decrement.into());
+
+        assert_eq!(SubtensorModule::get_network_lock_cost(), expected);
     })
 }
 

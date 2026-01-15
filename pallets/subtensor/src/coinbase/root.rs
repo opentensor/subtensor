@@ -511,7 +511,12 @@ impl<T: Config> Pallet<T> {
         let last_lock_block = Self::get_network_last_lock_block();
         let current_block = Self::get_current_block_as_u64();
         let lock_reduction_interval = Self::get_lock_reduction_interval();
-        let mult: TaoCurrency = if last_lock_block == 0 { 1 } else { 2 }.into();
+        let mult: TaoCurrency = if last_lock_block == 0 && last_lock <= min_lock {
+            1
+        } else {
+            2
+        }
+        .into();
 
         let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
             last_lock
