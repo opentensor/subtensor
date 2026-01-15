@@ -18,7 +18,7 @@ where
     R: frame_system::Config + pallet_subtensor::Config,
     R::AccountId: From<[u8; 32]> + ByteArray,
 {
-    const INDEX: u64 = 2054;
+    const INDEX: u64 = 2060;
 }
 
 #[precompile_utils::precompile]
