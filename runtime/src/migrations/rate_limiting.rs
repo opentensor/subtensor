@@ -1029,7 +1029,7 @@ mod tests {
     };
     use pallet_subtensor::{
         AxonInfo, Call as SubtensorCall, HasMigrationRun, LastRateLimitedBlock, LastUpdate,
-        NetworksAdded, PrometheusInfo, RateLimitKey, TransactionKeyLastBlock, WeightsSetRateLimit,
+        NetworksAdded, PrometheusInfo, RateLimitKey, TransactionKeyLastBlock,
         WeightsVersionKeyRateLimit, utils::rate_limiting::TransactionType,
     };
     use sp_core::{H160, ecdsa};
@@ -1496,7 +1496,7 @@ mod tests {
             // Ensure subnet exists so LastUpdate is imported.
             NetworksAdded::<Runtime>::insert(netuid, true);
             SubtensorModule::set_tempo(netuid, tempo);
-            WeightsSetRateLimit::<Runtime>::insert(netuid, weights_span);
+            legacy_storage::set_weights_set_rate_limit(netuid, weights_span);
             LastUpdate::<Runtime>::insert(NetUidStorageIndex::from(netuid), vec![now - 1]);
 
             let weights_call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
@@ -1514,7 +1514,7 @@ mod tests {
                     .get(uid as usize)
                     .copied()
                     .unwrap_or_default();
-                let limit = WeightsSetRateLimit::<Runtime>::get(netuid);
+                let limit = legacy_storage::get_weights_set_rate_limit(netuid);
                 now.saturating_sub(last) >= limit
             };
             parity_check(

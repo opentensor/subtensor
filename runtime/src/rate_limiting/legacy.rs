@@ -38,6 +38,20 @@ pub mod storage {
         (items.into_iter().collect(), reads)
     }
 
+    pub fn get_weights_set_rate_limit(netuid: NetUid) -> u64 {
+        let mut key = storage_prefix(PALLET_PREFIX, b"WeightsSetRateLimit");
+        key.extend(netuid.encode());
+        io_storage::get(&key)
+            .and_then(|bytes| Decode::decode(&mut &bytes[..]).ok())
+            .unwrap_or_else(defaults::weights_set_rate_limit)
+    }
+
+    pub fn set_weights_set_rate_limit(netuid: NetUid, span: u64) {
+        let mut key = storage_prefix(PALLET_PREFIX, b"WeightsSetRateLimit");
+        key.extend(netuid.encode());
+        io_storage::set(&key, &span.encode());
+    }
+
     pub fn last_updates() -> (Vec<(NetUidStorageIndex, Vec<u64>)>, u64) {
         let items: Vec<_> = storage_key_iter::<NetUidStorageIndex, Vec<u64>, Identity>(
             PALLET_PREFIX,

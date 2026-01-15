@@ -398,7 +398,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         BondsMovingAverage::<Test>::insert(net, 1u64);
         BondsPenalty::<Test>::insert(net, 1u16);
         BondsResetOn::<Test>::insert(net, true);
-        WeightsSetRateLimit::<Test>::insert(net, 1u64);
         ValidatorPruneLen::<Test>::insert(net, 1u64);
         ScalingLawPower::<Test>::insert(net, 1u16);
         TargetRegistrationsPerInterval::<Test>::insert(net, 1u16);
@@ -557,7 +556,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!BondsMovingAverage::<Test>::contains_key(net));
         assert!(!BondsPenalty::<Test>::contains_key(net));
         assert!(!BondsResetOn::<Test>::contains_key(net));
-        assert!(!WeightsSetRateLimit::<Test>::contains_key(net));
         assert!(!ValidatorPruneLen::<Test>::contains_key(net));
         assert!(!ScalingLawPower::<Test>::contains_key(net));
         assert!(!TargetRegistrationsPerInterval::<Test>::contains_key(net));

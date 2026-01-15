@@ -32,9 +32,6 @@ impl<T: Config> Pallet<T> {
     /// * `HotKeyNotRegisteredInSubNet`:
     ///   - Raised if the hotkey is not registered on the specified network.
     ///
-    /// * `CommittingWeightsTooFast`:
-    ///   - Raised if the hotkey's commit rate exceeds the permitted limit.
-    ///
     /// * `TooManyUnrevealedCommits`:
     ///   - Raised if the hotkey has reached the maximum number of unrevealed commits.
     ///

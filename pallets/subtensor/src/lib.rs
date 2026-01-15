@@ -697,12 +697,6 @@ pub mod pallet {
         T::InitialTempo::get()
     }
 
-    /// Default value for weights set rate limit.
-    #[pallet::type_value]
-    pub fn DefaultWeightsSetRateLimit<T: Config>() -> u64 {
-        100
-    }
-
     /// Default block number at registration.
     #[pallet::type_value]
     pub fn DefaultBlockAtRegistration<T: Config>() -> u64 {
@@ -1746,11 +1740,6 @@ pub mod pallet {
     pub type BondsResetOn<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultBondsResetOn<T>>;
 
-    /// --- MAP ( netuid ) --> weights_set_rate_limit
-    #[pallet::storage]
-    pub type WeightsSetRateLimit<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultWeightsSetRateLimit<T>>;
-
     /// --- MAP ( netuid ) --> validator_prune_len
     #[pallet::storage]
     pub type ValidatorPruneLen<T> =
@@ -1947,7 +1936,8 @@ pub mod pallet {
     #[pallet::storage]
     pub type Emission<T: Config> = StorageMap<_, Identity, NetUid, Vec<AlphaCurrency>, ValueQuery>;
 
-    /// --- MAP ( netuid ) --> last_update
+    /// Last updated weights per neuron (used for activity/outdated masking in epochs).
+    /// This is not rate-limiting state; rate-limiting uses `pallet-rate-limiting` last-seen.
     #[pallet::storage]
     pub type LastUpdate<T: Config> =
         StorageMap<_, Identity, NetUidStorageIndex, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;

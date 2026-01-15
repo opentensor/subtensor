@@ -10,7 +10,7 @@ use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, SaturatedConversion};
 use sp_std::vec;
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{Currency, NetUid, rate_limiting};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -272,20 +272,30 @@ where
     #[precompile::public("getWeightsSetRateLimit(uint16)")]
     #[precompile::view]
     fn get_weights_set_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::WeightsSetRateLimit::<R>::get(
-            NetUid::from(netuid),
-        ))
+        let target = RateLimitTarget::Group(rate_limiting::GROUP_WEIGHTS_SUBNET);
+        let scope = Some(NetUid::from(netuid));
+        let limit =
+            pallet_rate_limiting::Pallet::<R>::resolved_limit(&target, &scope).unwrap_or_default();
+        Ok(limit.saturated_into())
     }
 
     #[precompile::public("setWeightsSetRateLimit(uint16,uint64)")]
     #[precompile::payable]
     fn set_weights_set_rate_limit(
-        _handle: &mut impl PrecompileHandle,
-        _netuid: u16,
-        _weights_set_rate_limit: u64,
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        weights_set_rate_limit: u64,
     ) -> EvmResult<()> {
-        // DEPRECATED. Subnet owner cannot set weight setting rate limits
-        Ok(())
+        let call = pallet_rate_limiting::Call::<R>::set_rate_limit {
+            target: RateLimitTarget::Group(rate_limiting::GROUP_WEIGHTS_SUBNET),
+            scope: Some(netuid.into()),
+            limit: RateLimitKind::Exact(weights_set_rate_limit.saturated_into()),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
     }
 
     #[precompile::public("getAdjustmentAlpha(uint16)")]

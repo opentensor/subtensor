@@ -75,8 +75,6 @@ mod events {
         ValidatorPruneLenSet(NetUid, u64),
         /// the scaling law power has been set for a subnet.
         ScalingLawPowerSet(NetUid, u16),
-        /// weights set rate limit has been set for a subnet.
-        WeightsSetRateLimitSet(NetUid, u64),
         /// immunity period is set for a subnet.
         ImmunityPeriodSet(NetUid, u16),
         /// bonds moving average is set for a subnet.
