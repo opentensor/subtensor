@@ -7,8 +7,7 @@ use node_subtensor_runtime::{
     System, TransactionExtensions, UncheckedExtrinsic, check_nonce,
     rate_limiting::legacy::storage as legacy_storage, sudo_wrapper, transaction_payment_wrapper,
 };
-use pallet_subtensor::MAX_CRV3_COMMIT_SIZE_BYTES;
-use sp_core::{ConstU32, H256, Pair, sr25519};
+use sp_core::{H256, Pair, sr25519};
 use sp_runtime::{
     BoundedVec, MultiSignature,
     generic::Era,
