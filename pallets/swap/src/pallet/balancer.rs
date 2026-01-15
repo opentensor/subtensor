@@ -1087,4 +1087,50 @@ mod tests {
             });
         });
     }
+
+    // cargo test --package pallet-subtensor-swap --lib -- pallet::balancer::tests::test_exp_scaled --exact --nocapture
+    #[test]
+    fn test_exp_scaled() {
+        [
+            // base_weight_numerator, base_weight_denominator, reserve, d_reserve, base_quote
+            (5_u64, 10_u64, 100000_u64, 100_u64, true, 0.999000999000999),
+            (1_u64, 4_u64, 500000_u64, 5000_u64, true, 0.970590147927644),
+            (3_u64, 4_u64, 200000_u64, 2000_u64, false, 0.970590147927644),
+            (
+                9_u64,
+                10_u64,
+                13513642_u64,
+                1673_u64,
+                false,
+                0.998886481979889,
+            ),
+            (
+                773_u64,
+                1000_u64,
+                7_000_000_000_u64,
+                10_000_u64,
+                true,
+                0.999999580484586,
+            ),
+        ]
+        .into_iter()
+        .map(|v| {
+            (
+                Perquintill::from_rational(v.0, v.1),
+                v.2,
+                v.3,
+                v.4,
+                U64F64::from_num(v.5),
+            )
+        })
+        .for_each(|(quote_weight, reserve, d_reserve, base_quote, expected)| {
+            let balancer = Balancer::new(quote_weight).unwrap();
+            let result = balancer.exp_scaled(reserve, d_reserve, base_quote);
+            assert_abs_diff_eq!(
+                result.to_num::<f64>(),
+                expected.to_num::<f64>(),
+                epsilon = 0.000000001
+            );
+        });
+    }
 }
