@@ -63,20 +63,20 @@ jobs:
       # Install Baedeker
       # -------------------------------
       - name: Install Baedeker
-        run: scripts/invariants/install_baedeker.sh
+        run: ./scripts/invariants/install_baedeker.sh
 
       # -------------------------------
       # Generate chain spec
       # -------------------------------
       - name: Generate chain spec
-        run: scripts/invariants/generate_spec.sh
+        run: ./scripts/invariants/generate_spec.sh
 
       # -------------------------------
       # Start localnet nodes (background)
       # -------------------------------
       - name: Start localnet nodes
         run: |
-          scripts/run_localnet.sh ./subtensor/target/release ./.bdk-env/specs/subtensor.json &
+          ./scripts/run_localnet.sh ./subtensor/target/release ./.bdk-env/specs/subtensor.json &
           echo $! > /tmp/localnet.pid
           sleep 5
 
@@ -84,7 +84,7 @@ jobs:
       # Wait until chain is producing blocks
       # -------------------------------
       - name: Wait for chain to produce blocks
-        run: scripts/invariants/wait_for_chain.sh
+        run: ./scripts/invariants/wait_for_chain.sh
 
       # -------------------------------
       # Pull JS RPC test image from GHCR
