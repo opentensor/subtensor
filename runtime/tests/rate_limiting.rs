@@ -1,21 +1,21 @@
-#![cfg(feature = "integration-tests")]
 #![allow(clippy::unwrap_used)]
 
-use codec::Encode;
+use codec::{Compact, Encode};
 use frame_support::assert_ok;
 use node_subtensor_runtime::{
     Executive, Runtime, RuntimeCall, SignedPayload, SubtensorInitialTxDelegateTakeRateLimit,
-    System, TransactionExtensions, UncheckedExtrinsic, check_nonce, sudo_wrapper,
-    transaction_payment_wrapper,
+    System, TransactionExtensions, UncheckedExtrinsic, check_nonce,
+    rate_limiting::legacy::storage as legacy_storage, sudo_wrapper, transaction_payment_wrapper,
 };
-use sp_core::{Pair, sr25519};
+use pallet_subtensor::MAX_CRV3_COMMIT_SIZE_BYTES;
+use sp_core::{ConstU32, H256, Pair, sr25519};
 use sp_runtime::{
-    MultiSignature,
+    BoundedVec, MultiSignature,
     generic::Era,
     traits::SaturatedConversion,
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
-use subtensor_runtime_common::{AccountId, NetUid};
+use subtensor_runtime_common::{AccountId, MechId, NetUid};
 
 use common::ExtBuilder;
 
@@ -64,6 +64,18 @@ fn signed_extrinsic(call: RuntimeCall, pair: &sr25519::Pair, nonce: u32) -> Unch
     let signature = MultiSignature::from(pair.sign(payload.encode().as_slice()));
     let address = sp_runtime::MultiAddress::Id(AccountId::from(pair.public()));
     UncheckedExtrinsic::new_signed(call, address, signature, extra)
+}
+
+fn setup_weights_network(netuid: NetUid, hotkey: &AccountId, block: u64, mechanisms: u8) {
+    pallet_subtensor::Pallet::<Runtime>::init_new_network(netuid, 1);
+    if mechanisms > 1 {
+        pallet_subtensor::MechanismCountCurrent::<Runtime>::insert(
+            netuid,
+            MechId::from(mechanisms),
+        );
+    }
+    System::set_block_number(block.saturated_into());
+    pallet_subtensor::Pallet::<Runtime>::append_neuron(netuid, hotkey, block);
 }
 
 #[test]
@@ -354,5 +366,227 @@ fn delegate_take_decrease_blocks_immediate_increase_after_migration() {
 
             System::set_block_number(allowed_block);
             assert_extrinsic_ok(&coldkey, &coldkey_pair, increase);
+        });
+}
+
+#[test]
+fn weights_set_is_rate_limited_after_migration() {
+    let hotkey_pair = sr25519::Pair::from_seed(&[12u8; 32]);
+    let hotkey = AccountId::from(hotkey_pair.public());
+    let netuid = NetUid::from(1u16);
+    let span = 3u64;
+    let registration_block = 1u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(hotkey.clone(), 10_000_000_000_000_u64)])
+        .build()
+        .execute_with(|| {
+            setup_weights_network(netuid, &hotkey, registration_block, 1);
+            legacy_storage::set_weights_set_rate_limit(netuid, span);
+
+            Executive::execute_on_runtime_upgrade();
+
+            pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid, false);
+
+            let version_key = pallet_subtensor::WeightsVersionKey::<Runtime>::get(netuid);
+            let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_weights {
+                netuid,
+                dests: vec![0],
+                weights: vec![u16::MAX],
+                version_key,
+            });
+
+            System::set_block_number(registration_block.saturated_into());
+            assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, call.clone());
+
+            System::set_block_number((registration_block + span - 1).saturated_into());
+            assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, call.clone());
+
+            System::set_block_number((registration_block + span).saturated_into());
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, call.clone());
+            assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, call.clone());
+
+            System::set_block_number((registration_block + span + span).saturated_into());
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, call);
+        });
+}
+
+#[test]
+fn commit_weights_shares_rate_limit_with_set_weights() {
+    let hotkey_pair = sr25519::Pair::from_seed(&[13u8; 32]);
+    let hotkey = AccountId::from(hotkey_pair.public());
+    let netuid = NetUid::from(2u16);
+    let span = 4u64;
+    let registration_block = 1u64;
+    let commit_hash = H256::from_low_u64_be(42);
+
+    ExtBuilder::default()
+        .with_balances(vec![(hotkey.clone(), 10_000_000_000_000_u64)])
+        .build()
+        .execute_with(|| {
+            setup_weights_network(netuid, &hotkey, registration_block, 1);
+            legacy_storage::set_weights_set_rate_limit(netuid, span);
+
+            Executive::execute_on_runtime_upgrade();
+
+            let commit_call =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::commit_weights {
+                    netuid,
+                    commit_hash,
+                });
+
+            System::set_block_number((registration_block + span).saturated_into());
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, commit_call);
+
+            pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid, false);
+
+            let version_key = pallet_subtensor::WeightsVersionKey::<Runtime>::get(netuid);
+            let set_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_weights {
+                netuid,
+                dests: vec![0],
+                weights: vec![u16::MAX],
+                version_key,
+            });
+
+            assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, set_call.clone());
+
+            System::set_block_number((registration_block + span + span).saturated_into());
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, set_call);
+        });
+}
+
+#[test]
+fn commit_timelocked_weights_is_rate_limited_after_migration() {
+    let hotkey_pair = sr25519::Pair::from_seed(&[14u8; 32]);
+    let hotkey = AccountId::from(hotkey_pair.public());
+    let netuid = NetUid::from(3u16);
+    let span = 4u64;
+    let registration_block = 1u64;
+    let commit = BoundedVec::try_from(vec![1u8; 16]).expect("commit payload within limit");
+    let reveal_round = 10u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(hotkey.clone(), 10_000_000_000_000_u64)])
+        .build()
+        .execute_with(|| {
+            setup_weights_network(netuid, &hotkey, registration_block, 1);
+            legacy_storage::set_weights_set_rate_limit(netuid, span);
+
+            Executive::execute_on_runtime_upgrade();
+
+            let commit_reveal_version =
+                pallet_subtensor::Pallet::<Runtime>::get_commit_reveal_weights_version();
+            let commit_call =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::commit_timelocked_weights {
+                    netuid,
+                    commit: commit.clone(),
+                    reveal_round,
+                    commit_reveal_version,
+                });
+
+            System::set_block_number((registration_block + span).saturated_into());
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, commit_call.clone());
+            assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, commit_call.clone());
+
+            System::set_block_number((registration_block + span + span).saturated_into());
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, commit_call);
+        });
+}
+
+#[test]
+fn commit_crv3_mechanism_weights_are_rate_limited_per_mechanism() {
+    let hotkey_pair = sr25519::Pair::from_seed(&[15u8; 32]);
+    let hotkey = AccountId::from(hotkey_pair.public());
+    let netuid = NetUid::from(4u16);
+    let span = 4u64;
+    let registration_block = 1u64;
+    let commit = BoundedVec::try_from(vec![1u8; 16]).expect("commit payload within limit");
+    let reveal_round = 10u64;
+    let mecid_a = MechId::from(0u8);
+    let mecid_b = MechId::from(1u8);
+
+    ExtBuilder::default()
+        .with_balances(vec![(hotkey.clone(), 10_000_000_000_000_u64)])
+        .build()
+        .execute_with(|| {
+            setup_weights_network(netuid, &hotkey, registration_block, 2);
+            legacy_storage::set_weights_set_rate_limit(netuid, span);
+
+            Executive::execute_on_runtime_upgrade();
+
+            let commit_a = RuntimeCall::SubtensorModule(
+                pallet_subtensor::Call::commit_crv3_mechanism_weights {
+                    netuid,
+                    mecid: mecid_a,
+                    commit: commit.clone(),
+                    reveal_round,
+                },
+            );
+            let commit_b = RuntimeCall::SubtensorModule(
+                pallet_subtensor::Call::commit_crv3_mechanism_weights {
+                    netuid,
+                    mecid: mecid_b,
+                    commit: commit.clone(),
+                    reveal_round,
+                },
+            );
+
+            System::set_block_number((registration_block + span).saturated_into());
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, commit_a.clone());
+            assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, commit_a);
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, commit_b);
+        });
+}
+
+#[test]
+fn batch_set_weights_is_rate_limited_if_any_scope_is_within_span() {
+    let hotkey_pair = sr25519::Pair::from_seed(&[16u8; 32]);
+    let hotkey = AccountId::from(hotkey_pair.public());
+    let netuid_a = NetUid::from(5u16);
+    let netuid_b = NetUid::from(6u16);
+    let span = 3u64;
+    let registration_block = 1u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(hotkey.clone(), 10_000_000_000_000_u64)])
+        .build()
+        .execute_with(|| {
+            setup_weights_network(netuid_a, &hotkey, registration_block, 1);
+            setup_weights_network(netuid_b, &hotkey, registration_block, 1);
+            legacy_storage::set_weights_set_rate_limit(netuid_a, span);
+            legacy_storage::set_weights_set_rate_limit(netuid_b, span);
+
+            Executive::execute_on_runtime_upgrade();
+
+            pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid_a, false);
+            pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid_b, false);
+
+            let version_key_a = pallet_subtensor::WeightsVersionKey::<Runtime>::get(netuid_a);
+            let version_key_b = pallet_subtensor::WeightsVersionKey::<Runtime>::get(netuid_b);
+
+            let set_call_a = RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_weights {
+                netuid: netuid_a,
+                dests: vec![0],
+                weights: vec![u16::MAX],
+                version_key: version_key_a,
+            });
+
+            System::set_block_number((registration_block + span).saturated_into());
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, set_call_a);
+
+            let batch_call =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::batch_set_weights {
+                    netuids: vec![Compact(netuid_a), Compact(netuid_b)],
+                    weights: vec![
+                        vec![(Compact(0u16), Compact(1u16))],
+                        vec![(Compact(0u16), Compact(1u16))],
+                    ],
+                    version_keys: vec![Compact(version_key_a), Compact(version_key_b)],
+                });
+
+            assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, batch_call.clone());
+
+            System::set_block_number((registration_block + span + span).saturated_into());
+            assert_extrinsic_ok(&hotkey, &hotkey_pair, batch_call);
         });
 }

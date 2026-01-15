@@ -33,7 +33,7 @@ use subtensor_runtime_common::{
 
 use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
 
-pub(crate) mod legacy;
+pub mod legacy;
 
 /// Authorization rules for configuring rate limits via `pallet-rate-limiting::set_rate_limit`.
 ///
