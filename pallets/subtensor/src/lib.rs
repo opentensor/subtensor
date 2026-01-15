@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::zero_prefixed_literal)]
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
@@ -1902,7 +1903,6 @@ pub mod pallet {
     /// Default VotingPower EMA alpha value (0.1 represented as u64 with 18 decimals)
     /// alpha = 0.1 means slow response, 10% weight to new values per epoch
     pub fn DefaultVotingPowerEmaAlpha<T: Config>() -> u64 {
-        #![allow(clippy::zero_prefixed_literal)]
         0_003_570_000_000_000_000 // 0.00357 * 10^18 = 2 weeks e-folding (time-constant) @ 361
         // blocks per tempo
         // After 2 weeks  -> EMA reaches 63.2% of a step change
