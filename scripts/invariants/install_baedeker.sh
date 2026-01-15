@@ -18,4 +18,4 @@ sudo mv "$TMP_DIR/baedeker" "$INSTALL_PATH"
 
 echo "✅ baedeker installed at $INSTALL_PATH"
 
-baedeker --version
+baedeker version
