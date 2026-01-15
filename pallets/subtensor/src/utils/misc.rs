@@ -514,7 +514,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_weights_set_rate_limit(netuid: NetUid) -> u64 {
-        T::RateLimiting::rate_limit(rate_limiting::GROUP_WEIGHTS_SUBNET, Some(netuid))
+        T::RateLimiting::rate_limit(rate_limiting::GROUP_WEIGHTS_SET, Some(netuid))
             .unwrap_or_default()
             .saturated_into()
     }

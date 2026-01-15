@@ -343,13 +343,13 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the weights set rate limit.
         ///
         /// Deprecated: weights set rate limit is now configured via `pallet-rate-limiting` on the
-        /// weights set group target (`GROUP_WEIGHTS_SUBNET`) with `scope = Some(netuid)`.
+        /// weights set group target (`GROUP_WEIGHTS_SET`) with `scope = Some(netuid)`.
         #[pallet::call_index(7)]
         #[pallet::weight(Weight::from_parts(15_060_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         #[deprecated(
-            note = "deprecated: configure via pallet-rate-limiting::set_rate_limit(target=Group(GROUP_WEIGHTS_SUBNET), scope=Some(netuid), ...)"
+            note = "deprecated: configure via pallet-rate-limiting::set_rate_limit(target=Group(GROUP_WEIGHTS_SET), scope=Some(netuid), ...)"
         )]
         pub fn sudo_set_weights_set_rate_limit(
             _origin: OriginFor<T>,

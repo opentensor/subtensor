@@ -272,7 +272,7 @@ where
     #[precompile::public("getWeightsSetRateLimit(uint16)")]
     #[precompile::view]
     fn get_weights_set_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        let target = RateLimitTarget::Group(rate_limiting::GROUP_WEIGHTS_SUBNET);
+        let target = RateLimitTarget::Group(rate_limiting::GROUP_WEIGHTS_SET);
         let scope = Some(NetUid::from(netuid));
         let limit =
             pallet_rate_limiting::Pallet::<R>::resolved_limit(&target, &scope).unwrap_or_default();
@@ -287,7 +287,7 @@ where
         weights_set_rate_limit: u64,
     ) -> EvmResult<()> {
         let call = pallet_rate_limiting::Call::<R>::set_rate_limit {
-            target: RateLimitTarget::Group(rate_limiting::GROUP_WEIGHTS_SUBNET),
+            target: RateLimitTarget::Group(rate_limiting::GROUP_WEIGHTS_SET),
             scope: Some(netuid.into()),
             limit: RateLimitKind::Exact(weights_set_rate_limit.saturated_into()),
         };

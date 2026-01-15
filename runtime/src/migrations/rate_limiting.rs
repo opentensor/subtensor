@@ -20,7 +20,7 @@ use subtensor_runtime_common::{
     NetUid,
     rate_limiting::{
         GROUP_DELEGATE_TAKE, GROUP_OWNER_HPARAMS, GROUP_REGISTER_NETWORK, GROUP_SERVE,
-        GROUP_STAKING_OPS, GROUP_SWAP_KEYS, GROUP_WEIGHTS_SUBNET, GroupId, RateLimitUsageKey,
+        GROUP_STAKING_OPS, GROUP_SWAP_KEYS, GROUP_WEIGHTS_SET, GroupId, RateLimitUsageKey,
         ServingEndpoint,
     },
 };
@@ -416,7 +416,7 @@ fn build_delegate_take(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>)
 fn build_weights(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
     let mut reads: u64 = 0;
     groups.push(GroupConfig {
-        id: GROUP_WEIGHTS_SUBNET,
+        id: GROUP_WEIGHTS_SET,
         name: b"weights".to_vec(),
         sharing: GroupSharing::ConfigAndUsage,
         members: vec![
@@ -442,7 +442,7 @@ fn build_weights(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u6
         reads = reads.saturating_add(1);
         push_limit_commit_if_non_zero(
             commits,
-            RateLimitTarget::Group(GROUP_WEIGHTS_SUBNET),
+            RateLimitTarget::Group(GROUP_WEIGHTS_SET),
             weights_limits
                 .get(&netuid)
                 .copied()
@@ -475,7 +475,7 @@ fn build_weights(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u6
                 }
             };
             commits.push(Commit {
-                target: RateLimitTarget::Group(GROUP_WEIGHTS_SUBNET),
+                target: RateLimitTarget::Group(GROUP_WEIGHTS_SET),
                 kind: CommitKind::LastSeen(MigratedLastSeen {
                     block,
                     usage: Some(usage),

@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
             Self::set_last_update_for_uid(netuid_index, next_uid, block_number);
             let usage = Self::weights_rl_usage_key(netuid, mecid, next_uid);
             T::RateLimiting::set_last_seen(
-                rate_limiting::GROUP_WEIGHTS_SUBNET,
+                rate_limiting::GROUP_WEIGHTS_SET,
                 Some(usage),
                 Some(block_number.saturated_into()),
             );
@@ -289,7 +289,7 @@ impl<T: Config> Pallet<T> {
                     trimmed_lastupdate.push(lastupdate.get(*uid).cloned().unwrap_or_default());
                     let usage = Self::weights_rl_usage_key(netuid, mecid, *uid as u16);
                     trimmed_last_seen.push(T::RateLimiting::last_seen(
-                        rate_limiting::GROUP_WEIGHTS_SUBNET,
+                        rate_limiting::GROUP_WEIGHTS_SET,
                         Some(usage),
                     ));
                 }
@@ -300,7 +300,7 @@ impl<T: Config> Pallet<T> {
                 for uid in 0..current_n {
                     let usage = Self::weights_rl_usage_key(netuid, mecid, uid);
                     T::RateLimiting::set_last_seen(
-                        rate_limiting::GROUP_WEIGHTS_SUBNET,
+                        rate_limiting::GROUP_WEIGHTS_SET,
                         Some(usage),
                         None,
                     );
@@ -311,7 +311,7 @@ impl<T: Config> Pallet<T> {
                     };
                     let usage = Self::weights_rl_usage_key(netuid, mecid, new_uid as u16);
                     T::RateLimiting::set_last_seen(
-                        rate_limiting::GROUP_WEIGHTS_SUBNET,
+                        rate_limiting::GROUP_WEIGHTS_SET,
                         Some(usage),
                         Some(block),
                     );

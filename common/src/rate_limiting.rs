@@ -30,7 +30,7 @@ pub const GROUP_SERVE: GroupId = 0;
 /// Group id for delegate-take related calls.
 pub const GROUP_DELEGATE_TAKE: GroupId = 1;
 /// Group id for subnet weight-setting calls.
-pub const GROUP_WEIGHTS_SUBNET: GroupId = 2;
+pub const GROUP_WEIGHTS_SET: GroupId = 2;
 /// Group id for network registration calls.
 pub const GROUP_REGISTER_NETWORK: GroupId = 3;
 /// Group id for owner hyperparameter calls.
