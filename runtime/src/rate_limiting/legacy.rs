@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use codec::{Decode, Encode};
 use frame_support::{Identity, migration::storage_key_iter};
 use runtime_common::prod_or_fast;
