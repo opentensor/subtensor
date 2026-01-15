@@ -1821,20 +1821,21 @@ fn test_tempo_greater_than_weight_set_rate_limit() {
 //         let bands: [i32; 3] = [5, 13, 30];
 //         let liqs: [u64; 3] = [400_000, 700_000, 1_100_000];
 
-//         // Helper: add a V3 position via a (hot, cold) pair.
-//         let add_pos = |net: NetUid, hot: U256, cold: U256, band: i32, liq: u64| {
-//             let ct = pallet_subtensor_swap::CurrentTick::<Test>::get(net);
-//             let lo = ct.saturating_sub(band);
-//             let hi = ct.saturating_add(band);
-//             assert_ok!(pallet_subtensor_swap::Pallet::<Test>::add_liquidity(
-//                 RuntimeOrigin::signed(cold),
-//                 hot,
-//                 net,
-//                 lo,
-//                 hi,
-//                 liq
-//             ));
-//         };
+//        // Helper: add a V3 position via a (hot, cold) pair.
+//        let add_pos = |net: NetUid, hot: U256, cold: U256, band: i32, liq: u64| {
+//            let ct = pallet_subtensor_swap::CurrentTick::<Test>::get(net);
+//            let lo = ct.saturating_sub(band);
+//            let hi = ct.saturating_add(band);
+//            pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(net, true);
+//            assert_ok!(pallet_subtensor_swap::Pallet::<Test>::add_liquidity(
+//                RuntimeOrigin::signed(cold),
+//                hot,
+//                net,
+//                lo,
+//                hi,
+//                liq
+//            ));
+//        };
 
 //         // ────────────────────────────────────────────────────────────────────
 //         // 1) Create many subnets, enable V3, fix price at tick=0 (sqrt≈1)
