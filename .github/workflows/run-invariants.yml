@@ -63,7 +63,7 @@ jobs:
       # Install Baedeker
       # -------------------------------
       - name: Install Baedeker
-        run: ./scripts/build_all_chainspecs.sh
+        run: ./scripts/invariants/install_baedeker.sh
 
       # -------------------------------
       # Generate chain spec
