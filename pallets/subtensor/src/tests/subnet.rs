@@ -89,7 +89,7 @@ fn test_do_start_call_fail_not_owner() {
 }
 
 #[test]
-fn test_do_start_call_fail_with_cannot_start_call_now() {
+fn test_do_start_call_can_start_now() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
@@ -106,13 +106,10 @@ fn test_do_start_call_fail_with_cannot_start_call_now() {
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
-        assert_noop!(
-            SubtensorModule::start_call(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                netuid
-            ),
-            Error::<Test>::NeedWaitingMoreBlocksToStarCall
-        );
+        assert_ok!(SubtensorModule::start_call(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid
+        ));
     });
 }
 
