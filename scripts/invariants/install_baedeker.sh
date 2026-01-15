@@ -6,9 +6,7 @@ set -euo pipefail
 # -----------------------------
 
 # Set to a tag like "v0.7.3" to pin, or leave empty for latest
-BAEDEKER_VERSION="${BAEDEKER_VERSION:-latest}"
-
-echo "Creating temp dir"
+BAEDEKER_VERSION="v0.1.9"
 
 INSTALL_DIR="/usr/local/bin"
 TMP_DIR="$(mktemp -d)"
