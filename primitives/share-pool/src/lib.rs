@@ -11,7 +11,7 @@ use sp_std::ops::Neg;
 
 // Maximum value that can be represented with SafeFloat
 pub const SAFE_FLOAT_MAX: u128 = 1_000_000_000_000_000_000_000_u128;
-pub const SAFE_FLOAT_MAX_EXP: i64 = 18_i64;
+pub const SAFE_FLOAT_MAX_EXP: i64 = 21_i64;
 
 /// Controlled precision floating point number with efficient storage
 ///
@@ -81,12 +81,14 @@ impl SafeFloat {
 
     /// Adjusts mantissa and exponent of this floating point number so that
     /// SAFE_FLOAT_MAX <= mantissa < 10 * SAFE_FLOAT_MAX
-    pub fn adjust_precision(&mut self) {
+    pub(crate) fn adjust_precision(&mut self) {
         let max_value = SafeInt::from(SAFE_FLOAT_MAX);
         let max_value_div10 = SafeInt::from(SAFE_FLOAT_MAX.checked_div(10).unwrap_or_default());
         let mantissa_abs = self.mantissa.clone().abs();
 
-        let exponent_adjustment: i64 = if max_value_div10 > mantissa_abs {
+        let exponent_adjustment: i64 = if mantissa_abs.is_zero() {
+            0i64
+        } else if max_value_div10 >= mantissa_abs {
             // Mantissa is too low, upscale mantissa + reduce exponent
             let scale = (max_value_div10 / mantissa_abs).unwrap_or_default();
             -1 * (intlog10(&scale) + 1) as i64
@@ -139,8 +141,8 @@ impl SafeFloat {
         // (lowest exponent becomes 0)
         let exponent_offset = self.exponent.min(a.exponent).neg();
         let unnormalized_mantissa = self.mantissa.clone()
-            * pow10(a.exponent.saturating_add(exponent_offset) as u64)
-            + a.mantissa.clone() * pow10(self.exponent.saturating_add(exponent_offset) as u64);
+            * pow10(self.exponent.saturating_add(exponent_offset) as u64)
+            + a.mantissa.clone() * pow10(a.exponent.saturating_add(exponent_offset) as u64);
 
         let mut safe_float = SafeFloat {
             mantissa: unnormalized_mantissa,
@@ -724,23 +726,46 @@ mod tests {
 
     #[test]
     fn test_safefloat_adjust_precision() {
-        let a = SafeFloat::new(SafeInt::from(1), 0).unwrap_or_default();
-        let b = SafeFloat::new(SafeInt::from(1_000_000_000_000_123_u64), 0).unwrap_or_default();
-        let c = a.add(&b);
-        let d = b.add(&a);
-        let e = SafeFloat::new(SafeInt::from(SAFE_FLOAT_MAX * 2u128), 0).unwrap_or_default();
-        let f = SafeFloat::new(SafeInt::from(SAFE_FLOAT_MAX), 0).unwrap_or_default();
-        let g = SafeFloat::new(SafeInt::from(SAFE_FLOAT_MAX), 0).unwrap_or_default();
-        let h = g.add(&f);
-
-        println!("a = {:?}", a);
-        println!("b = {:?}", b);
-        println!("c = {:?}", c);
-        println!("d = {:?}", d);
-        println!("e = {:?}", e);
-        println!("g = {:?}", g);
-        println!("h = {:?}", h);
-
-        // assert_eq!(decoded, safe_int);
+        // Test case: mantissa, exponent, expected mantissa, expected exponent
+        [
+            (1_u128, 0, 100_000_000_000_000_000_000_u128, -20_i64),
+            (0, 0, 0, 0),
+            (10_u128, 0, 100_000_000_000_000_000_000_u128, -19),
+            (1_000_u128, 0, 100_000_000_000_000_000_000_u128, -17),
+            (100_000_000_000_000_000_000_u128, 0, 1_000_000_000_000_000_000_000_u128, -1),
+            (SAFE_FLOAT_MAX, 0, SAFE_FLOAT_MAX, 0),
+        ]
+        .into_iter()
+        .for_each(|(m, e, expected_m, expected_e)| {
+            let a = SafeFloat::new(SafeInt::from(m), e).unwrap();
+            assert_eq!(a.mantissa, SafeInt::from(expected_m));
+            assert_eq!(a.exponent, SafeInt::from(expected_e));
+        });
     }
+
+    #[test]
+    fn test_safefloat_add() {
+        // Test case: man_a, exp_a, man_b, exp_b, expected mantissa of a+b, expected exponent of a+b
+        [
+            (1_u128, 0, 1_u128, 0, 200_000_000_000_000_000_000_u128, -20_i64),
+            (SAFE_FLOAT_MAX, 0, SAFE_FLOAT_MAX, 0, SAFE_FLOAT_MAX * 2 / 10, 1_i64),
+            // Expected loss of precision
+            (1_u128, 0, 1_000_000_000_000_000_000_000_u128, 1, 1_000_000_000_000_000_000_000_u128, 1_i64),
+        ]
+        .into_iter()
+        .for_each(|(m_a, e_a, m_b, e_b, expected_m, expected_e)| {
+            let a = SafeFloat::new(SafeInt::from(m_a), e_a).unwrap();
+            let b = SafeFloat::new(SafeInt::from(m_b), e_b).unwrap();
+
+            let a_plus_b = a.add(&b);
+            let b_plus_a = b.add(&a);
+
+            assert_eq!(a_plus_b.mantissa, SafeInt::from(expected_m));
+            assert_eq!(a_plus_b.exponent, SafeInt::from(expected_e));
+            assert_eq!(b_plus_a.mantissa, SafeInt::from(expected_m));
+            assert_eq!(b_plus_a.exponent, SafeInt::from(expected_e));
+        });
+    }
+
+
 }
