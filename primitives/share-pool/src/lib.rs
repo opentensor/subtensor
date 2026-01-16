@@ -84,7 +84,7 @@ impl SafeFloat {
 
     /// Adjusts mantissa and exponent of this floating point number so that
     /// SAFE_FLOAT_MAX <= mantissa < 10 * SAFE_FLOAT_MAX
-    /// 
+    ///
     /// Returns true in case of success or false if exponent over- or underflows
     pub(crate) fn normalize(&mut self) -> bool {
         let max_value = SafeInt::from(SAFE_FLOAT_MAX);
@@ -460,7 +460,7 @@ where
             let shares_per_update: SafeFloat =
                 self.get_shares_per_update(update, shared_value, &denominator);
 
-            // Handle SafeFloat overflows quietly here because this overflow of i64 exponent 
+            // Handle SafeFloat overflows quietly here because this overflow of i64 exponent
             // is extremely hypothetical and should never happen in practice.
             let new_denominator = match denominator.add(&shares_per_update) {
                 Some(new_denominator) => new_denominator,
@@ -488,10 +488,8 @@ where
                 }
             };
 
-            self.state_ops
-                .set_denominator(new_denominator);
-            self.state_ops
-                .set_share(key, new_current_share);
+            self.state_ops.set_denominator(new_denominator);
+            self.state_ops.set_share(key, new_current_share);
         }
 
         // Update shared value
@@ -1031,18 +1029,48 @@ mod tests {
             ),
             (SAFE_FLOAT_MAX, 0, SAFE_FLOAT_MAX, 0),
             (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX, -100),
-            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX-1, -100),
-            (SAFE_FLOAT_MAX-1, 100, SAFE_FLOAT_MAX, -100),
-            (SAFE_FLOAT_MAX-2, 100, SAFE_FLOAT_MAX, -100),
-            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX/2 - 1, -100),
-            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX/2 - 1, 100),
+            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX - 1, -100),
+            (SAFE_FLOAT_MAX - 1, 100, SAFE_FLOAT_MAX, -100),
+            (SAFE_FLOAT_MAX - 2, 100, SAFE_FLOAT_MAX, -100),
+            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX / 2 - 1, -100),
+            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX / 2 - 1, 100),
             (1_u128, 0, 100_000_000_000_000_000_000_u128, -20_i64),
-            (123_456_789_123_456_789_123_u128, 20_i64, 87_654_321_987_654_321_987_u128, -20_i64),
-            (123_456_789_123_456_789_123_u128, 100_i64, 87_654_321_987_654_321_987_u128, -100_i64),
-            (123_456_789_123_456_789_123_u128, -100_i64, 87_654_321_987_654_321_987_u128, 100_i64),
-            (123_456_789_123_456_789_123_u128, -99_i64, 87_654_321_987_654_321_987_u128, 99_i64),
-            (123_456_789_123_456_789_123_u128, 123_i64, 87_654_321_987_654_321_987_u128, -32_i64),
-            (123_456_789_123_456_789_123_u128, -123_i64, 87_654_321_987_654_321_987_u128, 32_i64),
+            (
+                123_456_789_123_456_789_123_u128,
+                20_i64,
+                87_654_321_987_654_321_987_u128,
+                -20_i64,
+            ),
+            (
+                123_456_789_123_456_789_123_u128,
+                100_i64,
+                87_654_321_987_654_321_987_u128,
+                -100_i64,
+            ),
+            (
+                123_456_789_123_456_789_123_u128,
+                -100_i64,
+                87_654_321_987_654_321_987_u128,
+                100_i64,
+            ),
+            (
+                123_456_789_123_456_789_123_u128,
+                -99_i64,
+                87_654_321_987_654_321_987_u128,
+                99_i64,
+            ),
+            (
+                123_456_789_123_456_789_123_u128,
+                123_i64,
+                87_654_321_987_654_321_987_u128,
+                -32_i64,
+            ),
+            (
+                123_456_789_123_456_789_123_u128,
+                -123_i64,
+                87_654_321_987_654_321_987_u128,
+                32_i64,
+            ),
         ]
         .into_iter()
         .for_each(|(ma, ea, mb, eb)| {
@@ -1050,13 +1078,10 @@ mod tests {
             let b = SafeFloat::new(SafeInt::from(mb), eb).unwrap();
 
             let actual: f64 = a.div(&b).unwrap().into();
-            let expected = ma as f64 * (10_f64).powi(ea as i32) / (mb as f64 * (10_f64).powi(eb as i32));
+            let expected =
+                ma as f64 * (10_f64).powi(ea as i32) / (mb as f64 * (10_f64).powi(eb as i32));
 
-            assert_abs_diff_eq!(
-                actual,
-                expected,
-                epsilon = actual / 100_000_000_000_000_f64
-            );
+            assert_abs_diff_eq!(actual, expected, epsilon = actual / 100_000_000_000_000_f64);
         });
     }
 
@@ -1068,8 +1093,22 @@ mod tests {
         [
             (1_u128, -20_i64, 1_u128, -20_i64, 1_u128, -20_i64),
             (123_u128, 20_i64, 123_u128, -20_i64, 321_u128, 0_i64),
-            (123_123_123_123_123_123_u128, 20_i64, 321_321_321_321_321_321_u128, -20_i64, 777_777_777_777_777_777_u128, 0_i64),
-            (11_111_111_111_111_111_111_u128, 20_i64, 99_321_321_321_321_321_321_u128, -20_i64, 77_777_777_777_777_777_777_u128, 0_i64),
+            (
+                123_123_123_123_123_123_u128,
+                20_i64,
+                321_321_321_321_321_321_u128,
+                -20_i64,
+                777_777_777_777_777_777_u128,
+                0_i64,
+            ),
+            (
+                11_111_111_111_111_111_111_u128,
+                20_i64,
+                99_321_321_321_321_321_321_u128,
+                -20_i64,
+                77_777_777_777_777_777_777_u128,
+                0_i64,
+            ),
         ]
         .into_iter()
         .for_each(|(ma, ea, mb, eb, mc, ec)| {
@@ -1078,13 +1117,11 @@ mod tests {
             let c = SafeFloat::new(SafeInt::from(mc), ec).unwrap();
 
             let actual: f64 = a.mul_div(&b, &c).unwrap().into();
-            let expected = (ma as f64 * (10_f64).powi(ea as i32)) * (mb as f64 * (10_f64).powi(eb as i32)) / (mc as f64 * (10_f64).powi(ec as i32));
+            let expected = (ma as f64 * (10_f64).powi(ea as i32))
+                * (mb as f64 * (10_f64).powi(eb as i32))
+                / (mc as f64 * (10_f64).powi(ec as i32));
 
-            assert_abs_diff_eq!(
-                actual,
-                expected,
-                epsilon = actual / 100_000_000_000_000_f64
-            );
+            assert_abs_diff_eq!(actual, expected, epsilon = actual / 100_000_000_000_000_f64);
         });
     }
 }
