@@ -67,7 +67,7 @@ impl<T: Config> Pallet<T> {
             let tao_to_swap_with: TaoCurrency =
                 tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
 
-            let (actal_injected_tao, actal_injected_alpha) =
+            let (actual_injected_tao, actual_injected_alpha) =
                 T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
             if tao_to_swap_with > TaoCurrency::ZERO {
@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
             SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
             SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
                 // Reserves also received fees in addition to alpha_in_i
-                *total = total.saturating_add(actal_injected_alpha);
+                *total = total.saturating_add(actual_injected_alpha);
             });
 
             // Inject TAO in.
@@ -98,7 +98,7 @@ impl<T: Config> Pallet<T> {
             SubnetTaoInEmission::<T>::insert(*netuid_i, injected_tao);
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
                 // Reserves also received fees in addition to injected_tao
-                *total = total.saturating_add(actal_injected_tao);
+                *total = total.saturating_add(actual_injected_tao);
             });
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_add(injected_tao);
