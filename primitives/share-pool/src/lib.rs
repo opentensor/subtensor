@@ -1203,4 +1203,45 @@ mod tests {
             assert_abs_diff_eq!(actual, expected, epsilon = epsilon);
         });
     }
+
+    /// This is a real-life scenario test when someone lost 7 TAO on Chutes (SN64)
+    /// when paying fees in Alpha. The scenario occured because the update of share value
+    /// of one coldkey (update_value_for_one) hit the scenario of full unstake.
+    ///
+    /// Specifically, the following condition was triggered:
+    ///
+    ///    `(shared_value + 2_628_000_000_000_000_u64).checked_div(new_denominator)`
+    ///
+    /// returned None because new_denominator was too low and division of
+    /// `shared_value + 2_628_000_000_000_000_u64` by new_denominator has overflown U64F64.
+    ///
+    /// This test fails on the old version of share pool (with much lower tolerances).
+    ///
+    /// cargo test --package share-pool --lib -- tests::test_loss_due_to_precision --exact --nocapture
+    #[test]
+    fn test_loss_due_to_precision() {
+        let mock_ops = MockSharePoolDataOperations::new();
+        let mut pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
+
+        // Setup pool so that initial coldkey's alpha is 10% of 1e12 = 1e11 rao.
+        let low_denominator = SafeFloat::new(SafeInt::from(1), -14).unwrap();
+        let low_share = SafeFloat::new(SafeInt::from(1), -15).unwrap();
+        pool.state_ops.set_denominator(low_denominator);
+        pool.state_ops.set_shared_value(1_000_000_000_000_u64);
+        pool.state_ops.set_share(&1, low_share);
+
+        let value_before = pool.get_value(&1) as i128;
+        assert_abs_diff_eq!(value_before as f64, 100_000_000_000., epsilon = 0.1);
+
+        // Remove a little stake
+        let unstake_amount = 1000i64;
+        pool.update_value_for_one(&1, unstake_amount.neg());
+
+        let value_after = pool.get_value(&1) as i128;
+        assert_abs_diff_eq!(
+            (value_before - value_after) as f64,
+            unstake_amount as f64,
+            epsilon = unstake_amount as f64 / 1_000_000_000.
+        );
+    }
 }
