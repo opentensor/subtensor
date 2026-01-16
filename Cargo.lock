@@ -16547,6 +16547,7 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "lencode",
+ "log",
  "parity-scale-codec",
  "safe-bigmath",
  "safe-math",

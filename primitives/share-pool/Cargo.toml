@@ -7,6 +7,7 @@ edition.workspace = true
 approx.workspace = true
 codec.workspace = true
 lencode.workspace = true
+log.workspace = true
 scale-info.workspace = true
 substrate-fixed.workspace = true
 sp-std.workspace = true
@@ -21,6 +22,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"lencode/std",
+    "log/std",
 	"scale-info/std",
     "substrate-fixed/std",
     "sp-std/std",

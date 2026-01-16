@@ -75,13 +75,18 @@ impl SafeFloat {
 
         let mut safe_float = SafeFloat { mantissa, exponent };
 
-        safe_float.normalize();
-        Some(safe_float)
+        if safe_float.normalize() {
+            Some(safe_float)
+        } else {
+            None
+        }
     }
 
     /// Adjusts mantissa and exponent of this floating point number so that
     /// SAFE_FLOAT_MAX <= mantissa < 10 * SAFE_FLOAT_MAX
-    pub(crate) fn normalize(&mut self) {
+    /// 
+    /// Returns true in case of success or false if exponent over- or underflows
+    pub(crate) fn normalize(&mut self) -> bool {
         let max_value = SafeInt::from(SAFE_FLOAT_MAX);
         let max_value_div10 = SafeInt::from(SAFE_FLOAT_MAX.checked_div(10).unwrap_or_default());
         let mantissa_abs = self.mantissa.clone().abs();
@@ -91,16 +96,22 @@ impl SafeFloat {
         } else if max_value_div10 >= mantissa_abs {
             // Mantissa is too low, upscale mantissa + reduce exponent
             let scale = (max_value_div10 / mantissa_abs).unwrap_or_default();
-            -1 * (intlog10(&scale) + 1) as i64
+            ((intlog10(&scale).saturating_add(1)) as i64).neg()
         } else if max_value < mantissa_abs {
             // Mantissa is too high, downscale mantissa + increase exponent
             let scale = (mantissa_abs / max_value).unwrap_or_default();
-            (intlog10(&scale) + 1) as i64
+            (intlog10(&scale).saturating_add(1)) as i64
         } else {
             0i64
         };
 
-        self.exponent = self.exponent + exponent_adjustment;
+        // Check exponent over- or underflows
+        let new_exponent_i128 = (self.exponent as i128).saturating_add(exponent_adjustment as i128);
+        if (i64::MIN as i128 <= new_exponent_i128) && (new_exponent_i128 <= i64::MAX as i128) {
+            self.exponent = new_exponent_i128 as i64;
+        } else {
+            return false;
+        }
 
         if exponent_adjustment > 0 {
             let mantissa_adjustment = pow10(exponent_adjustment as u64);
@@ -109,6 +120,13 @@ impl SafeFloat {
             let mantissa_adjustment = pow10(exponent_adjustment.neg() as u64);
             self.mantissa = self.mantissa.clone() * mantissa_adjustment
         }
+
+        // Check if adjusted mantissa turned into zero, in which case set exponent to 0.
+        if self.mantissa.is_zero() {
+            self.exponent = 0;
+        }
+
+        true
     }
 
     /// Divide current value by a preserving precision (SAFE_FLOAT_MAX digits in mantissa)
@@ -129,14 +147,17 @@ impl SafeFloat {
                     .saturating_sub(a.exponent)
                     .saturating_sub(redundant_exponent),
             };
-            safe_float.normalize();
-            Some(safe_float)
+            if safe_float.normalize() {
+                Some(safe_float)
+            } else {
+                None
+            }
         } else {
             None
         }
     }
 
-    pub fn add(&self, a: &SafeFloat) -> Self {
+    pub fn add(&self, a: &SafeFloat) -> Option<Self> {
         // Multiply both operands by 10^exponent_offset so that both are above 1.
         // (lowest exponent becomes 0)
         let exponent_offset = self.exponent.min(a.exponent).neg();
@@ -148,8 +169,11 @@ impl SafeFloat {
             mantissa: unnormalized_mantissa,
             exponent: exponent_offset.neg(),
         };
-        safe_float.normalize();
-        safe_float
+        if safe_float.normalize() {
+            Some(safe_float)
+        } else {
+            None
+        }
     }
 
     /// Calculate self * a / b without loss of precision
@@ -436,10 +460,38 @@ where
             let shares_per_update: SafeFloat =
                 self.get_shares_per_update(update, shared_value, &denominator);
 
+            // Handle SafeFloat overflows quietly here because this overflow of i64 exponent 
+            // is extremely hypothetical and should never happen in practice.
+            let new_denominator = match denominator.add(&shares_per_update) {
+                Some(new_denominator) => new_denominator,
+                None => {
+                    log::error!(
+                        "SafeFloat::add overflow when adding {:?} to {:?}; keeping old denominator",
+                        shares_per_update,
+                        denominator,
+                    );
+                    // Return the value as it was before the failed addition
+                    denominator
+                }
+            };
+
+            let new_current_share = match current_share.add(&shares_per_update) {
+                Some(new_current_share) => new_current_share,
+                None => {
+                    log::error!(
+                        "SafeFloat::add overflow when adding {:?} to {:?}; keeping old current_share",
+                        shares_per_update,
+                        current_share,
+                    );
+                    // Return the value as it was before the failed addition
+                    current_share
+                }
+            };
+
             self.state_ops
-                .set_denominator(denominator.add(&shares_per_update));
+                .set_denominator(new_denominator);
             self.state_ops
-                .set_share(key, current_share.add(&shares_per_update));
+                .set_share(key, new_current_share);
         }
 
         // Update shared value
@@ -923,8 +975,8 @@ mod tests {
             let a = SafeFloat::new(SafeInt::from(m_a), e_a).unwrap();
             let b = SafeFloat::new(SafeInt::from(m_b), e_b).unwrap();
 
-            let a_plus_b = a.add(&b);
-            let b_plus_a = b.add(&a);
+            let a_plus_b = a.add(&b).unwrap();
+            let b_plus_a = b.add(&a).unwrap();
 
             assert_eq!(a_plus_b.mantissa, SafeInt::from(expected_m));
             assert_eq!(a_plus_b.exponent, SafeInt::from(expected_e));
