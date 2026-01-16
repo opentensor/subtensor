@@ -271,7 +271,7 @@ fn test_set_voting_power_ema_alpha() {
 
         // Get default alpha
         let default_alpha = SubtensorModule::get_voting_power_ema_alpha(f.netuid);
-        assert_eq!(default_alpha, 100_000_000_000_000_000); // 0.1 * 10^18
+        assert_eq!(default_alpha, 3_570_000_000_000_000); // 0.00357 * 10^18 = 2 weeks e-folding
 
         // Set new alpha (only root can do this)
         let new_alpha: u64 = 500_000_000_000_000_000; // 0.5 * 10^18
