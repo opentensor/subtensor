@@ -2,7 +2,11 @@
 #![allow(clippy::unwrap_used)]
 
 use super::*;
-use subtensor_runtime_common::rate_limiting::GROUP_SERVE;
+use node_subtensor_runtime::rate_limiting::legacy::defaults as rate_limit_defaults;
+use subtensor_runtime_common::{
+    NetUid,
+    rate_limiting::{GROUP_DELEGATE_TAKE, GROUP_REGISTER_NETWORK, GROUP_SERVE, GROUP_WEIGHTS_SET},
+};
 
 pub fn devnet_config() -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
@@ -92,9 +96,19 @@ fn devnet_genesis(
         },
         "rateLimiting": {
             "defaultLimit": 0,
-            "limits": [],
+            "limits": vec![
+                (serde_json::json!({ "Group": GROUP_SERVE }), Some(NetUid::ROOT), serde_json::json!({ "Exact": rate_limit_defaults::serving_rate_limit() })),
+                (serde_json::json!({ "Group": GROUP_SERVE }), Some(NetUid::from(1u16)), serde_json::json!({ "Exact": rate_limit_defaults::serving_rate_limit() })),
+                (serde_json::json!({ "Group": GROUP_REGISTER_NETWORK }), Option::<NetUid>::None, serde_json::json!({ "Exact": rate_limit_defaults::network_rate_limit() })),
+                (serde_json::json!({ "Group": GROUP_DELEGATE_TAKE }), Option::<NetUid>::None, serde_json::json!({ "Exact": rate_limit_defaults::tx_delegate_take_rate_limit() })),
+                (serde_json::json!({ "Group": GROUP_WEIGHTS_SET }), Some(NetUid::ROOT), serde_json::json!({ "Exact": rate_limit_defaults::weights_set_rate_limit() })),
+                (serde_json::json!({ "Group": GROUP_WEIGHTS_SET }), Some(NetUid::from(1u16)), serde_json::json!({ "Exact": rate_limit_defaults::weights_set_rate_limit() })),
+            ],
             "groups": vec![
                 (GROUP_SERVE, b"serving".to_vec(), "ConfigAndUsage"),
+                (GROUP_REGISTER_NETWORK, b"register-network".to_vec(), "ConfigAndUsage"),
+                (GROUP_DELEGATE_TAKE, b"delegate-take".to_vec(), "ConfigAndUsage"),
+                (GROUP_WEIGHTS_SET, b"weights".to_vec(), "ConfigAndUsage"),
             ],
             "limitSettingRules": vec![
                 (serde_json::json!({ "Group": GROUP_SERVE }), "RootOrSubnetOwnerAdminWindow"),
