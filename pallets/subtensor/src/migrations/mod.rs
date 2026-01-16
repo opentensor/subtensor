@@ -50,6 +50,7 @@ pub mod migrate_set_min_difficulty;
 pub mod migrate_set_nominator_min_stake;
 pub mod migrate_set_registration_enable;
 pub mod migrate_set_subtoken_enabled;
+pub mod migrate_share_pool_high_precision;
 pub mod migrate_stake_threshold;
 pub mod migrate_subnet_limit_to_default;
 pub mod migrate_subnet_locked;

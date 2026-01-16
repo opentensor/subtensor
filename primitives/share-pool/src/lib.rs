@@ -8,6 +8,7 @@ use safe_bigmath::*;
 use scale_info::TypeInfo;
 use sp_std::marker;
 use sp_std::ops::Neg;
+use substrate_fixed::types::U64F64;
 
 // Maximum value that can be represented with SafeFloat
 pub const SAFE_FLOAT_MAX: u128 = 1_000_000_000_000_000_000_000_u128;
@@ -258,6 +259,37 @@ impl From<SafeFloat> for u64 {
 impl From<u64> for SafeFloat {
     fn from(value: u64) -> Self {
         SafeFloat::new(SafeInt::from(value), 0).unwrap_or_default()
+    }
+}
+
+impl From<U64F64> for SafeFloat {
+    fn from(value: U64F64) -> Self {
+        let bits = value.to_bits();
+        // High 64 bits = integer part
+        let int = (bits >> 64) as u64;
+        // Low 64 bits = fractional part
+        let frac = (bits & 0xFFFF_FFFF_FFFF_FFFF) as u64;
+
+        // If strictly zero, shortcut
+        if bits == 0 {
+            return SafeFloat::zero();
+        }
+
+        // SafeFloat for integer part: int * 10^0
+        let safe_int = SafeFloat::new(SafeInt::from(int), 0).unwrap_or_default();
+
+        // Numerator of fractional part: frac * 10^0
+        let safe_frac_num = SafeFloat::new(SafeInt::from(frac), 0).unwrap_or_default();
+
+        // Denominator = 2^64 as an integer SafeFloat: (2^64) * 10^0
+        let two64: u128 = 1u128 << 64;
+        let safe_two64 = SafeFloat::new(SafeInt::from(two64), 0).unwrap_or_default();
+
+        // frac_part = frac / 2^64
+        let safe_frac = safe_frac_num.div(&safe_two64).unwrap_or_default();
+
+        // int + frac/2^64, with all mantissa/exponent normalization
+        safe_int.add(&safe_frac).unwrap_or_default()
     }
 }
 
@@ -1122,6 +1154,53 @@ mod tests {
                 / (mc as f64 * (10_f64).powi(ec as i32));
 
             assert_abs_diff_eq!(actual, expected, epsilon = actual / 100_000_000_000_000_f64);
+        });
+    }
+
+    #[test]
+    fn test_safefloat_from_u64f64() {
+        [
+            U64F64::from_num(1000.0),
+            U64F64::from_num(10.0),
+            U64F64::from_num(1.0),
+            U64F64::from_num(0.1),
+            U64F64::from_num(0.00000001),
+            U64F64::from_num(123_456_789_123_456u128),
+            // Exact zero
+            U64F64::from_num(0.0),
+            // Very small positive value (well above Q64.64 resolution)
+            U64F64::from_num(1e-18),
+            // Value just below 1
+            U64F64::from_num(0.999_999_999_999_999_f64),
+            // Value just above 1
+            U64F64::from_num(1.000_000_000_000_001_f64),
+            // "Random-looking" fractional with many digits
+            U64F64::from_num(1.234_567_890_123_45_f64),
+            // Large integer, but smaller than the max integer part of U64F64
+            U64F64::from_num(999_999_999_999_999_999u128),
+            // Very large integer near the upper bound of integer range
+            U64F64::from_num(u64::MAX as u128),
+            // Large number with fractional part
+            U64F64::from_num(123_456_789_123_456.789_f64),
+            // Medium-large with tiny fractional part to test precision on tail digits
+            U64F64::from_num(1_000_000_000_000.000_001_f64),
+            // Smallish with long fractional part
+            U64F64::from_num(0.123_456_789_012_345_f64),
+        ]
+        .into_iter()
+        .for_each(|f| {
+            let safe_float: SafeFloat = f.into();
+            let actual: f64 = safe_float.into();
+            let expected = f.to_num::<f64>();
+
+            // Relative epsilon ~1e-14 of the magnitude
+            let epsilon = if actual == 0.0 {
+                0.0
+            } else {
+                actual.abs() / 100_000_000_000_000_f64
+            };
+
+            assert_abs_diff_eq!(actual, expected, epsilon = epsilon);
         });
     }
 }

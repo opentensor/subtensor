@@ -23,6 +23,7 @@ use crate::migrations::migrate_storage;
 use frame_system::Config;
 use pallet_drand::types::RoundNumber;
 use scale_info::prelude::collections::VecDeque;
+use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
@@ -2967,4 +2968,63 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
             assert!(!Prometheus::<Test>::contains_key(netuid, hk));
         }
     }
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_share_pool_high_precision --exact --nocapture
+#[test]
+fn test_migrate_share_pool_high_precision() {
+    use crate::migrations::migrate_share_pool_high_precision::*;
+    const MIGRATION_NAME: &str = "migrate_share_pool_high_precision";
+
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1u16);
+
+        let hotkey = U256::from(100u64);
+        let coldkey = U256::from(101u64);
+
+        // OK to mismatch
+        let ths = U64F64::from_num(12345.678);
+        let alpha = U64F64::from_num(123.45);
+
+        // Insert the enties into TotalHotkeyShares and Alpha maps
+        TotalHotkeyShares::<Test>::insert(hotkey, netuid, ths);
+        Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet."
+        );
+
+        let weight = crate::migrations::migrate_share_pool_high_precision::migrate_share_pool_high_precision::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run."
+        );
+
+        let migrated_ths_serializable = TotalHotkeySharesV2::<Test>::get(hotkey, netuid);
+        let migrated_ths: SafeFloat = (&migrated_ths_serializable).into();
+        let migrated_ths_f64: f64 = migrated_ths.into();
+
+        let migrated_alpha_serializable = AlphaV2::<Test>::get((hotkey, coldkey, netuid));
+        let migrated_alpha: SafeFloat = (&migrated_alpha_serializable).into();
+        let migrated_alpha_f64: f64 = migrated_alpha.into();
+
+        assert_abs_diff_eq!(
+            migrated_ths_f64,
+            ths.to_num::<f64>(),
+            epsilon = 0.000000001
+        );
+
+        assert_abs_diff_eq!(
+            migrated_alpha_f64,
+            alpha.to_num::<f64>(),
+            epsilon = 0.000000001
+        );
+
+        assert!(
+            !weight.is_zero(),
+            "Migration weight should be non-zero."
+        );
+    });
 }
