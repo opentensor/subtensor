@@ -15,9 +15,9 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     const registerNetworkGroupId = 3; // GROUP_REGISTER_NETWORK constant
     const target = { Group: registerNetworkGroupId } as const;
     const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
-    const rateLimit = limits?.tag === "Global" && limits?.value?.tag === "Exact"
-        ? BigInt(limits.value.value)
-        : BigInt(0);
+    assert.ok(limits?.tag === "Global");
+    assert.ok(limits.value?.tag === "Exact");
+    const rateLimit = BigInt(limits.value.value);
     if (rateLimit !== BigInt(0)) {
         const internalCall = api.tx.RateLimiting.set_rate_limit({
             target: target as any,
@@ -75,17 +75,33 @@ export async function setCommitRevealWeightsEnabled(api: TypedApi<typeof devnet>
 }
 
 export async function setWeightsSetRateLimit(api: TypedApi<typeof devnet>, netuid: number, rateLimit: bigint) {
-    const value = await api.query.SubtensorModule.WeightsSetRateLimit.getValue(netuid)
-    if (value === rateLimit) {
+    const weightsSetGroupId = 2; // GROUP_WEIGHTS_SET constant
+    const target = { Group: weightsSetGroupId } as const;
+    const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    assert.ok(limits?.tag === "Scoped");
+    const entries = Array.from(limits.value as any);
+    const entry = entries.find((item: any) => Number(item[0]) === netuid);
+    const currentLimit = entry ? BigInt(entry[1].value) : BigInt(0);
+    if (currentLimit === rateLimit) {
         return;
     }
 
     const alice = getAliceSigner()
-    const internalCall = api.tx.AdminUtils.sudo_set_weights_set_rate_limit({ netuid: netuid, weights_set_rate_limit: rateLimit })
+    const internalCall = api.tx.RateLimiting.set_rate_limit({
+        target: target as any,
+        scope: netuid,
+        limit: { Exact: rateLimit },
+    })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
     await waitForTransactionWithRetry(api, tx, alice)
-    assert.equal(rateLimit, await api.query.SubtensorModule.WeightsSetRateLimit.getValue(netuid))
+    const updated = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    assert.ok(updated?.tag === "Scoped");
+    const updatedEntry = Array.from(updated.value as any).find(
+        (item: any) => Number(item[0]) === netuid,
+    );
+    assert.ok(updatedEntry);
+    assert.equal(rateLimit, BigInt(updatedEntry[1].value))
 }
 
 // tempo is u16 in rust, but we just number in js. so value should be less than u16::Max
