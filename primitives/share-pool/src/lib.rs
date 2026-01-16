@@ -75,13 +75,13 @@ impl SafeFloat {
 
         let mut safe_float = SafeFloat { mantissa, exponent };
 
-        safe_float.adjust_precision();
+        safe_float.normalize();
         Some(safe_float)
     }
 
     /// Adjusts mantissa and exponent of this floating point number so that
     /// SAFE_FLOAT_MAX <= mantissa < 10 * SAFE_FLOAT_MAX
-    pub(crate) fn adjust_precision(&mut self) {
+    pub(crate) fn normalize(&mut self) {
         let max_value = SafeInt::from(SAFE_FLOAT_MAX);
         let max_value_div10 = SafeInt::from(SAFE_FLOAT_MAX.checked_div(10).unwrap_or_default());
         let mantissa_abs = self.mantissa.clone().abs();
@@ -129,7 +129,7 @@ impl SafeFloat {
                     .saturating_sub(a.exponent)
                     .saturating_sub(redundant_exponent),
             };
-            safe_float.adjust_precision();
+            safe_float.normalize();
             Some(safe_float)
         } else {
             None
@@ -148,7 +148,7 @@ impl SafeFloat {
             mantissa: unnormalized_mantissa,
             exponent: exponent_offset.neg(),
         };
-        safe_float.adjust_precision();
+        safe_float.normalize();
         safe_float
     }
 
@@ -725,7 +725,7 @@ mod tests {
     }
 
     #[test]
-    fn test_safefloat_adjust_precision() {
+    fn test_safefloat_normalize() {
         // Test case: mantissa, exponent, expected mantissa, expected exponent
         [
             (1_u128, 0, 100_000_000_000_000_000_000_u128, -20_i64),
@@ -934,14 +934,105 @@ mod tests {
     }
 
     #[test]
+    fn test_safefloat_div_by_zero_is_none() {
+        let a = SafeFloat::new(SafeInt::from(1), 0).unwrap();
+        assert!(a.div(&SafeFloat::zero()).is_none());
+    }
+
+    #[test]
     fn test_safefloat_div() {
-        todo!()
-        // Test with f64
+        // Test case: man_a, exp_a, man_b, exp_b
+        [
+            (1_u128, 0_i64, 100_000_000_000_000_000_000_u128, -20_i64),
+            (1_u128, 0, 1_u128, 0),
+            (1_u128, 1, 1_u128, 0),
+            (1_u128, 7, 1_u128, 0),
+            (1_u128, 50, 1_u128, 0),
+            (1_u128, 100, 1_u128, 0),
+            (1_u128, 0, 7_u128, 0),
+            (1_u128, 1, 7_u128, 0),
+            (1_u128, 7, 7_u128, 0),
+            (1_u128, 50, 7_u128, 0),
+            (1_u128, 100, 7_u128, 0),
+            (1_u128, 0, 3_u128, 0),
+            (1_u128, 1, 3_u128, 0),
+            (1_u128, 7, 3_u128, 0),
+            (1_u128, 50, 3_u128, 0),
+            (1_u128, 100, 3_u128, 0),
+            (2_u128, 0, 3_u128, 0),
+            (2_u128, 1, 3_u128, 0),
+            (2_u128, 7, 3_u128, 0),
+            (2_u128, 50, 3_u128, 0),
+            (2_u128, 100, 3_u128, 0),
+            (5_u128, 0, 3_u128, 0),
+            (5_u128, 1, 3_u128, 0),
+            (5_u128, 7, 3_u128, 0),
+            (5_u128, 50, 3_u128, 0),
+            (5_u128, 100, 3_u128, 0),
+            (10_u128, 0, 100_000_000_000_000_000_000_u128, -19),
+            (1_000_u128, 0, 100_000_000_000_000_000_000_u128, -17),
+            (
+                100_000_000_000_000_000_000_u128,
+                0,
+                1_000_000_000_000_000_000_000_u128,
+                -1,
+            ),
+            (SAFE_FLOAT_MAX, 0, SAFE_FLOAT_MAX, 0),
+            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX, -100),
+            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX-1, -100),
+            (SAFE_FLOAT_MAX-1, 100, SAFE_FLOAT_MAX, -100),
+            (SAFE_FLOAT_MAX-2, 100, SAFE_FLOAT_MAX, -100),
+            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX/2 - 1, -100),
+            (SAFE_FLOAT_MAX, 100, SAFE_FLOAT_MAX/2 - 1, 100),
+            (1_u128, 0, 100_000_000_000_000_000_000_u128, -20_i64),
+            (123_456_789_123_456_789_123_u128, 20_i64, 87_654_321_987_654_321_987_u128, -20_i64),
+            (123_456_789_123_456_789_123_u128, 100_i64, 87_654_321_987_654_321_987_u128, -100_i64),
+            (123_456_789_123_456_789_123_u128, -100_i64, 87_654_321_987_654_321_987_u128, 100_i64),
+            (123_456_789_123_456_789_123_u128, -99_i64, 87_654_321_987_654_321_987_u128, 99_i64),
+            (123_456_789_123_456_789_123_u128, 123_i64, 87_654_321_987_654_321_987_u128, -32_i64),
+            (123_456_789_123_456_789_123_u128, -123_i64, 87_654_321_987_654_321_987_u128, 32_i64),
+        ]
+        .into_iter()
+        .for_each(|(ma, ea, mb, eb)| {
+            let a = SafeFloat::new(SafeInt::from(ma), ea).unwrap();
+            let b = SafeFloat::new(SafeInt::from(mb), eb).unwrap();
+
+            let actual: f64 = a.div(&b).unwrap().into();
+            let expected = ma as f64 * (10_f64).powi(ea as i32) / (mb as f64 * (10_f64).powi(eb as i32));
+
+            assert_abs_diff_eq!(
+                actual,
+                expected,
+                epsilon = actual / 100_000_000_000_000_f64
+            );
+        });
     }
 
     #[test]
     fn test_safefloat_mul_div() {
-        todo!()
-        // Test with f64
+        // result = a * b / c
+        // should not lose precision gained in a * b
+        // Test case: man_a, exp_a, man_b, exp_b, man_c, exp_c
+        [
+            (1_u128, -20_i64, 1_u128, -20_i64, 1_u128, -20_i64),
+            (123_u128, 20_i64, 123_u128, -20_i64, 321_u128, 0_i64),
+            (123_123_123_123_123_123_u128, 20_i64, 321_321_321_321_321_321_u128, -20_i64, 777_777_777_777_777_777_u128, 0_i64),
+            (11_111_111_111_111_111_111_u128, 20_i64, 99_321_321_321_321_321_321_u128, -20_i64, 77_777_777_777_777_777_777_u128, 0_i64),
+        ]
+        .into_iter()
+        .for_each(|(ma, ea, mb, eb, mc, ec)| {
+            let a = SafeFloat::new(SafeInt::from(ma), ea).unwrap();
+            let b = SafeFloat::new(SafeInt::from(mb), eb).unwrap();
+            let c = SafeFloat::new(SafeInt::from(mc), ec).unwrap();
+
+            let actual: f64 = a.mul_div(&b, &c).unwrap().into();
+            let expected = (ma as f64 * (10_f64).powi(ea as i32)) * (mb as f64 * (10_f64).powi(eb as i32)) / (mc as f64 * (10_f64).powi(ec as i32));
+
+            assert_abs_diff_eq!(
+                actual,
+                expected,
+                epsilon = actual / 100_000_000_000_000_f64
+            );
+        });
     }
 }
