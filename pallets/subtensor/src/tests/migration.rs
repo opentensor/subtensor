@@ -2980,15 +2980,20 @@ fn test_migrate_share_pool_high_precision() {
         let netuid = NetUid::from(1u16);
 
         let hotkey = U256::from(100u64);
-        let coldkey = U256::from(101u64);
+        let coldkey1 = U256::from(101u64);
+        let coldkey2 = U256::from(102u64);
 
-        // OK to mismatch
+        // OK to mismatch the sum of coldkey alphas and THS
         let ths = U64F64::from_num(12345.678);
-        let alpha = U64F64::from_num(123.45);
+        let alpha1 = U64F64::from_num(0.00000001234);
+        let alpha2 = U64F64::from_num(432.123458765);
+        let total_alpha = 1_123_000_000_u64;
 
         // Insert the enties into TotalHotkeyShares and Alpha maps
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, ths);
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha);
+        Alpha::<Test>::insert((hotkey, coldkey1, netuid), alpha1);
+        Alpha::<Test>::insert((hotkey, coldkey2, netuid), alpha2);
+        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(total_alpha));
 
         assert!(
             !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
@@ -3006,9 +3011,13 @@ fn test_migrate_share_pool_high_precision() {
         let migrated_ths: SafeFloat = (&migrated_ths_serializable).into();
         let migrated_ths_f64: f64 = migrated_ths.into();
 
-        let migrated_alpha_serializable = AlphaV2::<Test>::get((hotkey, coldkey, netuid));
-        let migrated_alpha: SafeFloat = (&migrated_alpha_serializable).into();
-        let migrated_alpha_f64: f64 = migrated_alpha.into();
+        let migrated_alpha_serializable1 = AlphaV2::<Test>::get((hotkey, coldkey1, netuid));
+        let migrated_alpha1: SafeFloat = (&migrated_alpha_serializable1).into();
+        let migrated_alpha1_f64: f64 = migrated_alpha1.into();
+
+        let migrated_alpha_serializable2 = AlphaV2::<Test>::get((hotkey, coldkey2, netuid));
+        let migrated_alpha2: SafeFloat = (&migrated_alpha_serializable2).into();
+        let migrated_alpha2_f64: f64 = migrated_alpha2.into();
 
         assert_abs_diff_eq!(
             migrated_ths_f64,
@@ -3017,9 +3026,39 @@ fn test_migrate_share_pool_high_precision() {
         );
 
         assert_abs_diff_eq!(
-            migrated_alpha_f64,
-            alpha.to_num::<f64>(),
+            migrated_alpha1_f64,
+            alpha1.to_num::<f64>(),
             epsilon = 0.000000001
+        );
+
+        assert_abs_diff_eq!(
+            migrated_alpha2_f64,
+            alpha2.to_num::<f64>(),
+            epsilon = 0.000000001
+        );
+
+        // Check that coldkey alpha makes sense after migration
+        let expected_coldkey_alpha1: u64 = (total_alpha as f64 * alpha1.to_num::<f64>() / ths.to_num::<f64>()) as u64;
+        let expected_coldkey_alpha2: u64 = (total_alpha as f64 * alpha2.to_num::<f64>() / ths.to_num::<f64>()) as u64;
+        let actual_coldkey_alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey1,
+            netuid
+        );
+        let actual_coldkey_alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey2,
+            netuid
+        );
+
+        assert_eq!(
+            expected_coldkey_alpha1,
+            u64::from(actual_coldkey_alpha1)
+        );
+
+        assert_eq!(
+            expected_coldkey_alpha2,
+            u64::from(actual_coldkey_alpha2)
         );
 
         assert!(
