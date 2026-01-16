@@ -1,82 +1,83 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ---------------------------------------
-# Resolve repo root
-# ---------------------------------------
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-# ---------------------------------------
-# Config (overridable via env)
-# ---------------------------------------
-
-export RUST_LOG="${RUST_LOG:-info}"
-export CHAINQL_WORKERS="${CHAINQL_WORKERS:-2}"
-export CHAINQL_KEYS_CHUNK_SIZE="${CHAINQL_KEYS_CHUNK_SIZE:-20000}"
-
-FORK_SOURCE="${FORK_SOURCE:-wss://entrypoint-finney.opentensor.ai}"
-FORKED_SPEC="${FORKED_SPEC:-subtensor}"
-RELAY_SPEC="${RELAY_SPEC:-rococo-local}"
-
-SPEC_OUTPUT="${REPO_ROOT}/.bdk-env/specs/subtensor.json"
-
-# ---------------------------------------
-# Preconditions
-# ---------------------------------------
+# ----------------------------------------
+# Check setup
+# ----------------------------------------
 
 command -v baedeker >/dev/null 2>&1 || {
   echo "❌ baedeker is not installed"
   exit 1
 }
 
-[[ -d "${REPO_ROOT}/.bdk-env" ]] || {
-  echo "❌ .bdk-env directory not found"
-  exit 1
-}
+# ----------------------------------------
+# Paths
+# ----------------------------------------
 
-# ---------------------------------------
-# Logging
-# ---------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(realpath "$SCRIPT_DIR/..")"
 
-echo "=== Generating Subtensor chain spec ==="
-echo "Repo root:               $REPO_ROOT"
-echo "Fork source:             $FORK_SOURCE"
-echo "Forked spec name:        $FORKED_SPEC"
-echo "Relay spec:              $RELAY_SPEC"
-echo "Workers:                 $CHAINQL_WORKERS"
-echo "Keys chunk size:         $CHAINQL_KEYS_CHUNK_SIZE"
-echo "Rust log level:          $RUST_LOG"
-echo "Output spec:             $SPEC_OUTPUT"
-echo "======================================"
+BDK_ENV_DIR="$SCRIPT_DIR/.bdk-env"
+VENDOR_DIR="$SCRIPT_DIR/vendor"
+SECRET_DIR="$BDK_ENV_DIR/secret"
 
-# ---------------------------------------
-# Run Baedeker
-# ---------------------------------------
+# ----------------------------------------
+# Environment defaults
+# ----------------------------------------
+
+export RUST_LOG="${RUST_LOG:-info}"
+export CHAINQL_WORKERS="${CHAINQL_WORKERS:-2}"
+export CHAINQL_KEYS_CHUNK_SIZE="${CHAINQL_KEYS_CHUNK_SIZE:-20000}"
+
+echo "🧩 Generating chain spec"
+echo "  RUST_LOG=$RUST_LOG"
+echo "  CHAINQL_WORKERS=$CHAINQL_WORKERS"
+echo "  CHAINQL_KEYS_CHUNK_SIZE=$CHAINQL_KEYS_CHUNK_SIZE"
+
+# ----------------------------------------
+# Prepare .bdk-env structure
+# ----------------------------------------
+
+echo "📁 Preparing .bdk-env directory structure..."
+
+mkdir -p \
+  "$BDK_ENV_DIR" \
+  "$VENDOR_DIR" \
+  "$SECRET_DIR" \
+  "$BDK_ENV_DIR/specs" \
+  "$BDK_ENV_DIR/discover.env"
+
+# ----------------------------------------
+# Generate spec via baedeker
+# ----------------------------------------
+
+echo "🚀 Running baedeker..."
 
 baedeker \
   --spec=docker \
-  -J"${REPO_ROOT}/vendor/" \
-  --generator=docker_compose="${REPO_ROOT}/.bdk-env" \
-  --generator=docker_compose_discover="${REPO_ROOT}/.bdk-env/discover.env" \
-  --secret=file="${REPO_ROOT}/.bdk-env/secret" \
-  --tla-str="relay_spec=${RELAY_SPEC}" \
-  --tla-str="repoDir=$(realpath "${REPO_ROOT}")" \
+  -J"$VENDOR_DIR" \
+  --generator=docker_compose="$BDK_ENV_DIR" \
+  --generator=docker_compose_discover="$BDK_ENV_DIR/discover.env" \
+  --secret=file="$SECRET_DIR" \
+  --tla-str=relay_spec=rococo-local \
+  --tla-str=repoDir="$REPO_DIR" \
   --input-modules='lib:baedeker-library/ops/nginx.libsonnet' \
   --input-modules='lib:baedeker-library/ops/devtools.libsonnet' \
-  "${REPO_ROOT}/forkless-data.jsonnet" \
-  --tla-str="forked_spec=${FORKED_SPEC}" \
-  --tla-str="fork_source=${FORK_SOURCE}" \
-  "${REPO_ROOT}/rewrites.jsonnet"
+  "$SCRIPT_DIR/forkless-data.jsonnet" \
+  --tla-str=forked_spec=subtensor \
+  --tla-str=fork_source=wss://entrypoint-finney.opentensor.ai \
+  "$SCRIPT_DIR/rewrites.jsonnet"
 
-# ---------------------------------------
-# Post-check
-# ---------------------------------------
+# ----------------------------------------
+# Validate output
+# ----------------------------------------
 
-if [[ ! -f "$SPEC_OUTPUT" ]]; then
-  echo "❌ Spec generation failed: $SPEC_OUTPUT not found"
+SPEC_PATH="$BDK_ENV_DIR/specs/subtensor.json"
+
+if [[ ! -f "$SPEC_PATH" ]]; then
+  echo "❌ Expected spec not found: $SPEC_PATH"
   exit 1
 fi
 
-echo "✅ Chain spec generated successfully"
+echo "✅ Chain spec generated at:"
+echo "   $SPEC_PATH"
