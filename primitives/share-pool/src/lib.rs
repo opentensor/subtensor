@@ -752,6 +752,7 @@ mod tests {
     fn test_safefloat_add() {
         // Test case: man_a, exp_a, man_b, exp_b, expected mantissa of a+b, expected exponent of a+b
         [
+            // 1 + 1 = 2
             (
                 1_u128,
                 0,
@@ -760,6 +761,7 @@ mod tests {
                 200_000_000_000_000_000_000_u128,
                 -20_i64,
             ),
+            // SAFE_FLOAT_MAX + SAFE_FLOAT_MAX
             (
                 SAFE_FLOAT_MAX,
                 0,
@@ -768,7 +770,7 @@ mod tests {
                 SAFE_FLOAT_MAX * 2 / 10,
                 1_i64,
             ),
-            // Expected loss of precision
+            // Expected loss of precision: tiny + huge
             (
                 1_u128,
                 0,
@@ -809,6 +811,112 @@ mod tests {
                 1_000_000_000_000_000_000_012_u128,
                 2_i64,
             ),
+            // --- New tests start here ---
+
+            // Small-ish + very large (10^22 + 42)
+            // 42 * 10^0 + 1 * 10^22 ≈ 1e22 + 42
+            // Normalized ≈ (1e21 + 4) * 10^1
+            (
+                42_u128,
+                0,
+                1_u128,
+                22,
+                1_000_000_000_000_000_000_004_u128,
+                1_i64,
+            ),
+            // "Almost 10^21" + 10^22
+            // (10^21 - 1) + 10^22 → floor((10^22 + 10^21 - 1) / 100) * 10^2
+            (
+                999_999_999_999_999_999_999_u128,
+                0,
+                1_u128,
+                22,
+                109_999_999_999_999_999_999_u128,
+                2_i64,
+            ),
+            // Small-ish + 10^23 where the small part is completely lost
+            // 42 + 10^23 -> floor((10^23 + 42)/100) * 10^2 ≈ 1e21 * 10^2
+            (
+                42_u128,
+                0,
+                1_u128,
+                23,
+                1_000_000_000_000_000_000_000_u128,
+                2_i64,
+            ),
+            // Small-ish + 10^23 where tiny part slightly affects mantissa
+            // 4200 + 10^23 -> floor((10^23 + 4200)/100) * 10^2 = (1e21 + 42) * 10^2
+            (
+                4_200_u128,
+                0,
+                1_u128,
+                23,
+                1_000_000_000_000_000_000_042_u128,
+                2_i64,
+            ),
+            // (10^21 - 1) + 10^23
+            // -> floor((10^23 + 10^21 - 1)/100) = 1e21 + 1e19 - 1
+            (
+                999_999_999_999_999_999_999_u128,
+                0,
+                1_u128,
+                23,
+                1_009_999_999_999_999_999_999_u128,
+                2_i64,
+            ),
+            // Medium + 10^23 with exponent 1 on the smaller term
+            // 999_999 * 10^1 + 1 * 10^23 -> (10^22 + 999_999) * 10^1
+            // Normalized ≈ (1e21 + 99_999) * 10^2
+            (
+                999_999_u128,
+                1,
+                1_u128,
+                23,
+                1_000_000_000_000_000_099_999_u128,
+                2_i64,
+            ),
+            // Check behaviour with exponent 24, tiny second term
+            // 1 * 10^24 + 1 -> floor((10^24 + 1)/1000) * 10^3 ≈ 1e21 * 10^3
+            (
+                1_u128,
+                24,
+                1_u128,
+                0,
+                1_000_000_000_000_000_000_000_u128,
+                3_i64,
+            ),
+            // 1 * 10^24 + a non-trivial small mantissa
+            // 1e24 + 123456789012345678901 -> floor(/1000) = 1e21 + 123456789012345678
+            (
+                1_u128,
+                24,
+                123_456_789_012_345_678_901_u128,
+                0,
+                1_000_123_456_789_012_345_678_u128,
+                3_i64,
+            ),
+            // 10^22 and 10^23 combined:
+            // 1 * 10^22 + 1 * 10^23 = 11 * 10^22 = (1.1 * 10^23)
+            // Normalized → (1.1e20) * 10^3
+            (
+                1_u128,
+                22,
+                1_u128,
+                23,
+                110_000_000_000_000_000_000_u128,
+                3_i64,
+            ),
+            // Both operands already aligned at a huge scale:
+            // (10^21 - 1) * 10^22 + 1 * 10^22 = 10^21 * 10^22 = 10^43
+            // Canonical form: (1e21) * 10^22
+            (
+                999_999_999_999_999_999_999_u128,
+                22,
+                1_u128,
+                22,
+                1_000_000_000_000_000_000_000_u128,
+                22_i64,
+            ),
         ]
         .into_iter()
         .for_each(|(m_a, e_a, m_b, e_b, expected_m, expected_e)| {
@@ -828,10 +936,12 @@ mod tests {
     #[test]
     fn test_safefloat_div() {
         todo!()
+        // Test with f64
     }
 
     #[test]
     fn test_safefloat_mul_div() {
         todo!()
+        // Test with f64
     }
 }
