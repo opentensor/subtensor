@@ -4,10 +4,13 @@
 use codec::{Decode, Encode};
 use lencode::io::Cursor;
 use lencode::{Decode as LenDecode, Encode as LenEncode};
+#[cfg(not(feature = "std"))]
+use num_traits::float::FloatCore as _;
 use safe_bigmath::*;
 use scale_info::TypeInfo;
 use sp_std::marker;
 use sp_std::ops::Neg;
+use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
 
 // Maximum value that can be represented with SafeFloat
