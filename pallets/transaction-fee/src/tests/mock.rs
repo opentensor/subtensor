@@ -737,20 +737,15 @@ pub fn setup_subnets(sncount: u16, neurons: u16) -> TestSetup {
     }
 }
 
-pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
-}
-
 #[allow(dead_code)]
 pub fn setup_stake(netuid: NetUid, coldkey: &U256, hotkey: &U256, amount: u64) {
     // Stake to hotkey account, and check if the result is ok
     SubtensorModule::add_balance_to_coldkey_account(coldkey, amount + ExistentialDeposit::get());
-    remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
+
     assert_ok!(SubtensorModule::add_stake(
         RuntimeOrigin::signed(*coldkey),
         *hotkey,
         netuid,
         amount.into()
     ));
-    remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
 }

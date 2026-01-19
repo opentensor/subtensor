@@ -100,8 +100,6 @@ fn remove_stake_full_limit_success_with_limit_price() {
             stake_amount_raw.into(),
         ));
 
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
-
         let expected_weight = Weight::from_parts(395_300_000, 0)
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(28))
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(14));
@@ -165,8 +163,6 @@ fn swap_stake_limit_with_tight_price_returns_slippage_error() {
             netuid_a,
             stake_alpha,
         );
-
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid_a);
 
         let alpha_origin_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -238,8 +234,6 @@ fn remove_stake_limit_success_respects_price_limit() {
             netuid,
             stake_amount_raw.into(),
         ));
-
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
         let alpha_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -390,8 +384,6 @@ fn swap_stake_success_moves_between_subnets() {
             stake_amount_raw.into(),
         ));
 
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid_a);
-
         let alpha_origin_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey, &coldkey, netuid_a,
@@ -466,8 +458,6 @@ fn transfer_stake_success_moves_between_coldkeys() {
             netuid,
             stake_amount_raw.into(),
         ));
-
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &origin_coldkey, netuid);
 
         let alpha_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -551,8 +541,6 @@ fn move_stake_success_moves_alpha_between_hotkeys() {
             stake_amount_raw.into(),
         ));
 
-        mock::remove_stake_rate_limit_for_tests(&origin_hotkey, &coldkey, netuid);
-
         let alpha_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &origin_hotkey,
@@ -630,8 +618,6 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
             netuid,
             stake_amount_raw.into(),
         ));
-
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
         let expected_weight = Weight::from_parts(358_500_000, 0)
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(36))
@@ -939,8 +925,6 @@ fn unstake_all_success_unstakes_balance() {
             netuid,
             stake_amount_raw.into(),
         ));
-
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
         let expected_weight = Weight::from_parts(28_830_000, 0)
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(6))

@@ -763,7 +763,6 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao: TaoCurrency,
         price_limit: TaoCurrency,
-        set_limit: bool,
         drop_fees: bool,
     ) -> Result<AlphaCurrency, DispatchError> {
         // Swap the tao to alpha.
@@ -807,10 +806,6 @@ impl<T: Config> Pallet<T> {
         Self::record_tao_inflow(netuid, swap_result.amount_paid_in.into());
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
-
-        if set_limit {
-            Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
-        }
 
         // If this is a root-stake
         if netuid == NetUid::ROOT {
@@ -1256,14 +1251,6 @@ impl<T: Config> Pallet<T> {
             SubnetAlphaInProvided::<T>::set(netuid, AlphaCurrency::ZERO);
             SubnetAlphaIn::<T>::set(netuid, subnet_alpha.saturating_sub(carry_over));
         }
-    }
-
-    pub fn set_stake_operation_limit(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) {
-        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), true);
     }
 
     pub fn ensure_stake_operation_limit_not_exceeded(

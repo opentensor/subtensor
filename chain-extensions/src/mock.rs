@@ -722,11 +722,6 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
 }
 
 #[allow(dead_code)]
-pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
-}
-
-#[allow(dead_code)]
 pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);

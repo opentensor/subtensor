@@ -1,11 +1,13 @@
-use super::*;
 use rate_limiting_interface::RateLimitingInterface;
+use sp_runtime::Saturating;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{
     AlphaCurrency, Currency, NetUid, TaoCurrency,
     rate_limiting::{self, RateLimitUsageKey},
 };
 use subtensor_swap_interface::{Order, SwapHandler};
+
+use super::*;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -240,7 +242,7 @@ impl<T: Config> Pallet<T> {
             }
             // If not Root network.
             if !netuid.is_root() {
-				// Manually filter out rate-limited subnets.
+                // Manually filter out rate-limited subnets.
                 if let Some(span) = staking_ops_span {
                     if !span.is_zero() {
                         let usage_key = RateLimitUsageKey::ColdkeyHotkeySubnet {
@@ -304,7 +306,6 @@ impl<T: Config> Pallet<T> {
             NetUid::ROOT,
             total_tao_unstaked,
             T::SwapInterface::max_price(),
-            false, // no limit for Root subnet
             false,
         )?;
 

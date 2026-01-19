@@ -2271,7 +2271,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         assert!(pending_before.1 > 0);
 
         // Remove stake
-        remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
+
         assert_ok!(SubtensorModule::do_remove_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,
