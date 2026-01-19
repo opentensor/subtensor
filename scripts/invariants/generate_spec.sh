@@ -21,12 +21,6 @@ BDK_ENV_DIR="$SCRIPT_DIR/.bdk-env"
 SECRET_DIR="$BDK_ENV_DIR/secret"
 
 # ----------------------------------------
-# Environment defaults
-# ----------------------------------------
-echo "🧩 Generating chain spec"
-echo "  RUST_LOG=$RUST_LOG"
-
-# ----------------------------------------
 # Prepare .bdk-env structure
 # ----------------------------------------
 echo "📁 Preparing .bdk-env directory structure..."
