@@ -2971,6 +2971,7 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
 #[test]
 fn test_migrate_coldkey_swap_scheduled_to_announcements() {
     new_test_ext(1000).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_coldkey_swap_scheduled_to_announcements";
         use crate::migrations::migrate_coldkey_swap_scheduled_to_announcements::*;
         let now = frame_system::Pallet::<Test>::block_number();
 
@@ -3003,6 +3004,7 @@ fn test_migrate_coldkey_swap_scheduled_to_announcements() {
         let w = migrate_coldkey_swap_scheduled_to_announcements::<Test>();
 
         assert!(!w.is_zero(), "weight must be non-zero");
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME));
 
         // Ensure the deprecated storage is cleared
         assert!(!deprecated::ColdkeySwapScheduleDuration::<Test>::exists());
