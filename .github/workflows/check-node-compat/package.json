@@ -1,0 +1,21 @@
+{
+  "name": "node-compat",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "license": "ISC",
+  "scripts": {
+    "test": "tsx main.ts"
+  },
+  "dependencies": {
+    "@polkadot/api": "^16.5.4",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24"
+  },
+  "prettier": {
+    "singleQuote": false,
+    "trailingComma": "all",
+    "printWidth": 120
+  }
+}

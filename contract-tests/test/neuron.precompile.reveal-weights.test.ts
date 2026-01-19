@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
+import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { devnet } from "@polkadot-api/descriptors"
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58, convertH160ToSS58 } from "../src/address-utils"
@@ -22,6 +22,16 @@ const uids = [1];
 const values = [5];
 const salt = [9];
 const version_key = 0;
+
+async function setStakeThreshold(
+    api: TypedApi<typeof devnet>,
+    alice: PolkadotSigner,
+    minStake: bigint,
+) {
+    const internalCall = api.tx.AdminUtils.sudo_set_stake_threshold({ min_stake: minStake })
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
+    await waitForTransactionWithRetry(api, tx, alice)
+}
 
 function getCommitHash(netuid: number, address: string) {
     const registry = new TypeRegistry();
@@ -53,7 +63,7 @@ describe("Test neuron precompile reveal weights", () => {
     const coldkey = getRandomSubstrateKeypair();
 
     let api: TypedApi<typeof devnet>
-    let commitEpoch: number;
+    let commitEpoch: number | undefined;
 
     // sudo account alice as signer
     let alice: PolkadotSigner;
@@ -86,11 +96,52 @@ describe("Test neuron precompile reveal weights", () => {
         assert.equal(uid, uids[0])
     })
 
+    async function ensureCommitEpoch(netuid: number, contract: ethers.Contract) {
+        if (commitEpoch !== undefined) {
+            return
+        }
+
+        const ss58Address = convertH160ToSS58(wallet.address)
+        const existingCommits = await api.query.SubtensorModule.WeightCommits.getValue(
+            netuid,
+            ss58Address
+        )
+        if (Array.isArray(existingCommits) && existingCommits.length > 0) {
+            const entry = existingCommits[0]
+            const commitBlockRaw =
+                Array.isArray(entry) && entry.length > 1 ? entry[1] : undefined
+            const commitBlock =
+                typeof commitBlockRaw === "bigint"
+                    ? Number(commitBlockRaw)
+                    : Number(commitBlockRaw ?? NaN)
+            if (Number.isFinite(commitBlock)) {
+                commitEpoch = Math.trunc(commitBlock / (100 + 1))
+                return
+            }
+        }
+
+        await setStakeThreshold(api, alice, BigInt(0))
+        const commitHash = getCommitHash(netuid, wallet.address)
+        const tx = await contract.commitWeights(netuid, commitHash)
+        await tx.wait()
+
+        const commitBlock = await api.query.System.Number.getValue()
+        commitEpoch = Math.trunc(commitBlock / (100 + 1))
+    }
+
     it("EVM neuron commit weights via call precompile", async () => {
         let totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
         const subnetId = totalNetworks - 1
         const commitHash = getCommitHash(subnetId, wallet.address)
         const contract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet);
+
+        await setStakeThreshold(api, alice, BigInt(1))
+        await assert.rejects(async () => {
+            const tx = await contract.commitWeights(subnetId, commitHash)
+            await tx.wait()
+        })
+        await setStakeThreshold(api, alice, BigInt(0))
+
         try {
             const tx = await contract.commitWeights(subnetId, commitHash)
             await tx.wait()
@@ -120,6 +171,11 @@ describe("Test neuron precompile reveal weights", () => {
         // set interval epoch as 1, it is the minimum value now
         await setCommitRevealWeightsInterval(api, netuid, BigInt(1))
 
+        await ensureCommitEpoch(netuid, contract)
+        if (commitEpoch === undefined) {
+            throw new Error("commitEpoch should be set before revealing weights")
+        }
+
         while (true) {
             const currentBlock = await api.query.System.Number.getValue()
             const currentEpoch = Math.trunc(currentBlock / (100 + 1))
@@ -129,6 +185,19 @@ describe("Test neuron precompile reveal weights", () => {
             }
             await new Promise(resolve => setTimeout(resolve, 1000))
         }
+
+        await setStakeThreshold(api, alice, BigInt(1))
+        await assert.rejects(async () => {
+            const tx = await contract.revealWeights(
+                netuid,
+                uids,
+                values,
+                salt,
+                version_key
+            );
+            await tx.wait()
+        })
+        await setStakeThreshold(api, alice, BigInt(0))
 
         const tx = await contract.revealWeights(
             netuid,
