@@ -143,6 +143,8 @@ pub mod pallet {
         Proxy,
         /// Leasing precompile
         Leasing,
+        /// Address mapping precompile
+        AddressMapping,
     }
 
     #[pallet::type_value]
