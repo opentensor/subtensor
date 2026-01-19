@@ -562,7 +562,7 @@ fn build_owner_hparams(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>)
 
 // Staking ops group (config + usage shared, all ops 1 block).
 // usage: coldkey+hotkey+netuid
-// legacy sources: TxRateLimit (reset every block for staking ops), StakingOperationRateLimiter
+// legacy sources: StakingOperationRateLimiter (reset every block for staking ops)
 fn build_staking_ops(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
     groups.push(GroupConfig {
         id: GROUP_STAKING_OPS,
