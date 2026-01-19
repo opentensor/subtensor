@@ -141,6 +141,14 @@ impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for
             }
 
             match inner {
+                SubtensorCall::move_stake {
+                    origin_netuid,
+                    destination_netuid,
+                    ..
+                } if origin_netuid == destination_netuid => {
+                    // Legacy: same-netuid moves enforced but did not record usage.
+                    return BypassDecision::new(false, false);
+                }
                 SubtensorCall::set_childkey_take {
                     hotkey,
                     netuid,
