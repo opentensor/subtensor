@@ -22,7 +22,7 @@ pub struct EpochTerms {
     pub validator_trust: u16,
     pub new_validator_permit: bool,
     pub bond: Vec<(u16, u16)>,
-    pub stake: u64,
+    pub stake: AlphaCurrency,
 }
 
 pub struct EpochOutput<T: frame_system::Config>(pub BTreeMap<T::AccountId, EpochTerms>);
@@ -1017,7 +1017,11 @@ impl<T: Config> Pallet<T> {
                 .get(terms.uid)
                 .copied()
                 .unwrap_or_default();
-            terms.stake = raw_stake.get(terms.uid).copied().unwrap_or_default();
+            terms.stake = raw_stake
+                .get(terms.uid)
+                .copied()
+                .unwrap_or_default()
+                .into();
             let old_validator_permit = validator_permits
                 .get(terms.uid)
                 .copied()

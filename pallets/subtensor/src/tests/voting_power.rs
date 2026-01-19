@@ -39,7 +39,7 @@ fn build_mock_epoch_output(netuid: NetUid) -> BTreeMap<U256, EpochTerms> {
                 EpochTerms {
                     uid: uid as usize,
                     new_validator_permit: has_permit,
-                    stake,
+                    stake: stake.into(),
                     ..Default::default()
                 },
             );
@@ -583,7 +583,7 @@ fn test_voting_power_not_removed_with_small_dip_below_threshold() {
         // Build epoch output with stake that will produce EMA around 95% of threshold
         let mut epoch_output = build_mock_epoch_output(f.netuid);
         if let Some(terms) = epoch_output.get_mut(&f.hotkey) {
-            terms.stake = small_dip; // Stake drops but stays in buffer zone
+            terms.stake = small_dip.into(); // Stake drops but stays in buffer zone
         }
 
         SubtensorModule::update_voting_power_for_subnet(f.netuid, &epoch_output);
@@ -620,7 +620,7 @@ fn test_voting_power_removed_with_significant_drop_below_threshold() {
             EpochTerms {
                 uid: 0,
                 new_validator_permit: true,
-                stake: 0, // Complete unstake
+                stake: 0.into(), // Complete unstake
                 ..Default::default()
             },
         );

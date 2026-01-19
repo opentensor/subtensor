@@ -1,7 +1,7 @@
 use super::*;
 use crate::epoch::run_epoch::EpochTerms;
 use alloc::collections::BTreeMap;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 /// 14 days in blocks (assuming ~12 second blocks)
 /// 14 * 24 * 60 * 60 / 12 = 100800 blocks
@@ -182,7 +182,7 @@ impl<T: Config> Pallet<T> {
     fn update_voting_power_for_hotkey(
         netuid: NetUid,
         hotkey: &T::AccountId,
-        current_stake: u64,
+        current_stake: AlphaCurrency,
         alpha: u64,
         min_stake: u64,
     ) {
@@ -192,7 +192,7 @@ impl<T: Config> Pallet<T> {
         // Calculate new EMA value
         // new_ema = alpha * current_stake + (1 - alpha) * previous_ema
         // All values use 18 decimal precision for alpha (alpha is in range [0, 10^18])
-        let new_ema = Self::calculate_voting_power_ema(current_stake, previous_ema, alpha);
+        let new_ema = Self::calculate_voting_power_ema(current_stake.to_u64(), previous_ema, alpha);
 
         // Only remove if they previously had voting power ABOVE threshold and decayed below.
         // This allows new validators to build up voting power from 0 without being removed.
