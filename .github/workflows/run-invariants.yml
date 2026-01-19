@@ -66,6 +66,16 @@ jobs:
         run: ./scripts/invariants/install_baedeker.sh
 
       # -------------------------------
+      # Login to GHCR
+      # -------------------------------
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # -------------------------------
       # Generate chain spec
       # -------------------------------
       - name: Generate chain spec
