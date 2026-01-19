@@ -266,10 +266,6 @@ mod errors {
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.
         InvalidSubnetNumber,
-        /// Voting power tracking is not enabled for this subnet.
-        VotingPowerTrackingNotEnabled,
-        /// Invalid voting power EMA alpha value (must be <= 10^18).
-        InvalidVotingPowerEmaAlpha,
         /// Unintended precision loss when unstaking alpha
         PrecisionLoss,
     }
