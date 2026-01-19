@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13]
     env:
       RUST_BACKTRACE: full
     steps:
@@ -61,7 +61,7 @@ jobs:
       - name: Run tests
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 90
+          timeout_minutes: 120
           max_attempts: 5
           retry_wait_seconds: 60
           command: |
