@@ -1,0 +1,88 @@
+name: Check Node Compat
+
+on:
+  pull_request:
+    types: [labeled]
+    branches: [devnet-ready]
+
+concurrency:
+  group: check-node-compat-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build ${{ matrix.version.name }}
+    runs-on: [self-hosted, type-ccx33]
+    if: contains(github.event.pull_request.labels.*.name, 'check-node-compat')
+    env:
+        RUST_BACKTRACE: full
+    strategy:
+      matrix:
+        version:
+          - { name: old, ref: devnet-ready }
+          - { name: new, ref: ${{ github.head_ref }} }
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+        
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "check-node-compat-${{ matrix.version.name }}"
+      
+      - name: Checkout ${{ matrix.version.name }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.version.ref }}
+          path: ${{ matrix.version.name }}
+
+      - name: Build ${{ matrix.version.name }}
+        working-directory: ${{ matrix.version.name }}
+        run: cargo build --release --locked
+        
+      - name: Upload ${{ matrix.version.name }} node binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-subtensor-${{ matrix.version.name }}
+          path: ${{ matrix.version.name }}/target/release/node-subtensor
+          retention-days: 1
+          
+  test:
+    needs: [build]
+    runs-on: [self-hosted, type-ccx33]
+    steps:
+      - name: Download old node binary
+        uses: actions/download-artifact@v4
+        with:
+          name: node-subtensor-old
+          path: /tmp/node-subtensor-old
+          
+      - name: Download new node binary
+        uses: actions/download-artifact@v4
+        with:
+          name: node-subtensor-new
+          path: /tmp/node-subtensor-new
+          
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install npm dependencies
+        working-directory: ${{ github.workspace }}/.github/workflows/check-node-compat
+        run: npm install
+        
+      - name: Run test
+        working-directory: ${{ github.workspace }}/.github/workflows/check-node-compat
+        run: npm run test
