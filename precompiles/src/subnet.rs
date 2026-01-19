@@ -1,12 +1,13 @@
 use core::marker::PhantomData;
 
-use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::ConstU32;
+use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable};
 use sp_std::vec;
 use subtensor_runtime_common::{Currency, NetUid};
 
@@ -17,14 +18,21 @@ pub struct SubnetPrecompile<R>(PhantomData<R>);
 impl<R> PrecompileExt<R::AccountId> for SubnetPrecompile<R>
 where
     R: frame_system::Config
+        + pallet_balances::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_admin_utils::Config,
+        + pallet_admin_utils::Config
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     const INDEX: u64 = 2051;
@@ -34,14 +42,21 @@ where
 impl<R> SubnetPrecompile<R>
 where
     R: frame_system::Config
+        + pallet_balances::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_admin_utils::Config,
+        + pallet_admin_utils::Config
+        + Send
+        + Sync
+        + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<pallet_balances::Call<R>>
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     #[precompile::public("registerNetwork(bytes32)")]

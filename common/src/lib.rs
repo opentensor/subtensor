@@ -184,7 +184,33 @@ impl TryFrom<u8> for ProxyType {
             14 => Ok(Self::SudoUncheckedSetCode),
             15 => Ok(Self::SwapHotkey),
             16 => Ok(Self::SubnetLeaseBeneficiary),
+            17 => Ok(Self::RootClaim),
             _ => Err(()),
+        }
+    }
+}
+
+impl From<ProxyType> for u8 {
+    fn from(proxy_type: ProxyType) -> Self {
+        match proxy_type {
+            ProxyType::Any => 0,
+            ProxyType::Owner => 1,
+            ProxyType::NonCritical => 2,
+            ProxyType::NonTransfer => 3,
+            ProxyType::Senate => 4,
+            ProxyType::NonFungible => 5,
+            ProxyType::Triumvirate => 6,
+            ProxyType::Governance => 7,
+            ProxyType::Staking => 8,
+            ProxyType::Registration => 9,
+            ProxyType::Transfer => 10,
+            ProxyType::SmallTransfer => 11,
+            ProxyType::RootWeights => 12,
+            ProxyType::ChildKeys => 13,
+            ProxyType::SudoUncheckedSetCode => 14,
+            ProxyType::SwapHotkey => 15,
+            ProxyType::SubnetLeaseBeneficiary => 16,
+            ProxyType::RootClaim => 17,
         }
     }
 }

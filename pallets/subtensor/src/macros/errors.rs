@@ -268,5 +268,7 @@ mod errors {
         InvalidSubnetNumber,
         /// The maximum allowed UIDs times mechanism count should not exceed 256.
         TooManyUIDsPerMechanism,
+        /// Unintended precision loss when unstaking alpha
+        PrecisionLoss,
     }
 }

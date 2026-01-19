@@ -330,9 +330,9 @@ pub mod pallet {
     /// Enum for the per-coldkey root claim setting.
     pub enum RootClaimTypeEnum {
         /// Swap any alpha emission for TAO.
+        #[default]
         Swap,
         /// Keep all alpha emission.
-        #[default]
         Keep,
         /// Keep all alpha emission for specified subnets.
         KeepSubnets {
@@ -1514,6 +1514,10 @@ pub mod pallet {
     pub type NetworkImmunityPeriod<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
 
+    /// ITEM( start_call_delay )
+    #[pallet::storage]
+    pub type StartCallDelay<T: Config> = StorageValue<_, u64, ValueQuery, T::InitialStartCallDelay>;
+
     /// ITEM( min_network_lock_cost )
     #[pallet::storage]
     pub type NetworkMinLockCost<T> =
@@ -2364,10 +2368,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
-    /// Default value for pending childkey cooldown (settable by root, default 0)
+    /// Default value for pending childkey cooldown (settable by root).
+    /// Uses the same value as DefaultPendingCooldown for consistency.
     #[pallet::type_value]
     pub fn DefaultPendingChildKeyCooldown<T: Config>() -> u64 {
-        0
+        DefaultPendingCooldown::<T>::get()
     }
 
     /// Storage value for pending childkey cooldown, settable by root.
@@ -2381,6 +2386,8 @@ pub mod pallet {
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
         /// The total issued balance in genesis
         pub balances_issuance: TaoCurrency,
+        /// The delay before a subnet can call start
+        pub start_call_delay: Option<u64>,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -2388,6 +2395,7 @@ pub mod pallet {
             Self {
                 stakes: Default::default(),
                 balances_issuance: TaoCurrency::ZERO,
+                start_call_delay: None,
             }
         }
     }

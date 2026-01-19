@@ -298,6 +298,8 @@ impl<T: Config> Pallet<T> {
         SubnetTaoInEmission::<T>::remove(netuid);
         SubnetVolume::<T>::remove(netuid);
         SubnetMovingPrice::<T>::remove(netuid);
+        SubnetTaoFlow::<T>::remove(netuid);
+        SubnetEmaTaoFlow::<T>::remove(netuid);
         SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
@@ -539,6 +541,10 @@ impl<T: Config> Pallet<T> {
     pub fn set_network_immunity_period(net_immunity_period: u64) {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
         Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
+    }
+    pub fn set_start_call_delay(delay: u64) {
+        StartCallDelay::<T>::set(delay);
+        Self::deposit_event(Event::StartCallDelaySet(delay));
     }
     pub fn set_network_min_lock(net_min_lock: TaoCurrency) {
         NetworkMinLockCost::<T>::set(net_min_lock);

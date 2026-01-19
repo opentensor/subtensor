@@ -143,6 +143,8 @@ pub mod pallet {
         Proxy,
         /// Leasing precompile
         Leasing,
+        /// Address mapping precompile
+        AddressMapping,
     }
 
     #[pallet::type_value]
@@ -1624,7 +1626,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(62)]
         #[pallet::weight((
-            Weight::from_parts(10_020_000, 3507)
+            Weight::from_parts(5_744_000, 3507)
 			    .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(0_u64)),
             DispatchClass::Operational,
@@ -2258,6 +2260,21 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_min_non_immune_uids(netuid, min);
+            Ok(())
+        }
+
+        /// Sets the delay before a subnet can call start
+        #[pallet::call_index(85)]
+        #[pallet::weight((
+            Weight::from_parts(14_000_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_start_call_delay(origin: OriginFor<T>, delay: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_start_call_delay(delay);
+            log::debug!("StartCallDelay( delay: {delay:?} ) ");
             Ok(())
         }
     }

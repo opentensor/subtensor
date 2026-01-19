@@ -91,11 +91,10 @@ impl Default for ShieldKeys {
 }
 
 /// Shared context state.
-#[freeze_struct("62af7d26cf7c1271")]
+#[freeze_struct("245b565abca7d403")]
 #[derive(Clone)]
 pub struct ShieldContext {
     pub keys: Arc<Mutex<ShieldKeys>>,
-    pub timing: TimeParams,
 }
 
 /// Derive AEAD key directly from the 32‑byte ML‑KEM shared secret.
@@ -153,7 +152,6 @@ where
 {
     let ctx = ShieldContext {
         keys: Arc::new(Mutex::new(ShieldKeys::new())),
-        timing: timing.clone(),
     };
 
     let aura_keys: Vec<sp_core::sr25519::Public> = keystore.sr25519_public_keys(AURA_KEY_TYPE);
@@ -391,6 +389,8 @@ where
             >::new(pallet_transaction_payment::ChargeTransactionPayment::<
                 runtime::Runtime,
             >::from(0u64)),
+            node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(
+            ),
             pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<
                 runtime::Runtime,
             >::new(),
@@ -427,6 +427,7 @@ where
         (),           // CheckNonce::Implicit = ()
         (),           // CheckWeight::Implicit = ()
         (),           // ChargeTransactionPaymentWrapper::Implicit = ()
+        (),           // SudoTransactionExtension::Implicit = ()
         (),           // SubtensorTransactionExtension::Implicit = ()
         (),           // DrandPriority::Implicit = ()
         None,         // CheckMetadataHash::Implicit = Option<[u8; 32]>

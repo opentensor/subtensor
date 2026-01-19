@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_nonce;
 mod migrations;
+pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
 
 extern crate alloc;
@@ -60,7 +61,9 @@ use sp_runtime::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
-    transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
+    transaction_validity::{
+        TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
+    },
 };
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
@@ -173,6 +176,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             ChargeTransactionPaymentWrapper::new(
                 pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
             ),
+            SudoTransactionExtension::<Runtime>::new(),
             pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(
             ),
             pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
@@ -237,7 +241,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 364,
+    spec_version: 370,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -336,7 +340,7 @@ impl frame_system::Config for Runtime {
     // The data to be stored in an account.
     type AccountData = pallet_balances::AccountData<Balance>;
     // Weight information for the extrinsics of this pallet.
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
     // This is used as an identifier of the chain. 42 is the generic substrate prefix.
     type SS58Prefix = SS58Prefix;
     // The set code logic, just the default since we're not a parachain.
@@ -349,7 +353,7 @@ impl frame_system::Config for Runtime {
     type PreInherents = ();
     type PostInherents = ();
     type PostTransactions = ();
-    type ExtensionsWeightInfo = ();
+    type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -367,7 +371,7 @@ impl pallet_grandpa::Config for Runtime {
 
     type KeyOwnerProof = sp_core::Void;
 
-    type WeightInfo = ();
+    type WeightInfo = (); // pallet_grandpa exports only default implementation
     type MaxAuthorities = ConstU32<32>;
     type MaxSetIdSessionEntries = ConstU64<0>;
     type MaxNominators = ConstU32<20>;
@@ -405,7 +409,7 @@ impl pallet_timestamp::Config for Runtime {
     type Moment = u64;
     type OnTimestampSet = Aura;
     type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-    type WeightInfo = ();
+    type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -1053,8 +1057,8 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    // 7 * 24 * 60 * 60 / 12 = 7 days
-    pub const DurationOfStartCall: u64 = prod_or_fast!(7 * 24 * 60 * 60 / 12, 10);
+    // 0 days
+    pub const InitialStartCallDelay: u64 = 0;
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
@@ -1124,7 +1128,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
-    type DurationOfStartCall = DurationOfStartCall;
+    type InitialStartCallDelay = InitialStartCallDelay;
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = SubtensorInitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
@@ -1158,6 +1162,7 @@ impl pallet_subtensor_swap::Config for Runtime {
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
 }
 
+use crate::sudo_wrapper::SudoTransactionExtension;
 use crate::transaction_payment_wrapper::ChargeTransactionPaymentWrapper;
 use sp_runtime::BoundedVec;
 
@@ -1221,6 +1226,10 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
 }
 
 const BLOCK_GAS_LIMIT: u64 = 75_000_000;
+pub const NORMAL_DISPATCH_BASE_PRIORITY: TransactionPriority = 1;
+pub const OPERATIONAL_DISPATCH_PRIORITY: TransactionPriority = 10_000_000_000;
+const EVM_TRANSACTION_BASE_PRIORITY: TransactionPriority = NORMAL_DISPATCH_BASE_PRIORITY;
+const EVM_LOG_TARGET: &str = "runtime::ethereum";
 
 /// `WeightPerGas` is an approximate ratio of the amount of Weight per Gas.
 ///
@@ -1384,6 +1393,35 @@ impl<B: BlockT> fp_rpc::ConvertTransaction<<B as BlockT>::Extrinsic> for Transac
     }
 }
 
+fn adjust_evm_priority_and_warn(
+    validity: &mut Option<TransactionValidity>,
+    priority_fee: Option<U256>,
+    info: &H160,
+) {
+    if let Some(Ok(valid_transaction)) = validity.as_mut() {
+        let original_priority = valid_transaction.priority;
+        valid_transaction.priority = EVM_TRANSACTION_BASE_PRIORITY;
+
+        let has_priority_fee = priority_fee.is_some_and(|fee| !fee.is_zero());
+        if has_priority_fee {
+            log::warn!(
+                target: EVM_LOG_TARGET,
+                "Priority fee/tip from {:?} (max_priority_fee_per_gas: {:?}) is ignored for transaction ordering",
+                info,
+                priority_fee.unwrap_or_default(),
+            );
+        } else if original_priority > EVM_TRANSACTION_BASE_PRIORITY {
+            log::warn!(
+                target: EVM_LOG_TARGET,
+                "EVM transaction priority from {:?} reduced from {} to {}; priority tips are ignored for ordering",
+                info,
+                original_priority,
+                EVM_TRANSACTION_BASE_PRIORITY,
+            );
+        }
+    }
+}
+
 impl fp_self_contained::SelfContainedCall for RuntimeCall {
     type SignedInfo = H160;
 
@@ -1408,7 +1446,21 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         len: usize,
     ) -> Option<TransactionValidity> {
         match self {
-            RuntimeCall::Ethereum(call) => call.validate_self_contained(info, dispatch_info, len),
+            RuntimeCall::Ethereum(call) => {
+                let priority_fee = match call {
+                    pallet_ethereum::Call::transact { transaction } => match transaction {
+                        EthereumTransaction::EIP1559(tx) => Some(tx.max_priority_fee_per_gas),
+                        EthereumTransaction::EIP7702(tx) => Some(tx.max_priority_fee_per_gas),
+                        _ => None,
+                    },
+                    _ => None,
+                };
+
+                let mut validity = call.validate_self_contained(info, dispatch_info, len);
+                adjust_evm_priority_and_warn(&mut validity, priority_fee, info);
+
+                validity
+            }
             _ => None,
         }
     }
@@ -1609,6 +1661,7 @@ pub type TransactionExtensions = (
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     ChargeTransactionPaymentWrapper<Runtime>,
+    SudoTransactionExtension<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
@@ -2616,6 +2669,52 @@ fn test_into_substrate_balance_zero_value() {
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
+}
+
+#[test]
+fn evm_priority_overrides_tip_to_base() {
+    let mut validity: Option<TransactionValidity> =
+        Some(Ok(sp_runtime::transaction_validity::ValidTransaction {
+            priority: 99,
+            requires: vec![],
+            provides: vec![],
+            longevity: sp_runtime::transaction_validity::TransactionLongevity::MAX,
+            propagate: true,
+        }));
+
+    let signer = H160::repeat_byte(1);
+    adjust_evm_priority_and_warn(&mut validity, Some(U256::from(10)), &signer);
+
+    let adjusted_priority = validity
+        .as_ref()
+        .and_then(|v| v.as_ref().ok())
+        .map(|v| v.priority);
+
+    assert_eq!(adjusted_priority, Some(EVM_TRANSACTION_BASE_PRIORITY));
+}
+
+#[test]
+fn evm_priority_cannot_overtake_unstake() {
+    // Unstake is a normal-class extrinsic (priority = NORMAL_DISPATCH_BASE_PRIORITY).
+    let unstake_priority: TransactionPriority = NORMAL_DISPATCH_BASE_PRIORITY;
+    let evm_priority: TransactionPriority = EVM_TRANSACTION_BASE_PRIORITY;
+
+    // Clamp guarantees the EVM tx is never above the unstake priority.
+    assert!(evm_priority <= unstake_priority);
+
+    // If both arrive with equal priority, arrival order keeps unstake first.
+    let mut queue: Vec<(&str, TransactionPriority, usize)> = vec![
+        ("unstake", unstake_priority, 0), // arrives first
+        ("evm", evm_priority, 1),         // arrives later
+    ];
+
+    queue.sort_by(|a, b| {
+        b.1.cmp(&a.1) // higher priority first
+            .then_with(|| a.2.cmp(&b.2)) // earlier arrival first when equal
+    });
+
+    let first = queue.first().map(|entry| entry.0);
+    assert_eq!(first, Some("unstake"));
 }
 
 #[test]
