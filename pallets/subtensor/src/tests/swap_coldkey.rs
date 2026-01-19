@@ -185,8 +185,9 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
 
         assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
 
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost.into());
+        let swap_cost = SubtensorModule::get_key_swap_cost().to_u64();
+        let ed = ExistentialDeposit::get();
+        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost + ed);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
@@ -229,6 +230,8 @@ fn test_swap_coldkey_announced_works() {
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         run_to_block(now + delay);
 
+        SubtensorModule::add_balance_to_coldkey_account(&who, left_over + stake1 + stake2 + stake3);
+
         let (
             netuid1,
             netuid2,
@@ -244,7 +247,6 @@ fn test_swap_coldkey_announced_works() {
             who,
             new_coldkey,
             new_coldkey_hash,
-            left_over,
             stake1,
             stake2,
             stake3,
@@ -274,7 +276,8 @@ fn test_swap_coldkey_announced_works() {
             hk2_alpha,
             hk3_alpha,
             total_ck_stake,
-            total_stake_before
+            total_stake_before,
+            0_u64 // Charged on announcement
         );
     });
 }
@@ -358,7 +361,8 @@ fn test_swap_coldkey_announced_with_already_associated_coldkey_fails() {
         let hotkey = U256::from(3);
 
         let swap_cost = SubtensorModule::get_key_swap_cost().to_u64();
-        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost);
+        let ed = ExistentialDeposit::get();
+        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost + ed);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
@@ -418,13 +422,16 @@ fn test_swap_coldkey_works() {
         let hotkey2 = U256::from(1002);
         let hotkey3 = U256::from(1003);
         let left_over = 12345;
+        let swap_cost = SubtensorModule::get_key_swap_cost();
         let min_stake = DefaultMinStake::<Test>::get().to_u64();
         let stake1 = min_stake * 10;
         let stake2 = min_stake * 20;
         let stake3 = min_stake * 30;
 
-        let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost.to_u64());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &old_coldkey,
+            swap_cost.to_u64() + left_over + stake1 + stake2 + stake3,
+        );
 
         let (
             netuid1,
@@ -441,7 +448,6 @@ fn test_swap_coldkey_works() {
             old_coldkey,
             new_coldkey,
             new_coldkey_hash,
-            left_over,
             stake1,
             stake2,
             stake3,
@@ -473,7 +479,8 @@ fn test_swap_coldkey_works() {
             hk2_alpha,
             hk3_alpha,
             total_ck_stake,
-            total_stake_before
+            total_stake_before,
+            swap_cost.to_u64()
         );
     });
 }
@@ -504,6 +511,39 @@ fn test_swap_coldkey_with_bad_origin_fails() {
                 swap_cost
             ),
             BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        // No balance to pay swap cost
+        assert_noop!(
+            SubtensorModule::swap_coldkey(
+                RuntimeOrigin::root(),
+                old_coldkey,
+                new_coldkey,
+                swap_cost
+            ),
+            Error::<Test>::NotEnoughBalanceToPaySwapColdKey
+        );
+
+        // Needs to preserve ED
+        let balance = SubtensorModule::get_key_swap_cost().to_u64() + ExistentialDeposit::get() - 1;
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, balance);
+        assert_noop!(
+            SubtensorModule::swap_coldkey(
+                RuntimeOrigin::root(),
+                old_coldkey,
+                new_coldkey,
+                swap_cost
+            ),
+            Error::<Test>::NotEnoughBalanceToPaySwapColdKey
         );
     });
 }
@@ -541,6 +581,15 @@ fn test_announce_coldkey_swap_with_not_enough_balance_to_pay_swap_cost_fails() {
         let new_coldkey = U256::from(2);
         let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
 
+        // No balance to pay swap cost
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_hash),
+            Error::<Test>::NotEnoughBalanceToPaySwapColdKey
+        );
+
+        // Needs to preserve ED
+        let balance = SubtensorModule::get_key_swap_cost().to_u64() + ExistentialDeposit::get() - 1;
+        SubtensorModule::add_balance_to_coldkey_account(&who, balance);
         assert_noop!(
             SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_hash),
             Error::<Test>::NotEnoughBalanceToPaySwapColdKey
@@ -1440,7 +1489,6 @@ macro_rules! comprehensive_setup {
         $who:expr,
         $new_coldkey:expr,
         $new_coldkey_hash:expr,
-        $left_over:expr,
         $stake1:expr,
         $stake2:expr,
         $stake3:expr,
@@ -1448,11 +1496,6 @@ macro_rules! comprehensive_setup {
         $hotkey2:expr,
         $hotkey3:expr
     ) => {{
-        SubtensorModule::add_balance_to_coldkey_account(
-            &$who,
-            $stake1 + $stake2 + $stake3 + $left_over,
-        );
-
         // Setup networks and subnet ownerships
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
@@ -1561,17 +1604,15 @@ macro_rules! comprehensive_checks {
         $hk2_alpha:expr,
         $hk3_alpha:expr,
         $total_ck_stake:expr,
-        $total_stake_before:expr
+        $total_stake_before:expr,
+        $swap_cost:expr
     ) => {
         // Ensure the announcement has been consumed
         assert!(!ColdkeySwapAnnouncements::<Test>::contains_key($who));
 
-        // // Ensure the cost has been withdrawn from the old coldkey and recycled
-        // let balance_after = SubtensorModule::get_coldkey_balance(&$who);
-        // assert_eq!(
-        //     $balance_before - $swap_cost.to_u64(),
-        //     balance_after + $left_over
-        // );
+        // Ensure the cost has been withdrawn from the old coldkey and recycled
+        let balance_after = SubtensorModule::get_coldkey_balance(&$who);
+        assert_eq!($balance_before - $swap_cost, balance_after + $left_over);
 
         // Ensure the identity is correctly swapped
         assert!(IdentitiesV2::<Test>::get($who).is_none());

@@ -50,12 +50,13 @@ impl<T: Config> Pallet<T> {
 
     /// Charges the swap cost from the coldkey's account and recycles the tokens.
     pub fn charge_swap_cost(coldkey: &T::AccountId, swap_cost: TaoCurrency) -> DispatchResult {
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(coldkey, swap_cost.into()),
-            Error::<T>::NotEnoughBalanceToPaySwapColdKey
-        );
+        let burn_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost.into())
+            .map_err(|_| Error::<T>::NotEnoughBalanceToPaySwapColdKey)?;
 
-        let burn_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost.into())?;
+        if burn_amount < swap_cost {
+            return Err(Error::<T>::NotEnoughBalanceToPaySwapColdKey.into());
+        }
+
         Self::recycle_tao(burn_amount);
 
         Ok(())
