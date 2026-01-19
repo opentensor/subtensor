@@ -36,14 +36,13 @@ where
     <T as frame_system::Config>::RuntimeCall: IsSubType<pallet_shield::Call<T>>,
 {
     fn is_announce_next_key(call: &Self::RuntimeCall) -> bool {
-        if let Some(mev_call) = IsSubType::<pallet_shield::Call<T>>::is_sub_type(call) {
-            match mev_call {
-                pallet_shield::Call::<T>::announce_next_key { .. } => true,
-                _ => false,
-            }
-        } else {
-            false
+        if let Some(pallet_shield::Call::<T>::announce_next_key { .. }) =
+            IsSubType::<pallet_shield::Call<T>>::is_sub_type(call)
+        {
+            return true;
         }
+
+        false
     }
 
     fn ensure_validator(origin: DispatchOriginOf<Self::RuntimeCall>) -> bool {
