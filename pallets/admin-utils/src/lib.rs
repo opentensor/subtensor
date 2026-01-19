@@ -145,8 +145,6 @@ pub mod pallet {
         Leasing,
         /// Address mapping precompile
         AddressMapping,
-        /// Voting power precompile
-        VotingPower,
     }
 
     #[pallet::type_value]

@@ -472,35 +472,6 @@ mod events {
             root_claim_type: RootClaimTypeEnum,
         },
 
-        /// Voting power tracking has been enabled for a subnet.
-        VotingPowerTrackingEnabled {
-            /// The subnet ID
-            netuid: NetUid,
-        },
-
-        /// Voting power tracking has been scheduled for disabling.
-        /// Tracking will continue until disable_at_block, then stop and clear entries.
-        VotingPowerTrackingDisableScheduled {
-            /// The subnet ID
-            netuid: NetUid,
-            /// Block at which tracking will be disabled
-            disable_at_block: u64,
-        },
-
-        /// Voting power tracking has been fully disabled and entries cleared.
-        VotingPowerTrackingDisabled {
-            /// The subnet ID
-            netuid: NetUid,
-        },
-
-        /// Voting power EMA alpha has been set for a subnet.
-        VotingPowerEmaAlphaSet {
-            /// The subnet ID
-            netuid: NetUid,
-            /// The new alpha value (u64 with 18 decimal precision)
-            alpha: u64,
-        },
-
         /// Subnet lease dividends have been distributed.
         SubnetLeaseDividendsDistributed {
             /// The lease ID
