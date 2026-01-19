@@ -415,10 +415,6 @@ impl<T: Config> Pallet<T> {
     // ========================
 
     // Configure tx rate limiting
-    pub fn get_tx_rate_limit() -> u64 {
-        TxRateLimit::<T>::get()
-    }
-
     pub fn set_tx_rate_limit(tx_rate_limit: u64) {
         TxRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxRateLimitSet(tx_rate_limit));

@@ -725,13 +725,13 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         let tx_rate_limit = 1;
 
         // Get the current transaction rate limit
-        let current_tx_rate_limit = SubtensorModule::get_tx_rate_limit();
+        let current_tx_rate_limit = TxRateLimit::<Test>::get();
         log::info!("current_tx_rate_limit: {current_tx_rate_limit:?}");
 
         // Set the transaction rate limit
         SubtensorModule::set_tx_rate_limit(tx_rate_limit);
         // assert the rate limit is set to 1000 blocks
-        assert_eq!(SubtensorModule::get_tx_rate_limit(), tx_rate_limit);
+        assert_eq!(TxRateLimit::<Test>::get(), tx_rate_limit);
 
         // Setup initial state
         add_network(netuid, tempo, 0);

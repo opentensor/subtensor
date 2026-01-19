@@ -242,7 +242,7 @@ impl<T: Config> Pallet<T> {
         );
     }
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
-        let rate_limit: u64 = Self::get_tx_rate_limit();
+        let rate_limit: u64 = TxRateLimit::<T>::get();
         if rate_limit == 0 || prev_tx_block == 0 {
             return false;
         }
