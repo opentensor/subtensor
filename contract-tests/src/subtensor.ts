@@ -418,5 +418,5 @@ export async function setNetworkLastLockCost(api: TypedApi<typeof devnet>, defau
     await waitForTransactionWithRetry(api, tx, alice)
 
     const valueOnChain = await api.query.SubtensorModule.NetworkLastLockCost.getValue()
-    assert.equal(BigInt(0), valueOnChain)
+    assert.equal(defaultNetworkLastLockCost, valueOnChain)
 }
