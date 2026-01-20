@@ -76,8 +76,8 @@ describe("Test VotingPower Precompile", () => {
 
             assert.ok(alpha !== undefined, "getVotingPowerEmaAlpha should return a value");
             assert.strictEqual(typeof alpha, 'bigint', "getVotingPowerEmaAlpha should return a bigint");
-            // Default alpha is 0.1 * 10^18 = 100_000_000_000_000_000
-            assert.strictEqual(alpha, BigInt("100000000000000000"), "Default alpha should be 0.1 (100_000_000_000_000_000)");
+            // Default alpha is  0_003_570_000_000_000_000 // 0.00357 * 10^18 = 2 weeks e-folding (time-constant) @ 361
+            assert.strictEqual(alpha, BigInt("3570000000000000"), "Default alpha should be 0.00357 * 10^18 (3570000000000000)");
         });
     });
 
