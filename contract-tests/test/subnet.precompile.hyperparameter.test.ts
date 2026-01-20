@@ -2,7 +2,7 @@ import * as assert from "assert";
 
 import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { devnet } from "@polkadot-api/descriptors"
-import { Binary, TypedApi, getTypedCodecs } from "polkadot-api";
+import { Binary, Enum, TypedApi, getTypedCodecs } from "polkadot-api";
 import { convertH160ToSS58, convertPublicKeyToSs58 } from "../src/address-utils"
 import { generateRandomEthersWallet } from "../src/utils";
 import { ISubnetABI, ISUBNET_ADDRESS } from "../src/contracts/subnet"
@@ -98,15 +98,14 @@ describe("Test the Subnet precompile contract", () => {
         const tx = await contract.setServingRateLimit(netuid, newValue);
         await tx.wait();
 
-        const limits = await api.query.RateLimiting.Limits.getValue({ Group: 0 } as any) as any;
-        assert.ok(limits?.tag === "Scoped");
+        const limits = await api.query.RateLimiting.Limits.getValue(Enum("Group", 0) as any) as any;
+        assert.ok(limits?.type === "Scoped");
         const entry = Array.from(limits.value as any).find(
             (item: any) => Number(item[0]) === netuid,
         );
         assert.ok(entry);
-        assert.ok(entry[1]?.tag === "Exact");
+        assert.ok(entry[1]?.type === "Exact");
         const onchainValue = Number(entry[1].value);
-
 
         let valueFromContract = Number(
             await contract.getServingRateLimit(netuid)

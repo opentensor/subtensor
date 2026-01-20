@@ -1,11 +1,15 @@
 import * as assert from "assert";
 import { devnet, MultiAddress } from '@polkadot-api/descriptors';
-import { TypedApi, TxCallData, Binary } from 'polkadot-api';
+import { TypedApi, TxCallData, Binary, Enum } from 'polkadot-api';
 import { KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair, waitForTransactionWithRetry } from './substrate'
 import { convertH160ToSS58, convertPublicKeyToSs58, ethAddressToH160 } from './address-utils'
 import { tao } from './balance-math'
 import internal from "stream";
+
+const rateLimitTargetGroup = (groupId: number) => Enum("Group", groupId);
+const rateLimitKindExact = (limit: bigint | number) =>
+    Enum("Exact", typeof limit === "bigint" ? Number(limit) : limit);
 
 // create a new subnet and return netuid
 export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: KeyPair, coldkey: KeyPair) {
@@ -13,16 +17,16 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
 
     const registerNetworkGroupId = 3; // GROUP_REGISTER_NETWORK constant
-    const target = { Group: registerNetworkGroupId } as const;
+    const target = rateLimitTargetGroup(registerNetworkGroupId);
     const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
-    assert.ok(limits?.tag === "Global");
-    assert.ok(limits.value?.tag === "Exact");
+    assert.ok(limits?.type === "Global");
+    assert.ok(limits.value?.type === "Exact");
     const rateLimit = BigInt(limits.value.value);
     if (rateLimit !== BigInt(0)) {
         const internalCall = api.tx.RateLimiting.set_rate_limit({
             target: target as any,
             scope: undefined,
-            limit: { Exact: BigInt(0) },
+            limit: rateLimitKindExact(0),
         })
         const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
         await waitForTransactionWithRetry(api, tx, alice)
@@ -76,27 +80,26 @@ export async function setCommitRevealWeightsEnabled(api: TypedApi<typeof devnet>
 
 export async function setWeightsSetRateLimit(api: TypedApi<typeof devnet>, netuid: number, rateLimit: bigint) {
     const weightsSetGroupId = 2; // GROUP_WEIGHTS_SET constant
-    const target = { Group: weightsSetGroupId } as const;
+    const target = rateLimitTargetGroup(weightsSetGroupId);
     const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
-    assert.ok(limits?.tag === "Scoped");
+    assert.ok(limits?.type === "Scoped");
     const entries = Array.from(limits.value as any);
     const entry = entries.find((item: any) => Number(item[0]) === netuid);
     const currentLimit = entry ? BigInt(entry[1].value) : BigInt(0);
     if (currentLimit === rateLimit) {
         return;
     }
-
     const alice = getAliceSigner()
     const internalCall = api.tx.RateLimiting.set_rate_limit({
         target: target as any,
         scope: netuid,
-        limit: { Exact: rateLimit },
+        limit: rateLimitKindExact(rateLimit),
     })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
     await waitForTransactionWithRetry(api, tx, alice)
     const updated = await api.query.RateLimiting.Limits.getValue(target as any) as any;
-    assert.ok(updated?.tag === "Scoped");
+    assert.ok(updated?.type === "Scoped");
     const updatedEntry = Array.from(updated.value as any).find(
         (item: any) => Number(item[0]) === netuid,
     );
