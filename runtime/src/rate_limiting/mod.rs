@@ -329,23 +329,44 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     hotkey,
                     origin_netuid: netuid,
                     ..
+                } => {
+                    let coldkey = signed_origin(origin)?;
+                    Some(vec![RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
+                        coldkey,
+                        hotkey: hotkey.clone(),
+                        netuid: *netuid,
+                    }])
                 }
-                | SubtensorCall::swap_stake {
+                SubtensorCall::swap_stake {
                     hotkey,
-                    origin_netuid: netuid,
+                    destination_netuid: netuid,
                     ..
                 }
                 | SubtensorCall::swap_stake_limit {
                     hotkey,
-                    origin_netuid: netuid,
-                    ..
-                }
-                | SubtensorCall::move_stake {
-                    origin_hotkey: hotkey,
-                    origin_netuid: netuid,
+                    destination_netuid: netuid,
                     ..
                 } => {
                     let coldkey = signed_origin(origin)?;
+                    Some(vec![RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
+                        coldkey,
+                        hotkey: hotkey.clone(),
+                        netuid: *netuid,
+                    }])
+                }
+                SubtensorCall::move_stake {
+                    origin_hotkey,
+                    destination_hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    ..
+                } => {
+                    let coldkey = signed_origin(origin)?;
+                    let (hotkey, netuid) = if origin_netuid == destination_netuid {
+                        (origin_hotkey, origin_netuid)
+                    } else {
+                        (destination_hotkey, destination_netuid)
+                    };
                     Some(vec![RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
                         coldkey,
                         hotkey: hotkey.clone(),

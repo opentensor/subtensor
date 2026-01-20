@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use codec::{Compact, Encode};
-use frame_support::assert_ok;
+use frame_support::{assert_ok, traits::Get};
 use node_subtensor_runtime::{
     Executive, Runtime, RuntimeCall, SignedPayload, SubtensorInitialTxDelegateTakeRateLimit,
     System, TransactionExtensions, UncheckedExtrinsic, check_nonce,
@@ -14,7 +14,7 @@ use sp_runtime::{
     traits::SaturatedConversion,
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
-use subtensor_runtime_common::{AccountId, MechId, NetUid};
+use subtensor_runtime_common::{AccountId, AlphaCurrency, Currency, MechId, NetUid};
 
 use common::ExtBuilder;
 
@@ -75,6 +75,22 @@ fn setup_weights_network(netuid: NetUid, hotkey: &AccountId, block: u64, mechani
     }
     System::set_block_number(block.saturated_into());
     pallet_subtensor::Pallet::<Runtime>::append_neuron(netuid, hotkey, block);
+}
+
+fn setup_staking_network(netuid: NetUid) {
+    pallet_subtensor::Pallet::<Runtime>::init_new_network(netuid, 1);
+    pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
+    pallet_subtensor::TransferToggle::<Runtime>::insert(netuid, true);
+}
+
+fn seed_stake(netuid: NetUid, hotkey: &AccountId, coldkey: &AccountId, alpha: u64) {
+    pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
+    pallet_subtensor::Pallet::<Runtime>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        hotkey,
+        coldkey,
+        netuid,
+        AlphaCurrency::from(alpha),
+    );
 }
 
 #[test]
@@ -587,5 +603,216 @@ fn batch_set_weights_is_rate_limited_if_any_scope_is_within_span() {
 
             System::set_block_number((registration_block + span + span).saturated_into());
             assert_extrinsic_ok(&hotkey, &hotkey_pair, batch_call);
+        });
+}
+
+#[test]
+fn staking_add_then_remove_is_rate_limited_after_migration() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[20u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let hotkey = AccountId::from([21u8; 32]);
+    let netuid = NetUid::from(10u16);
+    let stake_amount = pallet_subtensor::DefaultMinStake::<Runtime>::get().to_u64() * 10;
+    let balance = stake_amount * 10;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), balance)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            setup_staking_network(netuid);
+            pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(&coldkey, &hotkey);
+
+            Executive::execute_on_runtime_upgrade();
+
+            let add_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
+                hotkey: hotkey.clone(),
+                netuid,
+                amount_staked: stake_amount.into(),
+            });
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, add_call);
+
+            let alpha =
+                pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey, &coldkey, netuid,
+                );
+            let remove_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+                hotkey,
+                netuid,
+                amount_unstaked: alpha,
+            });
+
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, remove_call.clone());
+
+            System::set_block_number(2);
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, remove_call);
+        });
+}
+
+#[test]
+fn transfer_stake_is_rate_limited_after_add_stake() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[22u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let destination_coldkey = AccountId::from([23u8; 32]);
+    let hotkey = AccountId::from([24u8; 32]);
+    let netuid = NetUid::from(11u16);
+    let stake_amount = pallet_subtensor::DefaultMinStake::<Runtime>::get().to_u64() * 10;
+    let balance = stake_amount * 10;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), balance)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            setup_staking_network(netuid);
+            pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(&coldkey, &hotkey);
+
+            Executive::execute_on_runtime_upgrade();
+
+            let add_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
+                hotkey: hotkey.clone(),
+                netuid,
+                amount_staked: stake_amount.into(),
+            });
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, add_call);
+
+            let alpha =
+                pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey, &coldkey, netuid,
+                );
+            let transfer_call =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
+                    destination_coldkey,
+                    hotkey,
+                    origin_netuid: netuid,
+                    destination_netuid: netuid,
+                    alpha_amount: alpha,
+                });
+
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, transfer_call);
+        });
+}
+
+#[test]
+fn transfer_stake_does_not_limit_destination_coldkey() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[25u8; 32]);
+    let destination_pair = sr25519::Pair::from_seed(&[26u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let destination_coldkey = AccountId::from(destination_pair.public());
+    let hotkey = AccountId::from([27u8; 32]);
+    let origin_netuid = NetUid::from(12u16);
+    let destination_netuid = NetUid::from(13u16);
+    let stake_amount = pallet_subtensor::DefaultMinStake::<Runtime>::get().to_u64() * 10;
+
+    ExtBuilder::default()
+        .with_balances(vec![
+            (coldkey.clone(), stake_amount * 10),
+            (destination_coldkey.clone(), stake_amount * 10),
+        ])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            setup_staking_network(origin_netuid);
+            setup_staking_network(destination_netuid);
+            seed_stake(origin_netuid, &hotkey, &coldkey, stake_amount);
+
+            Executive::execute_on_runtime_upgrade();
+
+            let alpha =
+                pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey,
+                    &coldkey,
+                    origin_netuid,
+                );
+            let transfer_call =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
+                    destination_coldkey: destination_coldkey.clone(),
+                    hotkey: hotkey.clone(),
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount: alpha,
+                });
+
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, transfer_call);
+
+            let destination_alpha =
+                pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey,
+                    &destination_coldkey,
+                    destination_netuid,
+                );
+            let remove_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+                hotkey,
+                netuid: destination_netuid,
+                amount_unstaked: destination_alpha,
+            });
+
+            assert_extrinsic_ok(&destination_coldkey, &destination_pair, remove_call);
+        });
+}
+
+#[test]
+fn swap_stake_limits_destination_netuid() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[28u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let hotkey = AccountId::from([29u8; 32]);
+    let origin_netuid = NetUid::from(14u16);
+    let destination_netuid = NetUid::from(15u16);
+    let stake_amount = pallet_subtensor::DefaultMinStake::<Runtime>::get().to_u64() * 10;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), stake_amount * 10)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            setup_staking_network(origin_netuid);
+            setup_staking_network(destination_netuid);
+            seed_stake(origin_netuid, &hotkey, &coldkey, stake_amount);
+
+            Executive::execute_on_runtime_upgrade();
+
+            let alpha =
+                pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey,
+                    &coldkey,
+                    origin_netuid,
+                );
+            let swap_alpha = AlphaCurrency::from(alpha.to_u64() / 2);
+            let swap_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake {
+                hotkey: hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount: swap_alpha,
+            });
+
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, swap_call);
+
+            let destination_alpha =
+                pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey,
+                    &coldkey,
+                    destination_netuid,
+                );
+            let remove_destination =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+                    hotkey: hotkey.clone(),
+                    netuid: destination_netuid,
+                    amount_unstaked: destination_alpha,
+                });
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, remove_destination);
+
+            let origin_alpha =
+                pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey,
+                    &coldkey,
+                    origin_netuid,
+                );
+            let remove_origin =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+                    hotkey,
+                    netuid: origin_netuid,
+                    amount_unstaked: origin_alpha,
+                });
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, remove_origin);
         });
 }
