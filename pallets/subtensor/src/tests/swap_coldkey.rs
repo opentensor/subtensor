@@ -400,6 +400,78 @@ fn test_swap_coldkey_works() {
 }
 
 #[test]
+fn test_swap_coldkey_works_with_zero_cost() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let hotkey1 = U256::from(1001);
+        let hotkey2 = U256::from(1002);
+        let hotkey3 = U256::from(1003);
+        let ed = ExistentialDeposit::get();
+        let swap_cost = 0u64;
+        let min_stake = DefaultMinStake::<Test>::get().to_u64();
+        let stake1 = min_stake * 10;
+        let stake2 = min_stake * 20;
+        let stake3 = min_stake * 30;
+
+        SubtensorModule::add_balance_to_coldkey_account(
+            &old_coldkey,
+            stake1 + stake2 + stake3 + ed,
+        );
+
+        let (
+            netuid1,
+            netuid2,
+            hotkeys,
+            hk1_alpha,
+            hk2_alpha,
+            hk3_alpha,
+            total_ck_stake,
+            identity,
+            balance_before,
+            total_stake_before,
+        ) = comprehensive_setup!(
+            old_coldkey,
+            new_coldkey,
+            new_coldkey_hash,
+            stake1,
+            stake2,
+            stake3,
+            hotkey1,
+            hotkey2,
+            hotkey3
+        );
+
+        assert_ok!(SubtensorModule::swap_coldkey(
+            <Test as frame_system::Config>::RuntimeOrigin::root(),
+            old_coldkey,
+            new_coldkey,
+            swap_cost.into(),
+        ));
+
+        comprehensive_checks!(
+            old_coldkey,
+            hotkey1,
+            hotkey2,
+            hotkey3,
+            hotkeys,
+            new_coldkey,
+            balance_before,
+            identity,
+            netuid1,
+            netuid2,
+            hk1_alpha,
+            hk2_alpha,
+            hk3_alpha,
+            total_ck_stake,
+            total_stake_before,
+            swap_cost
+        );
+    });
+}
+
+#[test]
 fn test_swap_coldkey_with_bad_origin_fails() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
