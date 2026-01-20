@@ -813,11 +813,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ColdkeySwapAnnouncementDelaySet(duration));
     }
 
-    pub fn set_coldkey_swap_reannouncement_delay(duration: BlockNumberFor<T>) {
-        ColdkeySwapReannouncementDelay::<T>::set(duration);
-        Self::deposit_event(Event::ColdkeySwapReannouncementDelaySet(duration));
-    }
-
     /// Set the duration for dissolve network
     ///
     /// # Arguments
