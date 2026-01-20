@@ -5,7 +5,10 @@ use super::*;
 use node_subtensor_runtime::rate_limiting::legacy::defaults as rate_limit_defaults;
 use subtensor_runtime_common::{
     NetUid,
-    rate_limiting::{GROUP_DELEGATE_TAKE, GROUP_REGISTER_NETWORK, GROUP_SERVE, GROUP_WEIGHTS_SET},
+    rate_limiting::{
+        GROUP_DELEGATE_TAKE, GROUP_REGISTER_NETWORK, GROUP_SERVE, GROUP_STAKING_OPS,
+        GROUP_WEIGHTS_SET,
+    },
 };
 
 pub fn devnet_config() -> Result<ChainSpec, String> {
@@ -101,6 +104,7 @@ fn devnet_genesis(
                 (serde_json::json!({ "Group": GROUP_SERVE }), Some(NetUid::from(1u16)), serde_json::json!({ "Exact": rate_limit_defaults::serving_rate_limit() })),
                 (serde_json::json!({ "Group": GROUP_REGISTER_NETWORK }), Option::<NetUid>::None, serde_json::json!({ "Exact": rate_limit_defaults::network_rate_limit() })),
                 (serde_json::json!({ "Group": GROUP_DELEGATE_TAKE }), Option::<NetUid>::None, serde_json::json!({ "Exact": rate_limit_defaults::tx_delegate_take_rate_limit() })),
+                (serde_json::json!({ "Group": GROUP_STAKING_OPS }), Option::<NetUid>::None, serde_json::json!({ "Exact": 1 })),
                 (serde_json::json!({ "Group": GROUP_WEIGHTS_SET }), Some(NetUid::ROOT), serde_json::json!({ "Exact": rate_limit_defaults::weights_set_rate_limit() })),
                 (serde_json::json!({ "Group": GROUP_WEIGHTS_SET }), Some(NetUid::from(1u16)), serde_json::json!({ "Exact": rate_limit_defaults::weights_set_rate_limit() })),
             ],
@@ -108,6 +112,7 @@ fn devnet_genesis(
                 (GROUP_SERVE, b"serving".to_vec(), "ConfigAndUsage"),
                 (GROUP_REGISTER_NETWORK, b"register-network".to_vec(), "ConfigAndUsage"),
                 (GROUP_DELEGATE_TAKE, b"delegate-take".to_vec(), "ConfigAndUsage"),
+                (GROUP_STAKING_OPS, b"staking-ops".to_vec(), "ConfigAndUsage"),
                 (GROUP_WEIGHTS_SET, b"weights".to_vec(), "ConfigAndUsage"),
             ],
             "limitSettingRules": vec![
