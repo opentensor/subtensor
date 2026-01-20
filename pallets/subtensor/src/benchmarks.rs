@@ -18,7 +18,11 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
-#[frame_benchmarking::v2::benchmarks]
+#[benchmarks(
+    where
+        T: pallet_balances::Config,
+        <T as pallet_balances::Config>::ExistentialDeposit: Get<u64>,
+)]
 mod pallet_benchmarks {
     use super::*;
 
@@ -413,8 +417,9 @@ mod pallet_benchmarks {
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
         let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
 
+        let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, swap_cost.into());
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, swap_cost.to_u64() + ed);
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), new_coldkey_hash);
@@ -460,8 +465,9 @@ mod pallet_benchmarks {
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
         let hotkey1: T::AccountId = account("hotkey1", 0, 0);
 
+        let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
-        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, swap_cost.into());
+        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, swap_cost.to_u64() + ed);
 
         let netuid = NetUid::from(1);
         Subtensor::<T>::init_new_network(netuid, 1);
