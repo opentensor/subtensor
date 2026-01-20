@@ -460,20 +460,6 @@ impl<T: Config> Pallet<T> {
                 TransactionKeyLastBlock::<T>::remove((hot, netuid, name));
             }
         }
-        // StakingOperationRateLimiter NMAP: (hot, cold, netuid) → bool
-        {
-            let to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> =
-                StakingOperationRateLimiter::<T>::iter()
-                    .filter_map(
-                        |((hot, cold, n), _)| {
-                            if n == netuid { Some((hot, cold)) } else { None }
-                        },
-                    )
-                    .collect();
-            for (hot, cold) in to_rm {
-                StakingOperationRateLimiter::<T>::remove((hot, cold, netuid));
-            }
-        }
 
         // --- 22. Subnet leasing: remove mapping and any lease-scoped state linked to this netuid.
         if let Some(lease_id) = SubnetUidToLeaseId::<T>::take(netuid) {

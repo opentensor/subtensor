@@ -2163,20 +2163,6 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// DMAP ( hot, cold, netuid ) --> rate limits for staking operations
-    /// Value contains just a marker: we use this map as a set.
-    #[pallet::storage]
-    pub type StakingOperationRateLimiter<T: Config> = StorageNMap<
-        _,
-        (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, NetUid>,               // subnet
-        ),
-        bool,
-        ValueQuery,
-    >;
-
     #[pallet::storage] // --- MAP(netuid ) --> Root claim threshold
     pub type RootClaimableThreshold<T: Config> =
         StorageMap<_, Blake2_128Concat, NetUid, I96F32, ValueQuery, DefaultMinRootClaimAmount<T>>;
