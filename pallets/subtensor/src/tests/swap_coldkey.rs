@@ -347,7 +347,7 @@ fn test_swap_coldkey_works() {
             &old_coldkey,
             swap_cost.to_u64() + stake1 + stake2 + stake3 + ed,
         );
-        
+
         // Some old announcement that will be cleared
         let now = System::block_number() - 100;
         ColdkeySwapAnnouncements::<Test>::insert(old_coldkey, (now, new_coldkey_hash));
@@ -400,7 +400,7 @@ fn test_swap_coldkey_works() {
             total_stake_before,
             swap_cost.to_u64()
         );
-        
+
         // Check that the old announcement is cleared
         assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(old_coldkey));
     });
