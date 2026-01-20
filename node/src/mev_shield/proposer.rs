@@ -167,9 +167,6 @@ pub fn spawn_revealer<B, C, Pool>(
                 let mut import_stream = client.import_notification_stream();
 
                 while let Some(notif) = import_stream.next().await {
-                    if notif.origin != BlockOrigin::Own {
-                        continue;
-                    }
 
                     let at_hash = notif.hash;
                     let block_number_u64: u64 = (*notif.header.number()).saturated_into();
