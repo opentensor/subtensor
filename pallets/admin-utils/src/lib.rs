@@ -2221,7 +2221,7 @@ pub mod pallet {
         }
 
         /// Sets the announcement delay for coldkey swap.
-        #[pallet::call_index(85)]
+        #[pallet::call_index(86)]
         #[pallet::weight((
             Weight::from_parts(5_000_000, 0)
                 .saturating_add(T::DbWeight::get().reads(0_u64))
