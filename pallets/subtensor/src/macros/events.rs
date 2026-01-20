@@ -232,8 +232,6 @@ mod events {
         },
         /// The coldkey swap announcement delay has been set.
         ColdkeySwapAnnouncementDelaySet(BlockNumberFor<T>),
-        /// The coldkey swap reannouncement delay has been set.
-        ColdkeySwapReannouncementDelaySet(BlockNumberFor<T>),
         /// The duration of dissolve network has been set
         DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
         /// Commit-reveal v3 weights have been successfully committed.

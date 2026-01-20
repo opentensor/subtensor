@@ -2354,8 +2354,7 @@ mod dispatches {
         /// This is required before the coldkey swap can be performed
         /// after the delay period.
         ///
-        /// It can be reannounced after a delay of `ColdkeySwapReannouncementDelay` following
-        /// the first valid execution block of the original announcement.
+        /// It can be reannounced directly without a delay.
         ///
         /// The dispatch origin of this call must be the original coldkey that made the announcement.
         ///
@@ -2376,12 +2375,8 @@ mod dispatches {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
 
-            if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
-                let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
-                let new_when = when.saturating_add(reannouncement_delay);
-                ensure!(now >= new_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
-            } else {
-                // Only charge the swap cost on the first announcement
+            // Only charge the swap cost on the first announcement
+            if !ColdkeySwapAnnouncements::<T>::contains_key(who.clone()) {
                 let swap_cost = Self::get_key_swap_cost();
                 Self::charge_swap_cost(&who, swap_cost)?;
             }
