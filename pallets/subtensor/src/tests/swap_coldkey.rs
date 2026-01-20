@@ -402,7 +402,7 @@ fn test_swap_coldkey_works() {
         );
         
         // Check that the old announcement is cleared
-        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(&old_coldkey));
+        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(old_coldkey));
     });
 }
 
