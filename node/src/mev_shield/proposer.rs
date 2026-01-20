@@ -4,7 +4,6 @@ use ml_kem::kem::{Decapsulate, DecapsulationKey};
 use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
 use sc_service::SpawnTaskHandle;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
-use sp_consensus::BlockOrigin;
 use sp_core::H256;
 use sp_runtime::traits::{Header, SaturatedConversion};
 use sp_runtime::{AccountId32, OpaqueExtrinsic};
