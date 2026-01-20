@@ -13,6 +13,8 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     const alice = getAliceSigner()
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
 
+    const defaultNetworkLastLockCost = await api.query.SubtensorModule.NetworkLastLockCost.getValue()
+
     const rateLimit = await api.query.SubtensorModule.NetworkRateLimit.getValue()
     if (rateLimit !== BigInt(0)) {
         const internalCall = api.tx.AdminUtils.sudo_set_network_rate_limit({ rate_limit: BigInt(0) })
@@ -28,8 +30,8 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     // could create multiple subnetworks during retry, just return the first created one
     assert.ok(newTotalNetworks > totalNetworks)
 
-    // rewrite network last lock cost to 0, to avoid the lock cost calculation error
-    await setNetworkLastLockCost(api)
+    // reset network last lock cost to 0, to avoid the lock cost calculation error
+    await setNetworkLastLockCost(api, defaultNetworkLastLockCost)
     return totalNetworks
 }
 
@@ -404,11 +406,11 @@ export async function sendWasmContractExtrinsic(api: TypedApi<typeof devnet>, co
     await waitForTransactionWithRetry(api, tx, signer)
 }
 
-export async function setNetworkLastLockCost(api: TypedApi<typeof devnet>) {
+export async function setNetworkLastLockCost(api: TypedApi<typeof devnet>, defaultNetworkLastLockCost: bigint) {
     const alice = getAliceSigner()
     const key = await api.query.SubtensorModule.NetworkLastLockCost.getKey()
     const codec = await getTypedCodecs(devnet);
-    const value = codec.query.SubtensorModule.NetworkLastLockCost.value.enc(BigInt(0))
+    const value = codec.query.SubtensorModule.NetworkLastLockCost.value.enc(defaultNetworkLastLockCost)
     const internalCall = api.tx.System.set_storage({
         items: [[Binary.fromHex(key), Binary.fromBytes(value)]]
     })
