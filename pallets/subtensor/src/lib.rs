@@ -2456,6 +2456,7 @@ pub enum CustomTransactionError {
     InputLengthsUnequal,
     UidNotFound,
     EvmKeyAssociateRateLimitExceeded,
+    InvalidSubnetOwner,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -2483,6 +2484,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::InputLengthsUnequal => 18,
             CustomTransactionError::UidNotFound => 19,
             CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
+            CustomTransactionError::InvalidSubnetOwner => 21,
         }
     }
 }
