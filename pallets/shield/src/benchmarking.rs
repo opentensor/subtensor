@@ -4,7 +4,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{BoundedVec, pallet_prelude::ConstU32};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 use sp_core::sr25519;
-use sp_runtime::traits::Hash as HashT;
+use sp_runtime::{traits::Hash as HashT, AccountId32};
 use sp_std::vec;
 
 // /// Helper to build bounded bytes (public key) of a given length.
