@@ -329,7 +329,7 @@ fn test_swap_coldkey_announced_with_hotkey_fails() {
 
 #[test]
 fn test_swap_coldkey_works() {
-    new_test_ext(1).execute_with(|| {
+    new_test_ext(1000).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
         let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
@@ -347,6 +347,10 @@ fn test_swap_coldkey_works() {
             &old_coldkey,
             swap_cost.to_u64() + stake1 + stake2 + stake3 + ed,
         );
+        
+        // Some old announcement that will be cleared
+        let now = System::block_number() - 100;
+        ColdkeySwapAnnouncements::<Test>::insert(old_coldkey, (now, new_coldkey_hash));
 
         let (
             netuid1,
@@ -396,6 +400,9 @@ fn test_swap_coldkey_works() {
             total_stake_before,
             swap_cost.to_u64()
         );
+        
+        // Check that the old announcement is cleared
+        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(&old_coldkey));
     });
 }
 
