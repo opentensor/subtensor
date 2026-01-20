@@ -1055,7 +1055,7 @@ mod dispatches {
         /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(50_u64))
+        .saturating_add(T::DbWeight::get().reads(52_u64))
         .saturating_add(T::DbWeight::get().writes(35_u64)), DispatchClass::Normal, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
@@ -1517,7 +1517,7 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(79)]
-        #[pallet::weight((Weight::from_parts(234_200_000, 0)
+        #[pallet::weight((Weight::from_parts(396_000_000, 0)
             .saturating_add(T::DbWeight::get().reads(35_u64))
             .saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
