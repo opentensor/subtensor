@@ -92,6 +92,7 @@ trap 'kill 0' SIGINT
 ("${bob_start[@]}" 2>&1 &)
 ("${charlie_start[@]}" 2>&1 &)
 
-# Keep script alive to allow external checks / JS tests
-# CI runner will terminate at job end
-sleep infinity
+echo "✅ Localnet started"
+
+# Exit immediately
+exit 0

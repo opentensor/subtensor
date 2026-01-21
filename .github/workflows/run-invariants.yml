@@ -55,8 +55,8 @@ jobs:
       # -------------------------------
       # Build Subtensor node
       # -------------------------------
-      #- name: Build Subtensor node
-      #  run: cargo build --release -p node-subtensor
+      - name: Build Subtensor node
+        run: cargo build --release -p node-subtensor
 
       # -------------------------------
       # Install Baedeker
@@ -85,7 +85,7 @@ jobs:
       # -------------------------------
       - name: Start localnet nodes
         run: |
-          ./scripts/run_localnet.sh ./subtensor/target/release ./.bdk-env/specs/subtensor.json &
+          ./scripts/invariants/run_localnet.sh ./subtensor/target/release ./scripts/invariants/.bdk-env/specs/subtensor.json &
           echo $! > /tmp/localnet.pid
           sleep 5
 
