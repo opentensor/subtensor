@@ -261,7 +261,7 @@ impl<T: Config> Pallet<T> {
     /// used with caution.
     pub fn clear_small_nominations() {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
-        for ((hotkey, coldkey, netuid), _) in Alpha::<T>::iter() {
+        for ((hotkey, coldkey, netuid), _) in AlphaV2::<T>::iter() {
             Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
         }
     }
