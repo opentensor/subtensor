@@ -1331,7 +1331,7 @@ mod tests {
                 RateLimitKey::LastTxBlock(cold.clone()),
                 now - 1,
             );
-            pallet_subtensor::TxRateLimit::<Runtime>::put(span);
+            legacy_storage::set_tx_rate_limit(span);
 
             let call = RuntimeCall::SubtensorModule(SubtensorCall::swap_hotkey {
                 hotkey: old_hot,
@@ -1339,7 +1339,13 @@ mod tests {
                 netuid: None,
             });
             let origin = RuntimeOrigin::signed(cold.clone());
-            let legacy = || !SubtensorModule::exceeds_tx_rate_limit(now - 1, now);
+            let legacy = || {
+                let last = now - 1;
+                if span == 0 || last == 0 {
+                    return true;
+                }
+                now - last > span
+            };
             parity_check(now, call, origin, None, None, legacy);
         });
     }

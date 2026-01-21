@@ -233,7 +233,7 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     let coldkey = signed_origin(origin)?;
                     Some(vec![
                         RateLimitUsageKey::<AccountId>::Account(coldkey),
-                        RateLimitUsageKey::<AccountId>::Account(new_hotkey.clone()),
+                        RateLimitUsageKey::<AccountId>::Account(new_hotkey),
                     ])
                 }
                 SubtensorCall::increase_take { hotkey, .. }
