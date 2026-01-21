@@ -950,6 +950,12 @@ pub mod pallet {
         T::InitialColdkeySwapAnnouncementDelay::get()
     }
 
+    /// Default value for coldkey swap reannouncement delay.
+    #[pallet::type_value]
+    pub fn DefaultColdkeySwapReannouncementDelay<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapReannouncementDelay::get()
+    }
+
     /// Default value for applying pending items (e.g. childkeys).
     #[pallet::type_value]
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
@@ -1353,6 +1359,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type ColdkeySwapAnnouncementDelay<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapAnnouncementDelay<T>>;
+
+    /// The delay after the initial delay has passed before a new announcement can be made.
+    #[pallet::storage]
+    pub type ColdkeySwapReannouncementDelay<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapReannouncementDelay<T>>;
 
     /// A map of the coldkey swap announcements from a coldkey
     /// to the block number the coldkey swap can be performed.

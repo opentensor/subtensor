@@ -152,6 +152,8 @@ mod errors {
         ColdkeySwapAnnouncementNotFound,
         /// Coldkey swap too early.
         ColdkeySwapTooEarly,
+        /// Coldkey swap reannounced too early.
+        ColdkeySwapReannouncedTooEarly,
         /// The announced coldkey hash does not match the new coldkey hash.
         AnnouncedColdkeyHashDoesNotMatch,
         /// New coldkey is hotkey

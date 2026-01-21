@@ -219,6 +219,9 @@ mod config {
         /// Coldkey swap announcement delay.
         #[pallet::constant]
         type InitialColdkeySwapAnnouncementDelay: Get<BlockNumberFor<Self>>;
+        /// Coldkey swap reannouncement delay.
+        #[pallet::constant]
+        type InitialColdkeySwapReannouncementDelay: Get<BlockNumberFor<Self>>;
         /// Dissolve network schedule duration
         #[pallet::constant]
         type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
