@@ -1371,6 +1371,12 @@ pub mod pallet {
     pub type ColdkeySwapAnnouncements<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, (BlockNumberFor<T>, T::Hash), OptionQuery>;
 
+    /// A map of the coldkey swap disputes from a coldkey to the
+    /// block number the coldkey swap was disputed.
+    #[pallet::storage]
+    pub type ColdkeySwapDisputes<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, BlockNumberFor<T>, OptionQuery>;
+
     /// --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     #[pallet::storage]
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
@@ -2449,6 +2455,7 @@ pub enum CustomTransactionError {
     InputLengthsUnequal,
     UidNotFound,
     EvmKeyAssociateRateLimitExceeded,
+    ColdkeySwapDisputed,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -2476,6 +2483,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::InputLengthsUnequal => 18,
             CustomTransactionError::UidNotFound => 19,
             CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
+            CustomTransactionError::ColdkeySwapDisputed => 21,
         }
     }
 }

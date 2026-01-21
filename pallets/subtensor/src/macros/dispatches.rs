@@ -1087,8 +1087,9 @@ mod dispatches {
             }
             Self::do_swap_coldkey(&old_coldkey, &new_coldkey)?;
 
-            // We also remove any announcement for security reasons
-            ColdkeySwapAnnouncements::<T>::remove(old_coldkey);
+            // We also clear any announcement or dispute for security reasons
+            ColdkeySwapAnnouncements::<T>::remove(&old_coldkey);
+            ColdkeySwapDisputes::<T>::remove(old_coldkey);
 
             Ok(())
         }
@@ -2433,11 +2434,12 @@ mod dispatches {
             Ok(())
         }
 
-        /// Removes a coldkey swap announcement for a coldkey.
+        /// Dispute a coldkey swap.
         ///
-        /// The dispatch origin of this call must be root.
+        /// This will prevent any further actions on the coldkey swap
+        /// until triumvirate step in to resolve the issue.
         ///
-        /// - `coldkey`: The coldkey to remove the swap announcement for.
+        /// - `coldkey`: The coldkey to dispute the swap for.
         ///
         #[pallet::call_index(127)]
         #[pallet::weight(
@@ -2445,12 +2447,41 @@ mod dispatches {
             .saturating_add(T::DbWeight::get().reads(0_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64))
         )]
-        pub fn remove_coldkey_swap_announcement(
-            origin: OriginFor<T>,
-            coldkey: T::AccountId,
-        ) -> DispatchResult {
+        pub fn dispute_coldkey_swap(origin: OriginFor<T>) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+
+            ensure!(
+                ColdkeySwapAnnouncements::<T>::contains_key(&coldkey),
+                Error::<T>::ColdkeySwapAnnouncementNotFound
+            );
+            ensure!(
+                !ColdkeySwapDisputes::<T>::contains_key(&coldkey),
+                Error::<T>::ColdkeySwapAlreadyDisputed
+            );
+
+            let now = <frame_system::Pallet<T>>::block_number();
+            ColdkeySwapDisputes::<T>::insert(&coldkey, now);
+
+            Self::deposit_event(Event::ColdkeySwapDisputed { coldkey });
+            Ok(())
+        }
+
+        /// Reset a coldkey swap by clearing the announcement and dispute status.
+        ///
+        /// The dispatch origin of this call must be root.
+        ///
+        /// - `coldkey`: The coldkey to reset the swap for.
+        ///
+        #[pallet::call_index(128)]
+        #[pallet::weight(
+            Weight::from_parts(4_609_000, 0)
+            .saturating_add(T::DbWeight::get().reads(0_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+        )]
+        pub fn reset_coldkey_swap(origin: OriginFor<T>, coldkey: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
-            ColdkeySwapAnnouncements::<T>::remove(coldkey);
+            ColdkeySwapAnnouncements::<T>::remove(&coldkey);
+            ColdkeySwapDisputes::<T>::remove(coldkey);
             Ok(())
         }
     }

@@ -438,9 +438,10 @@ fn test_swap_coldkey_works() {
             swap_cost.to_u64() + stake1 + stake2 + stake3 + ed,
         );
 
-        // Some old announcement that will be cleared
+        // Some old announcement and dispute that will be cleared
         let now = System::block_number() - 100;
         ColdkeySwapAnnouncements::<Test>::insert(old_coldkey, (now, new_coldkey_hash));
+        ColdkeySwapDisputes::<Test>::insert(old_coldkey, now);
 
         let (
             netuid1,
@@ -491,8 +492,9 @@ fn test_swap_coldkey_works() {
             swap_cost.to_u64()
         );
 
-        // Check that the old announcement is cleared
+        // Check that the old announcement and dispute are cleared
         assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(old_coldkey));
+        assert!(!ColdkeySwapDisputes::<Test>::contains_key(old_coldkey));
     });
 }
 
@@ -1376,7 +1378,7 @@ fn test_do_swap_coldkey_effect_on_delegations() {
 }
 
 #[test]
-fn test_remove_coldkey_swap_announcement_works() {
+fn test_dispute_coldkey_swap_works() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
@@ -1385,35 +1387,114 @@ fn test_remove_coldkey_swap_announcement_works() {
 
         ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
 
-        assert_ok!(SubtensorModule::remove_coldkey_swap_announcement(
+        assert_ok!(SubtensorModule::dispute_coldkey_swap(
+            RuntimeOrigin::signed(who)
+        ));
+
+        assert_eq!(ColdkeySwapDisputes::<Test>::get(who), Some(now));
+        assert!(matches!(
+            last_event(),
+            RuntimeEvent::SubtensorModule(Event::ColdkeySwapDisputed { coldkey: _ })
+        ));
+    });
+}
+
+#[test]
+fn test_dispute_coldkey_swap_with_bad_origin_fails() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let now = System::block_number();
+
+        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
+
+        assert_noop!(
+            SubtensorModule::dispute_coldkey_swap(RuntimeOrigin::root()),
+            BadOrigin
+        );
+
+        assert_noop!(
+            SubtensorModule::dispute_coldkey_swap(RuntimeOrigin::none()),
+            BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_dispute_coldkey_swap_without_announcement_fails() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let now = System::block_number();
+
+        assert_noop!(
+            SubtensorModule::dispute_coldkey_swap(RuntimeOrigin::signed(who)),
+            Error::<Test>::ColdkeySwapAnnouncementNotFound
+        );
+    });
+}
+
+#[test]
+fn test_dispute_coldkey_swap_already_disputed_fails() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let now = System::block_number();
+
+        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
+        ColdkeySwapDisputes::<Test>::insert(who, now);
+
+        assert_noop!(
+            SubtensorModule::dispute_coldkey_swap(RuntimeOrigin::signed(who)),
+            Error::<Test>::ColdkeySwapAlreadyDisputed
+        );
+    });
+}
+
+#[test]
+fn test_reset_coldkey_swap_works() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let now = System::block_number();
+
+        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
+        ColdkeySwapDisputes::<Test>::insert(who, now);
+
+        assert_ok!(SubtensorModule::reset_coldkey_swap(
             RuntimeOrigin::root(),
             who,
         ));
 
         assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
+        assert!(!ColdkeySwapDisputes::<Test>::contains_key(who));
     });
 }
 
 #[test]
-fn test_remove_coldkey_swap_announcement_with_bad_origin_fails() {
+fn test_reset_coldkey_swap_with_bad_origin_fails() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let coldkey = U256::from(2);
 
         assert_noop!(
-            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::signed(who), coldkey),
+            SubtensorModule::reset_coldkey_swap(RuntimeOrigin::signed(who), coldkey),
             BadOrigin
         );
 
         assert_noop!(
-            SubtensorModule::remove_coldkey_swap_announcement(RuntimeOrigin::none(), coldkey),
+            SubtensorModule::reset_coldkey_swap(RuntimeOrigin::none(), coldkey),
             BadOrigin
         );
     });
 }
 
 #[test]
-fn test_subtensor_extension_rejects_any_call_that_is_not_announce_or_swap() {
+fn test_subtensor_extension_rejects_calls_when_announced_or_disputed() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
         let who = U256::from(0);
@@ -1515,11 +1596,17 @@ fn test_subtensor_extension_rejects_any_call_that_is_not_announce_or_swap() {
             }),
         ];
 
-        for call in forbidden_calls {
+        for call in &forbidden_calls {
             let info = call.get_dispatch_info();
             let ext = SubtensorTransactionExtension::<Test>::new();
             assert_noop!(
-                ext.dispatch_transaction(RuntimeOrigin::signed(who).into(), call, &info, 0, 0),
+                ext.dispatch_transaction(
+                    RuntimeOrigin::signed(who).into(),
+                    call.clone(),
+                    &info,
+                    0,
+                    0
+                ),
                 CustomTransactionError::ColdkeySwapAnnounced
             );
         }
@@ -1535,16 +1622,40 @@ fn test_subtensor_extension_rejects_any_call_that_is_not_announce_or_swap() {
             }),
         ];
 
-        for call in authorized_calls {
+        for call in &authorized_calls {
             let info = call.get_dispatch_info();
             let ext = SubtensorTransactionExtension::<Test>::new();
             assert_ok!(ext.dispatch_transaction(
                 RuntimeOrigin::signed(who).into(),
-                call,
+                call.clone(),
                 &info,
                 0,
                 0
             ));
+        }
+
+        // Dispute the coldkey swap
+        assert_ok!(SubtensorModule::dispute_coldkey_swap(
+            <Test as frame_system::Config>::RuntimeOrigin::signed(who),
+        ));
+        assert!(ColdkeySwapDisputes::<Test>::contains_key(who));
+
+        // All calls should fail when the coldkey swap is disputed
+        let all_calls = authorized_calls.iter().chain(forbidden_calls.iter());
+
+        for call in all_calls {
+            let info = call.get_dispatch_info();
+            let ext = SubtensorTransactionExtension::<Test>::new();
+            assert_noop!(
+                ext.dispatch_transaction(
+                    RuntimeOrigin::signed(who).into(),
+                    call.clone(),
+                    &info,
+                    0,
+                    0
+                ),
+                CustomTransactionError::ColdkeySwapDisputed
+            );
         }
     });
 }

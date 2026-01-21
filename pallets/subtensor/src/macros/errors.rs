@@ -156,6 +156,8 @@ mod errors {
         ColdkeySwapReannouncedTooEarly,
         /// The announced coldkey hash does not match the new coldkey hash.
         AnnouncedColdkeyHashDoesNotMatch,
+        /// Coldkey swap already disputed
+        ColdkeySwapAlreadyDisputed,
         /// New coldkey is hotkey
         NewColdKeyIsHotkey,
         /// Childkey take is invalid.

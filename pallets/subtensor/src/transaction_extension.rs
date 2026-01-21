@@ -1,6 +1,6 @@
 use crate::{
-    BalancesCall, Call, ColdkeySwapAnnouncements, Config, CustomTransactionError, Error, Pallet,
-    TransactionType,
+    BalancesCall, Call, ColdkeySwapAnnouncements, ColdkeySwapDisputes, Config,
+    CustomTransactionError, Error, Pallet, TransactionType,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
@@ -117,6 +117,10 @@ where
         };
 
         if ColdkeySwapAnnouncements::<T>::contains_key(who) {
+            if ColdkeySwapDisputes::<T>::contains_key(who) {
+                return Err(CustomTransactionError::ColdkeySwapDisputed.into());
+            }
+
             let is_allowed_direct = matches!(
                 call.is_sub_type(),
                 Some(Call::announce_coldkey_swap { .. })

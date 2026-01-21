@@ -191,6 +191,11 @@ mod events {
             /// The account ID of new coldkey.
             new_coldkey: T::AccountId,
         },
+        /// A coldkey swap has been disputed.
+        ColdkeySwapDisputed {
+            /// The account ID of the coldkey that was disputed.
+            coldkey: T::AccountId,
+        },
         /// All balance of a hotkey has been unstaked and transferred to a new coldkey
         AllBalanceUnstakedAndTransferredToNewColdkey {
             /// The account ID of the current coldkey

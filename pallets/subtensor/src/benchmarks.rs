@@ -497,12 +497,25 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn remove_coldkey_swap_announcement() {
+    fn dispute_coldkey_swap() {
         let coldkey: T::AccountId = account("old_coldkey", 0, 0);
         let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
         let now = frame_system::Pallet::<T>::block_number();
 
         ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey));
+    }
+
+    #[benchmark]
+    fn reset_coldkey_swap() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
+        let now = frame_system::Pallet::<T>::block_number();
+
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
+        ColdkeySwapDisputes::<T>::insert(&coldkey, now);
 
         #[extrinsic_call]
         _(RawOrigin::Root, coldkey);
