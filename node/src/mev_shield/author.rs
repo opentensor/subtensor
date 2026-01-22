@@ -12,6 +12,7 @@ use sp_runtime::{AccountId32, KeyTypeId};
 use std::sync::{Arc, Mutex};
 use subtensor_macros::freeze_struct;
 use tokio::time::sleep;
+use runtime_common::prod_or_fast;
 
 /// Parameters controlling time windows inside the slot.
 #[freeze_struct("5c7ce101b36950de")]
@@ -129,7 +130,7 @@ pub fn aead_decrypt(
 const AURA_KEY_TYPE: KeyTypeId = KeyTypeId(*b"aura");
 
 /// Start background tasks:
-///  - per-slot ML‑KEM key rotation
+///  - ML‑KEM key rotation (every prod_or_fast!(1, 4) blocks)
 ///  - at ~announce_at_ms announce the next key bytes on chain,
 pub fn spawn_author_tasks<B, C, Pool>(
     task_spawner: &sc_service::SpawnTaskHandle,
@@ -202,6 +203,12 @@ where
 
             let mut import_stream = client_clone.import_notification_stream();
 
+            // 🧮 Number of blocks for which a key is reused:
+            //  - prod: rotate every block (1)
+            //  - fast-runtime / fast-blocks: rotate every 4 blocks
+            let blocks_per_key: u32 = prod_or_fast!(1u32, 4u32);
+            let mut blocks_since_rotation: u32 = 0;
+
             while let Some(notif) = import_stream.next().await {
                 // Only act on blocks that this node authored.
                 if notif.origin != BlockOrigin::Own {
@@ -221,7 +228,8 @@ where
 
                 log::debug!(
                     target: "mev-shield",
-                    "Slot start (local author): (pk sizes: curr={curr_pk_len}B, next={next_pk_len}B)",
+                    "Slot start (local author): (pk sizes: curr={curr_pk_len}B, next={next_pk_len}B) \
+                     blocks_since_rotation={blocks_since_rotation} blocks_per_key={blocks_per_key}",
                 );
 
                 // Wait until the announce window in this slot.
@@ -229,7 +237,7 @@ where
                     sleep(std::time::Duration::from_millis(announce_at_ms)).await;
                 }
 
-                // Read the next key we intend to use for the following block.
+                // Read the next key we intend to use for the *next epoch*.
                 let next_pk = match ctx_clone.keys.lock() {
                     Ok(k) => k.next_pk.clone(),
                     Err(e) => {
@@ -280,21 +288,34 @@ where
                     sleep(std::time::Duration::from_millis(tail_ms)).await;
                 }
 
-                // Roll keys for the next block.
-                match ctx_clone.keys.lock() {
-                    Ok(mut k) => {
-                        k.roll_for_next_slot();
-                        log::debug!(
-                            target: "mev-shield",
-                            "Rolled ML-KEM key at slot boundary",
-                        );
+                // Rotate keys only every `blocks_per_key` blocks.
+                blocks_since_rotation = blocks_since_rotation.saturating_add(1);
+
+                if blocks_since_rotation >= blocks_per_key {
+                    match ctx_clone.keys.lock() {
+                        Ok(mut k) => {
+                            k.roll_for_next_slot();
+                            log::debug!(
+                                target: "mev-shield",
+                                "Rolled ML-KEM key at key-epoch boundary (blocks_per_key={blocks_per_key})",
+                            );
+                        }
+                        Err(e) => {
+                            log::debug!(
+                                target: "mev-shield",
+                                "spawn_author_tasks: failed to lock ShieldKeys for roll_for_next_slot: {e:?}",
+                            );
+                        }
                     }
-                    Err(e) => {
-                        log::debug!(
-                            target: "mev-shield",
-                            "spawn_author_tasks: failed to lock ShieldKeys for roll_for_next_slot: {e:?}",
-                        );
-                    }
+
+                    // Reset the epoch counter after rotation.
+                    blocks_since_rotation = 0;
+                } else {
+                    log::debug!(
+                        target: "mev-shield",
+                        "Within key epoch; not rotating ML-KEM key this block \
+                         (blocks_since_rotation={blocks_since_rotation}, blocks_per_key={blocks_per_key})",
+                    );
                 }
             }
         },
