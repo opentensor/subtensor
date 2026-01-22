@@ -62,8 +62,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
-        // 8. Swap LastTxBlock
-        let last_tx_block = Self::get_last_tx_block(old_hotkey);
+        // 8. Swap last-seen
+        let last_tx_block = T::RateLimiting::last_seen(
+            rate_limiting::GROUP_SWAP_KEYS,
+            Some(RateLimitUsageKey::Account(old_hotkey)),
+        )
+        .unwrap_or_default();
         let last_seen = (last_tx_block != 0).then(|| last_tx_block.saturated_into());
         T::RateLimiting::set_last_seen(
             rate_limiting::GROUP_SWAP_KEYS,

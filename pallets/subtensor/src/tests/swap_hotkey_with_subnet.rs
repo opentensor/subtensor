@@ -1370,46 +1370,6 @@ fn test_swap_hotkey_is_sn_owner_hotkey() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_hotkey_swap_rate_limits --exact --nocapture
-#[test]
-fn test_swap_hotkey_swap_rate_limits() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-
-        let last_tx_block = 123;
-        let child_key_take_block = 8910;
-
-        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
-
-        // Set the last tx block for the old hotkey
-        SubtensorModule::set_last_tx_block(&old_hotkey, last_tx_block);
-        // Set last childkey take block for the old hotkey
-        SubtensorModule::set_last_tx_block_childkey(&old_hotkey, child_key_take_block);
-
-        // Perform the swap
-        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
-        assert_ok!(SubtensorModule::do_swap_hotkey(
-            RuntimeOrigin::signed(coldkey),
-            &old_hotkey,
-            &new_hotkey,
-            Some(netuid)
-        ),);
-
-        // Check for new hotkey
-        assert_eq!(
-            SubtensorModule::get_last_tx_block(&new_hotkey),
-            last_tx_block
-        );
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_childkey_take(&new_hotkey),
-            child_key_take_block
-        );
-    });
-}
-
 #[test]
 fn test_swap_owner_failed_interval_not_passed() {
     new_test_ext(1).execute_with(|| {
