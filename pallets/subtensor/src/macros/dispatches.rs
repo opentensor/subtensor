@@ -1072,7 +1072,7 @@ mod dispatches {
         #[pallet::weight(
             Weight::from_parts(183_600_000, 0)
             .saturating_add(T::DbWeight::get().reads(17_u64))
-            .saturating_add(T::DbWeight::get().writes(9_u64))
+            .saturating_add(T::DbWeight::get().writes(10_u64))
         )]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
@@ -2443,8 +2443,8 @@ mod dispatches {
         ///
         #[pallet::call_index(127)]
         #[pallet::weight(
-            Weight::from_parts(4_609_000, 0)
-            .saturating_add(T::DbWeight::get().reads(0_u64))
+            Weight::from_parts(20_750_000, 0)
+            .saturating_add(T::DbWeight::get().reads(2_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64))
         )]
         pub fn dispute_coldkey_swap(origin: OriginFor<T>) -> DispatchResult {
@@ -2476,7 +2476,7 @@ mod dispatches {
         #[pallet::weight(
             Weight::from_parts(4_609_000, 0)
             .saturating_add(T::DbWeight::get().reads(0_u64))
-            .saturating_add(T::DbWeight::get().writes(1_u64))
+            .saturating_add(T::DbWeight::get().writes(2_u64))
         )]
         pub fn reset_coldkey_swap(origin: OriginFor<T>, coldkey: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
