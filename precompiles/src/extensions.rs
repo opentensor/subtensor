@@ -131,8 +131,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                     <R as frame_system::Config>::RuntimeCall,
                 >>::post_dispatch((), &info, &mut post_info, 0, &result)
                 .map_err(extension_error)?;
-                log::error!("Dispatch failed. Error: {e:?}");
-                log::warn!("Returning error PrecompileFailure::Error");
+                log::info!("Precompile dispatch failed. message as: {e:?}");
                 self.charge_and_refund_after_dispatch::<R, Call>(&info, &post_info)?;
 
                 Err(PrecompileFailure::Error {
