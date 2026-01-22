@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
         T::AccountId: Clone,
     {
         // Old Alpha shares format: U64F64 -> SafeFloat
-        let legacy = Alpha::<T>::iter_prefix(prefix.clone()).map(|(netuid, val_u64f64)| {
+        let legacy = Alpha::<T>::iter_prefix(prefix).map(|(netuid, val_u64f64)| {
             let sf: SafeFloat = val_u64f64.into();
             (netuid, sf)
         });

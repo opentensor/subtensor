@@ -2682,9 +2682,9 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
             *total = total.saturating_sub(alpha);
         });
 
-        Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            hotkey, coldkey, netuid, alpha,
-        ))
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+
+        Ok(())
     }
 }
 

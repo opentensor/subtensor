@@ -618,7 +618,7 @@ impl<T: Config> Pallet<T> {
             root_alpha = root_alpha.saturating_sub(alpha_take);
             // Give the validator their take.
             log::debug!("hotkey: {hotkey:?} alpha_take: {alpha_take:?}");
-            let _validator_stake = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &Owner::<T>::get(hotkey.clone()),
                 netuid,

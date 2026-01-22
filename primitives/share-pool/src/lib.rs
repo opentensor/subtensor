@@ -39,6 +39,10 @@ pub struct SafeFloatSerializable {
 /// Power of 10 in SafeInt
 /// Uses SafeInt pow function that accepts u32 argument
 /// and the formula: 10^(a*b) = (10^a)^b
+#[allow(
+    clippy::arithmetic_side_effects,
+    reason = "SafeInt never overflows and never panics"
+)]
 fn pow10(e: u64) -> SafeInt {
     if e == 0 {
         return SafeInt::one();
@@ -70,6 +74,10 @@ impl SafeFloat {
         }
     }
 
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "SafeInt never overflows and never panics"
+    )]
     pub fn new(mantissa: SafeInt, exponent: i64) -> Option<Self> {
         // Cap at SAFE_FLOAT_MAX
         let max_value = SafeInt::from(SAFE_FLOAT_MAX) + SafeInt::one();
@@ -90,6 +98,10 @@ impl SafeFloat {
     /// SAFE_FLOAT_MAX <= mantissa < 10 * SAFE_FLOAT_MAX
     ///
     /// Returns true in case of success or false if exponent over- or underflows
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "SafeInt never overflows and never panics"
+    )]
     pub(crate) fn normalize(&mut self) -> bool {
         let max_value = SafeInt::from(SAFE_FLOAT_MAX);
         let max_value_div10 = SafeInt::from(SAFE_FLOAT_MAX.checked_div(10).unwrap_or_default());
@@ -135,6 +147,10 @@ impl SafeFloat {
 
     /// Divide current value by a preserving precision (SAFE_FLOAT_MAX digits in mantissa)
     ///   result = m1 * 10^e1 / m2 * 10^e2
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "SafeInt never overflows and never panics"
+    )]
     pub fn div(&self, a: &SafeFloat) -> Option<Self> {
         // We need to offset exponent so that
         //   1. e1 - e2 is non-negative
@@ -161,6 +177,10 @@ impl SafeFloat {
         }
     }
 
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "SafeInt never overflows and never panics"
+    )]
     pub fn add(&self, a: &SafeFloat) -> Option<Self> {
         // Multiply both operands by 10^exponent_offset so that both are above 1.
         // (lowest exponent becomes 0)
@@ -181,6 +201,10 @@ impl SafeFloat {
     }
 
     /// Calculate self * a / b without loss of precision
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "SafeInt never overflows and never panics"
+    )]
     pub fn mul_div(&self, a: &SafeFloat, b: &SafeFloat) -> Option<Self> {
         let self_a_mantissa = self.mantissa.clone() * a.mantissa.clone();
         let self_a_exponent = self.exponent.saturating_add(a.exponent);
@@ -199,6 +223,10 @@ impl SafeFloat {
     }
 
     /// Returns true if self > a
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "SafeInt never overflows and never panics"
+    )]
     pub fn gt(&self, a: &SafeFloat) -> bool {
         // Shortcut: same exponent → compare mantissas directly
         if self.exponent == a.exponent {
@@ -222,6 +250,10 @@ impl SafeFloat {
 
 // Saturating conversion: negatives -> 0, overflow -> u64::MAX
 impl From<&SafeFloat> for u64 {
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "SafeInt never overflows and never panics"
+    )]
     fn from(value: &SafeFloat) -> Self {
         // Negative values are clamped to 0
         if value.mantissa.is_negative() {
@@ -234,7 +266,7 @@ impl From<&SafeFloat> for u64 {
         }
 
         // scale = 10^exponent
-        let scale = pow10(value.exponent.abs() as u64);
+        let scale = pow10(value.exponent.unsigned_abs());
 
         // mantissa * 10^exponent
         let q: SafeInt = if value.exponent > 0 {
@@ -322,6 +354,10 @@ impl From<&SafeFloatSerializable> for SafeFloat {
 }
 
 impl From<&SafeFloat> for f64 {
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "This code is only used in tests"
+    )]
     fn from(value: &SafeFloat) -> Self {
         // Zero shortcut
         if value.mantissa.is_zero() {
@@ -415,7 +451,7 @@ where
         let denominator: SafeFloat = self.state_ops.get_denominator();
         shared_value
             .mul_div(&current_share, &denominator)
-            .unwrap_or(SafeFloat::zero())
+            .unwrap_or_default()
             .into()
     }
 
@@ -425,7 +461,7 @@ where
         let denominator: SafeFloat = self.state_ops.get_denominator();
         shared_value
             .mul_div(&current_share, &denominator)
-            .unwrap_or(SafeFloat::zero())
+            .unwrap_or_default()
             .into()
     }
 
@@ -534,6 +570,7 @@ where
 
 // cargo test --package share-pool --lib -- tests --nocapture
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
@@ -640,7 +677,7 @@ mod tests {
         let value1 = pool.get_value(&1) as i128;
         let value2 = pool.get_value(&2) as i128;
 
-        assert_abs_diff_eq!(value1 as f64, 500_000_000 as f64, epsilon = 1.);
+        assert_abs_diff_eq!(value1 as f64, 500_000_000_f64, epsilon = 1.);
         assert!((value2 - 500_000_000).abs() <= 1);
     }
 
@@ -787,7 +824,7 @@ mod tests {
 
                 let denominator_float =
                     SafeFloat::new(SafeInt::from(denominator_mantissa), denominator_exponent)
-                        .unwrap();
+                        .unwrap_or_default();
                 let denominator_f64: f64 = denominator_float.clone().into();
                 let spu: f64 = pool
                     .get_shares_per_update(update, shared_value, &denominator_float)
@@ -1184,7 +1221,7 @@ mod tests {
             // Very large integer near the upper bound of integer range
             U64F64::from_num(u64::MAX as u128),
             // Large number with fractional part
-            U64F64::from_num(123_456_789_123_456.789_f64),
+            U64F64::from_num(123_456_789_123_456.78_f64),
             // Medium-large with tiny fractional part to test precision on tail digits
             U64F64::from_num(1_000_000_000_000.000_001_f64),
             // Smallish with long fractional part
