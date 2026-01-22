@@ -208,18 +208,26 @@ impl<T: Config> Pallet<T> {
 
                 // Swap AlphaV2
                 // Get the stake on the old (hot,coldkey) account.
-                let old_alpha_v2: SafeFloat = SafeFloat::from(&AlphaV2::<T>::get((&hotkey, old_coldkey, netuid)));
+                let old_alpha_v2: SafeFloat =
+                    SafeFloat::from(&AlphaV2::<T>::get((&hotkey, old_coldkey, netuid)));
                 // Get the stake on the new (hot,coldkey) account.
-                let new_alpha_v2: SafeFloat = SafeFloat::from(&AlphaV2::<T>::get((&hotkey, new_coldkey, netuid)));
+                let new_alpha_v2: SafeFloat =
+                    SafeFloat::from(&AlphaV2::<T>::get((&hotkey, new_coldkey, netuid)));
                 // Add the stake to new account.
                 AlphaV2::<T>::insert(
                     (&hotkey, new_coldkey, netuid),
-                    SafeFloatSerializable::from(&(new_alpha_v2.add(&old_alpha_v2).unwrap_or_default())),
+                    SafeFloatSerializable::from(
+                        &(new_alpha_v2.add(&old_alpha_v2).unwrap_or_default()),
+                    ),
                 );
                 // Remove the value from the old account.
                 AlphaV2::<T>::remove((&hotkey, old_coldkey, netuid));
 
-                if !new_alpha_v2.add(&old_alpha_v2).unwrap_or_default().is_zero() {
+                if !new_alpha_v2
+                    .add(&old_alpha_v2)
+                    .unwrap_or_default()
+                    .is_zero()
+                {
                     Self::transfer_root_claimed_for_new_keys(
                         netuid,
                         &hotkey,

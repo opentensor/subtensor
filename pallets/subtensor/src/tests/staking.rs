@@ -4081,9 +4081,9 @@ fn test_add_stake_specific_stake_into_subnet_fail() {
     });
 }
 
-// cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_99_999_per_cent_stake_removes_all --exact --show-output
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_99_999_per_cent_stake_works_precisely --exact --show-output
 #[test]
-fn test_remove_99_9991_per_cent_stake_removes_all() {
+fn test_remove_99_9991_per_cent_stake_works_precisely() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
@@ -4115,7 +4115,7 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
             (U64F64::from_num(alpha) * U64F64::from_num(0.999991)).to_num::<u64>(),
         );
         // we expected the entire stake to be returned
-        let (expected_balance, _) = mock::swap_alpha_to_tao(netuid, alpha);
+        let (expected_balance, _) = mock::swap_alpha_to_tao(netuid, remove_amount);
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -4129,16 +4129,13 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
             expected_balance.to_u64(),
             epsilon = 10,
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            TaoCurrency::ZERO
-        );
+        assert!(!SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id).is_zero());
         let new_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
             &coldkey_account_id,
             netuid,
         );
-        assert!(new_alpha.is_zero());
+        assert_eq!(new_alpha, alpha - remove_amount);
     });
 }
 

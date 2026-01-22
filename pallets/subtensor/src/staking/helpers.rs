@@ -505,16 +505,17 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn alpha_iter_single_prefix(
-        prefix: &T::AccountId
+        prefix: &T::AccountId,
     ) -> impl Iterator<Item = (T::AccountId, NetUid, SafeFloat)>
     where
         T::AccountId: Clone,
     {
         // Old Alpha shares format: U64F64 -> SafeFloat
-        let legacy = Alpha::<T>::iter_prefix((prefix.clone(),)).map(|((coldkey, netuid), val_u64f64)| {
-            let sf: SafeFloat = val_u64f64.into();
-            (coldkey, netuid, sf)
-        });
+        let legacy =
+            Alpha::<T>::iter_prefix((prefix.clone(),)).map(|((coldkey, netuid), val_u64f64)| {
+                let sf: SafeFloat = val_u64f64.into();
+                (coldkey, netuid, sf)
+            });
 
         // New Alpha shares format: SafeFloatSerializable -> SafeFloat
         let v2 = AlphaV2::<T>::iter_prefix((prefix,)).map(|((coldkey, netuid), val_sf_ser)| {

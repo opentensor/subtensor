@@ -431,11 +431,9 @@ fn test_share_based_staking_denominator_precision() {
                 stake_amount,
             );
 
-            let actual_stake: f64 = SafeFloat::from(&AlphaV2::<Test>::get((hotkey1, coldkey1, netuid))).into();
-            assert_eq!(
-                stake_amount,
-                (actual_stake as u64).into(),
-            );
+            let actual_stake: f64 =
+                SafeFloat::from(&AlphaV2::<Test>::get((hotkey1, coldkey1, netuid))).into();
+            assert_eq!(stake_amount, (actual_stake as u64).into(),);
             SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey1,
                 &coldkey1,

@@ -681,7 +681,7 @@ fn dissolve_rounding_remainder_distribution() {
 
         AlphaV2::<Test>::insert((s1h, s1c, net), sfser_from_u64(3u64));
         AlphaV2::<Test>::insert((s2h, s2c, net), sfser_from_u64(2u64));
-        
+
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(1)); // TAO pot = 1
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
 

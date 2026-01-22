@@ -169,10 +169,10 @@ impl<T: Config> Pallet<T> {
 
         let old_alpha_values_v2: Vec<((T::AccountId, NetUid), SafeFloat)> =
             AlphaV2::<T>::iter_prefix((old_hotkey,))
-            .map(|((acc, netuid), safe_float_ser)| {
-                ((acc, netuid), SafeFloat::from(&safe_float_ser))
-            })
-            .collect();
+                .map(|((acc, netuid), safe_float_ser)| {
+                    ((acc, netuid), SafeFloat::from(&safe_float_ser))
+                })
+                .collect();
         weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values_v2.len() as u64));
 
         // 2. Swap owner.
@@ -572,11 +572,16 @@ impl<T: Config> Pallet<T> {
                     netuid, old_hotkey, new_hotkey, &coldkey, &coldkey,
                 );
 
-                let new_alpha_v2 = SafeFloat::from(&AlphaV2::<T>::take((new_hotkey, &coldkey, netuid)));
+                let new_alpha_v2 =
+                    SafeFloat::from(&AlphaV2::<T>::take((new_hotkey, &coldkey, netuid)));
                 AlphaV2::<T>::remove((old_hotkey, &coldkey, netuid));
                 AlphaV2::<T>::insert(
                     (new_hotkey, &coldkey, netuid),
-                    SafeFloatSerializable::from(&SafeFloat::from(&alpha).add(&new_alpha_v2).unwrap_or_default()),
+                    SafeFloatSerializable::from(
+                        &SafeFloat::from(&alpha)
+                            .add(&new_alpha_v2)
+                            .unwrap_or_default(),
+                    ),
                 );
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
