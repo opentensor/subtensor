@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
+use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::U256;
-use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT};
 
 use super::mock;
@@ -546,75 +546,93 @@ fn test_burn_errors() {
 }
 
 #[test]
-fn test_recycle_precision_loss() {
+fn test_recycle_precision() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
+        let stake = 200_000_u64;
+        let tao_reserve = TaoCurrency::from(1_000_000_000_u64);
+        let alpha_reserve = AlphaCurrency::from(1_000_000_000_u64);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_reserve);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve);
 
         Balances::make_free_balance_be(&coldkey, 1_000_000_000);
         // sanity check
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // add stake to coldkey-hotkey pair so we can recycle it
-        let stake = 200_000;
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // amount to recycle
         let recycle_amount = AlphaCurrency::from(stake / 2);
 
-        // Modify the alpha pool denominator so it's low-precision
-        let denominator = U64F64::from_num(0.00000001);
-        TotalHotkeyShares::<Test>::insert(hotkey, netuid, denominator);
-        Alpha::<Test>::insert((&hotkey, &coldkey, netuid), denominator);
+        // Modify the alpha pool denominator so it's low-precision (denominator = share = 1e-9)
+        let denominator = SafeFloat::from(1).div(&SafeFloat::from(1_000_000_000)).unwrap_or_default();
+        TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, SafeFloatSerializable::from(&denominator));
+        AlphaV2::<Test>::insert((&hotkey, &coldkey, netuid), SafeFloatSerializable::from(&denominator));
+        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
 
         // recycle, expect error due to precision loss
-        assert_noop!(
+        assert_ok!(
             SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 recycle_amount,
                 netuid
-            ),
-            Error::<Test>::PrecisionLoss
+            )
+        );
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            AlphaCurrency::from(stake / 2)
         );
     });
 }
 
 #[test]
-fn test_burn_precision_loss() {
+fn test_burn_precision() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
+        let stake = 200_000_u64;
+        let tao_reserve = TaoCurrency::from(1_000_000_000_u64);
+        let alpha_reserve = AlphaCurrency::from(1_000_000_000_u64);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_reserve);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve);
 
         Balances::make_free_balance_be(&coldkey, 1_000_000_000);
         // sanity check
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // add stake to coldkey-hotkey pair so we can recycle it
-        let stake = 200_000;
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // amount to recycle
         let burn_amount = AlphaCurrency::from(stake / 2);
 
-        // Modify the alpha pool denominator so it's low-precision
-        let denominator = U64F64::from_num(0.00000001);
-        TotalHotkeyShares::<Test>::insert(hotkey, netuid, denominator);
-        Alpha::<Test>::insert((&hotkey, &coldkey, netuid), denominator);
+        // Modify the alpha pool denominator so it's low-precision (denominator = share = 1e-9)
+        let denominator = SafeFloat::from(1).div(&SafeFloat::from(1_000_000_000)).unwrap_or_default();
+        TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, SafeFloatSerializable::from(&denominator));
+        AlphaV2::<Test>::insert((&hotkey, &coldkey, netuid), SafeFloatSerializable::from(&denominator));
+        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
 
         // burn, expect error due to precision loss
-        assert_noop!(
+        assert_ok!(
             SubtensorModule::burn_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 burn_amount,
                 netuid
-            ),
-            Error::<Test>::PrecisionLoss
+            )
+        );
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            AlphaCurrency::from(stake / 2)
         );
     });
 }

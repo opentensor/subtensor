@@ -1468,6 +1468,11 @@ pub mod pallet {
     pub type AlphaMapLastKey<T: Config> =
         StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
 
+    /// Contains last AlphaV2 storage map key to iterate (check first)
+    #[pallet::storage]
+    pub type AlphaV2MapLastKey<T: Config> =
+        StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
+
     /// --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     #[pallet::storage]
     pub type TokenSymbol<T: Config> =

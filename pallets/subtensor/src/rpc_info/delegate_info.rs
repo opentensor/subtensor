@@ -171,7 +171,7 @@ impl<T: Config> Pallet<T> {
         )> = Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
             // Staked to this delegate, so add to list
-            for (netuid, _) in Alpha::<T>::iter_prefix((delegate.clone(), delegatee.clone())) {
+            for (netuid, _) in Self::alpha_iter_prefix((&delegate, &delegatee)) {
                 let delegate_info = Self::get_delegate_by_existing_account(delegate.clone(), true);
                 delegates.push((
                     delegate_info,
