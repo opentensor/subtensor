@@ -5,6 +5,7 @@ use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
+use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
@@ -852,7 +853,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_stake_success --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey::test_swap_stake_success --exact --nocapture
 #[test]
 fn test_swap_stake_success() {
     new_test_ext(1).execute_with(|| {
@@ -908,7 +909,13 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(new_hotkey, netuid),
-            U64F64::from_num(shares)
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(
+                new_hotkey, netuid
+            ))),
+            shares.to_num::<f64>()
         );
         assert_eq!(
             Alpha::<Test>::get((old_hotkey, coldkey, netuid)),
@@ -916,7 +923,13 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
-            U64F64::from_num(amount)
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&AlphaV2::<Test>::get((
+                new_hotkey, coldkey, netuid
+            )))),
+            amount as f64
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey),
@@ -958,8 +971,8 @@ fn test_swap_stake_old_hotkey_not_exist() {
             &mut weight,
         );
 
-        // Verify that new_hotkey has the stake and old_hotkey does not
-        assert!(Alpha::<Test>::contains_key((new_hotkey, coldkey, netuid)));
+        // Verify that new_hotkey has the stake (in new AlphaV2 map) and old_hotkey does not
+        assert!(AlphaV2::<Test>::contains_key((new_hotkey, coldkey, netuid)));
         assert!(!Alpha::<Test>::contains_key((old_hotkey, coldkey, netuid)));
     });
 }

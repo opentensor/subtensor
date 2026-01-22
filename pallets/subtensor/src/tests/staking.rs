@@ -9,6 +9,7 @@ use frame_system::RawOrigin;
 use pallet_subtensor_swap::Call as SwapCall;
 use pallet_subtensor_swap::tick::TickIndex;
 use safe_math::FixedExt;
+use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::{Get, H256, U256};
 use sp_runtime::traits::Dispatchable;
 use substrate_fixed::traits::FromFixed;
@@ -5640,6 +5641,115 @@ fn test_staking_records_flow() {
             SubnetTaoFlow::<Test>::get(netuid),
             expected_unstake_fee as i64,
             epsilon = (expected_unstake_fee / 100.0) as i64
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_lazy_sharepool_migration_get_stake_reads_from_deprecated_alpha_map --exact --nocapture
+#[test]
+fn test_lazy_sharepool_migration_get_stake_reads_from_deprecated_alpha_map() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let netuid = add_dynamic_network(&hotkey, &coldkey);
+        let stake = 200_000_u64;
+
+        // add stake to deprecated Alpha map
+        Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
+        TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
+        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            AlphaCurrency::from(stake)
+        );
+    });
+}
+
+#[test]
+fn test_lazy_sharepool_migration_get_stake_reads_from_alpha_v2_map() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let netuid = add_dynamic_network(&hotkey, &coldkey);
+        let stake = 200_000_u64;
+
+        // add stake to AlphaV2 map
+        AlphaV2::<Test>::insert(
+            (hotkey, coldkey, netuid),
+            SafeFloatSerializable::from(&SafeFloat::from(1_u64)),
+        );
+        TotalHotkeySharesV2::<Test>::insert(
+            hotkey,
+            netuid,
+            SafeFloatSerializable::from(&SafeFloat::from(1_u64)),
+        );
+        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            AlphaCurrency::from(stake)
+        );
+    });
+}
+
+#[test]
+fn test_lazy_sharepool_migration_get_stake_reads_from_cross_alpha_maps() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let netuid = add_dynamic_network(&hotkey, &coldkey);
+        let stake = 200_000_u64;
+
+        // add stake to Alpha map
+        Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
+        // but total shares are in TotalHotkeySharesV2 map (already migrated)
+        TotalHotkeySharesV2::<Test>::insert(
+            hotkey,
+            netuid,
+            SafeFloatSerializable::from(&SafeFloat::from(1_u64)),
+        );
+        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            AlphaCurrency::from(stake)
+        );
+    });
+}
+
+#[test]
+fn test_lazy_sharepool_migration_staking_causes_migration() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let netuid = add_dynamic_network(&hotkey, &coldkey);
+        let stake = 200_000_u64;
+
+        // add stake to deprecated Alpha map
+        Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
+        TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
+        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
+
+        // Stake more via stake_into_subnet
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
+
+        // Verify that deprecated v1 map values are gone
+        assert!(Alpha::<Test>::try_get((&hotkey, &coldkey, netuid)).is_err());
+        assert!(TotalHotkeyShares::<Test>::try_get(hotkey, netuid).is_err());
+
+        // Verify that v2 map values are present
+        let migrated_share = SafeFloat::from(&AlphaV2::<Test>::get((&hotkey, &coldkey, netuid)));
+        let migrated_denominator =
+            SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(hotkey, netuid));
+
+        assert_eq!(
+            f64::from((migrated_share.div(&migrated_denominator)).unwrap()),
+            1.0
         );
     });
 }

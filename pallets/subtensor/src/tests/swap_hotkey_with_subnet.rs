@@ -9,6 +9,7 @@ use subtensor_runtime_common::{AlphaCurrency, Currency, NetUidStorageIndex, TaoC
 
 use super::mock::*;
 use crate::*;
+use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
@@ -906,7 +907,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_stake_success --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_stake_success --exact --nocapture
 #[test]
 fn test_swap_stake_success() {
     new_test_ext(1).execute_with(|| {
@@ -963,7 +964,13 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(new_hotkey, netuid),
-            U64F64::from_num(shares)
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(
+                new_hotkey, netuid
+            ))),
+            shares.to_num::<f64>()
         );
         assert_eq!(
             Alpha::<Test>::get((old_hotkey, coldkey, netuid)),
@@ -971,7 +978,13 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
-            U64F64::from_num(amount)
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&AlphaV2::<Test>::get((
+                new_hotkey, coldkey, netuid
+            )))),
+            amount as f64
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey),

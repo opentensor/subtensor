@@ -1294,11 +1294,23 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
     }
 
     fn get_share(&self, key: &AlphaShareKey<T>) -> SafeFloat {
+        // Read the deprecated Alpha map first and, if value is not available, try new AlphaV2
+        let maybe_share_v1 = Alpha::<T>::try_get((&(self.hotkey), key, self.netuid));
+        if let Ok(share_v1) = maybe_share_v1 {
+            return SafeFloat::from(share_v1);
+        }
+
         let share_serializable = AlphaV2::<T>::get((&(self.hotkey), key, self.netuid));
         SafeFloat::from(&share_serializable)
     }
 
     fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<SafeFloat, ()> {
+        // Read the deprecated Alpha map first and, if value is not available, try new AlphaV2
+        let maybe_share_v1 = Alpha::<T>::try_get((&(self.hotkey), key, self.netuid));
+        if let Ok(share_v1) = maybe_share_v1 {
+            return Ok(SafeFloat::from(share_v1));
+        }
+
         let maybe_share_serializable = AlphaV2::<T>::try_get((&(self.hotkey), key, self.netuid));
         if let Ok(share_serializable) = maybe_share_serializable {
             Ok(SafeFloat::from(&share_serializable))
@@ -1308,6 +1320,12 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
     }
 
     fn get_denominator(&self) -> SafeFloat {
+        // Read the deprecated TotalHotkeyShares map first and, if value is not available, try new TotalHotkeySharesV2
+        let maybe_denomnator_v1 = TotalHotkeyShares::<T>::try_get(&(self.hotkey), self.netuid);
+        if let Ok(denomnator_v1) = maybe_denomnator_v1 {
+            return SafeFloat::from(denomnator_v1);
+        }
+
         let denominator_serializable = TotalHotkeySharesV2::<T>::get(&(self.hotkey), self.netuid);
         SafeFloat::from(&denominator_serializable)
     }
@@ -1321,6 +1339,13 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
     }
 
     fn set_share(&mut self, key: &AlphaShareKey<T>, share: SafeFloat) {
+        // Lazy Alpha -> AlphaV2 migration happens right here
+        // Delete the Alpha entry, insert into AlphaV2
+        let maybe_share_v1 = Alpha::<T>::try_get((&(self.hotkey), key, self.netuid));
+        if maybe_share_v1.is_ok() {
+            Alpha::<T>::remove((&self.hotkey, key, self.netuid));
+        }
+
         if !share.is_zero() {
             let float_serializable = SafeFloatSerializable::from(&share);
             AlphaV2::<T>::insert((&self.hotkey, key, self.netuid), float_serializable);
@@ -1330,6 +1355,13 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
     }
 
     fn set_denominator(&mut self, update: SafeFloat) {
+        // Lazy TotalHotkeyShares -> TotalHotkeySharesV2 migration happens right here
+        // Delete the TotalHotkeyShares entry, insert into TotalHotkeySharesV2
+        let maybe_denominator_v1 = TotalHotkeyShares::<T>::try_get(&(self.hotkey), self.netuid);
+        if maybe_denominator_v1.is_ok() {
+            TotalHotkeyShares::<T>::remove(&self.hotkey, self.netuid);
+        }
+
         if !update.is_zero() {
             let float_serializable = SafeFloatSerializable::from(&update);
             TotalHotkeySharesV2::<T>::insert(&self.hotkey, self.netuid, float_serializable);

@@ -164,9 +164,7 @@ mod hooks {
                 // Remove unknown neuron axon, certificate prom
                 .saturating_add(migrations::migrate_remove_unknown_neuron_axon_cert_prom::migrate_remove_unknown_neuron_axon_cert_prom::<T>())
                 // Fix staking hot keys
-                .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>())
-                // Migrate from old share pool (Alpha) to high precision share pool (AlphaV2)
-                .saturating_add(migrations::migrate_share_pool_high_precision::migrate_share_pool_high_precision::<T>());
+                .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>());
             weight
         }
 
