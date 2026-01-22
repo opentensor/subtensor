@@ -1,43 +1,53 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# -------------------------------
-# Usage
-# -------------------------------
-# ./run_localnet.sh <BUILD_DIRECTORY> <SPEC_PATH>
-# Example:
-# ./run_localnet.sh ./subtensor/target/release ./.bdk-env/specs/subtensor.json
-# -------------------------------
+# ----------------------------------------
+# Args
+# ----------------------------------------
 
-BUILD_DIR="${1:?Build directory missing}"
-SPEC_PATH="${2:?Spec path missing}"
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 <build_dir> <bdk_env_dir>"
+  exit 1
+fi
 
-BIN="${BUILD_DIR}/node-subtensor"
+BUILD_DIR="$(realpath "$1")"
+BDK_ENV_DIR="$(realpath "$2")"
 
-# -------------------------------
-# Purge previous chain state
-# -------------------------------
-echo "*** Purging previous state..."
+BIN="$BUILD_DIR/node-subtensor"
 
-for NODE in alice bob charlie; do
-  "$BIN" purge-chain -y --base-path "/tmp/$NODE" --chain="$SPEC_PATH" >/dev/null 2>&1
+# ----------------------------------------
+# Derived paths
+# ----------------------------------------
+
+SPEC_PATH="$BDK_ENV_DIR/specs/subtensor.json"
+SECRET_DIR="$BDK_ENV_DIR/secret"
+
+KEYSTORE_DIR="$SECRET_DIR/keystore"
+NODE_KEY_DIR="$SECRET_DIR/node"
+
+# ----------------------------------------
+# Validation
+# ----------------------------------------
+
+[[ -x "$BIN" ]] || { echo "❌ node-subtensor not found: $BIN"; exit 1; }
+[[ -f "$SPEC_PATH" ]] || { echo "❌ spec not found: $SPEC_PATH"; exit 1; }
+
+for d in "$KEYSTORE_DIR" "$NODE_KEY_DIR"; do
+  [[ -d "$d" ]] || { echo "❌ missing directory: $d"; exit 1; }
 done
 
-echo "*** Previous chain state purged"
+# ----------------------------------------
+# Node commands
+# ----------------------------------------
 
-# -------------------------------
-# Define nodes
-# -------------------------------
-ALICE_BASE="/tmp/alice"
-BOB_BASE="/tmp/bob"
-CHARLIE_BASE="/tmp/charlie"
+echo "🚀 Starting localnet nodes (Alice / Bob / Charlie)..."
 
 alice_start=(
   "$BIN"
-  --base-path "$ALICE_BASE"
+  --base-path /tmp/alice
   --chain="$SPEC_PATH"
-  --keystore-path="./.bdk-env/secret/keystore/subtensor-node-alice"
-  --node-key-file="./.bdk-env/secret/node/subtensor-node-alice"
+  --keystore-path="$KEYSTORE_DIR/subtensor-node-alice"
+  --node-key-file="$NODE_KEY_DIR/subtensor-node-alice"
   --port 30334
   --rpc-port 9946
   --validator
@@ -51,10 +61,10 @@ alice_start=(
 
 bob_start=(
   "$BIN"
-  --base-path "$BOB_BASE"
+  --base-path /tmp/bob
   --chain="$SPEC_PATH"
-  --keystore-path="./.bdk-env/secret/keystore/subtensor-node-bob"
-  --node-key-file="./.bdk-env/secret/node/subtensor-node-bob"
+  --keystore-path="$KEYSTORE_DIR/subtensor-node-bob"
+  --node-key-file="$NODE_KEY_DIR/subtensor-node-bob"
   --port 30335
   --rpc-port 9935
   --validator
@@ -65,10 +75,10 @@ bob_start=(
 
 charlie_start=(
   "$BIN"
-  --base-path "$CHARLIE_BASE"
+  --base-path /tmp/charlie
   --chain="$SPEC_PATH"
-  --keystore-path="./.bdk-env/secret/keystore/subtensor-node-charlie"
-  --node-key-file="./.bdk-env/secret/node/subtensor-node-charlie"
+  --keystore-path="$KEYSTORE_DIR/subtensor-node-charlie"
+  --node-key-file="$NODE_KEY_DIR/subtensor-node-charlie"
   --port 30336
   --rpc-port 9936
   --validator
@@ -77,22 +87,22 @@ charlie_start=(
   --bootnodes /ip4/127.0.0.1/tcp/30334/p2p/12D3KooWMJ5Gmn2SPfx2TEFfvido1X8xhUZUnC2MbD2yTwKPQak8
 )
 
-# -------------------------------
-# Start nodes in background
-# -------------------------------
+# ----------------------------------------
+# Launch (background, detached)
+# ----------------------------------------
 
-echo "*** Starting localnet nodes (Alice/Bob/Charlie)..."
-echo "Press Ctrl+C to terminate"
-
-# trap ensures all background nodes are killed if script is interrupted
-trap 'kill 0' SIGINT
-
-# Run nodes concurrently
-("${alice_start[@]}" 2>&1 &)
-("${bob_start[@]}" 2>&1 &)
-("${charlie_start[@]}" 2>&1 &)
+("${alice_start[@]}"   > /tmp/alice.log   2>&1 &)
+("${bob_start[@]}"     > /tmp/bob.log     2>&1 &)
+("${charlie_start[@]}" > /tmp/charlie.log 2>&1 &)
 
 echo "✅ Localnet started"
+echo "   Logs:"
+echo "     /tmp/alice.log"
+echo "     /tmp/bob.log"
+echo "     /tmp/charlie.log"
 
-# Exit immediately
+# ----------------------------------------
+# Exit so CI can continue
+# ----------------------------------------
+
 exit 0
