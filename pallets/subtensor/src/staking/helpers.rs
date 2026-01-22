@@ -91,6 +91,43 @@ impl<T: Config> Pallet<T> {
             .into()
     }
 
+    // Returns the total amount of stake under a coldkey on a subnet
+    //
+    pub fn get_total_stake_for_coldkey_on_subnet(
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> TaoCurrency {
+        let hotkeys = StakingHotkeys::<T>::get(coldkey);
+        hotkeys
+            .iter()
+            .map(|hotkey| {
+                Alpha::<T>::iter_prefix((hotkey, coldkey))
+                    .map(|(netuid_on_storage, _)| {
+                        if netuid_on_storage == netuid {
+                            let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                                hotkey, coldkey, netuid,
+                            );
+                            let order = GetTaoForAlpha::<T>::with_amount(alpha_stake);
+                            T::SwapInterface::sim_swap(netuid.into(), order)
+                                .map(|r| {
+                                    let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
+                                        .saturating_mul(T::SwapInterface::current_alpha_price(
+                                            netuid.into(),
+                                        ))
+                                        .saturating_to_num();
+                                    r.amount_paid_out.to_u64().saturating_add(fee)
+                                })
+                                .unwrap_or_default()
+                        } else {
+                            0
+                        }
+                    })
+                    .sum::<u64>()
+            })
+            .sum::<u64>()
+            .into()
+    }
+
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {

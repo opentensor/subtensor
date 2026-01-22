@@ -1,9 +1,9 @@
 import * as assert from "assert";
 
-import { getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
+import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { devnet } from "@polkadot-api/descriptors"
-import { TypedApi } from "polkadot-api";
-import { convertPublicKeyToSs58 } from "../src/address-utils"
+import { Binary, TypedApi, getTypedCodecs } from "polkadot-api";
+import { convertH160ToSS58, convertPublicKeyToSs58 } from "../src/address-utils"
 import { generateRandomEthersWallet } from "../src/utils";
 import { ISubnetABI, ISUBNET_ADDRESS } from "../src/contracts/subnet"
 import { ethers } from "ethers"
@@ -544,5 +544,38 @@ describe("Test the Subnet precompile contract", () => {
 
         assert.equal(valueFromContract, newValue)
         assert.equal(valueFromContract, onchainValue);
+    })
+
+    it("Rejects subnet precompile calls when coldkey swap is scheduled (tx extension)", async () => {
+        const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
+        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+        const netuid = totalNetwork - 1;
+
+        const coldkeySs58 = convertH160ToSS58(wallet.address)
+        const newColdkeySs58 = convertPublicKeyToSs58(hotkey1.publicKey)
+        const currentBlock = await api.query.System.Number.getValue()
+        const executionBlock = currentBlock + 10
+
+        const codec = await getTypedCodecs(devnet);
+        const valueBytes = codec.query.SubtensorModule.ColdkeySwapScheduled.value.enc([
+            executionBlock,
+            newColdkeySs58,
+        ])
+        const key = await api.query.SubtensorModule.ColdkeySwapScheduled.getKey(coldkeySs58);
+
+        // Use sudo + set_storage since the swap-scheduled check only exists in the tx extension.
+        const setStorageCall = api.tx.System.set_storage({
+            items: [[Binary.fromHex(key), Binary.fromBytes(valueBytes)]],
+        })
+        const sudoTx = api.tx.Sudo.sudo({ call: setStorageCall.decodedCall })
+        await waitForTransactionWithRetry(api, sudoTx, getAliceSigner())
+
+        const storedValue = await api.query.SubtensorModule.ColdkeySwapScheduled.getValue(coldkeySs58)
+        assert.deepStrictEqual(storedValue, [executionBlock, newColdkeySs58])
+
+        await assert.rejects(async () => {
+            const tx = await contract.setServingRateLimit(netuid, 100);
+            await tx.wait();
+        })
     })
 })
