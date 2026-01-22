@@ -482,7 +482,6 @@ impl<T: Config> Pallet<T> {
         //    - per (hot,cold) α VALUE (not shares) with fallback to raw share if pool uninitialized,
         //    - track hotkeys to clear pool totals.
         let mut keys_to_remove: Vec<(T::AccountId, T::AccountId)> = Vec::new();
-        let mut hotkeys_seen: Vec<T::AccountId> = Vec::new();
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
         let mut total_alpha_value_u128: u128 = 0;
 
@@ -497,9 +496,6 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
                 keys_to_remove.push((hot.clone(), cold.clone()));
-                if !hotkeys_seen.contains(hot) {
-                    hotkeys_seen.push(hot.clone());
-                }
 
                 // Primary: actual α value via share pool.
                 let pool = Self::get_alpha_share_pool(hot.clone(), netuid);
@@ -581,7 +577,7 @@ impl<T: Config> Pallet<T> {
             Alpha::<T>::remove((hot, cold, netuid));
         }
         // 7.b) Clear share‑pool totals for each hotkey on this subnet.
-        for hot in hotkeys_seen {
+        for hot in hotkeys_in_subnet {
             TotalHotkeyAlpha::<T>::remove(&hot, netuid);
             TotalHotkeyShares::<T>::remove(&hot, netuid);
         }
