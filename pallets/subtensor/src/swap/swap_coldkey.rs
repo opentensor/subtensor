@@ -183,28 +183,13 @@ impl<T: Config> Pallet<T> {
                 let old_alpha: U64F64 = Alpha::<T>::get((&hotkey, old_coldkey, netuid));
                 // Get the stake on the new (hot,coldkey) account.
                 let new_alpha: U64F64 = Alpha::<T>::get((&hotkey, new_coldkey, netuid));
+                let resulting_new_alpha = new_alpha.saturating_add(old_alpha);
                 // Add the stake to new account.
-                Alpha::<T>::insert(
-                    (&hotkey, new_coldkey, netuid),
-                    new_alpha.saturating_add(old_alpha),
-                );
+                if resulting_new_alpha > U64F64::from(0u64) {
+                    Alpha::<T>::insert((&hotkey, new_coldkey, netuid), resulting_new_alpha);
+                }
                 // Remove the value from the old account.
                 Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
-
-                if new_alpha.saturating_add(old_alpha) > U64F64::from(0u64) {
-                    Self::transfer_root_claimed_for_new_keys(
-                        netuid,
-                        &hotkey,
-                        &hotkey,
-                        old_coldkey,
-                        new_coldkey,
-                    );
-
-                    if netuid == NetUid::ROOT {
-                        // Register new coldkey with root stake
-                        Self::maybe_add_coldkey_index(new_coldkey);
-                    }
-                }
 
                 // Swap AlphaV2
                 // Get the stake on the old (hot,coldkey) account.
@@ -213,20 +198,19 @@ impl<T: Config> Pallet<T> {
                 // Get the stake on the new (hot,coldkey) account.
                 let new_alpha_v2: SafeFloat =
                     SafeFloat::from(&AlphaV2::<T>::get((&hotkey, new_coldkey, netuid)));
+                let resulting_new_alpha_v2 = new_alpha_v2.add(&old_alpha_v2).unwrap_or_default();
+
                 // Add the stake to new account.
-                AlphaV2::<T>::insert(
-                    (&hotkey, new_coldkey, netuid),
-                    SafeFloatSerializable::from(
-                        &(new_alpha_v2.add(&old_alpha_v2).unwrap_or_default()),
-                    ),
-                );
+                if !resulting_new_alpha_v2.is_zero() {
+                    AlphaV2::<T>::insert(
+                        (&hotkey, new_coldkey, netuid),
+                        SafeFloatSerializable::from(&resulting_new_alpha_v2),
+                    );
+                }
                 // Remove the value from the old account.
                 AlphaV2::<T>::remove((&hotkey, old_coldkey, netuid));
 
-                if !new_alpha_v2
-                    .add(&old_alpha_v2)
-                    .unwrap_or_default()
-                    .is_zero()
+                if (resulting_new_alpha > U64F64::from(0u64)) || (!resulting_new_alpha_v2.is_zero())
                 {
                     Self::transfer_root_claimed_for_new_keys(
                         netuid,

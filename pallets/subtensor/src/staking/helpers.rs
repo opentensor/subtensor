@@ -501,7 +501,9 @@ impl<T: Config> Pallet<T> {
             (netuid, sf)
         });
 
-        legacy.chain(v2)
+        legacy
+            .chain(v2)
+            .filter(|(_, alpha_share)| !alpha_share.is_zero())
     }
 
     pub fn alpha_iter_single_prefix(
