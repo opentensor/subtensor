@@ -108,7 +108,7 @@ impl<T: Config> Pallet<T> {
                             let order = GetTaoForAlpha::<T>::with_amount(alpha_stake);
                             T::SwapInterface::sim_swap(netuid.into(), order)
                                 .map(|r| {
-                                    let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
+                                    let fee: u64 = U64F64::saturating_from_num(r.fee_paid)
                                         .saturating_mul(T::SwapInterface::current_alpha_price(
                                             netuid.into(),
                                         ))
