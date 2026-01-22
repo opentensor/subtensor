@@ -607,7 +607,14 @@ fn build_swap_keys(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> 
     let target = RateLimitTarget::Group(GROUP_SWAP_KEYS);
     let (tx_rate_limit, tx_reads) = legacy_storage::tx_rate_limit();
     reads = reads.saturating_add(tx_reads);
-    push_limit_commit_if_non_zero(commits, target, tx_rate_limit, None);
+    // Legacy check blocks at delta == limit; pallet-rate-limiting allows at delta == span.
+    // Add one block to preserve legacy behavior when legacy rate-limiting is removed.
+    let effective_limit = if tx_rate_limit == 0 {
+        0
+    } else {
+        tx_rate_limit.saturating_add(1)
+    };
+    push_limit_commit_if_non_zero(commits, target, effective_limit, None);
 
     reads = reads.saturating_add(
         last_seen_helpers::collect_last_seen_from_last_rate_limited_block(

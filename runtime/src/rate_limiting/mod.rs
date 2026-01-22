@@ -227,14 +227,11 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                         new_coldkey.clone(),
                     )])
                 }
-                SubtensorCall::swap_hotkey { new_hotkey, .. } => {
-                    // Record against the coldkey (enforcement) and the new hotkey to mirror legacy
-                    // writes.
+                SubtensorCall::swap_hotkey { .. } => {
+                    // Enforce only by coldkey; new_hotkey last-seen is recorded in pallet-subtensor
+                    // to avoid double enforcement while preserving legacy tracking.
                     let coldkey = signed_origin(origin)?;
-                    Some(vec![
-                        RateLimitUsageKey::<AccountId>::Account(coldkey),
-                        RateLimitUsageKey::<AccountId>::Account(new_hotkey),
-                    ])
+                    Some(vec![RateLimitUsageKey::<AccountId>::Account(coldkey)])
                 }
                 SubtensorCall::increase_take { hotkey, .. }
                 | SubtensorCall::decrease_take { hotkey, .. } => {

@@ -1,8 +1,13 @@
 use super::*;
 use frame_support::weights::Weight;
+use rate_limiting_interface::RateLimitingInterface;
 use sp_core::Get;
+use sp_runtime::traits::SaturatedConversion;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Currency, MechId, NetUid};
+use subtensor_runtime_common::{
+    Currency, MechId, NetUid,
+    rate_limiting::{self, RateLimitUsageKey},
+};
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
@@ -64,8 +69,13 @@ impl<T: Config> Pallet<T> {
         );
 
         // 8. Swap LastTxBlock
-        let last_tx_block: u64 = Self::get_last_tx_block(old_hotkey);
-        Self::set_last_tx_block(new_hotkey, last_tx_block);
+        let last_tx_block = Self::get_last_tx_block(old_hotkey);
+        let last_seen = (last_tx_block != 0).then(|| last_tx_block.saturated_into());
+        T::RateLimiting::set_last_seen(
+            rate_limiting::GROUP_SWAP_KEYS,
+            Some(RateLimitUsageKey::Account(new_hotkey.clone())),
+            last_seen,
+        );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 10. Swap LastTxBlockChildKeyTake
@@ -297,7 +307,6 @@ impl<T: Config> Pallet<T> {
         Self::perform_hotkey_swap_on_one_subnet(old_hotkey, new_hotkey, &mut weight, netuid)?;
 
         // 10. Update the last transaction block for the coldkey
-        Self::set_last_tx_block(coldkey, block);
         LastHotkeySwapOnNetuid::<T>::insert(netuid, coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(2));
 
