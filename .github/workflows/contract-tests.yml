@@ -54,7 +54,7 @@ jobs:
           cd ${{ github.workspace }}
           rustup component add rust-src
           cargo install cargo-contract
-          cargo build --release -p node-subtensor --features fast-runtime
+          cargo build --workspace --profile release --features fast-runtime
           cd contract-tests/bittensor
           cargo contract build --release
 

@@ -2,10 +2,10 @@
 
 echo "start run-ci.sh"
 
-target/release/node-subtensor --dev --tmp --one &>/dev/null &
+scripts/localnet.sh &>/dev/null &
 
 i=1
-while [ $i -le 60 ]; do
+while [ $i -le 600 ]; do
   if nc -z localhost 9944; then
     echo "node subtensor is running after $i seconds"
     break
