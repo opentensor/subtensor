@@ -207,6 +207,9 @@ pub mod pallet {
         /// The extrinsic sets the transaction rate limit for the network.
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the transaction rate limit.
+        ///
+        /// Deprecated: swap-keys rate limits are now configured via `pallet-rate-limiting` on the
+        /// swap-keys group target (`GROUP_SWAP_KEYS`).
         #[pallet::call_index(2)]
         #[pallet::weight(
             (Weight::from_parts(5_400_000, 0)
@@ -214,11 +217,11 @@ pub mod pallet {
             DispatchClass::Operational,
             Pays::Yes)
         )]
+        #[deprecated(
+            note = "deprecated: configure via pallet-rate-limiting::set_rate_limit(target=Group(GROUP_SWAP_KEYS), ...)"
+        )]
         pub fn sudo_set_tx_rate_limit(origin: OriginFor<T>, tx_rate_limit: u64) -> DispatchResult {
-            ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_tx_rate_limit(tx_rate_limit);
-            log::debug!("TxRateLimitSet( tx_rate_limit: {tx_rate_limit:?} ) ");
-            Ok(())
+            Err(Error::<T>::Deprecated.into())
         }
 
         /// The extrinsic sets the serving rate limit for a subnet.

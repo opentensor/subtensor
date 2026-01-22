@@ -54,12 +54,6 @@ impl<T: Config> Pallet<T> {
         // 5. Get the current block number
         let block: u64 = Self::get_current_block_as_u64();
 
-        // 6. Ensure the transaction rate limit is not exceeded
-        ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::HotKeySetTxRateLimitExceeded
-        );
-
         weight.saturating_accrue(T::DbWeight::get().reads(2));
 
         // 7. Ensure the new hotkey is not already registered on any network

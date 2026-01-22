@@ -241,12 +241,4 @@ impl<T: Config> Pallet<T> {
             block,
         );
     }
-    pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
-        let rate_limit: u64 = TxRateLimit::<T>::get();
-        if rate_limit == 0 || prev_tx_block == 0 {
-            return false;
-        }
-
-        current_block.saturating_sub(prev_tx_block) <= rate_limit
-    }
 }
