@@ -15,7 +15,7 @@ while [ $i -le 600 ]; do
 done
 
 # port not available exit with error
-if [ "$i" -eq 60 ]; then
+if [ "$i" -eq 600 ]; then
     exit 1
 fi
 
