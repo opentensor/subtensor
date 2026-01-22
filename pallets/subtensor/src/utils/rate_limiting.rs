@@ -216,13 +216,6 @@ impl<T: Config> Pallet<T> {
     // ==== Rate Limiting =====
     // ========================
 
-    pub fn remove_last_tx_block(key: &T::AccountId) {
-        Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlock(key.clone()))
-    }
-    pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
-        Self::set_rate_limited_last_block(&RateLimitKey::LastTxBlock(key.clone()), block);
-    }
-
     pub fn remove_last_tx_block_delegate_take(key: &T::AccountId) {
         Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlockDelegateTake(key.clone()))
     }

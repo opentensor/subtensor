@@ -945,7 +945,6 @@ fn test_swap_hotkey_error_cases() {
         // Set up initial state
         Owner::<Test>::insert(old_hotkey, coldkey);
         TotalNetworks::<Test>::put(1);
-        SubtensorModule::set_last_tx_block(&coldkey, 0);
 
         // Test not enough balance
         let swap_cost = SubtensorModule::get_key_swap_cost();

@@ -2,7 +2,6 @@ use super::*;
 use frame_support::weights::Weight;
 use rate_limiting_interface::RateLimitingInterface;
 use sp_core::Get;
-use sp_runtime::traits::SaturatedConversion;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
     Currency, MechId, NetUid,
@@ -51,11 +50,6 @@ impl<T: Config> Pallet<T> {
         // 4. Ensure the new hotkey is different from the old one
         ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
 
-        // 5. Get the current block number
-        let block: u64 = Self::get_current_block_as_u64();
-
-        weight.saturating_accrue(T::DbWeight::get().reads(2));
-
         // 7. Ensure the new hotkey is not already registered on any network
         ensure!(
             !Self::is_hotkey_registered_on_any_network(new_hotkey),
@@ -65,14 +59,12 @@ impl<T: Config> Pallet<T> {
         // 8. Swap last-seen
         let last_tx_block = T::RateLimiting::last_seen(
             rate_limiting::GROUP_SWAP_KEYS,
-            Some(RateLimitUsageKey::Account(old_hotkey)),
-        )
-        .unwrap_or_default();
-        let last_seen = (last_tx_block != 0).then(|| last_tx_block.saturated_into());
+            Some(RateLimitUsageKey::Account(old_hotkey.clone())),
+        );
         T::RateLimiting::set_last_seen(
             rate_limiting::GROUP_SWAP_KEYS,
             Some(RateLimitUsageKey::Account(new_hotkey.clone())),
-            last_seen,
+            last_tx_block,
         );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
@@ -109,10 +101,6 @@ impl<T: Config> Pallet<T> {
 
         // 19. Perform the hotkey swap
         Self::perform_hotkey_swap_on_all_subnets(old_hotkey, new_hotkey, &coldkey, &mut weight)?;
-
-        // 20. Update the last transaction block for the coldkey
-        Self::set_last_tx_block(&coldkey, block);
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         // 21. Emit an event for the hotkey swap
         Self::deposit_event(Event::HotkeySwapped {
@@ -196,8 +184,12 @@ impl<T: Config> Pallet<T> {
 
         // 6. Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
-        Self::remove_last_tx_block(old_hotkey);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        T::RateLimiting::set_last_seen(
+            rate_limiting::GROUP_SWAP_KEYS,
+            Some(RateLimitUsageKey::Account(old_hotkey.clone())),
+            None,
+        );
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         // 7. Swap LastTxBlockDelegateTake
         // LastTxBlockDelegateTake( hotkey ) --> u64 -- the last transaction block for the hotkey delegate take.

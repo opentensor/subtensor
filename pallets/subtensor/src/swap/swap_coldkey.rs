@@ -73,10 +73,6 @@ impl<T: Config> Pallet<T> {
         // 9. Perform the actual coldkey swap
         let _ = Self::perform_swap_coldkey(old_coldkey, new_coldkey, &mut weight);
 
-        // 10. Update the last transaction block for the new coldkey
-        Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
-
         // 11. Remove the coldkey swap scheduled record
         ColdkeySwapScheduled::<T>::remove(old_coldkey);
 
