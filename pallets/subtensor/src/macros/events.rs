@@ -179,9 +179,9 @@ mod events {
             /// The hash of the new coldkey.
             new_coldkey_hash: T::Hash,
         },
-        /// A coldkey swap announcement has been removed.
-        ColdkeySwapAnnouncementRemoved {
-            /// The account ID of the coldkey that made the announcement.
+        /// A coldkey swap has been reset.
+        ColdkeySwapReset {
+            /// The account ID of the coldkey for which the swap has been reset.
             who: T::AccountId,
         },
         /// A coldkey has been swapped.

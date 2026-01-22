@@ -1467,11 +1467,15 @@ fn test_reset_coldkey_swap_works() {
 
         assert_ok!(SubtensorModule::reset_coldkey_swap(
             RuntimeOrigin::root(),
-            who,
+            who.clone(),
         ));
 
-        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
-        assert!(!ColdkeySwapDisputes::<Test>::contains_key(who));
+        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(&who));
+        assert!(!ColdkeySwapDisputes::<Test>::contains_key(&who));
+        assert!(matches!(
+            last_event(),
+            RuntimeEvent::SubtensorModule(Event::ColdkeySwapReset { who })
+        ));
     });
 }
 

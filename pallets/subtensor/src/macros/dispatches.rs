@@ -2480,8 +2480,11 @@ mod dispatches {
         )]
         pub fn reset_coldkey_swap(origin: OriginFor<T>, coldkey: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
+
             ColdkeySwapAnnouncements::<T>::remove(&coldkey);
-            ColdkeySwapDisputes::<T>::remove(coldkey);
+            ColdkeySwapDisputes::<T>::remove(&coldkey);
+
+            Self::deposit_event(Event::ColdkeySwapReset { who: coldkey });
             Ok(())
         }
     }
