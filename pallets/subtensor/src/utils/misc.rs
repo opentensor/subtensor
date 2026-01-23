@@ -917,7 +917,7 @@ impl<T: Config> Pallet<T> {
         FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
     }
 
-    fn saturating_pow_u64(mut base: u64, mut exp: u16) -> u64 {
+    pub fn saturating_pow_u64(mut base: u64, mut exp: u16) -> u64 {
         let mut acc: u64 = 1;
         while exp > 0 {
             acc = acc.saturating_mul(base);
@@ -926,7 +926,7 @@ impl<T: Config> Pallet<T> {
         acc
     }
 
-    fn clamp_burn(netuid: NetUid, burn: TaoCurrency) -> TaoCurrency {
+    pub fn clamp_burn(netuid: NetUid, burn: TaoCurrency) -> TaoCurrency {
         let min_burn = Self::get_min_burn(netuid);
         let max_burn = Self::get_max_burn(netuid);
         core::cmp::min(core::cmp::max(burn, min_burn), max_burn)

@@ -9,8 +9,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         let block_number: u64 = Self::get_current_block_as_u64();
         let last_block_hash: T::Hash = <frame_system::Pallet<T>>::parent_hash();
 
-        // --- 1. Adjust difficulties.
-        Self::adjust_registration_terms_for_networks();
+        // --- 1. Update registration burn prices.
+        Self::update_registration_prices_for_networks();
+
         // --- 2. Get the current coinbase emission.
         let block_emission: U96F32 = U96F32::saturating_from_num(
             Self::get_block_emission()
@@ -44,6 +45,68 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 // Set pending children on the epoch.
                 Self::do_set_pending_children(netuid);
             }
+        }
+    }
+
+    /// Updates burn price and resets per-block counters.
+    ///
+    /// Behavior:
+    /// - Every BurnHalfLife blocks: burn is halved and RegistrationsThisInterval is reset.
+    /// - Each block: if there were registrations in the previous block, burn is multiplied by BurnIncreaseMult^regs_prev.
+    /// - Each block: RegistrationsThisBlock is reset to 0 (for the new block).
+    pub fn update_registration_prices_for_networks() {
+        let current_block: u64 = Self::get_current_block_as_u64();
+
+        for (netuid, _) in NetworksAdded::<T>::iter() {
+            // 1) Apply halving + interval reset when half-life interval elapses.
+            let half_life: u16 = BurnHalfLife::<T>::get(netuid);
+            if half_life > 0 {
+                let last_halving: u64 = BurnLastHalvingBlock::<T>::get(netuid);
+                let delta: u64 = current_block.saturating_sub(last_halving);
+
+                let intervals_passed: u64 = delta / half_life as u64;
+                if intervals_passed > 0 {
+                    // burn halves once per interval passed: burn /= 2^intervals_passed
+                    let burn_u64: u64 = Self::get_burn(netuid).into();
+                    let shift: u32 = core::cmp::min(intervals_passed, 64) as u32;
+
+                    let new_burn_u64: u64 = if shift >= 64 { 0 } else { burn_u64 >> shift };
+                    let mut new_burn: TaoCurrency = new_burn_u64.into();
+                    new_burn = Self::clamp_burn(netuid, new_burn);
+
+                    Self::set_burn(netuid, new_burn);
+
+                    BurnLastHalvingBlock::<T>::insert(
+                        netuid,
+                        last_halving
+                            .saturating_add(intervals_passed.saturating_mul(half_life as u64)),
+                    );
+
+                    // interval reset (MaxRegistrationsPerInterval == 1)
+                    RegistrationsThisInterval::<T>::insert(netuid, 0);
+                }
+            }
+
+            // 2) Apply post-registration bump (from previous block's registrations).
+            // Note: at start of block N, RegistrationsThisBlock contains block N-1 counts.
+            if !netuid.is_root() {
+                let regs_prev_block: u16 = RegistrationsThisBlock::<T>::get(netuid);
+                if regs_prev_block > 0 {
+                    let mult: u64 = BurnIncreaseMult::<T>::get(netuid).max(1);
+                    let bump: u64 = Self::saturating_pow_u64(mult, regs_prev_block);
+
+                    let burn_u64: u64 = Self::get_burn(netuid).into();
+                    let new_burn_u64: u64 = burn_u64.saturating_mul(bump);
+
+                    let mut new_burn: TaoCurrency = new_burn_u64.into();
+                    new_burn = Self::clamp_burn(netuid, new_burn);
+
+                    Self::set_burn(netuid, new_burn);
+                }
+            }
+
+            // 3) Reset per-block count for the new block
+            Self::set_registrations_this_block(netuid, 0);
         }
     }
 
