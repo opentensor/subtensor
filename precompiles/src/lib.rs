@@ -26,6 +26,7 @@ use subtensor_runtime_common::ProxyType;
 
 use pallet_admin_utils::PrecompileEnum;
 
+use crate::address_mapping::*;
 use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::crowdloan::*;
@@ -41,6 +42,7 @@ use crate::storage_query::*;
 use crate::subnet::*;
 use crate::uid_lookup::*;
 
+mod address_mapping;
 mod alpha;
 mod balance_transfer;
 mod crowdloan;
@@ -133,7 +135,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 25] {
+    pub fn used_addresses() -> [H160; 26] {
         [
             hash(1),
             hash(2),
@@ -160,6 +162,7 @@ where
             hash(CrowdloanPrecompile::<R>::INDEX),
             hash(LeasingPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
+            hash(AddressMappingPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -259,6 +262,12 @@ where
             }
             a if a == hash(ProxyPrecompile::<R>::INDEX) => {
                 ProxyPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Proxy)
+            }
+            a if a == hash(AddressMappingPrecompile::<R>::INDEX) => {
+                AddressMappingPrecompile::<R>::try_execute::<R>(
+                    handle,
+                    PrecompileEnum::AddressMapping,
+                )
             }
             _ => None,
         }

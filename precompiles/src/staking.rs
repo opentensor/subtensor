@@ -424,6 +424,23 @@ where
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
+
+    #[precompile::public("getTotalColdkeyStakeOnSubnet(bytes32,uint256)")]
+    #[precompile::view]
+    fn get_total_coldkey_stake_on_subnet(
+        _handle: &mut impl PrecompileHandle,
+        coldkey: H256,
+        netuid: U256,
+    ) -> EvmResult<U256> {
+        let coldkey = R::AccountId::from(coldkey.0);
+        let netuid = try_u16_from_u256(netuid)?;
+        let stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey_on_subnet(
+            &coldkey,
+            netuid.into(),
+        );
+
+        Ok(stake.to_u64().into())
+    }
 }
 
 // Deprecated, exists for backward compatibility.

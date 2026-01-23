@@ -4,7 +4,6 @@ use ml_kem::kem::{Decapsulate, DecapsulationKey};
 use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params};
 use sc_service::SpawnTaskHandle;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
-use sp_consensus::BlockOrigin;
 use sp_core::H256;
 use sp_runtime::traits::{Header, SaturatedConversion};
 use sp_runtime::{AccountId32, OpaqueExtrinsic};
@@ -167,9 +166,6 @@ pub fn spawn_revealer<B, C, Pool>(
                 let mut import_stream = client.import_notification_stream();
 
                 while let Some(notif) = import_stream.next().await {
-                    if notif.origin != BlockOrigin::Own {
-                        continue;
-                    }
 
                     let at_hash = notif.hash;
                     let block_number_u64: u64 = (*notif.header.number()).saturated_into();
@@ -650,7 +646,7 @@ pub fn spawn_revealer<B, C, Pool>(
                                     error_message,
                                     hex::encode(aead_body_hash),
                                 );
-                                failed_calls.push((id, create_failed_call(id, error_message)));
+                                //failed_calls.push((id, create_failed_call(id, error_message)));
                                 continue;
                             }
                         };
