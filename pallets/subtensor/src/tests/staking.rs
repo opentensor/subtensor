@@ -5786,7 +5786,7 @@ fn test_sharepool_dataops_get_value_v2() {
         let stake = 200_000_u64;
 
         // add stake to AlphaV2 map
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         AlphaV2::<Test>::insert((hotkey, coldkey, netuid), share.clone());
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
@@ -5809,7 +5809,7 @@ fn test_sharepool_dataops_get_value_mixed_v1_v2() {
         let stake = 200_000_u64;
 
         // add stake to deprecated Alpha map and new THS v2 map
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
@@ -5832,7 +5832,7 @@ fn test_sharepool_dataops_get_value_mixed_v2_v1() {
         let stake = 200_000_u64;
 
         // add stake to new AlphaV2 map and deprecated THS map
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         AlphaV2::<Test>::insert((hotkey, coldkey, netuid), share);
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
@@ -5877,7 +5877,7 @@ fn test_sharepool_dataops_get_value_from_shares_v2() {
         let stake = 200_000_u64;
 
         // add stake to new THS v2 map
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
 
@@ -5900,7 +5900,7 @@ fn test_sharepool_dataops_update_value_for_all() {
         let stake = 200_000_u64;
 
         // add stake to new AlphaV2 map
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         AlphaV2::<Test>::insert((hotkey, coldkey, netuid), share.clone());
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
@@ -5953,7 +5953,7 @@ fn test_sharepool_dataops_update_value_for_one_v2() {
         let stake = 200_000_u64;
 
         // add stake to new AlphaV2 and THS maps
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         AlphaV2::<Test>::insert((hotkey, coldkey, netuid), share.clone());
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
@@ -5976,7 +5976,7 @@ fn test_sharepool_dataops_update_value_for_one_mixed_v1_v2() {
         let stake = 200_000_u64;
 
         // add stake to deprecated Alpha and new THS v2 maps
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
@@ -6002,7 +6002,7 @@ fn test_sharepool_dataops_update_value_for_one_mixed_v2_v1() {
         let stake = 200_000_u64;
 
         // add stake to new AlphaV2 and deprecated THS maps
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         AlphaV2::<Test>::insert((hotkey, coldkey, netuid), share);
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
@@ -6048,7 +6048,7 @@ fn test_sharepool_dataops_get_value_returns_zero_on_non_existing_v2() {
         let stake = 200_000_u64;
 
         // add to THSV2 map, but no value in AlphaV2 map
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
 
@@ -6089,7 +6089,7 @@ fn test_sharepool_dataops_try_get_value_returns_err_on_non_existing_v2() {
         let stake = 200_000_u64;
 
         // add to THSV2 map, but no value in AlphaV2 map
-        let share = SafeFloatSerializable::from(&SafeFloat::from(U64F64::from(1_u64)));
+        let share = sfser_from_u64(1_u64);
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
 
