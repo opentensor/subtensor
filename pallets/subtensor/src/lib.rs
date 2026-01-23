@@ -341,16 +341,19 @@ pub mod pallet {
         },
     }
 
+    /// Default burn half-life (in blocks) for subnet registration price decay.
     #[pallet::type_value]
     pub fn DefaultBurnHalfLife<T: Config>() -> u16 {
         360
     }
 
+    /// Default multiplier applied to the burn price after a successful registration.
     #[pallet::type_value]
     pub fn DefaultBurnIncreaseMult<T: Config>() -> u64 {
         2
     }
 
+    /// Default block number used as the initial burn halving anchor.
     #[pallet::type_value]
     pub fn DefaultBurnLastHalvingBlock<T: Config>() -> u64 {
         0
