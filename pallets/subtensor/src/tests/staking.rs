@@ -5911,7 +5911,7 @@ fn test_sharepool_dataops_update_value_for_all() {
         let actual_value = share_pool.get_value(&coldkey);
         assert_eq!(actual_value, stake * 2);
 
-        share_pool.update_value_for_all((stake as i64) * -1);
+        share_pool.update_value_for_all(-(stake as i64));
         let actual_value = share_pool.get_value(&coldkey);
         assert_eq!(actual_value, stake);
     });

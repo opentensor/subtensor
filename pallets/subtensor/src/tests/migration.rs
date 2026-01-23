@@ -23,7 +23,6 @@ use crate::migrations::migrate_storage;
 use frame_system::Config;
 use pallet_drand::types::RoundNumber;
 use scale_info::prelude::collections::VecDeque;
-use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
