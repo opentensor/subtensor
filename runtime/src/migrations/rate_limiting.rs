@@ -612,7 +612,7 @@ fn build_swap_keys(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> 
     let target = RateLimitTarget::Group(GROUP_SWAP_KEYS);
     let (tx_rate_limit, tx_reads) = legacy_storage::tx_rate_limit();
     reads = reads.saturating_add(tx_reads);
-    // Legacy check blocks at delta == limit; pallet-rate-limiting allows at delta == span.
+    // Legacy check blocks at delta <= limit; pallet-rate-limiting blocks at delta < span.
     // Add one block to preserve legacy behavior when legacy rate-limiting is removed.
     let effective_limit = if tx_rate_limit == 0 {
         0
