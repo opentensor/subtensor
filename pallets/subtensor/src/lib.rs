@@ -35,6 +35,7 @@ mod benchmarks;
 // =========================
 pub mod coinbase;
 pub mod epoch;
+pub mod extensions;
 pub mod macros;
 pub mod migrations;
 pub mod rpc_info;
@@ -47,7 +48,6 @@ use macros::{config, dispatches, errors, events, genesis, hooks};
 
 #[cfg(test)]
 mod tests;
-pub mod transaction_extension;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;

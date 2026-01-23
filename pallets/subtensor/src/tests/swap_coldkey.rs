@@ -26,7 +26,7 @@ use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
 use super::mock;
 use super::mock::*;
-use crate::transaction_extension::SubtensorTransactionExtension;
+use crate::extensions::SubtensorTransactionExtension;
 use crate::*;
 use crate::{Call, Error};
 
