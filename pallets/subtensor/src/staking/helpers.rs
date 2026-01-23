@@ -527,8 +527,4 @@ impl<T: Config> Pallet<T> {
 
         legacy.chain(v2)
     }
-
-    pub fn alpha_iter_keys() -> impl Iterator<Item = (T::AccountId, T::AccountId, NetUid)> {
-        Alpha::<T>::iter_keys().chain(AlphaV2::<T>::iter_keys())
-    }
 }
