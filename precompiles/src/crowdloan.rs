@@ -26,6 +26,7 @@ where
         + pallet_proxy::Config
         + pallet_subtensor::Config
         + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -36,7 +37,8 @@ where
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>,
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     const INDEX: u64 = 2057;
@@ -52,6 +54,7 @@ where
         + pallet_proxy::Config
         + pallet_subtensor::Config
         + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -62,7 +65,8 @@ where
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>,
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
