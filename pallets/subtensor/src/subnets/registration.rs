@@ -34,6 +34,109 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn do_register(
+        origin: T::RuntimeOrigin,
+        netuid: NetUid,
+        hotkey: T::AccountId,
+    ) -> DispatchResult {
+        // 1) coldkey pays
+        let coldkey = ensure_signed(origin)?;
+        log::debug!("do_register( coldkey:{coldkey:?} netuid:{netuid:?} hotkey:{hotkey:?} )");
+
+        // 2) network validity
+        ensure!(
+            !netuid.is_root(),
+            Error::<T>::RegistrationNotPermittedOnRootSubnet
+        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // 3) registrations allowed
+        ensure!(
+            Self::get_network_registration_allowed(netuid),
+            Error::<T>::SubNetRegistrationDisabled
+        );
+
+        // 4) per-block cap
+        ensure!(
+            Self::get_registrations_this_block(netuid)
+                < Self::get_max_registrations_per_block(netuid),
+            Error::<T>::TooManyRegistrationsThisBlock
+        );
+
+        // 5) per-interval cap: MaxRegistrationsPerInterval == 1
+        // Interval length is BurnHalfLife (we reset RegistrationsThisInterval when halving happens).
+        ensure!(
+            Self::get_registrations_this_interval(netuid) < 1,
+            Error::<T>::TooManyRegistrationsThisInterval
+        );
+
+        // 6) hotkey not already registered
+        ensure!(
+            !Uids::<T>::contains_key(netuid, &hotkey),
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
+        );
+
+        // 7) compute current burn price (already updated in on_initialize for this block)
+        let registration_cost: TaoCurrency = Self::get_burn(netuid);
+
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost.into()),
+            Error::<T>::NotEnoughBalanceToStake
+        );
+
+        // 8) ensure pairing exists and is correct
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // 9) capacity check + prune candidate if full
+        ensure!(
+            Self::get_max_allowed_uids(netuid) != 0,
+            Error::<T>::NoNeuronIdAvailable
+        );
+
+        let current_n = Self::get_subnetwork_n(netuid);
+        let max_n = Self::get_max_allowed_uids(netuid);
+        if current_n >= max_n {
+            ensure!(
+                Self::get_neuron_to_prune(netuid).is_some(),
+                Error::<T>::NoNeuronIdAvailable
+            );
+        }
+
+        // 10) burn payment (same mechanics as old burned_register)
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost.into())?;
+
+        let burned_alpha = Self::swap_tao_for_alpha(
+            netuid,
+            actual_burn_amount,
+            T::SwapInterface::max_price(),
+            false,
+        )?
+        .amount_paid_out;
+
+        SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(burned_alpha.into())
+        });
+
+        // 11) register neuron
+        let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey)?;
+
+        // 12) counters
+        RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
+        RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
+        Self::increase_rao_recycled(netuid, registration_cost.into());
+
+        // 13) event
+        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?} )");
+        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
+
+        Ok(())
+    }
+
     pub fn do_faucet(
         origin: T::RuntimeOrigin,
         block_number: u64,
