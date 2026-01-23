@@ -10,7 +10,7 @@ use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, GasWeightMapping, Precompile,
     PrecompileFailure, PrecompileHandle, PrecompileResult,
 };
-use pallet_subtensor::transaction_extension::SubtensorTransactionExtension;
+use pallet_subtensor::SubtensorTransactionExtension;
 use precompile_utils::EvmResult;
 use scale_info::TypeInfo;
 use sp_core::{H160, U256, blake2_256};

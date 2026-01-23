@@ -46,6 +46,8 @@ pub mod utils;
 use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
+pub use extensions::*;
+
 #[cfg(test)]
 mod tests;
 
