@@ -2,7 +2,6 @@ use super::*;
 use frame_support::weights::Weight;
 use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::Get;
-use substrate_fixed::types::U64F64;
 
 impl<T: Config> Pallet<T> {
     /// Swaps the coldkey associated with a set of hotkeys from an old coldkey to a new coldkey.
@@ -178,40 +177,45 @@ impl<T: Config> Pallet<T> {
         for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
             // 3.1 Swap Alpha
             for netuid in Self::get_all_subnet_netuids() {
-                // Swap Alpha
-                // Get the stake on the old (hot,coldkey) account.
-                let old_alpha: U64F64 = Alpha::<T>::get((&hotkey, old_coldkey, netuid));
-                // Get the stake on the new (hot,coldkey) account.
-                let new_alpha: U64F64 = Alpha::<T>::get((&hotkey, new_coldkey, netuid));
-                let resulting_new_alpha = new_alpha.saturating_add(old_alpha);
-                // Add the stake to new account.
-                if resulting_new_alpha > U64F64::from(0u64) {
-                    Alpha::<T>::insert((&hotkey, new_coldkey, netuid), resulting_new_alpha);
-                }
-                // Remove the value from the old account.
-                Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
+                // Swap and lazy-migrate Alpha to AlphaV2
+                // TotalHotkeyShares does not have to be migrated here, these migrations can be independent
 
-                // Swap AlphaV2
-                // Get the stake on the old (hot,coldkey) account.
-                let old_alpha_v2: SafeFloat =
+                // Get the v1 alpha shares on the old (hot,coldkey) account.
+                let orig_alpha_v1: SafeFloat =
+                    SafeFloat::from(Alpha::<T>::get((&hotkey, old_coldkey, netuid)));
+                // Get the v1 alpha shares on the new (hot,coldkey) account.
+                let dest_alpha_v1: SafeFloat =
+                    SafeFloat::from(Alpha::<T>::get((&hotkey, new_coldkey, netuid)));
+                // Get the v2 alpha shares on the old (hot,coldkey) account.
+                let orig_alpha_v2: SafeFloat =
                     SafeFloat::from(&AlphaV2::<T>::get((&hotkey, old_coldkey, netuid)));
-                // Get the stake on the new (hot,coldkey) account.
-                let new_alpha_v2: SafeFloat =
+                // Get the v2 alpha shares on the new (hot,coldkey) account.
+                let dest_alpha_v2: SafeFloat =
                     SafeFloat::from(&AlphaV2::<T>::get((&hotkey, new_coldkey, netuid)));
-                let resulting_new_alpha_v2 = new_alpha_v2.add(&old_alpha_v2).unwrap_or_default();
 
-                // Add the stake to new account.
-                if !resulting_new_alpha_v2.is_zero() {
+                // Calculate and save new alpha shares on the destination new_coldkey
+                let new_dest_alpha = orig_alpha_v1
+                    .add(&dest_alpha_v1)
+                    .unwrap_or_default()
+                    .add(&orig_alpha_v2)
+                    .unwrap_or_default()
+                    .add(&dest_alpha_v2)
+                    .unwrap_or_default();
+                if !new_dest_alpha.is_zero() {
                     AlphaV2::<T>::insert(
                         (&hotkey, new_coldkey, netuid),
-                        SafeFloatSerializable::from(&resulting_new_alpha_v2),
+                        SafeFloatSerializable::from(&new_dest_alpha),
                     );
                 }
-                // Remove the value from the old account.
+
+                // Remove shares on the origin old_coldkey in both Alpha and AlphaV2 maps
+                Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
                 AlphaV2::<T>::remove((&hotkey, old_coldkey, netuid));
 
-                if (resulting_new_alpha > U64F64::from(0u64)) || (!resulting_new_alpha_v2.is_zero())
-                {
+                // Remove shares on the destination new_coldkey in Alpha map
+                Alpha::<T>::remove((&hotkey, new_coldkey, netuid));
+
+                if !new_dest_alpha.is_zero() {
                     Self::transfer_root_claimed_for_new_keys(
                         netuid,
                         &hotkey,
