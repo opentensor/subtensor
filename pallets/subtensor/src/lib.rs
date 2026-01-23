@@ -2456,6 +2456,7 @@ pub enum CustomTransactionError {
     UidNotFound,
     EvmKeyAssociateRateLimitExceeded,
     ColdkeySwapDisputed,
+    InvalidRealAccount,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -2484,6 +2485,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::UidNotFound => 19,
             CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
             CustomTransactionError::ColdkeySwapDisputed => 21,
+            CustomTransactionError::InvalidRealAccount => 22,
         }
     }
 }

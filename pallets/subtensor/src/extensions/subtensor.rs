@@ -1,7 +1,4 @@
-use crate::{
-    BalancesCall, Call, ColdkeySwapAnnouncements, ColdkeySwapDisputes, Config,
-    CustomTransactionError, Error, Pallet, TransactionType,
-};
+use crate::{BalancesCall, Call, Config, CustomTransactionError, Error, Pallet, TransactionType};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
@@ -85,13 +82,12 @@ where
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config + pallet_shield::Config>
-    TransactionExtension<CallOf<T>> for SubtensorTransactionExtension<T>
+impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> TransactionExtension<CallOf<T>>
+    for SubtensorTransactionExtension<T>
 where
     CallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<Call<T>>
-        + IsSubType<BalancesCall<T>>
-        + IsSubType<pallet_shield::Call<T>>,
+        + IsSubType<BalancesCall<T>>,
     OriginOf<T>: AsSystemOriginSigner<T::AccountId> + Clone,
 {
     const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
@@ -114,27 +110,6 @@ where
         let Some(who) = origin.as_system_origin_signer() else {
             return Ok((Default::default(), (), origin));
         };
-
-        if ColdkeySwapAnnouncements::<T>::contains_key(who) {
-            if ColdkeySwapDisputes::<T>::contains_key(who) {
-                return Err(CustomTransactionError::ColdkeySwapDisputed.into());
-            }
-
-            let is_allowed_direct = matches!(
-                call.is_sub_type(),
-                Some(Call::announce_coldkey_swap { .. })
-                    | Some(Call::swap_coldkey_announced { .. })
-            );
-
-            let is_mev_protected = matches!(
-                IsSubType::<pallet_shield::Call<T>>::is_sub_type(call),
-                Some(pallet_shield::Call::submit_encrypted { .. })
-            );
-
-            if !is_allowed_direct && !is_mev_protected {
-                return Err(CustomTransactionError::ColdkeySwapAnnounced.into());
-            }
-        }
 
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
