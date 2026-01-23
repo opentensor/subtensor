@@ -243,6 +243,9 @@ impl<T: Config> Pallet<T> {
         let hotkey_swap_interval = T::HotkeySwapOnSubnetInterval::get();
         let last_hotkey_swap_block = LastHotkeySwapOnNetuid::<T>::get(netuid, coldkey);
 
+        // NOTE: This subnet interval gate is legacy swap-keys rate-limiting group behavior and
+        // remains in pallet-subtensor; it is not migrated into pallet-rate-limiting because that
+        // system supports only a single span per target.
         ensure!(
             last_hotkey_swap_block.saturating_add(hotkey_swap_interval) < block,
             Error::<T>::HotKeySwapOnSubnetIntervalNotPassed

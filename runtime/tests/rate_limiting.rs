@@ -3,10 +3,13 @@
 use codec::{Compact, Encode};
 use frame_support::{assert_ok, traits::Get};
 use node_subtensor_runtime::{
-    Executive, Runtime, RuntimeCall, SignedPayload, SubtensorInitialTxDelegateTakeRateLimit,
-    System, TransactionExtensions, UncheckedExtrinsic, check_nonce,
-    rate_limiting::legacy::storage as legacy_storage, sudo_wrapper, transaction_payment_wrapper,
+    Executive, HotkeySwapOnSubnetInterval, Runtime, RuntimeCall, SignedPayload,
+    SubtensorInitialTxDelegateTakeRateLimit, System, TransactionExtensions, UncheckedExtrinsic,
+    check_nonce,
+    rate_limiting::legacy::{RateLimitKey, storage as legacy_storage},
+    sudo_wrapper, transaction_payment_wrapper,
 };
+use pallet_rate_limiting::RateLimitTarget;
 use sp_core::{H256, Pair, sr25519};
 use sp_runtime::{
     BoundedVec, MultiSignature,
@@ -14,7 +17,10 @@ use sp_runtime::{
     traits::SaturatedConversion,
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
-use subtensor_runtime_common::{AccountId, AlphaCurrency, Currency, MechId, NetUid};
+use subtensor_runtime_common::{
+    AccountId, AlphaCurrency, Currency, MechId, NetUid,
+    rate_limiting::{GROUP_SWAP_KEYS, RateLimitUsageKey},
+};
 
 use common::ExtBuilder;
 
@@ -24,6 +30,17 @@ fn assert_extrinsic_ok(account_id: &AccountId, pair: &sr25519::Pair, call: Runti
     let nonce = System::account(account_id).nonce;
     let xt = signed_extrinsic(call, pair, nonce);
     assert_ok!(Executive::apply_extrinsic(xt));
+}
+
+fn assert_sudo_extrinsic_ok(
+    sudo_account: &AccountId,
+    sudo_pair: &sr25519::Pair,
+    call: RuntimeCall,
+) {
+    let sudo_call = RuntimeCall::Sudo(pallet_sudo::Call::sudo {
+        call: Box::new(call),
+    });
+    assert_extrinsic_ok(sudo_account, sudo_pair, sudo_call);
 }
 
 fn assert_extrinsic_rate_limited(account_id: &AccountId, pair: &sr25519::Pair, call: RuntimeCall) {
@@ -63,6 +80,11 @@ fn signed_extrinsic(call: RuntimeCall, pair: &sr25519::Pair, nonce: u32) -> Unch
     let signature = MultiSignature::from(pair.sign(payload.encode().as_slice()));
     let address = sp_runtime::MultiAddress::Id(AccountId::from(pair.public()));
     UncheckedExtrinsic::new_signed(call, address, signature, extra)
+}
+
+fn setup_swap_hotkey_state(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId, block: u64) {
+    setup_weights_network(netuid, hotkey, block, 1);
+    pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
 }
 
 fn setup_weights_network(netuid: NetUid, hotkey: &AccountId, block: u64, mechanisms: u8) {
@@ -814,5 +836,275 @@ fn swap_stake_limits_destination_netuid() {
                     amount_unstaked: origin_alpha,
                 });
             assert_extrinsic_ok(&coldkey, &coldkey_pair, remove_origin);
+        });
+}
+
+#[test]
+fn swap_hotkey_tx_rate_limit_exceeded_all_subnets() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[30u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let old_hotkey = AccountId::from([31u8; 32]);
+    let new_hotkey_a = AccountId::from([32u8; 32]);
+    let new_hotkey_b = AccountId::from([33u8; 32]);
+    let netuid = NetUid::from(20u16);
+    let balance = 10_000_000_000_000_u64;
+    let legacy_span = 3u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), balance)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            setup_swap_hotkey_state(netuid, &coldkey, &old_hotkey, 1);
+
+            legacy_storage::set_tx_rate_limit(legacy_span);
+            Executive::execute_on_runtime_upgrade();
+
+            let swap_first = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                hotkey: old_hotkey.clone(),
+                new_hotkey: new_hotkey_a.clone(),
+                netuid: None,
+            });
+            let swap_second = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                hotkey: new_hotkey_a.clone(),
+                new_hotkey: new_hotkey_b.clone(),
+                netuid: None,
+            });
+
+            let start_block: u64 = System::block_number().saturated_into();
+
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, swap_first);
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, swap_second.clone());
+
+            let limit_block = start_block.saturating_add(legacy_span);
+            System::set_block_number(limit_block.saturated_into());
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, swap_second.clone());
+
+            System::set_block_number((limit_block + 1).saturated_into());
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, swap_second);
+        });
+}
+
+#[test]
+fn swap_hotkey_tx_rate_limit_exceeded_on_subnet() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[34u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let old_hotkey = AccountId::from([35u8; 32]);
+    let new_hotkey_a = AccountId::from([36u8; 32]);
+    let new_hotkey_b = AccountId::from([37u8; 32]);
+    let netuid = NetUid::from(21u16);
+    let balance = 10_000_000_000_000_u64;
+    let legacy_span = 3u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), balance)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            setup_swap_hotkey_state(netuid, &coldkey, &old_hotkey, 1);
+
+            legacy_storage::set_tx_rate_limit(legacy_span);
+            Executive::execute_on_runtime_upgrade();
+
+            let interval: u64 = HotkeySwapOnSubnetInterval::get().saturated_into();
+            let start_block = interval.saturating_add(1);
+            System::set_block_number(start_block.saturated_into());
+
+            let swap_subnet = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                hotkey: old_hotkey.clone(),
+                new_hotkey: new_hotkey_a.clone(),
+                netuid: Some(netuid),
+            });
+            let swap_subnet_again =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                    hotkey: old_hotkey.clone(),
+                    new_hotkey: new_hotkey_a.clone(),
+                    netuid: Some(netuid),
+                });
+
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, swap_subnet);
+            assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, swap_subnet_again);
+
+            let limit_block = start_block.saturating_add(legacy_span + 1);
+            System::set_block_number(limit_block.saturated_into());
+
+            let swap_all = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                hotkey: new_hotkey_a.clone(),
+                new_hotkey: new_hotkey_b.clone(),
+                netuid: None,
+            });
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, swap_all);
+        });
+}
+
+#[test]
+fn swap_hotkey_transfers_last_seen_all_subnets() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[38u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let old_hotkey = AccountId::from([39u8; 32]);
+    let new_hotkey = AccountId::from([40u8; 32]);
+    let netuid = NetUid::from(22u16);
+    let balance = 10_000_000_000_000_u64;
+    let legacy_last_seen = 7u64;
+    let childkey_last_seen = 91u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), balance)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            setup_swap_hotkey_state(netuid, &coldkey, &old_hotkey, 1);
+
+            legacy_storage::set_last_rate_limited_block(
+                RateLimitKey::LastTxBlock(old_hotkey.clone()),
+                legacy_last_seen,
+            );
+            pallet_subtensor::Pallet::<Runtime>::set_last_tx_block_childkey(
+                &old_hotkey,
+                childkey_last_seen,
+            );
+
+            Executive::execute_on_runtime_upgrade();
+
+            let target = RateLimitTarget::Group(GROUP_SWAP_KEYS);
+            let usage_old = RateLimitUsageKey::Account(old_hotkey.clone());
+            let usage_new = RateLimitUsageKey::Account(new_hotkey.clone());
+            assert_eq!(
+                pallet_rate_limiting::LastSeen::<Runtime>::get(target, Some(usage_old.clone())),
+                Some(legacy_last_seen.saturated_into())
+            );
+
+            System::set_block_number(10);
+            let swap_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                hotkey: old_hotkey.clone(),
+                new_hotkey: new_hotkey.clone(),
+                netuid: None,
+            });
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, swap_call);
+
+            assert_eq!(
+                pallet_rate_limiting::LastSeen::<Runtime>::get(target, Some(usage_new)),
+                Some(legacy_last_seen.saturated_into())
+            );
+            assert_eq!(
+                pallet_rate_limiting::LastSeen::<Runtime>::get(target, Some(usage_old)),
+                None
+            );
+            assert_eq!(
+                pallet_subtensor::Pallet::<Runtime>::get_last_tx_block_childkey_take(&new_hotkey),
+                childkey_last_seen
+            );
+        });
+}
+
+#[test]
+fn swap_hotkey_transfers_last_seen_on_subnet() {
+    let coldkey_pair = sr25519::Pair::from_seed(&[41u8; 32]);
+    let coldkey = AccountId::from(coldkey_pair.public());
+    let old_hotkey = AccountId::from([42u8; 32]);
+    let new_hotkey = AccountId::from([43u8; 32]);
+    let netuid = NetUid::from(23u16);
+    let balance = 10_000_000_000_000_u64;
+    let legacy_last_seen = 9u64;
+    let childkey_last_seen = 97u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![(coldkey.clone(), balance)])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            setup_swap_hotkey_state(netuid, &coldkey, &old_hotkey, 1);
+
+            legacy_storage::set_last_rate_limited_block(
+                RateLimitKey::LastTxBlock(old_hotkey.clone()),
+                legacy_last_seen,
+            );
+            pallet_subtensor::Pallet::<Runtime>::set_last_tx_block_childkey(
+                &old_hotkey,
+                childkey_last_seen,
+            );
+
+            Executive::execute_on_runtime_upgrade();
+
+            let target = RateLimitTarget::Group(GROUP_SWAP_KEYS);
+            let usage_new = RateLimitUsageKey::Account(new_hotkey.clone());
+
+            let interval: u64 = HotkeySwapOnSubnetInterval::get().saturated_into();
+            System::set_block_number(interval.saturating_add(1).saturated_into());
+
+            let swap_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                hotkey: old_hotkey.clone(),
+                new_hotkey: new_hotkey.clone(),
+                netuid: Some(netuid),
+            });
+            assert_extrinsic_ok(&coldkey, &coldkey_pair, swap_call);
+
+            assert_eq!(
+                pallet_rate_limiting::LastSeen::<Runtime>::get(target, Some(usage_new)),
+                Some(legacy_last_seen.saturated_into())
+            );
+            assert_eq!(
+                pallet_subtensor::Pallet::<Runtime>::get_last_tx_block_childkey_take(&new_hotkey),
+                childkey_last_seen
+            );
+        });
+}
+
+// NOTE: This currently fails. When `swap_coldkey` is dispatched via `Sudo::sudo`, rate-limiting
+// sees the outer sudo call, so `swap_coldkey` does not record usage in the swap-keys group. Keep
+// this test to flag the issue until the rate-limiting extension unwraps sudo calls.
+#[test]
+fn swap_coldkey_records_usage_for_swap_keys_group() {
+    let sudo_pair = sr25519::Pair::from_seed(&[44u8; 32]);
+    let new_coldkey_pair = sr25519::Pair::from_seed(&[45u8; 32]);
+    let sudo_account = AccountId::from(sudo_pair.public());
+    let old_coldkey = AccountId::from([46u8; 32]);
+    let new_coldkey = AccountId::from(new_coldkey_pair.public());
+    let old_hotkey = AccountId::from([47u8; 32]);
+    let new_hotkey = AccountId::from([48u8; 32]);
+    let balance = 10_000_000_000_000_u64;
+    let legacy_span = 3u64;
+    let swap_cost = 1u64;
+
+    ExtBuilder::default()
+        .with_balances(vec![
+            (sudo_account.clone(), balance),
+            (old_coldkey.clone(), balance),
+            (new_coldkey.clone(), balance),
+        ])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(10);
+            pallet_sudo::Key::<Runtime>::put(sudo_account.clone());
+            legacy_storage::set_tx_rate_limit(legacy_span);
+            Executive::execute_on_runtime_upgrade();
+
+            let swap_coldkey_call =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey {
+                    old_coldkey: old_coldkey.clone(),
+                    new_coldkey: new_coldkey.clone(),
+                    swap_cost: swap_cost.into(),
+                });
+            assert_sudo_extrinsic_ok(&sudo_account, &sudo_pair, swap_coldkey_call);
+
+            let target = RateLimitTarget::Group(GROUP_SWAP_KEYS);
+            let usage_new = RateLimitUsageKey::Account(new_coldkey.clone());
+            assert_eq!(
+                pallet_rate_limiting::LastSeen::<Runtime>::get(target, Some(usage_new.clone())),
+                Some(10u64.into())
+            );
+
+            pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(
+                &new_coldkey,
+                &old_hotkey,
+            );
+
+            let swap_hotkey_call =
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                    hotkey: old_hotkey.clone(),
+                    new_hotkey: new_hotkey.clone(),
+                    netuid: None,
+                });
+            assert_extrinsic_rate_limited(&new_coldkey, &new_coldkey_pair, swap_hotkey_call);
         });
 }

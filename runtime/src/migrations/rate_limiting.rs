@@ -592,6 +592,11 @@ fn build_staking_ops(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -
 // usage.
 // usage: account (coldkey)
 // legacy sources: TxRateLimit, LastRateLimitedBlock per LastTxBlock
+//
+// NOTE: HotkeySwapOnSubnetInterval (per coldkey+netuid) remains enforced in pallet-subtensor
+// (LastHotkeySwapOnNetuid). It is a separate legacy gate with its own span, and
+// pallet-rate-limiting currently supports only one span per target, so we do not migrate it into
+// this group.
 fn build_swap_keys(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
     let mut reads: u64 = 0;
     groups.push(GroupConfig {

@@ -220,7 +220,10 @@ pub mod pallet {
         #[deprecated(
             note = "deprecated: configure via pallet-rate-limiting::set_rate_limit(target=Group(GROUP_SWAP_KEYS), ...)"
         )]
-        pub fn sudo_set_tx_rate_limit(origin: OriginFor<T>, tx_rate_limit: u64) -> DispatchResult {
+        pub fn sudo_set_tx_rate_limit(
+            _origin: OriginFor<T>,
+            _tx_rate_limit: u64,
+        ) -> DispatchResult {
             Err(Error::<T>::Deprecated.into())
         }
 
