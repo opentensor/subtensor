@@ -86,8 +86,7 @@ where
 }
 
 impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config + pallet_shield::Config>
-    TransactionExtension<<T as frame_system::Config>::RuntimeCall>
-    for SubtensorTransactionExtension<T>
+    TransactionExtension<CallOf<T>> for SubtensorTransactionExtension<T>
 where
     CallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<Call<T>>
@@ -302,5 +301,5 @@ where
         }
     }
 
-    impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; weight prepare);
+    impl_tx_ext_default!(CallOf<T>; weight prepare);
 }
