@@ -25,7 +25,6 @@ impl<T: Config> Pallet<T> {
     /// # Errors
     ///
     /// * `NonAssociatedColdKey` - If the coldkey does not own the old hotkey.
-    /// * `HotKeySetTxRateLimitExceeded` - If the transaction rate limit is exceeded.
     /// * `NewHotKeyIsSameWithOld` - If the new hotkey is the same as the old hotkey.
     /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
     /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.

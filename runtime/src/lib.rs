@@ -1110,7 +1110,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMinBurn = SubtensorInitialMinBurn;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
-    type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
     type InitialMaxChildKeyTake = SubtensorInitialMaxChildKeyTake;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;

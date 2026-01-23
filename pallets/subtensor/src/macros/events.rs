@@ -105,8 +105,6 @@ mod events {
         MaxBurnSet(NetUid, TaoCurrency),
         /// setting min burn on a network.
         MinBurnSet(NetUid, TaoCurrency),
-        /// setting the transaction rate limit.
-        TxRateLimitSet(u64),
         /// setting the childkey take transaction rate limit.
         TxChildKeyTakeRateLimitSet(u64),
         /// setting the admin freeze window length (last N blocks of tempo)

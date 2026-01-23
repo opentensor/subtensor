@@ -86,8 +86,6 @@ mod errors {
         UidsLengthExceedUidsInSubNet, // 32
         /// A transactor exceeded the rate limit for add network transaction.
         NetworkTxRateLimitExceeded,
-        /// A transactor exceeded the rate limit for setting or swapping hotkey.
-        HotKeySetTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for staking.
         StakingRateLimitExceeded,
         /// Registration is disabled.
