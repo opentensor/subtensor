@@ -19,7 +19,7 @@ env:
 jobs:
   localnet:
     name: localnet
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: [self-hosted, type-ccx43]
 
     steps:
       # -------------------------------
