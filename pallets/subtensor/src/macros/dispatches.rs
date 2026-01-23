@@ -1331,7 +1331,7 @@ mod dispatches {
         ///
         /// WARNING: This function is deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`
         #[pallet::call_index(73)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(T::DbWeight::get().reads(5))]
         #[deprecated(note = "Deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`")]
         pub fn schedule_swap_coldkey(
             _origin: OriginFor<T>,
