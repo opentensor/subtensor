@@ -195,15 +195,23 @@ export async function sendProxyCall(api: TypedApi<typeof devnet>, calldata: TxCa
 
 
 export async function setTxRateLimit(api: TypedApi<typeof devnet>, txRateLimit: bigint) {
-    const value = await api.query.SubtensorModule.TxRateLimit.getValue()
-    if (value === txRateLimit) {
+    const swapKeysGroupId = 6; // GROUP_SWAP_KEYS constant
+    const target = rateLimitTargetGroup(swapKeysGroupId);
+    const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    assert.ok(limits?.type === "Global");
+    assert.ok(limits.value?.type === "Exact");
+    const currentLimit = BigInt(limits.value.value);
+    if (currentLimit === txRateLimit) {
         return;
     }
     const alice = getAliceSigner()
 
-    const internalCall = api.tx.AdminUtils.sudo_set_tx_rate_limit({ tx_rate_limit: txRateLimit })
+    const internalCall = api.tx.RateLimiting.set_rate_limit({
+        target: target as any,
+        scope: undefined,
+        limit: rateLimitKindExact(txRateLimit),
+    })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
-
 
     await waitForTransactionWithRetry(api, tx, alice)
 }
