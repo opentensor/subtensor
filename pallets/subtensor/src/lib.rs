@@ -341,6 +341,21 @@ pub mod pallet {
         },
     }
 
+    #[pallet::type_value]
+    pub fn DefaultBurnHalfLife<T: Config>() -> u16 {
+        360
+    }
+
+    #[pallet::type_value]
+    pub fn DefaultBurnIncreaseMult<T: Config>() -> u64 {
+        2
+    }
+
+    #[pallet::type_value]
+    pub fn DefaultBurnLastHalvingBlock<T: Config>() -> u64 {
+        0
+    }
+
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
     /// Any amount less than this will not be claimed.
@@ -2355,6 +2370,21 @@ pub mod pallet {
     #[pallet::storage]
     pub type MechanismEmissionSplit<T: Config> =
         StorageMap<_, Twox64Concat, NetUid, Vec<u16>, OptionQuery>;
+
+    /// --- MAP ( netuid ) --> BurnHalfLife (blocks)
+    #[pallet::storage]
+    pub type BurnHalfLife<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultBurnHalfLife<T>>;
+
+    /// --- MAP ( netuid ) --> BurnIncreaseMult
+    #[pallet::storage]
+    pub type BurnIncreaseMult<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBurnIncreaseMult<T>>;
+
+    /// --- MAP ( netuid ) --> last block at which we applied halving + interval reset
+    #[pallet::storage]
+    pub type BurnLastHalvingBlock<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBurnLastHalvingBlock<T>>;
 
     /// ==================
     /// ==== Genesis =====
