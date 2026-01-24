@@ -2297,7 +2297,10 @@ pub mod pallet {
             ensure!(burn_half_life > 0, Error::<T>::InvalidValue);
 
             pallet_subtensor::BurnHalfLife::<T>::insert(netuid, burn_half_life);
-            Self::deposit_event(Event::BurnHalfLifeSet(netuid, burn_half_life));
+            Self::deposit_event(Event::BurnHalfLifeSet {
+                netuid,
+                burn_half_life,
+            });
             Ok(())
         }
 
@@ -2325,7 +2328,10 @@ pub mod pallet {
             ensure!(burn_increase_mult >= 1, Error::<T>::InvalidValue);
 
             pallet_subtensor::BurnIncreaseMult::<T>::insert(netuid, burn_increase_mult);
-            Self::deposit_event(Event::BurnIncreaseMultSet(netuid, burn_increase_mult));
+            Self::deposit_event(Event::BurnIncreaseMultSet {
+                netuid,
+                burn_increase_mult,
+            });
             Ok(())
         }
     }
