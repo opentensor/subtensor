@@ -84,7 +84,11 @@ where
 
             let is_allowed_direct = matches!(
                 call.is_sub_type(),
-                Some(Call::announce_coldkey_swap { .. } | Call::swap_coldkey_announced { .. })
+                Some(
+                    Call::announce_coldkey_swap { .. }
+                        | Call::swap_coldkey_announced { .. }
+                        | Call::dispute_coldkey_swap { .. }
+                )
             );
 
             let is_mev_protected = matches!(
@@ -299,6 +303,7 @@ mod tests {
                     new_coldkey_hash: another_coldkey_hash,
                 }),
                 RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey_announced { new_coldkey }),
+                RuntimeCall::SubtensorModule(SubtensorCall::dispute_coldkey_swap {}),
                 RuntimeCall::Shield(pallet_shield::Call::submit_encrypted {
                     commitment: <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey),
                     ciphertext: BoundedVec::truncate_from(vec![1, 2, 3, 4]),
