@@ -58,7 +58,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
 
         for (netuid, _) in NetworksAdded::<T>::iter() {
-            // 1) Apply halving + interval reset when half-life interval elapses.
+            // --- 1) Apply halving + interval reset when BurnHalfLife elapses.
             let half_life: u16 = BurnHalfLife::<T>::get(netuid);
             if half_life > 0 {
                 let last_halving: u64 = BurnLastHalvingBlock::<T>::get(netuid);
@@ -69,26 +69,31 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     // burn halves once per interval passed: burn /= 2^intervals_passed
                     let burn_u64: u64 = Self::get_burn(netuid).into();
                     let shift: u32 = core::cmp::min(intervals_passed, 64) as u32;
+                    let mut new_burn_u64: u64 = if shift >= 64 { 0 } else { burn_u64 >> shift };
 
-                    let new_burn_u64: u64 = if shift >= 64 { 0 } else { burn_u64 >> shift };
-                    let mut new_burn: TaoCurrency = new_burn_u64.into();
-                    new_burn = Self::clamp_burn(netuid, new_burn);
+                    // Prevent stuck-at-zero behavior.
+                    if new_burn_u64 == 0 {
+                        new_burn_u64 = 1;
+                    }
 
-                    Self::set_burn(netuid, new_burn);
+                    Self::set_burn(netuid, TaoCurrency::from(new_burn_u64));
 
+                    // Advance the halving anchor forward by whole intervals.
                     BurnLastHalvingBlock::<T>::insert(
                         netuid,
                         last_halving
                             .saturating_add(intervals_passed.saturating_mul(half_life as u64)),
                     );
 
-                    // interval reset (MaxRegistrationsPerInterval == 1)
+                    // Reset interval counter (MaxRegistrationsPerInterval = 1 per half-life interval).
                     RegistrationsThisInterval::<T>::insert(netuid, 0);
                 }
             }
 
-            // 2) Apply post-registration bump (from previous block's registrations).
-            // Note: at start of block N, RegistrationsThisBlock contains block N-1 counts.
+            // --- 2) Apply post-registration bump.
+            //
+            // At the start of block N, RegistrationsThisBlock contains the count from block N-1.
+            // We skip bumping on root because root_register does not use burn-based pricing.
             if !netuid.is_root() {
                 let regs_prev_block: u16 = RegistrationsThisBlock::<T>::get(netuid);
                 if regs_prev_block > 0 {
@@ -96,16 +101,18 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     let bump: u64 = Self::saturating_pow_u64(mult, regs_prev_block);
 
                     let burn_u64: u64 = Self::get_burn(netuid).into();
-                    let new_burn_u64: u64 = burn_u64.saturating_mul(bump);
+                    let mut new_burn_u64: u64 = burn_u64.saturating_mul(bump);
 
-                    let mut new_burn: TaoCurrency = new_burn_u64.into();
-                    new_burn = Self::clamp_burn(netuid, new_burn);
+                    // Prevent stuck-at-zero behavior.
+                    if new_burn_u64 == 0 {
+                        new_burn_u64 = 1;
+                    }
 
-                    Self::set_burn(netuid, new_burn);
+                    Self::set_burn(netuid, TaoCurrency::from(new_burn_u64));
                 }
             }
 
-            // 3) Reset per-block count for the new block
+            // --- 3) Reset per-block registrations counter for the new block.
             Self::set_registrations_this_block(netuid, 0);
         }
     }
