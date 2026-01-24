@@ -268,5 +268,7 @@ mod errors {
         InvalidSubnetNumber,
         /// Unintended precision loss when unstaking alpha
         PrecisionLoss,
+        /// Operation is not permitted on the root network.
+        NotPermittedOnRootSubnet,
     }
 }
