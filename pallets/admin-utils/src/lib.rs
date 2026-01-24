@@ -2257,6 +2257,47 @@ pub mod pallet {
             log::debug!("StartCallDelay( delay: {delay:?} ) ");
             Ok(())
         }
+        /// Set BurnHalfLife for a subnet.
+        #[pallet::call_index(86)]
+        #[pallet::weight(Weight::from_parts(25_000_000, 0)
+            .saturating_add(T::DbWeight::get().reads(3))
+            .saturating_add(T::DbWeight::get().writes(1)))]
+        pub fn sudo_set_burn_half_life(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            burn_half_life: u16,
+        ) -> DispatchResult {
+            Self::ensure_root(origin, netuid)?;
+
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+            ensure!(burn_half_life > 0, Error::<T>::InvalidValue);
+
+            BurnHalfLife::<T>::insert(netuid, burn_half_life);
+            Self::deposit_event(Event::BurnHalfLifeSet(netuid, burn_half_life));
+            Ok(())
+        }
+
+        /// Set BurnIncreaseMult for a subnet.
+        #[pallet::call_index(87)]
+        #[pallet::weight(Weight::from_parts(25_000_000, 0)
+            .saturating_add(T::DbWeight::get().reads(3))
+            .saturating_add(T::DbWeight::get().writes(1)))]
+        pub fn sudo_set_burn_increase_mult(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            burn_increase_mult: u64,
+        ) -> DispatchResult {
+            Self::ensure_root(origin, netuid)?;
+
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+            ensure!(burn_increase_mult >= 1, Error::<T>::InvalidValue);
+
+            BurnIncreaseMult::<T>::insert(netuid, burn_increase_mult);
+            Self::deposit_event(Event::BurnIncreaseMultSet(netuid, burn_increase_mult));
+            Ok(())
+        }
     }
 }
 
