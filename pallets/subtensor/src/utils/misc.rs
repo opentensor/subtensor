@@ -925,10 +925,4 @@ impl<T: Config> Pallet<T> {
         }
         acc
     }
-
-    pub fn clamp_burn(netuid: NetUid, burn: TaoCurrency) -> TaoCurrency {
-        let min_burn = Self::get_min_burn(netuid);
-        let max_burn = Self::get_max_burn(netuid);
-        core::cmp::min(core::cmp::max(burn, min_burn), max_burn)
-    }
 }
