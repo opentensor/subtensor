@@ -164,7 +164,9 @@ mod hooks {
                 // Remove unknown neuron axon, certificate prom
                 .saturating_add(migrations::migrate_remove_unknown_neuron_axon_cert_prom::migrate_remove_unknown_neuron_axon_cert_prom::<T>())
                 // Fix staking hot keys
-                .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>());
+                .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>())
+                // Migration for new Neuron Registration
+                .saturating_add(migrations::migrate_clear_deprecated_registration_maps::migrate_clear_deprecated_registration_maps::<T>());
             weight
         }
 
