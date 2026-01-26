@@ -348,8 +348,6 @@ mod pallet {
             origin: OriginFor<T>,
             _hotkey: T::AccountId,
             _netuid: NetUid,
-            _tick_low: TickIndex,
-            _tick_high: TickIndex,
             _liquidity: u64,
         ) -> DispatchResult {
             ensure_signed(origin)?;
