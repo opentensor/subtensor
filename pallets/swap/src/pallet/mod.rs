@@ -379,52 +379,55 @@ mod pallet {
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
-            // Ensure that the subnet exists.
-            ensure!(
-                T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::MechanismDoesNotExist
-            );
+            // Extrinsic should have no effect. This fix may have to be reverted later,
+            // so leaving the code in for now.
 
-            ensure!(
-                T::SubnetInfo::is_subtoken_enabled(netuid.into()),
-                Error::<T>::SubtokenDisabled
-            );
+            // // Ensure that the subnet exists.
+            // ensure!(
+            //     T::SubnetInfo::exists(netuid.into()),
+            //     Error::<T>::MechanismDoesNotExist
+            // );
 
-            let (position_id, tao, alpha) = Self::do_add_liquidity(
-                netuid.into(),
-                &coldkey,
-                &hotkey,
-                tick_low,
-                tick_high,
-                liquidity,
-            )?;
-            let alpha = AlphaCurrency::from(alpha);
-            let tao = TaoCurrency::from(tao);
+            // ensure!(
+            //     T::SubnetInfo::is_subtoken_enabled(netuid.into()),
+            //     Error::<T>::SubtokenDisabled
+            // );
 
-            // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
-            let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
-            ensure!(tao_provided == tao, Error::<T>::InsufficientBalance);
+            // let (position_id, tao, alpha) = Self::do_add_liquidity(
+            //     netuid.into(),
+            //     &coldkey,
+            //     &hotkey,
+            //     tick_low,
+            //     tick_high,
+            //     liquidity,
+            // )?;
+            // let alpha = AlphaCurrency::from(alpha);
+            // let tao = TaoCurrency::from(tao);
 
-            let alpha_provided =
-                T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), alpha)?;
-            ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
+            // // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
+            // let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
+            // ensure!(tao_provided == tao, Error::<T>::InsufficientBalance);
 
-            // Add provided liquidity to user-provided reserves
-            T::TaoReserve::increase_provided(netuid.into(), tao_provided);
-            T::AlphaReserve::increase_provided(netuid.into(), alpha_provided);
+            // let alpha_provided =
+            //     T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), alpha)?;
+            // ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
 
-            // Emit an event
-            Self::deposit_event(Event::LiquidityAdded {
-                coldkey,
-                hotkey,
-                netuid,
-                position_id,
-                liquidity,
-                tao,
-                alpha,
-                tick_low,
-                tick_high,
-            });
+            // // Add provided liquidity to user-provided reserves
+            // T::TaoReserve::increase_provided(netuid.into(), tao_provided);
+            // T::AlphaReserve::increase_provided(netuid.into(), alpha_provided);
+
+            // // Emit an event
+            // Self::deposit_event(Event::LiquidityAdded {
+            //     coldkey,
+            //     hotkey,
+            //     netuid,
+            //     position_id,
+            //     liquidity,
+            //     tao,
+            //     alpha,
+            //     tick_low,
+            //     tick_high,
+            // });
 
             Ok(())
         }
