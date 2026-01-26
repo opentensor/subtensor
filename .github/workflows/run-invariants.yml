@@ -87,7 +87,7 @@ jobs:
         run: |
           ./scripts/invariants/run_localnet.sh ./target/release ./scripts/invariants/.bdk-env &
           echo $! > /tmp/localnet.pid
-          sleep 10 * 60
+          sleep 600
 
       # -------------------------------
       # Wait until chain is producing blocks
