@@ -77,15 +77,15 @@ jobs:
       # -------------------------------
       # Generate chain spec
       # -------------------------------
-      - name: Generate chain spec
-        run: ./scripts/invariants/generate_spec.sh
+      #- name: Generate chain spec
+      #  run: ./scripts/invariants/generate_spec.sh
 
       # -------------------------------
       # Start localnet nodes (background)
       # -------------------------------
       - name: Start localnet nodes
         run: |
-          ./scripts/invariants/run_localnet.sh ./target/release ./scripts/invariants/.bdk-env &
+          ./scripts/invariants/run_localnet2.sh ./target/release ./scripts/invariants/.bdk-env &
           echo $! > /tmp/localnet.pid
           sleep 5
 
