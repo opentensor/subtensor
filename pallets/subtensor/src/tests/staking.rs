@@ -6,11 +6,9 @@ use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays
 use frame_support::sp_runtime::DispatchError;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
-use pallet_subtensor_swap::Call as SwapCall;
 use pallet_subtensor_swap::tick::TickIndex;
 use safe_math::FixedExt;
 use sp_core::{Get, H256, U256};
-use sp_runtime::traits::Dispatchable;
 use substrate_fixed::traits::FromFixed;
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
 use subtensor_runtime_common::{
@@ -5337,44 +5335,45 @@ fn test_update_position_fees() {
     });
 }
 
-fn setup_positions(netuid: NetUid) {
-    for (coldkey, hotkey, low_price, high_price, liquidity) in [
-        (2, 12, 0.1, 0.20, 1_000_000_000_000_u64),
-        (3, 13, 0.15, 0.25, 200_000_000_000_u64),
-        (4, 14, 0.25, 0.5, 3_000_000_000_000_u64),
-        (5, 15, 0.3, 0.6, 300_000_000_000_u64),
-        (6, 16, 0.4, 0.7, 8_000_000_000_000_u64),
-        (7, 17, 0.5, 0.8, 600_000_000_000_u64),
-        (8, 18, 0.6, 0.9, 700_000_000_000_u64),
-        (9, 19, 0.7, 1.0, 100_000_000_000_u64),
-        (10, 20, 0.8, 1.1, 300_000_000_000_u64),
-    ] {
-        SubtensorModule::create_account_if_non_existent(&U256::from(coldkey), &U256::from(hotkey));
-        SubtensorModule::add_balance_to_coldkey_account(
-            &U256::from(coldkey),
-            1_000_000_000_000_000,
-        );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &U256::from(hotkey),
-            &U256::from(coldkey),
-            netuid.into(),
-            1_000_000_000_000_000.into(),
-        );
+// TODO: Revise when user liquidity is available
+// fn setup_positions(netuid: NetUid) {
+//     for (coldkey, hotkey, low_price, high_price, liquidity) in [
+//         (2, 12, 0.1, 0.20, 1_000_000_000_000_u64),
+//         (3, 13, 0.15, 0.25, 200_000_000_000_u64),
+//         (4, 14, 0.25, 0.5, 3_000_000_000_000_u64),
+//         (5, 15, 0.3, 0.6, 300_000_000_000_u64),
+//         (6, 16, 0.4, 0.7, 8_000_000_000_000_u64),
+//         (7, 17, 0.5, 0.8, 600_000_000_000_u64),
+//         (8, 18, 0.6, 0.9, 700_000_000_000_u64),
+//         (9, 19, 0.7, 1.0, 100_000_000_000_u64),
+//         (10, 20, 0.8, 1.1, 300_000_000_000_u64),
+//     ] {
+//         SubtensorModule::create_account_if_non_existent(&U256::from(coldkey), &U256::from(hotkey));
+//         SubtensorModule::add_balance_to_coldkey_account(
+//             &U256::from(coldkey),
+//             1_000_000_000_000_000,
+//         );
+//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//             &U256::from(hotkey),
+//             &U256::from(coldkey),
+//             netuid.into(),
+//             1_000_000_000_000_000.into(),
+//         );
 
-        let tick_low = price_to_tick(low_price);
-        let tick_high = price_to_tick(high_price);
-        let add_lq_call = SwapCall::<Test>::add_liquidity {
-            hotkey: U256::from(hotkey),
-            netuid: netuid.into(),
-            tick_low,
-            tick_high,
-            liquidity,
-        };
-        assert_ok!(
-            RuntimeCall::Swap(add_lq_call).dispatch(RuntimeOrigin::signed(U256::from(coldkey)))
-        );
-    }
-}
+//         let tick_low = price_to_tick(low_price);
+//         let tick_high = price_to_tick(high_price);
+//         let add_lq_call = SwapCall::<Test>::add_liquidity {
+//             hotkey: U256::from(hotkey),
+//             netuid: netuid.into(),
+//             tick_low,
+//             tick_high,
+//             liquidity,
+//         };
+//         assert_ok!(
+//             RuntimeCall::Swap(add_lq_call).dispatch(RuntimeOrigin::signed(U256::from(coldkey)))
+//         );
+//     }
+// }
 
 #[test]
 fn test_large_swap() {
@@ -5397,7 +5396,8 @@ fn test_large_swap() {
         )
         .unwrap();
 
-        setup_positions(netuid.into());
+        // TODO: Revise when user liquidity is available
+        // setup_positions(netuid.into());
 
         let swap_amount = TaoCurrency::from(100_000_000_000_000);
         assert_ok!(SubtensorModule::add_stake(

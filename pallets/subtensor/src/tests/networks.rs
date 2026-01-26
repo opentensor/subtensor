@@ -1812,24 +1812,25 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         ];
 
         // Multiple bands/sizes → many positions per cold across nets, using mixed hotkeys.
-        let bands: [i32; 3] = [5, 13, 30];
-        let liqs: [u64; 3] = [400_000, 700_000, 1_100_000];
+        // let bands: [i32; 3] = [5, 13, 30];
+        // let liqs: [u64; 3] = [400_000, 700_000, 1_100_000];
 
+        // TODO: Revise when user liquidity is available
         // Helper: add a V3 position via a (hot, cold) pair.
-        let add_pos = |net: NetUid, hot: U256, cold: U256, band: i32, liq: u64| {
-            let ct = pallet_subtensor_swap::CurrentTick::<Test>::get(net);
-            let lo = ct.saturating_sub(band);
-            let hi = ct.saturating_add(band);
-            pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(net, true);
-            assert_ok!(pallet_subtensor_swap::Pallet::<Test>::add_liquidity(
-                RuntimeOrigin::signed(cold),
-                hot,
-                net,
-                lo,
-                hi,
-                liq
-            ));
-        };
+        // let add_pos = |net: NetUid, hot: U256, cold: U256, band: i32, liq: u64| {
+        //     let ct = pallet_subtensor_swap::CurrentTick::<Test>::get(net);
+        //     let lo = ct.saturating_sub(band);
+        //     let hi = ct.saturating_add(band);
+        //     pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(net, true);
+        //     assert_ok!(pallet_subtensor_swap::Pallet::<Test>::add_liquidity(
+        //         RuntimeOrigin::signed(cold),
+        //         hot,
+        //         net,
+        //         lo,
+        //         hi,
+        //         liq
+        //     ));
+        // };
 
         // ────────────────────────────────────────────────────────────────────
         // 1) Create many subnets, enable V3, fix price at tick=0 (sqrt≈1)
@@ -1954,19 +1955,20 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         // ────────────────────────────────────────────────────────────────────
         // 4) Add many V3 positions per cold across nets, alternating hotkeys
         // ────────────────────────────────────────────────────────────────────
-        for (ni, &net) in nets.iter().enumerate() {
-            let participants = lp_sets_per_net[ni];
-            for (pi, &cold) in participants.iter().enumerate() {
-                let [hot1, hot2] = cold_to_hots[&cold];
-                let hots = [hot1, hot2];
-                for k in 0..3 {
-                    let band = bands[(pi + k) % bands.len()];
-                    let liq = liqs[(ni + k) % liqs.len()];
-                    let hot = hots[k % hots.len()];
-                    add_pos(net, hot, cold, band, liq);
-                }
-            }
-        }
+        // TODO: Revise when user liquidity is available
+        // for (ni, &net) in nets.iter().enumerate() {
+        //     let participants = lp_sets_per_net[ni];
+        //     for (pi, &cold) in participants.iter().enumerate() {
+        //         let [hot1, hot2] = cold_to_hots[&cold];
+        //         let hots = [hot1, hot2];
+        //         for k in 0..3 {
+        //             let band = bands[(pi + k) % bands.len()];
+        //             let liq = liqs[(ni + k) % liqs.len()];
+        //             let hot = hots[k % hots.len()];
+        //             add_pos(net, hot, cold, band, liq);
+        //         }
+        //     }
+        // }
 
         // Snapshot τ balances AFTER LP adds (to measure actual principal debit).
         let mut tao_after_adds: BTreeMap<U256, u64> = BTreeMap::new();

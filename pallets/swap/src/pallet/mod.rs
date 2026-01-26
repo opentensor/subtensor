@@ -429,7 +429,9 @@ mod pallet {
             //     tick_high,
             // });
 
-            Ok(())
+            // Ok(())
+
+            Err(Error::<T>::UserLiquidityDisabled.into())
         }
 
         /// Remove liquidity from a specific position.
