@@ -299,13 +299,7 @@ mod pallet {
         #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_fee_rate())]
         pub fn set_fee_rate(origin: OriginFor<T>, netuid: NetUid, rate: u16) -> DispatchResult {
-            if ensure_root(origin.clone()).is_err() {
-                let account_id: T::AccountId = ensure_signed(origin)?;
-                ensure!(
-                    T::SubnetInfo::is_owner(&account_id, netuid.into()),
-                    DispatchError::BadOrigin
-                );
-            }
+            ensure_root(origin)?;
 
             // Ensure that the subnet exists.
             ensure!(

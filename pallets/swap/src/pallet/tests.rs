@@ -97,14 +97,6 @@ mod dispatchables {
             // Check that fee rate was set correctly
             assert_eq!(FeeRate::<Test>::get(netuid), fee_rate);
 
-            let fee_rate = fee_rate * 2;
-            assert_ok!(Swap::set_fee_rate(
-                RuntimeOrigin::signed(1),
-                netuid,
-                fee_rate
-            ));
-            assert_eq!(FeeRate::<Test>::get(netuid), fee_rate);
-
             // Verify fee rate validation - should fail if too high
             let too_high_fee = MaxFeeRate::get() + 1;
             assert_noop!(
