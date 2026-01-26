@@ -12,11 +12,15 @@ NO_PURGE=0
 # Check if `--build-only` passed as parameter
 BUILD_ONLY=0
 
+CHAIN="local"
+
 for arg in "$@"; do
   if [ "$arg" = "--no-purge" ]; then
     NO_PURGE=1
   elif [ "$arg" = "--build-only" ]; then
     BUILD_ONLY=1
+  elif [ "$arg" = "--local5" ]; then
+    CHAIN="local5"
   fi
 done
 
@@ -33,14 +37,12 @@ fast_runtime=${1:-"True"}
 if [ "$fast_runtime" == "False" ]; then
   # Block of code to execute if fast_runtime is False
   echo "fast_runtime is Off"
-  : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet"}"
   BUILD_DIR="$BASE_DIR/target/non-fast-runtime"
 else
   # Block of code to execute if fast_runtime is not False
   echo "fast_runtime is On"
-  : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet fast-runtime"}"
   BUILD_DIR="$BASE_DIR/target/fast-runtime"
@@ -87,6 +89,9 @@ echo "*** Building chainspec..."
 echo "*** Chainspec built and output to file"
 
 # Generate node keys
+"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/dave
+"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/eve
+"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/ferdie
 "$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/one
 "$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/two
 
@@ -94,6 +99,9 @@ if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
 else
   echo "*** Purging previous state..."
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/dave --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/eve --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/ferdie --chain="$FULL_PATH" >/dev/null 2>&1
   "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/two --chain="$FULL_PATH" >/dev/null 2>&1
   "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/one --chain="$FULL_PATH" >/dev/null 2>&1
   echo "*** Previous chainstate purged"
@@ -102,6 +110,51 @@ fi
 if [ $BUILD_ONLY -eq 0 ]; then
   echo "*** Starting localnet nodes..."
 
+  dave_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/dave
+    --chain="$FULL_PATH"
+    --dave
+    --port 30331
+    --rpc-port 9941
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+    --unsafe-rpc-external 
+    --rpc-methods=unsafe
+  )
+  eve_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/eve
+    --chain="$FULL_PATH"
+    --eve
+    --port 30332
+    --rpc-port 9942
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+    --unsafe-rpc-external 
+    --rpc-methods=unsafe
+  )
+  ferdie_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/ferdie
+    --chain="$FULL_PATH"
+    --ferdie
+    --port 30333
+    --rpc-port 9943
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+    --unsafe-rpc-external 
+    --rpc-methods=unsafe
+  )
   one_start=(
     "$BUILD_DIR/release/node-subtensor"
     --base-path /tmp/one
@@ -114,6 +167,8 @@ if [ $BUILD_ONLY -eq 0 ]; then
     --allow-private-ipv4
     --discover-local
     --unsafe-force-node-key-generation
+    --unsafe-rpc-external 
+    --rpc-methods=unsafe
   )
 
   two_start=(
@@ -124,20 +179,26 @@ if [ $BUILD_ONLY -eq 0 ]; then
     --port 30335
     --rpc-port 9945
     --validator
-    --rpc-cors=all
+    --rpc-cors=all  
     --allow-private-ipv4
     --discover-local
     --unsafe-force-node-key-generation
+    --unsafe-rpc-external 
+    --rpc-methods=unsafe
   )
-
-  # Provide RUN_IN_DOCKER local environment variable if run script in the docker image
-  if [ "${RUN_IN_DOCKER}" == "1" ]; then
-    one_start+=(--unsafe-rpc-external)
-    two_start+=(--unsafe-rpc-external)
-  fi
 
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
+  if [ "$CHAIN" = "local5" ]; then
+    (
+      ("${dave_start[@]}" 2>&1) &
+      ("${eve_start[@]}" 2>&1) &
+      ("${ferdie_start[@]}" 2>&1) &
+      ("${one_start[@]}" 2>&1) &
+      ("${two_start[@]}" 2>&1)
+      wait
+    )
+  fi
   (
     ("${one_start[@]}" 2>&1) &
     ("${two_start[@]}" 2>&1)
