@@ -2212,14 +2212,15 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         }
 
         // Ensure V3 still functional on new net: add a small position for the first cold using its hot1
-        let who_cold = cold_lps[0];
-        let [who_hot, _] = cold_to_hots[&who_cold];
-        add_pos(net_new, who_hot, who_cold, 8, 123_456);
-        assert!(
-            pallet_subtensor_swap::Positions::<Test>::iter()
-                .any(|((n, owner, _pid), _)| n == net_new && owner == who_cold),
-            "new position not recorded on the re-registered net"
-        );
+        // TODO: Revise when user liquidity is available
+        // let who_cold = cold_lps[0];
+        // let [who_hot, _] = cold_to_hots[&who_cold];
+        // add_pos(net_new, who_hot, who_cold, 8, 123_456);
+        // assert!(
+        //     pallet_subtensor_swap::Positions::<Test>::iter()
+        //         .any(|((n, owner, _pid), _)| n == net_new && owner == who_cold),
+        //     "new position not recorded on the re-registered net"
+        // );
     });
 }
 

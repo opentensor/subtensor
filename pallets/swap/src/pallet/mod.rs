@@ -371,13 +371,13 @@ mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::add_liquidity())]
         pub fn add_liquidity(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            netuid: NetUid,
-            tick_low: TickIndex,
-            tick_high: TickIndex,
-            liquidity: u64,
+            _hotkey: T::AccountId,
+            _netuid: NetUid,
+            _tick_low: TickIndex,
+            _tick_high: TickIndex,
+            _liquidity: u64,
         ) -> DispatchResult {
-            let coldkey = ensure_signed(origin)?;
+            ensure_signed(origin)?;
 
             // Extrinsic should have no effect. This fix may have to be reverted later,
             // so leaving the code in for now.
