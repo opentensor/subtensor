@@ -18,6 +18,8 @@ SLEEP_INTERVAL="${SLEEP_INTERVAL:-2}"  # seconds
 
 echo "Waiting for node RPC at $RPC_URL..."
 
+ps aux | grep node-subtensor
+
 for ((i=1; i<=MAX_RETRIES; i++)); do
   if curl -sf -H "Content-Type: application/json" \
       --data '{"jsonrpc":"2.0","method":"system_health","params":[],"id":1}' \
