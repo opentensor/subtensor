@@ -31,8 +31,6 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::try_set_pending_children(block_number);
         // --- 8. Run auto-claim root divs.
         Self::run_auto_claim_root_divs(last_block_hash);
-        // --- 9. Populate root coldkey maps.
-        Self::populate_root_coldkey_staking_maps();
 
         // Return ok.
         Ok(())
