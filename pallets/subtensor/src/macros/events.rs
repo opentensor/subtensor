@@ -481,5 +481,13 @@ mod events {
             /// The amount of alpha distributed
             alpha: AlphaCurrency,
         },
+
+        /// Root claim coldkey migration event.
+        RootClaimColdkeyMigrated {
+            /// Keys migrated this block
+            processed_keys: u64,
+            /// Added coldkeys
+            added_coldkeys: u64,
+        },
     }
 }

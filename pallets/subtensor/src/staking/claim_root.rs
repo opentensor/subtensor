@@ -316,13 +316,17 @@ impl<T: Config> Pallet<T> {
             .saturating_add(Weight::from_parts(100_412, 0).saturating_mul(k.into()))
     }
 
-    pub fn maybe_add_coldkey_index(coldkey: &T::AccountId) {
+    pub fn maybe_add_coldkey_index(coldkey: &T::AccountId) -> bool {
         if !StakingColdkeys::<T>::contains_key(coldkey) {
             let n = NumStakingColdkeys::<T>::get();
             StakingColdkeysByIndex::<T>::insert(n, coldkey.clone());
             StakingColdkeys::<T>::insert(coldkey.clone(), n);
             NumStakingColdkeys::<T>::mutate(|n| *n = n.saturating_add(1));
+
+            return true;
         }
+
+        false
     }
 
     pub fn run_auto_claim_root_divs(last_block_hash: T::Hash) -> Weight {
