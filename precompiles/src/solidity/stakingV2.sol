@@ -80,7 +80,7 @@ interface IStaking {
 
     /**
      * @dev Transfer a subtensor stake `amount` associated with the transaction signer to a different coldkey
-     * `destination_coldkey`.
+     * `destination_coldkey` while keeping the same hotkey.
      *
      * This function allows external accounts and contracts to transfer staked TAO to another coldkey,
      * which effectively calls `transfer_stake` on the subtensor pallet with specified destination
@@ -95,12 +95,42 @@ interface IStaking {
      * @param amount The amount to move in rao.
      *
      * Requirements:
-     * - `origin_hotkey` and `destination_hotkey` must be valid hotkeys registered on the network, ensuring
+     * - `hotkey` must be a valid hotkey registered on the network, ensuring
      * that the stake is correctly attributed.
      */
     function transferStake(
         bytes32 destination_coldkey,
         bytes32 hotkey,
+        uint256 origin_netuid,
+        uint256 destination_netuid,
+        uint256 amount
+    ) external payable;
+
+    /**
+     * @dev Transfer a subtensor stake `amount` associated with the transaction signer to a different coldkey
+     * `destination_coldkey` and optionally a different hotkey `destination_hotkey`.
+     *
+     * This function allows external accounts and contracts to transfer staked TAO to another coldkey and hotkey,
+     * which effectively calls `transfer_stake` on the subtensor pallet with specified destination
+     * coldkey and hotkey as parameters being the hashed address mapping of H160 sender address to Substrate ss58
+     * address as implemented in Frontier HashedAddressMapping:
+     * https://github.com/polkadot-evm/frontier/blob/2e219e17a526125da003e64ef22ec037917083fa/frame/evm/src/lib.rs#L739
+     *
+     * @param destination_coldkey The destination coldkey public key (32 bytes).
+     * @param origin_hotkey The origin hotkey public key (32 bytes).
+     * @param destination_hotkey The destination hotkey public key (32 bytes).
+     * @param origin_netuid The subnet to move stake from (uint256).
+     * @param destination_netuid The subnet to move stake to (uint256).
+     * @param amount The amount to move in rao.
+     *
+     * Requirements:
+     * - `origin_hotkey` and `destination_hotkey` must be valid hotkeys registered on the network, ensuring
+     * that the stake is correctly attributed.
+     */
+    function transferStakeV2(
+        bytes32 destination_coldkey,
+        bytes32 origin_hotkey,
+        bytes32 destination_hotkey,
         uint256 origin_netuid,
         uint256 destination_netuid,
         uint256 amount
