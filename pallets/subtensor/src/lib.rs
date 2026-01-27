@@ -1241,10 +1241,6 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    /// --- ITEM ( global_block_emission )    
-    #[pallet::storage]
-    pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
-
     /// --- DMap ( hot, netuid ) --> emission | last hotkey emission on network.
     #[pallet::storage]
     pub type LastHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<

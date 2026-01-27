@@ -1,0 +1,36 @@
+use super::*;
+use crate::HasMigrationRun;
+use frame_support::{traits::Get, weights::Weight};
+use scale_info::prelude::string::String;
+use sp_io::storage::clear;
+
+pub fn migrate_remove_block_emission_storage<T: Config>() -> Weight {
+    let migration_name = b"migrate_remove_block_emission_storage".to_vec();
+    let mut weight = T::DbWeight::get().reads(1);
+
+    if HasMigrationRun::<T>::get(&migration_name) {
+        log::info!(
+            "Migration '{:?}' has already run. Skipping.",
+            String::from_utf8_lossy(&migration_name)
+        );
+        return weight;
+    }
+
+    log::info!(
+        "Running migration '{}'",
+        String::from_utf8_lossy(&migration_name)
+    );
+
+    clear(b"SubtensorModule::BlockEmission");
+
+    // Mark Migration as Completed
+    HasMigrationRun::<T>::insert(&migration_name, true);
+    weight = weight.saturating_add(T::DbWeight::get().writes(2));
+
+    log::info!(
+        "Migration '{:?}' completed successfully.",
+        String::from_utf8_lossy(&migration_name)
+    );
+
+    weight
+}
