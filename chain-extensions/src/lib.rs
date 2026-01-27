@@ -530,6 +530,71 @@ where
 
                 Ok(RetVal::Converging(Output::Success as u32))
             }
+            FunctionId::GetVotingPowerV1 => {
+                let (netuid, hotkey): (NetUid, T::AccountId) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let voting_power = pallet_subtensor::Pallet::<T>::get_voting_power(netuid, &hotkey);
+
+                env.write_output(&voting_power.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::GetTotalVotingPowerV1 => {
+                let netuid: NetUid = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let total_voting_power: u64 =
+                    pallet_subtensor::VotingPower::<T>::iter_prefix(netuid)
+                        .map(|(_, power)| power)
+                        .sum();
+
+                env.write_output(&total_voting_power.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::IsVotingPowerTrackingEnabledV1 => {
+                let netuid: NetUid = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let enabled =
+                    pallet_subtensor::Pallet::<T>::get_voting_power_tracking_enabled(netuid);
+
+                env.write_output(&enabled.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::GetVotingPowerDisableAtBlockV1 => {
+                let netuid: NetUid = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let disable_at_block =
+                    pallet_subtensor::Pallet::<T>::get_voting_power_disable_at_block(netuid);
+
+                env.write_output(&disable_at_block.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::GetVotingPowerEmaAlphaV1 => {
+                let netuid: NetUid = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let ema_alpha = pallet_subtensor::Pallet::<T>::get_voting_power_ema_alpha(netuid);
+
+                env.write_output(&ema_alpha.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
         }
     }
 }
