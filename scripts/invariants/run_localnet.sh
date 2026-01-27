@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+exec > >(awk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }') 2>&1
+
 # ----------------------------------------
 # Args
 # ----------------------------------------
@@ -91,18 +93,21 @@ charlie_start=(
 # Launch (background, detached)
 # ----------------------------------------
 
-("${alice_start[@]}"   > /tmp/alice.log   2>&1 &)
-("${bob_start[@]}"     > /tmp/bob.log     2>&1 &)
-("${charlie_start[@]}" > /tmp/charlie.log 2>&1 &)
+#("${alice_start[@]}"   > /tmp/alice.log   2>&1 &)
+#("${bob_start[@]}"     > /tmp/bob.log     2>&1 &)
+#("${charlie_start[@]}" > /tmp/charlie.log 2>&1 &)
 
-echo "✅ Localnet started"
-echo "   Logs:"
-echo "     /tmp/alice.log"
-echo "     /tmp/bob.log"
-echo "     /tmp/charlie.log"
+#echo "✅ Localnet started"
+#echo "   Logs:"
+#echo "     /tmp/alice.log"
+#echo "     /tmp/bob.log"
+#echo "     /tmp/charlie.log"
 
 # ----------------------------------------
 # Exit so CI can continue
 # ----------------------------------------
 
-exit 0
+#exit 0
+"${alice_start[@]}"
+"${bob_start[@]}"
+"${charlie_start[@]}"
