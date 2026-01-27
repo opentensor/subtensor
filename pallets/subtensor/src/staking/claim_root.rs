@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
-use sp_std::collections::btree_set::BTreeSet;
+use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
 
@@ -207,6 +207,10 @@ impl<T: Config> Pallet<T> {
         RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {
             *root_claimed = root_claimed.saturating_add(owed_u64.into());
         });
+
+        PendingRootAlpha::<T>::mutate(hotkey, |value| {
+            *value = value.saturating_sub(owed_u64.into());
+        });
     }
 
     fn root_claim_on_subnet_weight(_root_claim_type: RootClaimTypeEnum) -> Weight {
@@ -257,11 +261,14 @@ impl<T: Config> Pallet<T> {
             let root_claimed: u128 = RootClaimed::<T>::get((netuid, hotkey, coldkey));
 
             // Increase root claimed based on the claimable rate.
-            let new_root_claimed = root_claimed.saturating_add(
-                claimable_rate
-                    .saturating_mul(I96F32::from(u64::from(amount)))
-                    .saturating_to_num(),
-            );
+            let added_amount = claimable_rate
+                .saturating_mul(I96F32::from(u64::from(amount)))
+                .saturating_to_num();
+            let new_root_claimed = root_claimed.saturating_add(added_amount);
+
+            PendingRootAlpha::<T>::mutate(hotkey, |value| {
+                *value = value.saturating_sub(added_amount);
+            });
 
             // Set the new root claimed value.
             RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
@@ -284,11 +291,14 @@ impl<T: Config> Pallet<T> {
             let root_claimed: u128 = RootClaimed::<T>::get((netuid, hotkey, coldkey));
 
             // Decrease root claimed based on the claimable rate.
-            let new_root_claimed = root_claimed.saturating_sub(
-                claimable_rate
-                    .saturating_mul(I96F32::from(u64::from(amount)))
-                    .saturating_to_num(),
-            );
+            let subed_amount = claimable_rate
+                .saturating_mul(I96F32::from(u64::from(amount)))
+                .saturating_to_num();
+            let new_root_claimed = root_claimed.saturating_sub(subed_amount);
+
+            PendingRootAlpha::<T>::mutate(hotkey, |value| {
+                *value = value.saturating_add(subed_amount);
+            });
 
             // Set the new root_claimed value.
             RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
@@ -388,16 +398,62 @@ impl<T: Config> Pallet<T> {
         RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
     }
 
+    pub fn transfer_pending_root_alpha_for_new_hotkey(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+    ) {
+        let src_pending_root_alpha = PendingRootAlpha::<T>::get(old_hotkey);
+        let dst_pending_root_alpha = PendingRootAlpha::<T>::get(new_hotkey);
+        PendingRootAlpha::<T>::remove(old_hotkey);
+        PendingRootAlpha::<T>::insert(
+            new_hotkey,
+            dst_pending_root_alpha.saturating_add(src_pending_root_alpha),
+        );
+    }
+
     /// Claim all root dividends for subnet and remove all associated data.
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
         let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
 
+        let mut root_claimable_alpha_map: BTreeMap<T::AccountId, u128> = BTreeMap::new();
+
         for hotkey in hotkeys.iter() {
+            let root_stake = Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT);
+            let claimable_rate = RootClaimable::<T>::get(hotkey)
+                .values()
+                .fold(I96F32::from(0), |acc, x| acc.saturating_add(*x));
+            let total = claimable_rate.saturating_mul(I96F32::saturating_from_num(root_stake));
+            // let pending_root_alpha = PendingRootAlpha::<T>::get(hotkey);
+
+            root_claimable_alpha_map.insert(hotkey.clone(), total.saturating_to_num::<u128>());
+
             RootClaimable::<T>::mutate(hotkey, |claimable| {
                 claimable.remove(&netuid);
             });
         }
 
+        let mut root_claimed_alpha_map: BTreeMap<T::AccountId, u128> = BTreeMap::new();
+
+        for ((_netuid, hotkey, _coldkey), root_claimed) in RootClaimed::<T>::iter() {
+            if !hotkeys.contains(&hotkey) {
+                continue;
+            }
+
+            root_claimed_alpha_map
+                .entry(hotkey.clone())
+                .and_modify(|total| *total = total.saturating_add(root_claimed))
+                .or_insert(root_claimed);
+        }
+
         let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+
+        for (hotkey, claimable) in root_claimable_alpha_map {
+            let claimed = root_claimed_alpha_map.get(&hotkey).unwrap_or(&0);
+            // still some root alpha not claimed
+            let pending = claimable.saturating_sub(*claimed);
+            PendingRootAlpha::<T>::mutate(&hotkey, |value| {
+                *value = value.saturating_sub(pending);
+            });
+        }
     }
 }
