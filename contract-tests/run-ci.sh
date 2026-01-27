@@ -1,11 +1,12 @@
 #!/bin/bash
 
 echo "start run-ci.sh"
+echo "$(date)"
 
 scripts/localnet.sh --local5 &>/dev/null &
 
 i=1
-while [ $i -le 600 ]; do
+while [ $i -le 1000 ]; do
   if nc -z localhost 9944; then
     echo "node subtensor is running after $i seconds"
     break
@@ -15,7 +16,7 @@ while [ $i -le 600 ]; do
 done
 
 # port not available exit with error
-if [ "$i" -eq 600 ]; then
+if [ "$i" -eq 1000 ]; then
     exit 1
 fi
 
@@ -47,5 +48,7 @@ if [ $TEST_EXIT_CODE -ne 0 ]; then
 fi
 
 pkill node-subtensor
+
+sleep 2
 
 exit 0
