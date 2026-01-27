@@ -28,6 +28,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
+use pallet_governance::{BUILDING_COLLECTIVE_SIZE, ECONOMIC_COLLECTIVE_SIZE};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
 pub use pallet_shield;
@@ -56,7 +57,8 @@ use sp_core::{
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, FixedU128, Percent, generic,
+    impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
@@ -818,7 +820,6 @@ parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
         BlockWeights::get().max_block;
     pub const MaxScheduledPerBlock: u32 = 50;
-    pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 
 /// Used the compare the privilege of an origin inside the scheduler.
@@ -1043,7 +1044,6 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialKeySwapCost: u64 = 100_000_000; // 0.1 TAO
@@ -1051,13 +1051,11 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
-    // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialColdkeySwapRescheduleDuration: BlockNumber = 24 * 60 * 60 / 12; // 1 day
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    // 0 days
     pub const InitialStartCallDelay: u64 = 0;
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
@@ -1604,6 +1602,60 @@ impl pallet_contracts::Config for Runtime {
     type ApiVersion = ();
 }
 
+parameter_types! {
+    pub const MaxAllowedProposers: u32 = 20;
+    pub MaxProposalWeight: Weight = Perbill::from_percent(20) * BlockWeights::get().max_block;
+    pub const MaxProposals: u32 = 20;
+    pub const MaxScheduled: u32 = 20;
+    pub const MotionDuration: BlockNumber = prod_or_fast!(50_400, 50); // 7 days
+    pub const InitialSchedulingDelay: BlockNumber = prod_or_fast!(300, 30); // 1 hour
+    pub const AdditionalDelayFactor: FixedU128 = FixedU128::from_rational(3, 2); // 1.5
+    pub const CollectiveRotationPeriod: BlockNumber = prod_or_fast!(432_000, 100); // 60 days
+    pub const CleanupPeriod: BlockNumber = prod_or_fast!(21_600, 50); // 3 days
+    pub const FastTrackThreshold: Percent = Percent::from_percent(67);
+    pub const CancellationThreshold: Percent = Percent::from_percent(51);
+}
+
+impl pallet_governance::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+    type WeightInfo = pallet_governance::weights::SubstrateWeight<Self>;
+    type Currency = Balances;
+    type Preimages = Preimage;
+    type Scheduler = Scheduler;
+    type SetAllowedProposersOrigin = EnsureRoot<AccountId>;
+    type SetTriumvirateOrigin = EnsureRoot<AccountId>;
+    type CollectiveMembersProvider = CollectiveMembersProvider;
+    type MaxAllowedProposers = MaxAllowedProposers;
+    type MaxProposalWeight = MaxProposalWeight;
+    type MaxProposals = MaxProposals;
+    type MaxScheduled = MaxScheduled;
+    type MotionDuration = MotionDuration;
+    type InitialSchedulingDelay = InitialSchedulingDelay;
+    type AdditionalDelayFactor = AdditionalDelayFactor;
+    type CollectiveRotationPeriod = CollectiveRotationPeriod;
+    type CleanupPeriod = CleanupPeriod;
+    type CancellationThreshold = CancellationThreshold;
+    type FastTrackThreshold = FastTrackThreshold;
+}
+
+pub struct CollectiveMembersProvider;
+
+impl pallet_governance::CollectiveMembersProvider<Runtime> for CollectiveMembersProvider {
+    fn get_economic_collective() -> (
+        BoundedVec<AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>>,
+        Weight,
+    ) {
+        (BoundedVec::new(), Weight::zero())
+    }
+
+    fn get_building_collective() -> (
+        BoundedVec<AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>>,
+        Weight,
+    ) {
+        (BoundedVec::new(), Weight::zero())
+    }
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -1642,6 +1694,7 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
+        Governance: pallet_governance = 31,
     }
 );
 
@@ -1715,6 +1768,7 @@ mod benches {
         [pallet_crowdloan, Crowdloan]
         [pallet_subtensor_swap, Swap]
         [pallet_shield, MevShield]
+        [pallet_governance, Governance]
     );
 }
 
