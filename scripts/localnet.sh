@@ -19,6 +19,7 @@ for arg in "$@"; do
     NO_PURGE=1
   elif [ "$arg" = "--build-only" ]; then
     BUILD_ONLY=1
+  # start local network with 5 nodes
   elif [ "$arg" = "--local5" ]; then
     CHAIN="local5"
   fi
@@ -88,104 +89,44 @@ echo "*** Building chainspec..."
 "$BUILD_DIR/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain "$CHAIN" >"$FULL_PATH"
 echo "*** Chainspec built and output to file"
 
+NODES=("dave" "eve" "ferdie" "one" "two")
+
 # Generate node keys
-"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/dave
-"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/eve
-"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/ferdie
-"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/one
-"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/two
+for i in "${NODES[@]}"; do
+  echo /tmp/$i
+  "$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/$i
+done
+
 
 if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
 else
   echo "*** Purging previous state..."
-  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/dave --chain="$FULL_PATH" >/dev/null 2>&1
-  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/eve --chain="$FULL_PATH" >/dev/null 2>&1
-  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/ferdie --chain="$FULL_PATH" >/dev/null 2>&1
-  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/two --chain="$FULL_PATH" >/dev/null 2>&1
-  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/one --chain="$FULL_PATH" >/dev/null 2>&1
+  for i in "${NODES[@]}"; do
+    "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/$i --chain="$FULL_PATH" >/dev/null 2>&1
+  done
   echo "*** Previous chainstate purged"
 fi
+
+command_base=(
+    "$BUILD_DIR/release/node-subtensor"
+    --chain="$FULL_PATH"
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+    --unsafe-rpc-external 
+  )
 
 if [ $BUILD_ONLY -eq 0 ]; then
   echo "*** Starting localnet nodes..."
 
-  dave_start=(
-    "$BUILD_DIR/release/node-subtensor"
-    --base-path /tmp/dave
-    --chain="$FULL_PATH"
-    --dave
-    --port 30331
-    --rpc-port 9941
-    --validator
-    --rpc-cors=all
-    --allow-private-ipv4
-    --discover-local
-    --unsafe-force-node-key-generation
-    --unsafe-rpc-external 
-    --rpc-methods=unsafe
-  )
-  eve_start=(
-    "$BUILD_DIR/release/node-subtensor"
-    --base-path /tmp/eve
-    --chain="$FULL_PATH"
-    --eve
-    --port 30332
-    --rpc-port 9942
-    --validator
-    --rpc-cors=all
-    --allow-private-ipv4
-    --discover-local
-    --unsafe-force-node-key-generation
-    --unsafe-rpc-external 
-    --rpc-methods=unsafe
-  )
-  ferdie_start=(
-    "$BUILD_DIR/release/node-subtensor"
-    --base-path /tmp/ferdie
-    --chain="$FULL_PATH"
-    --ferdie
-    --port 30333
-    --rpc-port 9943
-    --validator
-    --rpc-cors=all
-    --allow-private-ipv4
-    --discover-local
-    --unsafe-force-node-key-generation
-    --unsafe-rpc-external 
-    --rpc-methods=unsafe
-  )
-  one_start=(
-    "$BUILD_DIR/release/node-subtensor"
-    --base-path /tmp/one
-    --chain="$FULL_PATH"
-    --one
-    --port 30334
-    --rpc-port 9944
-    --validator
-    --rpc-cors=all
-    --allow-private-ipv4
-    --discover-local
-    --unsafe-force-node-key-generation
-    --unsafe-rpc-external 
-    --rpc-methods=unsafe
-  )
-
-  two_start=(
-    "$BUILD_DIR/release/node-subtensor"
-    --base-path /tmp/two
-    --chain="$FULL_PATH"
-    --two
-    --port 30335
-    --rpc-port 9945
-    --validator
-    --rpc-cors=all  
-    --allow-private-ipv4
-    --discover-local
-    --unsafe-force-node-key-generation
-    --unsafe-rpc-external 
-    --rpc-methods=unsafe
-  )
+  dave_start=("${command_base[@]}" --dave --base-path /tmp/dave --port 30331 --rpc-port 9941) 
+  eve_start=("${command_base[@]}" --eve --base-path /tmp/eve --port 30332 --rpc-port 9942)
+  ferdie_start=("${command_base[@]}" --ferdie --base-path /tmp/ferdie --port 30333 --rpc-port 9943)
+  one_start=("${command_base[@]}" --one --base-path /tmp/one --port 30334 --rpc-port 9944)
+  two_start=("${command_base[@]}" --two --base-path /tmp/two --port 30335 --rpc-port 9945)
 
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
