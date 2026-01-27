@@ -2968,3 +2968,70 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
         }
     }
 }
+
+#[test]
+fn test_migrate_reset_coldkey_for_root_claim() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_reset_coldkey_for_root_claim";
+
+        // Step 1: Set up initial state - put a value in AlphaMapLastKey
+        let test_key: Option<Vec<u8>> = Some(vec![1, 2, 3, 4, 5]);
+        AlphaMapLastKey::<Test>::put(test_key.clone());
+
+        // Verify the value was set
+        assert_eq!(
+            AlphaMapLastKey::<Test>::get(),
+            test_key,
+            "AlphaMapLastKey should have the test value."
+        );
+
+        // Step 2: Verify migration hasn't run yet
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "Migration should not have run yet."
+        );
+
+        // Step 3: Run the migration
+        let weight = crate::migrations::migrate_reset_coldkey_for_root_claim::migrate_reset_coldkey_for_root_claim::<Test>();
+
+        // Step 4: Verify AlphaMapLastKey was killed (reset to default None)
+        assert_eq!(
+            AlphaMapLastKey::<Test>::get(),
+            None,
+            "AlphaMapLastKey should be reset to None after migration."
+        );
+
+        // Step 5: Verify migration is marked as completed
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "Migration should be marked as run."
+        );
+
+        // Step 6: Verify weight is non-zero
+        assert!(
+            !weight.is_zero(),
+            "Migration weight should be non-zero."
+        );
+
+        // Step 7: Run migration again - should be idempotent
+        // Set the value again to verify migration doesn't run twice
+        let test_key_2: Option<Vec<u8>> = Some(vec![6, 7, 8, 9, 10]);
+        AlphaMapLastKey::<Test>::put(test_key_2.clone());
+
+        let weight_second_run = crate::migrations::migrate_reset_coldkey_for_root_claim::migrate_reset_coldkey_for_root_claim::<Test>();
+
+        // Value should NOT be reset since migration already ran
+        assert_eq!(
+            AlphaMapLastKey::<Test>::get(),
+            test_key_2,
+            "AlphaMapLastKey should not be changed on second migration run."
+        );
+
+        // Second run should only have read weight (checking if migration ran)
+        assert_eq!(
+            weight_second_run,
+            <Test as frame_system::Config>::DbWeight::get().reads(1),
+            "Second migration run should only have read weight."
+        );
+    });
+}

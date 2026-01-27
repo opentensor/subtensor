@@ -418,7 +418,10 @@ impl<T: Config> Pallet<T> {
             AlphaMapLastKey::<T>::put(new_starting_key);
         }
 
-        Self::deposit_event(Event::<T>::RootClaimColdkeyMigrated { processed_keys, added_coldkeys })
+        Self::deposit_event(Event::<T>::RootClaimColdkeyMigrated {
+            processed_keys,
+            added_coldkeys,
+        })
     }
 
     pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaCurrency) {

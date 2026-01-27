@@ -164,7 +164,10 @@ mod hooks {
                 // Remove unknown neuron axon, certificate prom
                 .saturating_add(migrations::migrate_remove_unknown_neuron_axon_cert_prom::migrate_remove_unknown_neuron_axon_cert_prom::<T>())
                 // Fix staking hot keys
-                .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>());
+                .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>())
+                // Reset coldkey migration
+                .saturating_add(migrations::migrate_reset_coldkey_for_root_claim::migrate_reset_coldkey_for_root_claim::<T>());
+
             weight
         }
 
