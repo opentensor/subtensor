@@ -33,7 +33,7 @@ libsecp256k1.workspace = true
 log.workspace = true
 substrate-fixed.workspace = true
 pallet-transaction-payment.workspace = true
-pallet-subtensor-utility.workspace = true
+pallet-utility.workspace = true
 ndarray.workspace = true
 hex.workspace = true
 share-pool.workspace = true
@@ -54,12 +54,11 @@ w3f-bls.workspace = true
 sha2.workspace = true
 rand_chacha.workspace = true
 pallet-crowdloan.workspace = true
-pallet-subtensor-proxy.workspace = true
+pallet-proxy.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler.workspace = true
-pallet-subtensor-proxy.workspace = true
 subtensor-runtime-common.workspace = true
 pallet-subtensor-swap.workspace = true
 sp-version.workspace = true
@@ -86,8 +85,8 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-crowdloan/try-runtime",
 	"pallet-drand/try-runtime",
-	"pallet-subtensor-proxy/try-runtime",
-	"pallet-subtensor-utility/try-runtime"
+	"pallet-proxy/try-runtime",
+	"pallet-utility/try-runtime"
 ]
 default = ["std"]
 std = [
@@ -113,10 +112,10 @@ std = [
 	"pallet-commitments/std",
 	"pallet-crowdloan/std",
 	"pallet-drand/std",
-	"pallet-subtensor-proxy/std",
+	"pallet-proxy/std",
 	"pallet-subtensor-swap/std",
 	"subtensor-swap-interface/std",
-	"pallet-subtensor-utility/std",
+	"pallet-utility/std",
 	"safe-math/std",
 	"share-pool/std",
 	"ark-serialize/std",
@@ -145,9 +144,9 @@ runtime-benchmarks = [
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
-	"pallet-subtensor-proxy/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
-	"pallet-subtensor-utility/runtime-benchmarks"
+	"pallet-utility/runtime-benchmarks"
 ]
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]

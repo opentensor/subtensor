@@ -41,9 +41,7 @@ use pallet_subtensor::rpc_info::{
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
-use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::SimSwapResult;
-use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -413,6 +411,7 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 impl pallet_utility::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
@@ -769,6 +768,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 }
 
 impl pallet_proxy::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = ProxyType;

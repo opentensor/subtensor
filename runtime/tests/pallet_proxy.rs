@@ -5,7 +5,6 @@ use node_subtensor_runtime::{
     BalancesCall, BuildStorage, Proxy, Runtime, RuntimeCall, RuntimeEvent, RuntimeGenesisConfig,
     RuntimeOrigin, SubtensorModule, System, SystemCall,
 };
-use pallet_subtensor_proxy as pallet_proxy;
 use subtensor_runtime_common::{AccountId, NetUid, ProxyType};
 
 const ACCOUNT: [u8; 32] = [1_u8; 32];
