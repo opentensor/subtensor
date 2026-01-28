@@ -2287,7 +2287,7 @@ pub mod pallet {
             netuid: NetUid,
             burn_half_life: u16,
         ) -> DispatchResult {
-            Self::ensure_root(origin, netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -2318,7 +2318,7 @@ pub mod pallet {
             netuid: NetUid,
             burn_increase_mult: u64,
         ) -> DispatchResult {
-            Self::ensure_root(origin, netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
