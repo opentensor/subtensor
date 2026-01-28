@@ -37,24 +37,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).
-    pub fn ensure_sn_owner_or_root_with_limits(
-        o: T::RuntimeOrigin,
-        netuid: NetUid,
-        limits: &[crate::utils::rate_limiting::TransactionType],
-    ) -> Result<Option<T::AccountId>, DispatchError> {
-        let maybe_who = Self::ensure_subnet_owner_or_root(o, netuid)?;
-        if let Some(who) = maybe_who.as_ref() {
-            for tx in limits.iter() {
-                ensure!(
-                    tx.passes_rate_limit_on_subnet::<T>(who, netuid),
-                    Error::<T>::TxRateLimitExceeded
-                );
-            }
-        }
-        Ok(maybe_who)
-    }
-
     /// Returns true if the current block is within the terminal freeze window of the tempo for the
     /// given subnet. During this window, admin ops are prohibited to avoid interference with
     /// validator weight submissions.
@@ -81,25 +63,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_admin_freeze_window(window: u16) {
         AdminFreezeWindow::<T>::set(window);
         Self::deposit_event(Event::AdminFreezeWindowSet(window));
-    }
-
-    pub fn set_owner_hyperparam_rate_limit(epochs: u16) {
-        OwnerHyperparamRateLimit::<T>::set(epochs);
-        Self::deposit_event(Event::OwnerHyperparamRateLimitSet(epochs));
-    }
-
-    /// If owner is `Some`, record last-blocks for the provided `TransactionType`s.
-    pub fn record_owner_rl(
-        maybe_owner: Option<<T as frame_system::Config>::AccountId>,
-        netuid: NetUid,
-        txs: &[TransactionType],
-    ) {
-        if let Some(who) = maybe_owner {
-            let now = Self::get_current_block_as_u64();
-            for tx in txs {
-                tx.set_last_block_on_subnet::<T>(&who, netuid, now);
-            }
-        }
     }
 
     // ========================

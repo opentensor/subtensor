@@ -1916,20 +1916,6 @@ fn test_sudo_set_admin_freeze_window_and_rate() {
             7
         ));
         assert_eq!(pallet_subtensor::AdminFreezeWindow::<Test>::get(), 7);
-
-        // Owner hyperparam tempos setter
-        assert_eq!(
-            AdminUtils::sudo_set_owner_hparam_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                5
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_ok!(AdminUtils::sudo_set_owner_hparam_rate_limit(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            5
-        ));
-        assert_eq!(pallet_subtensor::OwnerHyperparamRateLimit::<Test>::get(), 5);
     });
 }
 

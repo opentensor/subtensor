@@ -1009,12 +1009,6 @@ pub mod pallet {
         10
     }
 
-    /// Default number of tempos for owner hyperparameter update rate limit
-    #[pallet::type_value]
-    pub fn DefaultOwnerHyperparamRateLimit<T: Config>() -> u16 {
-        2
-    }
-
     /// Default value for ck burn, 18%.
     #[pallet::type_value]
     pub fn DefaultCKBurn<T: Config>() -> u64 {
@@ -1041,11 +1035,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type AdminFreezeWindow<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultAdminFreezeWindow<T>>;
-
-    /// Global number of epochs used to rate limit subnet owner hyperparameter updates
-    #[pallet::storage]
-    pub type OwnerHyperparamRateLimit<T: Config> =
-        StorageValue<_, u16, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
 
     /// Duration of coldkey swap schedule before execution
     #[pallet::storage]

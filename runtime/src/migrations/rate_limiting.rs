@@ -1217,10 +1217,11 @@ mod tests {
             let tx_target = RateLimitTarget::Group(GROUP_SWAP_KEYS);
             let delegate_group = RateLimitTarget::Group(DELEGATE_TAKE_GROUP_ID);
 
+            // swap-keys migration adds +1 to preserve legacy <= behavior.
             assert_eq!(
                 pallet_rate_limiting::Limits::<Runtime>::get(tx_target),
                 Some(RateLimit::Global(RateLimitKind::Exact(
-                    10u64.saturated_into()
+                    11u64.saturated_into()
                 )))
             );
             assert_eq!(
@@ -1546,7 +1547,7 @@ mod tests {
 
             // Hyperparam (activity_cutoff) with tempo scaling.
             let hparam_span_epochs = 2u16;
-            pallet_subtensor::OwnerHyperparamRateLimit::<Runtime>::put(hparam_span_epochs);
+            legacy_storage::set_owner_hyperparam_rate_limit(hparam_span_epochs.into());
             LastRateLimitedBlock::<Runtime>::insert(
                 RateLimitKey::OwnerHyperparamUpdate(
                     netuid,

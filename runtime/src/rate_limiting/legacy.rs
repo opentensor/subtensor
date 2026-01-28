@@ -8,6 +8,7 @@ use sp_io::{
     hashing::twox_128,
     storage::{self as io_storage, next_key},
 };
+use sp_runtime::traits::SaturatedConversion;
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 
@@ -127,6 +128,12 @@ pub mod storage {
             defaults::owner_hyperparam_rate_limit(),
         );
         (u64::from(value), reads)
+    }
+
+    pub fn set_owner_hyperparam_rate_limit(span_epochs: u64) {
+        let key = storage_prefix(PALLET_PREFIX, b"OwnerHyperparamRateLimit");
+        let value: u16 = span_epochs.saturated_into();
+        io_storage::set(&key, &value.encode());
     }
 
     pub fn weights_version_key_rate_limit() -> (u64, u64) {

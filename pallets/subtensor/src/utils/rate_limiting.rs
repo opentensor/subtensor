@@ -43,10 +43,10 @@ impl TransactionType {
         match self {
             Self::SetWeightsVersionKey => (Tempo::<T>::get(netuid) as u64)
                 .saturating_mul(WeightsVersionKeyRateLimit::<T>::get()),
-            // Owner hyperparameter updates are rate-limited by N tempos on the subnet (sudo configurable)
+            // Owner hyperparameter updates are rate-limited by N tempos on the subnet (sudo
+            // configurable)
             Self::OwnerHyperparamUpdate(_) => {
-                let epochs = OwnerHyperparamRateLimit::<T>::get() as u64;
-                (Tempo::<T>::get(netuid) as u64).saturating_mul(epochs)
+                0 /*DEPRECATED*/
             }
             Self::SetSNOwnerHotkey => DefaultSetSNOwnerHotkeyRateLimit::<T>::get(),
 
@@ -102,9 +102,7 @@ impl TransactionType {
             Self::SetSNOwnerHotkey => {
                 Pallet::<T>::get_rate_limited_last_block(&RateLimitKey::SetSNOwnerHotkey(netuid))
             }
-            Self::OwnerHyperparamUpdate(hparam) => Pallet::<T>::get_rate_limited_last_block(
-                &RateLimitKey::OwnerHyperparamUpdate(netuid, *hparam),
-            ),
+            Self::OwnerHyperparamUpdate(_) => 0, // DEPRECATED
             _ => {
                 let tx_type: u16 = (*self).into();
                 TransactionKeyLastBlock::<T>::get((hotkey, netuid, tx_type))
@@ -121,13 +119,8 @@ impl TransactionType {
         block: u64,
     ) {
         match self {
-            Self::RegisterNetwork => { /*DEPRECATED*/ }
             Self::SetSNOwnerHotkey => Pallet::<T>::set_rate_limited_last_block(
                 &RateLimitKey::SetSNOwnerHotkey(netuid),
-                block,
-            ),
-            Self::OwnerHyperparamUpdate(hparam) => Pallet::<T>::set_rate_limited_last_block(
-                &RateLimitKey::OwnerHyperparamUpdate(netuid, *hparam),
                 block,
             ),
             _ => {
