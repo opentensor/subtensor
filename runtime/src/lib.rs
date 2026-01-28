@@ -1416,7 +1416,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         len: usize,
     ) -> Option<TransactionValidity> {
         match self {
-            RuntimeCall::Ethereum(call) =>call.validate_self_contained(info, dispatch_info, len),
+            RuntimeCall::Ethereum(call) => call.validate_self_contained(info, dispatch_info, len),
             _ => None,
         }
     }
