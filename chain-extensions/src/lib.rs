@@ -583,18 +583,6 @@ where
 
                 Ok(RetVal::Converging(Output::Success as u32))
             }
-            FunctionId::GetVotingPowerEmaAlphaV1 => {
-                let netuid: NetUid = env
-                    .read_as()
-                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
-
-                let ema_alpha = pallet_subtensor::Pallet::<T>::get_voting_power_ema_alpha(netuid);
-
-                env.write_output(&ema_alpha.encode())
-                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
-
-                Ok(RetVal::Converging(Output::Success as u32))
-            }
         }
     }
 }

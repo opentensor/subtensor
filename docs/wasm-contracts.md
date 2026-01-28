@@ -48,7 +48,6 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 17 | `get_total_voting_power` | Get total voting power across all hotkeys in a subnet | `(NetUid)` | `u64` |
 | 18 | `is_voting_power_tracking_enabled` | Check if voting power tracking is enabled for a subnet | `(NetUid)` | `bool` |
 | 19 | `get_voting_power_disable_at_block` | Get the block number at which voting power tracking will be disabled | `(NetUid)` | `Option<BlockNumber>` |
-| 20 | `get_voting_power_ema_alpha` | Get the EMA alpha value used for voting power calculations | `(NetUid)` | `u32` |
 
 Example usage in your ink! contract:
 ```rust
