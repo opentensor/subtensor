@@ -43,6 +43,12 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 12 | `set_coldkey_auto_stake_hotkey` | Configure automatic stake destination | `(NetUid, AccountId)` | Error code |
 | 13 | `add_proxy` | Add a staking proxy for the caller | `(AccountId)` | Error code |
 | 14 | `remove_proxy` | Remove a staking proxy for the caller | `(AccountId)` | Error code |
+| 15 | `get_alpha_price` | Get the current alpha price for a subnet | `(NetUid)` | `u64` (price × 10⁹) |
+| 16 | `get_voting_power` | Get voting power for a hotkey in a subnet | `(NetUid, AccountId)` | `u64` |
+| 17 | `get_total_voting_power` | Get total voting power across all hotkeys in a subnet | `(NetUid)` | `u64` |
+| 18 | `is_voting_power_tracking_enabled` | Check if voting power tracking is enabled for a subnet | `(NetUid)` | `bool` |
+| 19 | `get_voting_power_disable_at_block` | Get the block number at which voting power tracking will be disabled | `(NetUid)` | `Option<BlockNumber>` |
+| 20 | `get_voting_power_ema_alpha` | Get the EMA alpha value used for voting power calculations | `(NetUid)` | `u32` |
 
 Example usage in your ink! contract:
 ```rust
