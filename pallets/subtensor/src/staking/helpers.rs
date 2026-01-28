@@ -416,6 +416,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Same thing as populate_root_coldkey_staking_maps, but for AlphaV2
+    // TODO: Remove this function and AlphaV2MapLastKey when slow migration is finished
     pub fn populate_root_coldkey_staking_maps_v2() {
         // Get starting key for the batch. Get the first key if we restart the process.
         let mut new_starting_raw_key = AlphaV2MapLastKey::<T>::get();
