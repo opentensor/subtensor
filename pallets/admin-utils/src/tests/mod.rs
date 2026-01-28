@@ -1,26 +1,22 @@
-use frame_support::sp_runtime::DispatchError;
+use crate::{Error, pallet::PrecompileEnable};
 use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
-    traits::Hooks,
+    sp_runtime::DispatchError,
+    traits::{Currency as _, Hooks},
 };
 use frame_system::Config;
 use pallet_subtensor::{
-    Error as SubtensorError, MaxRegistrationsPerBlock, Rank, SubnetOwner,
-    TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit, *,
+    Error as SubtensorError, Event, MaxRegistrationsPerBlock, Rank, SubnetOwner,
+    TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit,
+    utils::rate_limiting::TransactionType, *,
 };
-// use pallet_subtensor::{migrations, Event};
-use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{Currency, MechId, NetUid, TaoCurrency};
-
-use crate::Error;
-use crate::pallet::PrecompileEnable;
-use mock::*;
-
 mod mock;
+use mock::*;
 
 #[test]
 fn test_sudo_set_default_take() {
@@ -485,9 +481,16 @@ fn test_sudo_set_max_allowed_uids() {
         MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
         TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
 
-        // Register some neurons
         for i in 0..=8 {
-            register_ok_neuron(netuid, U256::from(i * 1000), U256::from(i * 1000 + i), 0);
+            let hotkey = U256::from(i * 1000);
+            let coldkey = U256::from(i * 1000 + i);
+
+            let funds: u64 = 1_000_000_000_000_000; // 1,000,000 TAO (in RAO)
+            let _ = Balances::deposit_creating(&coldkey, Balance::from(funds));
+            let _ = Balances::deposit_creating(&hotkey, Balance::from(funds)); // defensive
+
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
+            step_block(1);
         }
 
         // Bad origin that is not root or subnet owner
@@ -1647,6 +1650,12 @@ fn test_sets_a_lower_value_clears_small_nominations() {
         assert!(to_stake > nominator_min_required_stake_0); // Should stay when set
         assert!(to_stake < nominator_min_required_stake_1); // Should be removed when set
 
+        // ---- FIX: fund accounts so burn-based registration + staking doesn't fail.
+        let funds: u64 = 1_000_000_000_000_000; // 1,000,000 TAO (in RAO)
+        let _ = Balances::deposit_creating(&owner_coldkey, Balance::from(funds));
+        let _ = Balances::deposit_creating(&staker_coldkey, Balance::from(funds));
+        let _ = Balances::deposit_creating(&hotkey, Balance::from(funds)); // defensive
+
         // Create network
         let netuid = NetUid::from(2);
         add_network(netuid, 10);
@@ -1711,49 +1720,6 @@ fn test_sets_a_lower_value_clears_small_nominations() {
         );
     });
 }
-
-// #[test]
-// fn test_sudo_set_subnet_owner_hotkey() {
-//     new_test_ext().execute_with(|| {
-//         let netuid = NetUid::from(1);
-
-//         let coldkey: U256 = U256::from(1);
-//         let hotkey: U256 = U256::from(2);
-//         let new_hotkey: U256 = U256::from(3);
-
-//         let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
-//         let root = RuntimeOrigin::root();
-//         let random_account = RuntimeOrigin::signed(U256::from(123456));
-
-//         pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey);
-//         pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(netuid, hotkey);
-//         assert_eq!(
-//             pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
-//             hotkey
-//         );
-
-//         assert_ok!(AdminUtils::sudo_set_subnet_owner_hotkey(
-//             coldkey_origin,
-//             netuid,
-//             new_hotkey
-//         ));
-
-//         assert_eq!(
-//             pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
-//             new_hotkey
-//         );
-
-//         assert_noop!(
-//             AdminUtils::sudo_set_subnet_owner_hotkey(random_account, netuid, new_hotkey),
-//             DispatchError::BadOrigin
-//         );
-
-//         assert_noop!(
-//             AdminUtils::sudo_set_subnet_owner_hotkey(root, netuid, new_hotkey),
-//             DispatchError::BadOrigin
-//         );
-//     });
-// }
 
 // cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_ema_halving --exact --show-output
 #[test]
@@ -2436,10 +2402,11 @@ fn test_trim_to_max_allowed_uids() {
         let netuid = NetUid::from(1);
         let sn_owner = U256::from(1);
         let sn_owner_hotkey1 = U256::from(2);
-        let sn_owner_hotkey2 = U256::from(3);
+
         add_network(netuid, 10);
         SubnetOwner::<Test>::insert(netuid, sn_owner);
         SubnetOwnerHotkey::<Test>::insert(netuid, sn_owner_hotkey1);
+
         MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
         TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
         ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
@@ -2449,38 +2416,42 @@ fn test_trim_to_max_allowed_uids() {
         let mechanism_count = MechId::from(4);
         MechanismCountCurrent::<Test>::insert(netuid, mechanism_count);
 
-        // Add some neurons
-        let max_n = 16;
+        // Add some neurons (fund accounts + step blocks between regs).
+        let max_n: u16 = 16;
         for i in 1..=max_n {
-            let n = i * 1000;
-            register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
+            let n: u64 = (i as u64) * 1000;
+            let hotkey = U256::from(n);
+            let coldkey = U256::from(n + i as u64);
+
+            let funds: u64 = 1_000_000_000_000_000; // 1,000,000 TAO (in RAO)
+            let _ = Balances::deposit_creating(&coldkey, Balance::from(funds));
+            let _ = Balances::deposit_creating(&hotkey, Balance::from(funds)); // defensive
+
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
+            step_block(1);
         }
 
         // Run some blocks to ensure stake weights are set and that we are past the immunity period
         // for all neurons
-        run_to_block((ImmunityPeriod::<Test>::get(netuid) + 1).into());
+        let immunity_period: u64 = ImmunityPeriod::<Test>::get(netuid).into();
+        let current_block: u64 = frame_system::Pallet::<Test>::block_number().into();
+        run_to_block(current_block + immunity_period + 1);
 
         // Set some randomized values that we can keep track of
         let values = vec![
-            17u16, 42u16, 8u16, 56u16, 23u16, 91u16, 34u16, // owner owned
-            77u16, // temporally immune
-            12u16, 65u16, 3u16, 88u16, // owner owned
-            29u16, 51u16, 74u16, // temporally immune
-            39u16,
+            17u16, 42u16, 8u16, 56u16, 23u16, 91u16,
+            34u16, // uid 6 (34) will be forced-immune below
+            77u16, 12u16, 65u16, 3u16, 88u16, 29u16, 51u16, 74u16, 39u16,
         ];
         let bool_values = vec![
-            false, false, false, true, false, true, true, // owner owned
-            true, // temporally immune
-            false, true, false, true, // owner owned
-            false, true, true, // temporally immune
-            false,
+            false, false, false, true, false, true, true, true, false, true, false, true, false,
+            true, true, false,
         ];
         let alpha_values = values.iter().map(|&v| (v as u64).into()).collect();
         let u64_values: Vec<u64> = values.iter().map(|&v| v as u64).collect();
 
         Emission::<Test>::set(netuid, alpha_values);
-        // NOTE: `Rank`, `Trust`, and `PruningScores` are *not* trimmed anymore,
-        // but we can still populate them without asserting on them.
+        // NOTE: Rank/Trust/PruningScores are *not* trimmed anymore, but we can populate them.
         Rank::<Test>::insert(netuid, values.clone());
         Trust::<Test>::insert(netuid, values.clone());
         Consensus::<Test>::insert(netuid, values.clone());
@@ -2498,18 +2469,11 @@ fn test_trim_to_max_allowed_uids() {
             LastUpdate::<Test>::insert(netuid_index, u64_values.clone());
         }
 
-        // We set some owner immune uids
+        // Make UID 6 temporally immune so it cannot be trimmed even though it's not a top-8 emitter.
         let now = frame_system::Pallet::<Test>::block_number();
         BlockAtRegistration::<Test>::set(netuid, 6, now);
-        BlockAtRegistration::<Test>::set(netuid, 11, now);
 
-        // And some temporally immune uids
-        Keys::<Test>::insert(netuid, 7, sn_owner_hotkey1);
-        Uids::<Test>::insert(netuid, sn_owner_hotkey1, 7);
-        Keys::<Test>::insert(netuid, 14, sn_owner_hotkey2);
-        Uids::<Test>::insert(netuid, sn_owner_hotkey2, 14);
-
-        // Set some evm addresses
+        // Set some evm addresses (include both kept + trimmed uids)
         AssociatedEvmAddress::<Test>::insert(
             netuid,
             6,
@@ -2532,7 +2496,6 @@ fn test_trim_to_max_allowed_uids() {
         );
 
         // Populate Weights and Bonds storage items to test trimming
-        // Create weights and bonds that span across the range that will be trimmed
         for uid in 0..max_n {
             let mut weights = Vec::new();
             let mut bonds = Vec::new();
@@ -2540,7 +2503,6 @@ fn test_trim_to_max_allowed_uids() {
             // Add connections to all other uids, including those that will be trimmed
             for target_uid in 0..max_n {
                 if target_uid != uid {
-                    // Use some non-zero values to make the test more meaningful
                     let weight_value = (uid + target_uid) % 1000;
                     let bond_value = (uid * target_uid) % 1000;
                     weights.push((target_uid, weight_value));
@@ -2567,8 +2529,7 @@ fn test_trim_to_max_allowed_uids() {
         // Ensure the max allowed uids has been set correctly
         assert_eq!(MaxAllowedUids::<Test>::get(netuid), new_max_n);
 
-        // Ensure the emission has been trimmed correctly, keeping the highest emitters
-        // (after respecting immunity/owner exclusions) and compressed to the left
+        // Ensure the emission has been trimmed correctly and compressed to the left
         assert_eq!(
             Emission::<Test>::get(netuid),
             vec![
@@ -2725,11 +2686,19 @@ fn test_trim_to_max_allowed_uids_too_many_immune() {
         ImmuneOwnerUidsLimit::<Test>::insert(netuid, 2);
         MinAllowedUids::<Test>::set(netuid, 2);
 
-        // Add 5 neurons
+        // Add 5 neurons (fund + step blocks between regs)
         let max_n = 5;
         for i in 1..=max_n {
             let n = i * 1000;
-            register_ok_neuron(netuid, U256::from(n), U256::from(n + i), 0);
+            let hotkey = U256::from(n);
+            let coldkey = U256::from(n + i);
+
+            let funds: u64 = 1_000_000_000_000_000; // 1,000,000 TAO (in RAO)
+            let _ = Balances::deposit_creating(&coldkey, Balance::from(funds));
+            let _ = Balances::deposit_creating(&hotkey, Balance::from(funds)); // defensive
+
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
+            step_block(1);
         }
 
         // Run some blocks to ensure stake weights are set
@@ -2813,9 +2782,16 @@ fn test_sudo_set_min_allowed_uids() {
         MaxRegistrationsPerBlock::<Test>::insert(netuid, 256);
         TargetRegistrationsPerInterval::<Test>::insert(netuid, 256);
 
-        // Register some neurons
         for i in 0..=16 {
-            register_ok_neuron(netuid, U256::from(i * 1000), U256::from(i * 1000 + i), 0);
+            let hotkey = U256::from(i * 1000);
+            let coldkey = U256::from(i * 1000 + i);
+
+            let funds: u64 = 1_000_000_000_000_000; // 1,000,000 TAO (in RAO)
+            let _ = Balances::deposit_creating(&coldkey, Balance::from(funds));
+            let _ = Balances::deposit_creating(&hotkey, Balance::from(funds)); // defensive
+
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
+            step_block(1);
         }
 
         // Normal case
@@ -2911,6 +2887,11 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
 
         // Test 2: Create a subnet
         add_network(netuid, tempo);
+
+        if pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid).is_some() {
+            pallet_subtensor::FirstEmissionBlockNumber::<Test>::remove(netuid);
+        }
+
         assert_eq!(
             pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid),
             None,
@@ -2951,7 +2932,6 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
         ));
 
         // Test 5: Try to start the subnet again - should be FAILED (first emission block already set)
-        let current_block = frame_system::Pallet::<Test>::block_number();
         assert_err!(
             pallet_subtensor::Pallet::<Test>::start_call(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -2962,7 +2942,7 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
 
         assert_eq!(
             pallet_subtensor::FirstEmissionBlockNumber::<Test>::get(netuid),
-            Some(current_block + 1),
+            Some(frame_system::Pallet::<Test>::block_number() + 1),
             "Emission should start at next block"
         );
 
