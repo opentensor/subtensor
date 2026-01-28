@@ -107,7 +107,6 @@ mod genesis {
                 netuid,
                 SafeFloatSerializable::from(&SafeFloat::from(1_000_000_000)),
             );
-            // TotalColdkeyAlpha::<T>::insert(hotkey.clone(), netuid, 1_000_000_000);
             SubnetAlphaOut::<T>::insert(netuid, AlphaCurrency::from(1_000_000_000));
             let mut staking_hotkeys = StakingHotkeys::<T>::get(hotkey.clone());
             if !staking_hotkeys.contains(&hotkey) {
