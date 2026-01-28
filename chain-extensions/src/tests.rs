@@ -1014,7 +1014,6 @@ fn get_voting_power_returns_encoded_value() {
 
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        // Set voting power directly
         let expected_voting_power: u64 = 1_000_000_000_000;
         pallet_subtensor::VotingPower::<mock::Test>::insert(netuid, hotkey, expected_voting_power);
 
@@ -1072,7 +1071,6 @@ fn get_total_voting_power_returns_sum() {
 
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        // Set voting power for multiple hotkeys
         let power1: u64 = 1_000_000_000_000;
         let power2: u64 = 2_000_000_000_000;
         let power3: u64 = 3_000_000_000_000;
@@ -1114,7 +1112,7 @@ fn is_voting_power_tracking_enabled_returns_status() {
         let enabled: bool = Decode::decode(&mut &env.output()[..]).unwrap();
         assert!(!enabled);
 
-        // Enable tracking
+        // Now enable tracking
         pallet_subtensor::VotingPowerTrackingEnabled::<mock::Test>::insert(netuid, true);
 
         let mut env = MockEnv::new(
@@ -1140,7 +1138,6 @@ fn get_voting_power_disable_at_block_returns_value() {
 
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        // Set disable at block
         let expected_block: u64 = 123_456;
         pallet_subtensor::VotingPowerDisableAtBlock::<mock::Test>::insert(netuid, expected_block);
 
@@ -1168,7 +1165,6 @@ fn get_voting_power_ema_alpha_returns_value() {
 
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        // Set EMA alpha
         let expected_alpha: u64 = 500_000_000_000_000_000; // 0.5 in 18 decimal precision
         pallet_subtensor::VotingPowerEmaAlpha::<mock::Test>::insert(netuid, expected_alpha);
 
