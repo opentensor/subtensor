@@ -1155,30 +1155,3 @@ fn get_voting_power_disable_at_block_returns_value() {
         assert_eq!(disable_at_block, expected_block);
     });
 }
-
-#[test]
-fn get_voting_power_ema_alpha_returns_value() {
-    mock::new_test_ext(1).execute_with(|| {
-        let owner_hotkey = U256::from(9501);
-        let owner_coldkey = U256::from(9502);
-        let caller = U256::from(9503);
-
-        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
-
-        let expected_alpha: u64 = 500_000_000_000_000_000; // 0.5 in 18 decimal precision
-        pallet_subtensor::VotingPowerEmaAlpha::<mock::Test>::insert(netuid, expected_alpha);
-
-        let mut env = MockEnv::new(
-            FunctionId::GetVotingPowerEmaAlphaV1,
-            caller,
-            netuid.encode(),
-        );
-
-        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
-        assert_success(ret);
-        assert!(env.charged_weight().is_none());
-
-        let ema_alpha: u64 = Decode::decode(&mut &env.output()[..]).unwrap();
-        assert_eq!(ema_alpha, expected_alpha);
-    });
-}

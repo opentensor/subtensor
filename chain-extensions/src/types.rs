@@ -25,7 +25,6 @@ pub enum FunctionId {
     GetTotalVotingPowerV1 = 17,
     IsVotingPowerTrackingEnabledV1 = 18,
     GetVotingPowerDisableAtBlockV1 = 19,
-    GetVotingPowerEmaAlphaV1 = 20,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
