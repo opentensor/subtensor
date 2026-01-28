@@ -26,6 +26,7 @@ use subtensor_runtime_common::ProxyType;
 
 use pallet_admin_utils::PrecompileEnum;
 
+use crate::address_mapping::*;
 use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::crowdloan::*;
@@ -41,6 +42,7 @@ use crate::storage_query::*;
 use crate::subnet::*;
 use crate::uid_lookup::*;
 
+mod address_mapping;
 mod alpha;
 mod balance_transfer;
 mod crowdloan;
@@ -68,6 +70,8 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -81,7 +85,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -101,6 +107,8 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -114,7 +122,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -123,7 +133,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 25] {
+    pub fn used_addresses() -> [H160; 26] {
         [
             hash(1),
             hash(2),
@@ -150,6 +160,7 @@ where
             hash(CrowdloanPrecompile::<R>::INDEX),
             hash(LeasingPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
+            hash(AddressMappingPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -163,6 +174,8 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -177,6 +190,8 @@ where
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>
         + Decode,
     <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
         From<Option<pallet_evm::AccountIdOf<R>>>,
@@ -244,6 +259,12 @@ where
             }
             a if a == hash(ProxyPrecompile::<R>::INDEX) => {
                 ProxyPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Proxy)
+            }
+            a if a == hash(AddressMappingPrecompile::<R>::INDEX) => {
+                AddressMappingPrecompile::<R>::try_execute::<R>(
+                    handle,
+                    PrecompileEnum::AddressMapping,
+                )
             }
             _ => None,
         }

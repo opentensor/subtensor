@@ -177,8 +177,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
                 pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
             ),
             SudoTransactionExtension::<Runtime>::new(),
-            pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(
-            ),
+            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
             pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
@@ -241,7 +240,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 369,
+    spec_version: 372,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -340,7 +339,7 @@ impl frame_system::Config for Runtime {
     // The data to be stored in an account.
     type AccountData = pallet_balances::AccountData<Balance>;
     // Weight information for the extrinsics of this pallet.
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
     // This is used as an identifier of the chain. 42 is the generic substrate prefix.
     type SS58Prefix = SS58Prefix;
     // The set code logic, just the default since we're not a parachain.
@@ -353,7 +352,7 @@ impl frame_system::Config for Runtime {
     type PreInherents = ();
     type PostInherents = ();
     type PostTransactions = ();
-    type ExtensionsWeightInfo = ();
+    type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -371,7 +370,7 @@ impl pallet_grandpa::Config for Runtime {
 
     type KeyOwnerProof = sp_core::Void;
 
-    type WeightInfo = ();
+    type WeightInfo = (); // pallet_grandpa exports only default implementation
     type MaxAuthorities = ConstU32<32>;
     type MaxSetIdSessionEntries = ConstU64<0>;
     type MaxNominators = ConstU32<20>;
@@ -409,7 +408,7 @@ impl pallet_timestamp::Config for Runtime {
     type Moment = u64;
     type OnTimestampSet = Aura;
     type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-    type WeightInfo = ();
+    type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -1043,7 +1042,6 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialKeySwapCost: u64 = 100_000_000; // 0.1 TAO
@@ -1051,14 +1049,13 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
-    // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
-    pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const InitialColdkeySwapRescheduleDuration: BlockNumber = 24 * 60 * 60 / 12; // 1 day
+    pub const InitialColdkeySwapAnnouncementDelay: BlockNumber = prod_or_fast!(5 * 24 * 60 * 60 / 12, 50); // 5 days
+    pub const InitialColdkeySwapReannouncementDelay: BlockNumber = prod_or_fast!(24 * 60 * 60 / 12, 10); // 1 day
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     // 0 days
-    pub const InitialStartCallDelay: u64 = prod_or_fast!(0, 0);
+    pub const InitialStartCallDelay: u64 = 0;
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
@@ -1124,8 +1121,8 @@ impl pallet_subtensor::Config for Runtime {
     type Yuma3On = InitialYuma3On;
     type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
-    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
+    type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
+    type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type InitialStartCallDelay = InitialStartCallDelay;
@@ -1662,7 +1659,7 @@ pub type TransactionExtensions = (
     frame_system::CheckWeight<Runtime>,
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
-    pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
+    pallet_subtensor::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
