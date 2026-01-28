@@ -6,8 +6,8 @@ use node_subtensor_runtime::rate_limiting::legacy::defaults as rate_limit_defaul
 use subtensor_runtime_common::{
     NetUid,
     rate_limiting::{
-        GROUP_DELEGATE_TAKE, GROUP_REGISTER_NETWORK, GROUP_SERVE, GROUP_STAKING_OPS,
-        GROUP_SWAP_KEYS, GROUP_WEIGHTS_SET,
+        GROUP_DELEGATE_TAKE, GROUP_OWNER_HPARAMS, GROUP_REGISTER_NETWORK, GROUP_SERVE,
+        GROUP_STAKING_OPS, GROUP_SWAP_KEYS, GROUP_WEIGHTS_SET,
     },
 };
 
@@ -108,6 +108,7 @@ fn devnet_genesis(
                 // Legacy TxRateLimit blocks when delta <= limit; rate-limiting blocks at delta < span.
                 // Add one block to preserve legacy swap-keys behavior when legacy rate-limiting is removed.
                 (serde_json::json!({ "Group": GROUP_SWAP_KEYS }), Option::<NetUid>::None, serde_json::json!({ "Exact": rate_limit_defaults::tx_rate_limit().saturating_add(1) })),
+                (serde_json::json!({ "Group": GROUP_OWNER_HPARAMS }), Option::<NetUid>::None, serde_json::json!({ "Exact": rate_limit_defaults::owner_hyperparam_rate_limit() })),
                 (serde_json::json!({ "Group": GROUP_WEIGHTS_SET }), Some(NetUid::ROOT), serde_json::json!({ "Exact": rate_limit_defaults::weights_set_rate_limit() })),
                 (serde_json::json!({ "Group": GROUP_WEIGHTS_SET }), Some(NetUid::from(1u16)), serde_json::json!({ "Exact": rate_limit_defaults::weights_set_rate_limit() })),
             ],
@@ -117,6 +118,7 @@ fn devnet_genesis(
                 (GROUP_DELEGATE_TAKE, b"delegate-take".to_vec(), "ConfigAndUsage"),
                 (GROUP_STAKING_OPS, b"staking-ops".to_vec(), "ConfigAndUsage"),
                 (GROUP_SWAP_KEYS, b"swap-keys".to_vec(), "ConfigAndUsage"),
+                (GROUP_OWNER_HPARAMS, b"owner-hparams".to_vec(), "ConfigOnly"),
                 (GROUP_WEIGHTS_SET, b"weights".to_vec(), "ConfigAndUsage"),
             ],
             "limitSettingRules": vec![
