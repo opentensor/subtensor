@@ -7,7 +7,6 @@ use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::AddressMapping;
 use pallet_evm::PrecompileHandle;
-use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::prelude::Address;
 use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256};

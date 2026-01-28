@@ -34,7 +34,6 @@ use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, PrecompileFailure, PrecompileHandle,
     SubstrateBalance,
 };
-use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, UniqueSaturatedInto};

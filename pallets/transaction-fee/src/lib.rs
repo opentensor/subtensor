@@ -5,14 +5,12 @@ use frame_support::{
     pallet_prelude::*,
     traits::{
         Imbalance, IsSubType, OnUnbalanced,
-        fungible::{
-            Balanced, Credit, Debt, DecreaseIssuance, Imbalance as FungibleImbalance,
-            IncreaseIssuance, Inspect,
-        },
+        fungible::{Balanced, Credit, Debt, Imbalance as FungibleImbalance, Inspect},
         tokens::{Precision, WithdrawConsequence},
     },
     weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
+use pallet_balances::{NegativeImbalance, PositiveImbalance};
 
 // Runtime
 use sp_runtime::{
@@ -83,25 +81,15 @@ impl<T> Default for TransactionFeeHandler<T> {
     }
 }
 
-impl<T>
-    OnUnbalanced<
-        FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-            IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-        >,
-    > for TransactionFeeHandler<T>
+impl<T> OnUnbalanced<FungibleImbalance<u64, NegativeImbalance<T>, PositiveImbalance<T>>>
+    for TransactionFeeHandler<T>
 where
     T: frame_system::Config,
     T: pallet_subtensor::Config,
     T: pallet_balances::Config<Balance = u64>,
 {
     fn on_nonzero_unbalanced(
-        imbalance: FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-            IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-        >,
+        imbalance: FungibleImbalance<u64, NegativeImbalance<T>, PositiveImbalance<T>>,
     ) {
         let ti_before = pallet_subtensor::TotalIssuance::<T>::get();
         pallet_subtensor::TotalIssuance::<T>::put(

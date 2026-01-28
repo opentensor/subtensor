@@ -24,7 +24,7 @@ pallet-evm-precompile-modexp.workspace = true
 pallet-evm-precompile-sha3fips.workspace = true
 pallet-evm-precompile-simple.workspace = true
 pallet-evm-precompile-bn128.workspace = true
-pallet-subtensor-proxy.workspace = true
+pallet-proxy.workspace = true
 precompile-utils.workspace = true
 scale-info.workspace = true
 sp-core.workspace = true
@@ -60,7 +60,7 @@ std = [
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompile-simple/std",
 	"pallet-evm/std",
-	"pallet-subtensor-proxy/std",
+	"pallet-proxy/std",
 	"pallet-subtensor-swap/std",
 	"pallet-subtensor/std",
 	"precompile-utils/std",

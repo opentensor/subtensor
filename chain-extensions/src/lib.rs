@@ -14,8 +14,7 @@ use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
     BufInBufOutState, ChainExtension, Environment, Ext, InitState, RetVal, SysConfig,
 };
-use pallet_subtensor_proxy as pallet_proxy;
-use pallet_subtensor_proxy::WeightInfo;
+use pallet_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
 use sp_std::marker::PhantomData;
 use substrate_fixed::types::U96F32;

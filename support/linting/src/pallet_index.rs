@@ -1,6 +1,6 @@
 use super::*;
 use proc_macro2::TokenStream as TokenStream2;
-use procedural_fork::exports::construct_runtime::parse::RuntimeDeclaration;
+use frame_support_procedural_core::construct_runtime::parse::{Pallet, RuntimeDeclaration};
 use quote::ToTokens;
 use syn::{File, visit::Visit};
 
@@ -79,10 +79,7 @@ impl ConstructRuntimeVisitor {
         }
     }
 
-    fn check_pallets_for_index(
-        &mut self,
-        pallets: &[procedural_fork::exports::construct_runtime::parse::Pallet],
-    ) {
+    fn check_pallets_for_index(&mut self,pallets: &[Pallet]) {
         for pallet in pallets {
             // Check for explicit index and detect missing indices
             if !self
@@ -168,12 +165,12 @@ mod tests {
                 Balances : pallet_balances = 5,
                 TransactionPayment : pallet_transaction_payment = 6,
                 SubtensorModule : pallet_subtensor = 7,
-                Utility : pallet_subtensor_utility = 11,
+                Utility : pallet_utility = 11,
                 Sudo : pallet_sudo = 12,
                 Multisig : pallet_multisig = 13,
                 Preimage : pallet_preimage = 14,
                 Scheduler : pallet_scheduler = 15,
-                Proxy : pallet_subtensor_proxy = 16,
+                Proxy : pallet_proxy = 16,
                 Registry : pallet_registry = 17,
                 Commitments : pallet_commitments = 18,
                 AdminUtils : pallet_admin_utils = 19,

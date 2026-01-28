@@ -4,7 +4,7 @@ use frame_support::{
     traits::{Contains, Currency},
 };
 use frame_system::Config;
-use pallet_subtensor_utility as pallet_utility;
+use pallet_utility as pallet_utility;
 use sp_core::U256;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::batch_tx::test_batch_txs --exact --show-output --nocapture

@@ -8,7 +8,6 @@ use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
-use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::{
@@ -94,11 +93,7 @@ where
         // Success!
         // Try to get proxy address
         let proxy_address: [u8; 32] =
-            pallet_proxy::pallet::Pallet::<R>::pure_account(&account_id, &proxy_type, index, None)
-                .map_err(|_| PrecompileFailure::Error {
-                    exit_status: ExitError::Other("Proxy not found".into()),
-                })?
-                .into();
+            pallet_proxy::pallet::Pallet::<R>::pure_account(&account_id, &proxy_type, index, None).into();
 
         // Check if in the proxies map
         let proxy_entry = pallet_proxy::pallet::Pallet::<R>::proxies(proxy_address.into());
