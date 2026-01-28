@@ -1,7 +1,5 @@
 use super::*;
-use frame_support::weights::Weight;
 use share_pool::{SafeFloat, SafeFloatSerializable};
-use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// Transfer all assets, stakes, subnet ownerships, and hotkey associations from `old_coldkey` to
