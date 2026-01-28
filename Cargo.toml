@@ -308,8 +308,8 @@ pow-faucet = []
 
 [patch.crates-io]
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
-zstd-sys = { path = "patches/zstd-sys" }
-zstd-safe = { path = "patches/zstd-safe" }
+zstd-sys = { git = "https://github.com/gztensor/zstd-sys" }
+zstd-safe = { git = "https://github.com/gztensor/zstd-safe" }
 
 # Patches automatically generated with `diener`:
 # `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit 81fa2c54e94f824eba7dabe9dffd063481cb2d80 --crates-to-patch ../polkadot-sdk --ignore-unused`

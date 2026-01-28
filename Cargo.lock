@@ -21136,6 +21136,7 @@ dependencies = [
 [[package]]
 name = "zstd-safe"
 version = "7.2.4"
+source = "git+https://github.com/gztensor/zstd-safe#42cc34ef6abe5d35d982f6afefb5d7e4e69f5f18"
 dependencies = [
  "zstd-sys",
 ]
@@ -21143,6 +21144,7 @@ dependencies = [
 [[package]]
 name = "zstd-sys"
 version = "2.0.16+zstd.1.5.7"
+source = "git+https://github.com/gztensor/zstd-sys#01e299b6ce8d08af5a3429f7ceb956f8355cf1aa"
 dependencies = [
  "cc",
  "pkg-config",
