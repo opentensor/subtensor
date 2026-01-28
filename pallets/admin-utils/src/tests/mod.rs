@@ -1399,39 +1399,74 @@ fn test_sudo_get_set_alpha() {
 }
 
 #[test]
-fn test_sudo_set_coldkey_swap_schedule_duration() {
+fn test_sudo_set_coldkey_swap_announcement_delay() {
     new_test_ext().execute_with(|| {
         // Arrange
         let root = RuntimeOrigin::root();
         let non_root = RuntimeOrigin::signed(U256::from(1));
-        let new_duration = 100u32.into();
+        let new_delay = 100u32.into();
 
         // Act & Assert: Non-root account should fail
         assert_noop!(
-            AdminUtils::sudo_set_coldkey_swap_schedule_duration(non_root, new_duration),
+            AdminUtils::sudo_set_coldkey_swap_announcement_delay(non_root, new_delay),
             DispatchError::BadOrigin
         );
 
         // Act: Root account should succeed
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_schedule_duration(
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_announcement_delay(
             root.clone(),
-            new_duration
+            new_delay
         ));
 
-        // Assert: Check if the duration was actually set
+        // Assert: Check if the delay was actually set
         assert_eq!(
-            pallet_subtensor::ColdkeySwapScheduleDuration::<Test>::get(),
-            new_duration
+            pallet_subtensor::ColdkeySwapAnnouncementDelay::<Test>::get(),
+            new_delay
         );
 
         // Act & Assert: Setting the same value again should succeed (idempotent operation)
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_schedule_duration(
-            root,
-            new_duration
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_announcement_delay(
+            root, new_delay
         ));
 
         // You might want to check for events here if your pallet emits them
-        System::assert_last_event(Event::ColdkeySwapScheduleDurationSet(new_duration).into());
+        System::assert_last_event(Event::ColdkeySwapAnnouncementDelaySet(new_delay).into());
+    });
+}
+
+#[test]
+fn test_sudo_set_coldkey_swap_reannouncement_delay() {
+    new_test_ext().execute_with(|| {
+        // Arrange
+        let root = RuntimeOrigin::root();
+        let non_root = RuntimeOrigin::signed(U256::from(1));
+        let new_delay = 100u32.into();
+
+        // Act & Assert: Non-root account should fail
+        assert_noop!(
+            AdminUtils::sudo_set_coldkey_swap_reannouncement_delay(non_root, new_delay),
+            DispatchError::BadOrigin
+        );
+
+        // Act: Root account should succeed
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_reannouncement_delay(
+            root.clone(),
+            new_delay
+        ));
+
+        // Assert: Check if the delay was actually set
+        assert_eq!(
+            pallet_subtensor::ColdkeySwapReannouncementDelay::<Test>::get(),
+            new_delay
+        );
+
+        // Act & Assert: Setting the same value again should succeed (idempotent operation)
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_reannouncement_delay(
+            root, new_delay
+        ));
+
+        // You might want to check for events here if your pallet emits them
+        System::assert_last_event(Event::ColdkeySwapReannouncementDelaySet(new_delay).into());
     });
 }
 
