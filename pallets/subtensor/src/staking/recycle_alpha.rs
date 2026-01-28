@@ -136,4 +136,23 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+    pub(crate) fn do_subnet_buyback(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        amount: TaoCurrency,
+        limit: Option<TaoCurrency>,
+    ) -> DispatchResult {
+        Self::ensure_subnet_owner(origin.clone(), netuid)?;
+
+        let alpha = if let Some(limit) = limit {
+            Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
+        } else {
+            Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?
+        };
+
+        Self::do_burn_alpha(origin, hotkey, alpha, netuid)?;
+
+        Ok(())
+    }
 }

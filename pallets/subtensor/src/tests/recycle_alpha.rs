@@ -1,12 +1,12 @@
-use approx::assert_abs_diff_eq;
-use frame_support::{assert_noop, assert_ok, traits::Currency};
-use sp_core::U256;
-use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT};
-
 use super::mock;
 use super::mock::*;
 use crate::*;
+use approx::assert_abs_diff_eq;
+use frame_support::{assert_noop, assert_ok, traits::Currency};
+use sp_core::U256;
+use substrate_fixed::types::{U64F64, U96F32};
+use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT};
+use subtensor_swap_interface::SwapHandler;
 
 #[test]
 fn test_recycle_success() {
@@ -615,6 +615,220 @@ fn test_burn_precision_loss() {
                 netuid
             ),
             Error::<Test>::PrecisionLoss
+        );
+    });
+}
+
+#[test]
+fn test_subnet_buyback_success() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
+
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        mock::setup_reserves(
+            netuid,
+            (amount * 1_000_000).into(),
+            (amount * 10_000_000).into(),
+        );
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Check we have zero staked before transfer
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            TaoCurrency::ZERO
+        );
+
+        // Execute subnet_buyback - this stakes TAO to get Alpha, then burns the Alpha
+        assert_ok!(SubtensorModule::subnet_buyback(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount.into(),
+            None,
+        ));
+
+        // After buyback, hotkey should have zero stake since alpha is burned immediately
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            TaoCurrency::ZERO
+        );
+
+        // We spent TAO
+        assert_abs_diff_eq!(
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            0u64,
+            epsilon = 1u64
+        );
+
+        // Verify AlphaBurned event was emitted
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AlphaBurned(..))
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_subnet_buyback_with_limit_success() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount: u64 = 100_000_000_000; // 100 TAO - moderate amount
+
+        // Add network
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Setup reserves with large liquidity to minimize slippage
+        let tao_reserve = TaoCurrency::from(1_000_000_000_000); // 1000 TAO
+        let alpha_in = AlphaCurrency::from(1_000_000_000_000); // 1000 Alpha
+        mock::setup_reserves(netuid, tao_reserve, alpha_in);
+
+        // Verify current price is 1.0
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        assert_eq!(current_price, U96F32::from_num(1.0));
+
+        // Give coldkey sufficient balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        let initial_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+
+        // Setup limit price at 2.0 TAO per Alpha
+        // With 100 TAO into 1000/1000 pool, price moves from 1.0 to ~1.21
+        let limit_price = TaoCurrency::from(2_000_000_000); // 2.0 TAO per Alpha
+
+        // Execute subnet_buyback with limit
+        assert_ok!(SubtensorModule::subnet_buyback(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount.into(),
+            Some(limit_price),
+        ));
+
+        // After buyback, hotkey should have zero stake since alpha is burned immediately
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            TaoCurrency::ZERO
+        );
+
+        // TAO should have been spent
+        let final_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+        assert!(
+            final_balance < initial_balance,
+            "TAO should have been spent"
+        );
+
+        // Final price should be between initial (1.0) and limit (2.0)
+        let final_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        assert!(
+            final_price.to_num::<f64>() >= 1.0 && final_price.to_num::<f64>() <= 2.0,
+            "Final price {} should be between 1.0 and 2.0",
+            final_price.to_num::<f64>()
+        );
+
+        // Verify AlphaBurned event was emitted
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AlphaBurned(..))
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_subnet_buyback_non_owner_fails() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(1);
+        let coldkey_account_id = U256::from(2);
+        let non_owner_coldkey = U256::from(3);
+        let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
+
+        // Add network with coldkey_account_id as owner
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        mock::setup_reserves(
+            netuid,
+            (amount * 1_000_000).into(),
+            (amount * 10_000_000).into(),
+        );
+
+        // Give non-owner some balance
+        SubtensorModule::add_balance_to_coldkey_account(&non_owner_coldkey, amount);
+
+        // Non-owner trying to call subnet_buyback should fail with BadOrigin
+        assert_noop!(
+            SubtensorModule::subnet_buyback(
+                RuntimeOrigin::signed(non_owner_coldkey),
+                hotkey_account_id,
+                netuid,
+                amount.into(),
+                None,
+            ),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_subnet_buyback_nonexistent_subnet_fails() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(1);
+        let coldkey_account_id = U256::from(2);
+        let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
+
+        // Give some balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Try to call subnet_buyback on non-existent subnet
+        let nonexistent_netuid = NetUid::from(999);
+        assert_noop!(
+            SubtensorModule::subnet_buyback(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                nonexistent_netuid,
+                amount.into(),
+                None,
+            ),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_subnet_buyback_insufficient_balance_fails() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(1);
+        let coldkey_account_id = U256::from(2);
+        let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
+
+        // Add network
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        mock::setup_reserves(
+            netuid,
+            (amount * 1_000_000).into(),
+            (amount * 10_000_000).into(),
+        );
+
+        // Try to call subnet_buyback without sufficient balance
+        assert_noop!(
+            SubtensorModule::subnet_buyback(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount.into(),
+                None,
+            ),
+            Error::<Test>::NotEnoughBalanceToStake
         );
     });
 }

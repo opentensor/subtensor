@@ -720,7 +720,7 @@ mod dispatches {
             netuid: NetUid,
             amount_staked: TaoCurrency,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked).map(|_| ())
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -1785,6 +1785,7 @@ mod dispatches {
                 limit_price,
                 allow_partial,
             )
+            .map(|_| ())
         }
 
         /// --- Removes stake from a hotkey on a subnet with a price limit.
@@ -2431,6 +2432,25 @@ mod dispatches {
             RootClaimableThreshold::<T>::set(netuid, new_value.into());
 
             Ok(())
+        }
+
+        /// --- Subnet buyback
+        #[pallet::call_index(125)]
+        #[pallet::weight((
+            Weight::from_parts(5_711_000, 0) // TODO: adjust weights
+            .saturating_add(T::DbWeight::get().reads(0_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn subnet_buyback(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount: TaoCurrency,
+            limit: Option<TaoCurrency>,
+        ) -> DispatchResult {
+            Self::do_subnet_buyback(origin, hotkey, netuid, amount, limit)
         }
     }
 }
