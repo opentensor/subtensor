@@ -1116,7 +1116,7 @@ fn add_stake_v2_without_proxy_fails() {
         let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env);
 
         // Should fail with NotProxy error
-        assert!(ret.is_err());
+        assert!(matches!(ret, Err(DispatchError::Other("NotProxy"))));
     });
 }
 
@@ -1460,10 +1460,8 @@ fn transfer_stake_v2_requires_transfer_proxy() {
         .with_expected_weight(expected_weight);
 
         let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env);
-        assert!(
-            ret.is_err(),
-            "Staking proxy should not work for transfer_stake"
-        );
+        // Staking proxy should not work for transfer_stake - requires Transfer proxy
+        assert!(matches!(ret, Err(DispatchError::Other("NotProxy"))));
 
         // Remove Staking proxy, add Transfer proxy
         assert_ok!(pallet_subtensor_proxy::Pallet::<mock::Test>::remove_proxy(
