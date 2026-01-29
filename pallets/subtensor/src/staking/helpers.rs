@@ -244,12 +244,17 @@ impl<T: Config> Pallet<T> {
                     // Add the stake to the coldkey account.
                     Self::add_balance_to_coldkey_account(coldkey, cleared_stake.into());
                 } else {
-                    // Just clear small alpha
+                    // We should only get here when
+                    // - alpha < min_alpha_stake
+                    // - the unstake fails (for whatever reason)
+
+                    // Unstake and clear the amount, burning the alpha.
                     let alpha =
                         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-                    Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                    let alpha_unstaked = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
                         hotkey, coldkey, netuid, alpha,
                     );
+                    Self::burn_subnet_alpha(netuid, alpha_unstaked);
                 }
             }
         }

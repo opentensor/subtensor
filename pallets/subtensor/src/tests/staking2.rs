@@ -247,7 +247,7 @@ fn test_share_based_staking() {
 
         // Test Case 7: Stake Removal
         // Verify correct stake removal from both accounts
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &primary_hotkey,
             &primary_coldkey,
             netuid,
@@ -273,7 +273,7 @@ fn test_share_based_staking() {
             "Stake removal should decrease balance by exact amount"
         );
 
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &primary_hotkey,
             &secondary_coldkey,
             netuid,
@@ -346,7 +346,7 @@ fn test_share_based_staking() {
         log::info!(
             "Attempting to remove excessive stake: {available_stake} + 1000 = {excessive_amount}"
         );
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &primary_hotkey,
             &primary_coldkey,
             netuid,
@@ -383,7 +383,7 @@ fn test_share_based_staking() {
 
         // Test removing stake from non-existent coldkey
         let non_existent_coldkey = U256::from(5);
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &primary_hotkey,
             &non_existent_coldkey,
             netuid,
@@ -435,7 +435,7 @@ fn test_share_based_staking_denominator_precision() {
                     .to_num::<u64>()
                     .into(),
             );
-            SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey1,
                 &coldkey1,
                 netuid,
@@ -490,7 +490,7 @@ fn test_share_based_staking_stake_unstake_inject() {
                 netuid,
                 stake_amount,
             );
-            SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey1,
                 &coldkey1,
                 netuid,
@@ -502,7 +502,7 @@ fn test_share_based_staking_stake_unstake_inject() {
                 netuid,
                 stake_amount,
             );
-            SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey1,
                 &coldkey2,
                 netuid,

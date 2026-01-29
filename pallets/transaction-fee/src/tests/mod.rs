@@ -74,7 +74,6 @@ fn test_remove_stake_fees_tao() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -143,7 +142,6 @@ fn test_remove_stake_fees_alpha() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_root --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_root() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -202,7 +200,6 @@ fn test_remove_stake_root() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_completely_root --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_completely_root() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -254,7 +251,6 @@ fn test_remove_stake_completely_root() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_completely_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_completely_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -346,7 +342,7 @@ fn test_remove_stake_not_enough_balance_for_fees() {
 
         // For-set Alpha balance to low
         let new_current_stake = AlphaCurrency::from(1_000);
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &sn.hotkeys[0],
             &sn.coldkey,
             sn.subnets[0].netuid,
@@ -385,7 +381,6 @@ fn test_remove_stake_not_enough_balance_for_fees() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_edge_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_edge_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -413,7 +408,7 @@ fn test_remove_stake_edge_alpha() {
 
         // For-set Alpha balance to low, but enough to pay tx fees at the current Alpha price
         let new_current_stake = AlphaCurrency::from(1_000_000);
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &sn.hotkeys[0],
             &sn.coldkey,
             sn.subnets[0].netuid,
@@ -524,7 +519,6 @@ fn test_remove_stake_failing_transaction_tao_fees() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_failing_transaction_alpha_fees --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_failing_transaction_alpha_fees() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -590,7 +584,6 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_limit_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -658,7 +651,6 @@ fn test_remove_stake_limit_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_unstake_all_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_unstake_all_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -731,7 +723,6 @@ fn test_unstake_all_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_unstake_all_alpha_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_unstake_all_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -799,7 +790,6 @@ fn test_unstake_all_alpha_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_move_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_move_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -871,7 +861,6 @@ fn test_move_stake_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_transfer_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_transfer_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let destination_coldkey = U256::from(100000);
@@ -944,7 +933,6 @@ fn test_transfer_stake_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_swap_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_swap_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1015,7 +1003,6 @@ fn test_swap_stake_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_swap_stake_limit_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_swap_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1088,7 +1075,6 @@ fn test_swap_stake_limit_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_burn_alpha_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_burn_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1150,7 +1136,6 @@ fn test_burn_alpha_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_recycle_alpha_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_recycle_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1207,5 +1192,79 @@ fn test_recycle_alpha_fees_alpha() {
         // Extrinsic should pay fees in Alpha
         assert_eq!(actual_tao_fee, 0);
         assert!(actual_alpha_fee > 0.into());
+    });
+}
+
+#[test]
+fn test_remove_stake_alpha_clears_stake_pool_entry() {
+    new_test_ext().execute_with(|| {
+        let stake_amount = TAO;
+        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let sn = setup_subnets(1, 1);
+        setup_stake(
+            sn.subnets[0].netuid,
+            &sn.coldkey,
+            &sn.hotkeys[0],
+            stake_amount,
+        );
+
+        // Force-set signer balance to ED
+        let current_balance = Balances::free_balance(sn.coldkey);
+        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+            &sn.coldkey,
+            current_balance - ExistentialDeposit::get(),
+        );
+
+        // Modify the alpha pool denominator so it's low-precision, coldkey still have 100% of the stake
+        let denominator = U64F64::from_num(0.0000001);
+        TotalHotkeyShares::<Test>::insert(sn.hotkeys[0], sn.subnets[0].netuid, denominator);
+        Alpha::<Test>::insert(
+            (&sn.hotkeys[0], &sn.coldkey, sn.subnets[0].netuid),
+            denominator,
+        );
+
+        // Remove stake limit
+        let balance_before = Balances::free_balance(sn.coldkey);
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[0].netuid,
+        );
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake_limit {
+            hotkey: sn.hotkeys[0],
+            netuid: sn.subnets[0].netuid,
+            amount_unstaked: unstake_amount,
+            limit_price: 1_000.into(),
+            allow_partial: false,
+        });
+
+        // Dispatch the extrinsic with ChargeTransactionPayment extension
+        let info = call.get_dispatch_info();
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let result = ext.validate(
+            RuntimeOrigin::signed(sn.coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            TransactionValidityError::Invalid(InvalidTransaction::Payment)
+        );
+
+        // Nothing changes, because it fails validation
+        let final_balance = Balances::free_balance(sn.coldkey);
+        let alpha_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[0].netuid,
+        );
+
+        assert_eq!(alpha_after, alpha_before);
+        assert_eq!(final_balance, balance_before);
     });
 }
