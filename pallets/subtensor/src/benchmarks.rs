@@ -18,7 +18,11 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
-#[frame_benchmarking::v2::benchmarks]
+#[benchmarks(
+    where
+        T: pallet_balances::Config,
+        <T as pallet_balances::Config>::ExistentialDeposit: Get<u64>,
+)]
 mod pallet_benchmarks {
     use super::*;
 
@@ -372,17 +376,6 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn schedule_swap_coldkey() {
-        let old_coldkey: T::AccountId = account("old_cold", 0, 1);
-        let new_coldkey: T::AccountId = account("new_cold", 1, 2);
-        let amount: u64 = 100_000_000_000_000;
-        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, amount);
-
-        #[extrinsic_call]
-        _(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone());
-    }
-
-    #[benchmark]
     fn sudo_set_tx_childkey_take_rate_limit() {
         let new_rate_limit: u64 = 100;
 
@@ -420,10 +413,31 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn swap_coldkey() {
+    fn announce_coldkey_swap() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+
+        let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
+        let swap_cost = Subtensor::<T>::get_key_swap_cost();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, swap_cost.to_u64() + ed);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey), new_coldkey_hash);
+    }
+
+    #[benchmark]
+    fn swap_coldkey_announced() {
         let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
         let hotkey1: T::AccountId = account("hotkey1", 0, 0);
+
+        let now = frame_system::Pallet::<T>::block_number();
+        let delay = ColdkeySwapAnnouncementDelay::<T>::get();
+        ColdkeySwapAnnouncements::<T>::insert(&old_coldkey, (now, new_coldkey_hash));
+        frame_system::Pallet::<T>::set_block_number(now + delay + 1u32.into());
+
         let netuid = NetUid::from(1);
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
         let free_balance_old = swap_cost + 12345.into();
@@ -438,9 +452,14 @@ mod pallet_benchmarks {
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(old_coldkey.clone()).into(),
             netuid,
-            hotkey1.clone()
-        ));
+            block_number,
+            nonce,
+            work.clone(),
+            hotkey1.clone(),
+            old_coldkey.clone(),
+        );
 
+        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, free_balance_old.into());
         let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
         let identity = ChainIdentityV2 {
             name,
@@ -460,6 +479,31 @@ mod pallet_benchmarks {
             new_coldkey.clone(),
             swap_cost,
         );
+    }
+
+    #[benchmark]
+    fn dispute_coldkey_swap() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
+        let now = frame_system::Pallet::<T>::block_number();
+
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey));
+    }
+
+    #[benchmark]
+    fn reset_coldkey_swap() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
+        let now = frame_system::Pallet::<T>::block_number();
+
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
+        ColdkeySwapDisputes::<T>::insert(&coldkey, now);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, coldkey);
     }
 
     #[benchmark]

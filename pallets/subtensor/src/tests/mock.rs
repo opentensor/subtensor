@@ -20,11 +20,12 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
     BuildStorage, Percent,
-    traits::{BlakeTwo256, IdentityLookup},
+    traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
@@ -37,16 +38,19 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
-        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>} = 2,
-        SubtensorModule: crate::{Pallet, Call, Storage, Event<T>} = 7,
-        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
-        Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
-        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
-        Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
-        Proxy: pallet_subtensor_proxy = 14,
+        System: frame_system = 1,
+        Balances: pallet_balances = 2,
+        Timestamp: pallet_timestamp = 3,
+        Aura: pallet_aura = 4,
+        Shield: pallet_shield = 5,
+        SubtensorModule: crate = 6,
+        Utility: pallet_utility = 7,
+        Scheduler: pallet_scheduler = 8,
+        Preimage: pallet_preimage = 9,
+        Drand: pallet_drand = 10,
+        Swap: pallet_subtensor_swap = 11,
+        Crowdloan: pallet_crowdloan = 12,
+        Proxy: pallet_subtensor_proxy = 13,
     }
 );
 
@@ -212,9 +216,8 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
-    // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
-    pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
-    pub const InitialColdkeySwapRescheduleDuration: u64 = 24 * 60 * 60 / 12; // Default as 1 day
+    pub const InitialColdkeySwapAnnouncementDelay: u64 = 50;
+    pub const InitialColdkeySwapReannouncementDelay: u64 = 10;
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
@@ -284,8 +287,8 @@ impl crate::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = Preimage;
-    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
+    type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
+    type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
@@ -554,6 +557,41 @@ where
 
 pub const RAO_PER_TAO: u64 = 1_000_000_000;
 pub const DEFAULT_RESERVE: u64 = 1_000_000_000_000;
+
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {
+    type MinimumPeriod = ConstU64<0>;
+}
+
+parameter_types! {
+    pub const MaxAuthorities: u32 = 32;
+    pub const AllowMultipleBlocksPerSlot: bool = false;
+    pub const SlotDuration: u64 = 6000;
+}
+
+impl pallet_aura::Config for Test {
+    type AuthorityId = AuraId;
+    // For tests we don't need dynamic disabling; just use unit type.
+    type DisabledValidators = ();
+    type MaxAuthorities = MaxAuthorities;
+    type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
+    type SlotDuration = SlotDuration;
+}
+
+pub struct TestAuthorityOrigin;
+
+impl pallet_shield::AuthorityOriginExt<RuntimeOrigin> for TestAuthorityOrigin {
+    type AccountId = U256;
+
+    fn ensure_validator(_origin: RuntimeOrigin) -> Result<Self::AccountId, BadOrigin> {
+        Ok(U256::from(0))
+    }
+}
+
+impl pallet_shield::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type AuthorityOrigin = TestAuthorityOrigin;
+}
 
 static TEST_LOGS_INIT: OnceLock<()> = OnceLock::new();
 

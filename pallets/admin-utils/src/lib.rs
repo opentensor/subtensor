@@ -1372,44 +1372,6 @@ pub mod pallet {
             res
         }
 
-        /// Sets the duration of the coldkey swap schedule.
-        ///
-        /// This extrinsic allows the root account to set the duration for the coldkey swap schedule.
-        /// The coldkey swap schedule determines how long it takes for a coldkey swap operation to complete.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which must be the root account.
-        /// * `duration` - The new duration for the coldkey swap schedule, in number of blocks.
-        ///
-        /// # Errors
-        /// * `BadOrigin` - If the caller is not the root account.
-        ///
-        /// # Weight
-        /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(54)]
-        #[pallet::weight((
-            Weight::from_parts(5_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(0_u64))
-			    .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
-        pub fn sudo_set_coldkey_swap_schedule_duration(
-            origin: OriginFor<T>,
-            duration: BlockNumberFor<T>,
-        ) -> DispatchResult {
-            // Ensure the call is made by the root account
-            ensure_root(origin)?;
-
-            // Set the new duration of schedule coldkey swap
-            pallet_subtensor::Pallet::<T>::set_coldkey_swap_schedule_duration(duration);
-
-            // Log the change
-            log::trace!("ColdkeySwapScheduleDurationSet( duration: {duration:?} )");
-
-            Ok(())
-        }
-
         /// Sets the duration of the dissolve network schedule.
         ///
         /// This extrinsic allows the root account to set the duration for the dissolve network schedule.
@@ -1636,7 +1598,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(62)]
         #[pallet::weight((
-            Weight::from_parts(5_744_000, 3507)
+            Weight::from_parts(5_698_000, 0)
 			    .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(0_u64)),
             DispatchClass::Operational,
@@ -1725,7 +1687,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(65)]
         #[pallet::weight((
-            Weight::from_parts(6_201_000, 0)
+            Weight::from_parts(3_465_000, 0)
                 .saturating_add(T::DbWeight::get().reads(0_u64))
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
@@ -2273,8 +2235,46 @@ pub mod pallet {
             log::debug!("StartCallDelay( delay: {delay:?} ) ");
             Ok(())
         }
-        /// Set BurnHalfLife for a subnet.
+
+        /// Sets the announcement delay for coldkey swap.
         #[pallet::call_index(86)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(0_u64))
+			    .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_coldkey_swap_announcement_delay(
+            origin: OriginFor<T>,
+            duration: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_coldkey_swap_announcement_delay(duration);
+            log::trace!("ColdkeySwapAnnouncementDelaySet( duration: {duration:?} )");
+            Ok(())
+        }
+
+        /// Sets the coldkey swap reannouncement delay.
+        #[pallet::call_index(87)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(0_u64))
+                .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_coldkey_swap_reannouncement_delay(
+            origin: OriginFor<T>,
+            duration: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_coldkey_swap_reannouncement_delay(duration);
+            log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
+            Ok(())
+        }
+        /// Set BurnHalfLife for a subnet.
+        #[pallet::call_index(88)]
         #[pallet::weight((
             Weight::from_parts(25_000_000, 0)
                 .saturating_add(T::DbWeight::get().reads(3))
@@ -2305,7 +2305,7 @@ pub mod pallet {
         }
 
         /// Set BurnIncreaseMult for a subnet.
-        #[pallet::call_index(87)]
+        #[pallet::call_index(89)]
         #[pallet::weight((
             Weight::from_parts(25_000_000, 0)
                 .saturating_add(T::DbWeight::get().reads(3))
