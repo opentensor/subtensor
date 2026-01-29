@@ -2437,9 +2437,9 @@ mod dispatches {
         /// --- Subnet buyback
         #[pallet::call_index(125)]
         #[pallet::weight((
-            Weight::from_parts(5_711_000, 0) // TODO: adjust weights
-            .saturating_add(T::DbWeight::get().reads(0_u64))
-            .saturating_add(T::DbWeight::get().writes(1_u64)),
+		    Weight::from_parts(368_000_000, 8556)
+			.saturating_add(RocksDbWeight::get().reads(26_u64))
+			.saturating_add(RocksDbWeight::get().writes(16_u64))
             DispatchClass::Normal,
             Pays::Yes
         ))]
