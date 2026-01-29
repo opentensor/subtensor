@@ -553,8 +553,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::add_stake(
@@ -590,8 +594,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::remove_stake(
@@ -622,8 +630,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::unstake_all(
@@ -652,8 +664,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::unstake_all_alpha(
@@ -683,14 +699,25 @@ where
                     origin_netuid,
                     destination_netuid,
                     alpha_amount,
-                ): (T::AccountId, T::AccountId, T::AccountId, NetUid, NetUid, AlphaCurrency) = env
+                ): (
+                    T::AccountId,
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    NetUid,
+                    AlphaCurrency,
+                ) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::move_stake(
@@ -717,7 +744,14 @@ where
 
                 env.charge_weight(weight)?;
 
-                let (real_coldkey, destination_coldkey, hotkey, origin_netuid, destination_netuid, alpha_amount): (
+                let (
+                    real_coldkey,
+                    destination_coldkey,
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                ): (
                     T::AccountId,
                     T::AccountId,
                     T::AccountId,
@@ -730,8 +764,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Transfer))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Transfer),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::transfer_stake(
@@ -770,8 +808,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::swap_stake(
@@ -810,8 +852,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::add_stake_limit(
@@ -851,8 +897,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::remove_stake_limit(
@@ -901,8 +951,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::swap_stake_limit(
@@ -941,8 +995,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::remove_stake_full_limit(
@@ -973,8 +1031,12 @@ where
 
                 let caller = env.caller();
                 if real_coldkey != caller {
-                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
-                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                    pallet_proxy::Pallet::<T>::find_proxy(
+                        &real_coldkey,
+                        &caller,
+                        Some(ProxyType::Staking),
+                    )
+                    .map_err(|_| DispatchError::Other("NotProxy"))?;
                 }
 
                 let call_result = pallet_subtensor::Pallet::<T>::set_coldkey_auto_stake_hotkey(

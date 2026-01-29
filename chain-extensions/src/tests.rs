@@ -1163,7 +1163,9 @@ fn remove_stake_v2_with_proxy_succeeds() {
 
         let alpha_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey, &real_coldkey, netuid,
+                &hotkey,
+                &real_coldkey,
+                netuid,
             );
 
         let alpha_to_unstake: AlphaCurrency = (alpha_before.to_u64() / 2).into();
@@ -1184,7 +1186,9 @@ fn remove_stake_v2_with_proxy_succeeds() {
 
         let alpha_after =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey, &real_coldkey, netuid,
+                &hotkey,
+                &real_coldkey,
+                netuid,
             );
 
         assert!(alpha_after < alpha_before);
@@ -1246,11 +1250,15 @@ fn swap_stake_v2_with_proxy_succeeds() {
 
         let alpha_origin_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey, &real_coldkey, netuid_a,
+                &hotkey,
+                &real_coldkey,
+                netuid_a,
             );
         let alpha_destination_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey, &real_coldkey, netuid_b,
+                &hotkey,
+                &real_coldkey,
+                netuid_b,
             );
         let alpha_to_swap: AlphaCurrency = (alpha_origin_before.to_u64() / 3).into();
 
@@ -1270,11 +1278,15 @@ fn swap_stake_v2_with_proxy_succeeds() {
 
         let alpha_origin_after =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey, &real_coldkey, netuid_a,
+                &hotkey,
+                &real_coldkey,
+                netuid_a,
             );
         let alpha_destination_after =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey, &real_coldkey, netuid_b,
+                &hotkey,
+                &real_coldkey,
+                netuid_b,
             );
 
         assert!(alpha_origin_after < alpha_origin_before);
@@ -1448,7 +1460,10 @@ fn transfer_stake_v2_requires_transfer_proxy() {
         .with_expected_weight(expected_weight);
 
         let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env);
-        assert!(ret.is_err(), "Staking proxy should not work for transfer_stake");
+        assert!(
+            ret.is_err(),
+            "Staking proxy should not work for transfer_stake"
+        );
 
         // Remove Staking proxy, add Transfer proxy
         assert_ok!(pallet_subtensor_proxy::Pallet::<mock::Test>::remove_proxy(
@@ -1539,8 +1554,12 @@ fn unstake_all_v2_self_call_succeeds() {
 
         let pre_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
-        let mut env = MockEnv::new(FunctionId::UnstakeAllV2, coldkey, (coldkey, hotkey).encode())
-            .with_expected_weight(expected_weight);
+        let mut env = MockEnv::new(
+            FunctionId::UnstakeAllV2,
+            coldkey,
+            (coldkey, hotkey).encode(),
+        )
+        .with_expected_weight(expected_weight);
 
         let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
         assert_success(ret);
@@ -1593,9 +1612,12 @@ fn unstake_all_alpha_v2_self_call_succeeds() {
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(37))
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(21));
 
-        let mut env =
-            MockEnv::new(FunctionId::UnstakeAllAlphaV2, coldkey, (coldkey, hotkey).encode())
-                .with_expected_weight(expected_weight);
+        let mut env = MockEnv::new(
+            FunctionId::UnstakeAllAlphaV2,
+            coldkey,
+            (coldkey, hotkey).encode(),
+        )
+        .with_expected_weight(expected_weight);
 
         let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
         assert_success(ret);
