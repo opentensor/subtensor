@@ -409,16 +409,28 @@ export async function disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api: T
         await waitForTransactionWithRetry(api, sudoFreezeTx, alice)
     }
 
-    const currentOwnerHyperparamRateLimit = await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue()
-    if (currentOwnerHyperparamRateLimit !== 0) {
-        // Set OwnerHyperparamRateLimit to 0
-        const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ epochs: 0 })
+    const ownerHparamsGroupId = 4; // GROUP_OWNER_HPARAMS constant
+    const target = rateLimitTargetGroup(ownerHparamsGroupId);
+    const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    const currentLimit =
+        limits?.type === "Global" && limits.value?.type === "Exact"
+            ? BigInt(limits.value.value)
+            : BigInt(0);
+    if (currentLimit !== BigInt(0)) {
+        const setOwnerRateLimit = api.tx.RateLimiting.set_rate_limit({
+            target: target as any,
+            scope: undefined,
+            limit: rateLimitKindExact(0),
+        })
         const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
         await waitForTransactionWithRetry(api, sudoOwnerRateTx, alice)
     }
 
     assert.equal(0, await api.query.SubtensorModule.AdminFreezeWindow.getValue())
-    assert.equal(BigInt(0), await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue())
+    const updated = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    assert.ok(updated?.type === "Global");
+    assert.ok(updated.value?.type === "Exact");
+    assert.equal(BigInt(0), BigInt(updated.value.value));
 }
 
 export async function sendWasmContractExtrinsic(api: TypedApi<typeof devnet>, coldkey: KeyPair, contractAddress: string, data: Binary) {
