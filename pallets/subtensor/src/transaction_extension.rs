@@ -19,6 +19,8 @@ use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 
+const SUBNET_BUYBACK_PRIORITY_BOOST: u64 = 100;
+
 #[freeze_struct("2e02eb32e5cb25d3")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 pub struct SubtensorTransactionExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
@@ -298,6 +300,11 @@ where
                     Err(_) => Err(CustomTransactionError::UidNotFound.into()),
                 }
             }
+            Some(Call::subnet_buyback { .. }) => Ok((
+                Self::validity_ok(SUBNET_BUYBACK_PRIORITY_BOOST),
+                Some(who.clone()),
+                origin,
+            )),
             _ => Ok((Default::default(), Some(who.clone()), origin)),
         }
     }
