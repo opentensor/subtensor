@@ -43,6 +43,19 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 12 | `set_coldkey_auto_stake_hotkey` | Configure automatic stake destination | `(NetUid, AccountId)` | Error code |
 | 13 | `add_proxy` | Add a staking proxy for the caller | `(AccountId)` | Error code |
 | 14 | `remove_proxy` | Remove a staking proxy for the caller | `(AccountId)` | Error code |
+| 15 | `get_alpha_price` | Get the current alpha price for a subnet | `(NetUid)` | `u64` (price × 10⁹) |
+| 16 | `add_stake_v2` | Add stake with explicit coldkey (proxy-aware) | `(AccountId, AccountId, NetUid, TaoCurrency)` | Error code |
+| 17 | `remove_stake_v2` | Remove stake with explicit coldkey | `(AccountId, AccountId, NetUid, AlphaCurrency)` | Error code |
+| 18 | `unstake_all_v2` | Unstake all TAO with explicit coldkey | `(AccountId, AccountId)` | Error code |
+| 19 | `unstake_all_alpha_v2` | Unstake all Alpha with explicit coldkey | `(AccountId, AccountId)` | Error code |
+| 20 | `move_stake_v2` | Move stake between hotkeys with explicit coldkey | `(AccountId, AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
+| 21 | `transfer_stake_v2` | Transfer stake between coldkeys (requires Transfer proxy) | `(AccountId, AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
+| 22 | `swap_stake_v2` | Swap stake between subnets with explicit coldkey | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
+| 23 | `add_stake_limit_v2` | Add stake with price limit and explicit coldkey | `(AccountId, AccountId, NetUid, TaoCurrency, TaoCurrency, bool)` | Error code |
+| 24 | `remove_stake_limit_v2` | Remove stake with price limit and explicit coldkey | `(AccountId, AccountId, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
+| 25 | `swap_stake_limit_v2` | Swap stake with price limit and explicit coldkey | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
+| 26 | `remove_stake_full_limit_v2` | Full unstake with price limit and explicit coldkey | `(AccountId, AccountId, NetUid, Option<TaoCurrency>)` | Error code |
+| 27 | `set_coldkey_auto_stake_hotkey_v2` | Set auto-stake hotkey with explicit coldkey | `(AccountId, NetUid, AccountId)` | Error code |
 
 Example usage in your ink! contract:
 ```rust
@@ -85,6 +98,18 @@ Chain extension functions that modify state return error codes as `u32` values. 
 | 17 | `ProxyDuplicate` | Proxy already exists |
 | 18 | `ProxyNoSelfProxy` | Cannot add self as proxy |
 | 19 | `ProxyNotFound` | Proxy relationship not found |
+| 20 | `NotAuthorizedProxy` | Caller is not an authorized proxy for the account |
+
+#### V2 Functions (Proxy-Aware)
+
+Functions 16-27 are V2 versions that accept an explicit `coldkey` parameter as the first argument. These functions:
+
+- If `coldkey == caller`: Execute directly (no proxy check needed)
+- If `coldkey != caller`: Verify caller has appropriate proxy permissions for coldkey
+
+**Proxy Types Required:**
+- Most V2 functions require `ProxyType::Staking`
+- `transfer_stake_v2` (ID 21) requires `ProxyType::Transfer`
 
 ### Call Filter
 

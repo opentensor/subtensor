@@ -21,19 +21,19 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
-    // Proxy-aware staking functions (caller acts on behalf of real_coldkey)
-    AddStakeAsProxyV1 = 16,
-    RemoveStakeAsProxyV1 = 17,
-    UnstakeAllAsProxyV1 = 18,
-    UnstakeAllAlphaAsProxyV1 = 19,
-    MoveStakeAsProxyV1 = 20,
-    TransferStakeAsProxyV1 = 21,
-    SwapStakeAsProxyV1 = 22,
-    AddStakeLimitAsProxyV1 = 23,
-    RemoveStakeLimitAsProxyV1 = 24,
-    SwapStakeLimitAsProxyV1 = 25,
-    RemoveStakeFullLimitAsProxyV1 = 26,
-    SetColdkeyAutoStakeHotkeyAsProxyV1 = 27,
+    // V2: Accept explicit coldkey with proxy verification
+    AddStakeV2 = 16,
+    RemoveStakeV2 = 17,
+    UnstakeAllV2 = 18,
+    UnstakeAllAlphaV2 = 19,
+    MoveStakeV2 = 20,
+    TransferStakeV2 = 21,
+    SwapStakeV2 = 22,
+    AddStakeLimitV2 = 23,
+    RemoveStakeLimitV2 = 24,
+    SwapStakeLimitV2 = 25,
+    RemoveStakeFullLimitV2 = 26,
+    SetColdkeyAutoStakeHotkeyV2 = 27,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]

@@ -531,11 +531,11 @@ where
                 Ok(RetVal::Converging(Output::Success as u32))
             }
             // ============================================================
-            // Proxy-aware staking functions
-            // These allow a contract to act on behalf of a real_coldkey
-            // if the contract has been granted appropriate proxy permissions.
+            // V2 staking functions
+            // These accept an explicit coldkey parameter. If the caller differs
+            // from the coldkey, proxy permissions are verified before execution.
             // ============================================================
-            FunctionId::AddStakeAsProxyV1 => {
+            FunctionId::AddStakeV2 => {
                 let weight = Weight::from_parts(340_800_000, 0)
                     .saturating_add(T::DbWeight::get().reads(25_u64))
                     .saturating_add(T::DbWeight::get().writes(15));
@@ -572,7 +572,7 @@ where
                     }
                 }
             }
-            FunctionId::RemoveStakeAsProxyV1 => {
+            FunctionId::RemoveStakeV2 => {
                 let weight = Weight::from_parts(196_800_000, 0)
                     .saturating_add(T::DbWeight::get().reads(20))
                     .saturating_add(T::DbWeight::get().writes(10));
@@ -609,7 +609,7 @@ where
                     }
                 }
             }
-            FunctionId::UnstakeAllAsProxyV1 => {
+            FunctionId::UnstakeAllV2 => {
                 let weight = Weight::from_parts(28_830_000, 0)
                     .saturating_add(T::DbWeight::get().reads(7))
                     .saturating_add(T::DbWeight::get().writes(0));
@@ -639,7 +639,7 @@ where
                     }
                 }
             }
-            FunctionId::UnstakeAllAlphaAsProxyV1 => {
+            FunctionId::UnstakeAllAlphaV2 => {
                 let weight = Weight::from_parts(358_500_000, 0)
                     .saturating_add(T::DbWeight::get().reads(37_u64))
                     .saturating_add(T::DbWeight::get().writes(21_u64));
@@ -669,7 +669,7 @@ where
                     }
                 }
             }
-            FunctionId::MoveStakeAsProxyV1 => {
+            FunctionId::MoveStakeV2 => {
                 let weight = Weight::from_parts(164_300_000, 0)
                     .saturating_add(T::DbWeight::get().reads(16_u64))
                     .saturating_add(T::DbWeight::get().writes(7_u64));
@@ -710,7 +710,7 @@ where
                     }
                 }
             }
-            FunctionId::TransferStakeAsProxyV1 => {
+            FunctionId::TransferStakeV2 => {
                 let weight = Weight::from_parts(160_300_000, 0)
                     .saturating_add(T::DbWeight::get().reads(14_u64))
                     .saturating_add(T::DbWeight::get().writes(6_u64));
@@ -751,7 +751,7 @@ where
                     }
                 }
             }
-            FunctionId::SwapStakeAsProxyV1 => {
+            FunctionId::SwapStakeV2 => {
                 let weight = Weight::from_parts(351_300_000, 0)
                     .saturating_add(T::DbWeight::get().reads(36_u64))
                     .saturating_add(T::DbWeight::get().writes(22_u64));
@@ -790,7 +790,7 @@ where
                     }
                 }
             }
-            FunctionId::AddStakeLimitAsProxyV1 => {
+            FunctionId::AddStakeLimitV2 => {
                 let weight = Weight::from_parts(402_900_000, 0)
                     .saturating_add(T::DbWeight::get().reads(25_u64))
                     .saturating_add(T::DbWeight::get().writes(15));
@@ -831,7 +831,7 @@ where
                     }
                 }
             }
-            FunctionId::RemoveStakeLimitAsProxyV1 => {
+            FunctionId::RemoveStakeLimitV2 => {
                 let weight = Weight::from_parts(377_400_000, 0)
                     .saturating_add(T::DbWeight::get().reads(29_u64))
                     .saturating_add(T::DbWeight::get().writes(14));
@@ -872,7 +872,7 @@ where
                     }
                 }
             }
-            FunctionId::SwapStakeLimitAsProxyV1 => {
+            FunctionId::SwapStakeLimitV2 => {
                 let weight = Weight::from_parts(411_500_000, 0)
                     .saturating_add(T::DbWeight::get().reads(36_u64))
                     .saturating_add(T::DbWeight::get().writes(22_u64));
@@ -923,7 +923,7 @@ where
                     }
                 }
             }
-            FunctionId::RemoveStakeFullLimitAsProxyV1 => {
+            FunctionId::RemoveStakeFullLimitV2 => {
                 let weight = Weight::from_parts(395_300_000, 0)
                     .saturating_add(T::DbWeight::get().reads(29_u64))
                     .saturating_add(T::DbWeight::get().writes(14_u64));
@@ -960,7 +960,7 @@ where
                     }
                 }
             }
-            FunctionId::SetColdkeyAutoStakeHotkeyAsProxyV1 => {
+            FunctionId::SetColdkeyAutoStakeHotkeyV2 => {
                 let weight = Weight::from_parts(29_930_000, 0)
                     .saturating_add(T::DbWeight::get().reads(5_u64))
                     .saturating_add(T::DbWeight::get().writes(2_u64));
