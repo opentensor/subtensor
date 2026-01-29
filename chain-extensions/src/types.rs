@@ -21,6 +21,19 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
+    // V2: Accept explicit coldkey with proxy verification
+    AddStakeV2 = 16,
+    RemoveStakeV2 = 17,
+    UnstakeAllV2 = 18,
+    UnstakeAllAlphaV2 = 19,
+    MoveStakeV2 = 20,
+    TransferStakeV2 = 21,
+    SwapStakeV2 = 22,
+    AddStakeLimitV2 = 23,
+    RemoveStakeLimitV2 = 24,
+    SwapStakeLimitV2 = 25,
+    RemoveStakeFullLimitV2 = 26,
+    SetColdkeyAutoStakeHotkeyV2 = 27,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
@@ -66,6 +79,8 @@ pub enum Output {
     ProxyNoSelfProxy = 18,
     /// Proxy relationship not found
     ProxyNotFound = 19,
+    /// Caller is not an authorized proxy for the specified account
+    NotAuthorizedProxy = 20,
 }
 
 impl From<DispatchError> for Output {
@@ -93,6 +108,7 @@ impl From<DispatchError> for Output {
             Some("Duplicate") => Output::ProxyDuplicate,
             Some("NoSelfProxy") => Output::ProxyNoSelfProxy,
             Some("NotFound") => Output::ProxyNotFound,
+            Some("NotProxy") => Output::NotAuthorizedProxy,
             _ => Output::RuntimeError,
         }
     }
