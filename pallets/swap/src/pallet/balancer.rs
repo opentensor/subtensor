@@ -5,6 +5,7 @@ use safe_math::*;
 use sp_arithmetic::Perquintill;
 use sp_core::U256;
 use sp_runtime::Saturating;
+use sp_std::ops::Neg;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 
@@ -92,14 +93,20 @@ impl Balancer {
     ///
     /// Here we use SafeInt from bigmath crate for high-precision exponentiation,
     /// which exposes the function pow_ratio_scaled.
-    fn exp_scaled(&self, x: u64, dx: u64, base_quote: bool) -> U64F64 {
-        let den = x.saturating_add(dx);
-        if den == 0 {
+    ///
+    /// Note: ∆x may be negative
+    fn exp_scaled(&self, x: u64, dx: i128, base_quote: bool) -> U64F64 {
+        let x_plus_dx = if dx >= 0 {
+            x.saturating_add(dx as u64)
+        } else {
+            x.saturating_sub(dx.neg() as u64)
+        };
+
+        if x_plus_dx == 0 {
             return U64F64::saturating_from_num(0);
         }
         let w1: u128 = self.get_base_weight().deconstruct() as u128;
         let w2: u128 = self.get_quote_weight().deconstruct() as u128;
-        let x_plus_dx = x.saturating_add(dx);
 
         let precision = 1024;
         let x_safe = SafeInt::from(x);
@@ -149,14 +156,14 @@ impl Balancer {
     /// This method is used in sell swaps
     /// (∆x is given by user, ∆y is paid out by the pool)
     pub fn exp_base_quote(&self, x: u64, dx: u64) -> U64F64 {
-        self.exp_scaled(x, dx, true)
+        self.exp_scaled(x, dx as i128, true)
     }
 
     /// Calculates exponent of (y / (y + ∆y)) ^ (w_quote/w_base)
     /// This method is used in buy swaps
     /// (∆y is given by user, ∆x is paid out by the pool)
     pub fn exp_quote_base(&self, y: u64, dy: u64) -> U64F64 {
-        self.exp_scaled(y, dy, false)
+        self.exp_scaled(y, dy as i128, false)
     }
 
     /// Calculates price as (w1/w2) * (y/x), where
@@ -372,6 +379,22 @@ impl Balancer {
             .unwrap_or_default()
             .to_u64()
             .unwrap_or(0)
+    }
+
+    /// Calculates amount of Alpha that needs to be sold to get a given amount of TAO
+    pub fn get_base_needed_for_quote(
+        &self,
+        tao_reserve: u64,
+        alpha_reserve: u64,
+        delta_tao: u64,
+    ) -> u64 {
+        let e = self.exp_scaled(tao_reserve, (delta_tao as i128).neg(), false);
+        let one = U64F64::from_num(1);
+        let alpha_reserve_fixed = U64F64::from_num(alpha_reserve);
+        // e > 1 in this case
+        alpha_reserve_fixed
+            .saturating_mul(e.saturating_sub(one))
+            .saturating_to_num::<u64>()
     }
 }
 
@@ -1125,12 +1148,32 @@ mod tests {
         })
         .for_each(|(quote_weight, reserve, d_reserve, base_quote, expected)| {
             let balancer = Balancer::new(quote_weight).unwrap();
-            let result = balancer.exp_scaled(reserve, d_reserve, base_quote);
+            let result = balancer.exp_scaled(reserve, d_reserve as i128, base_quote);
             assert_abs_diff_eq!(
                 result.to_num::<f64>(),
                 expected.to_num::<f64>(),
                 epsilon = 0.000000001
             );
         });
+    }
+
+    // cargo test --package pallet-subtensor-swap --lib -- pallet::balancer::tests::test_base_needed_for_quote --exact --nocapture
+    #[test]
+    fn test_base_needed_for_quote() {
+        let num = 250_000_000_000_u128; // w1 = 0.75 
+        let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
+        let bal = Balancer::new(w_quote).unwrap();
+
+        let tao_reserve: u64 = 1_000_000_000;
+        let alpha_reserve: u64 = 1_000_000_000;
+        let tao_delta: u64 = 1_123_432; // typical fee range
+
+        let dx = bal.get_base_needed_for_quote(tao_reserve, alpha_reserve, tao_delta);
+
+        // ∆x = x•[(y/(y+∆y))^(w2/w1) - 1]
+        let dx_expected = tao_reserve as f64
+            * ((tao_reserve as f64 / ((tao_reserve - tao_delta) as f64)).powf(0.25 / 0.75) - 1.0);
+
+        assert_eq!(dx, dx_expected as u64,);
     }
 }
