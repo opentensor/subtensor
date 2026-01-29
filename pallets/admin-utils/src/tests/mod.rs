@@ -44,26 +44,30 @@ fn test_sudo_set_default_take() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_sudo_set_serving_rate_limit() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(3);
         let to_be_set: u64 = 10;
         let init_value: u64 = SubtensorModule::get_serving_rate_limit(netuid);
-        assert_eq!(
+        assert_noop!(
             AdminUtils::sudo_set_serving_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin)
+            Error::<Test>::Deprecated
         );
         assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), init_value);
-        assert_ok!(AdminUtils::sudo_set_serving_rate_limit(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), to_be_set);
+        assert_noop!(
+            AdminUtils::sudo_set_serving_rate_limit(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            ),
+            Error::<Test>::Deprecated
+        );
+        assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), init_value);
     });
 }
 
@@ -261,45 +265,6 @@ fn test_sudo_set_weights_version_key_rate_limit_root() {
         assert_eq!(
             SubtensorModule::get_weights_version_key(netuid),
             to_be_set + 1
-        );
-    });
-}
-
-#[test]
-fn test_sudo_set_weights_set_rate_limit() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
-        let to_be_set: u64 = 10;
-        add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_weights_set_rate_limit(netuid);
-        assert_eq!(
-            AdminUtils::sudo_set_weights_set_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(
-            AdminUtils::sudo_set_weights_set_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
-                to_be_set
-            ),
-            Err(Error::<Test>::SubnetDoesNotExist.into())
-        );
-        assert_eq!(
-            SubtensorModule::get_weights_set_rate_limit(netuid),
-            init_value
-        );
-        assert_ok!(AdminUtils::sudo_set_weights_set_rate_limit(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(
-            SubtensorModule::get_weights_set_rate_limit(netuid),
-            to_be_set
         );
     });
 }
@@ -1073,33 +1038,6 @@ mod sudo_set_nominator_min_required_stake {
             );
         });
     }
-}
-
-#[test]
-fn test_sudo_set_tx_delegate_take_rate_limit() {
-    new_test_ext().execute_with(|| {
-        let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_tx_delegate_take_rate_limit();
-        assert_eq!(
-            AdminUtils::sudo_set_tx_delegate_take_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(
-            SubtensorModule::get_tx_delegate_take_rate_limit(),
-            init_value
-        );
-        assert_ok!(AdminUtils::sudo_set_tx_delegate_take_rate_limit(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            to_be_set
-        ));
-        assert_eq!(
-            SubtensorModule::get_tx_delegate_take_rate_limit(),
-            to_be_set
-        );
-    });
 }
 
 #[test]
@@ -2013,20 +1951,6 @@ fn test_sudo_set_admin_freeze_window_and_rate() {
             7
         ));
         assert_eq!(pallet_subtensor::AdminFreezeWindow::<Test>::get(), 7);
-
-        // Owner hyperparam tempos setter
-        assert_eq!(
-            AdminUtils::sudo_set_owner_hparam_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                5
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_ok!(AdminUtils::sudo_set_owner_hparam_rate_limit(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            5
-        ));
-        assert_eq!(pallet_subtensor::OwnerHyperparamRateLimit::<Test>::get(), 5);
     });
 }
 

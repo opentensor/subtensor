@@ -8,10 +8,12 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use core::marker::PhantomData;
 use core::num::NonZeroU64;
 
 pub mod check_nonce;
 mod migrations;
+pub mod rate_limiting;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
 
@@ -45,6 +47,7 @@ use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::SimSwapResult;
 use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
+use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_babe::BabeConfiguration;
@@ -73,6 +76,13 @@ use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+// Frontier
+use fp_rpc::TransactionStatus;
+use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
+use pallet_evm::{
+    Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
+};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -94,21 +104,13 @@ pub use pallet_balances::Call as BalancesCall;
 use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+pub use rate_limiting::{
+    ScopeResolver as RuntimeScopeResolver, UsageResolver as RuntimeUsageResolver,
+};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
-
-use core::marker::PhantomData;
-
-use scale_info::TypeInfo;
-
-// Frontier
-use fp_rpc::TransactionStatus;
-use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
-use pallet_evm::{
-    Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
-};
+pub use subtensor_runtime_common::rate_limiting::RateLimitUsageKey;
 
 // Drand
 impl pallet_drand::Config for Runtime {
@@ -178,8 +180,11 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             ),
             SudoTransactionExtension::<Runtime>::new(),
             pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
-            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
-            frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+            (
+                pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+                frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+            ),
+            pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new(),
         );
 
         let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
@@ -243,7 +248,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_version: 372,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 1,
+    transaction_version: 2,
     system_version: 1,
 };
 
@@ -1027,7 +1032,6 @@ parameter_types! {
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
-    pub const SubtensorInitialServingRateLimit: u64 = 50;
     pub const SubtensorInitialBurn: u64 = 100_000_000; // 0.1 tao
     pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
@@ -1098,14 +1102,11 @@ impl pallet_subtensor::Config for Runtime {
     type InitialWeightsVersionKey = SubtensorInitialWeightsVersionKey;
     type InitialMaxDifficulty = SubtensorInitialMaxDifficulty;
     type InitialMinDifficulty = SubtensorInitialMinDifficulty;
-    type InitialServingRateLimit = SubtensorInitialServingRateLimit;
     type InitialBurn = SubtensorInitialBurn;
     type InitialMaxBurn = SubtensorInitialMaxBurn;
     type InitialMinBurn = SubtensorInitialMinBurn;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
-    type InitialTxRateLimit = SubtensorInitialTxRateLimit;
-    type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
     type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
     type InitialMaxChildKeyTake = SubtensorInitialMaxChildKeyTake;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
@@ -1113,7 +1114,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
-    type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type KeySwapCost = SubtensorInitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
@@ -1134,7 +1134,30 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type RateLimiting = RateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+}
+
+parameter_types! {
+    pub const RateLimitingMaxGroupMembers: u32 = 64;
+    pub const RateLimitingMaxGroupNameLength: u32 = 64;
+}
+
+impl pallet_rate_limiting::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+    type AdminOrigin = EnsureRoot<AccountId>;
+    type LimitSettingRule = rate_limiting::LimitSettingRule;
+    type DefaultLimitSettingRule = rate_limiting::DefaultLimitSettingRule;
+    type LimitSettingOrigin = rate_limiting::LimitSettingOrigin;
+    type LimitScope = NetUid;
+    type LimitScopeResolver = RuntimeScopeResolver;
+    type UsageKey = RateLimitUsageKey<AccountId>;
+    type UsageResolver = RuntimeUsageResolver;
+    type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
+    type MaxGroupMembers = RateLimitingMaxGroupMembers;
+    type MaxGroupNameLength = RateLimitingMaxGroupNameLength;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -1639,6 +1662,7 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
+        RateLimiting: pallet_rate_limiting = 31,
     }
 );
 
@@ -1649,6 +1673,13 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 // Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 // The extensions to the basic transaction logic.
+// =================================================================================================
+// IMPORTANT: If you add a new TransactionExtension here, review precompile runtime-call dispatch
+// paths (currently `PrecompileHandleExt::try_dispatch_runtime_call`) and decide whether the new
+// extension must be triggered manually (not all extensions apply to precompiles).
+// =================================================================================================
+// Note: The SDK only implements TransactionExtension for tuples up to 12 items, so we nest the last
+// two extensions to keep order/encoding while staying under the limit.
 pub type TransactionExtensions = (
     frame_system::CheckNonZeroSender<Runtime>,
     frame_system::CheckSpecVersion<Runtime>,
@@ -1660,16 +1691,22 @@ pub type TransactionExtensions = (
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
     pallet_subtensor::SubtensorTransactionExtension<Runtime>,
-    pallet_drand::drand_priority::DrandPriority<Runtime>,
-    frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+    (
+        pallet_drand::drand_priority::DrandPriority<Runtime>,
+        frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+    ),
+    pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
 );
 
 type Migrations = (
-    // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
-    // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
+    // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions
+    // of fractions of a cent) are cleaned up. These tiny rounding errors occur due to floating
+    // point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
+    migrations::rate_limiting::Migration<Runtime>,
+    migrations::subtensor_module::Migration<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -2216,6 +2253,50 @@ impl_runtime_apis! {
             UncheckedExtrinsic::new_bare(
                 pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
             )
+        }
+    }
+
+    impl pallet_rate_limiting_runtime_api::RateLimitingRuntimeApi<Block> for Runtime {
+        fn get_rate_limit(
+            pallet: Vec<u8>,
+            extrinsic: Vec<u8>,
+        ) -> Option<pallet_rate_limiting_runtime_api::RateLimitRpcResponse> {
+            use pallet_rate_limiting::{Pallet as RateLimiting, RateLimit};
+            use pallet_rate_limiting_runtime_api::RateLimitRpcResponse;
+
+            let pallet_name = sp_std::str::from_utf8(&pallet).ok()?;
+            let extrinsic_name = sp_std::str::from_utf8(&extrinsic).ok()?;
+
+            let identifier = RateLimiting::<Runtime>::identifier_for_call_names(
+                pallet_name,
+                extrinsic_name,
+            )?;
+            let target =
+                RateLimiting::<Runtime>::config_target(&identifier).ok()?;
+            let limits =
+                pallet_rate_limiting::Limits::<Runtime>::get(target)?;
+            let default_limit =
+                pallet_rate_limiting::DefaultLimit::<Runtime>::get();
+            let resolved =
+                RateLimiting::<Runtime>::resolved_limit(&target, &None);
+
+            let (global, contextual) = match limits {
+                RateLimit::Global(kind) => (Some(kind), sp_std::vec::Vec::new()),
+                RateLimit::Scoped(entries) => (
+                    None,
+                    entries
+                        .into_iter()
+                        .map(|(scope, kind)| (scope.encode(), kind))
+                        .collect(),
+                ),
+            };
+
+            Some(RateLimitRpcResponse {
+                global,
+                contextual,
+                default_limit,
+                resolved,
+            })
         }
     }
 

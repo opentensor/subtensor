@@ -388,7 +388,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         PendingOwnerCut::<Test>::insert(net, AlphaCurrency::from(1));
         BlocksSinceLastStep::<Test>::insert(net, 1u64);
         LastMechansimStepBlock::<Test>::insert(net, 1u64);
-        ServingRateLimit::<Test>::insert(net, 1u64);
         Rho::<Test>::insert(net, 1u16);
         AlphaSigmoidSteepness::<Test>::insert(net, 1i16);
 
@@ -399,7 +398,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         BondsMovingAverage::<Test>::insert(net, 1u64);
         BondsPenalty::<Test>::insert(net, 1u16);
         BondsResetOn::<Test>::insert(net, true);
-        WeightsSetRateLimit::<Test>::insert(net, 1u64);
         ValidatorPruneLen::<Test>::insert(net, 1u64);
         ScalingLawPower::<Test>::insert(net, 1u16);
         TargetRegistrationsPerInterval::<Test>::insert(net, 1u16);
@@ -548,7 +546,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!PendingOwnerCut::<Test>::contains_key(net));
         assert!(!BlocksSinceLastStep::<Test>::contains_key(net));
         assert!(!LastMechansimStepBlock::<Test>::contains_key(net));
-        assert!(!ServingRateLimit::<Test>::contains_key(net));
         assert!(!Rho::<Test>::contains_key(net));
         assert!(!AlphaSigmoidSteepness::<Test>::contains_key(net));
 
@@ -559,7 +556,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!BondsMovingAverage::<Test>::contains_key(net));
         assert!(!BondsPenalty::<Test>::contains_key(net));
         assert!(!BondsResetOn::<Test>::contains_key(net));
-        assert!(!WeightsSetRateLimit::<Test>::contains_key(net));
         assert!(!ValidatorPruneLen::<Test>::contains_key(net));
         assert!(!ScalingLawPower::<Test>::contains_key(net));
         assert!(!TargetRegistrationsPerInterval::<Test>::contains_key(net));
@@ -1754,23 +1750,6 @@ fn test_register_subnet_high_lock_cost() {
             SubnetAlphaIn::<Test>::get(netuid),
             lock_cost.to_u64().into()
         );
-    })
-}
-
-#[test]
-fn test_tempo_greater_than_weight_set_rate_limit() {
-    new_test_ext(1).execute_with(|| {
-        let subnet_owner_hotkey = U256::from(1);
-        let subnet_owner_coldkey = U256::from(2);
-
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-
-        // Get tempo
-        let tempo = SubtensorModule::get_tempo(netuid);
-
-        let weights_set_rate_limit = SubtensorModule::get_weights_set_rate_limit(netuid);
-
-        assert!(tempo as u64 >= weights_set_rate_limit);
     })
 }
 

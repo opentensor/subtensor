@@ -24,6 +24,7 @@ where
         + pallet_crowdloan::Config
         + pallet_evm::Config
         + pallet_proxy::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
@@ -52,6 +53,7 @@ where
         + pallet_crowdloan::Config
         + pallet_evm::Config
         + pallet_proxy::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config

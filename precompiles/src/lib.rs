@@ -70,7 +70,11 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
-        + pallet_shield::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
+        > + pallet_shield::Config
         + pallet_subtensor_proxy::Config
         + Send
         + Sync
@@ -81,6 +85,7 @@ where
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
@@ -107,7 +112,11 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
-        + pallet_shield::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
+        > + pallet_shield::Config
         + pallet_subtensor_proxy::Config
         + Send
         + Sync
@@ -118,6 +127,7 @@ where
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
@@ -174,7 +184,11 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
-        + pallet_shield::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
+        > + pallet_shield::Config
         + pallet_subtensor_proxy::Config
         + Send
         + Sync
@@ -185,6 +199,7 @@ where
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
