@@ -71,25 +71,6 @@ export const IVotingPowerABI = [
         "type": "uint16"
       }
     ],
-    "name": "getVotingPowerEmaAlpha",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint16",
-        "name": "netuid",
-        "type": "uint16"
-      }
-    ],
     "name": "getTotalVotingPower",
     "outputs": [
       {

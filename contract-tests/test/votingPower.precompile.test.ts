@@ -65,20 +65,6 @@ describe("Test VotingPower Precompile", () => {
             assert.strictEqual(typeof disableAtBlock, 'bigint', "getVotingPowerDisableAtBlock should return a bigint");
             assert.strictEqual(disableAtBlock, BigInt(0), "Disable at block should be 0 when not scheduled");
         });
-
-        it("getVotingPowerEmaAlpha returns default alpha value", async () => {
-            const alpha = await publicClient.readContract({
-                abi: IVotingPowerABI,
-                address: toViemAddress(IVOTING_POWER_ADDRESS),
-                functionName: "getVotingPowerEmaAlpha",
-                args: [subnetId]
-            })
-
-            assert.ok(alpha !== undefined, "getVotingPowerEmaAlpha should return a value");
-            assert.strictEqual(typeof alpha, 'bigint', "getVotingPowerEmaAlpha should return a bigint");
-            // Default alpha is 0.1 * 10^18 = 100_000_000_000_000_000
-            assert.strictEqual(alpha, BigInt("100000000000000000"), "Default alpha should be 0.1 (100_000_000_000_000_000)");
-        });
     });
 
     describe("VotingPower Query Functions", () => {
@@ -176,7 +162,7 @@ describe("Test VotingPower Precompile", () => {
         it("All VotingPower precompile functions can be called", async () => {
             const hotkeyBytes32 = '0x' + Buffer.from(hotkey.publicKey).toString('hex');
 
-            // Test all five functions
+            // Test all four functions
             const results = await Promise.all([
                 publicClient.readContract({
                     abi: IVotingPowerABI,
@@ -199,12 +185,6 @@ describe("Test VotingPower Precompile", () => {
                 publicClient.readContract({
                     abi: IVotingPowerABI,
                     address: toViemAddress(IVOTING_POWER_ADDRESS),
-                    functionName: "getVotingPowerEmaAlpha",
-                    args: [subnetId]
-                }),
-                publicClient.readContract({
-                    abi: IVotingPowerABI,
-                    address: toViemAddress(IVOTING_POWER_ADDRESS),
                     functionName: "getTotalVotingPower",
                     args: [subnetId]
                 })
@@ -219,8 +199,7 @@ describe("Test VotingPower Precompile", () => {
             assert.strictEqual(typeof results[0], 'bigint', "getVotingPower should return bigint");
             assert.strictEqual(typeof results[1], 'boolean', "isVotingPowerTrackingEnabled should return boolean");
             assert.strictEqual(typeof results[2], 'bigint', "getVotingPowerDisableAtBlock should return bigint");
-            assert.strictEqual(typeof results[3], 'bigint', "getVotingPowerEmaAlpha should return bigint");
-            assert.strictEqual(typeof results[4], 'bigint', "getTotalVotingPower should return bigint");
+            assert.strictEqual(typeof results[3], 'bigint', "getTotalVotingPower should return bigint");
         });
     });
 });

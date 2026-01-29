@@ -92,24 +92,6 @@ where
         ))
     }
 
-    /// Get the EMA alpha value for voting power calculation on a subnet.
-    ///
-    /// Alpha is stored with 18 decimal precision (1.0 = 10^18).
-    /// Higher alpha = faster response to stake changes.
-    ///
-    /// # Arguments
-    /// * `netuid` - The subnet identifier (u16)
-    ///
-    /// # Returns
-    /// * `u64` - The alpha value (with 18 decimal precision)
-    #[precompile::public("getVotingPowerEmaAlpha(uint16)")]
-    #[precompile::view]
-    fn get_voting_power_ema_alpha(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::VotingPowerEmaAlpha::<R>::get(
-            NetUid::from(netuid),
-        ))
-    }
-
     /// Get total voting power for a subnet.
     ///
     /// Returns the sum of all voting power for all validators on the subnet.
