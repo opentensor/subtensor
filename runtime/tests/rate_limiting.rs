@@ -6,7 +6,7 @@ use node_subtensor_runtime::{
     Executive, HotkeySwapOnSubnetInterval, Runtime, RuntimeCall, SignedPayload,
     SubtensorInitialTxDelegateTakeRateLimit, System, TransactionExtensions, UncheckedExtrinsic,
     check_nonce,
-    rate_limiting::legacy::{RateLimitKey, storage as legacy_storage},
+    rate_limiting::legacy::{Hyperparameter, RateLimitKey, storage as legacy_storage},
     sudo_wrapper, transaction_payment_wrapper,
 };
 use pallet_rate_limiting::RateLimitTarget;
@@ -1162,6 +1162,108 @@ mod swap_keys {
                         netuid: None,
                     });
                 assert_extrinsic_rate_limited(&new_coldkey, &new_coldkey_pair, swap_hotkey_call);
+            });
+    }
+}
+
+mod owner_hparams {
+    use super::*;
+
+    fn setup_owner_network(netuid: NetUid, owner: &AccountId, tempo: u16) {
+        pallet_subtensor::Pallet::<Runtime>::init_new_network(netuid, tempo);
+        pallet_subtensor::SubnetOwner::<Runtime>::insert(netuid, owner.clone());
+    }
+
+    #[test]
+    fn owner_hparams_respect_migrated_last_seen_and_tempo_scaling() {
+        let owner_pair = sr25519::Pair::from_seed(&[50u8; 32]);
+        let owner = AccountId::from(owner_pair.public());
+        let balance = 10_000_000_000_000_u64;
+        let netuid = NetUid::from(30u16);
+        let tempo = 2u16;
+        let epochs: u64 = 2;
+        let legacy_last_seen = 9u64;
+
+        ExtBuilder::default()
+            .with_balances(vec![(owner.clone(), balance)])
+            .build()
+            .execute_with(|| {
+                System::set_block_number(10);
+                setup_owner_network(netuid, &owner, tempo);
+                pallet_subtensor::AdminFreezeWindow::<Runtime>::put(0);
+
+                legacy_storage::set_owner_hyperparam_rate_limit(epochs);
+                legacy_storage::set_last_rate_limited_block(
+                    RateLimitKey::OwnerHyperparamUpdate(netuid, Hyperparameter::ActivityCutoff),
+                    legacy_last_seen,
+                );
+
+                Executive::execute_on_runtime_upgrade();
+
+                let activity_cutoff = pallet_subtensor::MinActivityCutoff::<Runtime>::get();
+                let set_cutoff =
+                    RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_activity_cutoff {
+                        netuid,
+                        activity_cutoff,
+                    });
+
+                // Migrated last-seen should enforce immediately.
+                assert_extrinsic_rate_limited(&owner, &owner_pair, set_cutoff.clone());
+
+                let span = (tempo as u64) * epochs;
+                System::set_block_number((legacy_last_seen + span).saturated_into());
+                assert_extrinsic_ok(&owner, &owner_pair, set_cutoff.clone());
+
+                // Different hyperparameter should not be blocked by the cutoff call.
+                let set_rho = RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_rho {
+                    netuid,
+                    rho: 1,
+                });
+                assert_extrinsic_ok(&owner, &owner_pair, set_rho);
+
+                // Same hyperparameter should still be rate-limited.
+                assert_extrinsic_rate_limited(&owner, &owner_pair, set_cutoff);
+            });
+    }
+
+    #[test]
+    fn owner_hparams_are_rate_limited_per_netuid() {
+        let owner_pair = sr25519::Pair::from_seed(&[51u8; 32]);
+        let owner = AccountId::from(owner_pair.public());
+        let balance = 10_000_000_000_000_u64;
+        let netuid_a = NetUid::from(31u16);
+        let netuid_b = NetUid::from(32u16);
+        let tempo = 1u16;
+        let epochs: u64 = 2;
+
+        ExtBuilder::default()
+            .with_balances(vec![(owner.clone(), balance)])
+            .build()
+            .execute_with(|| {
+                System::set_block_number(1);
+                setup_owner_network(netuid_a, &owner, tempo);
+                setup_owner_network(netuid_b, &owner, tempo);
+                pallet_subtensor::AdminFreezeWindow::<Runtime>::put(0);
+
+                legacy_storage::set_owner_hyperparam_rate_limit(epochs);
+                Executive::execute_on_runtime_upgrade();
+
+                let activity_cutoff = pallet_subtensor::MinActivityCutoff::<Runtime>::get();
+                let set_cutoff_a =
+                    RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_activity_cutoff {
+                        netuid: netuid_a,
+                        activity_cutoff,
+                    });
+                let set_cutoff_b =
+                    RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_activity_cutoff {
+                        netuid: netuid_b,
+                        activity_cutoff,
+                    });
+
+                assert_extrinsic_ok(&owner, &owner_pair, set_cutoff_a.clone());
+                assert_extrinsic_ok(&owner, &owner_pair, set_cutoff_b);
+
+                assert_extrinsic_rate_limited(&owner, &owner_pair, set_cutoff_a);
             });
     }
 }
