@@ -21,6 +21,19 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
+    // Proxy-aware staking functions (caller acts on behalf of real_coldkey)
+    AddStakeAsProxyV1 = 16,
+    RemoveStakeAsProxyV1 = 17,
+    UnstakeAllAsProxyV1 = 18,
+    UnstakeAllAlphaAsProxyV1 = 19,
+    MoveStakeAsProxyV1 = 20,
+    TransferStakeAsProxyV1 = 21,
+    SwapStakeAsProxyV1 = 22,
+    AddStakeLimitAsProxyV1 = 23,
+    RemoveStakeLimitAsProxyV1 = 24,
+    SwapStakeLimitAsProxyV1 = 25,
+    RemoveStakeFullLimitAsProxyV1 = 26,
+    SetColdkeyAutoStakeHotkeyAsProxyV1 = 27,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
@@ -66,6 +79,8 @@ pub enum Output {
     ProxyNoSelfProxy = 18,
     /// Proxy relationship not found
     ProxyNotFound = 19,
+    /// Caller is not an authorized proxy for the specified account
+    NotAuthorizedProxy = 20,
 }
 
 impl From<DispatchError> for Output {
@@ -93,6 +108,7 @@ impl From<DispatchError> for Output {
             Some("Duplicate") => Output::ProxyDuplicate,
             Some("NoSelfProxy") => Output::ProxyNoSelfProxy,
             Some("NotFound") => Output::ProxyNotFound,
+            Some("NotProxy") => Output::NotAuthorizedProxy,
             _ => Output::RuntimeError,
         }
     }

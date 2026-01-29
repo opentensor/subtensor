@@ -530,6 +530,467 @@ where
 
                 Ok(RetVal::Converging(Output::Success as u32))
             }
+            // ============================================================
+            // Proxy-aware staking functions
+            // These allow a contract to act on behalf of a real_coldkey
+            // if the contract has been granted appropriate proxy permissions.
+            // ============================================================
+            FunctionId::AddStakeAsProxyV1 => {
+                let weight = Weight::from_parts(340_800_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(25_u64))
+                    .saturating_add(T::DbWeight::get().writes(15));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, hotkey, netuid, amount_staked): (
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    TaoCurrency,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::add_stake(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    hotkey,
+                    netuid,
+                    amount_staked,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::RemoveStakeAsProxyV1 => {
+                let weight = Weight::from_parts(196_800_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(20))
+                    .saturating_add(T::DbWeight::get().writes(10));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, hotkey, netuid, amount_unstaked): (
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    AlphaCurrency,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::remove_stake(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    hotkey,
+                    netuid,
+                    amount_unstaked,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::UnstakeAllAsProxyV1 => {
+                let weight = Weight::from_parts(28_830_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(7))
+                    .saturating_add(T::DbWeight::get().writes(0));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, hotkey): (T::AccountId, T::AccountId) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::unstake_all(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    hotkey,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::UnstakeAllAlphaAsProxyV1 => {
+                let weight = Weight::from_parts(358_500_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(37_u64))
+                    .saturating_add(T::DbWeight::get().writes(21_u64));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, hotkey): (T::AccountId, T::AccountId) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::unstake_all_alpha(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    hotkey,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::MoveStakeAsProxyV1 => {
+                let weight = Weight::from_parts(164_300_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(16_u64))
+                    .saturating_add(T::DbWeight::get().writes(7_u64));
+
+                env.charge_weight(weight)?;
+
+                let (
+                    real_coldkey,
+                    origin_hotkey,
+                    destination_hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                ): (T::AccountId, T::AccountId, T::AccountId, NetUid, NetUid, AlphaCurrency) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::move_stake(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    origin_hotkey,
+                    destination_hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::TransferStakeAsProxyV1 => {
+                let weight = Weight::from_parts(160_300_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(14_u64))
+                    .saturating_add(T::DbWeight::get().writes(6_u64));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, destination_coldkey, hotkey, origin_netuid, destination_netuid, alpha_amount): (
+                    T::AccountId,
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    NetUid,
+                    AlphaCurrency,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Transfer))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::transfer_stake(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    destination_coldkey,
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::SwapStakeAsProxyV1 => {
+                let weight = Weight::from_parts(351_300_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(36_u64))
+                    .saturating_add(T::DbWeight::get().writes(22_u64));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, hotkey, origin_netuid, destination_netuid, alpha_amount): (
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    NetUid,
+                    AlphaCurrency,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::swap_stake(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::AddStakeLimitAsProxyV1 => {
+                let weight = Weight::from_parts(402_900_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(25_u64))
+                    .saturating_add(T::DbWeight::get().writes(15));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, hotkey, netuid, amount_staked, limit_price, allow_partial): (
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    TaoCurrency,
+                    TaoCurrency,
+                    bool,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::add_stake_limit(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    hotkey,
+                    netuid,
+                    amount_staked,
+                    limit_price,
+                    allow_partial,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::RemoveStakeLimitAsProxyV1 => {
+                let weight = Weight::from_parts(377_400_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(29_u64))
+                    .saturating_add(T::DbWeight::get().writes(14));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, hotkey, netuid, amount_unstaked, limit_price, allow_partial): (
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    AlphaCurrency,
+                    TaoCurrency,
+                    bool,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::remove_stake_limit(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    hotkey,
+                    netuid,
+                    amount_unstaked,
+                    limit_price,
+                    allow_partial,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::SwapStakeLimitAsProxyV1 => {
+                let weight = Weight::from_parts(411_500_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(36_u64))
+                    .saturating_add(T::DbWeight::get().writes(22_u64));
+
+                env.charge_weight(weight)?;
+
+                let (
+                    real_coldkey,
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                    limit_price,
+                    allow_partial,
+                ): (
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    NetUid,
+                    AlphaCurrency,
+                    TaoCurrency,
+                    bool,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::swap_stake_limit(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                    limit_price,
+                    allow_partial,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::RemoveStakeFullLimitAsProxyV1 => {
+                let weight = Weight::from_parts(395_300_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(29_u64))
+                    .saturating_add(T::DbWeight::get().writes(14_u64));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, hotkey, netuid, limit_price): (
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    Option<TaoCurrency>,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::remove_stake_full_limit(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    hotkey,
+                    netuid,
+                    limit_price,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::SetColdkeyAutoStakeHotkeyAsProxyV1 => {
+                let weight = Weight::from_parts(29_930_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(5_u64))
+                    .saturating_add(T::DbWeight::get().writes(2_u64));
+
+                env.charge_weight(weight)?;
+
+                let (real_coldkey, netuid, hotkey): (T::AccountId, NetUid, T::AccountId) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let caller = env.caller();
+                if real_coldkey != caller {
+                    pallet_proxy::Pallet::<T>::find_proxy(&real_coldkey, &caller, Some(ProxyType::Staking))
+                        .map_err(|_| DispatchError::Other("NotProxy"))?;
+                }
+
+                let call_result = pallet_subtensor::Pallet::<T>::set_coldkey_auto_stake_hotkey(
+                    RawOrigin::Signed(real_coldkey).into(),
+                    netuid,
+                    hotkey,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
         }
     }
 }
