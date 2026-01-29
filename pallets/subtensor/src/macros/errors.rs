@@ -268,5 +268,7 @@ mod errors {
         InvalidSubnetNumber,
         /// Unintended precision loss when unstaking alpha
         PrecisionLoss,
+        /// Subnet buyback exceeded the operation rate limit
+        SubnetBuybackRateLimitExceeded,
     }
 }

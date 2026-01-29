@@ -145,6 +145,15 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         Self::ensure_subnet_owner(origin.clone(), netuid)?;
 
+        let current_block = Self::get_current_block_as_u64();
+        let last_block = Self::get_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid));
+        let rate_limit = TransactionType::SubnetBuyback.rate_limit_on_subnet::<T>(netuid);
+
+        ensure!(
+            last_block.is_zero() || current_block.saturating_sub(last_block) >= rate_limit,
+            Error::<T>::SubnetBuybackRateLimitExceeded
+        );
+
         let alpha = if let Some(limit) = limit {
             Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
         } else {
@@ -152,6 +161,8 @@ impl<T: Config> Pallet<T> {
         };
 
         Self::do_burn_alpha(origin, hotkey, alpha, netuid)?;
+
+        Self::set_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid), current_block);
 
         Ok(())
     }

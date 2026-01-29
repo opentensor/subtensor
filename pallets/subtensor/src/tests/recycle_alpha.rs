@@ -832,3 +832,66 @@ fn test_subnet_buyback_insufficient_balance_fails() {
         );
     });
 }
+
+#[test]
+fn test_subnet_buyback_rate_limit_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount: u64 = 10_000_000_000; // 10 TAO
+
+        // Add network
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Setup reserves with large liquidity
+        let tao_reserve = TaoCurrency::from(1_000_000_000_000);
+        let alpha_in = AlphaCurrency::from(1_000_000_000_000);
+        mock::setup_reserves(netuid, tao_reserve, alpha_in);
+
+        // Give coldkey sufficient balance for multiple buybacks
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount * 10);
+
+        assert_eq!(
+            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid)),
+            0
+        );
+
+        // First buyback should succeed
+        assert_ok!(SubtensorModule::subnet_buyback(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount.into(),
+            None,
+        ));
+
+        assert_eq!(
+            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid)),
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+        // Second buyback immediately after should fail due to rate limit
+        assert_noop!(
+            SubtensorModule::subnet_buyback(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount.into(),
+                None,
+            ),
+            Error::<Test>::SubnetBuybackRateLimitExceeded
+        );
+
+        // After stepping past the rate limit, buyback should succeed again
+        let rate_limit = TransactionType::SubnetBuyback.rate_limit_on_subnet::<Test>(netuid);
+        step_block(rate_limit as u16);
+
+        assert_ok!(SubtensorModule::subnet_buyback(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount.into(),
+            None,
+        ));
+    });
+}
