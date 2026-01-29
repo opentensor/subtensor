@@ -1017,11 +1017,7 @@ impl<T: Config> Pallet<T> {
                 .get(terms.uid)
                 .copied()
                 .unwrap_or_default();
-            terms.stake = raw_stake
-                .get(terms.uid)
-                .copied()
-                .unwrap_or_default()
-                .into();
+            terms.stake = raw_stake.get(terms.uid).copied().unwrap_or_default().into();
             let old_validator_permit = validator_permits
                 .get(terms.uid)
                 .copied()
