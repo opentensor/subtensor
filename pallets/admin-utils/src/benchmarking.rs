@@ -488,7 +488,13 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_coldkey_swap_schedule_duration() {
+    fn sudo_set_coldkey_swap_announcement_delay() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u32.into());
+    }
+
+    #[benchmark]
+    fn sudo_set_coldkey_swap_reannouncement_delay() {
         #[extrinsic_call]
         _(RawOrigin::Root, 100u32.into());
     }

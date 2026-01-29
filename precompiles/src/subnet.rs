@@ -27,7 +27,9 @@ where
             LimitScope = NetUid,
             GroupId = subtensor_runtime_common::rate_limiting::GroupId,
             RuntimeCall = <R as frame_system::Config>::RuntimeCall,
-        > + Send
+        > + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
+        + Send
         + Sync
         + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]>,
@@ -38,7 +40,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     const INDEX: u64 = 2051;
@@ -51,12 +55,14 @@ where
         + pallet_balances::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
+        + pallet_shield::Config
         + pallet_admin_utils::Config
         + pallet_rate_limiting::Config<
             LimitScope = NetUid,
             GroupId = subtensor_runtime_common::rate_limiting::GroupId,
             RuntimeCall = <R as frame_system::Config>::RuntimeCall,
-        > + Send
+        > + pallet_subtensor_proxy::Config
+        + Send
         + Sync
         + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]>,
@@ -67,7 +73,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     #[precompile::public("registerNetwork(bytes32)")]

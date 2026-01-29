@@ -135,8 +135,6 @@ mod errors {
         ColdKeyAlreadyAssociated,
         /// The coldkey balance is not enough to pay for the swap
         NotEnoughBalanceToPaySwapColdKey,
-        /// The coldkey is in arbitration
-        ColdkeyIsInArbitration,
         /// Attempting to set an invalid child for a hotkey on a network.
         InvalidChild,
         /// Duplicate child when setting children.
@@ -147,10 +145,16 @@ mod errors {
         TooManyChildren,
         /// Default transaction rate limit exceeded.
         TxRateLimitExceeded,
-        /// Swap already scheduled.
-        SwapAlreadyScheduled,
-        /// failed to swap coldkey
-        FailedToSchedule,
+        /// Coldkey swap announcement not found
+        ColdkeySwapAnnouncementNotFound,
+        /// Coldkey swap too early.
+        ColdkeySwapTooEarly,
+        /// Coldkey swap reannounced too early.
+        ColdkeySwapReannouncedTooEarly,
+        /// The announced coldkey hash does not match the new coldkey hash.
+        AnnouncedColdkeyHashDoesNotMatch,
+        /// Coldkey swap already disputed
+        ColdkeySwapAlreadyDisputed,
         /// New coldkey is hotkey
         NewColdKeyIsHotkey,
         /// Childkey take is invalid.
@@ -261,5 +265,7 @@ mod errors {
         InvalidSubnetNumber,
         /// Unintended precision loss when unstaking alpha
         PrecisionLoss,
+        /// Deprecated call.
+        Deprecated,
     }
 }

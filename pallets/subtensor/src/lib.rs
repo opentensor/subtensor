@@ -35,6 +35,7 @@ mod benchmarks;
 // =========================
 pub mod coinbase;
 pub mod epoch;
+pub mod extensions;
 pub mod macros;
 pub mod migrations;
 pub mod rpc_info;
@@ -45,9 +46,10 @@ pub mod utils;
 use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
+pub use extensions::*;
+
 #[cfg(test)]
 mod tests;
-pub mod transaction_extension;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
@@ -908,16 +910,16 @@ pub mod pallet {
         (45875, 58982)
     }
 
-    /// Default value for coldkey swap schedule duration
+    /// Default value for coldkey swap announcement delay.
     #[pallet::type_value]
-    pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
-        T::InitialColdkeySwapScheduleDuration::get()
+    pub fn DefaultColdkeySwapAnnouncementDelay<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapAnnouncementDelay::get()
     }
 
-    /// Default value for coldkey swap reschedule duration
+    /// Default value for coldkey swap reannouncement delay.
     #[pallet::type_value]
-    pub fn DefaultColdkeySwapRescheduleDuration<T: Config>() -> BlockNumberFor<T> {
-        T::InitialColdkeySwapRescheduleDuration::get()
+    pub fn DefaultColdkeySwapReannouncementDelay<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapReannouncementDelay::get()
     }
 
     /// Default value for applying pending items (e.g. childkeys).
@@ -982,15 +984,6 @@ pub mod pallet {
         360
     }
 
-    /// Default value for coldkey swap scheduled
-    #[pallet::type_value]
-    pub fn DefaultColdkeySwapScheduled<T: Config>() -> (BlockNumberFor<T>, T::AccountId) {
-        #[allow(clippy::expect_used)]
-        let default_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
-            .expect("trailing zeroes always produce a valid account ID; qed");
-        (BlockNumberFor::<T>::from(0_u32), default_account)
-    }
-
     /// Default value for setting subnet owner hotkey rate limit
     #[pallet::type_value]
     pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
@@ -1035,16 +1028,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type AdminFreezeWindow<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultAdminFreezeWindow<T>>;
-
-    /// Duration of coldkey swap schedule before execution
-    #[pallet::storage]
-    pub type ColdkeySwapScheduleDuration<T: Config> =
-        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
-
-    /// Duration of coldkey swap reschedule before execution
-    #[pallet::storage]
-    pub type ColdkeySwapRescheduleDuration<T: Config> =
-        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapRescheduleDuration<T>>;
 
     /// Duration of dissolve network schedule before execution
     #[pallet::storage]
@@ -1327,16 +1310,27 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// --- DMAP ( cold ) --> (block_expected, new_coldkey), Maps coldkey to the block to swap at and new coldkey.
+    /// The delay after an announcement before a coldkey swap can be performed.
     #[pallet::storage]
-    pub type ColdkeySwapScheduled<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        (BlockNumberFor<T>, T::AccountId),
-        ValueQuery,
-        DefaultColdkeySwapScheduled<T>,
-    >;
+    pub type ColdkeySwapAnnouncementDelay<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapAnnouncementDelay<T>>;
+
+    /// The delay after the initial delay has passed before a new announcement can be made.
+    #[pallet::storage]
+    pub type ColdkeySwapReannouncementDelay<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapReannouncementDelay<T>>;
+
+    /// A map of the coldkey swap announcements from a coldkey
+    /// to the block number the coldkey swap can be performed.
+    #[pallet::storage]
+    pub type ColdkeySwapAnnouncements<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, (BlockNumberFor<T>, T::Hash), OptionQuery>;
+
+    /// A map of the coldkey swap disputes from a coldkey to the
+    /// block number the coldkey swap was disputed.
+    #[pallet::storage]
+    pub type ColdkeySwapDisputes<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, BlockNumberFor<T>, OptionQuery>;
 
     /// --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     #[pallet::storage]
@@ -2358,7 +2352,7 @@ pub mod pallet {
 
 #[derive(Debug, PartialEq)]
 pub enum CustomTransactionError {
-    ColdkeyInSwapSchedule,
+    ColdkeySwapAnnounced,
     StakeAmountTooLow,
     BalanceTooLow,
     SubnetNotExists,
@@ -2379,12 +2373,14 @@ pub enum CustomTransactionError {
     InputLengthsUnequal,
     UidNotFound,
     EvmKeyAssociateRateLimitExceeded,
+    ColdkeySwapDisputed,
+    InvalidRealAccount,
 }
 
 impl From<CustomTransactionError> for u8 {
     fn from(variant: CustomTransactionError) -> u8 {
         match variant {
-            CustomTransactionError::ColdkeyInSwapSchedule => 0,
+            CustomTransactionError::ColdkeySwapAnnounced => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
             CustomTransactionError::BalanceTooLow => 2,
             CustomTransactionError::SubnetNotExists => 3,
@@ -2405,6 +2401,8 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::InputLengthsUnequal => 18,
             CustomTransactionError::UidNotFound => 19,
             CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
+            CustomTransactionError::ColdkeySwapDisputed => 21,
+            CustomTransactionError::InvalidRealAccount => 22,
         }
     }
 }

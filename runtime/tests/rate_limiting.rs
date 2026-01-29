@@ -68,7 +68,7 @@ fn signed_extrinsic(call: RuntimeCall, pair: &sr25519::Pair, nonce: u32) -> Unch
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
         ),
         sudo_wrapper::SudoTransactionExtension::<Runtime>::new(),
-        pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(),
+        pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
         (
             pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             check_metadata_hash,

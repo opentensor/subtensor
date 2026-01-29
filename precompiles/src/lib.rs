@@ -74,7 +74,9 @@ where
             LimitScope = subtensor_runtime_common::NetUid,
             GroupId = subtensor_runtime_common::rate_limiting::GroupId,
             RuntimeCall = <R as frame_system::Config>::RuntimeCall,
-        > + Send
+        > + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
+        + Send
         + Sync
         + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
@@ -88,7 +90,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -112,7 +116,9 @@ where
             LimitScope = subtensor_runtime_common::NetUid,
             GroupId = subtensor_runtime_common::rate_limiting::GroupId,
             RuntimeCall = <R as frame_system::Config>::RuntimeCall,
-        > + Send
+        > + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
+        + Send
         + Sync
         + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
@@ -126,7 +132,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -180,7 +188,9 @@ where
             LimitScope = subtensor_runtime_common::NetUid,
             GroupId = subtensor_runtime_common::rate_limiting::GroupId,
             RuntimeCall = <R as frame_system::Config>::RuntimeCall,
-        > + Send
+        > + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
+        + Send
         + Sync
         + scale_info::TypeInfo,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
@@ -195,6 +205,8 @@ where
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>
         + Decode,
     <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
         From<Option<pallet_evm::AccountIdOf<R>>>,

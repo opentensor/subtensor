@@ -843,19 +843,14 @@ impl<T: Config> Pallet<T> {
         TransferToggle::<T>::get(netuid)
     }
 
-    /// Set the duration for coldkey swap
-    ///
-    /// # Arguments
-    ///
-    /// * `duration` - The blocks for coldkey swap execution.
-    ///
-    /// # Effects
-    ///
-    /// * Update the ColdkeySwapScheduleDuration storage.
-    /// * Emits a ColdkeySwapScheduleDurationSet evnet.
-    pub fn set_coldkey_swap_schedule_duration(duration: BlockNumberFor<T>) {
-        ColdkeySwapScheduleDuration::<T>::set(duration);
-        Self::deposit_event(Event::ColdkeySwapScheduleDurationSet(duration));
+    pub fn set_coldkey_swap_announcement_delay(duration: BlockNumberFor<T>) {
+        ColdkeySwapAnnouncementDelay::<T>::set(duration);
+        Self::deposit_event(Event::ColdkeySwapAnnouncementDelaySet(duration));
+    }
+
+    pub fn set_coldkey_swap_reannouncement_delay(duration: BlockNumberFor<T>) {
+        ColdkeySwapReannouncementDelay::<T>::set(duration);
+        Self::deposit_event(Event::ColdkeySwapReannouncementDelaySet(duration));
     }
 
     /// Set the duration for dissolve network

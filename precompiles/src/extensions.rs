@@ -11,7 +11,7 @@ use pallet_evm::{
     PrecompileFailure, PrecompileHandle, PrecompileResult,
 };
 use pallet_rate_limiting::RateLimitTransactionExtension;
-use pallet_subtensor::transaction_extension::SubtensorTransactionExtension;
+use pallet_subtensor::SubtensorTransactionExtension;
 use precompile_utils::EvmResult;
 use scale_info::TypeInfo;
 use sp_core::{H160, U256, blake2_256};
@@ -66,6 +66,8 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             + pallet_evm::Config
             + pallet_rate_limiting::Config<RuntimeCall = RuntimeCallOf<R>>
             + pallet_subtensor::Config
+            + pallet_shield::Config
+            + pallet_subtensor_proxy::Config
             + Send
             + Sync
             + TypeInfo,
@@ -73,7 +75,9 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         RuntimeCallOf<R>: GetDispatchInfo
             + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
             + IsSubType<pallet_balances::Call<R>>
-            + IsSubType<pallet_subtensor::Call<R>>,
+            + IsSubType<pallet_subtensor::Call<R>>
+            + IsSubType<pallet_shield::Call<R>>
+            + IsSubType<pallet_subtensor_proxy::Call<R>>,
         <R as frame_system::Config>::RuntimeOrigin:
             From<RawOrigin<R::AccountId>> + AsSystemOriginSigner<R::AccountId> + Clone,
     {
