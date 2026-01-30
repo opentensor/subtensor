@@ -210,7 +210,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubnetNotExists
         );
 
-        Self::finalize_all_subnet_root_dividends(netuid);
+        Self::clear_root_claim_root_data(netuid);
 
         // --- Perform the cleanup before removing the network.
         T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;

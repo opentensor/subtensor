@@ -326,6 +326,20 @@ pub mod pallet {
     /// ==== Staking + Accounts ====
     /// ============================
 
+    #[crate::freeze_struct("e453805be107a384")]
+    #[derive(
+        Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
+    )]
+    /// Accounting root claim data per subnet per block.
+    pub struct PendingRootClaimedData {
+        /// Total alpha kept this block
+        pub alpha_kept: AlphaCurrency,
+        /// Total alpha swapped this block
+        pub alpha_swapped: AlphaCurrency,
+        /// Total TAO swapped this block
+        pub tao_swapped: TaoCurrency,
+    }
+
     #[derive(
         Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
     )]
@@ -357,6 +371,12 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultRootClaimType<T: Config>() -> RootClaimTypeEnum {
         RootClaimTypeEnum::default()
+    }
+
+    /// Default root claim accounting data.
+    #[pallet::type_value]
+    pub fn DefaultRootClaimedData<T: Config>() -> PendingRootClaimedData {
+        PendingRootClaimedData::default()
     }
 
     /// Default number of root claims per claim call.
@@ -2262,6 +2282,17 @@ pub mod pallet {
     pub type NumStakingColdkeys<T: Config> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- Value --> num_root_claim | Number of coldkeys to claim each auto-claim.
     pub type NumRootClaim<T: Config> = StorageValue<_, u64, ValueQuery, DefaultNumRootClaim<T>>;
+
+    /// --- MAP ( subnet ) --> pending accounting root claimed data. In-block storage only - to be cleaned each block.
+    #[pallet::storage]
+    pub type PendingSubnetRootClaimData<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        NetUid,
+        PendingRootClaimedData,
+        ValueQuery,
+        DefaultRootClaimedData<T>,
+    >;
 
     /// =============================
     /// ==== EVM related storage ====
