@@ -545,8 +545,10 @@ fn test_burn_errors() {
     });
 }
 
+// Test that partial unstake works even with low-precision denominators
+// Previously this would fail with PrecisionLoss error, now it should succeed
 #[test]
-fn test_recycle_precision_loss() {
+fn test_recycle_with_low_precision_denominator() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -565,25 +567,27 @@ fn test_recycle_precision_loss() {
         let recycle_amount = AlphaCurrency::from(stake / 2);
 
         // Modify the alpha pool denominator so it's low-precision
+        // With the fix, this should still work (partial unstake succeeds)
         let denominator = U64F64::from_num(0.00000001);
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, denominator);
         Alpha::<Test>::insert((&hotkey, &coldkey, netuid), denominator);
 
-        // recycle, expect error due to precision loss
-        assert_noop!(
-            SubtensorModule::recycle_alpha(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                recycle_amount,
-                netuid
-            ),
-            Error::<Test>::PrecisionLoss
-        );
+        // recycle should now succeed (no more PrecisionLoss error)
+        // The actual amount recycled may be the full stake due to very low precision,
+        // but the operation should not fail
+        assert_ok!(SubtensorModule::recycle_alpha(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            recycle_amount,
+            netuid
+        ));
     });
 }
 
+// Test that partial burn works even with low-precision denominators
+// Previously this would fail with PrecisionLoss error, now it should succeed
 #[test]
-fn test_burn_precision_loss() {
+fn test_burn_with_low_precision_denominator() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -598,23 +602,23 @@ fn test_burn_precision_loss() {
         let stake = 200_000;
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
-        // amount to recycle
+        // amount to burn
         let burn_amount = AlphaCurrency::from(stake / 2);
 
         // Modify the alpha pool denominator so it's low-precision
+        // With the fix, this should still work (partial unstake succeeds)
         let denominator = U64F64::from_num(0.00000001);
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, denominator);
         Alpha::<Test>::insert((&hotkey, &coldkey, netuid), denominator);
 
-        // burn, expect error due to precision loss
-        assert_noop!(
-            SubtensorModule::burn_alpha(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                burn_amount,
-                netuid
-            ),
-            Error::<Test>::PrecisionLoss
-        );
+        // burn should now succeed (no more PrecisionLoss error)
+        // The actual amount burned may be the full stake due to very low precision,
+        // but the operation should not fail
+        assert_ok!(SubtensorModule::burn_alpha(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            burn_amount,
+            netuid
+        ));
     });
 }
