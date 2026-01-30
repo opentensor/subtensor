@@ -401,10 +401,8 @@ impl<T: Config> Pallet<T> {
             for key in keys {
                 let (_, coldkey, netuid) = key.clone();
 
-                if netuid == NetUid::ROOT {
-                    if Self::maybe_add_coldkey_index(&coldkey) {
-                        added_coldkeys = added_coldkeys.saturating_add(1);
-                    }
+                if netuid == NetUid::ROOT && Self::maybe_add_coldkey_index(&coldkey) {
+                    added_coldkeys = added_coldkeys.saturating_add(1);
                 }
 
                 new_starting_key = Some(Alpha::<T>::hashed_key_for(key));
