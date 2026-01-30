@@ -10,6 +10,7 @@ use sp_runtime::traits::{
     AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
     ValidateResult,
 };
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
 use sp_runtime::{
     impl_tx_ext_default,
     transaction_validity::{TransactionSource, TransactionValidity, ValidTransaction},
@@ -296,7 +297,11 @@ where
                     .map_err(|_| CustomTransactionError::EvmKeyAssociateRateLimitExceeded)?;
                 Ok((Default::default(), (), origin))
             }
-            Some(Call::subnet_buyback { .. }) => {
+            Some(Call::subnet_buyback { netuid, .. }) => {
+                Pallet::<T>::ensure_subnet_owner(origin.clone(), *netuid).map_err(|_| {
+                    TransactionValidityError::Invalid(InvalidTransaction::BadSigner)
+                })?;
+
                 Ok((Self::validity_ok(SUBNET_BUYBACK_PRIORITY_BOOST), (), origin))
             }
             _ => Ok((Default::default(), (), origin)),
