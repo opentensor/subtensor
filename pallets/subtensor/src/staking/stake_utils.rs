@@ -985,7 +985,7 @@ impl<T: Config> Pallet<T> {
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
             Self::can_remove_balance_from_coldkey_account(coldkey, stake_to_be_added.into()),
-            Error::<T>::NotEnoughBalanceToStake
+            Error::<T>::NotEnoughBalanceToPayStake
         );
 
         // Ensure that the hotkey account exists this is only possible through registration.
