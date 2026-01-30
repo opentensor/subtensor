@@ -719,7 +719,7 @@ mod dispatches {
             netuid: NetUid,
             amount_staked: TaoCurrency,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked).map(|_| ())
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -1702,6 +1702,7 @@ mod dispatches {
                 limit_price,
                 allow_partial,
             )
+            .map(|_| ())
         }
 
         /// --- Removes stake from a hotkey on a subnet with a price limit.
@@ -2486,6 +2487,25 @@ mod dispatches {
 
             Self::deposit_event(Event::ColdkeySwapReset { who: coldkey });
             Ok(())
+        }
+
+        /// --- Subnet buyback
+        #[pallet::call_index(129)]
+        #[pallet::weight((
+		    Weight::from_parts(368_000_000, 8556)
+			.saturating_add(T::DbWeight::get().reads(26_u64))
+			.saturating_add(T::DbWeight::get().writes(16_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn subnet_buyback(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount: TaoCurrency,
+            limit: Option<TaoCurrency>,
+        ) -> DispatchResult {
+            Self::do_subnet_buyback(origin, hotkey, netuid, amount, limit)
         }
     }
 }
