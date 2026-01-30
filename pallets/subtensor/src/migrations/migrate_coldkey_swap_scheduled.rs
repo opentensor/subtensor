@@ -55,13 +55,6 @@ pub fn migrate_coldkey_swap_scheduled<T: Config>() -> Weight {
         }
     }
 
-    let default_value = DefaultColdkeySwapScheduled::<T>::get();
-    ColdkeySwapScheduled::<T>::translate::<(), _>(|_coldkey: AccountIdOf<T>, _: ()| {
-        Some((default_value.0, default_value.1.clone()))
-    });
-    // write once for each item in the map, no matter remove or translate
-    weight.saturating_accrue(T::DbWeight::get().writes(curr_keys.len() as u64));
-
     // ------------------------------
     // Step 2: Mark Migration as Completed
     // ------------------------------
