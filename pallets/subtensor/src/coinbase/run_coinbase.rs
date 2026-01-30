@@ -78,7 +78,10 @@ impl<T: Config> Pallet<T> {
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
                     let bought_alpha: AlphaCurrency = buy_swap_result_ok.amount_paid_out.into();
-                    Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
+                    // Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
+                    PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
+                        *total = total.saturating_add(bought_alpha);
+                    });
                 }
             }
 
@@ -148,8 +151,8 @@ impl<T: Config> Pallet<T> {
             let mut alpha_in_i: U96F32 = tao_emission_i.safe_div_or(price_i, U96F32::from_num(0.0));
 
             let alpha_injection_cap: U96F32 = alpha_emission_i.min(tao_block_emission);
-            if alpha_in_i > alpha_injection_cap {
-                alpha_in_i = alpha_injection_cap;
+            if alpha_in_i > Self::root_proportion(netuid_i) {
+                alpha_in_i = Self::root_proportion(netuid_i) ;
                 tao_in_i = alpha_in_i.saturating_mul(price_i);
             }
 
