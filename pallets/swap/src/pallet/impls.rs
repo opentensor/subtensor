@@ -1160,4 +1160,16 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
     }
+
+    /// Get the amount of Alpha that needs to be sold to get a given amount of Tao
+    fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoCurrency) -> AlphaCurrency {
+        // This is a mock implementation, waiting to merge balancer
+        // TODO: When balancer is merged, simulate with slippage
+        let alpha_price = Self::current_price(netuid.into());
+        AlphaCurrency::from(
+            U96F32::from(u64::from(tao_amount))
+                .safe_div(alpha_price)
+                .saturating_to_num::<u64>(),
+        )
+    }
 }

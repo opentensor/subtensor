@@ -51,21 +51,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // Deduct from the coldkey's stake.
-        let actual_alpha_decrease = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid, amount,
-        );
-
-        ensure!(actual_alpha_decrease <= amount, Error::<T>::PrecisionLoss);
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, amount);
 
         // Recycle means we should decrease the alpha issuance tracker.
-        Self::recycle_subnet_alpha(netuid, actual_alpha_decrease);
+        Self::recycle_subnet_alpha(netuid, amount);
 
-        Self::deposit_event(Event::AlphaRecycled(
-            coldkey,
-            hotkey,
-            actual_alpha_decrease,
-            netuid,
-        ));
+        Self::deposit_event(Event::AlphaRecycled(coldkey, hotkey, amount, netuid));
 
         Ok(())
     }
@@ -118,21 +109,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // Deduct from the coldkey's stake.
-        let actual_alpha_decrease = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid, amount,
-        );
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, amount);
 
-        ensure!(actual_alpha_decrease <= amount, Error::<T>::PrecisionLoss);
-
-        Self::burn_subnet_alpha(netuid, actual_alpha_decrease);
+        Self::burn_subnet_alpha(netuid, amount);
 
         // Deposit event
-        Self::deposit_event(Event::AlphaBurned(
-            coldkey,
-            hotkey,
-            actual_alpha_decrease,
-            netuid,
-        ));
+        Self::deposit_event(Event::AlphaBurned(coldkey, hotkey, amount, netuid));
 
         Ok(())
     }
