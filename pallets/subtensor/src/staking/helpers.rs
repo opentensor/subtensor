@@ -367,6 +367,8 @@ impl<T: Config> Pallet<T> {
     /// alphas. It keeps the alpha value stored when it's >= than MIN_ALPHA.
     /// The function uses AlphaMapLastKey as a storage for key iterator between runs.
     pub fn populate_root_coldkey_staking_maps() {
+        let mut processed_keys = 0u64;
+        let mut added_coldkeys = 0u64;
         // Get starting key for the batch. Get the first key if we restart the process.
         let mut new_starting_raw_key = AlphaMapLastKey::<T>::get();
         let mut starting_key = None;
@@ -380,6 +382,8 @@ impl<T: Config> Pallet<T> {
             let mut keys = Alpha::<T>::iter_keys_from(starting_raw_key)
                 .take(ALPHA_MAP_BATCH_SIZE)
                 .collect::<Vec<_>>();
+
+            processed_keys = processed_keys.saturating_add(keys.len() as u64);
 
             // New iteration: insert the starting key in the batch if it's a new iteration
             // iter_keys_from() skips the starting key
@@ -397,8 +401,8 @@ impl<T: Config> Pallet<T> {
             for key in keys {
                 let (_, coldkey, netuid) = key.clone();
 
-                if netuid == NetUid::ROOT {
-                    Self::maybe_add_coldkey_index(&coldkey);
+                if netuid == NetUid::ROOT && Self::maybe_add_coldkey_index(&coldkey) {
+                    added_coldkeys = added_coldkeys.saturating_add(1);
                 }
 
                 new_starting_key = Some(Alpha::<T>::hashed_key_for(key));
@@ -411,6 +415,11 @@ impl<T: Config> Pallet<T> {
 
             AlphaMapLastKey::<T>::put(new_starting_key);
         }
+
+        Self::deposit_event(Event::<T>::RootClaimColdkeyMigrated {
+            processed_keys,
+            added_coldkeys,
+        })
     }
 
     pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaCurrency) {
