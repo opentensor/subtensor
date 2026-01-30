@@ -15,7 +15,7 @@ mod leasing;
 mod math;
 mod mechanism;
 mod migration;
-mod mock;
+pub(crate) mod mock;
 mod move_stake;
 mod networks;
 mod neuron_info;
