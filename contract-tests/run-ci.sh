@@ -1,21 +1,12 @@
 #!/bin/bash
 
 echo "start run-ci.sh"
+echo "$(date)"
 
-cd contract-tests
-
-cd bittensor
-
-rustup component add rust-src
-cargo install cargo-contract 
-cargo contract build --release 
-
-cd ../..
-
-scripts/localnet.sh &>/dev/null &
+scripts/localnet.sh --local5 &>/dev/null &
 
 i=1
-while [ $i -le 2000 ]; do
+while [ $i -le 1000 ]; do
   if nc -z localhost 9944; then
     echo "node subtensor is running after $i seconds"
     break
@@ -25,11 +16,11 @@ while [ $i -le 2000 ]; do
 done
 
 # port not available exit with error
-if [ "$i" -eq 2000 ]; then
+if [ "$i" -eq 1000 ]; then
     exit 1
 fi
 
-sleep 10
+sleep 2
 
 if ! nc -z localhost 9944; then
     echo "node subtensor exit, port not available"
@@ -43,7 +34,7 @@ npm i -g polkadot-api
 
 bash get-metadata.sh
 
-sleep 5
+sleep 2
 
 yarn install --frozen-lockfile
 
@@ -57,5 +48,7 @@ if [ $TEST_EXIT_CODE -ne 0 ]; then
 fi
 
 pkill node-subtensor
+
+sleep 2
 
 exit 0
