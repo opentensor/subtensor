@@ -296,12 +296,10 @@ where
                     .map_err(|_| CustomTransactionError::EvmKeyAssociateRateLimitExceeded)?;
                 Ok((Default::default(), (), origin))
             }
-            Some(Call::subnet_buyback { .. }) => Ok((
-                Self::validity_ok(SUBNET_BUYBACK_PRIORITY_BOOST),
-                Some(who.clone()),
-                origin,
-            )),
-            _ => Ok((Default::default(), Some(who.clone()), origin)),
+            Some(Call::subnet_buyback { .. }) => {
+                Ok((Self::validity_ok(SUBNET_BUYBACK_PRIORITY_BOOST), (), origin))
+            }
+            _ => Ok((Default::default(), (), origin)),
         }
     }
 
