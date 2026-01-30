@@ -18,7 +18,7 @@ use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
 use sp_std::marker::PhantomData;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, ProxyType, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -520,7 +520,7 @@ where
                         netuid.into(),
                     );
 
-                let price = current_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
+                let price = current_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
                 let price: u64 = price.saturating_to_num();
 
                 let encoded_result = price.encode();

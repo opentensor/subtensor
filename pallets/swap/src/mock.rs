@@ -14,13 +14,20 @@ use sp_runtime::{
     BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use substrate_fixed::types::U64F64;
+use std::{cell::RefCell, collections::HashMap};
+// use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaCurrency,
+    BalanceOps,
+    // Currency,
+    CurrencyReserve,
+    NetUid,
+    SubnetInfo,
+    TaoCurrency,
 };
 use subtensor_swap_interface::Order;
 
-use crate::pallet::{EnabledUserLiquidity, FeeGlobalAlpha, FeeGlobalTao};
+use crate::pallet::EnabledUserLiquidity;
 
 construct_runtime!(
     pub enum Test {
@@ -87,11 +94,34 @@ parameter_types! {
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
 
+thread_local! {
+    // maps netuid -> mocked tao reserve
+    static MOCK_TAO_RESERVES: RefCell<HashMap<NetUid, TaoCurrency>> =
+        RefCell::new(HashMap::new());
+    // maps netuid -> mocked alpha reserve
+    static MOCK_ALPHA_RESERVES: RefCell<HashMap<NetUid, AlphaCurrency>> =
+        RefCell::new(HashMap::new());
+}
+
 #[derive(Clone)]
 pub struct TaoReserve;
 
+impl TaoReserve {
+    pub fn set_mock_reserve(netuid: NetUid, value: TaoCurrency) {
+        MOCK_TAO_RESERVES.with(|m| {
+            m.borrow_mut().insert(netuid, value);
+        });
+    }
+}
+
 impl CurrencyReserve<TaoCurrency> for TaoReserve {
     fn reserve(netuid: NetUid) -> TaoCurrency {
+        // If test has set an override, use it
+        if let Some(val) = MOCK_TAO_RESERVES.with(|m| m.borrow().get(&netuid).cloned()) {
+            return val;
+        }
+
+        // Otherwise, fall back to our defaults
         match netuid.into() {
             123u16 => 10_000,
             WRAPPING_FEES_NETUID => 100_000_000_000,
@@ -107,8 +137,22 @@ impl CurrencyReserve<TaoCurrency> for TaoReserve {
 #[derive(Clone)]
 pub struct AlphaReserve;
 
+impl AlphaReserve {
+    pub fn set_mock_reserve(netuid: NetUid, value: AlphaCurrency) {
+        MOCK_ALPHA_RESERVES.with(|m| {
+            m.borrow_mut().insert(netuid, value);
+        });
+    }
+}
+
 impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
     fn reserve(netuid: NetUid) -> AlphaCurrency {
+        // If test has set an override, use it
+        if let Some(val) = MOCK_ALPHA_RESERVES.with(|m| m.borrow().get(&netuid).cloned()) {
+            return val;
+        }
+
+        // Otherwise, fall back to our defaults
         match netuid.into() {
             123u16 => 10_000.into(),
             WRAPPING_FEES_NETUID => 400_000_000_000.into(),
@@ -123,22 +167,7 @@ impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
 pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;
 pub type GetTaoForAlpha = subtensor_swap_interface::GetTaoForAlpha<AlphaReserve, TaoReserve>;
 
-pub(crate) trait GlobalFeeInfo: Currency {
-    fn global_fee(&self, netuid: NetUid) -> U64F64;
-}
-
-impl GlobalFeeInfo for TaoCurrency {
-    fn global_fee(&self, netuid: NetUid) -> U64F64 {
-        FeeGlobalTao::<Test>::get(netuid)
-    }
-}
-
-impl GlobalFeeInfo for AlphaCurrency {
-    fn global_fee(&self, netuid: NetUid) -> U64F64 {
-        FeeGlobalAlpha::<Test>::get(netuid)
-    }
-}
-
+#[allow(dead_code)]
 pub(crate) trait TestExt<O: Order> {
     fn approx_expected_swap_output(
         sqrt_current_price: f64,

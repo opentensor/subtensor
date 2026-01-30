@@ -3,23 +3,29 @@ use core::ops::Neg;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
-use substrate_fixed::types::U64F64;
+// use safe_math::SafeDiv;
 use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
 
 use crate::{
+    pallet::balancer::Balancer,
     position::{Position, PositionId},
-    tick::{LayerLevel, Tick, TickIndex},
     weights::WeightInfo,
 };
 
 pub use pallet::*;
 
+mod balancer;
+mod hooks;
 mod impls;
+pub mod migrations;
 mod swap_step;
 #[cfg(test)]
 mod tests;
+
+// Define a maximum length for the migration key
+type MigrationKeyMaxLen = ConstU32<128>;
 
 #[allow(clippy::module_inception)]
 #[frame_support::pallet]
@@ -82,30 +88,6 @@ mod pallet {
     #[pallet::storage]
     pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, u16, ValueQuery, DefaultFeeRate>;
 
-    // Global accrued fees in tao per subnet
-    #[pallet::storage]
-    pub type FeeGlobalTao<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
-
-    // Global accrued fees in alpha per subnet
-    #[pallet::storage]
-    pub type FeeGlobalAlpha<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
-
-    /// Storage for all ticks, using subnet ID as the primary key and tick index as the secondary key
-    #[pallet::storage]
-    pub type Ticks<T> = StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, TickIndex, Tick>;
-
-    /// Storage to determine whether swap V3 was initialized for a specific subnet.
-    #[pallet::storage]
-    pub type SwapV3Initialized<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
-
-    /// Storage for the square root price of Alpha token for each subnet.
-    #[pallet::storage]
-    pub type AlphaSqrtPrice<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
-
-    /// Storage for the current price tick.
-    #[pallet::storage]
-    pub type CurrentTick<T> = StorageMap<_, Twox64Concat, NetUid, TickIndex, ValueQuery>;
-
     /// Storage for the current liquidity amount for each subnet.
     #[pallet::storage]
     pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
@@ -119,7 +101,7 @@ mod pallet {
     /// Storage for user positions, using subnet ID and account ID as keys
     /// The value is a bounded vector of Position structs with details about the liquidity positions
     #[pallet::storage]
-    pub type Positions<T: Config> = StorageNMap<
+    pub type PositionsV2<T: Config> = StorageNMap<
         _,
         (
             NMapKey<Twox64Concat, NetUid>,       // Subnet ID
@@ -134,27 +116,35 @@ mod pallet {
     #[pallet::storage]
     pub type LastPositionId<T> = StorageValue<_, u128, ValueQuery>;
 
-    /// Tick index bitmap words storage
-    #[pallet::storage]
-    pub type TickIndexBitmapWords<T: Config> = StorageNMap<
-        _,
-        (
-            NMapKey<Twox64Concat, NetUid>,     // Subnet ID
-            NMapKey<Twox64Concat, LayerLevel>, // Layer level
-            NMapKey<Twox64Concat, u32>,        // word index
-        ),
-        u128,
-        ValueQuery,
-    >;
+    ////////////////////////////////////////////////////
+    // Balancer (PalSwap) maps and variables
 
-    /// TAO reservoir for scraps of protocol claimed fees.
+    /// Default reserve weight
+    #[pallet::type_value]
+    pub fn DefaultBalancer() -> Balancer {
+        Balancer::default()
+    }
+    /// u64-normalized reserve weight
     #[pallet::storage]
-    pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+    pub type SwapBalancer<T> =
+        StorageMap<_, Twox64Concat, NetUid, Balancer, ValueQuery, DefaultBalancer>;
 
-    /// Alpha reservoir for scraps of protocol claimed fees.
+    /// Storage to determine whether balancer swap was initialized for a specific subnet.
     #[pallet::storage]
-    pub type ScrapReservoirAlpha<T> =
-        StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
+    pub type PalSwapInitialized<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
+
+    /// Total fees in TAO per subnet due to be paid to users / protocol
+    #[pallet::storage]
+    pub type FeesTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+
+    /// Total fees in Alpha per subnet due to be paid to users / protocol
+    #[pallet::storage]
+    pub type FeesAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
+
+    /// --- Storage for migration run status
+    #[pallet::storage]
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -167,7 +157,7 @@ mod pallet {
         UserLiquidityToggled { netuid: NetUid, enable: bool },
 
         /// Event emitted when a liquidity position is added to a subnet's liquidity pool.
-        LiquidityAdded {
+        LiquidityAddedV2 {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
             /// The hotkey account where Alpha comes from
@@ -182,14 +172,10 @@ mod pallet {
             tao: TaoCurrency,
             /// The amount of Alpha tokens committed to the position
             alpha: AlphaCurrency,
-            /// the lower tick
-            tick_low: TickIndex,
-            /// the upper tick
-            tick_high: TickIndex,
         },
 
         /// Event emitted when a liquidity position is removed from a subnet's liquidity pool.
-        LiquidityRemoved {
+        LiquidityRemovedV2 {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
             /// The hotkey account where Alpha goes to
@@ -208,15 +194,11 @@ mod pallet {
             fee_tao: TaoCurrency,
             /// The amount of Alpha fees earned from the position
             fee_alpha: AlphaCurrency,
-            /// the lower tick
-            tick_low: TickIndex,
-            /// the upper tick
-            tick_high: TickIndex,
         },
 
         /// Event emitted when a liquidity position is modified in a subnet's liquidity pool.
         /// Modifying causes the fees to be claimed.
-        LiquidityModified {
+        LiquidityModifiedV2 {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
             /// The hotkey account where Alpha comes from or goes to
@@ -235,10 +217,6 @@ mod pallet {
             fee_tao: TaoCurrency,
             /// The amount of Alpha fees earned from the position
             fee_alpha: AlphaCurrency,
-            /// the lower tick
-            tick_low: TickIndex,
-            /// the upper tick
-            tick_high: TickIndex,
         },
     }
 
@@ -286,6 +264,9 @@ mod pallet {
 
         /// The subnet does not have subtoken enabled
         SubtokenDisabled,
+
+        /// Swap reserves are too imbalanced
+        ReservesOutOfBalance,
     }
 
     #[pallet::call]
@@ -367,8 +348,6 @@ mod pallet {
             origin: OriginFor<T>,
             _hotkey: T::AccountId,
             _netuid: NetUid,
-            _tick_low: TickIndex,
-            _tick_high: TickIndex,
             _liquidity: u64,
         ) -> DispatchResult {
             ensure_signed(origin)?;
@@ -469,7 +448,7 @@ mod pallet {
             T::AlphaReserve::decrease_provided(netuid.into(), result.alpha);
 
             // Emit an event
-            Self::deposit_event(Event::LiquidityRemoved {
+            Self::deposit_event(Event::LiquidityRemovedV2 {
                 coldkey,
                 hotkey,
                 netuid: netuid.into(),
@@ -479,8 +458,6 @@ mod pallet {
                 alpha: result.alpha,
                 fee_tao: result.fee_tao,
                 fee_alpha: result.fee_alpha,
-                tick_low: result.tick_low.into(),
-                tick_high: result.tick_high.into(),
             });
 
             Ok(())
@@ -534,7 +511,7 @@ mod pallet {
                 );
 
                 // Emit an event
-                Self::deposit_event(Event::LiquidityModified {
+                Self::deposit_event(Event::LiquidityModifiedV2 {
                     coldkey: coldkey.clone(),
                     hotkey: hotkey.clone(),
                     netuid,
@@ -544,8 +521,6 @@ mod pallet {
                     alpha: result.alpha.to_u64() as i64,
                     fee_tao: result.fee_tao,
                     fee_alpha: result.fee_alpha,
-                    tick_low: result.tick_low,
-                    tick_high: result.tick_high,
                 });
             } else {
                 // Credit the returned tao and alpha to the account
@@ -554,7 +529,7 @@ mod pallet {
 
                 // Emit an event
                 if result.removed {
-                    Self::deposit_event(Event::LiquidityRemoved {
+                    Self::deposit_event(Event::LiquidityRemovedV2 {
                         coldkey: coldkey.clone(),
                         hotkey: hotkey.clone(),
                         netuid,
@@ -564,11 +539,9 @@ mod pallet {
                         alpha: result.alpha,
                         fee_tao: result.fee_tao,
                         fee_alpha: result.fee_alpha,
-                        tick_low: result.tick_low,
-                        tick_high: result.tick_high,
                     });
                 } else {
-                    Self::deposit_event(Event::LiquidityModified {
+                    Self::deposit_event(Event::LiquidityModifiedV2 {
                         coldkey: coldkey.clone(),
                         hotkey: hotkey.clone(),
                         netuid,
@@ -578,8 +551,6 @@ mod pallet {
                         alpha: (result.alpha.to_u64() as i64).neg(),
                         fee_tao: result.fee_tao,
                         fee_alpha: result.fee_alpha,
-                        tick_low: result.tick_low,
-                        tick_high: result.tick_high,
                     });
                 }
             }
@@ -621,7 +592,13 @@ mod pallet {
                 // Remove provided liquidity unconditionally because the network may have
                 // user liquidity previously disabled
                 // Ignore result to avoid early stopping
-                let _ = Self::do_dissolve_all_liquidity_providers(netuid);
+                if let Err(err) = Self::do_dissolve_all_liquidity_providers(netuid) {
+                    log::error!(
+                        "Error dissolving liquidity providers on netuid {}: {:?}",
+                        netuid,
+                        err
+                    );
+                }
             }
 
             Ok(())

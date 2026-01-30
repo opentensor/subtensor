@@ -30,7 +30,7 @@ use subtensor_swap_interface::SwapHandler;
 use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{Balance, Currency, NetUid};
 
 // Tests
@@ -145,7 +145,7 @@ where
         // This is not ideal because it may not pay all fees, but UX is the priority
         // and this approach still provides spam protection.
         alpha_vec.iter().any(|(hotkey, netuid)| {
-            let alpha_balance = U96F32::saturating_from_num(
+            let alpha_balance = U64F64::saturating_from_num(
                 pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey, coldkey, *netuid,
                 ),
@@ -168,13 +168,13 @@ where
 
         alpha_vec.iter().for_each(|(hotkey, netuid)| {
             // Divide tao_amount evenly among all alpha entries
-            let alpha_balance = U96F32::saturating_from_num(
+            let alpha_balance = U64F64::saturating_from_num(
                 pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey, coldkey, *netuid,
                 ),
             );
             let alpha_price = pallet_subtensor_swap::Pallet::<T>::current_alpha_price(*netuid);
-            let alpha_fee = U96F32::saturating_from_num(tao_per_entry)
+            let alpha_fee = U64F64::saturating_from_num(tao_per_entry)
                 .checked_div(alpha_price)
                 .unwrap_or(alpha_balance)
                 .min(alpha_balance)
