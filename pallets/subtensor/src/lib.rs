@@ -1493,6 +1493,14 @@ pub mod pallet {
     pub type FlowEmaSmoothingFactor<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultFlowEmaSmoothingFactor<T>>;
 
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> EffectiveRootProp for a subnet.
+    /// Computed during epoch in distribute_dividends_and_incentives() as:
+    ///   sum(RootAlphaDividendsPerSubnet[netuid]) /
+    ///   (sum(AlphaDividendsPerSubnet[netuid]) + sum(RootAlphaDividendsPerSubnet[netuid]))
+    /// This measures the proportion of dividends on a subnet that go to root stakers.
+    pub type EffectiveRootProp<T: Config> = StorageMap<_, Identity, NetUid, U64F64, ValueQuery>;
+
     /// ============================
     /// ==== Global Parameters =====
     /// ============================
