@@ -921,4 +921,9 @@ impl<T: Config> Pallet<T> {
     pub fn set_effective_root_prop_emission_scaling(enabled: bool) {
         EffectiveRootPropEmissionScaling::<T>::set(enabled);
     }
+
+    /// Sets the proportion of top subnets that receive emission (in basis points, max 10000).
+    pub fn set_emission_top_subnet_proportion(proportion: u16) {
+        EmissionTopSubnetProportion::<T>::set(proportion);
+    }
 }

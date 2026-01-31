@@ -62,6 +62,69 @@ impl<T: Config> Pallet<T> {
         });
     }
 
+    /// Zeros shares outside top_k (by descending share value) and re-normalizes the rest.
+    /// Subnets with equal shares at the boundary are included if they tie with the k-th position.
+    pub(crate) fn zero_and_redistribute_bottom_shares(
+        shares: &mut BTreeMap<NetUid, U64F64>,
+        top_k: usize,
+    ) {
+        if top_k == 0 || shares.is_empty() {
+            // Zero everything
+            for share in shares.values_mut() {
+                *share = U64F64::saturating_from_num(0);
+            }
+            return;
+        }
+        if top_k >= shares.len() {
+            return; // Nothing to filter
+        }
+
+        // Sort netuids by share descending
+        let mut sorted: Vec<(NetUid, U64F64)> = shares.iter().map(|(k, v)| (*k, *v)).collect();
+        sorted.sort_by(|a, b| b.1.cmp(&a.1));
+
+        // Find the set of netuids to zero out (those beyond top_k)
+        let netuids_to_zero: Vec<NetUid> = sorted[top_k..].iter().map(|(k, _)| *k).collect();
+
+        for netuid in netuids_to_zero {
+            if let Some(share) = shares.get_mut(&netuid) {
+                *share = U64F64::saturating_from_num(0);
+            }
+        }
+
+        Self::normalize_shares(shares);
+    }
+
+    /// Filters subnets so only the top proportion (by share) receive emission.
+    /// Uses ceil(count * proportion / 10000) to determine how many subnets to keep.
+    /// A single subnet always counts as in top 50%.
+    pub(crate) fn apply_top_subnet_proportion_filter(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let proportion = EmissionTopSubnetProportion::<T>::get();
+        if proportion >= 10000 {
+            return; // 100% means all subnets get emission
+        }
+
+        let total = shares.len() as u32;
+        if total == 0 {
+            return;
+        }
+
+        // ceil(total * proportion / 10000)
+        let top_k = ((total as u64) * (proportion as u64)).div_ceil(10000);
+        let top_k = top_k.max(1) as usize; // At least 1 subnet
+
+        log::debug!(
+            "EmissionTopSubnetProportion: keeping top {top_k} of {total} subnets (proportion: {proportion}/10000)"
+        );
+
+        Self::zero_and_redistribute_bottom_shares(shares, top_k);
+
+        Self::deposit_event(Event::<T>::EmissionTopSubnetFilterApplied {
+            top_k: top_k as u16,
+            total: total as u16,
+        });
+    }
+
     pub fn get_subnet_block_emissions(
         subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
@@ -72,6 +135,9 @@ impl<T: Config> Pallet<T> {
 
         // Apply EffectiveRootProp scaling if enabled.
         Self::apply_effective_root_prop_scaling(&mut shares);
+
+        // Apply top subnet proportion filter.
+        Self::apply_top_subnet_proportion_filter(&mut shares);
 
         shares
             .into_iter()
