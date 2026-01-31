@@ -926,4 +926,9 @@ impl<T: Config> Pallet<T> {
     pub fn set_emission_top_subnet_proportion(proportion: u16) {
         EmissionTopSubnetProportion::<T>::set(proportion);
     }
+
+    /// Sets the absolute maximum number of subnets that receive emission (0 = no limit).
+    pub fn set_emission_top_subnet_absolute_limit(limit: u16) {
+        EmissionTopSubnetAbsoluteLimit::<T>::set(limit);
+    }
 }

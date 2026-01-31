@@ -955,3 +955,205 @@ fn test_apply_top_subnet_proportion_filter_zeroed_get_no_emission() {
         }
     });
 }
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_disabled() {
+    new_test_ext(1).execute_with(|| {
+        // Default limit is 0 (disabled)
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.25));
+        shares.insert(NetUid::from(2), u64f64(0.25));
+        shares.insert(NetUid::from(3), u64f64(0.25));
+        shares.insert(NetUid::from(4), u64f64(0.25));
+
+        let shares_before = shares.clone();
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // No change when disabled
+        for (k, v) in shares_before {
+            assert_abs_diff_eq!(
+                shares.get(&k).unwrap().to_num::<f64>(),
+                v.to_num::<f64>(),
+                epsilon = 1e-12
+            );
+        }
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_two_of_five() {
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.05));
+        shares.insert(NetUid::from(2), u64f64(0.10));
+        shares.insert(NetUid::from(3), u64f64(0.15));
+        shares.insert(NetUid::from(4), u64f64(0.30));
+        shares.insert(NetUid::from(5), u64f64(0.40));
+
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // Only top 2 (netuid 5 and 4) should have nonzero shares
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+        let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+        let s5 = shares.get(&NetUid::from(5)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s3, 0.0, epsilon = 1e-12);
+        assert!(s4 > 0.0);
+        assert!(s5 > 0.0);
+        assert_abs_diff_eq!(s4 + s5, 1.0, epsilon = 1e-9);
+        // 0.30/0.70 and 0.40/0.70
+        assert_abs_diff_eq!(s4, 0.30 / 0.70, epsilon = 1e-9);
+        assert_abs_diff_eq!(s5, 0.40 / 0.70, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_exceeds_count() {
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(10);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.3));
+        shares.insert(NetUid::from(3), u64f64(0.2));
+
+        let shares_before = shares.clone();
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // All keep their shares when limit > count
+        for (k, v) in shares_before {
+            assert_abs_diff_eq!(
+                shares.get(&k).unwrap().to_num::<f64>(),
+                v.to_num::<f64>(),
+                epsilon = 1e-12
+            );
+        }
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_emits_event() {
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.1));
+        shares.insert(NetUid::from(2), u64f64(0.2));
+        shares.insert(NetUid::from(3), u64f64(0.3));
+        shares.insert(NetUid::from(4), u64f64(0.4));
+
+        System::reset_events();
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        let events = System::events();
+        let found = events.iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::EmissionAbsoluteLimitApplied {
+                    limit: 2,
+                    before_count: 4,
+                })
+            )
+        });
+        assert!(
+            found,
+            "Expected EmissionAbsoluteLimitApplied event with limit=2, before_count=4"
+        );
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_no_event_when_within_limit() {
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(5);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.5));
+
+        System::reset_events();
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // No event should be emitted when already within limit
+        let events = System::events();
+        let found = events.iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::EmissionAbsoluteLimitApplied { .. })
+            )
+        });
+        assert!(!found, "Should not emit event when within limit");
+    });
+}
+
+#[test]
+fn test_interaction_proportion_and_absolute_limit() {
+    new_test_ext(1).execute_with(|| {
+        // 50% proportion with 6 subnets -> ceil(6*0.5) = 3 subnets
+        // Absolute limit = 2 -> further reduces to 2 subnets
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
+        // EmissionTopSubnetProportion defaults to 5000 (50%)
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.05));
+        shares.insert(NetUid::from(2), u64f64(0.10));
+        shares.insert(NetUid::from(3), u64f64(0.15));
+        shares.insert(NetUid::from(4), u64f64(0.20));
+        shares.insert(NetUid::from(5), u64f64(0.25));
+        shares.insert(NetUid::from(6), u64f64(0.25));
+
+        // Apply proportion filter first (as in get_subnet_block_emissions)
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        // After 50% filter: top 3 subnets (6, 5, 4) keep their shares
+        let nonzero_after_proportion = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_after_proportion, 3, "50% of 6 subnets = top 3");
+
+        // Apply absolute limit
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // After absolute limit: only top 2 subnets
+        let nonzero_after_limit = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(
+            nonzero_after_limit, 2,
+            "Absolute limit of 2 should leave 2 subnets"
+        );
+
+        // Sum should be 1.0
+        let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+        assert_abs_diff_eq!(sum, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_interaction_absolute_limit_stricter_than_proportion() {
+    new_test_ext(1).execute_with(|| {
+        // proportion = 100% (all subnets), absolute limit = 1
+        EmissionTopSubnetProportion::<Test>::set(10000);
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(1);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.3));
+        shares.insert(NetUid::from(2), u64f64(0.3));
+        shares.insert(NetUid::from(3), u64f64(0.4));
+
+        // Apply both filters
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // Only subnet 3 should survive (highest share)
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s3, 1.0, epsilon = 1e-9);
+    });
+}

@@ -125,6 +125,37 @@ impl<T: Config> Pallet<T> {
         });
     }
 
+    /// Limits the number of subnets receiving emission to an absolute number.
+    /// When limit is 0, no filtering occurs (disabled).
+    /// When limit > 0 and less than the number of subnets with nonzero shares,
+    /// zeros shares beyond the top `limit` subnets and re-normalizes.
+    pub(crate) fn apply_top_subnet_absolute_limit(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let limit = EmissionTopSubnetAbsoluteLimit::<T>::get();
+        if limit == 0 {
+            return; // Disabled
+        }
+
+        let nonzero_count = shares
+            .values()
+            .filter(|v| **v > U64F64::saturating_from_num(0))
+            .count();
+
+        if nonzero_count <= limit as usize {
+            return; // Already within limit
+        }
+
+        log::debug!(
+            "EmissionTopSubnetAbsoluteLimit: limiting to top {limit} subnets (had {nonzero_count} nonzero)"
+        );
+
+        Self::zero_and_redistribute_bottom_shares(shares, limit as usize);
+
+        Self::deposit_event(Event::<T>::EmissionAbsoluteLimitApplied {
+            limit,
+            before_count: nonzero_count as u16,
+        });
+    }
+
     pub fn get_subnet_block_emissions(
         subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
@@ -138,6 +169,9 @@ impl<T: Config> Pallet<T> {
 
         // Apply top subnet proportion filter.
         Self::apply_top_subnet_proportion_filter(&mut shares);
+
+        // Apply absolute subnet limit.
+        Self::apply_top_subnet_absolute_limit(&mut shares);
 
         shares
             .into_iter()

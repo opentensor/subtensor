@@ -2158,6 +2158,25 @@ pub mod pallet {
             log::debug!("set_emission_top_subnet_proportion( {proportion:?} )");
             Ok(())
         }
+
+        /// Sets the absolute limit on number of subnets receiving emission (0 = no limit)
+        #[pallet::call_index(90)]
+        #[pallet::weight((
+            Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_emission_top_subnet_absolute_limit(
+            origin: OriginFor<T>,
+            limit: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_emission_top_subnet_absolute_limit(limit);
+            log::debug!("set_emission_top_subnet_absolute_limit( {limit:?} )");
+            Ok(())
+        }
     }
 }
 
