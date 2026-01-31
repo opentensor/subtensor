@@ -522,5 +522,12 @@ mod events {
             /// Per-subnet scaled shares as (netuid, share * 10^18) for precision
             shares: Vec<(NetUid, u64)>,
         },
+        /// Subnet emission shares zeroed for subnets outside top proportion.
+        EmissionTopSubnetFilterApplied {
+            /// Number of subnets that kept emission
+            top_k: u16,
+            /// Total number of subnets considered
+            total: u16,
+        },
     }
 }
