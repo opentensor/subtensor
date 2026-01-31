@@ -916,4 +916,9 @@ impl<T: Config> Pallet<T> {
     pub fn set_tao_flow_smoothing_factor(smoothing_factor: u64) {
         FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
     }
+
+    /// Sets whether EffectiveRootProp emission scaling is enabled.
+    pub fn set_effective_root_prop_emission_scaling(enabled: bool) {
+        EffectiveRootPropEmissionScaling::<T>::set(enabled);
+    }
 }

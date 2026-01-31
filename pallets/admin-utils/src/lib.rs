@@ -2116,6 +2116,25 @@ pub mod pallet {
             log::debug!("StartCallDelay( delay: {delay:?} ) ");
             Ok(())
         }
+
+        /// Sets EffectiveRootProp emission scaling on/off
+        #[pallet::call_index(88)]
+        #[pallet::weight((
+            Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_effective_root_prop_emission_scaling(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_effective_root_prop_emission_scaling(enabled);
+            log::debug!("set_effective_root_prop_emission_scaling( {enabled:?} )");
+            Ok(())
+        }
     }
 }
 
