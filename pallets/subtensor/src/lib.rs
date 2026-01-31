@@ -1520,6 +1520,18 @@ pub mod pallet {
     pub type EmissionTopSubnetProportion<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultEmissionTopSubnetProportion<T>>;
 
+    #[pallet::type_value]
+    /// Default: no absolute limit on number of subnets receiving emission.
+    pub fn DefaultEmissionTopSubnetAbsoluteLimit<T: Config>() -> u16 {
+        0 // 0 means no limit (disabled)
+    }
+    #[pallet::storage]
+    /// Absolute maximum number of subnets that can receive emission.
+    /// 0 means no limit (disabled). When set to N > 0, only the top N
+    /// subnets by share receive emission; the rest are zeroed and redistributed.
+    pub type EmissionTopSubnetAbsoluteLimit<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultEmissionTopSubnetAbsoluteLimit<T>>;
+
     /// ============================
     /// ==== Global Parameters =====
     /// ============================
