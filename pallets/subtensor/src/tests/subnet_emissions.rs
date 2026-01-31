@@ -488,3 +488,129 @@ fn seed_price_and_flow(n1: NetUid, n2: NetUid, price1: f64, price2: f64, flow1: 
 //         assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
 //     });
 // }
+
+#[test]
+fn test_effective_root_prop_no_root_dividends() {
+    // When there are no root alpha dividends, EffectiveRootProp should be 0
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey1 = U256::from(100);
+        let hotkey2 = U256::from(101);
+
+        let mut alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_dividends.insert(hotkey1, U96F32::from_num(1000));
+        alpha_dividends.insert(hotkey2, U96F32::from_num(2000));
+
+        let root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_all_root_dividends() {
+    // When there are only root alpha dividends, EffectiveRootProp should be 1.0
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey1 = U256::from(100);
+        let hotkey2 = U256::from(101);
+
+        let alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        let mut root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_alpha_dividends.insert(hotkey1, U96F32::from_num(1000));
+        root_alpha_dividends.insert(hotkey2, U96F32::from_num(2000));
+
+        SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 1.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_balanced() {
+    // When root and alpha dividends are equal, EffectiveRootProp should be ~0.5
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey1 = U256::from(100);
+
+        let mut alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_dividends.insert(hotkey1, U96F32::from_num(5000));
+
+        let mut root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_alpha_dividends.insert(hotkey1, U96F32::from_num(5000));
+
+        SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 0.5, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_both_empty() {
+    // When both are empty, EffectiveRootProp should be 0
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+
+        let alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        let root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_different_subnets() {
+    // Test that different subnets get different EffectiveRootProp values
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let hotkey1 = U256::from(100);
+
+        // Subnet 1: 25% root
+        let mut alpha_divs1: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs1.insert(hotkey1, U96F32::from_num(3000));
+        let mut root_divs1: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs1.insert(hotkey1, U96F32::from_num(1000));
+
+        SubtensorModule::compute_and_store_effective_root_prop(netuid1, &alpha_divs1, &root_divs1);
+
+        // Subnet 2: 75% root
+        let mut alpha_divs2: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs2.insert(hotkey1, U96F32::from_num(1000));
+        let mut root_divs2: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs2.insert(hotkey1, U96F32::from_num(3000));
+
+        SubtensorModule::compute_and_store_effective_root_prop(netuid2, &alpha_divs2, &root_divs2);
+
+        let prop1 = EffectiveRootProp::<Test>::get(netuid1);
+        let prop2 = EffectiveRootProp::<Test>::get(netuid2);
+
+        assert_abs_diff_eq!(prop1.to_num::<f64>(), 0.25, epsilon = 1e-9);
+        assert_abs_diff_eq!(prop2.to_num::<f64>(), 0.75, epsilon = 1e-9);
+    });
+}

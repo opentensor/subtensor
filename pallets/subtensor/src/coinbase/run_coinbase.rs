@@ -1,7 +1,7 @@
 use super::*;
 use alloc::collections::BTreeMap;
 use safe_math::*;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -508,6 +508,13 @@ impl<T: Config> Pallet<T> {
         alpha_dividends: BTreeMap<T::AccountId, U96F32>,
         root_alpha_dividends: BTreeMap<T::AccountId, U96F32>,
     ) {
+        // Compute and store EffectiveRootProp before distributing (uses raw dividend values).
+        Self::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
         // Distribute the owner cut.
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid)
             && let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid)
@@ -636,6 +643,41 @@ impl<T: Config> Pallet<T> {
                 *divs = divs.saturating_add(tou64!(root_alpha).into());
             });
         }
+    }
+
+    /// Computes and stores the EffectiveRootProp for a subnet.
+    ///
+    /// EffectiveRootProp = sum(root_alpha_dividends) / (sum(alpha_dividends) + sum(root_alpha_dividends))
+    ///
+    /// This represents the proportion of total dividends on this subnet that flow to root stakers.
+    pub fn compute_and_store_effective_root_prop(
+        netuid: NetUid,
+        alpha_dividends: &BTreeMap<T::AccountId, U96F32>,
+        root_alpha_dividends: &BTreeMap<T::AccountId, U96F32>,
+    ) {
+        let zero = U96F32::saturating_from_num(0);
+
+        let total_alpha_divs: U96F32 = alpha_dividends
+            .values()
+            .fold(zero, |acc, v| acc.saturating_add(*v));
+
+        let total_root_divs: U96F32 = root_alpha_dividends
+            .values()
+            .fold(zero, |acc, v| acc.saturating_add(*v));
+
+        let total = total_alpha_divs.saturating_add(total_root_divs);
+
+        let effective_root_prop = if total > zero {
+            U64F64::saturating_from_num(total_root_divs.checked_div(total).unwrap_or(zero))
+        } else {
+            U64F64::saturating_from_num(0)
+        };
+
+        log::debug!(
+            "EffectiveRootProp for netuid {netuid:?}: {effective_root_prop:?} (root_divs: {total_root_divs:?}, alpha_divs: {total_alpha_divs:?})"
+        );
+
+        EffectiveRootProp::<T>::insert(netuid, effective_root_prop);
     }
 
     pub fn get_stake_map(
