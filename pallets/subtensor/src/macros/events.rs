@@ -516,5 +516,11 @@ mod events {
             /// The amount of alpha distributed
             alpha: AlphaCurrency,
         },
+
+        /// Emission shares have been adjusted by EffectiveRootProp scaling.
+        EffectiveRootPropEmissionScalingApplied {
+            /// Per-subnet scaled shares as (netuid, share * 10^18) for precision
+            shares: Vec<(NetUid, u64)>,
+        },
     }
 }

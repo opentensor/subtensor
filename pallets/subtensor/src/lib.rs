@@ -1496,6 +1496,17 @@ pub mod pallet {
     /// This measures the proportion of dividends on a subnet that go to root stakers.
     pub type EffectiveRootProp<T: Config> = StorageMap<_, Identity, NetUid, U64F64, ValueQuery>;
 
+    #[pallet::type_value]
+    /// Default: EffectiveRootPropEmissionScaling is disabled.
+    pub fn DefaultEffectiveRootPropEmissionScaling<T: Config>() -> bool {
+        false
+    }
+    #[pallet::storage]
+    /// When enabled, multiply each subnet's emission share by its EffectiveRootProp,
+    /// then re-normalize so shares sum to 1.0.
+    pub type EffectiveRootPropEmissionScaling<T: Config> =
+        StorageValue<_, bool, ValueQuery, DefaultEffectiveRootPropEmissionScaling<T>>;
+
     /// ============================
     /// ==== Global Parameters =====
     /// ============================

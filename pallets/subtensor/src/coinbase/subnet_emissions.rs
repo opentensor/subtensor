@@ -1,6 +1,6 @@
 use super::*;
 use alloc::collections::BTreeMap;
-use safe_math::FixedExt;
+use safe_math::*;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 
@@ -22,13 +22,56 @@ impl<T: Config> Pallet<T> {
             .collect()
     }
 
+    /// Normalizes shares so they sum to 1.0. If all shares are zero, leaves them unchanged.
+    pub(crate) fn normalize_shares(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let sum: U64F64 = shares.values().copied().sum();
+        if sum > U64F64::saturating_from_num(0) {
+            for share in shares.values_mut() {
+                *share = share.safe_div(sum);
+            }
+        }
+    }
+
+    /// When EffectiveRootPropEmissionScaling is enabled, multiplies each subnet's share
+    /// by its stored EffectiveRootProp value, then re-normalizes shares to sum to 1.0.
+    pub(crate) fn apply_effective_root_prop_scaling(shares: &mut BTreeMap<NetUid, U64F64>) {
+        if !EffectiveRootPropEmissionScaling::<T>::get() {
+            return;
+        }
+
+        for (netuid, share) in shares.iter_mut() {
+            let effective_root_prop = EffectiveRootProp::<T>::get(netuid);
+            *share = share.saturating_mul(effective_root_prop);
+        }
+
+        Self::normalize_shares(shares);
+
+        // Emit event with scaled shares
+        let shares_vec: Vec<(NetUid, u64)> = shares
+            .iter()
+            .map(|(netuid, share)| {
+                // Store as fixed-point u64 (multiply by 10^18 for precision)
+                let share_u64 = share
+                    .saturating_mul(U64F64::saturating_from_num(1_000_000_000u64))
+                    .saturating_to_num::<u64>();
+                (*netuid, share_u64)
+            })
+            .collect();
+        Self::deposit_event(Event::<T>::EffectiveRootPropEmissionScalingApplied {
+            shares: shares_vec,
+        });
+    }
+
     pub fn get_subnet_block_emissions(
         subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
         // Get subnet TAO emissions.
-        let shares = Self::get_shares(subnets_to_emit_to);
+        let mut shares = Self::get_shares(subnets_to_emit_to);
         log::debug!("Subnet emission shares = {shares:?}");
+
+        // Apply EffectiveRootProp scaling if enabled.
+        Self::apply_effective_root_prop_scaling(&mut shares);
 
         shares
             .into_iter()

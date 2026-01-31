@@ -614,3 +614,163 @@ fn test_effective_root_prop_different_subnets() {
         assert_abs_diff_eq!(prop2.to_num::<f64>(), 0.75, epsilon = 1e-9);
     });
 }
+
+#[test]
+fn test_normalize_shares_basic() {
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(2.0));
+    shares.insert(NetUid::from(2), u64f64(3.0));
+    shares.insert(NetUid::from(3), u64f64(5.0));
+
+    SubtensorModule::normalize_shares(&mut shares);
+
+    let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+    let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+    let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+
+    assert_abs_diff_eq!(s1, 0.2, epsilon = 1e-9);
+    assert_abs_diff_eq!(s2, 0.3, epsilon = 1e-9);
+    assert_abs_diff_eq!(s3, 0.5, epsilon = 1e-9);
+}
+
+#[test]
+fn test_normalize_shares_all_zero() {
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(0.0));
+    shares.insert(NetUid::from(2), u64f64(0.0));
+
+    SubtensorModule::normalize_shares(&mut shares);
+
+    // Should remain zero when all are zero
+    let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+    let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+
+    assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+    assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_disabled() {
+    new_test_ext(1).execute_with(|| {
+        // Scaling is disabled by default
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.5));
+
+        let shares_before = shares.clone();
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // Shares should be unchanged when scaling is disabled
+        for (k, v) in shares_before {
+            assert_abs_diff_eq!(
+                shares.get(&k).unwrap().to_num::<f64>(),
+                v.to_num::<f64>(),
+                epsilon = 1e-12
+            );
+        }
+    });
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_enabled() {
+    new_test_ext(1).execute_with(|| {
+        // Enable scaling
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+
+        // Set EffectiveRootProp for subnets
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.8));
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), u64f64(0.2));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.5));
+
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // After scaling: subnet1 = 0.5*0.8 = 0.4, subnet2 = 0.5*0.2 = 0.1
+        // After normalization: subnet1 = 0.4/0.5 = 0.8, subnet2 = 0.1/0.5 = 0.2
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.8, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 0.2, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_emits_event() {
+    new_test_ext(1).execute_with(|| {
+        // Enable scaling
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+
+        // Set EffectiveRootProp for subnets
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.5));
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), u64f64(0.5));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.6));
+        shares.insert(NetUid::from(2), u64f64(0.4));
+
+        // Clear events
+        System::reset_events();
+
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // Check that the event was emitted
+        let events = System::events();
+        let found = events.iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(
+                    Event::EffectiveRootPropEmissionScalingApplied { .. }
+                )
+            )
+        });
+        assert!(
+            found,
+            "Expected EffectiveRootPropEmissionScalingApplied event"
+        );
+    });
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_all_zero_props() {
+    new_test_ext(1).execute_with(|| {
+        // Enable scaling
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+
+        // EffectiveRootProp defaults to 0 for all subnets (ValueQuery default)
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.5));
+
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // All shares become 0 when all EffectiveRootProp are 0
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_single_subnet() {
+    new_test_ext(1).execute_with(|| {
+        // Enable scaling
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.3));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(1.0));
+
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // Single subnet should get normalized back to 1.0
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(s1, 1.0, epsilon = 1e-9);
+    });
+}
