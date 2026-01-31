@@ -488,3 +488,672 @@ fn seed_price_and_flow(n1: NetUid, n2: NetUid, price1: f64, price2: f64, flow1: 
 //         assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
 //     });
 // }
+
+#[test]
+fn test_effective_root_prop_no_root_dividends() {
+    // When there are no root alpha dividends, EffectiveRootProp should be 0
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey1 = U256::from(100);
+        let hotkey2 = U256::from(101);
+
+        let mut alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_dividends.insert(hotkey1, U96F32::from_num(1000));
+        alpha_dividends.insert(hotkey2, U96F32::from_num(2000));
+
+        let root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_all_root_dividends() {
+    // When there are only root alpha dividends, EffectiveRootProp should be 1.0
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey1 = U256::from(100);
+        let hotkey2 = U256::from(101);
+
+        let alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        let mut root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_alpha_dividends.insert(hotkey1, U96F32::from_num(1000));
+        root_alpha_dividends.insert(hotkey2, U96F32::from_num(2000));
+
+        SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 1.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_balanced() {
+    // When root and alpha dividends are equal, EffectiveRootProp should be ~0.5
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey1 = U256::from(100);
+
+        let mut alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_dividends.insert(hotkey1, U96F32::from_num(5000));
+
+        let mut root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_alpha_dividends.insert(hotkey1, U96F32::from_num(5000));
+
+        SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 0.5, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_both_empty() {
+    // When both are empty, EffectiveRootProp should be 0
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+
+        let alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        let root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_different_subnets() {
+    // Test that different subnets get different EffectiveRootProp values
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let hotkey1 = U256::from(100);
+
+        // Subnet 1: 25% root
+        let mut alpha_divs1: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs1.insert(hotkey1, U96F32::from_num(3000));
+        let mut root_divs1: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs1.insert(hotkey1, U96F32::from_num(1000));
+
+        SubtensorModule::compute_and_store_effective_root_prop(netuid1, &alpha_divs1, &root_divs1);
+
+        // Subnet 2: 75% root
+        let mut alpha_divs2: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs2.insert(hotkey1, U96F32::from_num(1000));
+        let mut root_divs2: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs2.insert(hotkey1, U96F32::from_num(3000));
+
+        SubtensorModule::compute_and_store_effective_root_prop(netuid2, &alpha_divs2, &root_divs2);
+
+        let prop1 = EffectiveRootProp::<Test>::get(netuid1);
+        let prop2 = EffectiveRootProp::<Test>::get(netuid2);
+
+        assert_abs_diff_eq!(prop1.to_num::<f64>(), 0.25, epsilon = 1e-9);
+        assert_abs_diff_eq!(prop2.to_num::<f64>(), 0.75, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_normalize_shares_basic() {
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(2.0));
+    shares.insert(NetUid::from(2), u64f64(3.0));
+    shares.insert(NetUid::from(3), u64f64(5.0));
+
+    SubtensorModule::normalize_shares(&mut shares);
+
+    let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+    let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+    let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+
+    assert_abs_diff_eq!(s1, 0.2, epsilon = 1e-9);
+    assert_abs_diff_eq!(s2, 0.3, epsilon = 1e-9);
+    assert_abs_diff_eq!(s3, 0.5, epsilon = 1e-9);
+}
+
+#[test]
+fn test_normalize_shares_all_zero() {
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(0.0));
+    shares.insert(NetUid::from(2), u64f64(0.0));
+
+    SubtensorModule::normalize_shares(&mut shares);
+
+    // Should remain zero when all are zero
+    let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+    let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+
+    assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+    assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_disabled() {
+    new_test_ext(1).execute_with(|| {
+        // Scaling is disabled by default
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.5));
+
+        let shares_before = shares.clone();
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // Shares should be unchanged when scaling is disabled
+        for (k, v) in shares_before {
+            assert_abs_diff_eq!(
+                shares.get(&k).unwrap().to_num::<f64>(),
+                v.to_num::<f64>(),
+                epsilon = 1e-12
+            );
+        }
+    });
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_enabled() {
+    new_test_ext(1).execute_with(|| {
+        // Enable scaling
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+
+        // Set EffectiveRootProp for subnets
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.8));
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), u64f64(0.2));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.5));
+
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // After scaling: subnet1 = 0.5*0.8 = 0.4, subnet2 = 0.5*0.2 = 0.1
+        // After normalization: subnet1 = 0.4/0.5 = 0.8, subnet2 = 0.1/0.5 = 0.2
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.8, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 0.2, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_emits_event() {
+    new_test_ext(1).execute_with(|| {
+        // Enable scaling
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+
+        // Set EffectiveRootProp for subnets
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.5));
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), u64f64(0.5));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.6));
+        shares.insert(NetUid::from(2), u64f64(0.4));
+
+        // Clear events
+        System::reset_events();
+
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // Check that the event was emitted
+        let events = System::events();
+        let found = events.iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(
+                    Event::EffectiveRootPropEmissionScalingApplied { .. }
+                )
+            )
+        });
+        assert!(
+            found,
+            "Expected EffectiveRootPropEmissionScalingApplied event"
+        );
+    });
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_all_zero_props() {
+    new_test_ext(1).execute_with(|| {
+        // Enable scaling
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+
+        // EffectiveRootProp defaults to 0 for all subnets (ValueQuery default)
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.5));
+
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // All shares become 0 when all EffectiveRootProp are 0
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_single_subnet() {
+    new_test_ext(1).execute_with(|| {
+        // Enable scaling
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.3));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(1.0));
+
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // Single subnet should get normalized back to 1.0
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(s1, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_zero_and_redistribute_bottom_shares_basic() {
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(0.1));
+    shares.insert(NetUid::from(2), u64f64(0.2));
+    shares.insert(NetUid::from(3), u64f64(0.3));
+    shares.insert(NetUid::from(4), u64f64(0.4));
+
+    SubtensorModule::zero_and_redistribute_bottom_shares(&mut shares, 2);
+
+    // Top 2 are netuid 4 (0.4) and netuid 3 (0.3)
+    let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+    let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+    let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+    let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+
+    assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+    assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+    // s3 and s4 should be renormalized: 0.3/0.7 and 0.4/0.7
+    assert_abs_diff_eq!(s3, 0.3 / 0.7, epsilon = 1e-9);
+    assert_abs_diff_eq!(s4, 0.4 / 0.7, epsilon = 1e-9);
+    assert_abs_diff_eq!(s3 + s4, 1.0, epsilon = 1e-9);
+}
+
+#[test]
+fn test_zero_and_redistribute_top_k_exceeds_count() {
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(0.5));
+    shares.insert(NetUid::from(2), u64f64(0.5));
+
+    SubtensorModule::zero_and_redistribute_bottom_shares(&mut shares, 10);
+
+    // Nothing should change since top_k > len
+    let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+    let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+    assert_abs_diff_eq!(s1, 0.5, epsilon = 1e-12);
+    assert_abs_diff_eq!(s2, 0.5, epsilon = 1e-12);
+}
+
+#[test]
+fn test_apply_top_subnet_proportion_filter_default_50_percent_4_subnets() {
+    new_test_ext(1).execute_with(|| {
+        // Default is 5000 (50%)
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.1));
+        shares.insert(NetUid::from(2), u64f64(0.2));
+        shares.insert(NetUid::from(3), u64f64(0.3));
+        shares.insert(NetUid::from(4), u64f64(0.4));
+
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        // ceil(4 * 5000 / 10000) = ceil(2.0) = 2
+        // Top 2: netuid 4 (0.4) and netuid 3 (0.3)
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+        let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+        assert!(s3 > 0.0);
+        assert!(s4 > 0.0);
+        assert_abs_diff_eq!(s3 + s4, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_proportion_filter_default_50_percent_1_subnet() {
+    new_test_ext(1).execute_with(|| {
+        // Default 50%, 1 subnet -> ceil(1 * 0.5) = 1
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(1.0));
+
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(s1, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_proportion_filter_default_50_percent_3_subnets() {
+    new_test_ext(1).execute_with(|| {
+        // Default 50%, 3 subnets -> ceil(3 * 5000 / 10000) = ceil(1.5) = 2
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.2));
+        shares.insert(NetUid::from(2), u64f64(0.3));
+        shares.insert(NetUid::from(3), u64f64(0.5));
+
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert!(s2 > 0.0);
+        assert!(s3 > 0.0);
+        assert_abs_diff_eq!(s2 + s3, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_proportion_filter_100_percent() {
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetProportion::<Test>::set(10000); // 100%
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.25));
+        shares.insert(NetUid::from(2), u64f64(0.75));
+
+        let shares_before = shares.clone();
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        // All subnets should keep their shares
+        for (k, v) in shares_before {
+            assert_abs_diff_eq!(
+                shares.get(&k).unwrap().to_num::<f64>(),
+                v.to_num::<f64>(),
+                epsilon = 1e-12
+            );
+        }
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_proportion_filter_emits_event() {
+    new_test_ext(1).execute_with(|| {
+        // Default 50%, 4 subnets
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.1));
+        shares.insert(NetUid::from(2), u64f64(0.2));
+        shares.insert(NetUid::from(3), u64f64(0.3));
+        shares.insert(NetUid::from(4), u64f64(0.4));
+
+        System::reset_events();
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        let events = System::events();
+        let found = events.iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::EmissionTopSubnetFilterApplied {
+                    top_k: 2,
+                    total: 4,
+                })
+            )
+        });
+        assert!(
+            found,
+            "Expected EmissionTopSubnetFilterApplied event with top_k=2, total=4"
+        );
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_proportion_filter_zeroed_get_no_emission() {
+    new_test_ext(1).execute_with(|| {
+        // Default 50%, 4 subnets
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.1));
+        shares.insert(NetUid::from(2), u64f64(0.2));
+        shares.insert(NetUid::from(3), u64f64(0.3));
+        shares.insert(NetUid::from(4), u64f64(0.4));
+
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        // Verify zeroed subnets produce zero emission
+        let block_emission = U96F32::from_num(1_000_000);
+        for (netuid, share) in &shares {
+            let emission = U64F64::saturating_from_num(*share)
+                .saturating_mul(U64F64::saturating_from_num(block_emission));
+            if *netuid == NetUid::from(1) || *netuid == NetUid::from(2) {
+                assert_abs_diff_eq!(emission.to_num::<f64>(), 0.0, epsilon = 1e-6);
+            } else {
+                assert!(emission.to_num::<f64>() > 0.0);
+            }
+        }
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_disabled() {
+    new_test_ext(1).execute_with(|| {
+        // Default limit is 0 (disabled)
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.25));
+        shares.insert(NetUid::from(2), u64f64(0.25));
+        shares.insert(NetUid::from(3), u64f64(0.25));
+        shares.insert(NetUid::from(4), u64f64(0.25));
+
+        let shares_before = shares.clone();
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // No change when disabled
+        for (k, v) in shares_before {
+            assert_abs_diff_eq!(
+                shares.get(&k).unwrap().to_num::<f64>(),
+                v.to_num::<f64>(),
+                epsilon = 1e-12
+            );
+        }
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_two_of_five() {
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.05));
+        shares.insert(NetUid::from(2), u64f64(0.10));
+        shares.insert(NetUid::from(3), u64f64(0.15));
+        shares.insert(NetUid::from(4), u64f64(0.30));
+        shares.insert(NetUid::from(5), u64f64(0.40));
+
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // Only top 2 (netuid 5 and 4) should have nonzero shares
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+        let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+        let s5 = shares.get(&NetUid::from(5)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s3, 0.0, epsilon = 1e-12);
+        assert!(s4 > 0.0);
+        assert!(s5 > 0.0);
+        assert_abs_diff_eq!(s4 + s5, 1.0, epsilon = 1e-9);
+        // 0.30/0.70 and 0.40/0.70
+        assert_abs_diff_eq!(s4, 0.30 / 0.70, epsilon = 1e-9);
+        assert_abs_diff_eq!(s5, 0.40 / 0.70, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_exceeds_count() {
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(10);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.3));
+        shares.insert(NetUid::from(3), u64f64(0.2));
+
+        let shares_before = shares.clone();
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // All keep their shares when limit > count
+        for (k, v) in shares_before {
+            assert_abs_diff_eq!(
+                shares.get(&k).unwrap().to_num::<f64>(),
+                v.to_num::<f64>(),
+                epsilon = 1e-12
+            );
+        }
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_emits_event() {
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.1));
+        shares.insert(NetUid::from(2), u64f64(0.2));
+        shares.insert(NetUid::from(3), u64f64(0.3));
+        shares.insert(NetUid::from(4), u64f64(0.4));
+
+        System::reset_events();
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        let events = System::events();
+        let found = events.iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::EmissionAbsoluteLimitApplied {
+                    limit: 2,
+                    before_count: 4,
+                })
+            )
+        });
+        assert!(
+            found,
+            "Expected EmissionAbsoluteLimitApplied event with limit=2, before_count=4"
+        );
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_no_event_when_within_limit() {
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(5);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.5));
+
+        System::reset_events();
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // No event should be emitted when already within limit
+        let events = System::events();
+        let found = events.iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::EmissionAbsoluteLimitApplied { .. })
+            )
+        });
+        assert!(!found, "Should not emit event when within limit");
+    });
+}
+
+#[test]
+fn test_interaction_proportion_and_absolute_limit() {
+    new_test_ext(1).execute_with(|| {
+        // 50% proportion with 6 subnets -> ceil(6*0.5) = 3 subnets
+        // Absolute limit = 2 -> further reduces to 2 subnets
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
+        // EmissionTopSubnetProportion defaults to 5000 (50%)
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.05));
+        shares.insert(NetUid::from(2), u64f64(0.10));
+        shares.insert(NetUid::from(3), u64f64(0.15));
+        shares.insert(NetUid::from(4), u64f64(0.20));
+        shares.insert(NetUid::from(5), u64f64(0.25));
+        shares.insert(NetUid::from(6), u64f64(0.25));
+
+        // Apply proportion filter first (as in get_subnet_block_emissions)
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        // After 50% filter: top 3 subnets (6, 5, 4) keep their shares
+        let nonzero_after_proportion = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_after_proportion, 3, "50% of 6 subnets = top 3");
+
+        // Apply absolute limit
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // After absolute limit: only top 2 subnets
+        let nonzero_after_limit = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(
+            nonzero_after_limit, 2,
+            "Absolute limit of 2 should leave 2 subnets"
+        );
+
+        // Sum should be 1.0
+        let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+        assert_abs_diff_eq!(sum, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_interaction_absolute_limit_stricter_than_proportion() {
+    new_test_ext(1).execute_with(|| {
+        // proportion = 100% (all subnets), absolute limit = 1
+        EmissionTopSubnetProportion::<Test>::set(10000);
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(1);
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.3));
+        shares.insert(NetUid::from(2), u64f64(0.3));
+        shares.insert(NetUid::from(3), u64f64(0.4));
+
+        // Apply both filters
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // Only subnet 3 should survive (highest share)
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s3, 1.0, epsilon = 1e-9);
+    });
+}

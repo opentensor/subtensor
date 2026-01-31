@@ -1488,6 +1488,50 @@ pub mod pallet {
     pub type FlowEmaSmoothingFactor<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultFlowEmaSmoothingFactor<T>>;
 
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> EffectiveRootProp for a subnet.
+    /// Computed during epoch in distribute_dividends_and_incentives() as:
+    ///   sum(RootAlphaDividendsPerSubnet[netuid]) /
+    ///   (sum(AlphaDividendsPerSubnet[netuid]) + sum(RootAlphaDividendsPerSubnet[netuid]))
+    /// This measures the proportion of dividends on a subnet that go to root stakers.
+    pub type EffectiveRootProp<T: Config> = StorageMap<_, Identity, NetUid, U64F64, ValueQuery>;
+
+    #[pallet::type_value]
+    /// Default: EffectiveRootPropEmissionScaling is disabled.
+    pub fn DefaultEffectiveRootPropEmissionScaling<T: Config>() -> bool {
+        false
+    }
+    #[pallet::storage]
+    /// When enabled, multiply each subnet's emission share by its EffectiveRootProp,
+    /// then re-normalize so shares sum to 1.0.
+    pub type EffectiveRootPropEmissionScaling<T: Config> =
+        StorageValue<_, bool, ValueQuery, DefaultEffectiveRootPropEmissionScaling<T>>;
+
+    #[pallet::type_value]
+    /// Default: top 50% of subnets (by emission share) receive emission.
+    pub fn DefaultEmissionTopSubnetProportion<T: Config>() -> u16 {
+        5000 // 50% in basis points (out of 10000)
+    }
+    #[pallet::storage]
+    /// Proportion of subnets (ranked by share) that receive emission.
+    /// Value in basis points: 5000 = 50%, 10000 = 100%.
+    /// Only the top ceil(count * proportion / 10000) subnets get emission.
+    /// Remaining subnets have shares zeroed and redistributed.
+    pub type EmissionTopSubnetProportion<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultEmissionTopSubnetProportion<T>>;
+
+    #[pallet::type_value]
+    /// Default: no absolute limit on number of subnets receiving emission.
+    pub fn DefaultEmissionTopSubnetAbsoluteLimit<T: Config>() -> u16 {
+        0 // 0 means no limit (disabled)
+    }
+    #[pallet::storage]
+    /// Absolute maximum number of subnets that can receive emission.
+    /// 0 means no limit (disabled). When set to N > 0, only the top N
+    /// subnets by share receive emission; the rest are zeroed and redistributed.
+    pub type EmissionTopSubnetAbsoluteLimit<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultEmissionTopSubnetAbsoluteLimit<T>>;
+
     /// ============================
     /// ==== Global Parameters =====
     /// ============================

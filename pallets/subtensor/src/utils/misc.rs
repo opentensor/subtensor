@@ -911,4 +911,19 @@ impl<T: Config> Pallet<T> {
     pub fn set_tao_flow_smoothing_factor(smoothing_factor: u64) {
         FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
     }
+
+    /// Sets whether EffectiveRootProp emission scaling is enabled.
+    pub fn set_effective_root_prop_emission_scaling(enabled: bool) {
+        EffectiveRootPropEmissionScaling::<T>::set(enabled);
+    }
+
+    /// Sets the proportion of top subnets that receive emission (in basis points, max 10000).
+    pub fn set_emission_top_subnet_proportion(proportion: u16) {
+        EmissionTopSubnetProportion::<T>::set(proportion);
+    }
+
+    /// Sets the absolute maximum number of subnets that receive emission (0 = no limit).
+    pub fn set_emission_top_subnet_absolute_limit(limit: u16) {
+        EmissionTopSubnetAbsoluteLimit::<T>::set(limit);
+    }
 }
