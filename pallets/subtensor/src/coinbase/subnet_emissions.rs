@@ -84,7 +84,12 @@ impl<T: Config> Pallet<T> {
         sorted.sort_by(|a, b| b.1.cmp(&a.1));
 
         // Find the set of netuids to zero out (those beyond top_k)
-        let netuids_to_zero: Vec<NetUid> = sorted[top_k..].iter().map(|(k, _)| *k).collect();
+        let netuids_to_zero: Vec<NetUid> = sorted
+            .get(top_k..)
+            .unwrap_or_default()
+            .iter()
+            .map(|(k, _)| *k)
+            .collect();
 
         for netuid in netuids_to_zero {
             if let Some(share) = shares.get_mut(&netuid) {
@@ -109,8 +114,10 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // ceil(total * proportion / 10000)
-        let top_k = ((total as u64) * (proportion as u64)).div_ceil(10000);
+        // ceil(total * proportion / 10000) using saturating arithmetic
+        let top_k = (total as u64)
+            .saturating_mul(proportion as u64)
+            .div_ceil(10000);
         let top_k = top_k.max(1) as usize; // At least 1 subnet
 
         log::debug!(
