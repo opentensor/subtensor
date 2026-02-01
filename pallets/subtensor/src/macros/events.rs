@@ -481,25 +481,5 @@ mod events {
             /// The amount of alpha distributed
             alpha: AlphaCurrency,
         },
-
-        /// Emission shares have been adjusted by EffectiveRootProp scaling.
-        EffectiveRootPropEmissionScalingApplied {
-            /// Per-subnet scaled shares as (netuid, share * 10^18) for precision
-            shares: Vec<(NetUid, u64)>,
-        },
-        /// Subnet emission shares zeroed for subnets outside top proportion.
-        EmissionTopSubnetFilterApplied {
-            /// Number of subnets that kept emission
-            top_k: u16,
-            /// Total number of subnets considered
-            total: u16,
-        },
-        /// Subnet emission shares zeroed for subnets beyond absolute limit.
-        EmissionAbsoluteLimitApplied {
-            /// The absolute limit applied
-            limit: u16,
-            /// Number of subnets that had nonzero shares before limiting
-            before_count: u16,
-        },
     }
 }

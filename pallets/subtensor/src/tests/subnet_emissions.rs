@@ -699,42 +699,6 @@ fn test_apply_effective_root_prop_scaling_enabled() {
 }
 
 #[test]
-fn test_apply_effective_root_prop_scaling_emits_event() {
-    new_test_ext(1).execute_with(|| {
-        // Enable scaling
-        EffectiveRootPropEmissionScaling::<Test>::set(true);
-
-        // Set EffectiveRootProp for subnets
-        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.5));
-        EffectiveRootProp::<Test>::insert(NetUid::from(2), u64f64(0.5));
-
-        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
-        shares.insert(NetUid::from(1), u64f64(0.6));
-        shares.insert(NetUid::from(2), u64f64(0.4));
-
-        // Clear events
-        System::reset_events();
-
-        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
-
-        // Check that the event was emitted
-        let events = System::events();
-        let found = events.iter().any(|e| {
-            matches!(
-                &e.event,
-                RuntimeEvent::SubtensorModule(
-                    Event::EffectiveRootPropEmissionScalingApplied { .. }
-                )
-            )
-        });
-        assert!(
-            found,
-            "Expected EffectiveRootPropEmissionScalingApplied event"
-        );
-    });
-}
-
-#[test]
 fn test_apply_effective_root_prop_scaling_all_zero_props() {
     new_test_ext(1).execute_with(|| {
         // Enable scaling
@@ -817,7 +781,7 @@ fn test_zero_and_redistribute_top_k_exceeds_count() {
 #[test]
 fn test_apply_top_subnet_proportion_filter_default_50_percent_4_subnets() {
     new_test_ext(1).execute_with(|| {
-        // Default is 5000 (50%)
+        EmissionTopSubnetProportion::<Test>::set(5000); // 50%
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.1));
         shares.insert(NetUid::from(2), u64f64(0.2));
@@ -844,7 +808,8 @@ fn test_apply_top_subnet_proportion_filter_default_50_percent_4_subnets() {
 #[test]
 fn test_apply_top_subnet_proportion_filter_default_50_percent_1_subnet() {
     new_test_ext(1).execute_with(|| {
-        // Default 50%, 1 subnet -> ceil(1 * 0.5) = 1
+        EmissionTopSubnetProportion::<Test>::set(5000); // 50%
+        // 1 subnet -> ceil(1 * 0.5) = 1
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(1.0));
 
@@ -858,7 +823,8 @@ fn test_apply_top_subnet_proportion_filter_default_50_percent_1_subnet() {
 #[test]
 fn test_apply_top_subnet_proportion_filter_default_50_percent_3_subnets() {
     new_test_ext(1).execute_with(|| {
-        // Default 50%, 3 subnets -> ceil(3 * 5000 / 10000) = ceil(1.5) = 2
+        EmissionTopSubnetProportion::<Test>::set(5000); // 50%
+        // 3 subnets -> ceil(3 * 5000 / 10000) = ceil(1.5) = 2
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.2));
         shares.insert(NetUid::from(2), u64f64(0.3));
@@ -901,39 +867,9 @@ fn test_apply_top_subnet_proportion_filter_100_percent() {
 }
 
 #[test]
-fn test_apply_top_subnet_proportion_filter_emits_event() {
-    new_test_ext(1).execute_with(|| {
-        // Default 50%, 4 subnets
-        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
-        shares.insert(NetUid::from(1), u64f64(0.1));
-        shares.insert(NetUid::from(2), u64f64(0.2));
-        shares.insert(NetUid::from(3), u64f64(0.3));
-        shares.insert(NetUid::from(4), u64f64(0.4));
-
-        System::reset_events();
-        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
-
-        let events = System::events();
-        let found = events.iter().any(|e| {
-            matches!(
-                &e.event,
-                RuntimeEvent::SubtensorModule(Event::EmissionTopSubnetFilterApplied {
-                    top_k: 2,
-                    total: 4,
-                })
-            )
-        });
-        assert!(
-            found,
-            "Expected EmissionTopSubnetFilterApplied event with top_k=2, total=4"
-        );
-    });
-}
-
-#[test]
 fn test_apply_top_subnet_proportion_filter_zeroed_get_no_emission() {
     new_test_ext(1).execute_with(|| {
-        // Default 50%, 4 subnets
+        EmissionTopSubnetProportion::<Test>::set(5000); // 50%
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.1));
         shares.insert(NetUid::from(2), u64f64(0.2));
@@ -1038,67 +974,12 @@ fn test_apply_top_subnet_absolute_limit_exceeds_count() {
 }
 
 #[test]
-fn test_apply_top_subnet_absolute_limit_emits_event() {
-    new_test_ext(1).execute_with(|| {
-        EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
-
-        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
-        shares.insert(NetUid::from(1), u64f64(0.1));
-        shares.insert(NetUid::from(2), u64f64(0.2));
-        shares.insert(NetUid::from(3), u64f64(0.3));
-        shares.insert(NetUid::from(4), u64f64(0.4));
-
-        System::reset_events();
-        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
-
-        let events = System::events();
-        let found = events.iter().any(|e| {
-            matches!(
-                &e.event,
-                RuntimeEvent::SubtensorModule(Event::EmissionAbsoluteLimitApplied {
-                    limit: 2,
-                    before_count: 4,
-                })
-            )
-        });
-        assert!(
-            found,
-            "Expected EmissionAbsoluteLimitApplied event with limit=2, before_count=4"
-        );
-    });
-}
-
-#[test]
-fn test_apply_top_subnet_absolute_limit_no_event_when_within_limit() {
-    new_test_ext(1).execute_with(|| {
-        EmissionTopSubnetAbsoluteLimit::<Test>::set(5);
-
-        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
-        shares.insert(NetUid::from(1), u64f64(0.5));
-        shares.insert(NetUid::from(2), u64f64(0.5));
-
-        System::reset_events();
-        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
-
-        // No event should be emitted when already within limit
-        let events = System::events();
-        let found = events.iter().any(|e| {
-            matches!(
-                &e.event,
-                RuntimeEvent::SubtensorModule(Event::EmissionAbsoluteLimitApplied { .. })
-            )
-        });
-        assert!(!found, "Should not emit event when within limit");
-    });
-}
-
-#[test]
 fn test_interaction_proportion_and_absolute_limit() {
     new_test_ext(1).execute_with(|| {
         // 50% proportion with 6 subnets -> ceil(6*0.5) = 3 subnets
         // Absolute limit = 2 -> further reduces to 2 subnets
+        EmissionTopSubnetProportion::<Test>::set(5000);
         EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
-        // EmissionTopSubnetProportion defaults to 5000 (50%)
 
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.05));

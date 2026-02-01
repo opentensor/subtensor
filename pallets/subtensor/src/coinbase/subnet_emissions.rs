@@ -45,21 +45,6 @@ impl<T: Config> Pallet<T> {
         }
 
         Self::normalize_shares(shares);
-
-        // Emit event with scaled shares
-        let shares_vec: Vec<(NetUid, u64)> = shares
-            .iter()
-            .map(|(netuid, share)| {
-                // Store as fixed-point u64 (multiply by 10^18 for precision)
-                let share_u64 = share
-                    .saturating_mul(U64F64::saturating_from_num(1_000_000_000u64))
-                    .saturating_to_num::<u64>();
-                (*netuid, share_u64)
-            })
-            .collect();
-        Self::deposit_event(Event::<T>::EffectiveRootPropEmissionScalingApplied {
-            shares: shares_vec,
-        });
     }
 
     /// Zeros shares outside top_k (by descending share value) and re-normalizes the rest.
@@ -125,11 +110,6 @@ impl<T: Config> Pallet<T> {
         );
 
         Self::zero_and_redistribute_bottom_shares(shares, top_k);
-
-        Self::deposit_event(Event::<T>::EmissionTopSubnetFilterApplied {
-            top_k: top_k as u16,
-            total: total as u16,
-        });
     }
 
     /// Limits the number of subnets receiving emission to an absolute number.
@@ -156,11 +136,6 @@ impl<T: Config> Pallet<T> {
         );
 
         Self::zero_and_redistribute_bottom_shares(shares, limit as usize);
-
-        Self::deposit_event(Event::<T>::EmissionAbsoluteLimitApplied {
-            limit,
-            before_count: nonzero_count as u16,
-        });
     }
 
     pub fn get_subnet_block_emissions(
