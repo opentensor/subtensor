@@ -1508,9 +1508,9 @@ pub mod pallet {
         StorageValue<_, bool, ValueQuery, DefaultEffectiveRootPropEmissionScaling<T>>;
 
     #[pallet::type_value]
-    /// Default: top 50% of subnets (by emission share) receive emission.
+    /// Default: all subnets receive emission (100%).
     pub fn DefaultEmissionTopSubnetProportion<T: Config>() -> u16 {
-        5000 // 50% in basis points (out of 10000)
+        10000 // 100% in basis points (out of 10000)
     }
     #[pallet::storage]
     /// Proportion of subnets (ranked by share) that receive emission.
