@@ -164,8 +164,6 @@ fn test_coinbase_tao_issuance_base_low() {
 #[test]
 fn test_coinbase_tao_issuance_multiple() {
     new_test_ext(1).execute_with(|| {
-        // Disable top-subnet proportion filter so all 3 subnets receive emission.
-        EmissionTopSubnetProportion::<Test>::set(10000);
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let netuid3 = NetUid::from(3);
@@ -210,8 +208,6 @@ fn test_coinbase_tao_issuance_multiple() {
 #[test]
 fn test_coinbase_tao_issuance_different_prices() {
     new_test_ext(1).execute_with(|| {
-        // Disable top-subnet proportion filter so both subnets receive emission.
-        EmissionTopSubnetProportion::<Test>::set(10000);
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission = 100_000_000;
@@ -484,8 +480,6 @@ fn test_update_moving_price_after_time() {
 #[test]
 fn test_coinbase_alpha_issuance_base() {
     new_test_ext(1).execute_with(|| {
-        // Disable top-subnet proportion filter so both subnets receive emission.
-        EmissionTopSubnetProportion::<Test>::set(10000);
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
@@ -524,8 +518,6 @@ fn test_coinbase_alpha_issuance_base() {
 #[test]
 fn test_coinbase_alpha_issuance_different() {
     new_test_ext(1).execute_with(|| {
-        // Disable top-subnet proportion filter so both subnets receive emission.
-        EmissionTopSubnetProportion::<Test>::set(10000);
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
@@ -600,8 +592,6 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
 #[test]
 fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
     new_test_ext(1).execute_with(|| {
-        // Disable top-subnet proportion filter so both subnets receive emission.
-        EmissionTopSubnetProportion::<Test>::set(10000);
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
