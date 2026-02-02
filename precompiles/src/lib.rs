@@ -35,6 +35,7 @@ use crate::extensions::*;
 use crate::leasing::*;
 use crate::metagraph::*;
 use crate::neuron::*;
+use crate::neuron_registration_cost::*;
 use crate::proxy::*;
 use crate::sr25519::*;
 use crate::staking::*;
@@ -42,7 +43,6 @@ use crate::storage_query::*;
 use crate::subnet::*;
 use crate::uid_lookup::*;
 use crate::voting_power::*;
-use crate::neuron_registration_cost::*;
 
 mod address_mapping;
 mod alpha;
@@ -53,6 +53,7 @@ mod extensions;
 mod leasing;
 mod metagraph;
 mod neuron;
+mod neuron_registration_cost;
 mod proxy;
 mod sr25519;
 mod staking;
@@ -60,7 +61,6 @@ mod storage_query;
 mod subnet;
 mod uid_lookup;
 mod voting_power;
-mod neuron_registration_cost;
 
 pub struct Precompiles<R>(PhantomData<R>);
 
