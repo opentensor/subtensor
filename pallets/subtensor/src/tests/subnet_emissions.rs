@@ -764,6 +764,52 @@ fn test_zero_and_redistribute_bottom_shares_basic() {
 }
 
 #[test]
+fn test_zero_and_redistribute_bottom_shares_tie_at_boundary() {
+    // A:0.4, B:0.3, C:0.3 with top_k=2 — B and C tie at the boundary.
+    // Both should be kept (tie inclusion), so all 3 remain.
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(0.4));
+    shares.insert(NetUid::from(2), u64f64(0.3));
+    shares.insert(NetUid::from(3), u64f64(0.3));
+
+    SubtensorModule::zero_and_redistribute_bottom_shares(&mut shares, 2);
+
+    let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+    let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+    let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+
+    // All three should be nonzero since B and C tie at the k-th position
+    assert!(s1 > 0.0, "A should be kept");
+    assert!(s2 > 0.0, "B should be kept (tie at boundary)");
+    assert!(s3 > 0.0, "C should be kept (tie at boundary)");
+    assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
+    // Normalized: 0.4/1.0, 0.3/1.0, 0.3/1.0
+    assert_abs_diff_eq!(s1, 0.4, epsilon = 1e-9);
+    assert_abs_diff_eq!(s2, 0.3, epsilon = 1e-9);
+    assert_abs_diff_eq!(s3, 0.3, epsilon = 1e-9);
+}
+
+#[test]
+fn test_zero_and_redistribute_bottom_shares_no_tie() {
+    // A:0.5, B:0.3, C:0.2 with top_k=2 — no tie at boundary, C is strictly below.
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(0.5));
+    shares.insert(NetUid::from(2), u64f64(0.3));
+    shares.insert(NetUid::from(3), u64f64(0.2));
+
+    SubtensorModule::zero_and_redistribute_bottom_shares(&mut shares, 2);
+
+    let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+    let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+    let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+
+    assert!(s1 > 0.0);
+    assert!(s2 > 0.0);
+    assert_abs_diff_eq!(s3, 0.0, epsilon = 1e-12);
+    assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
+}
+
+#[test]
 fn test_zero_and_redistribute_top_k_exceeds_count() {
     let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
     shares.insert(NetUid::from(1), u64f64(0.5));
