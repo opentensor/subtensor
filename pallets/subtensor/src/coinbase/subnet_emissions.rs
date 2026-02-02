@@ -33,7 +33,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// When EffectiveRootPropEmissionScaling is enabled, multiplies each subnet's share
-    /// by its stored EffectiveRootProp value, then re-normalizes shares to sum to 1.0.
+    /// by min(EffectiveRootProp, RootProp) and re-normalizes shares to sum to 1.0.
+    /// Using the minimum of the two prevents exploitation by disabling alpha validators
+    /// to artificially inflate EffectiveRootProp above the configured RootProp.
     pub(crate) fn apply_effective_root_prop_scaling(shares: &mut BTreeMap<NetUid, U64F64>) {
         if !EffectiveRootPropEmissionScaling::<T>::get() {
             return;
@@ -41,7 +43,8 @@ impl<T: Config> Pallet<T> {
 
         for (netuid, share) in shares.iter_mut() {
             let effective_root_prop = EffectiveRootProp::<T>::get(netuid);
-            *share = share.saturating_mul(effective_root_prop);
+            let root_prop = U64F64::saturating_from_num(RootProp::<T>::get(netuid));
+            *share = share.saturating_mul(effective_root_prop.min(root_prop));
         }
 
         Self::normalize_shares(shares);

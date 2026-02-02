@@ -677,9 +677,12 @@ fn test_apply_effective_root_prop_scaling_enabled() {
         // Enable scaling
         EffectiveRootPropEmissionScaling::<Test>::set(true);
 
-        // Set EffectiveRootProp for subnets
+        // Set EffectiveRootProp and RootProp for subnets.
+        // RootProp >= EffectiveRootProp, so min() uses EffectiveRootProp.
         EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.8));
         EffectiveRootProp::<Test>::insert(NetUid::from(2), u64f64(0.2));
+        RootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.9));
+        RootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0.9));
 
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.5));
@@ -727,6 +730,7 @@ fn test_apply_effective_root_prop_scaling_single_subnet() {
         EffectiveRootPropEmissionScaling::<Test>::set(true);
 
         EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.3));
+        RootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.5));
 
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(1.0));
@@ -736,6 +740,37 @@ fn test_apply_effective_root_prop_scaling_single_subnet() {
         // Single subnet should get normalized back to 1.0
         let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
         assert_abs_diff_eq!(s1, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_effective_root_prop_scaling_capped_by_root_prop() {
+    new_test_ext(1).execute_with(|| {
+        // Enable scaling
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+
+        // Simulate exploitation: EffectiveRootProp inflated above RootProp
+        // by disabling alpha validators. Scaling should use min(ERP, RP).
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.9)); // inflated
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), u64f64(0.2)); // normal
+        RootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.3)); // actual root prop
+        RootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0.5)); // actual root prop
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.5));
+        shares.insert(NetUid::from(2), u64f64(0.5));
+
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        // min(0.9, 0.3) = 0.3 for subnet1, min(0.2, 0.5) = 0.2 for subnet2
+        // After scaling: subnet1 = 0.5*0.3 = 0.15, subnet2 = 0.5*0.2 = 0.10
+        // After normalization: subnet1 = 0.15/0.25 = 0.6, subnet2 = 0.10/0.25 = 0.4
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.6, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 0.4, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
     });
 }
 
