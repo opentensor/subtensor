@@ -2585,8 +2585,8 @@ mod dispatches {
         #[pallet::call_index(132)]
         #[pallet::weight((
 		    Weight::from_parts(368_000_000, 8556)
-			.saturating_add(T::DbWeight::get().reads(26_u64))
-			.saturating_add(T::DbWeight::get().writes(16_u64)),
+			.saturating_add(T::DbWeight::get().reads(28_u64))
+			.saturating_add(T::DbWeight::get().writes(17_u64)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
