@@ -150,7 +150,7 @@ interface IProxy {
     function proxyCall(
         bytes32 real,
         uint8[] memory force_proxy_type,
-        bytes memory call
+        uint8[] memory call
     ) external;
     function getProxies(
         bytes32 account
@@ -277,7 +277,7 @@ contract PrecompileWrapper {
     function proxyCall(
         bytes32 real,
         uint8[] memory force_proxy_type,
-        bytes memory call
+        uint8[] memory call
     ) external {
         proxy.proxyCall(real, force_proxy_type, call);
     }
