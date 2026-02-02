@@ -1,3 +1,38 @@
+// Balancer swap
+//
+// Unlike uniswap v2 or v3, it allows adding liquidity unproportionally to price. This is
+// achieved by introducing the weights w1 and w2 so that w1 + w2 = 1. In these formulas x
+// means base currency (alpha) and y means quote currency (tao). The w1 weight in the code
+// below is referred as weight_base, and w2 as weight_quote. Because of the w1 + w2 = 1
+// constraint, only weight_quote is stored, and weight_base is always calculated.
+//
+// The formulas used for pool operation are following:
+//
+// Price: p = (w1*y) / (w2*x)
+//
+// Reserve deltas / (or -1 * payouts) in swaps are computed by:
+//
+//   if ∆x is given (sell) ∆y = y * ((x / (x+∆x))^(w1/w2) - 1)
+//   if ∆y is given (buy)  ∆x = x * ((y / (y+∆y))^(w2/w1) - 1)
+//
+// When swaps are executing the orders with slippage control, we need to know what amount
+// we can swap before the price reaches the limit value of p':
+//
+//   If p' < p (sell): ∆x = x * ((p / p')^w2 - 1)
+//   If p' < p (buy):  ∆y = y * ((p' / p)^w1 - 1)
+//
+// In order to initialize weights with existing reserve values and price:
+//
+//   w1 = px / (px + y)
+//   w2 = y / (px + y)
+//
+// Weights are adjusted when some amounts are added to the reserves. This prevents price
+// from changing.
+//
+//   new_w1 = p * (x + ∆x) / (p * (x + ∆x) + y + ∆y)
+//   new_w2 = (y + ∆y) / (p * (x + ∆x) + y + ∆y)
+//
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_bigmath::*;
