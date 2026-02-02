@@ -1,3 +1,6 @@
+// we have the standalone calls migration that will be enforced in the following PR
+#![allow(dead_code)]
+
 use core::{convert::TryFrom, marker::PhantomData};
 
 use frame_support::{BoundedBTreeSet, BoundedVec, weights::Weight};

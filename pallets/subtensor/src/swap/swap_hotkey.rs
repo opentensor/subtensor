@@ -489,6 +489,11 @@ impl<T: Config> Pallet<T> {
         // 8.3 Swap TaoDividendsPerSubnet
         // Tao dividends were removed
 
+        // 8.4 Swap VotingPower
+        // VotingPower( netuid, hotkey ) --> u64 -- the voting power EMA for the hotkey.
+        Self::swap_voting_power_for_hotkey(old_hotkey, new_hotkey, netuid);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+
         // 9. Swap Alpha
         // Alpha( hotkey, coldkey, netuid ) -> alpha
         let old_alpha_values: Vec<((T::AccountId, NetUid), U64F64)> =

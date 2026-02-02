@@ -1046,7 +1046,7 @@ mod dispatches {
         /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(50_u64))
+        .saturating_add(T::DbWeight::get().reads(52_u64))
         .saturating_add(T::DbWeight::get().writes(35_u64)), DispatchClass::Normal, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
@@ -1426,7 +1426,7 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(79)]
-        #[pallet::weight((Weight::from_parts(234_200_000, 0)
+        #[pallet::weight((Weight::from_parts(396_000_000, 0)
             .saturating_add(T::DbWeight::get().reads(35_u64))
             .saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
@@ -2478,6 +2478,97 @@ mod dispatches {
 
             Self::deposit_event(Event::ColdkeySwapReset { who: coldkey });
             Ok(())
+        }
+
+        /// Enables voting power tracking for a subnet.
+        ///
+        /// This function can be called by the subnet owner or root.
+        /// When enabled, voting power EMA is updated every epoch for all validators.
+        /// Voting power starts at 0 and increases over epochs.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be subnet owner or root.
+        /// * `netuid` - The subnet to enable voting power tracking for.
+        ///
+        /// # Errors:
+        /// * `SubnetNotExist` - If the subnet does not exist.
+        /// * `NotSubnetOwner` - If the caller is not the subnet owner or root.
+        #[pallet::call_index(129)]
+        #[pallet::weight((
+            Weight::from_parts(10_000, 0)
+            .saturating_add(T::DbWeight::get().reads(2))
+            .saturating_add(T::DbWeight::get().writes(2)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn enable_voting_power_tracking(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+            Self::do_enable_voting_power_tracking(netuid)
+        }
+
+        /// Schedules disabling of voting power tracking for a subnet.
+        ///
+        /// This function can be called by the subnet owner or root.
+        /// Voting power tracking will continue for 14 days (grace period) after this call,
+        /// then automatically disable and clear all VotingPower entries for the subnet.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be subnet owner or root.
+        /// * `netuid` - The subnet to schedule disabling voting power tracking for.
+        ///
+        /// # Errors:
+        /// * `SubnetNotExist` - If the subnet does not exist.
+        /// * `NotSubnetOwner` - If the caller is not the subnet owner or root.
+        /// * `VotingPowerTrackingNotEnabled` - If voting power tracking is not enabled.
+        #[pallet::call_index(130)]
+        #[pallet::weight((
+            Weight::from_parts(10_000, 0)
+            .saturating_add(T::DbWeight::get().reads(2))
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn disable_voting_power_tracking(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+            Self::do_disable_voting_power_tracking(netuid)
+        }
+
+        /// Sets the EMA alpha value for voting power calculation on a subnet.
+        ///
+        /// This function can only be called by root (sudo).
+        /// Higher alpha = faster response to stake changes.
+        /// Alpha is stored as u64 with 18 decimal precision (1.0 = 10^18).
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be root.
+        /// * `netuid` - The subnet to set the alpha for.
+        /// * `alpha` - The new alpha value (u64 with 18 decimal precision).
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not root.
+        /// * `SubnetNotExist` - If the subnet does not exist.
+        /// * `InvalidVotingPowerEmaAlpha` - If alpha is greater than 10^18 (1.0).
+        #[pallet::call_index(131)]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().reads(1))
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_voting_power_ema_alpha(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            alpha: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::do_set_voting_power_ema_alpha(netuid, alpha)
         }
     }
 }
