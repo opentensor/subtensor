@@ -53,10 +53,11 @@ impl<T: Config> Pallet<T> {
         shares: &mut BTreeMap<NetUid, U64F64>,
         top_k: usize,
     ) {
+        let zero = U64F64::saturating_from_num(0);
         if top_k == 0 || shares.is_empty() {
             // Zero everything
             for share in shares.values_mut() {
-                *share = U64F64::saturating_from_num(0);
+                *share = zero;
             }
             return;
         }
@@ -68,17 +69,16 @@ impl<T: Config> Pallet<T> {
         let mut sorted: Vec<(NetUid, U64F64)> = shares.iter().map(|(k, v)| (*k, *v)).collect();
         sorted.sort_by(|a, b| b.1.cmp(&a.1));
 
-        // Find the set of netuids to zero out (those beyond top_k)
-        let netuids_to_zero: Vec<NetUid> = sorted
-            .get(top_k..)
-            .unwrap_or_default()
-            .iter()
-            .map(|(k, _)| *k)
-            .collect();
+        // The threshold is the share value at the k-th position (0-indexed: top_k - 1).
+        // All entries with share >= threshold are kept (ties at the boundary are included).
+        let threshold = sorted
+            .get(top_k.saturating_sub(1))
+            .map(|(_, v)| *v)
+            .unwrap_or(zero);
 
-        for netuid in netuids_to_zero {
-            if let Some(share) = shares.get_mut(&netuid) {
-                *share = U64F64::saturating_from_num(0);
+        for share in shares.values_mut() {
+            if *share < threshold {
+                *share = zero;
             }
         }
 
