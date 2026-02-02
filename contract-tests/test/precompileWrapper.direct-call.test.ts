@@ -400,8 +400,4 @@ describe("PrecompileWrapper - Direct Call Tests", () => {
             assert.ok(mappedViaWrapper !== "0x0000000000000000000000000000000000000000000000000000000000000000", "Mapped address should not be zero");
         });
     });
-
-
-
-
 });
