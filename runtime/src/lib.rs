@@ -1705,7 +1705,9 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    migrations::rate_limiting::Migration<Runtime>,
+    migrations::rate_limiting::GroupedRateLimitingMigration<Runtime>,
+    // TODO(rate-limiting): enable standalone migration once legacy standalone limits are removed.
+    // migrations::rate_limiting::StandaloneRateLimitingMigration<Runtime>,
     migrations::subtensor_module::Migration<Runtime>,
 );
 

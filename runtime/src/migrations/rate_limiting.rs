@@ -45,8 +45,10 @@ const SUBTENSOR_PALLET_INDEX: u8 = 7;
 // Pallet index assigned to `pallet_admin_utils` in `construct_runtime!`.
 const ADMIN_UTILS_PALLET_INDEX: u8 = 19;
 
-/// Marker stored in `pallet_subtensor::HasMigrationRun` once the migration finishes.
-pub const MIGRATION_NAME: &[u8] = b"migrate_rate_limiting";
+/// Marker stored in `pallet_subtensor::HasMigrationRun` once the grouped migration finishes.
+pub const MIGRATION_NAME_GROUPED: &[u8] = b"migrate_grouped_rate_limiting";
+/// Marker stored in `pallet_subtensor::HasMigrationRun` for the standalone migration.
+pub const MIGRATION_NAME_STANDALONE: &[u8] = b"migrate_standalone_rate_limiting";
 
 // `set_children` is rate-limited to once every 150 blocks, it's hard-coded in the legacy code.
 const SET_CHILDREN_RATE_LIMIT: u64 = 150;
@@ -79,72 +81,122 @@ const HYPERPARAMETERS: &[Hyperparameter] = &[
     Hyperparameter::RecycleOrBurn,
 ];
 
-/// Runtime hook that executes the rate-limiting migration.
-pub struct Migration<T: SubtensorConfig>(PhantomData<T>);
+/// Runtime hook that executes the grouped rate-limiting migration.
+pub struct GroupedRateLimitingMigration<T: SubtensorConfig>(PhantomData<T>);
 
-impl<T> frame_support::traits::OnRuntimeUpgrade for Migration<T>
+impl<T> frame_support::traits::OnRuntimeUpgrade for GroupedRateLimitingMigration<T>
 where
     T: SubtensorConfig + pallet_rate_limiting::Config<LimitScope = NetUid, GroupId = GroupId>,
     RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
 {
     fn on_runtime_upgrade() -> Weight {
-        migrate_rate_limiting()
+        let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
+        if HasMigrationRun::<Runtime>::get(MIGRATION_NAME_GROUPED) {
+            info!("Grouped rate-limiting migration already executed. Skipping.");
+            return weight;
+        }
+
+        let (groups, commits, reads) = commits_grouped();
+        weight =
+            weight.saturating_add(<Runtime as frame_system::Config>::DbWeight::get().reads(reads));
+
+        let (limit_commits, last_seen_commits) = commits.into_iter().fold(
+            (Vec::new(), Vec::new()),
+            |(mut limits, mut seen), commit| {
+                match commit.kind {
+                    CommitKind::Limit(limit) => limits.push((commit.target, limit)),
+                    CommitKind::LastSeen(ls) => seen.push((commit.target, ls)),
+                }
+                (limits, seen)
+            },
+        );
+
+        let (group_writes, group_count) = migrate_grouping(&groups);
+        let (limit_writes, limits_len) = migrate_limits(limit_commits);
+        let (last_seen_writes, last_seen_len) = migrate_last_seen(last_seen_commits);
+
+        let mut writes = group_writes
+            .saturating_add(limit_writes)
+            .saturating_add(last_seen_writes);
+
+        // Legacy parity: serving-rate-limit configuration is allowed for root OR subnet owner.
+        // Everything else remains default (`AdminOrigin` / root in this runtime).
+        pallet_rate_limiting::LimitSettingRules::<Runtime>::insert(
+            RateLimitTarget::Group(GROUP_SERVE),
+            LimitSettingRule::RootOrSubnetOwnerAdminWindow,
+        );
+        writes += 1;
+
+        HasMigrationRun::<Runtime>::insert(MIGRATION_NAME_GROUPED, true);
+        writes += 1;
+
+        weight = weight
+            .saturating_add(<Runtime as frame_system::Config>::DbWeight::get().writes(writes));
+
+        info!(
+            "New migration wrote {} limits, {} last-seen entries, and {} groups into pallet-rate-limiting",
+            limits_len, last_seen_len, group_count
+        );
+
+        weight
     }
 }
 
-pub fn migrate_rate_limiting() -> Weight {
-    let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
-    if HasMigrationRun::<Runtime>::get(MIGRATION_NAME) {
-        info!("Rate-limiting migration already executed. Skipping.");
-        return weight;
+/// Runtime hook that executes the standalone rate-limiting migration.
+///
+/// This is intentionally not wired into the runtime yet; it will be enabled in a follow-up PR.
+pub struct StandaloneRateLimitingMigration<T: SubtensorConfig>(PhantomData<T>);
+
+impl<T> frame_support::traits::OnRuntimeUpgrade for StandaloneRateLimitingMigration<T>
+where
+    T: SubtensorConfig + pallet_rate_limiting::Config<LimitScope = NetUid, GroupId = GroupId>,
+    RateLimitUsageKey<T::AccountId>: Into<<T as pallet_rate_limiting::Config>::UsageKey>,
+{
+    fn on_runtime_upgrade() -> Weight {
+        let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
+        if HasMigrationRun::<Runtime>::get(MIGRATION_NAME_STANDALONE) {
+            info!("Standalone rate-limiting migration already executed. Skipping.");
+            return weight;
+        }
+
+        let (commits, reads) = commits_standalone();
+        weight =
+            weight.saturating_add(<Runtime as frame_system::Config>::DbWeight::get().reads(reads));
+
+        let (limit_commits, last_seen_commits) = commits.into_iter().fold(
+            (Vec::new(), Vec::new()),
+            |(mut limits, mut seen), commit| {
+                match commit.kind {
+                    CommitKind::Limit(limit) => limits.push((commit.target, limit)),
+                    CommitKind::LastSeen(ls) => seen.push((commit.target, ls)),
+                }
+                (limits, seen)
+            },
+        );
+
+        let (limit_writes, limits_len) = migrate_limits(limit_commits);
+        let (last_seen_writes, last_seen_len) = migrate_last_seen(last_seen_commits);
+
+        let mut writes = limit_writes.saturating_add(last_seen_writes);
+        HasMigrationRun::<Runtime>::insert(MIGRATION_NAME_STANDALONE, true);
+        writes += 1;
+
+        weight = weight
+            .saturating_add(<Runtime as frame_system::Config>::DbWeight::get().writes(writes));
+
+        info!(
+            "Standalone migration wrote {} limits and {} last-seen entries into pallet-rate-limiting",
+            limits_len, last_seen_len
+        );
+
+        weight
     }
-
-    let (groups, commits, reads) = commits();
-    weight = weight.saturating_add(<Runtime as frame_system::Config>::DbWeight::get().reads(reads));
-
-    let (limit_commits, last_seen_commits) = commits.into_iter().fold(
-        (Vec::new(), Vec::new()),
-        |(mut limits, mut seen), commit| {
-            match commit.kind {
-                CommitKind::Limit(limit) => limits.push((commit.target, limit)),
-                CommitKind::LastSeen(ls) => seen.push((commit.target, ls)),
-            }
-            (limits, seen)
-        },
-    );
-
-    let (group_writes, group_count) = migrate_grouping(&groups);
-    let (limit_writes, limits_len) = migrate_limits(limit_commits);
-    let (last_seen_writes, last_seen_len) = migrate_last_seen(last_seen_commits);
-
-    let mut writes = group_writes
-        .saturating_add(limit_writes)
-        .saturating_add(last_seen_writes);
-
-    // Legacy parity: serving-rate-limit configuration is allowed for root OR subnet owner.
-    // Everything else remains default (`AdminOrigin` / root in this runtime).
-    pallet_rate_limiting::LimitSettingRules::<Runtime>::insert(
-        RateLimitTarget::Group(GROUP_SERVE),
-        LimitSettingRule::RootOrSubnetOwnerAdminWindow,
-    );
-    writes += 1;
-
-    HasMigrationRun::<Runtime>::insert(MIGRATION_NAME, true);
-    writes += 1;
-
-    weight =
-        weight.saturating_add(<Runtime as frame_system::Config>::DbWeight::get().writes(writes));
-
-    info!(
-        "New migration wrote {} limits, {} last-seen entries, and {} groups into pallet-rate-limiting",
-        limits_len, last_seen_len, group_count
-    );
-
-    weight
 }
 
-// Main entrypoint: build all groups and commits, along with storage reads.
-fn commits() -> (Vec<GroupConfig>, Vec<Commit>, u64) {
+// The commits functions are main entrypoints.
+
+// build all groups and commits, along with storage reads.
+fn commits_grouped() -> (Vec<GroupConfig>, Vec<Commit>, u64) {
     let mut groups = Vec::new();
     let mut commits = Vec::new();
 
@@ -157,7 +209,14 @@ fn commits() -> (Vec<GroupConfig>, Vec<Commit>, u64) {
     reads = reads.saturating_add(build_staking_ops(&mut groups, &mut commits));
     reads = reads.saturating_add(build_swap_keys(&mut groups, &mut commits));
 
-    // standalone
+    (groups, commits, reads)
+}
+
+// build commits and storage reads for standalone calls.
+fn commits_standalone() -> (Vec<Commit>, u64) {
+    let mut commits = Vec::new();
+    let mut reads: u64 = 0;
+
     reads = reads.saturating_add(build_childkey_take(&mut commits));
     reads = reads.saturating_add(build_set_children(&mut commits));
     reads = reads.saturating_add(build_weights_version_key(&mut commits));
@@ -167,7 +226,7 @@ fn commits() -> (Vec<GroupConfig>, Vec<Commit>, u64) {
     reads = reads.saturating_add(build_mechanism_emission(&mut commits));
     reads = reads.saturating_add(build_trim_max_uids(&mut commits));
 
-    (groups, commits, reads)
+    (commits, reads)
 }
 
 fn migrate_grouping(groups: &[GroupConfig]) -> (u64, usize) {
@@ -1111,11 +1170,97 @@ mod tests {
         F: Fn() -> bool,
     {
         System::set_block_number(now.saturated_into());
-        HasMigrationRun::<Runtime>::remove(MIGRATION_NAME);
+        HasMigrationRun::<Runtime>::remove(MIGRATION_NAME_GROUPED);
         clear_rate_limiting_storage();
 
         // Run migration to hydrate pallet-rate-limiting state.
-        Migration::<Runtime>::on_runtime_upgrade();
+        GroupedRateLimitingMigration::<Runtime>::on_runtime_upgrade();
+
+        let identifier = TransactionIdentifier::from_call(&call).expect("identifier for call");
+        let scope = scope_override.or_else(|| RuntimeScopeResolver::context(&origin, &call));
+        let usage: Option<Vec<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
+            usage_override.or_else(|| RuntimeUsageResolver::context(&origin, &call));
+        let target = resolve_target(identifier);
+
+        // Use the runtime-adjusted span (handles tempo scaling for admin-utils).
+        let span = match scope.as_ref() {
+            None => pallet_rate_limiting::Pallet::<Runtime>::effective_span(
+                &origin.clone().into(),
+                &call,
+                &target,
+                &None,
+            )
+            .unwrap_or_default(),
+            Some(scopes) => scopes
+                .iter()
+                .filter_map(|scope| {
+                    pallet_rate_limiting::Pallet::<Runtime>::effective_span(
+                        &origin.clone().into(),
+                        &call,
+                        &target,
+                        &Some(*scope),
+                    )
+                })
+                .max()
+                .unwrap_or_default(),
+        };
+        let span_u64: u64 = span.saturated_into();
+
+        let usage_keys: Vec<Option<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
+            match usage {
+                None => vec![None],
+                Some(keys) => keys.into_iter().map(Some).collect(),
+            };
+
+        let within = usage_keys.iter().all(|key| {
+            pallet_rate_limiting::Pallet::<Runtime>::is_within_limit(
+                &origin.clone().into(),
+                &call,
+                &identifier,
+                &scope,
+                key,
+            )
+            .expect("pallet rate limit result")
+        });
+        assert_eq!(within, legacy_check(), "parity at now for {:?}", identifier);
+
+        // Advance beyond the span and re-check (span==0 treated as allow).
+        let advance: BlockNumberFor<Runtime> = span.saturating_add(exact_span(1));
+        System::set_block_number(System::block_number().saturating_add(advance));
+
+        let within_after = usage_keys.iter().all(|key| {
+            pallet_rate_limiting::Pallet::<Runtime>::is_within_limit(
+                &origin.clone().into(),
+                &call,
+                &identifier,
+                &scope,
+                key,
+            )
+            .expect("pallet rate limit result (after)")
+        });
+        assert!(
+            within_after || span_u64 == 0,
+            "parity after window for {:?}",
+            identifier
+        );
+    }
+
+    fn parity_check_standalone<F>(
+        now: u64,
+        call: RuntimeCall,
+        origin: RuntimeOrigin,
+        usage_override: Option<Vec<UsageKey>>,
+        scope_override: Option<Vec<NetUid>>,
+        legacy_check: F,
+    ) where
+        F: Fn() -> bool,
+    {
+        System::set_block_number(now.saturated_into());
+        HasMigrationRun::<Runtime>::remove(MIGRATION_NAME_STANDALONE);
+        clear_rate_limiting_storage();
+
+        // Run standalone migration to hydrate pallet-rate-limiting state.
+        StandaloneRateLimitingMigration::<Runtime>::on_runtime_upgrade();
 
         let identifier = TransactionIdentifier::from_call(&call).expect("identifier for call");
         let scope = scope_override.or_else(|| RuntimeScopeResolver::context(&origin, &call));
@@ -1199,7 +1344,7 @@ mod tests {
     fn migration_populates_limits_last_seen_and_groups() {
         new_test_ext().execute_with(|| {
             let account: AccountId = ACCOUNT.into();
-            pallet_subtensor::HasMigrationRun::<Runtime>::remove(MIGRATION_NAME);
+            pallet_subtensor::HasMigrationRun::<Runtime>::remove(MIGRATION_NAME_GROUPED);
 
             legacy_storage::set_tx_rate_limit(10);
             legacy_storage::set_tx_delegate_take_rate_limit(3);
@@ -1208,10 +1353,10 @@ mod tests {
                 5,
             );
 
-            let weight = migrate_rate_limiting();
+            let weight = GroupedRateLimitingMigration::<Runtime>::on_runtime_upgrade();
             assert!(!weight.is_zero());
             assert!(pallet_subtensor::HasMigrationRun::<Runtime>::get(
-                MIGRATION_NAME
+                MIGRATION_NAME_GROUPED
             ));
 
             let tx_target = RateLimitTarget::Group(GROUP_SWAP_KEYS);
@@ -1261,14 +1406,14 @@ mod tests {
     #[test]
     fn migrates_global_register_network_last_seen() {
         new_test_ext().execute_with(|| {
-            HasMigrationRun::<Runtime>::remove(MIGRATION_NAME);
+            HasMigrationRun::<Runtime>::remove(MIGRATION_NAME_GROUPED);
 
             // Seed legacy global register rate-limit state.
             LastRateLimitedBlock::<Runtime>::insert(RateLimitKey::NetworkLastRegistered, 10u64);
             System::set_block_number(12);
 
             // Run migration.
-            Migration::<Runtime>::on_runtime_upgrade();
+            GroupedRateLimitingMigration::<Runtime>::on_runtime_upgrade();
 
             let target = RateLimitTarget::Group(GROUP_REGISTER_NETWORK);
 
@@ -1282,14 +1427,14 @@ mod tests {
     #[test]
     fn sn_owner_hotkey_limit_not_tempo_scaled_and_last_seen_preserved() {
         new_test_ext().execute_with(|| {
-            HasMigrationRun::<Runtime>::remove(MIGRATION_NAME);
+            HasMigrationRun::<Runtime>::remove(MIGRATION_NAME_STANDALONE);
 
             let netuid = NetUid::from(1);
             // Give the subnet a non-1 tempo to catch accidental scaling.
             SubtensorModule::set_tempo(netuid, 5);
             LastRateLimitedBlock::<Runtime>::insert(RateLimitKey::SetSNOwnerHotkey(netuid), 100u64);
 
-            Migration::<Runtime>::on_runtime_upgrade();
+            StandaloneRateLimitingMigration::<Runtime>::on_runtime_upgrade();
 
             let target = RateLimitTarget::Transaction(TransactionIdentifier::new(19, 67));
 
@@ -1311,14 +1456,14 @@ mod tests {
     #[test]
     fn register_network_parity() {
         new_ext().execute_with(|| {
-            HasMigrationRun::<Runtime>::remove(MIGRATION_NAME);
+            HasMigrationRun::<Runtime>::remove(MIGRATION_NAME_GROUPED);
             let now = 100u64;
             let span = 5u64;
             System::set_block_number(now.saturated_into());
             LastRateLimitedBlock::<Runtime>::insert(RateLimitKey::NetworkLastRegistered, now - 1);
             legacy_storage::set_network_rate_limit(span);
 
-            Migration::<Runtime>::on_runtime_upgrade();
+            GroupedRateLimitingMigration::<Runtime>::on_runtime_upgrade();
 
             let target = RateLimitTarget::Group(GROUP_REGISTER_NETWORK);
             let limit = pallet_rate_limiting::Limits::<Runtime>::get(target).expect("limit stored");
@@ -1412,7 +1557,7 @@ mod tests {
                 TransactionType::SetChildkeyTake
                     .passes_rate_limit_on_subnet::<Runtime>(&hot, netuid)
             };
-            parity_check(now, call, origin, None, None, legacy);
+            parity_check_standalone(now, call, origin, None, None, legacy);
         });
     }
 
@@ -1434,7 +1579,7 @@ mod tests {
             let legacy = || {
                 TransactionType::SetChildren.passes_rate_limit_on_subnet::<Runtime>(&hot, netuid)
             };
-            parity_check(now, call, origin, None, None, legacy);
+            parity_check_standalone(now, call, origin, None, None, legacy);
         });
     }
 
@@ -1596,7 +1741,7 @@ mod tests {
                 let delta = now.saturating_sub(now - 1);
                 delta >= limit
             };
-            parity_check(now, wvk_call, origin, None, None, legacy_wvk);
+            parity_check_standalone(now, wvk_call, origin, None, None, legacy_wvk);
         });
     }
 
@@ -1629,18 +1774,18 @@ mod tests {
                 let delta = now.saturating_sub(last);
                 delta >= limit
             };
-            parity_check(now, call, origin, usage, scope, legacy);
+            parity_check_standalone(now, call, origin, usage, scope, legacy);
         });
     }
 
     #[test]
     fn migration_skips_when_already_run() {
         new_test_ext().execute_with(|| {
-            pallet_subtensor::HasMigrationRun::<Runtime>::insert(MIGRATION_NAME, true);
+            pallet_subtensor::HasMigrationRun::<Runtime>::insert(MIGRATION_NAME_GROUPED, true);
             legacy_storage::set_tx_rate_limit(99);
 
             let base_weight = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
-            let weight = migrate_rate_limiting();
+            let weight = GroupedRateLimitingMigration::<Runtime>::on_runtime_upgrade();
 
             assert_eq!(weight, base_weight);
             assert!(
