@@ -172,14 +172,29 @@ mod events {
         MaxDelegateTakeSet(u16),
         /// minimum delegate take is set by sudo/admin transaction
         MinDelegateTakeSet(u16),
-        /// A coldkey has been swapped
+        /// A coldkey swap announcement has been made.
+        ColdkeySwapAnnounced {
+            /// The account ID of the coldkey that made the announcement.
+            who: T::AccountId,
+            /// The hash of the new coldkey.
+            new_coldkey_hash: T::Hash,
+        },
+        /// A coldkey swap has been reset.
+        ColdkeySwapReset {
+            /// The account ID of the coldkey for which the swap has been reset.
+            who: T::AccountId,
+        },
+        /// A coldkey has been swapped.
         ColdkeySwapped {
-            /// the account ID of old coldkey
+            /// The account ID of old coldkey.
             old_coldkey: T::AccountId,
-            /// the account ID of new coldkey
+            /// The account ID of new coldkey.
             new_coldkey: T::AccountId,
-            /// the swap cost
-            swap_cost: TaoCurrency,
+        },
+        /// A coldkey swap has been disputed.
+        ColdkeySwapDisputed {
+            /// The account ID of the coldkey that was disputed.
+            coldkey: T::AccountId,
         },
         /// All balance of a hotkey has been unstaked and transferred to a new coldkey
         AllBalanceUnstakedAndTransferredToNewColdkey {
@@ -191,17 +206,6 @@ mod events {
             total_balance: <<T as Config>::Currency as fungible::Inspect<
                 <T as frame_system::Config>::AccountId,
             >>::Balance,
-        },
-        /// A coldkey swap has been scheduled
-        ColdkeySwapScheduled {
-            /// The account ID of the old coldkey
-            old_coldkey: T::AccountId,
-            /// The account ID of the new coldkey
-            new_coldkey: T::AccountId,
-            /// The arbitration block for the coldkey swap
-            execution_block: BlockNumberFor<T>,
-            /// The swap cost
-            swap_cost: TaoCurrency,
         },
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {
@@ -224,15 +228,17 @@ mod events {
         SubnetIdentityRemoved(NetUid),
         /// A dissolve network extrinsic scheduled.
         DissolveNetworkScheduled {
-            /// The account ID schedule the dissolve network extrisnic
+            /// The account ID schedule the dissolve network extrinsic
             account: T::AccountId,
             /// network ID will be dissolved
             netuid: NetUid,
             /// extrinsic execution block number
             execution_block: BlockNumberFor<T>,
         },
-        /// The duration of schedule coldkey swap has been set
-        ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
+        /// The coldkey swap announcement delay has been set.
+        ColdkeySwapAnnouncementDelaySet(BlockNumberFor<T>),
+        /// The coldkey swap reannouncement delay has been set.
+        ColdkeySwapReannouncementDelaySet(BlockNumberFor<T>),
         /// The duration of dissolve network has been set
         DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
         /// Commit-reveal v3 weights have been successfully committed.
@@ -470,6 +476,35 @@ mod events {
 
             /// Claim type
             root_claim_type: RootClaimTypeEnum,
+        },
+
+        /// Voting power tracking has been enabled for a subnet.
+        VotingPowerTrackingEnabled {
+            /// The subnet ID
+            netuid: NetUid,
+        },
+
+        /// Voting power tracking has been scheduled for disabling.
+        /// Tracking will continue until disable_at_block, then stop and clear entries.
+        VotingPowerTrackingDisableScheduled {
+            /// The subnet ID
+            netuid: NetUid,
+            /// Block at which tracking will be disabled
+            disable_at_block: u64,
+        },
+
+        /// Voting power tracking has been fully disabled and entries cleared.
+        VotingPowerTrackingDisabled {
+            /// The subnet ID
+            netuid: NetUid,
+        },
+
+        /// Voting power EMA alpha has been set for a subnet.
+        VotingPowerEmaAlphaSet {
+            /// The subnet ID
+            netuid: NetUid,
+            /// The new alpha value (u64 with 18 decimal precision)
+            alpha: u64,
         },
 
         /// Subnet lease dividends have been distributed.

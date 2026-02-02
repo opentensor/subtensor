@@ -10,7 +10,7 @@ use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, GasWeightMapping, Precompile,
     PrecompileFailure, PrecompileHandle, PrecompileResult,
 };
-use pallet_subtensor::transaction_extension::SubtensorTransactionExtension;
+use pallet_subtensor::SubtensorTransactionExtension;
 use precompile_utils::EvmResult;
 use scale_info::TypeInfo;
 use sp_core::{H160, U256, blake2_256};
@@ -58,6 +58,8 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             + pallet_balances::Config
             + pallet_evm::Config
             + pallet_subtensor::Config
+            + pallet_shield::Config
+            + pallet_subtensor_proxy::Config
             + Send
             + Sync
             + TypeInfo,
@@ -65,7 +67,9 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         <R as frame_system::Config>::RuntimeCall: GetDispatchInfo
             + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
             + IsSubType<pallet_balances::Call<R>>
-            + IsSubType<pallet_subtensor::Call<R>>,
+            + IsSubType<pallet_subtensor::Call<R>>
+            + IsSubType<pallet_shield::Call<R>>
+            + IsSubType<pallet_subtensor_proxy::Call<R>>,
         <R as frame_system::Config>::RuntimeOrigin:
             From<RawOrigin<R::AccountId>> + AsSystemOriginSigner<R::AccountId> + Clone,
     {
@@ -131,8 +135,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                     <R as frame_system::Config>::RuntimeCall,
                 >>::post_dispatch((), &info, &mut post_info, 0, &result)
                 .map_err(extension_error)?;
-                log::error!("Dispatch failed. Error: {e:?}");
-                log::warn!("Returning error PrecompileFailure::Error");
+                log::info!("Precompile dispatch failed. message as: {e:?}");
                 self.charge_and_refund_after_dispatch::<R, Call>(&info, &post_info)?;
 
                 Err(PrecompileFailure::Error {

@@ -86,9 +86,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config<AccountId = AccountId32, RuntimeEvent: From<Event<Self>>>
-        + pallet_timestamp::Config
-        + pallet_aura::Config
+        frame_system::Config<RuntimeEvent: From<Event<Self>>> + pallet_aura::Config
     {
         type RuntimeCall: Parameter
             + sp_runtime::traits::Dispatchable<
@@ -96,7 +94,7 @@ pub mod pallet {
                 PostInfo = PostDispatchInfo,
             > + GetDispatchInfo;
 
-        type AuthorityOrigin: AuthorityOriginExt<Self::RuntimeOrigin, AccountId = AccountId32>;
+        type AuthorityOrigin: AuthorityOriginExt<Self::RuntimeOrigin, AccountId = Self::AccountId>;
     }
 
     #[pallet::pallet]
