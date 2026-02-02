@@ -1164,7 +1164,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     /// Get the amount of Alpha that needs to be sold to get a given amount of Tao
     fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoCurrency) -> AlphaCurrency {
         // This is a mock implementation, waiting to merge balancer
-        // TODO: When balancer is merged, simulate with slippage
+        // TODO: When balancer is merged, simulate with slippage (commented fn below)
         let alpha_price = Self::current_price(netuid.into());
         AlphaCurrency::from(
             U96F32::from(u64::from(tao_amount))
@@ -1172,4 +1172,33 @@ impl<T: Config> SwapHandler for Pallet<T> {
                 .saturating_to_num::<u64>(),
         )
     }
+
+    // fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoCurrency) -> AlphaCurrency {
+    //     if !PalSwapInitialized::<T>::get(netuid) {
+    //         // If swap is uninitialized, fallback to no-slippage method
+    //         let alpha_price = Self::current_price(netuid.into());
+    //         AlphaCurrency::from(
+    //             U64F64::from(u64::from(tao_amount))
+    //                 .safe_div(alpha_price)
+    //                 .saturating_to_num::<u64>(),
+    //         )
+    //     } else {
+    //         // Use the swap simulation (with slippage)
+    //         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
+    //         let tao_reserve = T::TaoReserve::reserve(netuid.into());
+
+    //         AlphaCurrency::from(
+    //             if u64::from(tao_reserve) > u64::from(T::MinimumReserve::get()) {
+    //                 let balancer = SwapBalancer::<T>::get(netuid);
+    //                 balancer.get_base_needed_for_quote(
+    //                     tao_reserve.into(),
+    //                     alpha_reserve.into(),
+    //                     tao_amount.into(),
+    //                 )
+    //             } else {
+    //                 u64::MAX
+    //             },
+    //         )
+    //     }
+    // }
 }
