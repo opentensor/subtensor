@@ -1,6 +1,6 @@
 // Balancer swap
 //
-// Unlike uniswap v2 or v3, it allows adding liquidity unproportionally to price. This is
+// Unlike uniswap v2 or v3, it allows adding liquidity disproportionally to price. This is
 // achieved by introducing the weights w1 and w2 so that w1 + w2 = 1. In these formulas x
 // means base currency (alpha) and y means quote currency (tao). The w1 weight in the code
 // below is referred as weight_base, and w2 as weight_quote. Because of the w1 + w2 = 1
@@ -31,6 +31,12 @@
 //
 //   new_w1 = p * (x + ∆x) / (p * (x + ∆x) + y + ∆y)
 //   new_w2 = (y + ∆y) / (p * (x + ∆x) + y + ∆y)
+//
+// Weights are limited to stay within [0.1, 0.9] range to avoid precision issues in exponentiation.
+// Practically, these limitations will not be achieved, but if they are, the swap will not allow injection
+// that will push the weights out of this interval because we prefer chain and swap stability over success 
+// of a single injection. Currently, we only allow the protocol to inject disproportionally to price, and
+// the amount of disproportion will not cause weigths to get far from 0.5.
 //
 
 use codec::{Decode, Encode, MaxEncodedLen};
