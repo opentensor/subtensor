@@ -2580,7 +2580,8 @@ mod dispatches {
             Self::do_set_voting_power_ema_alpha(netuid, alpha)
         }
 
-        /// --- Subnet buyback
+        /// --- Subnet buyback: the extrinsic is a combination of add_stake(add_stake_limit) and
+        /// burn_alpha. We buy alpha token first and immediately burn the acquired amount of alpha.
         #[pallet::call_index(132)]
         #[pallet::weight((
 		    Weight::from_parts(368_000_000, 8556)

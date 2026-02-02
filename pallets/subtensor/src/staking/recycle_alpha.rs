@@ -160,9 +160,16 @@ impl<T: Config> Pallet<T> {
             Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?
         };
 
-        Self::do_burn_alpha(origin, hotkey, alpha, netuid)?;
+        Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid)?;
 
         Self::set_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid), current_block);
+
+        Self::deposit_event(Event::SubnetBuyback {
+            netuid,
+            hotkey,
+            amount,
+            alpha,
+        });
 
         Ok(())
     }

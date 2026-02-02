@@ -671,6 +671,14 @@ fn test_subnet_buyback_success() {
                 RuntimeEvent::SubtensorModule(Event::AlphaBurned(..))
             )
         }));
+
+        // Verify SubnetBuyback event was emitted
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::SubnetBuyback { .. })
+            )
+        }));
     });
 }
 
