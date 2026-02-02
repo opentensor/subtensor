@@ -42,6 +42,7 @@ use crate::storage_query::*;
 use crate::subnet::*;
 use crate::uid_lookup::*;
 use crate::voting_power::*;
+use crate::neuron_registration_cost::*;
 
 mod address_mapping;
 mod alpha;
@@ -59,6 +60,7 @@ mod storage_query;
 mod subnet;
 mod uid_lookup;
 mod voting_power;
+mod neuron_registration_cost;
 
 pub struct Precompiles<R>(PhantomData<R>);
 
@@ -135,7 +137,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 27] {
+    pub fn used_addresses() -> [H160; 28] {
         [
             hash(1),
             hash(2),
@@ -164,6 +166,7 @@ where
             hash(VotingPowerPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
             hash(AddressMappingPrecompile::<R>::INDEX),
+            hash(NeuronRegistrationCostPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -270,6 +273,12 @@ where
                 AddressMappingPrecompile::<R>::try_execute::<R>(
                     handle,
                     PrecompileEnum::AddressMapping,
+                )
+            }
+            a if a == hash(NeuronRegistrationCostPrecompile::<R>::INDEX) => {
+                NeuronRegistrationCostPrecompile::<R>::try_execute::<R>(
+                    handle,
+                    PrecompileEnum::NeuronRegistrationCost,
                 )
             }
             _ => None,
