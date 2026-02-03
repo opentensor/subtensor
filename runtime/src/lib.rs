@@ -187,7 +187,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
                 pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
                 frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
             ),
-            pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new(),
+            rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
         );
 
         let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
@@ -1613,7 +1613,7 @@ pub type TransactionExtensions = (
         pallet_drand::drand_priority::DrandPriority<Runtime>,
         frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
     ),
-    pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
+    rate_limiting::UnwrappedRateLimitTransactionExtension,
 );
 
 type Migrations = (

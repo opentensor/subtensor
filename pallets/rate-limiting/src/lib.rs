@@ -613,7 +613,8 @@ pub mod pallet {
                 let Some(block_span) = Self::effective_span(origin, call, &target, &scope) else {
                     continue;
                 };
-                if !Self::within_span(&usage_target, usage_key, block_span) {
+                let last_seen = LastSeen::<T, I>::get(&usage_target, usage_key);
+                if !Self::within_span(&usage_target, usage_key, block_span, last_seen) {
                     return Ok(false);
                 }
             }
@@ -653,12 +654,18 @@ pub mod pallet {
             target: &RateLimitTarget<<T as Config<I>>::GroupId>,
             usage_key: &Option<<T as Config<I>>::UsageKey>,
             block_span: BlockNumberFor<T>,
+            last_seen_override: Option<BlockNumberFor<T>>,
         ) -> bool {
             if block_span.is_zero() {
                 return true;
             }
 
-            if let Some(last) = LastSeen::<T, I>::get(target, usage_key) {
+            let last_seen = match last_seen_override {
+                Some(block) => Some(block),
+                None => LastSeen::<T, I>::get(target, usage_key),
+            };
+
+            if let Some(last) = last_seen {
                 let current = frame_system::Pallet::<T>::block_number();
                 let delta = current.saturating_sub(last);
                 if delta < block_span {

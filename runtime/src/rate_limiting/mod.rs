@@ -15,7 +15,11 @@
 //! `pallet-rate-limiting` instances per pallet.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::traits::Get;
+use frame_support::{
+    dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
+    pallet_prelude::Weight,
+    traits::Get,
+};
 use frame_system::RawOrigin;
 use pallet_admin_utils::Call as AdminUtilsCall;
 use pallet_rate_limiting::{
@@ -24,14 +28,23 @@ use pallet_rate_limiting::{
 use pallet_subtensor::{Call as SubtensorCall, Tempo};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_runtime::DispatchError;
+use sp_runtime::{
+    DispatchError,
+    traits::{
+        DispatchInfoOf, DispatchOriginOf, Dispatchable, Implication, TransactionExtension,
+        ValidateResult,
+    },
+    transaction_validity::{TransactionSource, TransactionValidityError},
+};
 use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
 use subtensor_runtime_common::{
     BlockNumber, NetUid,
     rate_limiting::{RateLimitUsageKey, ServingEndpoint},
 };
 
-use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
+use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin, pallet_proxy, pallet_utility};
+use pallet_multisig;
+use pallet_sudo;
 
 pub mod legacy;
 
@@ -439,5 +452,129 @@ fn owner_hparam_netuid(call: &AdminUtilsCall<Runtime>) -> Option<NetUid> {
         | AdminUtilsCall::sudo_set_toggle_transfer { netuid, .. }
         | AdminUtilsCall::sudo_set_yuma3_enabled { netuid, .. } => Some(*netuid),
         _ => None,
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct UnwrappedRateLimitTransactionExtension(
+    pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
+);
+
+impl Default for UnwrappedRateLimitTransactionExtension {
+    fn default() -> Self {
+        Self(pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new())
+    }
+}
+
+impl UnwrappedRateLimitTransactionExtension {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn unwrap_nested_calls<'a>(call: &'a RuntimeCall) -> Vec<&'a RuntimeCall> {
+        let mut calls = Vec::new();
+        let mut stack = Vec::new();
+        stack.push(call);
+
+        while let Some(current) = stack.pop() {
+            match current {
+                RuntimeCall::Sudo(inner) => match inner {
+                    pallet_sudo::Call::sudo { call }
+                    | pallet_sudo::Call::sudo_unchecked_weight { call, .. }
+                    | pallet_sudo::Call::sudo_as { call, .. } => stack.push(call),
+                    _ => calls.push(current),
+                },
+                RuntimeCall::Proxy(inner) => match inner {
+                    pallet_proxy::Call::proxy { call, .. }
+                    | pallet_proxy::Call::proxy_announced { call, .. } => stack.push(call),
+                    _ => calls.push(current),
+                },
+                RuntimeCall::Utility(inner) => match inner {
+                    pallet_utility::Call::batch { calls: inner_calls }
+                    | pallet_utility::Call::batch_all { calls: inner_calls }
+                    | pallet_utility::Call::force_batch { calls: inner_calls } => {
+                        for call in inner_calls.iter().rev() {
+                            stack.push(call);
+                        }
+                    }
+                    pallet_utility::Call::dispatch_as { call, .. }
+                    | pallet_utility::Call::as_derivative { call, .. } => stack.push(call),
+                    _ => calls.push(current),
+                },
+                RuntimeCall::Multisig(inner) => match inner {
+                    pallet_multisig::Call::as_multi { call, .. }
+                    | pallet_multisig::Call::as_multi_threshold_1 { call, .. } => stack.push(call),
+                    _ => calls.push(current),
+                },
+                _ => calls.push(current),
+            }
+        }
+
+        calls
+    }
+}
+
+impl TransactionExtension<RuntimeCall> for UnwrappedRateLimitTransactionExtension
+where
+    RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    DispatchOriginOf<RuntimeCall>: Clone,
+{
+    const IDENTIFIER: &'static str = "RateLimitTransactionExtension";
+
+    type Implicit = ();
+    type Val = Vec<
+        <pallet_rate_limiting::RateLimitTransactionExtension<Runtime> as TransactionExtension<
+            RuntimeCall,
+        >>::Val,
+    >;
+    type Pre = Vec<
+        <pallet_rate_limiting::RateLimitTransactionExtension<Runtime> as TransactionExtension<
+            RuntimeCall,
+        >>::Pre,
+    >;
+
+    fn weight(&self, _call: &RuntimeCall) -> Weight {
+        Weight::zero()
+    }
+
+    fn validate(
+        &self,
+        origin: DispatchOriginOf<RuntimeCall>,
+        call: &RuntimeCall,
+        _info: &DispatchInfoOf<RuntimeCall>,
+        _len: usize,
+        _self_implicit: Self::Implicit,
+        _inherited_implication: &impl Implication,
+        _source: TransactionSource,
+    ) -> ValidateResult<Self::Val, RuntimeCall> {
+        let inner_calls = Self::unwrap_nested_calls(call);
+        let (valid, vals, origin) = self.0.validate_calls_same_block(origin, inner_calls)?;
+        Ok((valid, vals, origin))
+    }
+
+    fn prepare(
+        self,
+        val: Self::Val,
+        _origin: &DispatchOriginOf<RuntimeCall>,
+        _call: &RuntimeCall,
+        _info: &DispatchInfoOf<RuntimeCall>,
+        _len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        Ok(val)
+    }
+
+    fn post_dispatch(
+        pre: Self::Pre,
+        info: &DispatchInfoOf<RuntimeCall>,
+        post_info: &mut PostDispatchInfo,
+        len: usize,
+        result: &DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        for entry in pre {
+            pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::post_dispatch(
+                entry, info, post_info, len, result,
+            )?;
+        }
+        Ok(())
     }
 }

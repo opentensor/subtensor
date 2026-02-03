@@ -12,8 +12,11 @@ use frame_support::{
         },
     },
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
-use sp_std::{marker::PhantomData, result::Result, vec, vec::Vec};
+use sp_std::{
+    collections::btree_set::BTreeSet, marker::PhantomData, result::Result, vec, vec::Vec,
+};
 
 use crate::{
     Config, LastSeen, Pallet,
@@ -42,6 +45,157 @@ where
 {
     pub fn new() -> Self {
         Self(PhantomData)
+    }
+
+    pub fn validate_calls_same_block<'a>(
+        &self,
+        origin: DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
+        calls: impl IntoIterator<Item = &'a <T as Config<I>>::RuntimeCall>,
+    ) -> ValidateResult<
+        Vec<
+            Option<(
+                RateLimitTarget<<T as Config<I>>::GroupId>,
+                Option<Vec<<T as Config<I>>::UsageKey>>,
+                bool,
+            )>,
+        >,
+        <T as Config<I>>::RuntimeCall,
+    > {
+        let mut usage_seen_in_block = BTreeSet::<(
+            RateLimitTarget<<T as Config<I>>::GroupId>,
+            Option<<T as Config<I>>::UsageKey>,
+        )>::new();
+        let mut vals = Vec::new();
+
+        for call in calls {
+            let val = self.validate_single_call(&origin, call, &mut usage_seen_in_block)?;
+            vals.push(val);
+        }
+
+        Ok((ValidTransaction::default(), vals, origin))
+    }
+
+    fn validate_single_call(
+        &self,
+        origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
+        call: &<T as Config<I>>::RuntimeCall,
+        usage_seen_in_block: &mut BTreeSet<(
+            RateLimitTarget<<T as Config<I>>::GroupId>,
+            Option<<T as Config<I>>::UsageKey>,
+        )>,
+    ) -> Result<
+        Option<(
+            RateLimitTarget<<T as Config<I>>::GroupId>,
+            Option<Vec<<T as Config<I>>::UsageKey>>,
+            bool,
+        )>,
+        TransactionValidityError,
+    > {
+        let Some(identifier) = TransactionIdentifier::from_call(call) else {
+            return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+        };
+
+        if !Pallet::<T, I>::is_registered(&identifier) {
+            return Ok(None);
+        }
+
+        let scopes = <T as Config<I>>::LimitScopeResolver::context(origin, call);
+        let usage = <T as Config<I>>::UsageResolver::context(origin, call);
+
+        let config_target = Pallet::<T, I>::config_target(&identifier)
+            .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+        let usage_target = Pallet::<T, I>::usage_target(&identifier)
+            .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+        let bypass = <T as Config<I>>::LimitScopeResolver::should_bypass(origin, call);
+        let should_record =
+            bypass.record_usage && Pallet::<T, I>::should_record_usage(&identifier, &usage_target);
+
+        if bypass.bypass_enforcement {
+            return Ok(should_record.then_some((usage_target, usage, true)));
+        }
+
+        let usage_keys: Vec<Option<<T as Config<I>>::UsageKey>> = match usage.clone() {
+            None => vec![None],
+            Some(keys) => keys.into_iter().map(Some).collect(),
+        };
+
+        let mut unique_usage_keys = BTreeSet::new();
+        for key in usage_keys.iter().cloned() {
+            unique_usage_keys.insert(key);
+        }
+
+        let mut last_seen_per_key: Vec<(
+            Option<<T as Config<I>>::UsageKey>,
+            Option<BlockNumberFor<T>>,
+        )> = Vec::with_capacity(unique_usage_keys.len());
+        let fallback_block = frame_system::Pallet::<T>::block_number();
+
+        for key in unique_usage_keys {
+            let last_seen = Self::resolve_last_seen_for_key(
+                usage_target,
+                key.clone(),
+                should_record,
+                fallback_block,
+                usage_seen_in_block,
+            );
+
+            last_seen_per_key.push((key, last_seen));
+        }
+
+        let scope_list: Vec<Option<<T as Config<I>>::LimitScope>> = match scopes {
+            None => vec![None],
+            Some(resolved) if resolved.is_empty() => vec![None],
+            Some(resolved) => resolved.into_iter().map(Some).collect(),
+        };
+
+        let mut enforced = false;
+        for scope in scope_list {
+            let Some(block_span) =
+                Pallet::<T, I>::effective_span(origin, call, &config_target, &scope)
+            else {
+                continue;
+            };
+            if block_span.is_zero() {
+                continue;
+            }
+            enforced = true;
+            let within_limit = last_seen_per_key.iter().all(|(key, last_seen)| {
+                Pallet::<T, I>::within_span(&usage_target, key, block_span, last_seen.clone())
+            });
+            if !within_limit {
+                return Err(TransactionValidityError::Invalid(
+                    InvalidTransaction::Custom(RATE_LIMIT_DENIED),
+                ));
+            }
+        }
+
+        if !enforced {
+            return Ok(None);
+        }
+
+        Ok(Some((usage_target, usage, should_record)))
+    }
+
+    fn resolve_last_seen_for_key(
+        usage_target: RateLimitTarget<<T as Config<I>>::GroupId>,
+        key: Option<<T as Config<I>>::UsageKey>,
+        should_record: bool,
+        fallback_block: BlockNumberFor<T>,
+        usage_seen_in_block: &mut BTreeSet<(
+            RateLimitTarget<<T as Config<I>>::GroupId>,
+            Option<<T as Config<I>>::UsageKey>,
+        )>,
+    ) -> Option<BlockNumberFor<T>> {
+        if should_record {
+            let entry = (usage_target, key.clone());
+            if !usage_seen_in_block.insert(entry) {
+                Some(fallback_block)
+            } else {
+                LastSeen::<T, I>::get(&usage_target, &key)
+            }
+        } else {
+            LastSeen::<T, I>::get(&usage_target, &key)
+        }
     }
 }
 
@@ -117,74 +271,9 @@ where
         _inherited_implication: &impl Implication,
         _source: TransactionSource,
     ) -> ValidateResult<Self::Val, <T as Config<I>>::RuntimeCall> {
-        let Some(identifier) = TransactionIdentifier::from_call(call) else {
-            return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
-        };
-
-        if !Pallet::<T, I>::is_registered(&identifier) {
-            return Ok((ValidTransaction::default(), None, origin));
-        }
-
-        let scopes = <T as Config<I>>::LimitScopeResolver::context(&origin, call);
-        let usage = <T as Config<I>>::UsageResolver::context(&origin, call);
-
-        let config_target = Pallet::<T, I>::config_target(&identifier)
-            .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
-        let usage_target = Pallet::<T, I>::usage_target(&identifier)
-            .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
-        let bypass = <T as Config<I>>::LimitScopeResolver::should_bypass(&origin, call);
-        let should_record =
-            bypass.record_usage && Pallet::<T, I>::should_record_usage(&identifier, &usage_target);
-
-        if bypass.bypass_enforcement {
-            return Ok((
-                ValidTransaction::default(),
-                should_record.then_some((usage_target, usage, true)),
-                origin,
-            ));
-        }
-
-        let usage_keys: Vec<Option<<T as Config<I>>::UsageKey>> = match usage.clone() {
-            None => vec![None],
-            Some(keys) => keys.into_iter().map(Some).collect(),
-        };
-
-        let scope_list: Vec<Option<<T as Config<I>>::LimitScope>> = match scopes {
-            None => vec![None],
-            Some(resolved) if resolved.is_empty() => vec![None],
-            Some(resolved) => resolved.into_iter().map(Some).collect(),
-        };
-
-        let mut enforced = false;
-        for scope in scope_list {
-            let Some(block_span) =
-                Pallet::<T, I>::effective_span(&origin, call, &config_target, &scope)
-            else {
-                continue;
-            };
-            if block_span.is_zero() {
-                continue;
-            }
-            enforced = true;
-            let within_limit = usage_keys
-                .iter()
-                .all(|key| Pallet::<T, I>::within_span(&usage_target, key, block_span));
-            if !within_limit {
-                return Err(TransactionValidityError::Invalid(
-                    InvalidTransaction::Custom(RATE_LIMIT_DENIED),
-                ));
-            }
-        }
-
-        if !enforced {
-            return Ok((ValidTransaction::default(), None, origin));
-        }
-
-        Ok((
-            ValidTransaction::default(),
-            Some((usage_target, usage, should_record)),
-            origin,
-        ))
+        let (valid, vals, origin) =
+            self.validate_calls_same_block(origin, sp_std::iter::once(call))?;
+        Ok((valid, vals.into_iter().next().unwrap_or(None), origin))
     }
 
     fn prepare(
@@ -306,6 +395,20 @@ mod tests {
             &TxBaseImplication(()),
             TransactionSource::External,
         )
+    }
+
+    fn validate_same_block_calls(
+        extension: &RateLimitTransactionExtension<Test>,
+        calls: &[RuntimeCall],
+    ) -> Result<
+        (
+            sp_runtime::transaction_validity::ValidTransaction,
+            Vec<Option<(RateLimitTarget<GroupId>, Option<Vec<UsageKey>>, bool)>>,
+            RuntimeOrigin,
+        ),
+        TransactionValidityError,
+    > {
+        extension.validate_calls_same_block(RuntimeOrigin::signed(42), calls.iter())
     }
 
     #[test]
@@ -559,6 +662,62 @@ mod tests {
                 }
                 other => panic!("unexpected error: {:?}", other),
             }
+        });
+    }
+
+    #[test]
+    fn tx_extension_same_block_rejects_duplicate_usage() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call = remark_call();
+            let identifier = identifier_for(&call);
+            let target = RateLimitTarget::Transaction(identifier);
+
+            assert_ok!(RateLimiting::register_call(
+                RuntimeOrigin::root(),
+                Box::new(call.clone()),
+                None,
+            ));
+            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(5)));
+
+            System::set_block_number(10);
+
+            let err = validate_same_block_calls(&extension, &[call.clone(), call.clone()])
+                .expect_err("duplicate should block");
+            match err {
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(code)) => {
+                    assert_eq!(code, RATE_LIMIT_DENIED);
+                }
+                other => panic!("unexpected error: {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn tx_extension_same_block_allows_distinct_usage_keys() {
+        new_test_ext().execute_with(|| {
+            let extension = new_tx_extension();
+            let call_a = multi_scope_call(5);
+            let call_b = multi_scope_call(6);
+            let identifier = identifier_for(&call_a);
+            let target = RateLimitTarget::Transaction(identifier);
+
+            assert_ok!(RateLimiting::register_call(
+                RuntimeOrigin::root(),
+                Box::new(call_a.clone()),
+                None,
+            ));
+
+            let mut scopes = BTreeMap::new();
+            scopes.insert(5u16, RateLimitKind::Exact(5));
+            scopes.insert(6u16, RateLimitKind::Exact(5));
+            Limits::<Test, ()>::insert(target, RateLimit::Scoped(scopes));
+
+            System::set_block_number(10);
+
+            let (_valid, vals, _) =
+                validate_same_block_calls(&extension, &[call_a, call_b]).expect("valid");
+            assert_eq!(vals.len(), 2);
         });
     }
 

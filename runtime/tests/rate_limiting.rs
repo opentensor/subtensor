@@ -73,7 +73,7 @@ fn signed_extrinsic(call: RuntimeCall, pair: &sr25519::Pair, nonce: u32) -> Unch
             pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             check_metadata_hash,
         ),
-        pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new(),
+        node_subtensor_runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
     );
 
     let payload = SignedPayload::new(call.clone(), extra.clone()).expect("signed payload");
