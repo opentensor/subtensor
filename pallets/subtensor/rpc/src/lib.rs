@@ -81,6 +81,8 @@ pub trait SubtensorCustomApi<BlockHash> {
         mecid: MechId,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubmetagraphs")]
+    fn get_submetagraphs(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
     fn get_subnet_state(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getLockCost")]
@@ -402,6 +404,21 @@ where
                 "Unable to get dynamic subnets info: {e:?}"
             ))
             .into()),
+        }
+    }
+
+    fn get_submetagraphs(
+        &self,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+        match api.get_submetagraphs(at, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get submetagraphs: {e:?}")).into())
+            }
         }
     }
 
