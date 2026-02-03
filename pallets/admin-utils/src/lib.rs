@@ -2195,7 +2195,7 @@ pub mod pallet {
         }
 
         /// Sets the global maximum number of mechanisms in a subnet
-        #[pallet::call_index(86)]
+        #[pallet::call_index(88)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
