@@ -8,8 +8,8 @@ use subtensor_runtime_common::{
 };
 
 use crate::{pallet::balancer::Balancer, weights::WeightInfo};
-
 pub use pallet::*;
+use subtensor_macros::freeze_struct;
 
 mod balancer;
 mod hooks;
@@ -249,6 +249,7 @@ mod pallet {
 }
 
 /// Struct representing a tick index, DEPRECATED
+#[freeze_struct("7c280c2b3bbbb33e")]
 #[derive(
     Debug,
     Default,
@@ -268,6 +269,7 @@ mod pallet {
 pub struct TickIndex(i32);
 
 /// Struct representing a liquidity position ID, DEPRECATED
+#[freeze_struct("e695cd6455c3f0cb")]
 #[derive(
     Clone,
     Copy,
