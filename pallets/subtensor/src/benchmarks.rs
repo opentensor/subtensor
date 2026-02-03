@@ -452,12 +452,8 @@ mod pallet_benchmarks {
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(old_coldkey.clone()).into(),
             netuid,
-            block_number,
-            nonce,
-            work.clone(),
             hotkey1.clone(),
-            old_coldkey.clone(),
-        );
+        ));
 
         Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, free_balance_old.into());
         let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
@@ -473,12 +469,7 @@ mod pallet_benchmarks {
         IdentitiesV2::<T>::insert(&old_coldkey, identity);
 
         #[extrinsic_call]
-        _(
-            RawOrigin::Root,
-            old_coldkey.clone(),
-            new_coldkey.clone(),
-            swap_cost,
-        );
+        _(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone());
     }
 
     #[benchmark]
