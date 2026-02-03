@@ -759,7 +759,10 @@ pub fn register_ok_neuron(
     let reserve: u64 = 1_000_000_000_000;
     setup_reserves(netuid, reserve.into(), reserve.into());
 
-    RegistrationsThisInterval::<Test>::insert(netuid, RegistrationsThisInterval::<Test>::get(netuid) + 1);
+    RegistrationsThisInterval::<Test>::insert(
+        netuid,
+        RegistrationsThisInterval::<Test>::get(netuid) + 1,
+    );
 
     // Ensure coldkey has enough to pay the current burn.
     let burn: TaoCurrency = SubtensorModule::get_burn(netuid);
