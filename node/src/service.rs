@@ -454,7 +454,7 @@ where
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
         let pending_create_inherent_data_providers =
-            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
+            move |_, ()| async move { CM::pending_create_inherent_data_providers(slot_duration) };
 
         let rpc_methods = consensus_mechanism.rpc_methods(
             client.clone(),

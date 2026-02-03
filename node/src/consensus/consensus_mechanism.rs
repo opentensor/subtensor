@@ -87,6 +87,11 @@ pub trait ConsensusMechanism {
         slot_duration: SlotDuration,
     ) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>>;
 
+    /// Creates IDPs for the consensus mechanism for pending blocks.
+    fn pending_create_inherent_data_providers(
+        slot_duration: SlotDuration,
+    ) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>>;
+
     /// Creates the frontier consensus data provider with this mechanism.
     fn frontier_consensus_data_provider(
         client: Arc<FullClient>,

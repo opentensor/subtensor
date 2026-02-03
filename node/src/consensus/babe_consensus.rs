@@ -121,6 +121,23 @@ impl ConsensusMechanism for BabeConsensus {
         Ok((slot, timestamp))
     }
 
+    fn pending_create_inherent_data_providers(
+        slot_duration: SlotDuration,
+    ) -> Result<Self::InherentDataProviders, Box<dyn Error + Send + Sync>> {
+        let current = sp_timestamp::InherentDataProvider::from_system_time();
+        let next_slot = current
+            .timestamp()
+            .as_millis()
+            .saturating_add(slot_duration.as_millis());
+        let timestamp = sp_timestamp::InherentDataProvider::new(next_slot.into());
+        let slot =
+            sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+                *timestamp,
+                slot_duration,
+            );
+        Ok((slot, timestamp))
+    }
+
     fn new() -> Self {
         Self {
             babe_link: None,
