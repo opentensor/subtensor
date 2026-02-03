@@ -57,10 +57,6 @@ mod pallet {
         #[pallet::constant]
         type MaxFeeRate: Get<u16>;
 
-        /// The maximum number of positions a user can have
-        #[pallet::constant]
-        type MaxPositions: Get<u32>;
-
         /// Minimum liquidity that is safe for rounding and integer math.
         #[pallet::constant]
         type MinimumLiquidity: Get<u64>;
@@ -82,14 +78,6 @@ mod pallet {
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
     #[pallet::storage]
     pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, u16, ValueQuery, DefaultFeeRate>;
-
-    /// Storage for the current liquidity amount for each subnet.
-    #[pallet::storage]
-    pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
-
-    /// Position ID counter.
-    #[pallet::storage]
-    pub type LastPositionId<T> = StorageValue<_, u128, ValueQuery>;
 
     ////////////////////////////////////////////////////
     // Balancer (PalSwap) maps and variables
@@ -146,17 +134,8 @@ mod pallet {
         /// The caller does not have enough balance for the operation.
         InsufficientBalance,
 
-        /// Attempted to remove liquidity that does not exist.
-        LiquidityNotFound,
-
         /// The provided tick range is invalid.
         InvalidTickRange,
-
-        /// Maximum user positions exceeded
-        MaxPositionsExceeded,
-
-        /// Too many swap steps
-        TooManySwapSteps,
 
         /// Provided liquidity parameter is invalid (likely too small)
         InvalidLiquidityValue,
@@ -172,6 +151,9 @@ mod pallet {
 
         /// Swap reserves are too imbalanced
         ReservesOutOfBalance,
+
+        /// The extrinsic is deprecated
+        Deprecated,
     }
 
     #[pallet::call]
@@ -201,5 +183,102 @@ mod pallet {
 
             Ok(())
         }
+
+        /// DEPRECATED
+        #[pallet::call_index(4)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0))]
+        #[deprecated(note = "Deprecated, user liquidity is permanently disabled")]
+        pub fn toggle_user_liquidity(
+            _origin: OriginFor<T>,
+            _netuid: NetUid,
+            _enable: bool,
+        ) -> DispatchResult {
+            Err(Error::<T>::Deprecated.into())
+        }
+
+        /// DEPRECATED
+        #[pallet::call_index(1)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0))]
+        #[deprecated(note = "Deprecated, user liquidity is permanently disabled")]
+        pub fn add_liquidity(
+            _origin: OriginFor<T>,
+            _hotkey: T::AccountId,
+            _netuid: NetUid,
+            _tick_low: TickIndex,
+            _tick_high: TickIndex,
+            _liquidity: u64,
+        ) -> DispatchResult {
+            Err(Error::<T>::Deprecated.into())
+        }
+
+        /// DEPRECATED
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0))]
+        #[deprecated(note = "Deprecated, user liquidity is permanently disabled")]
+        pub fn remove_liquidity(
+            _origin: OriginFor<T>,
+            _hotkey: T::AccountId,
+            _netuid: NetUid,
+            _position_id: PositionId,
+        ) -> DispatchResult {
+            Err(Error::<T>::Deprecated.into())
+        }
+
+        /// DEPRECATED
+        #[pallet::call_index(3)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0))]
+        #[deprecated(note = "Deprecated, user liquidity is permanently disabled")]
+        pub fn modify_position(
+            _origin: OriginFor<T>,
+            _hotkey: T::AccountId,
+            _netuid: NetUid,
+            _position_id: PositionId,
+            _liquidity_delta: i64,
+        ) -> DispatchResult {
+            Err(Error::<T>::Deprecated.into())
+        }
+
+        /// DEPRECATED
+        #[pallet::call_index(5)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0))]
+        #[deprecated(note = "Deprecated, user liquidity is permanently disabled")]
+        pub fn disable_lp(_origin: OriginFor<T>) -> DispatchResult {
+            Err(Error::<T>::Deprecated.into())
+        }
     }
 }
+
+/// Struct representing a tick index, DEPRECATED
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    Decode,
+    Encode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    MaxEncodedLen,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+)]
+pub struct TickIndex(i32);
+
+/// Struct representing a liquidity position ID, DEPRECATED
+#[derive(
+    Clone,
+    Copy,
+    Decode,
+    DecodeWithMemTracking,
+    Default,
+    Encode,
+    Eq,
+    MaxEncodedLen,
+    PartialEq,
+    RuntimeDebug,
+    TypeInfo,
+)]
+pub struct PositionId(u128);

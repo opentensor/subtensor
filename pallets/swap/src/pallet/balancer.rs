@@ -379,49 +379,6 @@ impl Balancer {
         }
     }
 
-    /// Calculates current liquidity from alpha and tao reserves using the formula:
-    ///   L = x^w1 * y^w2
-    /// where
-    ///   x - alpha reserve
-    ///   y - tao reserve
-    ///   w1 - base weight
-    ///   w2 - quote weight
-    pub fn calculate_current_liquidity(&self, tao_reserve: u64, alpha_reserve: u64) -> u64 {
-        let base_numerator_x: u128 = alpha_reserve as u128;
-        let base_numerator_y: u128 = tao_reserve as u128;
-        // let base_denominator: u128 = 1_u128;
-        let w1_fixed: u128 = self.get_base_weight().deconstruct() as u128;
-        let w2_fixed: u128 = self.get_quote_weight().deconstruct() as u128;
-        let scale = SafeInt::from(10u128.pow(18));
-
-        let exp_x = SafeInt::pow_bigint_base(
-            &SafeInt::from(base_numerator_x),
-            &SafeInt::from(w1_fixed),
-            &SafeInt::from(ACCURACY),
-            1024,
-            &scale,
-        )
-        .unwrap_or(SafeInt::from(0));
-        let exp_y = SafeInt::pow_bigint_base(
-            &SafeInt::from(base_numerator_y),
-            &SafeInt::from(w2_fixed),
-            &SafeInt::from(ACCURACY),
-            1024,
-            &scale,
-        )
-        .unwrap_or(SafeInt::from(0));
-
-        // 0.5 scaled for rounding to the nearest integer
-        // Allow arithmetic side effects here: SafeInt doesn't panic
-        #[allow(clippy::arithmetic_side_effects)]
-        let round_nearest_offset = (scale.clone() / SafeInt::from(2)).unwrap_or_default();
-        #[allow(clippy::arithmetic_side_effects)]
-        ((((exp_x * exp_y) / scale.clone()).unwrap_or_default() + round_nearest_offset) / scale)
-            .unwrap_or_default()
-            .to_u64()
-            .unwrap_or(0)
-    }
-
     /// Calculates amount of Alpha that needs to be sold to get a given amount of TAO
     pub fn get_base_needed_for_quote(
         &self,
@@ -1068,88 +1025,6 @@ mod tests {
         let expected_f = (w1 / w2) * (y as f64 / x as f64);
 
         assert_abs_diff_eq!(price_f, expected_f, epsilon = 1e-9);
-    }
-
-    #[test]
-    fn test_calculate_current_liquidity() {
-        // Test case: quote weight (numerator), alpha, tao
-        // Outer test cases: w_quote
-        [
-            500_000_000_000_000_000_u64,
-            500_000_000_001_000_000,
-            499_999_999_999_000_000,
-            500_000_000_100_000_000,
-            500_000_001_000_000_000,
-            500_000_010_000_000_000,
-            500_000_100_000_000_000,
-            500_001_000_000_000_000,
-            500_010_000_000_000_000,
-            500_100_000_000_000_000,
-            501_000_000_000_000_000,
-            510_000_000_000_000_000,
-            100_000_000_000_000_000,
-            100_000_000_001_000_000,
-            200_000_000_000_000_000,
-            300_000_000_000_000_000,
-            400_000_000_000_000_000,
-            600_000_000_000_000_000,
-            700_000_000_000_000_000,
-            800_000_000_000_000_000,
-            899_999_999_999_000_000,
-            900_000_000_000_000_000,
-            102_337_248_363_782_924,
-        ]
-        .into_iter()
-        .for_each(|w_quote| {
-            [
-                (0_u64, 0_u64),
-                (1_000_u64, 0_u64),
-                (0_u64, 1_000_u64),
-                (1_u64, 1_u64),
-                (2_u64, 1_u64),
-                (1_u64, 2_u64),
-                (1_000_u64, 1_000_u64),
-                (2_000_u64, 1_000_u64),
-                (1_000_u64, 2_000_u64),
-                (1_000_000_u64, 1_000_000_u64),
-                (2_000_000_u64, 1_000_000_u64),
-                (1_000_000_u64, 2_000_000_u64),
-                (1_000_000_000_u64, 1_000_000_000_u64),
-                (2_000_000_000_u64, 1_000_000_000_u64),
-                (1_000_000_000_u64, 2_000_000_000_u64),
-                (1_000_000_000_000_u64, 1_000_u64),
-                (1_000_u64, 1_000_000_000_000_u64),
-                (1_000_000_000_000_000_u64, 1_u64),
-                (1_u64, 1_000_000_000_000_000_u64),
-                (1_000_000_000_000_000_u64, 1_000_u64),
-                (1_000_u64, 1_000_000_000_000_000_u64),
-                (1_000_u64, 21_000_000_000_000_000_u64),
-                (21_000_000_000_000_000_u64, 1_000_u64),
-                (1_u64, 21_000_000_000_000_000_u64),
-                (21_000_000_000_000_000_u64, 1_u64),
-                (2_u64, 21_000_000_000_000_000_u64),
-                (21_000_000_000_000_000_u64, 2_u64),
-                (21_000_000_000_000_000_u64, 21_000_000_000_000_000_u64),
-                (2, u64::MAX),
-                (u64::MAX, 2),
-                (2, u64::MAX - 1),
-                (u64::MAX - 1, 2),
-                (u64::MAX, u64::MAX),
-            ]
-            .into_iter()
-            .for_each(|(alpha, tao)| {
-                let quote = Perquintill::from_rational(w_quote, ACCURACY);
-                let bal = Balancer::new(quote).unwrap();
-
-                let actual = bal.calculate_current_liquidity(tao, alpha);
-
-                let w1 = w_quote as f64 / ACCURACY as f64;
-                let w2 = (ACCURACY - w_quote) as f64 / ACCURACY as f64;
-                let expected = (((alpha as f64).powf(w2) * (tao as f64).powf(w1)) + 0.5) as u64;
-
-                assert_abs_diff_eq!(actual, expected, epsilon = expected / 1_000_000_000_000);
-            });
-        });
     }
 
     // cargo test --package pallet-subtensor-swap --lib -- pallet::balancer::tests::test_exp_scaled --exact --nocapture

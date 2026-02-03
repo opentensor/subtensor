@@ -87,7 +87,6 @@ impl system::Config for Test {
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const MaxFeeRate: u16 = 10000; // 15.26%
-    pub const MaxPositions: u32 = 100;
     pub const MinimumLiquidity: u64 = 1_000;
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
@@ -304,7 +303,6 @@ impl crate::pallet::Config for Test {
     type BalanceOps = MockBalanceOps;
     type ProtocolId = SwapProtocolId;
     type MaxFeeRate = MaxFeeRate;
-    type MaxPositions = MaxPositions;
     type MinimumLiquidity = MinimumLiquidity;
     type MinimumReserve = MinimumReserves;
     type WeightInfo = ();

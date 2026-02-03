@@ -55,6 +55,7 @@ pub fn migrate_swapv3_to_balancer<T: Config>() -> Weight {
     remove_prefix::<T>("Swap", "EnabledUserLiquidity", &mut weight);
     remove_prefix::<T>("Swap", "FeeGlobalTao", &mut weight);
     remove_prefix::<T>("Swap", "FeeGlobalAlpha", &mut weight);
+    remove_prefix::<T>("Swap", "LastPositionId", &mut weight);
     // Scrap reservoirs can be just cleaned because they are already included in reserves
     remove_prefix::<T>("Swap", "ScrapReservoirTao", &mut weight);
     remove_prefix::<T>("Swap", "ScrapReservoirAlpha", &mut weight);

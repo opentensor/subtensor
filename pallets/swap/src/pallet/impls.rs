@@ -81,11 +81,6 @@ impl<T: Config> Pallet<T> {
         })?;
         SwapBalancer::<T>::insert(netuid, balancer.clone());
 
-        // Insert current liquidity
-        let liquidity =
-            balancer.calculate_current_liquidity(u64::from(tao_reserve), u64::from(alpha_reserve));
-        CurrentLiquidity::<T>::insert(netuid, liquidity);
-
         PalSwapInitialized::<T>::insert(netuid, true);
 
         Ok(())
@@ -293,7 +288,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         // let protocol_account = Self::protocol_account_id();
 
-        // 1) Force-close only protocol positions, burning proceeds.
+        // 1) Force-close protocol liquidity, burning proceeds.
         let burned_tao = T::TaoReserve::reserve(netuid.into());
         let burned_alpha = T::AlphaReserve::reserve(netuid.into());
 

@@ -7,7 +7,7 @@
 
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok};
-use sp_arithmetic::{Perquintill, helpers_128bit};
+use sp_arithmetic::Perquintill;
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{Currency, NetUid};
@@ -426,16 +426,6 @@ fn test_swap_initialization() {
             reserve_weight.get_quote_weight(),
             Perquintill::from_rational(1_u64, 2_u64),
         );
-
-        // Current liquidity is initialized
-        let expected_liquidity =
-            helpers_128bit::sqrt((tao.to_u64() as u128).saturating_mul(alpha.to_u64() as u128))
-                as u64;
-        assert_abs_diff_eq!(
-            CurrentLiquidity::<Test>::get(netuid),
-            expected_liquidity,
-            epsilon = 1
-        );
     });
 }
 
@@ -791,8 +781,8 @@ fn print_current_price(netuid: NetUid) {
     log::trace!("Current price: {current_price:.6}");
 }
 
-/// Simple palswap path: PalSwap is initialized, but no positions, only protocol; function
-/// must still clear any residual storages and succeed.
+/// Simple palswap path: PalSwap is initialized.
+/// Function must still clear any residual storages and succeed.
 #[test]
 fn test_liquidate_pal_simple_ok_and_clears() {
     new_test_ext().execute_with(|| {
