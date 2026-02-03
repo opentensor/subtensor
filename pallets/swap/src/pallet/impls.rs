@@ -6,7 +6,6 @@ use sp_arithmetic::{
     Perquintill,
 };
 use sp_runtime::{DispatchResult, traits::AccountIdConversion};
-use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
     AlphaCurrency,
@@ -23,25 +22,7 @@ use subtensor_swap_interface::{
 
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep};
-use crate::{pallet::Balancer, pallet::balancer::BalancerError, position::PositionId};
-
-#[derive(Debug, PartialEq)]
-pub struct UpdateLiquidityResult {
-    pub tao: TaoCurrency,
-    pub alpha: AlphaCurrency,
-    pub fee_tao: TaoCurrency,
-    pub fee_alpha: AlphaCurrency,
-    pub removed: bool,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct RemoveLiquidityResult {
-    pub tao: TaoCurrency,
-    pub alpha: AlphaCurrency,
-    pub fee_tao: TaoCurrency,
-    pub fee_alpha: AlphaCurrency,
-    pub liquidity: u64,
-}
+use crate::{pallet::Balancer, pallet::balancer::BalancerError};
 
 impl<T: Config> Pallet<T> {
     pub fn current_price(netuid: NetUid) -> U64F64 {
@@ -105,27 +86,6 @@ impl<T: Config> Pallet<T> {
             balancer.calculate_current_liquidity(u64::from(tao_reserve), u64::from(alpha_reserve));
         CurrentLiquidity::<T>::insert(netuid, liquidity);
 
-        // TODO: Review when/if we have user liquidity
-        // Initialize the pal-swap:
-
-        // Set initial (protocol owned) liquidity and positions
-        // Protocol liquidity makes one position
-        // We are using the sp_arithmetic sqrt here, which works for u128
-        // let liquidity = helpers_128bit::sqrt(
-        //     (tao_reserve.to_u64() as u128).saturating_mul(alpha_reserve.to_u64() as u128),
-        // ) as u64;
-        // let protocol_account_id = Self::protocol_account_id();
-
-        // let (position, _, _) = Self::add_liquidity_not_insert(
-        //     netuid,
-        //     &protocol_account_id,
-        //     TickIndex::MIN,
-        //     TickIndex::MAX,
-        //     liquidity,
-        // )?;
-
-        // Positions::<T>::insert(&(netuid, protocol_account_id, position.id), position);
-
         PalSwapInitialized::<T>::insert(netuid, true);
 
         Ok(())
@@ -139,7 +99,6 @@ impl<T: Config> Pallet<T> {
         alpha_delta: AlphaCurrency,
     ) -> (TaoCurrency, AlphaCurrency) {
         // Collect fees
-        // TODO: Revise when user liquidity is available
         let tao_fees = FeesTao::<T>::get(netuid);
         let alpha_fees = FeesAlpha::<T>::get(netuid);
         FeesTao::<T>::insert(netuid, TaoCurrency::ZERO);
@@ -314,91 +273,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Adds liquidity to the specified price range.
-    ///
-    /// This function allows an account to provide liquidity to a given range of price ticks. The
-    /// amount of liquidity to be added can be determined using
-    /// [`get_tao_based_liquidity`] and [`get_alpha_based_liquidity`], which compute the required
-    /// liquidity based on TAO and Alpha balances for the current price tick.
-    ///
-    /// ### Behavior:
-    /// - If the `protocol` flag is **not set** (`false`), the function will attempt to
-    ///   **withdraw balances** from the account using `state_ops.withdraw_balances()`.
-    /// - If the `protocol` flag is **set** (`true`), the liquidity is added without modifying balances.
-    /// - If swap V3 was not initialized before, updates the value in storage.
-    ///
-    /// ### Parameters:
-    /// - `coldkey_account_id`: A reference to the account coldkey that is providing liquidity.
-    /// - `hotkey_account_id`: A reference to the account hotkey that is providing liquidity.
-    /// - `tick_low`: The lower bound of the price tick range.
-    /// - `tick_high`: The upper bound of the price tick range.
-    /// - `liquidity`: The amount of liquidity to be added.
-    ///
-    /// ### Returns:
-    /// - `Ok((u64, u64))`: (tao, alpha) amounts at new position
-    /// - `Err(SwapError)`: If the operation fails due to insufficient balance, invalid tick range,
-    ///   or other swap-related errors.
-    ///
-    /// ### Errors:
-    /// - [`SwapError::InsufficientBalance`] if the account does not have enough balance.
-    /// - [`SwapError::InvalidTickRange`] if `tick_low` is greater than or equal to `tick_high`.
-    /// - Other [`SwapError`] variants as applicable.
-    pub fn do_add_liquidity(
-        _netuid: NetUid,
-        _coldkey_account_id: &T::AccountId,
-        _hotkey_account_id: &T::AccountId,
-        _liquidity: u64,
-    ) -> Result<(PositionId, u64, u64), Error<T>> {
-        // ensure!(
-        //     EnabledUserLiquidity::<T>::get(netuid),
-        //     Error::<T>::UserLiquidityDisabled
-        // );
-
-        // TODO: Revise when user liquidity is enabled
-        Err(Error::<T>::UserLiquidityDisabled)
-    }
-
-    /// Remove liquidity and credit balances back to (coldkey_account_id, hotkey_account_id) stake.
-    /// Removing is allowed even when user liquidity is enabled.
-    ///
-    /// Account ID and Position ID identify position in the storage map
-    pub fn do_remove_liquidity(
-        _netuid: NetUid,
-        _coldkey_account_id: &T::AccountId,
-        _position_id: PositionId,
-    ) -> Result<RemoveLiquidityResult, Error<T>> {
-        // TODO: Revise when user liquidity is enabled
-        Err(Error::<T>::UserLiquidityDisabled)
-    }
-
-    pub fn do_modify_position(
-        _netuid: NetUid,
-        _coldkey_account_id: &T::AccountId,
-        _hotkey_account_id: &T::AccountId,
-        _position_id: PositionId,
-        _liquidity_delta: i64,
-    ) -> Result<UpdateLiquidityResult, Error<T>> {
-        // ensure!(
-        //     EnabledUserLiquidity::<T>::get(netuid),
-        //     Error::<T>::UserLiquidityDisabled
-        // );
-
-        // TODO: Revise when user liquidity is enabled
-        Err(Error::<T>::UserLiquidityDisabled)
-    }
-
-    // /// Returns the number of positions for an account in a specific subnet
-    // ///
-    // /// # Arguments
-    // /// * `netuid` - The subnet ID
-    // /// * `account_id` - The account ID
-    // ///
-    // /// # Returns
-    // /// The number of positions that the account has in the specified subnet
-    // pub(super) fn count_positions(netuid: NetUid, account_id: &T::AccountId) -> usize {
-    //     PositionsV2::<T>::iter_prefix_values((netuid, account_id.clone())).count()
-    // }
-
     pub(crate) fn min_price_inner<C: Currency>() -> C {
         u64::from(1_000_u64).into()
     }
@@ -415,128 +289,6 @@ impl<T: Config> Pallet<T> {
         T::ProtocolId::get().into_account_truncating()
     }
 
-    /// Dissolve all LPs and clean state.
-    pub fn do_dissolve_all_liquidity_providers(_netuid: NetUid) -> DispatchResult {
-        // TODO: Revise when user liquidity is available
-        Ok(())
-
-        // if PalSwapInitialized::<T>::get(netuid) {
-        //     // 1) Snapshot only *non‑protocol* positions: (owner, position_id).
-        //     struct CloseItem<A> {
-        //         owner: A,
-        //         pos_id: PositionId,
-        //     }
-        //     let protocol_account = Self::protocol_account_id();
-
-        //     let mut to_close: sp_std::vec::Vec<CloseItem<T::AccountId>> = sp_std::vec::Vec::new();
-        //     for ((owner, pos_id), _pos) in Positions::<T>::iter_prefix((netuid,)) {
-        //         if owner != protocol_account {
-        //             to_close.push(CloseItem { owner, pos_id });
-        //         }
-        //     }
-
-        //     if to_close.is_empty() {
-        //         log::debug!(
-        //             "dissolve_all_lp: no user positions; netuid={netuid:?}, protocol liquidity untouched"
-        //         );
-        //         return Ok(());
-        //     }
-
-        //     let mut user_refunded_tao = TaoCurrency::ZERO;
-        //     let mut user_staked_alpha = AlphaCurrency::ZERO;
-
-        //     let trust: Vec<u16> = T::SubnetInfo::get_validator_trust(netuid.into());
-        //     let permit: Vec<bool> = T::SubnetInfo::get_validator_permit(netuid.into());
-
-        //     // Helper: pick target validator uid, only among permitted validators, by highest trust.
-        //     let pick_target_uid = |trust: &Vec<u16>, permit: &Vec<bool>| -> Option<u16> {
-        //         let mut best_uid: Option<usize> = None;
-        //         let mut best_trust: u16 = 0;
-        //         for (i, (&t, &p)) in trust.iter().zip(permit.iter()).enumerate() {
-        //             if p && (best_uid.is_none() || t > best_trust) {
-        //                 best_uid = Some(i);
-        //                 best_trust = t;
-        //             }
-        //         }
-        //         best_uid.map(|i| i as u16)
-        //     };
-
-        //     for CloseItem { owner, pos_id } in to_close.into_iter() {
-        //         match Self::do_remove_liquidity(netuid, &owner, pos_id) {
-        //             Ok(rm) => {
-        //                 // α withdrawn from the pool = principal + accrued fees
-        //                 let alpha_total_from_pool: AlphaCurrency =
-        //                     rm.alpha.saturating_add(rm.fee_alpha);
-
-        //                 // ---------------- USER: refund τ and convert α → stake ----------------
-
-        //                 // 1) Refund τ principal directly.
-        //                 let tao_total_from_pool: TaoCurrency = rm.tao.saturating_add(rm.fee_tao);
-        //                 if tao_total_from_pool > TaoCurrency::ZERO {
-        //                     T::BalanceOps::increase_balance(&owner, tao_total_from_pool);
-        //                     user_refunded_tao =
-        //                         user_refunded_tao.saturating_add(tao_total_from_pool);
-        //                     T::TaoReserve::decrease_provided(netuid, tao_total_from_pool);
-        //                 }
-
-        //                 // 2) Stake ALL withdrawn α (principal + fees) to the best permitted validator.
-        //                 if alpha_total_from_pool > AlphaCurrency::ZERO {
-        //                     if let Some(target_uid) = pick_target_uid(&trust, &permit) {
-        //                         let validator_hotkey: T::AccountId =
-        //                             T::SubnetInfo::hotkey_of_uid(netuid.into(), target_uid).ok_or(
-        //                                 sp_runtime::DispatchError::Other(
-        //                                     "validator_hotkey_missing",
-        //                                 ),
-        //                             )?;
-
-        //                         // Stake α from LP owner (coldkey) to chosen validator (hotkey).
-        //                         T::BalanceOps::increase_stake(
-        //                             &owner,
-        //                             &validator_hotkey,
-        //                             netuid,
-        //                             alpha_total_from_pool,
-        //                         )?;
-
-        //                         user_staked_alpha =
-        //                             user_staked_alpha.saturating_add(alpha_total_from_pool);
-
-        //                         log::debug!(
-        //                             "dissolve_all_lp: user dissolved & staked α: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, α_staked={alpha_total_from_pool:?}, target_uid={target_uid}"
-        //                         );
-        //                     } else {
-        //                         // No permitted validators; burn to avoid balance drift.
-        //                         log::debug!(
-        //                             "dissolve_all_lp: no permitted validators; α burned: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, α_total={alpha_total_from_pool:?}"
-        //                         );
-        //                     }
-
-        //                     T::AlphaReserve::decrease_provided(netuid, alpha_total_from_pool);
-        //                 }
-        //             }
-        //             Err(e) => {
-        //                 log::debug!(
-        //                     "dissolve_all_lp: force-close failed: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, err={e:?}"
-        //                 );
-        //                 continue;
-        //             }
-        //         }
-        //     }
-
-        //     log::debug!(
-        //         "dissolve_all_liquidity_providers (users-only): netuid={netuid:?}, users_refunded_total_τ={user_refunded_tao:?}, users_staked_total_α={user_staked_alpha:?}; protocol liquidity untouched"
-        //     );
-
-        //     return Ok(());
-        // }
-
-        // log::debug!(
-        //     "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, leaving all liquidity/state intact"
-        // );
-
-        // Ok(())
-    }
-
-    /// TODO: Revise when user liquidity is available
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
     pub fn do_clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         // let protocol_account = Self::protocol_account_id();
@@ -548,51 +300,10 @@ impl<T: Config> Pallet<T> {
         T::TaoReserve::decrease_provided(netuid.into(), burned_tao);
         T::AlphaReserve::decrease_provided(netuid.into(), burned_alpha);
 
-        // // Collect protocol position IDs first to avoid mutating while iterating.
-        // let protocol_pos_ids: sp_std::vec::Vec<PositionId> = Positions::<T>::iter_prefix((netuid,))
-        //     .filter_map(|((owner, pos_id), _)| {
-        //         if owner == protocol_account {
-        //             Some(pos_id)
-        //         } else {
-        //             None
-        //         }
-        //     })
-        //     .collect();
-
-        // for pos_id in protocol_pos_ids {
-        //     match Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
-        //         Ok(rm) => {
-        //             let alpha_total_from_pool: AlphaCurrency =
-        //                 rm.alpha.saturating_add(rm.fee_alpha);
-        //             let tao_total_from_pool: TaoCurrency = rm.tao.saturating_add(rm.fee_tao);
-
-        //             if tao_total_from_pool > TaoCurrency::ZERO {
-        //                 burned_tao = burned_tao.saturating_add(tao_total_from_pool);
-        //             }
-        //             if alpha_total_from_pool > AlphaCurrency::ZERO {
-        //                 burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
-        //             }
-
-        //             log::debug!(
-        //                 "clear_protocol_liquidity: burned protocol pos: netuid={netuid:?}, pos_id={pos_id:?}, τ={tao_total_from_pool:?}, α_total={alpha_total_from_pool:?}"
-        //             );
-        //         }
-        //         Err(e) => {
-        //             log::debug!(
-        //                 "clear_protocol_liquidity: force-close failed: netuid={netuid:?}, pos_id={pos_id:?}, err={e:?}"
-        //             );
-        //             continue;
-        //         }
-        //     }
-        // }
-
-        let _ = PositionsV2::<T>::clear_prefix((netuid,), u32::MAX, None);
-
         FeesTao::<T>::remove(netuid);
         FeesAlpha::<T>::remove(netuid);
         PalSwapInitialized::<T>::remove(netuid);
         FeeRate::<T>::remove(netuid);
-        EnabledUserLiquidity::<T>::remove(netuid);
         SwapBalancer::<T>::remove(netuid);
 
         log::debug!(
@@ -695,24 +406,6 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::current_price(netuid.into())
     }
 
-    fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
-        let protocol_account_id = Self::protocol_account_id();
-        let mut positions =
-            PositionsV2::<T>::iter_prefix_values((netuid, protocol_account_id.clone()))
-                .collect::<sp_std::vec::Vec<_>>();
-
-        if let Some(position) = positions.get_mut(0) {
-            let price = Self::current_price(netuid);
-            // Adjust liquidity
-            let maybe_token_amounts = position.to_token_amounts(price);
-            if let Ok((tao, _)) = maybe_token_amounts {
-                return tao.into();
-            }
-        }
-
-        TaoCurrency::ZERO
-    }
-
     fn min_price<C: Currency>() -> C {
         Self::min_price_inner()
     }
@@ -729,24 +422,10 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta)
     }
 
-    fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
-        EnabledUserLiquidity::<T>::get(netuid)
-    }
-    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
-        Self::do_dissolve_all_liquidity_providers(netuid)
-    }
-    fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
-        EnabledUserLiquidity::<T>::insert(netuid, enabled)
-    }
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
     }
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>) {
         Self::maybe_initialize_palswap(netuid, maybe_price).unwrap_or_default();
-    }
-    fn get_all_subnet_netuids() -> Vec<NetUid> {
-        PalSwapInitialized::<T>::iter()
-            .map(|(netuid, _)| netuid)
-            .collect()
     }
 }

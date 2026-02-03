@@ -27,8 +27,6 @@ use subtensor_runtime_common::{
 };
 use subtensor_swap_interface::Order;
 
-use crate::pallet::EnabledUserLiquidity;
-
 construct_runtime!(
     pub enum Test {
         System: frame_system = 0,
@@ -321,12 +319,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::new(storage);
     ext.execute_with(|| {
         System::set_block_number(1);
-
-        for netuid in 0u16..=100 {
-            // enable V3 for this range of netuids
-            EnabledUserLiquidity::<Test>::set(NetUid::from(netuid), true);
-        }
-        EnabledUserLiquidity::<Test>::set(NetUid::from(WRAPPING_FEES_NETUID), true);
     });
     ext
 }

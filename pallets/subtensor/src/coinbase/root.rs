@@ -213,7 +213,6 @@ impl<T: Config> Pallet<T> {
         Self::finalize_all_subnet_root_dividends(netuid);
 
         // --- Perform the cleanup before removing the network.
-        T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);

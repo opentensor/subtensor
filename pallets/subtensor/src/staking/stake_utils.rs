@@ -21,10 +21,6 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
-    pub fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
-        T::SwapInterface::get_protocol_tao(netuid)
-    }
-
     pub fn get_moving_alpha_price(netuid: NetUid) -> U96F32 {
         let one = U96F32::saturating_from_num(1.0);
         if netuid.is_root() {
