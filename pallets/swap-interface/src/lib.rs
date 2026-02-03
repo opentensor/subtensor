@@ -2,6 +2,7 @@
 use core::ops::Neg;
 
 use frame_support::pallet_prelude::*;
+use scale_info::prelude::vec::Vec;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
@@ -52,6 +53,7 @@ pub trait SwapHandler {
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>);
+    fn get_all_subnet_netuids() -> Vec<NetUid>;
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>

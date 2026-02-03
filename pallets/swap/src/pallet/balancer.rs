@@ -34,7 +34,7 @@
 //
 // Weights are limited to stay within [0.1, 0.9] range to avoid precision issues in exponentiation.
 // Practically, these limitations will not be achieved, but if they are, the swap will not allow injection
-// that will push the weights out of this interval because we prefer chain and swap stability over success 
+// that will push the weights out of this interval because we prefer chain and swap stability over success
 // of a single injection. Currently, we only allow the protocol to inject disproportionally to price, and
 // the amount of disproportion will not cause weigths to get far from 0.5.
 //

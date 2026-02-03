@@ -6,6 +6,7 @@ use sp_arithmetic::{
     Perquintill,
 };
 use sp_runtime::{DispatchResult, traits::AccountIdConversion};
+use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
     AlphaCurrency,
@@ -742,5 +743,10 @@ impl<T: Config> SwapHandler for Pallet<T> {
     }
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>) {
         Self::maybe_initialize_palswap(netuid, maybe_price).unwrap_or_default();
+    }
+    fn get_all_subnet_netuids() -> Vec<NetUid> {
+        PalSwapInitialized::<T>::iter()
+            .map(|(netuid, _)| netuid)
+            .collect()
     }
 }
