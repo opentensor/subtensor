@@ -90,6 +90,20 @@ pub mod pallet {
             /// Indicates if the Bonds Reset was enabled or disabled.
             enabled: bool,
         },
+        /// Event emitted when the burn half-life parameter is set for a subnet.
+        BurnHalfLifeSet {
+            /// The network identifier.
+            netuid: NetUid,
+            /// The new burn half-life value.
+            burn_half_life: u16,
+        },
+        /// Event emitted when the burn increase multiplier is set for a subnet.
+        BurnIncreaseMultSet {
+            /// The network identifier.
+            netuid: NetUid,
+            /// The new burn increase multiplier.
+            burn_increase_mult: u64,
+        },
     }
 
     // Errors inform users that something went wrong.
@@ -117,6 +131,8 @@ pub mod pallet {
         MaxAllowedUidsGreaterThanDefaultMaxAllowedUids,
         /// Bad parameter value
         InvalidValue,
+        /// Operation is not permitted on the root network.
+        NotPermittedOnRootSubnet,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -2257,6 +2273,67 @@ pub mod pallet {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_coldkey_swap_reannouncement_delay(duration);
             log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
+            Ok(())
+        }
+        /// Set BurnHalfLife for a subnet.
+        #[pallet::call_index(88)]
+        #[pallet::weight((
+            Weight::from_parts(25_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(3))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes,
+        ))]
+        pub fn sudo_set_burn_half_life(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            burn_half_life: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+            ensure!(burn_half_life > 0, Error::<T>::InvalidValue);
+
+            pallet_subtensor::BurnHalfLife::<T>::insert(netuid, burn_half_life);
+            Self::deposit_event(Event::BurnHalfLifeSet {
+                netuid,
+                burn_half_life,
+            });
+            Ok(())
+        }
+
+        /// Set BurnIncreaseMult for a subnet.
+        #[pallet::call_index(89)]
+        #[pallet::weight((
+            Weight::from_parts(25_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(3))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes,
+        ))]
+        pub fn sudo_set_burn_increase_mult(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            burn_increase_mult: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+            ensure!(burn_increase_mult >= 1, Error::<T>::InvalidValue);
+
+            pallet_subtensor::BurnIncreaseMult::<T>::insert(netuid, burn_increase_mult);
+            Self::deposit_event(Event::BurnIncreaseMultSet {
+                netuid,
+                burn_increase_mult,
+            });
             Ok(())
         }
     }

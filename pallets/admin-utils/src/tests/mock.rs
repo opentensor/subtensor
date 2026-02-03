@@ -502,27 +502,29 @@ pub fn register_ok_neuron(
     netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
-    start_nonce: u64,
+    _start_nonce: u64,
 ) {
-    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+    // Ensure reserves exist for swap/burn path.
+    let reserve: u64 = 1_000_000_000_000;
+    setup_reserves(netuid, reserve.into(), reserve.into());
+
+    // Ensure coldkey has enough to pay the current burn.
+    let burn: TaoCurrency = SubtensorModule::get_burn(netuid);
+    let burn_u64: u64 = burn.into();
+    let bal = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+
+    if bal < burn_u64 {
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_u64 - bal + 10);
+    }
+
+    let result = SubtensorModule::burned_register(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
         netuid,
-        block_number,
-        start_nonce,
-        &hotkey_account_id,
-    );
-    let result = SubtensorModule::register(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
-        netuid,
-        block_number,
-        nonce,
-        work,
         hotkey_account_id,
-        coldkey_account_id,
     );
     assert_ok!(result);
     log::info!(
-        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
     );
 }
 
@@ -530,5 +532,27 @@ pub fn register_ok_neuron(
 pub fn add_network(netuid: NetUid, tempo: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+
+    pallet_subtensor::FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+    pallet_subtensor::SubtokenEnabled::<Test>::insert(netuid, true);
+
+    // make interval 1 block so tests can register by stepping 1 block.
+    pallet_subtensor::BurnHalfLife::<Test>::insert(netuid, 1);
+    pallet_subtensor::BurnIncreaseMult::<Test>::insert(netuid, 1);
+    pallet_subtensor::BurnLastHalvingBlock::<Test>::insert(
+        netuid,
+        SubtensorModule::get_current_block_as_u64(),
+    );
+}
+
+use subtensor_runtime_common::AlphaCurrency;
+pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
+    pallet_subtensor::SubnetTAO::<Test>::set(netuid, tao);
+    pallet_subtensor::SubnetAlphaIn::<Test>::set(netuid, alpha);
+}
+
+/// Convenience wrapper for tests that need to advance blocks incrementally.
+pub fn step_block(n: u64) {
+    let current: u64 = frame_system::Pallet::<Test>::block_number().into();
+    run_to_block(current + n);
 }

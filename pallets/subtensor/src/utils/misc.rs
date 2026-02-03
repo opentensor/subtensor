@@ -911,4 +911,13 @@ impl<T: Config> Pallet<T> {
     pub fn set_tao_flow_smoothing_factor(smoothing_factor: u64) {
         FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
     }
+
+    pub fn saturating_pow_u64(base: u64, mut exp: u16) -> u64 {
+        let mut acc: u64 = 1;
+        while exp > 0 {
+            acc = acc.saturating_mul(base);
+            exp -= 1;
+        }
+        acc
+    }
 }

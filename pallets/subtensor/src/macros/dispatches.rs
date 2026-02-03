@@ -1020,13 +1020,13 @@ mod dispatches {
         pub fn register(
             origin: OriginFor<T>,
             netuid: NetUid,
-            block_number: u64,
-            nonce: u64,
-            work: Vec<u8>,
+            _block_number: u64,
+            _nonce: u64,
+            _work: Vec<u8>,
             hotkey: T::AccountId,
-            coldkey: T::AccountId,
+            _coldkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
+            Self::do_register(origin, netuid, hotkey)
         }
 
         /// Register the hotkey to root network
@@ -1048,7 +1048,7 @@ mod dispatches {
             netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_burned_registration(origin, netuid, hotkey)
+            Self::do_register(origin, netuid, hotkey)
         }
 
         /// The extrinsic for user to change its hotkey in subnet or all subnets.

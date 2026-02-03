@@ -555,6 +555,9 @@ where
     }
 }
 
+pub const RAO_PER_TAO: u64 = 1_000_000_000;
+pub const DEFAULT_RESERVE: u64 = 1_000_000_000_000;
+
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Test {
     type MinimumPeriod = ConstU64<0>;
@@ -750,27 +753,31 @@ pub fn register_ok_neuron(
     netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
-    start_nonce: u64,
+    _start_nonce: u64,
 ) {
-    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+    // Ensure reserves exist for swap/burn path.
+    let reserve: u64 = 1_000_000_000_000;
+    setup_reserves(netuid, reserve.into(), reserve.into());
+
+    RegistrationsThisInterval::<Test>::insert(netuid, RegistrationsThisInterval::<Test>::get(netuid) + 1);
+
+    // Ensure coldkey has enough to pay the current burn.
+    let burn: TaoCurrency = SubtensorModule::get_burn(netuid);
+    let burn_u64: u64 = burn.into();
+    let bal = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+
+    if bal < burn_u64 {
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_u64 - bal + 10);
+    }
+
+    let result = SubtensorModule::burned_register(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
         netuid,
-        block_number,
-        start_nonce,
-        &hotkey_account_id,
-    );
-    let result = SubtensorModule::register(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
-        netuid,
-        block_number,
-        nonce,
-        work,
         hotkey_account_id,
-        coldkey_account_id,
     );
     assert_ok!(result);
     log::info!(
-        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
     );
 }
 
@@ -778,24 +785,35 @@ pub fn register_ok_neuron(
 pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
     SubtokenEnabled::<Test>::insert(netuid, true);
+
+    // make interval 1 block so tests can register by stepping 1 block.
+    BurnHalfLife::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 }
 
 #[allow(dead_code)]
 pub fn add_network_without_emission_block(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+
+    BurnHalfLife::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 }
 
 #[allow(dead_code)]
 pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+
     SubtokenEnabled::<Test>::insert(netuid, false);
+
+    BurnHalfLife::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 }
 
 #[allow(dead_code)]
@@ -812,9 +830,14 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
         *hotkey
     ));
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
-    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
     SubtokenEnabled::<Test>::insert(netuid, true);
+
+    // make interval 1 block so tests can register by stepping 1 block.
+    BurnHalfLife::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
+
     netuid
 }
 
@@ -831,8 +854,12 @@ pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256)
         RawOrigin::Signed(*coldkey).into(),
         *hotkey
     ));
+
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
-    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
+    BurnHalfLife::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
+
     netuid
 }
 
