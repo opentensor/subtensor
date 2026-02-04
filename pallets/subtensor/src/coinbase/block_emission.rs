@@ -7,6 +7,7 @@ use substrate_fixed::{
 };
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
+use subtensor_runtime_common::TaoCurrency;
 
 impl<T: Config> Pallet<T> {
     /// Calculates the dynamic TAO emission for a given subnet.
