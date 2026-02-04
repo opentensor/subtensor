@@ -55,7 +55,7 @@ where
         Vec<
             Option<(
                 RateLimitTarget<<T as Config<I>>::GroupId>,
-                Option<Vec<<T as Config<I>>::UsageKey>>,
+                Option<BTreeSet<<T as Config<I>>::UsageKey>>,
                 bool,
             )>,
         >,
@@ -86,7 +86,7 @@ where
     ) -> Result<
         Option<(
             RateLimitTarget<<T as Config<I>>::GroupId>,
-            Option<Vec<<T as Config<I>>::UsageKey>>,
+            Option<BTreeSet<<T as Config<I>>::UsageKey>>,
             bool,
         )>,
         TransactionValidityError,
@@ -114,23 +114,22 @@ where
             return Ok(should_record.then_some((usage_target, usage, true)));
         }
 
-        let usage_keys: Vec<Option<<T as Config<I>>::UsageKey>> = match usage.clone() {
-            None => vec![None],
+        let usage_keys: BTreeSet<Option<<T as Config<I>>::UsageKey>> = match usage.clone() {
+            None => {
+                let mut keys = BTreeSet::new();
+                keys.insert(None);
+                keys
+            }
             Some(keys) => keys.into_iter().map(Some).collect(),
         };
-
-        let mut unique_usage_keys = BTreeSet::new();
-        for key in usage_keys.iter().cloned() {
-            unique_usage_keys.insert(key);
-        }
 
         let mut last_seen_per_key: Vec<(
             Option<<T as Config<I>>::UsageKey>,
             Option<BlockNumberFor<T>>,
-        )> = Vec::with_capacity(unique_usage_keys.len());
+        )> = Vec::with_capacity(usage_keys.len());
         let fallback_block = frame_system::Pallet::<T>::block_number();
 
-        for key in unique_usage_keys {
+        for key in usage_keys {
             let last_seen = Self::resolve_last_seen_for_key(
                 usage_target,
                 key.clone(),
@@ -248,12 +247,12 @@ where
     type Implicit = ();
     type Val = Option<(
         RateLimitTarget<<T as Config<I>>::GroupId>,
-        Option<Vec<<T as Config<I>>::UsageKey>>,
+        Option<BTreeSet<<T as Config<I>>::UsageKey>>,
         bool,
     )>;
     type Pre = Option<(
         RateLimitTarget<<T as Config<I>>::GroupId>,
-        Option<Vec<<T as Config<I>>::UsageKey>>,
+        Option<BTreeSet<<T as Config<I>>::UsageKey>>,
         bool,
     )>;
 
@@ -379,7 +378,7 @@ mod tests {
     ) -> Result<
         (
             sp_runtime::transaction_validity::ValidTransaction,
-            Option<(RateLimitTarget<GroupId>, Option<Vec<UsageKey>>, bool)>,
+            Option<(RateLimitTarget<GroupId>, Option<BTreeSet<UsageKey>>, bool)>,
             RuntimeOrigin,
         ),
         TransactionValidityError,
@@ -403,7 +402,7 @@ mod tests {
     ) -> Result<
         (
             sp_runtime::transaction_validity::ValidTransaction,
-            Vec<Option<(RateLimitTarget<GroupId>, Option<Vec<UsageKey>>, bool)>>,
+            Vec<Option<(RateLimitTarget<GroupId>, Option<BTreeSet<UsageKey>>, bool)>>,
             RuntimeOrigin,
         ),
         TransactionValidityError,

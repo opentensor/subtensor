@@ -3,14 +3,14 @@ use frame_support::dispatch::DispatchResult;
 pub use rate_limiting_interface::{RateLimitTarget, TransactionIdentifier};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+use sp_std::{collections::btree_map::BTreeMap, collections::btree_set::BTreeSet};
 
 /// Resolves the optional identifier within which a rate limit applies and can optionally adjust
 /// enforcement behaviour.
 pub trait RateLimitScopeResolver<Origin, Call, Scope, Span> {
     /// Returns `Some(scopes)` when the limit should be applied per-scope, or `None` for global
     /// limits.
-    fn context(origin: &Origin, call: &Call) -> Option<Vec<Scope>>;
+    fn context(origin: &Origin, call: &Call) -> Option<BTreeSet<Scope>>;
 
     /// Returns how the call should interact with enforcement and usage tracking.
     fn should_bypass(_origin: &Origin, _call: &Call) -> BypassDecision {
@@ -58,7 +58,7 @@ pub trait RateLimitUsageResolver<Origin, Call, Usage> {
     ///
     /// When multiple keys are returned, the rate limit is enforced against each key and all are
     /// recorded on success.
-    fn context(origin: &Origin, call: &Call) -> Option<Vec<Usage>>;
+    fn context(origin: &Origin, call: &Call) -> Option<BTreeSet<Usage>>;
 }
 
 /// Origin check performed when configuring a rate limit.

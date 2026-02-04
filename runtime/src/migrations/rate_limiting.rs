@@ -1166,8 +1166,8 @@ mod tests {
         now: u64,
         call: RuntimeCall,
         origin: RuntimeOrigin,
-        usage_override: Option<Vec<UsageKey>>,
-        scope_override: Option<Vec<NetUid>>,
+        usage_override: Option<BTreeSet<UsageKey>>,
+        scope_override: Option<BTreeSet<NetUid>>,
         legacy_check: F,
     ) where
         F: Fn() -> bool,
@@ -1181,7 +1181,7 @@ mod tests {
 
         let identifier = TransactionIdentifier::from_call(&call).expect("identifier for call");
         let scope = scope_override.or_else(|| RuntimeScopeResolver::context(&origin, &call));
-        let usage: Option<Vec<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
+        let usage: Option<BTreeSet<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
             usage_override.or_else(|| RuntimeUsageResolver::context(&origin, &call));
         let target = resolve_target(identifier);
 
@@ -1209,9 +1209,13 @@ mod tests {
         };
         let span_u64: u64 = span.saturated_into();
 
-        let usage_keys: Vec<Option<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
+        let usage_keys: BTreeSet<Option<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
             match usage {
-                None => vec![None],
+                None => {
+                    let mut keys = BTreeSet::new();
+                    keys.insert(None);
+                    keys
+                }
                 Some(keys) => keys.into_iter().map(Some).collect(),
             };
 
@@ -1252,8 +1256,8 @@ mod tests {
         now: u64,
         call: RuntimeCall,
         origin: RuntimeOrigin,
-        usage_override: Option<Vec<UsageKey>>,
-        scope_override: Option<Vec<NetUid>>,
+        usage_override: Option<BTreeSet<UsageKey>>,
+        scope_override: Option<BTreeSet<NetUid>>,
         legacy_check: F,
     ) where
         F: Fn() -> bool,
@@ -1267,7 +1271,7 @@ mod tests {
 
         let identifier = TransactionIdentifier::from_call(&call).expect("identifier for call");
         let scope = scope_override.or_else(|| RuntimeScopeResolver::context(&origin, &call));
-        let usage: Option<Vec<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
+        let usage: Option<BTreeSet<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
             usage_override.or_else(|| RuntimeUsageResolver::context(&origin, &call));
         let target = resolve_target(identifier);
 
@@ -1295,9 +1299,13 @@ mod tests {
         };
         let span_u64: u64 = span.saturated_into();
 
-        let usage_keys: Vec<Option<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
+        let usage_keys: BTreeSet<Option<<Runtime as pallet_rate_limiting::Config>::UsageKey>> =
             match usage {
-                None => vec![None],
+                None => {
+                    let mut keys = BTreeSet::new();
+                    keys.insert(None);
+                    keys
+                }
                 Some(keys) => keys.into_iter().map(Some).collect(),
             };
 
@@ -1673,8 +1681,16 @@ mod tests {
                 version_key: 0,
             });
             let origin = RuntimeOrigin::signed(hot.clone());
-            let scope = Some(vec![netuid]);
-            let usage = Some(vec![UsageKey::SubnetNeuron { netuid, uid }]);
+            let scope = {
+                let mut scopes = BTreeSet::new();
+                scopes.insert(netuid);
+                Some(scopes)
+            };
+            let usage = {
+                let mut keys = BTreeSet::new();
+                keys.insert(UsageKey::SubnetNeuron { netuid, uid });
+                Some(keys)
+            };
 
             let legacy_weights = || {
                 let last = LastUpdate::<Runtime>::get(NetUidStorageIndex::from(netuid))
@@ -1769,8 +1785,16 @@ mod tests {
                 signature: ecdsa::Signature::from_raw([0u8; 65]),
             });
             let origin = RuntimeOrigin::signed(hot.clone());
-            let usage = Some(vec![UsageKey::SubnetNeuron { netuid, uid }]);
-            let scope = Some(vec![netuid]);
+            let usage = {
+                let mut keys = BTreeSet::new();
+                keys.insert(UsageKey::SubnetNeuron { netuid, uid });
+                Some(keys)
+            };
+            let scope = {
+                let mut scopes = BTreeSet::new();
+                scopes.insert(netuid);
+                Some(scopes)
+            };
             let limit = <Runtime as pallet_subtensor::Config>::EvmKeyAssociateRateLimit::get();
             let legacy = || {
                 let last = now - 1;

@@ -36,7 +36,7 @@ use sp_runtime::{
     },
     transaction_validity::{TransactionSource, TransactionValidityError},
 };
-use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
+use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 use subtensor_runtime_common::{
     BlockNumber, NetUid,
     rate_limiting::{RateLimitUsageKey, ServingEndpoint},
@@ -109,7 +109,7 @@ impl EnsureLimitSettingRule<RuntimeOrigin, LimitSettingRule, NetUid> for LimitSe
 pub struct ScopeResolver;
 
 impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for ScopeResolver {
-    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<Vec<NetUid>> {
+    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<BTreeSet<NetUid>> {
         match call {
             RuntimeCall::SubtensorModule(inner) => match inner {
                 SubtensorCall::serve_axon { netuid, .. }
@@ -125,7 +125,9 @@ impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for
                 | SubtensorCall::reveal_mechanism_weights { netuid, .. }
                 | SubtensorCall::commit_crv3_mechanism_weights { netuid, .. }
                 | SubtensorCall::commit_timelocked_mechanism_weights { netuid, .. } => {
-                    Some(vec![*netuid])
+                    let mut scopes = BTreeSet::new();
+                    scopes.insert(*netuid);
+                    Some(scopes)
                 }
                 SubtensorCall::batch_set_weights { netuids, .. }
                 | SubtensorCall::batch_commit_weights { netuids, .. } => {
@@ -134,7 +136,7 @@ impl RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber> for
                     if scopes.is_empty() {
                         None
                     } else {
-                        Some(scopes.into_iter().collect())
+                        Some(scopes)
                     }
                 }
                 _ => None,
@@ -232,32 +234,36 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
     fn context(
         origin: &RuntimeOrigin,
         call: &RuntimeCall,
-    ) -> Option<Vec<RateLimitUsageKey<AccountId>>> {
+    ) -> Option<BTreeSet<RateLimitUsageKey<AccountId>>> {
         match call {
             RuntimeCall::SubtensorModule(inner) => match inner {
                 SubtensorCall::swap_coldkey { new_coldkey, .. } => {
-                    Some(vec![RateLimitUsageKey::<AccountId>::Account(
-                        new_coldkey.clone(),
-                    )])
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::Account(new_coldkey.clone()));
+                    Some(usage)
                 }
                 SubtensorCall::swap_hotkey { .. } => {
                     // Enforce only by coldkey; new_hotkey last-seen is recorded in pallet-subtensor
                     // to avoid double enforcement while preserving legacy tracking.
                     let coldkey = signed_origin(origin)?;
-                    Some(vec![RateLimitUsageKey::<AccountId>::Account(coldkey)])
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::Account(coldkey));
+                    Some(usage)
                 }
                 SubtensorCall::increase_take { hotkey, .. }
                 | SubtensorCall::decrease_take { hotkey, .. } => {
-                    Some(vec![RateLimitUsageKey::<AccountId>::Account(
-                        hotkey.clone(),
-                    )])
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::Account(hotkey.clone()));
+                    Some(usage)
                 }
                 SubtensorCall::set_childkey_take { hotkey, netuid, .. }
                 | SubtensorCall::set_children { hotkey, netuid, .. } => {
-                    Some(vec![RateLimitUsageKey::<AccountId>::AccountSubnet {
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::AccountSubnet {
                         account: hotkey.clone(),
                         netuid: *netuid,
-                    }])
+                    });
+                    Some(usage)
                 }
                 SubtensorCall::batch_set_weights { netuids, .. }
                 | SubtensorCall::batch_commit_weights { netuids, .. } => {
@@ -267,11 +273,7 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                         let uid = neuron_identity(origin, netuid)?;
                         usage.insert(RateLimitUsageKey::<AccountId>::SubnetNeuron { netuid, uid });
                     }
-                    if usage.is_empty() {
-                        None
-                    } else {
-                        Some(usage.into_iter().collect())
-                    }
+                    if usage.is_empty() { None } else { Some(usage) }
                 }
                 SubtensorCall::set_weights { netuid, .. }
                 | SubtensorCall::commit_weights { netuid, .. }
@@ -279,10 +281,12 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                 | SubtensorCall::batch_reveal_weights { netuid, .. }
                 | SubtensorCall::commit_timelocked_weights { netuid, .. } => {
                     let uid = neuron_identity(origin, *netuid)?;
-                    Some(vec![RateLimitUsageKey::<AccountId>::SubnetNeuron {
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::SubnetNeuron {
                         netuid: *netuid,
                         uid,
-                    }])
+                    });
+                    Some(usage)
                 }
                 // legacy implementation still used netuid only, but it was recalculating it using
                 // mecid, so switching to netuid AND mecid is logical here
@@ -292,30 +296,34 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                 | SubtensorCall::commit_crv3_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::commit_timelocked_mechanism_weights { netuid, mecid, .. } => {
                     let uid = neuron_identity(origin, *netuid)?;
-                    Some(vec![
-                        RateLimitUsageKey::<AccountId>::SubnetMechanismNeuron {
-                            netuid: *netuid,
-                            mecid: *mecid,
-                            uid,
-                        },
-                    ])
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::SubnetMechanismNeuron {
+                        netuid: *netuid,
+                        mecid: *mecid,
+                        uid,
+                    });
+                    Some(usage)
                 }
                 SubtensorCall::serve_axon { netuid, .. }
                 | SubtensorCall::serve_axon_tls { netuid, .. } => {
                     let hotkey = signed_origin(origin)?;
-                    Some(vec![RateLimitUsageKey::<AccountId>::AccountSubnetServing {
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::AccountSubnetServing {
                         account: hotkey,
                         netuid: *netuid,
                         endpoint: ServingEndpoint::Axon,
-                    }])
+                    });
+                    Some(usage)
                 }
                 SubtensorCall::serve_prometheus { netuid, .. } => {
                     let hotkey = signed_origin(origin)?;
-                    Some(vec![RateLimitUsageKey::<AccountId>::AccountSubnetServing {
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::AccountSubnetServing {
                         account: hotkey,
                         netuid: *netuid,
                         endpoint: ServingEndpoint::Prometheus,
-                    }])
+                    });
+                    Some(usage)
                 }
                 SubtensorCall::associate_evm_key { netuid, .. } => {
                     let hotkey = signed_origin(origin)?;
@@ -323,10 +331,12 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                         *netuid, &hotkey,
                     )
                     .ok()?;
-                    Some(vec![RateLimitUsageKey::<AccountId>::SubnetNeuron {
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::SubnetNeuron {
                         netuid: *netuid,
                         uid,
-                    }])
+                    });
+                    Some(usage)
                 }
                 // Staking calls share a group lock; only add_* write usage, the rest are read-only.
                 // Keep the usage key granular so the lock applies per (coldkey, hotkey, netuid).
@@ -341,11 +351,13 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     ..
                 } => {
                     let coldkey = signed_origin(origin)?;
-                    Some(vec![RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
                         coldkey,
                         hotkey: hotkey.clone(),
                         netuid: *netuid,
-                    }])
+                    });
+                    Some(usage)
                 }
                 SubtensorCall::swap_stake {
                     hotkey,
@@ -358,11 +370,13 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     ..
                 } => {
                     let coldkey = signed_origin(origin)?;
-                    Some(vec![RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
                         coldkey,
                         hotkey: hotkey.clone(),
                         netuid: *netuid,
-                    }])
+                    });
+                    Some(usage)
                 }
                 SubtensorCall::move_stake {
                     origin_hotkey,
@@ -377,31 +391,39 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     } else {
                         (destination_hotkey, destination_netuid)
                     };
-                    Some(vec![RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
                         coldkey,
                         hotkey: hotkey.clone(),
                         netuid: *netuid,
-                    }])
+                    });
+                    Some(usage)
                 }
                 _ => None,
             },
             RuntimeCall::AdminUtils(inner) => {
                 if let Some(netuid) = owner_hparam_netuid(inner) {
-                    Some(vec![RateLimitUsageKey::<AccountId>::Subnet(netuid)])
+                    let mut usage = BTreeSet::new();
+                    usage.insert(RateLimitUsageKey::<AccountId>::Subnet(netuid));
+                    Some(usage)
                 } else {
                     match inner {
                         AdminUtilsCall::sudo_set_sn_owner_hotkey { netuid, .. } => {
-                            Some(vec![RateLimitUsageKey::<AccountId>::Subnet(*netuid)])
+                            let mut usage = BTreeSet::new();
+                            usage.insert(RateLimitUsageKey::<AccountId>::Subnet(*netuid));
+                            Some(usage)
                         }
                         AdminUtilsCall::sudo_set_weights_version_key { netuid, .. }
                         | AdminUtilsCall::sudo_set_mechanism_count { netuid, .. }
                         | AdminUtilsCall::sudo_set_mechanism_emission_split { netuid, .. }
                         | AdminUtilsCall::sudo_trim_to_max_allowed_uids { netuid, .. } => {
                             let who = signed_origin(origin)?;
-                            Some(vec![RateLimitUsageKey::<AccountId>::AccountSubnet {
+                            let mut usage = BTreeSet::new();
+                            usage.insert(RateLimitUsageKey::<AccountId>::AccountSubnet {
                                 account: who,
                                 netuid: *netuid,
-                            }])
+                            });
+                            Some(usage)
                         }
                         _ => None,
                     }

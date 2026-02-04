@@ -15,7 +15,7 @@ use frame_system::{EnsureRoot, ensure_signed};
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_io::TestExternalities;
-use sp_std::vec::Vec;
+use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 use crate as pallet_rate_limiting;
 use crate::{RateLimitKind, TransactionIdentifier};
@@ -112,25 +112,34 @@ pub struct TestUsageResolver;
 impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, LimitScope, u64>
     for TestScopeResolver
 {
-    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<Vec<LimitScope>> {
+    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<BTreeSet<LimitScope>> {
         match call {
             RuntimeCall::RateLimiting(RateLimitingCall::set_rate_limit { limit, .. }) => {
                 let RateLimitKind::Exact(span) = limit else {
-                    return Some(vec![1]);
+                    let mut scopes = BTreeSet::new();
+                    scopes.insert(1);
+                    return Some(scopes);
                 };
-                let scope = (*span).try_into().ok()?;
+                let scope: LimitScope = (*span).try_into().ok()?;
                 // Multi-scope path used by tests: Exact(42/43) returns two scopes.
+                let mut scopes = BTreeSet::new();
+                scopes.insert(scope);
                 if *span == 42 || *span == 43 {
-                    Some(vec![scope, scope.saturating_add(1)])
-                } else {
-                    Some(vec![scope])
+                    scopes.insert(scope.saturating_add(1));
                 }
+                Some(scopes)
             }
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
-                let scope = (*block_span).try_into().ok()?;
-                Some(vec![scope])
+                let scope: LimitScope = (*block_span).try_into().ok()?;
+                let mut scopes = BTreeSet::new();
+                scopes.insert(scope);
+                Some(scopes)
             }
-            RuntimeCall::RateLimiting(_) => Some(vec![1]),
+            RuntimeCall::RateLimiting(_) => {
+                let mut scopes = BTreeSet::new();
+                scopes.insert(1);
+                Some(scopes)
+            }
             _ => None,
         }
     }
@@ -165,25 +174,34 @@ impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, Li
 impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, UsageKey>
     for TestUsageResolver
 {
-    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<Vec<UsageKey>> {
+    fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<BTreeSet<UsageKey>> {
         match call {
             RuntimeCall::RateLimiting(RateLimitingCall::set_rate_limit { limit, .. }) => {
                 let RateLimitKind::Exact(span) = limit else {
-                    return Some(vec![1]);
+                    let mut usage = BTreeSet::new();
+                    usage.insert(1);
+                    return Some(usage);
                 };
-                let key = (*span).try_into().ok()?;
+                let key: UsageKey = (*span).try_into().ok()?;
                 // Multi-usage path used by tests: Exact(42) returns two usage keys.
+                let mut usage = BTreeSet::new();
+                usage.insert(key);
                 if *span == 42 {
-                    Some(vec![key, key.saturating_add(1)])
-                } else {
-                    Some(vec![key])
+                    usage.insert(key.saturating_add(1));
                 }
+                Some(usage)
             }
             RuntimeCall::RateLimiting(RateLimitingCall::set_default_rate_limit { block_span }) => {
-                let key = (*block_span).try_into().ok()?;
-                Some(vec![key])
+                let key: UsageKey = (*block_span).try_into().ok()?;
+                let mut usage = BTreeSet::new();
+                usage.insert(key);
+                Some(usage)
             }
-            RuntimeCall::RateLimiting(_) => Some(vec![1]),
+            RuntimeCall::RateLimiting(_) => {
+                let mut usage = BTreeSet::new();
+                usage.insert(1);
+                Some(usage)
+            }
             _ => None,
         }
     }

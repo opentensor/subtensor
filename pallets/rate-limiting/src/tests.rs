@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_std::vec::Vec;
+use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 use crate::{
     CallGroups, CallReadOnly, Config, GroupMembers, GroupSharing, LastSeen, LimitSettingRules,
@@ -117,10 +117,12 @@ fn register_call_seeds_scoped_limit() {
         }
 
         let event = last_event();
+        let mut expected = BTreeSet::new();
+        expected.insert(1u16);
         assert!(matches!(
             event,
             RuntimeEvent::RateLimiting(crate::Event::CallRegistered { transaction, scope, .. })
-            if transaction == identifier && scope == Some(vec![1u16])
+            if transaction == identifier && scope == Some(expected)
         ));
     });
 }
@@ -145,10 +147,13 @@ fn register_call_seeds_multi_scoped_limit() {
         }
 
         let event = last_event();
+        let mut expected = BTreeSet::new();
+        expected.insert(42u16);
+        expected.insert(43u16);
         assert!(matches!(
             event,
             RuntimeEvent::RateLimiting(crate::Event::CallRegistered { transaction, scope, .. })
-            if transaction == identifier && scope == Some(vec![42u16, 43u16])
+            if transaction == identifier && scope == Some(expected)
         ));
     });
 }
@@ -657,7 +662,11 @@ fn is_within_limit_detects_rate_limited_scope() {
             &RuntimeOrigin::signed(1),
             &call,
             &identifier,
-            &Some(vec![1u16]),
+            &{
+                let mut scopes = BTreeSet::new();
+                scopes.insert(1u16);
+                Some(scopes)
+            },
             &Some(1u16),
         )
         .expect("ok");

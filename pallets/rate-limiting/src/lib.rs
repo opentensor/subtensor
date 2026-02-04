@@ -88,10 +88,12 @@
 //!     NetUid,
 //!     BlockNumber,
 //! > for ScopeResolver {
-//!     fn context(origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<Vec<NetUid>> {
+//!     fn context(origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<BTreeSet<NetUid>> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_weights { netuid, .. }) => {
-//!                 Some(vec![*netuid])
+//!                 let mut scopes = BTreeSet::new();
+//!                 scopes.insert(*netuid);
+//!                 Some(scopes)
 //!             }
 //!             _ => None,
 //!         }
@@ -117,13 +119,20 @@
 //!     RuntimeCall,
 //!     (NetUid, HyperParam),
 //! > for UsageResolver {
-//!     fn context(_origin: &RuntimeOrigin, call: &RuntimeCall) -> Option<(NetUid, HyperParam)> {
+//!     fn context(
+//!         _origin: &RuntimeOrigin,
+//!         call: &RuntimeCall,
+//!     ) -> Option<BTreeSet<(NetUid, HyperParam)>> {
 //!         match call {
 //!             RuntimeCall::Subtensor(pallet_subtensor::Call::set_hyperparam {
 //!                 netuid,
 //!                 hyper,
 //!                 ..
-//!             }) => Some((*netuid, *hyper)),
+//!             }) => {
+//!                 let mut usage = BTreeSet::new();
+//!                 usage.insert((*netuid, *hyper));
+//!                 Some(usage)
+//!             }
 //!             _ => None,
 //!         }
 //!     }
@@ -174,7 +183,11 @@ pub mod pallet {
         AtLeast32BitUnsigned, DispatchOriginOf, Dispatchable, Member, One, Saturating, Zero,
     };
     use sp_std::{
-        boxed::Box, collections::btree_map::BTreeMap, convert::TryFrom, marker::PhantomData, vec,
+        boxed::Box,
+        collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+        convert::TryFrom,
+        marker::PhantomData,
+        vec,
         vec::Vec,
     };
 
@@ -367,7 +380,7 @@ pub mod pallet {
             /// Identifier of the registered transaction.
             transaction: TransactionIdentifier,
             /// Scope seeded during registration (if any).
-            scope: Option<Vec<<T as Config<I>>::LimitScope>>,
+            scope: Option<BTreeSet<<T as Config<I>>::LimitScope>>,
             /// Optional group assignment applied at registration time.
             group: Option<<T as Config<I>>::GroupId>,
             /// Pallet name associated with the transaction.
@@ -585,13 +598,18 @@ pub mod pallet {
     pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
-        /// Returns `true` when the given transaction identifier passes its configured rate limit
-        /// within the provided usage scope.
+        /// Returns whether a call currently passes rate limiting.
+        ///
+        /// `scopes`: `None`/empty means global scope, otherwise all provided scopes are checked.
+        /// `usage_key`: `None` checks global usage, `Some(key)` checks keyed usage.
+        ///
+        /// Returns [`Error::MissingScope`] when scoped config exists but no scope is provided.
+        /// Returns `Ok(true)` on bypass; otherwise every enforced scope must pass.
         pub fn is_within_limit(
             origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
             call: &<T as Config<I>>::RuntimeCall,
             identifier: &TransactionIdentifier,
-            scopes: &Option<Vec<<T as Config<I>>::LimitScope>>,
+            scopes: &Option<BTreeSet<<T as Config<I>>::LimitScope>>,
             usage_key: &Option<<T as Config<I>>::UsageKey>,
         ) -> Result<bool, DispatchError> {
             let bypass = <T as Config<I>>::LimitScopeResolver::should_bypass(origin, call);
@@ -899,7 +917,7 @@ pub mod pallet {
 
         fn ensure_scope_available(
             target: &RateLimitTarget<<T as Config<I>>::GroupId>,
-            scopes: &Option<Vec<<T as Config<I>>::LimitScope>>,
+            scopes: &Option<BTreeSet<<T as Config<I>>::LimitScope>>,
         ) -> Result<(), DispatchError> {
             let has_scope = scopes.as_ref().map_or(false, |scopes| !scopes.is_empty());
             if has_scope {
