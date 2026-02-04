@@ -47,34 +47,6 @@ fn test_sudo_set_default_take() {
 }
 
 #[test]
-#[allow(deprecated)]
-fn test_sudo_set_serving_rate_limit() {
-    new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(3);
-        let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_serving_rate_limit(netuid);
-        assert_noop!(
-            AdminUtils::sudo_set_serving_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                netuid,
-                to_be_set
-            ),
-            Error::<Test>::Deprecated
-        );
-        assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), init_value);
-        assert_noop!(
-            AdminUtils::sudo_set_serving_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid,
-                to_be_set
-            ),
-            Error::<Test>::Deprecated
-        );
-        assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), init_value);
-    });
-}
-
-#[test]
 fn test_sudo_set_min_difficulty() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
