@@ -1,7 +1,7 @@
 use super::*;
 use alloc::collections::BTreeMap;
 use safe_math::*;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -508,7 +508,13 @@ impl<T: Config> Pallet<T> {
         alpha_dividends: BTreeMap<T::AccountId, U96F32>,
         root_alpha_dividends: BTreeMap<T::AccountId, U96F32>,
     ) {
-        // Compute and store EffectiveRootProp before distributing (uses raw dividend values).
+        // Compute and store EffectiveRootProp for the NEXT round before distributing.
+        // This intentionally computes the effective root proportion for the next epoch based on
+        // the current epoch's dividend distribution (using raw, pre-distribution dividend values).
+        // It is calculated once per epoch from the actual dividend proportions that occurred.
+        // Exploitation via temporary stake placement before this calculation is mitigated because
+        // apply_effective_root_prop_scaling uses min(EffectiveRootProp, RootProp), which caps the
+        // value at the protocol-level RootProp setting.
         Self::compute_and_store_effective_root_prop(
             netuid,
             &alpha_dividends,
@@ -668,9 +674,9 @@ impl<T: Config> Pallet<T> {
         let total = total_alpha_divs.saturating_add(total_root_divs);
 
         let effective_root_prop = if total > zero {
-            U64F64::saturating_from_num(total_root_divs.checked_div(total).unwrap_or(zero))
+            total_root_divs.checked_div(total).unwrap_or(zero)
         } else {
-            U64F64::saturating_from_num(0)
+            zero
         };
 
         log::debug!(

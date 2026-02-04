@@ -1499,7 +1499,7 @@ pub mod pallet {
     ///   sum(RootAlphaDividendsPerSubnet[netuid]) /
     ///   (sum(AlphaDividendsPerSubnet[netuid]) + sum(RootAlphaDividendsPerSubnet[netuid]))
     /// This measures the proportion of dividends on a subnet that go to root stakers.
-    pub type EffectiveRootProp<T: Config> = StorageMap<_, Identity, NetUid, U64F64, ValueQuery>;
+    pub type EffectiveRootProp<T: Config> = StorageMap<_, Identity, NetUid, U96F32, ValueQuery>;
 
     #[pallet::type_value]
     /// Default: EffectiveRootPropEmissionScaling is disabled.
@@ -1513,29 +1513,23 @@ pub mod pallet {
         StorageValue<_, bool, ValueQuery, DefaultEffectiveRootPropEmissionScaling<T>>;
 
     #[pallet::type_value]
-    /// Default: all subnets receive emission (100%).
-    pub fn DefaultEmissionTopSubnetProportion<T: Config>() -> u16 {
-        10000 // 100% in basis points (out of 10000)
+    /// Default: all subnets receive emission (1.0 = 100%).
+    pub fn DefaultEmissionTopSubnetProportion<T: Config>() -> U64F64 {
+        U64F64::saturating_from_num(1)
     }
     #[pallet::storage]
     /// Proportion of subnets (ranked by share) that receive emission.
-    /// Value in basis points: 5000 = 50%, 10000 = 100%.
-    /// Only the top ceil(count * proportion / 10000) subnets get emission.
+    /// Value in range [0.0, 1.0] where 0.5 = 50%, 1.0 = 100%.
+    /// Only the top ceil(count * proportion) subnets get emission.
     /// Remaining subnets have shares zeroed and redistributed.
     pub type EmissionTopSubnetProportion<T: Config> =
-        StorageValue<_, u16, ValueQuery, DefaultEmissionTopSubnetProportion<T>>;
+        StorageValue<_, U64F64, ValueQuery, DefaultEmissionTopSubnetProportion<T>>;
 
-    #[pallet::type_value]
-    /// Default: no absolute limit on number of subnets receiving emission.
-    pub fn DefaultEmissionTopSubnetAbsoluteLimit<T: Config>() -> u16 {
-        0 // 0 means no limit (disabled)
-    }
     #[pallet::storage]
     /// Absolute maximum number of subnets that can receive emission.
-    /// 0 means no limit (disabled). When set to N > 0, only the top N
+    /// None means no limit (disabled). When set to Some(N), only the top N
     /// subnets by share receive emission; the rest are zeroed and redistributed.
-    pub type EmissionTopSubnetAbsoluteLimit<T: Config> =
-        StorageValue<_, u16, ValueQuery, DefaultEmissionTopSubnetAbsoluteLimit<T>>;
+    pub type EmissionTopSubnetAbsoluteLimit<T: Config> = StorageValue<_, u16, OptionQuery>;
 
     /// ============================
     /// ==== Global Parameters =====

@@ -679,8 +679,8 @@ fn test_apply_effective_root_prop_scaling_enabled() {
 
         // Set EffectiveRootProp and RootProp for subnets.
         // RootProp >= EffectiveRootProp, so min() uses EffectiveRootProp.
-        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.8));
-        EffectiveRootProp::<Test>::insert(NetUid::from(2), u64f64(0.2));
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.8));
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0.2));
         RootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.9));
         RootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0.9));
 
@@ -729,7 +729,7 @@ fn test_apply_effective_root_prop_scaling_single_subnet() {
         // Enable scaling
         EffectiveRootPropEmissionScaling::<Test>::set(true);
 
-        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.3));
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.3));
         RootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.5));
 
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
@@ -751,8 +751,8 @@ fn test_apply_effective_root_prop_scaling_capped_by_root_prop() {
 
         // Simulate exploitation: EffectiveRootProp inflated above RootProp
         // by disabling alpha validators. Scaling should use min(ERP, RP).
-        EffectiveRootProp::<Test>::insert(NetUid::from(1), u64f64(0.9)); // inflated
-        EffectiveRootProp::<Test>::insert(NetUid::from(2), u64f64(0.2)); // normal
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.9)); // inflated
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0.2)); // normal
         RootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.3)); // actual root prop
         RootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0.5)); // actual root prop
 
@@ -862,7 +862,7 @@ fn test_zero_and_redistribute_top_k_exceeds_count() {
 #[test]
 fn test_apply_top_subnet_proportion_filter_default_50_percent_4_subnets() {
     new_test_ext(1).execute_with(|| {
-        EmissionTopSubnetProportion::<Test>::set(5000); // 50%
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(0.5)); // 50%
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.1));
         shares.insert(NetUid::from(2), u64f64(0.2));
@@ -889,7 +889,7 @@ fn test_apply_top_subnet_proportion_filter_default_50_percent_4_subnets() {
 #[test]
 fn test_apply_top_subnet_proportion_filter_default_50_percent_1_subnet() {
     new_test_ext(1).execute_with(|| {
-        EmissionTopSubnetProportion::<Test>::set(5000); // 50%
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(0.5)); // 50%
         // 1 subnet -> ceil(1 * 0.5) = 1
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(1.0));
@@ -904,7 +904,7 @@ fn test_apply_top_subnet_proportion_filter_default_50_percent_1_subnet() {
 #[test]
 fn test_apply_top_subnet_proportion_filter_default_50_percent_3_subnets() {
     new_test_ext(1).execute_with(|| {
-        EmissionTopSubnetProportion::<Test>::set(5000); // 50%
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(0.5)); // 50%
         // 3 subnets -> ceil(3 * 5000 / 10000) = ceil(1.5) = 2
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.2));
@@ -927,7 +927,7 @@ fn test_apply_top_subnet_proportion_filter_default_50_percent_3_subnets() {
 #[test]
 fn test_apply_top_subnet_proportion_filter_100_percent() {
     new_test_ext(1).execute_with(|| {
-        EmissionTopSubnetProportion::<Test>::set(10000); // 100%
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(1)); // 100%
 
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.25));
@@ -950,7 +950,7 @@ fn test_apply_top_subnet_proportion_filter_100_percent() {
 #[test]
 fn test_apply_top_subnet_proportion_filter_zeroed_get_no_emission() {
     new_test_ext(1).execute_with(|| {
-        EmissionTopSubnetProportion::<Test>::set(5000); // 50%
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(0.5)); // 50%
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.1));
         shares.insert(NetUid::from(2), u64f64(0.2));
@@ -1000,7 +1000,7 @@ fn test_apply_top_subnet_absolute_limit_disabled() {
 #[test]
 fn test_apply_top_subnet_absolute_limit_two_of_five() {
     new_test_ext(1).execute_with(|| {
-        EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(2));
 
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.05));
@@ -1033,7 +1033,7 @@ fn test_apply_top_subnet_absolute_limit_two_of_five() {
 #[test]
 fn test_apply_top_subnet_absolute_limit_exceeds_count() {
     new_test_ext(1).execute_with(|| {
-        EmissionTopSubnetAbsoluteLimit::<Test>::set(10);
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(10));
 
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.5));
@@ -1059,8 +1059,8 @@ fn test_interaction_proportion_and_absolute_limit() {
     new_test_ext(1).execute_with(|| {
         // 50% proportion with 6 subnets -> ceil(6*0.5) = 3 subnets
         // Absolute limit = 2 -> further reduces to 2 subnets
-        EmissionTopSubnetProportion::<Test>::set(5000);
-        EmissionTopSubnetAbsoluteLimit::<Test>::set(2);
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(0.5));
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(2));
 
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.05));
@@ -1097,8 +1097,8 @@ fn test_interaction_proportion_and_absolute_limit() {
 fn test_interaction_absolute_limit_stricter_than_proportion() {
     new_test_ext(1).execute_with(|| {
         // proportion = 100% (all subnets), absolute limit = 1
-        EmissionTopSubnetProportion::<Test>::set(10000);
-        EmissionTopSubnetAbsoluteLimit::<Test>::set(1);
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(1));
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(1));
 
         let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
         shares.insert(NetUid::from(1), u64f64(0.3));
