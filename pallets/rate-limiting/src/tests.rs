@@ -1,4 +1,6 @@
 #![allow(clippy::expect_used)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::arithmetic_side_effects)]
 
 use frame_support::{assert_noop, assert_ok};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
@@ -578,7 +580,7 @@ fn cannot_delete_group_in_use_or_unknown() {
 
         // Clear state then delete.
         Limits::<Test, ()>::remove(target);
-        let _ = LastSeen::<Test, ()>::clear_prefix(&target, u32::MAX, None);
+        let _ = LastSeen::<Test, ()>::clear_prefix(target, u32::MAX, None);
         assert_ok!(RateLimiting::delete_group(RuntimeOrigin::root(), group));
 
         // Unknown group.

@@ -216,6 +216,7 @@ impl TryIntoRateLimitTarget<u32> for (Vec<u8>, Vec<u8>) {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use codec::Encode;
