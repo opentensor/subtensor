@@ -23,5 +23,5 @@ std = [
 	"sp-std/std",
 	"pallet-rate-limiting/std",
 	"subtensor-runtime-common/std",
-	"serde",
+	"serde/std",
 ]

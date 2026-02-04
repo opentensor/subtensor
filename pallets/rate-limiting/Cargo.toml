@@ -37,6 +37,8 @@ std = [
 	"rate-limiting-interface/std",
 	"scale-info/std",
 	"serde/std",
+	"sp-core/std",
+	"sp-io/std",
 	"sp-std/std",
 	"sp-runtime/std",
 	"subtensor-runtime-common/std",
@@ -50,4 +52,5 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]

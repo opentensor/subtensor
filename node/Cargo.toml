@@ -186,6 +186,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-rate-limiting/try-runtime",
 	"pallet-commitments/try-runtime",
 	"pallet-drand/try-runtime",
 	"polkadot-sdk/try-runtime",
