@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
 
 use codec::{Compact, Encode};
 use frame_support::{assert_ok, traits::Get};
@@ -1219,10 +1220,17 @@ mod owner_hparams {
                     netuid,
                     rho: 1,
                 });
-                assert_extrinsic_ok(&owner, &owner_pair, set_rho);
+                assert_extrinsic_ok(&owner, &owner_pair, set_rho.clone());
 
                 // Same hyperparameter should still be rate-limited.
-                assert_extrinsic_rate_limited(&owner, &owner_pair, set_cutoff);
+                assert_extrinsic_rate_limited(&owner, &owner_pair, set_cutoff.clone());
+                // Second hyperparameter should also be self-rate-limited immediately.
+                assert_extrinsic_rate_limited(&owner, &owner_pair, set_rho.clone());
+
+                // After the full window passes, both hyperparameters are callable again.
+                System::set_block_number((legacy_last_seen + (span * 2)).saturated_into());
+                assert_extrinsic_ok(&owner, &owner_pair, set_cutoff);
+                assert_extrinsic_ok(&owner, &owner_pair, set_rho);
             });
     }
 

@@ -26,7 +26,7 @@ pub mod pallet {
     use frame_support::{dispatch::DispatchResult, pallet_prelude::StorageMap};
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
-    use pallet_subtensor::DefaultMaxAllowedUids;
+    use pallet_subtensor::{DefaultMaxAllowedUids, utils::rate_limiting::TransactionType};
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::{I64F64, I96F32, U64F64};
     use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
@@ -311,12 +311,22 @@ pub mod pallet {
             netuid: NetUid,
             weights_version_key: u64,
         ) -> DispatchResult {
-            let _ = pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::SetWeightsVersionKey],
+            )?;
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
+            );
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::SetWeightsVersionKey],
             );
 
             pallet_subtensor::Pallet::<T>::set_weights_version_key(netuid, weights_version_key);
@@ -1803,10 +1813,20 @@ pub mod pallet {
             netuid: NetUid,
             mechanism_count: MechId,
         ) -> DispatchResult {
-            let _ = pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::MechanismCountUpdate],
+            )?;
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::do_set_mechanism_count(netuid, mechanism_count)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::MechanismCountUpdate],
+            );
 
             Ok(())
         }
@@ -1821,10 +1841,20 @@ pub mod pallet {
             netuid: NetUid,
             maybe_split: Option<Vec<u16>>,
         ) -> DispatchResult {
-            let _ = pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::MechanismEmission],
+            )?;
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::MechanismEmission],
+            );
 
             Ok(())
         }
@@ -1843,10 +1873,20 @@ pub mod pallet {
             netuid: NetUid,
             max_n: u16,
         ) -> DispatchResult {
-            let _ = pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[TransactionType::MaxUidsTrimming],
+            )?;
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[TransactionType::MaxUidsTrimming],
+            );
 
             Ok(())
         }

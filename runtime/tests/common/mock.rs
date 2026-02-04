@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use node_subtensor_runtime::{RuntimeGenesisConfig, System};
 use sp_io::TestExternalities;
 use sp_runtime::BuildStorage;
