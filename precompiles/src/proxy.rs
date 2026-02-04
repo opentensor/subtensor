@@ -33,9 +33,7 @@ where
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
@@ -64,9 +62,7 @@ where
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,

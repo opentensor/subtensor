@@ -74,7 +74,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use subtensor_precompiles::Precompiles;
+use subtensor_precompiles::{PrecompileTxExtensionProvider, Precompiles};
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
 use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
@@ -1615,6 +1615,20 @@ pub type TransactionExtensions = (
     ),
     rate_limiting::UnwrappedRateLimitTransactionExtension,
 );
+
+impl PrecompileTxExtensionProvider for Runtime {
+    type Extensions = (
+        pallet_subtensor::SubtensorTransactionExtension<Runtime>,
+        rate_limiting::UnwrappedRateLimitTransactionExtension,
+    );
+
+    fn tx_extensions() -> Self::Extensions {
+        (
+            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+            rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
+        )
+    }
+}
 
 type Migrations = (
     // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions

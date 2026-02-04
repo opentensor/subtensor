@@ -10,8 +10,6 @@ use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, GasWeightMapping, Precompile,
     PrecompileFailure, PrecompileHandle, PrecompileResult,
 };
-use pallet_rate_limiting::RateLimitTransactionExtension;
-use pallet_subtensor::SubtensorTransactionExtension;
 use precompile_utils::EvmResult;
 use scale_info::TypeInfo;
 use sp_core::{H160, U256, blake2_256};
@@ -26,10 +24,16 @@ use sp_runtime::{
 use sp_std::vec::Vec;
 
 type RuntimeCallOf<R> = <R as frame_system::Config>::RuntimeCall;
-type Extensions<R> = (
-    SubtensorTransactionExtension<R>,
-    RateLimitTransactionExtension<R>,
-);
+
+pub trait PrecompileTxExtensionProvider: frame_system::Config
+where
+    RuntimeCallOf<Self>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+    /// Runtime-provided transaction extensions used for precompile-dispatched runtime calls
+    type Extensions: TransactionExtension<RuntimeCallOf<Self>>;
+
+    fn tx_extensions() -> Self::Extensions;
+}
 
 pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     fn caller_account_id<R>(&self) -> R::AccountId
@@ -68,6 +72,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             + pallet_subtensor::Config
             + pallet_shield::Config
             + pallet_subtensor_proxy::Config
+            + PrecompileTxExtensionProvider
             + Send
             + Sync
             + TypeInfo,
@@ -84,10 +89,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         let call = RuntimeCallOf::<R>::from(call);
         let mut info = GetDispatchInfo::get_dispatch_info(&call);
 
-        let extensions = (
-            SubtensorTransactionExtension::<R>::new(),
-            RateLimitTransactionExtension::<R>::new(),
-        );
+        let extensions = <R as PrecompileTxExtensionProvider>::tx_extensions();
         info.extension_weight = info
             .extension_weight
             .saturating_add(extensions.weight(&call));
@@ -130,13 +132,9 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             Ok(mut post_info) => {
                 post_info.set_extension_weight(&info);
                 let result: DispatchResult = Ok(());
-                <Extensions<R> as TransactionExtension<RuntimeCallOf<R>>>::post_dispatch(
-                    pre,
-                    &info,
-                    &mut post_info,
-                    0,
-                    &result,
-                )
+                <<R as PrecompileTxExtensionProvider>::Extensions as TransactionExtension<
+                    RuntimeCallOf<R>,
+                >>::post_dispatch(pre, &info, &mut post_info, 0, &result)
                 .map_err(extension_error)?;
                 log::debug!("Dispatch succeeded. Post info: {post_info:?}");
                 self.charge_and_refund_after_dispatch::<R, Call>(&info, &post_info)?;
@@ -148,13 +146,9 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                 let mut post_info = e.post_info;
                 post_info.set_extension_weight(&info);
                 let result: DispatchResult = Err(e.error);
-                <Extensions<R> as TransactionExtension<RuntimeCallOf<R>>>::post_dispatch(
-                    pre,
-                    &info,
-                    &mut post_info,
-                    0,
-                    &result,
-                )
+                <<R as PrecompileTxExtensionProvider>::Extensions as TransactionExtension<
+                    RuntimeCallOf<R>,
+                >>::post_dispatch(pre, &info, &mut post_info, 0, &result)
                 .map_err(extension_error)?;
                 log::info!("Precompile dispatch failed. message as: {e:?}");
                 self.charge_and_refund_after_dispatch::<R, Call>(&info, &post_info)?;

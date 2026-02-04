@@ -23,9 +23,7 @@ where
         + pallet_evm::Config
         + pallet_proxy::Config
         + pallet_subtensor::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_crowdloan::Call<R>>
@@ -50,9 +48,7 @@ where
         + pallet_evm::Config
         + pallet_proxy::Config
         + pallet_subtensor::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_crowdloan::Call<R>>
