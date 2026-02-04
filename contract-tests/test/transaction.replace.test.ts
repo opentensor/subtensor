@@ -48,7 +48,7 @@ describe("Transaction replace tests", () => {
             } catch (error) {
                 // ignore error, previous transaction could be mined. the nonce is wrong.
             }
-            await new Promise(resolve => setTimeout(resolve, 100))
+            await new Promise(resolve => setTimeout(resolve, 10))
         }
 
         // check the node not crashed
@@ -75,7 +75,7 @@ describe("Transaction replace tests", () => {
                 // ignore error, previous transaction could be mined. the nonce is wrong.
             }
 
-            await new Promise(resolve => setTimeout(resolve, 100))
+            await new Promise(resolve => setTimeout(resolve, 10))
         }
         // check the node not crashed
         await forceSetBalanceToEthAddress(api, wallet.address)
