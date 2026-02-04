@@ -11,6 +11,7 @@ use node_subtensor_runtime::{
     sudo_wrapper, transaction_payment_wrapper,
 };
 use pallet_rate_limiting::RateLimitTarget;
+use pallet_rate_limiting::RateLimitingInterface;
 use sp_core::{H256, Pair, sr25519};
 use sp_runtime::{
     BoundedVec, MultiSignature,
@@ -19,8 +20,8 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use subtensor_runtime_common::{
-    AccountId, AlphaCurrency, Currency, MechId, NetUid,
-    rate_limiting::{GROUP_SWAP_KEYS, RateLimitUsageKey},
+    AccountId, AlphaCurrency, Currency, MechId, NetUid, TaoCurrency,
+    rate_limiting::{GROUP_REGISTER_NETWORK, GROUP_SWAP_KEYS, RateLimitUsageKey},
 };
 
 use common::ExtBuilder;
@@ -139,6 +140,45 @@ mod register_network {
                 System::set_block_number(limit + 28_800);
                 assert_extrinsic_ok(&coldkey, &coldkey_pair, call_a);
             });
+    }
+
+    #[test]
+    fn register_network_lock_cost_formula_is_preserved_after_migration() {
+        ExtBuilder::default().build().execute_with(|| {
+            System::set_block_number(1);
+
+            Executive::execute_on_runtime_upgrade();
+
+            let last_seen = <Runtime as pallet_subtensor::Config>::RateLimiting::last_seen(
+                GROUP_REGISTER_NETWORK,
+                None,
+            )
+            .expect("register-network last-seen should be populated by migration")
+            .saturated_into::<u64>();
+
+            let last_lock = pallet_subtensor::Pallet::<Runtime>::get_network_last_lock();
+            let min_lock = pallet_subtensor::Pallet::<Runtime>::get_network_min_lock();
+            let interval = pallet_subtensor::Pallet::<Runtime>::get_lock_reduction_interval();
+            let expected_at_last_seen: TaoCurrency = {
+                let mut cost: TaoCurrency = (u64::from(last_lock) * 2).into();
+                if cost < min_lock {
+                    cost = min_lock;
+                }
+                cost
+            };
+            let per_block_decay: TaoCurrency = (u64::from(last_lock) / interval).into();
+
+            System::set_block_number(last_seen.saturated_into());
+            let actual_at_last_seen = pallet_subtensor::Pallet::<Runtime>::get_network_lock_cost();
+            assert_eq!(actual_at_last_seen, expected_at_last_seen);
+
+            let next_block = last_seen + 1;
+            System::set_block_number(next_block.saturated_into());
+            let actual_after_one = pallet_subtensor::Pallet::<Runtime>::get_network_lock_cost();
+            let expected_after_one =
+                core::cmp::max(min_lock, expected_at_last_seen - per_block_decay);
+            assert_eq!(actual_after_one, expected_after_one);
+        });
     }
 }
 

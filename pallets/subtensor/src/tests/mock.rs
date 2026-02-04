@@ -14,15 +14,18 @@ use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
 use frame_support::{
     assert_ok, parameter_types,
+    storage::unhashed,
     traits::{Hooks, PrivilegeCmp},
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
-use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
+use rate_limiting_interface::{RateLimitTarget, RateLimitingInterface, TryIntoRateLimitTarget};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
+use sp_io::hashing::twox_128;
+use sp_io::storage;
 use sp_runtime::Perbill;
 use sp_runtime::{
     BuildStorage, Percent,
@@ -30,7 +33,10 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
-use subtensor_runtime_common::{NetUid, TaoCurrency, rate_limiting::RateLimitUsageKey};
+use subtensor_runtime_common::{
+    NetUid, TaoCurrency,
+    rate_limiting::{GROUP_REGISTER_NETWORK, RateLimitUsageKey},
+};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -350,23 +356,58 @@ impl RateLimitingInterface for NoRateLimiting {
     }
 
     fn last_seen<TargetArg>(
-        _target: TargetArg,
-        _usage_key: Option<Self::UsageKey>,
+        target: TargetArg,
+        usage_key: Option<Self::UsageKey>,
     ) -> Option<Self::Limit>
     where
         TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
     {
-        None
+        let Ok(target) = target.try_into_rate_limit_target::<RuntimeCall>() else {
+            return None;
+        };
+
+        if !matches!(target, RateLimitTarget::Group(group) if group == GROUP_REGISTER_NETWORK) {
+            return None;
+        }
+
+        if usage_key.is_some() {
+            return None;
+        }
+        let key = mock_register_network_last_seen_key();
+        unhashed::get::<BlockNumber>(&key)
     }
 
     fn set_last_seen<TargetArg>(
-        _target: TargetArg,
-        _usage_key: Option<Self::UsageKey>,
-        _block: Option<Self::Limit>,
+        target: TargetArg,
+        usage_key: Option<Self::UsageKey>,
+        block: Option<Self::Limit>,
     ) where
         TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
     {
+        let Ok(target) = target.try_into_rate_limit_target::<RuntimeCall>() else {
+            return;
+        };
+
+        if !matches!(target, RateLimitTarget::Group(group) if group == GROUP_REGISTER_NETWORK) {
+            return;
+        }
+
+        if usage_key.is_some() {
+            return;
+        }
+        let key = mock_register_network_last_seen_key();
+        match block {
+            Some(block) => unhashed::put(&key, &block),
+            None => storage::clear(&key),
+        };
     }
+}
+
+fn mock_register_network_last_seen_key() -> Vec<u8> {
+    let mut key = Vec::with_capacity(32);
+    key.extend_from_slice(&twox_128(b"MockRateLimiting"));
+    key.extend_from_slice(&twox_128(b"RegisterNetworkLastSeen"));
+    key
 }
 
 parameter_types! {

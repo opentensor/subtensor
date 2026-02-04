@@ -2066,15 +2066,25 @@ fn test_migrate_clear_rank_trust_pruning_maps_removes_entries() {
     });
 }
 fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
+    let mut register_network = |hotkey: U256, coldkey: U256| {
+        let netuid = add_dynamic_network_without_emission_block(&hotkey, &coldkey);
+        <Test as crate::Config>::RateLimiting::set_last_seen(
+            rate_limiting::GROUP_REGISTER_NETWORK,
+            None,
+            Some(SubtensorModule::get_current_block_as_u64()),
+        );
+        netuid
+    };
+
     // Register some subnets
-    let netuid0 = add_dynamic_network_without_emission_block(&U256::from(0), &U256::from(0));
-    let netuid1 = add_dynamic_network_without_emission_block(&U256::from(1), &U256::from(1));
-    let netuid2 = add_dynamic_network_without_emission_block(&U256::from(2), &U256::from(2));
+    let netuid0 = register_network(U256::from(0), U256::from(0));
+    let netuid1 = register_network(U256::from(1), U256::from(1));
+    let netuid2 = register_network(U256::from(2), U256::from(2));
     let inactive_netuids = vec![netuid0, netuid1, netuid2];
     // Add active subnets
-    let netuid3 = add_dynamic_network_without_emission_block(&U256::from(3), &U256::from(3));
-    let netuid4 = add_dynamic_network_without_emission_block(&U256::from(4), &U256::from(4));
-    let netuid5 = add_dynamic_network_without_emission_block(&U256::from(5), &U256::from(5));
+    let netuid3 = register_network(U256::from(3), U256::from(3));
+    let netuid4 = register_network(U256::from(4), U256::from(4));
+    let netuid5 = register_network(U256::from(5), U256::from(5));
     let active_netuids = vec![netuid3, netuid4, netuid5];
     let netuids: Vec<NetUid> = inactive_netuids
         .iter()
