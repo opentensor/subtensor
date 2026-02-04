@@ -607,12 +607,12 @@ pub mod pallet {
             calls: &[<T as Config>::RuntimeCall],
         ) -> (Weight, DispatchClass, Pays) {
             let mut total_weight = Weight::zero();
-            let mut pays = Pays::Yes;
+            let mut pays = Pays::No;
 
             for di in calls.iter().map(|call| call.get_dispatch_info()) {
                 total_weight = total_weight.saturating_add(di.call_weight);
-                if di.pays_fee == Pays::No {
-                    pays = Pays::No;
+                if di.pays_fee == Pays::Yes {
+                    pays = Pays::Yes;
                 }
             }
 
