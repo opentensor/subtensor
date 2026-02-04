@@ -243,21 +243,21 @@ impl<T: Config> Pallet<T> {
             // If not Root network.
             if !netuid.is_root() {
                 // Manually filter out rate-limited subnets.
-                if let Some(span) = staking_ops_span {
-                    if !span.is_zero() {
-                        let usage_key = RateLimitUsageKey::ColdkeyHotkeySubnet {
-                            coldkey: coldkey.clone(),
-                            hotkey: hotkey.clone(),
-                            netuid,
-                        };
-                        if let Some(last_seen) = T::RateLimiting::last_seen(
-                            rate_limiting::GROUP_STAKING_OPS,
-                            Some(usage_key),
-                        ) {
-                            let current = <frame_system::Pallet<T>>::block_number();
-                            if current.saturating_sub(last_seen) < span {
-                                continue;
-                            }
+                if let Some(span) = staking_ops_span
+                    && !span.is_zero()
+                {
+                    let usage_key = RateLimitUsageKey::ColdkeyHotkeySubnet {
+                        coldkey: coldkey.clone(),
+                        hotkey: hotkey.clone(),
+                        netuid,
+                    };
+                    if let Some(last_seen) = T::RateLimiting::last_seen(
+                        rate_limiting::GROUP_STAKING_OPS,
+                        Some(usage_key),
+                    ) {
+                        let current = <frame_system::Pallet<T>>::block_number();
+                        if current.saturating_sub(last_seen) < span {
+                            continue;
                         }
                     }
                 }

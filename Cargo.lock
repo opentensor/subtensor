@@ -10323,6 +10323,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "subtensor-macros",
  "subtensor-runtime-common",
 ]
 
@@ -10348,6 +10349,7 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-std",
+ "subtensor-macros",
  "subtensor-runtime-common",
 ]
 
@@ -13744,6 +13746,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-std",
+ "subtensor-macros",
 ]
 
 [[package]]

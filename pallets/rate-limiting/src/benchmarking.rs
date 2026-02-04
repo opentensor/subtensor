@@ -1,6 +1,6 @@
 //! Benchmarking setup for pallet-rate-limiting
-#![cfg(feature = "runtime-benchmarks")]
 #![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::expect_used)]
 
 use codec::Decode;
 use frame_benchmarking::v2::*;

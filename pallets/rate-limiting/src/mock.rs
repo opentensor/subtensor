@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::expect_used)]
 
 use core::convert::TryInto;
 
@@ -25,8 +26,8 @@ pub type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
     pub enum Test {
-        System: frame_system,
-        RateLimiting: pallet_rate_limiting,
+        System: frame_system = 0,
+        RateLimiting: pallet_rate_limiting = 1,
     }
 );
 

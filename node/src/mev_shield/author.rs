@@ -395,7 +395,7 @@ where
             pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
         ),
-        pallet_rate_limiting::RateLimitTransactionExtension::<runtime::Runtime>::new(),
+        node_subtensor_runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
     );
 
     // 3) Manually construct the `Implicit` tuple that the runtime will also derive.

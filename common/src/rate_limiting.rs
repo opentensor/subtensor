@@ -16,7 +16,6 @@
 //! smaller pallets with dedicated `pallet-rate-limiting` instances.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::pallet_prelude::Parameter;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +59,7 @@ pub const GROUP_SWAP_KEYS: GroupId = 6;
     MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(AccountId))]
-pub enum RateLimitUsageKey<AccountId: Parameter> {
+pub enum RateLimitUsageKey<AccountId> {
     Account(AccountId),
     Subnet(NetUid),
     AccountSubnet {

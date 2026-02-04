@@ -171,6 +171,9 @@ mod mock;
 mod tests;
 
 #[frame_support::pallet]
+// FRAME pallet macro expansion uses internal `expect` and clippy reports it at this callsite
+// (`#[pallet::storage]`, `#[pallet::error]`, `#[pallet::pallet]`).
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use codec::Codec;
     use frame_support::{
@@ -529,6 +532,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
+    #[allow(clippy::expect_used)]
     impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
         fn build(&self) {
             DefaultLimit::<T, I>::put(self.default_limit);
@@ -597,6 +601,7 @@ pub mod pallet {
     #[pallet::without_storage_info]
     pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
+    #[deny(clippy::expect_used)]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         /// Returns whether a call currently passes rate limiting.
         ///
@@ -631,7 +636,7 @@ pub mod pallet {
                 let Some(block_span) = Self::effective_span(origin, call, &target, &scope) else {
                     continue;
                 };
-                let last_seen = LastSeen::<T, I>::get(&usage_target, usage_key);
+                let last_seen = LastSeen::<T, I>::get(usage_target, usage_key);
                 if !Self::within_span(&usage_target, usage_key, block_span, last_seen) {
                     return Ok(false);
                 }
@@ -742,21 +747,21 @@ pub mod pallet {
                             }
                         }
                         (Some(source), Some(target)) => {
-                            if let RateLimit::Scoped(map) = config {
-                                if let Some(kind) = map.remove(source) {
-                                    map.insert(target.clone(), kind);
-                                    migrated = true;
-                                }
+                            if let RateLimit::Scoped(map) = config
+                                && let Some(kind) = map.remove(source)
+                            {
+                                map.insert(target.clone(), kind);
+                                migrated = true;
                             }
                         }
                         (Some(source), None) => {
-                            if let RateLimit::Scoped(map) = config {
-                                if map.len() == 1 && map.contains_key(source) {
-                                    if let Some(kind) = map.remove(source) {
-                                        *config = RateLimit::global(kind);
-                                        migrated = true;
-                                    }
-                                }
+                            if let RateLimit::Scoped(map) = config
+                                && map.len() == 1
+                                && map.contains_key(source)
+                                && let Some(kind) = map.remove(source)
+                            {
+                                *config = RateLimit::global(kind);
+                                migrated = true;
                             }
                         }
                         _ => {}
@@ -788,100 +793,14 @@ pub mod pallet {
             true
         }
 
-        /// Returns the configured limit for the specified pallet/extrinsic names, if any.
-        pub fn limit_for_call_names(
-            pallet_name: &str,
-            extrinsic_name: &str,
-            scope: Option<<T as Config<I>>::LimitScope>,
-        ) -> Option<RateLimitKind<BlockNumberFor<T>>> {
-            let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
-            let target = Self::config_target(&identifier).ok()?;
-            Limits::<T, I>::get(target).and_then(|config| config.kind_for(scope.as_ref()).copied())
-        }
-
-        /// Returns the resolved block span for the specified pallet/extrinsic names, if any.
-        pub fn resolved_limit_for_call_names(
-            pallet_name: &str,
-            extrinsic_name: &str,
-            scope: Option<<T as Config<I>>::LimitScope>,
-        ) -> Option<BlockNumberFor<T>> {
-            let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
-            let target = Self::config_target(&identifier).ok()?;
-            Self::resolved_limit(&target, &scope)
-        }
-
-        /// Looks up the transaction identifier for a pallet/extrinsic name pair.
-        pub fn identifier_for_call_names(
-            pallet_name: &str,
-            extrinsic_name: &str,
-        ) -> Option<TransactionIdentifier> {
-            let modules = <T as Config<I>>::RuntimeCall::get_module_names();
-            let pallet_pos = modules.iter().position(|name| *name == pallet_name)?;
-            let call_names = <T as Config<I>>::RuntimeCall::get_call_names(pallet_name);
-            let extrinsic_pos = call_names.iter().position(|name| *name == extrinsic_name)?;
-            let pallet_index = u8::try_from(pallet_pos).ok()?;
-            let extrinsic_index = u8::try_from(extrinsic_pos).ok()?;
-            Some(TransactionIdentifier::new(pallet_index, extrinsic_index))
-        }
-
-        fn ensure_call_registered(identifier: &TransactionIdentifier) -> DispatchResult {
-            let target = RateLimitTarget::Transaction(*identifier);
-            ensure!(
-                Limits::<T, I>::contains_key(target),
-                Error::<T, I>::CallNotRegistered
-            );
-            Ok(())
-        }
-
-        fn ensure_call_unregistered(identifier: &TransactionIdentifier) -> DispatchResult {
-            let target = RateLimitTarget::Transaction(*identifier);
-            ensure!(
-                !Limits::<T, I>::contains_key(target),
-                Error::<T, I>::CallAlreadyRegistered
-            );
-            Ok(())
-        }
-
-        /// Returns true when the call has been registered (either directly or via a group).
-        pub fn is_registered(identifier: &TransactionIdentifier) -> bool {
-            let tx_target = RateLimitTarget::Transaction(*identifier);
-            Limits::<T, I>::contains_key(tx_target) || CallGroups::<T, I>::contains_key(identifier)
-        }
-
-        fn call_metadata(
-            identifier: &TransactionIdentifier,
-        ) -> Result<(Vec<u8>, Vec<u8>), DispatchError> {
-            let (pallet_name, extrinsic_name) = identifier
-                .names::<<T as Config<I>>::RuntimeCall>()
-                .ok_or(Error::<T, I>::InvalidRuntimeCall)?;
-            Ok((
-                Vec::from(pallet_name.as_bytes()),
-                Vec::from(extrinsic_name.as_bytes()),
-            ))
-        }
-
-        /// Returns the storage target used to store configuration for the provided identifier,
-        /// respecting any configured group assignment.
-        pub fn config_target(
-            identifier: &TransactionIdentifier,
-        ) -> Result<RateLimitTarget<<T as Config<I>>::GroupId>, DispatchError> {
-            Self::target_for(identifier, GroupSharing::config_uses_group)
-        }
-
-        pub(crate) fn usage_target(
-            identifier: &TransactionIdentifier,
-        ) -> Result<RateLimitTarget<<T as Config<I>>::GroupId>, DispatchError> {
-            Self::target_for(identifier, GroupSharing::usage_uses_group)
-        }
-
         fn target_for(
             identifier: &TransactionIdentifier,
             predicate: impl Fn(GroupSharing) -> bool,
         ) -> Result<RateLimitTarget<<T as Config<I>>::GroupId>, DispatchError> {
-            let group = Self::group_assignment(identifier)?;
+            let details = Self::group_assignment(identifier)?;
             Ok(Self::target_from_details(
                 identifier,
-                group.as_ref(),
+                details.as_ref(),
                 predicate,
             ))
         }
@@ -901,10 +820,10 @@ pub mod pallet {
             details: Option<&GroupDetailsOf<T, I>>,
             predicate: impl Fn(GroupSharing) -> bool,
         ) -> RateLimitTarget<<T as Config<I>>::GroupId> {
-            if let Some(details) = details {
-                if predicate(details.sharing) {
-                    return RateLimitTarget::Group(details.id);
-                }
+            if let Some(details) = details
+                && predicate(details.sharing)
+            {
+                return RateLimitTarget::Group(details.id);
             }
             RateLimitTarget::Transaction(*identifier)
         }
@@ -919,15 +838,15 @@ pub mod pallet {
             target: &RateLimitTarget<<T as Config<I>>::GroupId>,
             scopes: &Option<BTreeSet<<T as Config<I>>::LimitScope>>,
         ) -> Result<(), DispatchError> {
-            let has_scope = scopes.as_ref().map_or(false, |scopes| !scopes.is_empty());
+            let has_scope = scopes.as_ref().is_some_and(|scopes| !scopes.is_empty());
             if has_scope {
                 return Ok(());
             }
 
-            if let Some(RateLimit::Scoped(map)) = Limits::<T, I>::get(target) {
-                if !map.is_empty() {
-                    return Err(Error::<T, I>::MissingScope.into());
-                }
+            if let Some(RateLimit::Scoped(map)) = Limits::<T, I>::get(target)
+                && !map.is_empty()
+            {
+                return Err(Error::<T, I>::MissingScope.into());
             }
 
             Ok(())
@@ -964,18 +883,99 @@ pub mod pallet {
             Ok(())
         }
 
+        fn ensure_call_registered(identifier: &TransactionIdentifier) -> DispatchResult {
+            let target = RateLimitTarget::Transaction(*identifier);
+            ensure!(
+                Limits::<T, I>::contains_key(target),
+                Error::<T, I>::CallNotRegistered
+            );
+            Ok(())
+        }
+
+        fn ensure_call_unregistered(identifier: &TransactionIdentifier) -> DispatchResult {
+            let target = RateLimitTarget::Transaction(*identifier);
+            ensure!(
+                !Limits::<T, I>::contains_key(target),
+                Error::<T, I>::CallAlreadyRegistered
+            );
+            Ok(())
+        }
+
+        /// Returns true when the call has been registered (either directly or via a group).
+        pub fn is_registered(identifier: &TransactionIdentifier) -> bool {
+            let tx_target = RateLimitTarget::Transaction(*identifier);
+            Limits::<T, I>::contains_key(tx_target) || CallGroups::<T, I>::contains_key(identifier)
+        }
+
+        /// Resolves pallet/extrinsic names into a transaction identifier.
+        pub fn identifier_for_call_names(
+            pallet_name: &str,
+            extrinsic_name: &str,
+        ) -> Option<TransactionIdentifier> {
+            TransactionIdentifier::for_call_names::<<T as Config<I>>::RuntimeCall>(
+                pallet_name,
+                extrinsic_name,
+            )
+        }
+
+        /// Returns the configured limit for the specified pallet/extrinsic names, if any.
+        pub fn limit_for_call_names(
+            pallet_name: &str,
+            extrinsic_name: &str,
+            scope: Option<<T as Config<I>>::LimitScope>,
+        ) -> Option<RateLimitKind<BlockNumberFor<T>>> {
+            let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
+            let target = Self::config_target(&identifier).ok()?;
+            Limits::<T, I>::get(target).and_then(|config| config.kind_for(scope.as_ref()).copied())
+        }
+
+        /// Returns the resolved block span for the specified pallet/extrinsic names, if any.
+        pub fn resolved_limit_for_call_names(
+            pallet_name: &str,
+            extrinsic_name: &str,
+            scope: Option<<T as Config<I>>::LimitScope>,
+        ) -> Option<BlockNumberFor<T>> {
+            let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
+            let target = Self::config_target(&identifier).ok()?;
+            Self::resolved_limit(&target, &scope)
+        }
+
+        fn call_metadata(
+            identifier: &TransactionIdentifier,
+        ) -> Result<(Vec<u8>, Vec<u8>), DispatchError> {
+            let (pallet_name, extrinsic_name) = identifier
+                .names::<<T as Config<I>>::RuntimeCall>()
+                .ok_or(Error::<T, I>::InvalidRuntimeCall)?;
+            Ok((
+                Vec::from(pallet_name.as_bytes()),
+                Vec::from(extrinsic_name.as_bytes()),
+            ))
+        }
+
+        /// Returns the storage target used to store configuration for the provided identifier,
+        /// respecting any configured group assignment.
+        pub fn config_target(
+            identifier: &TransactionIdentifier,
+        ) -> Result<RateLimitTarget<<T as Config<I>>::GroupId>, DispatchError> {
+            Self::target_for(identifier, GroupSharing::config_uses_group)
+        }
+
+        pub(crate) fn usage_target(
+            identifier: &TransactionIdentifier,
+        ) -> Result<RateLimitTarget<<T as Config<I>>::GroupId>, DispatchError> {
+            Self::target_for(identifier, GroupSharing::usage_uses_group)
+        }
+
         fn insert_call_into_group(
             identifier: &TransactionIdentifier,
             group: <T as Config<I>>::GroupId,
-        ) -> DispatchResult {
-            GroupMembers::<T, I>::try_mutate(group, |members| -> DispatchResult {
-                match members.try_insert(*identifier) {
-                    Ok(true) => Ok(()),
-                    Ok(false) => Err(Error::<T, I>::CallAlreadyInGroup.into()),
-                    Err(_) => Err(Error::<T, I>::GroupMemberLimitExceeded.into()),
-                }
-            })?;
-            Ok(())
+        ) -> Result<(), DispatchError> {
+            GroupMembers::<T, I>::try_mutate(group, |members| {
+                members
+                    .try_insert(*identifier)
+                    .map_err(|_| Error::<T, I>::GroupMemberLimitExceeded)?;
+                Ok::<(), DispatchError>(())
+            })
         }
 
         fn detach_call_from_group(
@@ -987,6 +987,7 @@ pub mod pallet {
     }
 
     #[pallet::call]
+    #[deny(clippy::expect_used)]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         /// Registers a call for rate limiting and seeds its initial configuration.
         #[pallet::call_index(0)]
@@ -1030,8 +1031,8 @@ pub mod pallet {
             if let Some(group_id) = group {
                 Self::ensure_group_details(group_id)?;
                 Self::insert_call_into_group(&identifier, group_id)?;
-                CallGroups::<T, I>::insert(&identifier, group_id);
-                CallReadOnly::<T, I>::insert(&identifier, false);
+                CallGroups::<T, I>::insert(identifier, group_id);
+                CallReadOnly::<T, I>::insert(identifier, false);
                 assigned_group = Some(group_id);
             }
 
@@ -1040,8 +1041,8 @@ pub mod pallet {
                 transaction: identifier,
                 scope: scopes,
                 group: assigned_group,
-                pallet: pallet,
-                extrinsic: extrinsic,
+                pallet,
+                extrinsic,
             });
 
             if let Some(group_id) = assigned_group {
@@ -1074,7 +1075,7 @@ pub mod pallet {
             let (transaction, pallet, extrinsic) = match target {
                 RateLimitTarget::Transaction(identifier) => {
                     Self::ensure_call_registered(&identifier)?;
-                    if let Some(group) = CallGroups::<T, I>::get(&identifier) {
+                    if let Some(group) = CallGroups::<T, I>::get(identifier) {
                         let details = Self::ensure_group_details(group)?;
                         ensure!(
                             !details.sharing.config_uses_group(),
@@ -1150,11 +1151,11 @@ pub mod pallet {
             Self::ensure_call_registered(&transaction)?;
             Self::ensure_group_details(group)?;
 
-            let current = CallGroups::<T, I>::get(&transaction);
+            let current = CallGroups::<T, I>::get(transaction);
             ensure!(current.is_none(), Error::<T, I>::CallAlreadyInGroup);
             Self::insert_call_into_group(&transaction, group)?;
-            CallGroups::<T, I>::insert(&transaction, group);
-            CallReadOnly::<T, I>::insert(&transaction, read_only);
+            CallGroups::<T, I>::insert(transaction, group);
+            CallReadOnly::<T, I>::insert(transaction, read_only);
 
             Self::deposit_event(Event::CallGroupUpdated {
                 transaction,
@@ -1179,10 +1180,10 @@ pub mod pallet {
             T::AdminOrigin::ensure_origin(origin)?;
 
             Self::ensure_call_registered(&transaction)?;
-            let Some(group) = CallGroups::<T, I>::take(&transaction) else {
+            let Some(group) = CallGroups::<T, I>::take(transaction) else {
                 return Err(Error::<T, I>::CallNotInGroup.into());
             };
-            CallReadOnly::<T, I>::remove(&transaction);
+            CallReadOnly::<T, I>::remove(transaction);
             Self::detach_call_from_group(&transaction, group);
 
             Self::deposit_event(Event::CallGroupUpdated {
@@ -1325,19 +1326,19 @@ pub mod pallet {
                 Some(sc) => {
                     let mut removed = false;
                     Limits::<T, I>::mutate_exists(target, |maybe_config| {
-                        if let Some(RateLimit::Scoped(map)) = maybe_config {
-                            if map.remove(sc).is_some() {
-                                removed = true;
-                                if map.is_empty() {
-                                    *maybe_config = None;
-                                }
+                        if let Some(RateLimit::Scoped(map)) = maybe_config
+                            && map.remove(sc).is_some()
+                        {
+                            removed = true;
+                            if map.is_empty() {
+                                *maybe_config = None;
                             }
                         }
                     });
                     ensure!(removed, Error::<T, I>::MissingRateLimit);
 
-                    if let Some(group) = CallGroups::<T, I>::take(&transaction) {
-                        CallReadOnly::<T, I>::remove(&transaction);
+                    if let Some(group) = CallGroups::<T, I>::take(transaction) {
+                        CallReadOnly::<T, I>::remove(transaction);
                         Self::detach_call_from_group(&transaction, group);
                         Self::deposit_event(Event::CallGroupUpdated {
                             transaction,
@@ -1351,8 +1352,8 @@ pub mod pallet {
                         Limits::<T, I>::remove(tx_target);
                     }
 
-                    if let Some(group) = CallGroups::<T, I>::take(&transaction) {
-                        CallReadOnly::<T, I>::remove(&transaction);
+                    if let Some(group) = CallGroups::<T, I>::take(transaction) {
+                        CallReadOnly::<T, I>::remove(transaction);
                         Self::detach_call_from_group(&transaction, group);
                         Self::deposit_event(Event::CallGroupUpdated {
                             transaction,
@@ -1363,7 +1364,7 @@ pub mod pallet {
             }
 
             if clear_usage {
-                let _ = LastSeen::<T, I>::clear_prefix(&usage_target, u32::MAX, None);
+                let _ = LastSeen::<T, I>::clear_prefix(usage_target, u32::MAX, None);
             }
 
             let (pallet, extrinsic) = Self::call_metadata(&transaction)?;
@@ -1392,8 +1393,8 @@ pub mod pallet {
 
             Self::ensure_call_registered(&transaction)?;
             let group =
-                CallGroups::<T, I>::get(&transaction).ok_or(Error::<T, I>::CallNotInGroup)?;
-            CallReadOnly::<T, I>::insert(&transaction, read_only);
+                CallGroups::<T, I>::get(transaction).ok_or(Error::<T, I>::CallNotInGroup)?;
+            CallReadOnly::<T, I>::insert(transaction, read_only);
 
             Self::deposit_event(Event::CallReadOnlyUpdated {
                 transaction,

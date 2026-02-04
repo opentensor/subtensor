@@ -14,11 +14,12 @@ codec = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
 frame-system.workspace = true
+rate-limiting-interface.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
-sp-std.workspace = true
 sp-runtime.workspace = true
-rate-limiting-interface.workspace = true
+sp-std.workspace = true
+subtensor-macros.workspace = true
 subtensor-runtime-common.workspace = true
 
 [dev-dependencies]

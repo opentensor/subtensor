@@ -169,7 +169,10 @@ pub mod storage {
                 break;
             }
             if let Some(value) = io_storage::get(&next) {
-                let key_bytes = &next[prefix.len()..];
+                let Some(key_bytes) = next.get(prefix.len()..) else {
+                    cursor = next;
+                    continue;
+                };
                 if let (Some(key), Some(decoded_value)) = (
                     decode_transaction_key(key_bytes),
                     decode_value::<u64>(&value),
@@ -206,7 +209,7 @@ pub mod storage {
         if encoded.len() < BLAKE2_128_PREFIX_LEN {
             return None;
         }
-        let mut slice = &encoded[BLAKE2_128_PREFIX_LEN..];
+        let mut slice = encoded.get(BLAKE2_128_PREFIX_LEN..)?;
         let account = AccountId::decode(&mut slice).ok()?;
         let netuid = NetUid::decode(&mut slice).ok()?;
         let tx_kind = u16::decode(&mut slice).ok()?;

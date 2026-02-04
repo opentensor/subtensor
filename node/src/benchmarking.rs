@@ -145,7 +145,7 @@ pub fn create_benchmark_extrinsic(
             pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
         ),
-        pallet_rate_limiting::RateLimitTransactionExtension::<runtime::Runtime>::new(),
+        runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
     );
 
     let raw_payload = runtime::SignedPayload::from_raw(

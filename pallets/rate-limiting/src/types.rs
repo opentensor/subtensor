@@ -4,6 +4,7 @@ pub use rate_limiting_interface::{RateLimitTarget, TransactionIdentifier};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::{collections::btree_map::BTreeMap, collections::btree_set::BTreeSet};
+use subtensor_macros::freeze_struct;
 
 /// Resolves the optional identifier within which a rate limit applies and can optionally adjust
 /// enforcement behaviour.
@@ -126,6 +127,7 @@ impl GroupSharing {
     MaxEncodedLen,
     Debug,
 )]
+#[freeze_struct("52b1e178333ab182")]
 pub struct RateLimitGroup<GroupId, Name> {
     /// Stable identifier assigned to the group.
     pub id: GroupId,

@@ -12,6 +12,7 @@ sp-std.workspace = true
 pallet-rate-limiting.workspace = true
 subtensor-runtime-common = { workspace = true, default-features = false }
 serde = { workspace = true, features = ["derive"], optional = true }
+subtensor-macros.workspace = true
 
 [features]
 default = ["std"]

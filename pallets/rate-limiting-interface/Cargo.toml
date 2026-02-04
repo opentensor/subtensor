@@ -12,6 +12,7 @@ frame-support = { workspace = true, default-features = false }
 scale-info = { workspace = true, features = ["derive"], default-features = false }
 serde = { workspace = true, features = ["derive"], default-features = false }
 sp-std = { workspace = true, default-features = false }
+subtensor-macros.workspace = true
 
 [features]
 default = ["std"]

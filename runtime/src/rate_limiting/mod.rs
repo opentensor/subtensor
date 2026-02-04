@@ -37,6 +37,7 @@ use sp_runtime::{
     transaction_validity::{TransactionSource, TransactionValidityError},
 };
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{
     BlockNumber, NetUid,
     rate_limiting::{RateLimitUsageKey, ServingEndpoint},
@@ -478,6 +479,7 @@ fn owner_hparam_netuid(call: &AdminUtilsCall<Runtime>) -> Option<NetUid> {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+#[freeze_struct("6f3f3ed087b897ba")]
 pub struct UnwrappedRateLimitTransactionExtension(
     pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
 );
@@ -493,24 +495,22 @@ impl UnwrappedRateLimitTransactionExtension {
         Self::default()
     }
 
-    fn unwrap_nested_calls<'a>(call: &'a RuntimeCall) -> Vec<&'a RuntimeCall> {
+    fn unwrap_nested_calls(call: &RuntimeCall) -> Vec<&RuntimeCall> {
         let mut calls = Vec::new();
         let mut stack = Vec::new();
         stack.push(call);
 
         while let Some(current) = stack.pop() {
             match current {
-                RuntimeCall::Sudo(inner) => match inner {
+                RuntimeCall::Sudo(
                     pallet_sudo::Call::sudo { call }
                     | pallet_sudo::Call::sudo_unchecked_weight { call, .. }
-                    | pallet_sudo::Call::sudo_as { call, .. } => stack.push(call),
-                    _ => calls.push(current),
-                },
-                RuntimeCall::Proxy(inner) => match inner {
+                    | pallet_sudo::Call::sudo_as { call, .. },
+                ) => stack.push(call),
+                RuntimeCall::Proxy(
                     pallet_proxy::Call::proxy { call, .. }
-                    | pallet_proxy::Call::proxy_announced { call, .. } => stack.push(call),
-                    _ => calls.push(current),
-                },
+                    | pallet_proxy::Call::proxy_announced { call, .. },
+                ) => stack.push(call),
                 RuntimeCall::Utility(inner) => match inner {
                     pallet_utility::Call::batch { calls: inner_calls }
                     | pallet_utility::Call::batch_all { calls: inner_calls }
@@ -523,11 +523,10 @@ impl UnwrappedRateLimitTransactionExtension {
                     | pallet_utility::Call::as_derivative { call, .. } => stack.push(call),
                     _ => calls.push(current),
                 },
-                RuntimeCall::Multisig(inner) => match inner {
+                RuntimeCall::Multisig(
                     pallet_multisig::Call::as_multi { call, .. }
-                    | pallet_multisig::Call::as_multi_threshold_1 { call, .. } => stack.push(call),
-                    _ => calls.push(current),
-                },
+                    | pallet_multisig::Call::as_multi_threshold_1 { call, .. },
+                ) => stack.push(call),
                 _ => calls.push(current),
             }
         }

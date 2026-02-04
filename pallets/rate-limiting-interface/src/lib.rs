@@ -7,6 +7,7 @@ use frame_support::traits::GetCallMetadata;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
+use subtensor_macros::freeze_struct;
 
 /// Interface for rate-limiting configuration and usage tracking.
 pub trait RateLimitingInterface {
@@ -110,6 +111,7 @@ impl<GroupId> From<TransactionIdentifier> for RateLimitTarget<GroupId> {
     MaxEncodedLen,
     Debug,
 )]
+#[freeze_struct("c865c7a9be1442a")]
 pub struct TransactionIdentifier {
     /// Pallet variant index.
     pub pallet_index: u8,
@@ -129,7 +131,7 @@ impl TransactionIdentifier {
     /// Attempts to build an identifier from a SCALE-encoded call by reading the first two bytes.
     pub fn from_call<Call: codec::Encode>(call: &Call) -> Option<Self> {
         call.using_encoded(|encoded| {
-            let pallet_index = *encoded.get(0)?;
+            let pallet_index = *encoded.first()?;
             let extrinsic_index = *encoded.get(1)?;
             Some(Self::new(pallet_index, extrinsic_index))
         })
@@ -220,6 +222,7 @@ mod tests {
     use frame_support::traits::CallMetadata;
 
     #[derive(Clone, Copy, Debug, Encode)]
+    #[freeze_struct("43380fb4d208f4cf")]
     struct DummyCall(u8, u8);
 
     impl GetCallMetadata for DummyCall {

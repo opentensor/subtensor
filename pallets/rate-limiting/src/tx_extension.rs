@@ -17,6 +17,7 @@ use scale_info::TypeInfo;
 use sp_std::{
     collections::btree_set::BTreeSet, marker::PhantomData, result::Result, vec, vec::Vec,
 };
+use subtensor_macros::freeze_struct;
 
 use crate::{
     Config, LastSeen, Pallet,
@@ -33,6 +34,7 @@ const RATE_LIMIT_DENIED: u8 = 1;
 
 /// Transaction extension that enforces pallet rate limiting rules.
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+#[freeze_struct("ccd11950c3c64123")]
 pub struct RateLimitTransactionExtension<T, I = ()>(PhantomData<(T, I)>)
 where
     T: Config<I> + Send + Sync + TypeInfo,
@@ -159,7 +161,7 @@ where
             }
             enforced = true;
             let within_limit = last_seen_per_key.iter().all(|(key, last_seen)| {
-                Pallet::<T, I>::within_span(&usage_target, key, block_span, last_seen.clone())
+                Pallet::<T, I>::within_span(&usage_target, key, block_span, *last_seen)
             });
             if !within_limit {
                 return Err(TransactionValidityError::Invalid(
@@ -190,10 +192,10 @@ where
             if !usage_seen_in_block.insert(entry) {
                 Some(fallback_block)
             } else {
-                LastSeen::<T, I>::get(&usage_target, &key)
+                LastSeen::<T, I>::get(usage_target, &key)
             }
         } else {
-            LastSeen::<T, I>::get(&usage_target, &key)
+            LastSeen::<T, I>::get(usage_target, &key)
         }
     }
 }
@@ -293,22 +295,22 @@ where
         _len: usize,
         result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        if result.is_ok() {
-            if let Some((target, usage, should_record)) = pre {
-                if !should_record {
-                    return Ok(());
-                }
-                let block_number = frame_system::Pallet::<T>::block_number();
-                match usage {
-                    None => LastSeen::<T, I>::insert(
-                        target,
-                        None::<<T as Config<I>>::UsageKey>,
-                        block_number,
-                    ),
-                    Some(keys) => {
-                        for key in keys {
-                            LastSeen::<T, I>::insert(target, Some(key), block_number);
-                        }
+        if result.is_ok()
+            && let Some((target, usage, should_record)) = pre
+        {
+            if !should_record {
+                return Ok(());
+            }
+            let block_number = frame_system::Pallet::<T>::block_number();
+            match usage {
+                None => LastSeen::<T, I>::insert(
+                    target,
+                    None::<<T as Config<I>>::UsageKey>,
+                    block_number,
+                ),
+                Some(keys) => {
+                    for key in keys {
+                        LastSeen::<T, I>::insert(target, Some(key), block_number);
                     }
                 }
             }
@@ -318,6 +320,7 @@ where
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use codec::Encode;
     use frame_support::{

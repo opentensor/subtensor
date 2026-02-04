@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use frame_support::{assert_noop, assert_ok};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
@@ -40,7 +42,7 @@ fn create_group(name: &[u8], sharing: GroupSharing) -> GroupId {
         name.to_vec(),
         sharing,
     ));
-    RateLimiting::next_group_id().saturating_sub(1)
+    RateLimiting::next_group_id() - 1
 }
 
 fn last_event() -> RuntimeEvent {

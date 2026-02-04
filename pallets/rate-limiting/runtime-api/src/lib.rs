@@ -4,6 +4,7 @@ use codec::{Decode, Encode};
 use pallet_rate_limiting::RateLimitKind;
 use scale_info::TypeInfo;
 use sp_std::vec::Vec;
+use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::BlockNumber;
 
 #[cfg(feature = "std")]
@@ -11,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[freeze_struct("871e006597542bec")]
 pub struct RateLimitRpcResponse {
     pub global: Option<RateLimitKind<BlockNumber>>,
     pub contextual: Vec<(Vec<u8>, RateLimitKind<BlockNumber>)>,

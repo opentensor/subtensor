@@ -378,7 +378,7 @@ fn build_serving(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u6
     // exist only in storage, so we migrate both current and previously stored netuids without
     // duplicates.
     let mut netuids = Pallet::<Runtime>::get_all_subnet_netuids();
-    for (&netuid, _) in &serving_limits {
+    for &netuid in serving_limits.keys() {
         if !netuids.contains(&netuid) {
             netuids.push(netuid);
         }
@@ -606,9 +606,7 @@ fn build_owner_hparams(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>)
             commits,
             |key| match key {
                 RateLimitKey::OwnerHyperparamUpdate(netuid, hyper) => {
-                    let Some(identifier) = identifier_for_hyperparameter(hyper) else {
-                        return None;
-                    };
+                    let identifier = identifier_for_hyperparameter(hyper)?;
                     Some((
                         RateLimitTarget::Transaction(identifier.identifier()),
                         Some(RateLimitUsageKey::Subnet(netuid)),
