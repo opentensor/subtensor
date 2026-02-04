@@ -719,7 +719,7 @@ mod dispatches {
             netuid: NetUid,
             amount_staked: TaoCurrency,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked).map(|_| ())
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -1702,6 +1702,7 @@ mod dispatches {
                 limit_price,
                 allow_partial,
             )
+            .map(|_| ())
         }
 
         /// --- Removes stake from a hotkey on a subnet with a price limit.
@@ -2577,6 +2578,26 @@ mod dispatches {
         ) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_set_voting_power_ema_alpha(netuid, alpha)
+        }
+
+        /// --- Subnet buyback: the extrinsic is a combination of add_stake(add_stake_limit) and
+        /// burn_alpha. We buy alpha token first and immediately burn the acquired amount of alpha.
+        #[pallet::call_index(132)]
+        #[pallet::weight((
+		    Weight::from_parts(368_000_000, 8556)
+			.saturating_add(T::DbWeight::get().reads(28_u64))
+			.saturating_add(T::DbWeight::get().writes(17_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn subnet_buyback(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount: TaoCurrency,
+            limit: Option<TaoCurrency>,
+        ) -> DispatchResult {
+            Self::do_subnet_buyback(origin, hotkey, netuid, amount, limit)
         }
     }
 }

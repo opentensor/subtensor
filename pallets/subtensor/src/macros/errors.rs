@@ -280,5 +280,7 @@ mod errors {
         PrecisionLoss,
         /// Deprecated call.
         Deprecated,
+        /// Subnet buyback exceeded the operation rate limit
+        SubnetBuybackRateLimitExceeded,
     }
 }
