@@ -2275,7 +2275,6 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_effective_root_prop_emission_scaling(enabled);
-            log::debug!("set_effective_root_prop_emission_scaling( {enabled:?} )");
             Ok(())
         }
 
@@ -2294,15 +2293,16 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
-                proportion > 0 && proportion <= 10000,
+                proportion > 0 && proportion <= 100,
                 Error::<T>::InvalidValue
             );
-            pallet_subtensor::Pallet::<T>::set_emission_top_subnet_proportion(proportion);
-            log::debug!("set_emission_top_subnet_proportion( {proportion:?} )");
+            let prop = U64F64::saturating_from_num(proportion)
+                .saturating_div(U64F64::saturating_from_num(100));
+            pallet_subtensor::Pallet::<T>::set_emission_top_subnet_proportion(prop);
             Ok(())
         }
 
-        /// Sets the absolute limit on number of subnets receiving emission (0 = no limit)
+        /// Sets the absolute limit on number of subnets receiving emission (None = no limit)
         #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(7_343_000, 0)
@@ -2313,11 +2313,10 @@ pub mod pallet {
         ))]
         pub fn sudo_set_emission_top_subnet_absolute_limit(
             origin: OriginFor<T>,
-            limit: u16,
+            limit: Option<u16>,
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_emission_top_subnet_absolute_limit(limit);
-            log::debug!("set_emission_top_subnet_absolute_limit( {limit:?} )");
             Ok(())
         }
     }
