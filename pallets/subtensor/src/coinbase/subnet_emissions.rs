@@ -39,6 +39,62 @@ impl<T: Config> Pallet<T> {
             .collect::<BTreeMap<NetUid, U96F32>>()
     }
 
+    pub fn update_flows(block_u64: u64) {
+        let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|netuid| *netuid != NetUid::ROOT)
+            .collect();
+        for netuid_i in subnets.iter() {
+            Self::update_delayed_flows(*netuid_i, block_u64);
+        }
+    }
+
+    pub fn update_delayed_flows(netuid: NetUid, block_u64: u64) {
+        let tick_len: u64 = FlowTickLen::<T>::get();
+        if tick_len == 0 { return; }
+    
+        let delay_len: u64 = FlowDelay::<T>::get();
+    
+        // Drain flow for this block (per-block semantics)
+        let block_flow: i64 = SubnetTaoFlow::<T>::take(netuid);
+    
+        // Schedule maturity (rounded up using current tick_len)
+        if block_flow != 0 {
+            let delayed_until = block_u64.saturating_add(delay_len);
+            let maturity_block =
+                ((delayed_until.saturating_add(tick_len - 1)) / tick_len).saturating_mul(tick_len);
+    
+            SubnetFlowAccumulator::<T>::mutate(netuid, maturity_block, |v| {
+                *v = v.saturating_add(block_flow);
+            });
+        }
+    
+        // Pop matured flow for this exact block number
+        let delayed_flow: i64 = SubnetFlowAccumulator::<T>::take(netuid, block_u64);
+    
+        // Per-step alpha in [0,1]
+        let alpha: I64F64 = I64F64::saturating_from_num(FlowEmaSmoothingFactor::<T>::get())
+            .safe_div(I64F64::saturating_from_num(i64::MAX));
+        let one: I64F64 = I64F64::saturating_from_num(1);
+    
+        // Load previous EMA (or initialize)
+        let ema_prev: I64F64 = match SubnetEmaTaoFlow::<T>::get(netuid) {
+            Some((_b, prev)) => prev,
+            None => {
+                let init = I64F64::saturating_from_num(delayed_flow);
+                SubnetEmaTaoFlow::<T>::insert(netuid, (block_u64, init));
+                return;
+            }
+        };
+    
+        // Standard EMA step
+        let ema_next: I64F64 =
+            (one.saturating_sub(alpha)).saturating_mul(ema_prev)
+                .saturating_add(alpha.saturating_mul(I64F64::saturating_from_num(delayed_flow)));
+    
+        SubnetEmaTaoFlow::<T>::insert(netuid, (block_u64, ema_next));
+    }
+    
     pub fn record_tao_inflow(netuid: NetUid, tao: TaoCurrency) {
         SubnetTaoFlow::<T>::mutate(netuid, |flow| {
             *flow = flow.saturating_add(u64::from(tao) as i64);
@@ -47,42 +103,18 @@ impl<T: Config> Pallet<T> {
 
     pub fn record_tao_outflow(netuid: NetUid, tao: TaoCurrency) {
         SubnetTaoFlow::<T>::mutate(netuid, |flow| {
-            *flow = flow.saturating_sub(u64::from(tao) as i64)
+            *flow = flow.saturating_sub(u64::from(tao) as i64);
         });
-    }
-
-    pub fn reset_tao_outflow(netuid: NetUid) {
-        SubnetTaoFlow::<T>::remove(netuid);
     }
 
     // Update SubnetEmaTaoFlow if needed and return its value for
     // the current block
     #[allow(dead_code)]
-    fn get_ema_flow(netuid: NetUid) -> I64F64 {
-        let current_block: u64 = Self::get_current_block_as_u64();
-
-        // Calculate net ema flow for the next block
-        let block_flow = I64F64::saturating_from_num(SubnetTaoFlow::<T>::get(netuid));
-        let (last_block, last_block_ema) =
-            SubnetEmaTaoFlow::<T>::get(netuid).unwrap_or((0, I64F64::saturating_from_num(0)));
-
-        // EMA flow already initialized
-        if last_block != current_block {
-            let flow_alpha = I64F64::saturating_from_num(FlowEmaSmoothingFactor::<T>::get())
-                .safe_div(I64F64::saturating_from_num(i64::MAX));
-            let one = I64F64::saturating_from_num(1);
-            let ema_flow = (one.saturating_sub(flow_alpha))
-                .saturating_mul(last_block_ema)
-                .saturating_add(flow_alpha.saturating_mul(block_flow));
-            SubnetEmaTaoFlow::<T>::insert(netuid, (current_block, ema_flow));
-
-            // Drop the accumulated flow in the last block
-            Self::reset_tao_outflow(netuid);
-            ema_flow
-        } else {
-            last_block_ema
-        }
+    pub fn get_ema_flow(netuid: NetUid) -> I64F64 {
+        let (_, last_block_ema) = SubnetEmaTaoFlow::<T>::get(netuid).unwrap_or((0, I64F64::saturating_from_num(0)));
+        last_block_ema
     }
+
 
     // Either the minimal EMA flow L = min{Si}, or an artificial
     // cut off at some higher value A (TaoFlowCutoff)

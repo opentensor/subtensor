@@ -22,6 +22,7 @@ impl<T: Config> Pallet<T> {
     pub fn run_coinbase(block_emission: U96F32) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
+        Self::update_flows(current_block);
         log::debug!(
             "Running coinbase for block {current_block:?} with block emission: {block_emission:?}"
         );
