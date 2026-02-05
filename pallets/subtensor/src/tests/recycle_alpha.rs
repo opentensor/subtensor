@@ -1,16 +1,11 @@
-use approx::assert_abs_diff_eq;
-use frame_support::{assert_noop, assert_ok, traits::Currency};
-use share_pool::{SafeFloat, SafeFloatSerializable};
-use sp_core::U256;
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT};
-
 use super::mock;
 use super::mock::*;
 use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
+use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::U256;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT};
 use subtensor_swap_interface::SwapHandler;
 
