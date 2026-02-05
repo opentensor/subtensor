@@ -261,11 +261,9 @@ mod benchmarks {
             1u16.into(), /*netuid*/
             1u16,        /*tempo*/
         );
-        let default_max_allowed_uids =
-            pallet_subtensor::Pallet::<T>::get_max_allowed_uids(1u16.into());
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, default_max_allowed_uids/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 256u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
     }
 
     #[benchmark]
