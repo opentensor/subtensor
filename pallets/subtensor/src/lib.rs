@@ -2712,6 +2712,9 @@ pub enum RateLimitKey<AccountId> {
     // Last tx block delegate key limit per account ID
     #[codec(index = 5)]
     LastTxBlockDelegateTake(AccountId),
+    // Subnet buyback rate limit
+    #[codec(index = 6)]
+    SubnetBuyback(NetUid),
 }
 
 pub trait ProxyInterface<AccountId> {
