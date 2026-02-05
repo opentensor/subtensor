@@ -603,9 +603,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Get the accumulated `weight` and `pays` for the given `calls`.
         /// The outer dispatch class is intentionally always `Normal`.
-        fn weight_and_dispatch_class(
-            calls: &[<T as Config>::RuntimeCall],
-        ) -> (Weight, Pays) {
+        fn weight_and_dispatch_class(calls: &[<T as Config>::RuntimeCall]) -> (Weight, Pays) {
             let mut total_weight = Weight::zero();
             let mut pays = Pays::No;
 
