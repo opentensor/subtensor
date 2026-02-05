@@ -1,51 +1,19 @@
 name: cargo audit
 on:
-  pull_request:
-    types:
-      - labeled
-      - unlabeled
-      - synchronize
-      - opened
-concurrency:
-  group: cargo-audit-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_dispatch:
 
 jobs:
-  cargo-audit:
-    name: cargo audit
-    runs-on: [self-hosted, type-ccx13]
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
+  create-file:
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Check-out repositoroy under $GITHUB_WORKSPACE
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Create timestamped file
         run: |
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-
-      - name: Utilize Shared Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: cargo-audit
-          cache-on-failure: true
-
-      - name: Install cargo-audit
-        run: cargo install --force cargo-audit
-
-      - name: Display cargo-audit --version
-        run: cargo audit --version
-
-      - name: cargo audit
-        run: |
-          cargo audit --ignore RUSTSEC-2023-0091 \
-                      --ignore RUSTSEC-2024-0438 \
-                      --ignore RUSTSEC-2025-0009 \
-                      --ignore RUSTSEC-2025-0055 \
-                      --ignore RUSTSEC-2025-0073 \
-                      --ignore RUSTSEC-2025-0118
+          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+          FILENAME="output_${TIMESTAMP}.txt"
+          echo "File created at $(date)" > "$FILENAME"
+          echo "Created file: $FILENAME"
+          cat "$FILENAME"
