@@ -270,6 +270,8 @@ mod errors {
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.
         InvalidSubnetNumber,
+        /// The maximum allowed UIDs times mechanism count should not exceed 256.
+        TooManyUIDsPerMechanism,
         /// Voting power tracking is not enabled for this subnet.
         VotingPowerTrackingNotEnabled,
         /// Invalid voting power EMA alpha value (must be <= 10^18).
@@ -278,5 +280,7 @@ mod errors {
         PrecisionLoss,
         /// Deprecated call.
         Deprecated,
+        /// Subnet buyback exceeded the operation rate limit
+        SubnetBuybackRateLimitExceeded,
     }
 }

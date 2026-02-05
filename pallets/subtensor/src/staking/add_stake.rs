@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         netuid: NetUid,
         stake_to_be_added: TaoCurrency,
-    ) -> dispatch::DispatchResult {
+    ) -> Result<AlphaCurrency, DispatchError> {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
@@ -77,10 +77,7 @@ impl<T: Config> Pallet<T> {
             T::SwapInterface::max_price(),
             true,
             false,
-        )?;
-
-        // Ok and return.
-        Ok(())
+        )
     }
 
     /// ---- The implementation for the extrinsic add_stake_limit: Adds stake to a hotkey
@@ -130,7 +127,7 @@ impl<T: Config> Pallet<T> {
         stake_to_be_added: TaoCurrency,
         limit_price: TaoCurrency,
         allow_partial: bool,
-    ) -> dispatch::DispatchResult {
+    ) -> Result<AlphaCurrency, DispatchError> {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
@@ -173,10 +170,7 @@ impl<T: Config> Pallet<T> {
             limit_price,
             true,
             false,
-        )?;
-
-        // Ok and return.
-        Ok(())
+        )
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit

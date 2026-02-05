@@ -2367,11 +2367,16 @@ pub mod pallet {
         MechId::from(1)
     }
 
-    /// -- ITEM (Maximum number of sub-subnets)
+    /// -- ITEM (Maximum number of mechanisms)
     #[pallet::type_value]
-    pub fn MaxMechanismCount<T: Config>() -> MechId {
+    pub fn DefaultMaxMechanismCount<T: Config>() -> MechId {
         MechId::from(2)
     }
+
+    /// ITEM( max_mechanism_count )
+    #[pallet::storage]
+    pub type MaxMechanismCount<T> =
+        StorageValue<_, MechId, ValueQuery, DefaultMaxMechanismCount<T>>;
 
     /// -- ITEM (Rate limit for mechanism count updates)
     #[pallet::type_value]
@@ -2717,6 +2722,9 @@ pub enum RateLimitKey<AccountId> {
     // Last tx block delegate key limit per account ID
     #[codec(index = 5)]
     LastTxBlockDelegateTake(AccountId),
+    // Subnet buyback rate limit
+    #[codec(index = 6)]
+    SubnetBuyback(NetUid),
 }
 
 pub trait ProxyInterface<AccountId> {
