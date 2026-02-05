@@ -1,0 +1,19 @@
+name: testing-workflow.yml
+on:
+  workflow_dispatch:
+
+jobs:
+  create-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create timestamped file
+        run: |
+          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+          FILENAME="output_${TIMESTAMP}.txt"
+          echo "File created at $(date)" > "$FILENAME"
+          echo "Created file: $FILENAME"
+          cat "$FILENAME"
