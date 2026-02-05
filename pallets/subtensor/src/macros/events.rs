@@ -504,5 +504,17 @@ mod events {
             /// The amount of alpha distributed
             alpha: AlphaCurrency,
         },
+
+        /// Subnet buyback event: alpha token was purchased and burned.
+        SubnetBuyback {
+            /// The subnet ID
+            netuid: NetUid,
+            /// hotky account ID
+            hotkey: T::AccountId,
+            /// Tao provided
+            amount: TaoCurrency,
+            /// Alpha burned
+            alpha: AlphaCurrency,
+        },
     }
 }
