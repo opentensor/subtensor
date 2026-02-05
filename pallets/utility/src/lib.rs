@@ -616,7 +616,7 @@ pub mod pallet {
                 }
             }
 
-            (total_weight, DispatchClass::Normal, pays)
+            (total_weight, pays)
         }
     }
 }
