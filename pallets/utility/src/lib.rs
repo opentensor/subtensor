@@ -195,7 +195,7 @@ pub mod pallet {
         /// event is deposited.
         #[pallet::call_index(0)]
         #[pallet::weight({
-			let (dispatch_weight, _, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
+			let (dispatch_weight, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch(calls.len() as u32));
 			(dispatch_weight, DispatchClass::Normal, pays)
 		})]
