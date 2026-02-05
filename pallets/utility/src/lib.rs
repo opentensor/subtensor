@@ -406,7 +406,7 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(4)]
         #[pallet::weight({
-			let (dispatch_weight, _, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
+			let (dispatch_weight, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::force_batch(calls.len() as u32));
 			(dispatch_weight, DispatchClass::Normal, pays)
 		})]
