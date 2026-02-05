@@ -605,7 +605,7 @@ pub mod pallet {
         /// The outer dispatch class is intentionally always `Normal`.
         fn weight_and_dispatch_class(
             calls: &[<T as Config>::RuntimeCall],
-        ) -> (Weight, DispatchClass, Pays) {
+        ) -> (Weight, Pays) {
             let mut total_weight = Weight::zero();
             let mut pays = Pays::No;
 
