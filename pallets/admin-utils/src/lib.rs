@@ -147,6 +147,8 @@ pub mod pallet {
         AddressMapping,
         /// Voting power precompile
         VotingPower,
+        /// Neuron registration cost precompile
+        NeuronRegistrationCost,
     }
 
     #[pallet::type_value]

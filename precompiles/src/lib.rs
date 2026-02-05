@@ -35,6 +35,7 @@ use crate::extensions::*;
 use crate::leasing::*;
 use crate::metagraph::*;
 use crate::neuron::*;
+use crate::neuron_registration_cost::*;
 use crate::proxy::*;
 use crate::sr25519::*;
 use crate::staking::*;
@@ -52,6 +53,7 @@ mod extensions;
 mod leasing;
 mod metagraph;
 mod neuron;
+mod neuron_registration_cost;
 mod proxy;
 mod sr25519;
 mod staking;
@@ -135,7 +137,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 27] {
+    pub fn used_addresses() -> [H160; 28] {
         [
             hash(1),
             hash(2),
@@ -164,6 +166,7 @@ where
             hash(VotingPowerPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
             hash(AddressMappingPrecompile::<R>::INDEX),
+            hash(NeuronRegistrationCostPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -270,6 +273,12 @@ where
                 AddressMappingPrecompile::<R>::try_execute::<R>(
                     handle,
                     PrecompileEnum::AddressMapping,
+                )
+            }
+            a if a == hash(NeuronRegistrationCostPrecompile::<R>::INDEX) => {
+                NeuronRegistrationCostPrecompile::<R>::try_execute::<R>(
+                    handle,
+                    PrecompileEnum::NeuronRegistrationCost,
                 )
             }
             _ => None,
