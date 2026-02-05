@@ -2037,7 +2037,7 @@ mod dispatches {
 
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
-        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::Yes))]
+        #[pallet::weight((Weight::from_parts(1_970_000_000_000, 0), DispatchClass::Operational, Pays::Yes))]
         pub fn set_pending_childkey_cooldown(
             origin: OriginFor<T>,
             cooldown: u64,
