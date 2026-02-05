@@ -276,8 +276,6 @@ mod errors {
         VotingPowerTrackingNotEnabled,
         /// Invalid voting power EMA alpha value (must be <= 10^18).
         InvalidVotingPowerEmaAlpha,
-        /// Unintended precision loss when unstaking alpha
-        PrecisionLoss,
         /// Deprecated call.
         Deprecated,
         /// Subnet buyback exceeded the operation rate limit
