@@ -10,7 +10,9 @@ use sp_core::sr25519::Public;
 use sp_runtime::traits::Block as BlockT;
 
 sp_api::decl_runtime_apis! {
-    pub trait MevShieldApi<Nonce: Encode> {
+    pub trait MevShieldApi<Nonce>
+    where Nonce: Encode
+    {
         fn build_announce_extrinsic(
             next_public_key: Vec<u8>,
             nonce: Nonce,
