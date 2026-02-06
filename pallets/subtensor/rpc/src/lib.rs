@@ -83,6 +83,8 @@ pub trait SubtensorCustomApi<BlockHash> {
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
     fn get_subnet_state(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetState_v2")]
+    fn get_subnet_state_v2(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getLockCost")]
     fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<TaoCurrency>;
     #[method(name = "subnetInfo_getSelectiveMetagraph")]
@@ -417,6 +419,22 @@ where
             Ok(result) => Ok(result.encode()),
             Err(e) => {
                 Err(Error::RuntimeError(format!("Unable to get subnet state info: {e:?}")).into())
+            }
+        }
+    }
+
+    fn get_subnet_state_v2(
+        &self,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_subnet_state_v2(at, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get subnet state info: {:?}", e)).into())
             }
         }
     }
