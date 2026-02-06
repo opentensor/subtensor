@@ -8,8 +8,10 @@ use ml_kem::{EncodedSizeUser, KemCore, MlKem768};
 use pallet_shield_runtime_api::MevShieldApi;
 use rand::rngs::OsRng;
 use sc_transaction_pool_api::TransactionSource;
+use sp_api::ApiExt;
 use sp_api::ProvideRuntimeApi;
 use sp_core::blake2_256;
+use sp_keystore::KeystoreExt;
 use sp_runtime::{AccountId32, KeyTypeId, traits::Block as BlockT};
 use std::sync::{Arc, Mutex};
 use subtensor_macros::freeze_struct;
@@ -172,8 +174,6 @@ where
 
     let aura_account: AccountId32 = local_aura_pub.into();
     let ctx_clone = ctx.clone();
-    let client_clone = client.clone();
-    let pool_clone = pool.clone();
 
     // Slot tick / key-announce loop.
     task_spawner.spawn(
@@ -201,7 +201,7 @@ where
                 "author timing: slot_ms={slot_ms} announce_at_ms={announce_at_ms} (effective) tail_ms={tail_ms}",
             );
 
-            let mut import_stream = client_clone.import_notification_stream();
+            let mut import_stream = client.import_notification_stream();
 
             while let Some(notif) = import_stream.next().await {
                 // Only act on blocks that this node authored.
@@ -209,7 +209,7 @@ where
                     continue;
                 }
 
-                let (curr_pk_len, next_pk_len) = match ctx_clone.keys.lock() {
+                let (curr_pk_len, next_pk_len) = match ctx.keys.lock() {
                     Ok(k) => (k.current_pk.len(), k.next_pk.len()),
                     Err(e) => {
                         log::debug!(
@@ -231,7 +231,7 @@ where
                 }
 
                 // Read the next key we intend to use for the following block.
-                let next_pk = match ctx_clone.keys.lock() {
+                let next_pk = match ctx.keys.lock() {
                     Ok(k) => k.next_pk.clone(),
                     Err(e) => {
                         log::debug!(
@@ -243,9 +243,9 @@ where
                 };
 
                 // 🔑 Fetch the current on-chain nonce for the Aura account using the best block hash.
-                let best_hash = client_clone.info().best_hash;
+                let best_hash = client.info().best_hash;
 
-                let nonce: u32 = match client_clone
+                let nonce: u32 = match client
                     .runtime_api()
                     .account_nonce(best_hash, aura_account.clone())
                 {
@@ -261,8 +261,9 @@ where
 
                 // Submit announce_next_key signed with the Aura key using the correct nonce.
                 if let Err(e) = submit_announce_extrinsic::<B, C, Pool>(
-                    client_clone.clone(),
-                    pool_clone.clone(),
+                    client.clone(),
+                    pool.clone(),
+                    keystore.clone(),
                     local_aura_pub,
                     next_pk.clone(),
                     nonce,
@@ -281,7 +282,7 @@ where
                 }
 
                 // Roll keys for the next block.
-                match ctx_clone.keys.lock() {
+                match ctx.keys.lock() {
                     Ok(mut k) => {
                         k.roll_for_next_slot();
                         log::debug!(
@@ -300,13 +301,14 @@ where
         },
     );
 
-    ctx
+    ctx_clone
 }
 
 /// Build & submit the signed `announce_next_key` extrinsic OFF-CHAIN
 pub async fn submit_announce_extrinsic<B, C, Pool>(
     client: Arc<C>,
     pool: Arc<Pool>,
+    keystore: sp_keystore::KeystorePtr,
     aura_pub: sp_core::sr25519::Public,
     next_public_key: Vec<u8>,
     nonce: u32,
@@ -319,8 +321,10 @@ where
 {
     let at_hash = client.info().best_hash;
 
-    let xt: <B as BlockT>::Extrinsic = client
-        .runtime_api()
+    let mut api = client.runtime_api();
+    api.register_extension(KeystoreExt::new(keystore));
+
+    let xt: <B as BlockT>::Extrinsic = api
         .build_announce_extrinsic(at_hash, next_public_key, nonce, aura_pub)?
         .ok_or_else(|| anyhow::anyhow!("failed to build announce extrinsic"))?;
 
