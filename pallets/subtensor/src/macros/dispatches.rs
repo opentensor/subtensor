@@ -2037,7 +2037,7 @@ mod dispatches {
 
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
-        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::Yes))]
+        #[pallet::weight((Weight::from_parts(1_970_000_000_000, 0), DispatchClass::Operational, Pays::Yes))]
         pub fn set_pending_childkey_cooldown(
             origin: OriginFor<T>,
             cooldown: u64,
@@ -2413,7 +2413,7 @@ mod dispatches {
             Weight::from_parts(5_711_000, 0)
             .saturating_add(T::DbWeight::get().reads(0_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn sudo_set_root_claim_threshold(
