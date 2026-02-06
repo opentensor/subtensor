@@ -1,0 +1,19 @@
+[package]
+name = "pallet-shield-runtime-api"
+description = "Runtime API for the FRAME shield pallet."
+version = "0.0.1"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true }
+sp-api.workspace = true
+sp-runtime.workspace = true
+sp-core.workspace = true
+
+[features]
+default = ["std"]
+std = ["codec/std", "sp-api/std", "sp-runtime/std", "sp-core/std"]
