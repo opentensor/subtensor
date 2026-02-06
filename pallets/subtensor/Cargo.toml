@@ -55,6 +55,7 @@ sha2.workspace = true
 rand_chacha.workspace = true
 pallet-crowdloan.workspace = true
 pallet-subtensor-proxy.workspace = true
+rate-limiting-interface.workspace = true
 pallet-shield.workspace = true
 
 [dev-dependencies]
@@ -121,6 +122,7 @@ std = [
 	"pallet-crowdloan/std",
 	"pallet-drand/std",
 	"pallet-subtensor-proxy/std",
+	"rate-limiting-interface/std",
 	"pallet-subtensor-swap/std",
 	"pallet-shield/std",
 	"pallet-timestamp/std",

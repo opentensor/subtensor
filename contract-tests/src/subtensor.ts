@@ -8,16 +8,28 @@ import { tao } from './balance-math'
 import internal from "stream";
 import { createCodec } from "scale-ts";
 
+const rateLimitTargetGroup = (groupId: number) => Enum("Group", groupId);
+const rateLimitKindExact = (limit: bigint | number) =>
+    Enum("Exact", typeof limit === "bigint" ? Number(limit) : limit);
+
 // create a new subnet and return netuid
 export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: KeyPair, coldkey: KeyPair) {
     const alice = getAliceSigner()
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
 
+    const registerNetworkGroupId = 3; // GROUP_REGISTER_NETWORK constant
+    const target = rateLimitTargetGroup(registerNetworkGroupId);
+    const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    assert.ok(limits?.type === "Global");
+    assert.ok(limits.value?.type === "Exact");
+    const rateLimit = BigInt(limits.value.value);
     const defaultNetworkLastLockCost = await api.query.SubtensorModule.NetworkLastLockCost.getValue()
-
-    const rateLimit = await api.query.SubtensorModule.NetworkRateLimit.getValue()
     if (rateLimit !== BigInt(0)) {
-        const internalCall = api.tx.AdminUtils.sudo_set_network_rate_limit({ rate_limit: BigInt(0) })
+        const internalCall = api.tx.RateLimiting.set_rate_limit({
+            target: target as any,
+            scope: undefined,
+            limit: rateLimitKindExact(0),
+        })
         const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
         await waitForTransactionWithRetry(api, tx, alice)
     }
@@ -72,17 +84,32 @@ export async function setCommitRevealWeightsEnabled(api: TypedApi<typeof devnet>
 }
 
 export async function setWeightsSetRateLimit(api: TypedApi<typeof devnet>, netuid: number, rateLimit: bigint) {
-    const value = await api.query.SubtensorModule.WeightsSetRateLimit.getValue(netuid)
-    if (value === rateLimit) {
+    const weightsSetGroupId = 2; // GROUP_WEIGHTS_SET constant
+    const target = rateLimitTargetGroup(weightsSetGroupId);
+    const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    assert.ok(limits?.type === "Scoped");
+    const entries = Array.from(limits.value as any);
+    const entry = entries.find((item: any) => Number(item[0]) === netuid);
+    const currentLimit = entry ? BigInt(entry[1].value) : BigInt(0);
+    if (currentLimit === rateLimit) {
         return;
     }
-
     const alice = getAliceSigner()
-    const internalCall = api.tx.AdminUtils.sudo_set_weights_set_rate_limit({ netuid: netuid, weights_set_rate_limit: rateLimit })
+    const internalCall = api.tx.RateLimiting.set_rate_limit({
+        target: target as any,
+        scope: netuid,
+        limit: rateLimitKindExact(rateLimit),
+    })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
     await waitForTransactionWithRetry(api, tx, alice)
-    assert.equal(rateLimit, await api.query.SubtensorModule.WeightsSetRateLimit.getValue(netuid))
+    const updated = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    assert.ok(updated?.type === "Scoped");
+    const updatedEntry = Array.from(updated.value as any).find(
+        (item: any) => Number(item[0]) === netuid,
+    );
+    assert.ok(updatedEntry);
+    assert.equal(rateLimit, BigInt(updatedEntry[1].value))
 }
 
 // tempo is u16 in rust, but we just number in js. so value should be less than u16::Max
@@ -173,15 +200,23 @@ export async function sendProxyCall(api: TypedApi<typeof devnet>, calldata: TxCa
 
 
 export async function setTxRateLimit(api: TypedApi<typeof devnet>, txRateLimit: bigint) {
-    const value = await api.query.SubtensorModule.TxRateLimit.getValue()
-    if (value === txRateLimit) {
+    const swapKeysGroupId = 6; // GROUP_SWAP_KEYS constant
+    const target = rateLimitTargetGroup(swapKeysGroupId);
+    const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    assert.ok(limits?.type === "Global");
+    assert.ok(limits.value?.type === "Exact");
+    const currentLimit = BigInt(limits.value.value);
+    if (currentLimit === txRateLimit) {
         return;
     }
     const alice = getAliceSigner()
 
-    const internalCall = api.tx.AdminUtils.sudo_set_tx_rate_limit({ tx_rate_limit: txRateLimit })
+    const internalCall = api.tx.RateLimiting.set_rate_limit({
+        target: target as any,
+        scope: undefined,
+        limit: rateLimitKindExact(txRateLimit),
+    })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
-
 
     await waitForTransactionWithRetry(api, tx, alice)
 }
@@ -379,16 +414,28 @@ export async function disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api: T
         await waitForTransactionWithRetry(api, sudoFreezeTx, alice)
     }
 
-    const currentOwnerHyperparamRateLimit = await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue()
-    if (currentOwnerHyperparamRateLimit !== 0) {
-        // Set OwnerHyperparamRateLimit to 0
-        const setOwnerRateLimit = api.tx.AdminUtils.sudo_set_owner_hparam_rate_limit({ epochs: 0 })
+    const ownerHparamsGroupId = 4; // GROUP_OWNER_HPARAMS constant
+    const target = rateLimitTargetGroup(ownerHparamsGroupId);
+    const limits = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    const currentLimit =
+        limits?.type === "Global" && limits.value?.type === "Exact"
+            ? BigInt(limits.value.value)
+            : BigInt(0);
+    if (currentLimit !== BigInt(0)) {
+        const setOwnerRateLimit = api.tx.RateLimiting.set_rate_limit({
+            target: target as any,
+            scope: undefined,
+            limit: rateLimitKindExact(0),
+        })
         const sudoOwnerRateTx = api.tx.Sudo.sudo({ call: setOwnerRateLimit.decodedCall })
         await waitForTransactionWithRetry(api, sudoOwnerRateTx, alice)
     }
 
     assert.equal(0, await api.query.SubtensorModule.AdminFreezeWindow.getValue())
-    assert.equal(BigInt(0), await api.query.SubtensorModule.OwnerHyperparamRateLimit.getValue())
+    const updated = await api.query.RateLimiting.Limits.getValue(target as any) as any;
+    assert.ok(updated?.type === "Global");
+    assert.ok(updated.value?.type === "Exact");
+    assert.equal(BigInt(0), BigInt(updated.value.value));
 }
 
 export async function sendWasmContractExtrinsic(api: TypedApi<typeof devnet>, coldkey: KeyPair, contractAddress: string, data: Binary) {
