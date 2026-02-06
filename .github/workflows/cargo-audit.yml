@@ -25,12 +25,18 @@ jobs:
           git clone https://github.com/UniqueNetwork/baedeker.git /tmp/baedeker
           cd /tmp/baedeker
           cargo build --release
-          ./target/release/baedeker --version || true
+          ./target/release/baedeker version || true
 
-      - name: Create timestamped file
+      - name: Run baedeker
         run: |
-          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-          FILENAME="output_${TIMESTAMP}.txt"
-          echo "File created at $(date)" > "$FILENAME"
-          echo "Created file: $FILENAME"
-          cat "$FILENAME"
+          git clone https://github.com/opentensor/baedeker-for-subtensor.git /tmp/baedeker-for-subtensor
+          cd /tmp/baedeker-for-subtensor
+          ./up.sh ./forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://archive.chain.opentensor.ai --corrupted-storage-strategy use-default
+
+#      - name: Create timestamped file
+#        run: |
+#          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+#          FILENAME="output_${TIMESTAMP}.txt"
+#          echo "File created at $(date)" > "$FILENAME"
+#          echo "Created file: $FILENAME"
+#          cat "$FILENAME"
