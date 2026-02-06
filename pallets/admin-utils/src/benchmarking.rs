@@ -10,7 +10,6 @@ use crate::Pallet as AdminUtils;
 use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_support::BoundedVec;
-use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use pallet_subtensor::SubnetworkN;
 
