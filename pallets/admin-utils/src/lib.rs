@@ -1685,7 +1685,7 @@ pub mod pallet {
         #[pallet::weight((
             Weight::from_parts(3_918_000, 0) // TODO: add benchmarks
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn sudo_set_subnet_owner_hotkey(
