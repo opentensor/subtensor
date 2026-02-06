@@ -22,8 +22,8 @@ jobs:
 
       - name: Build and install baedeker
         run: |
-          git clone https://github.com/UniqueNetwork/baedeker.git
-          cd baedeker
+          git clone https://github.com/UniqueNetwork/baedeker.git /tmp/baedeker
+          cd /tmp/baedeker
           cargo build --release
           ./target/release/baedeker --version || true
 
