@@ -512,7 +512,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the maximum allowed UIDs for a subnet.
         #[pallet::call_index(15)]
         #[pallet::weight(Weight::from_parts(32_140_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(5_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(6_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_allowed_uids(
             origin: OriginFor<T>,

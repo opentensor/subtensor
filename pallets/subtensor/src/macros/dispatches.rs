@@ -2580,8 +2580,8 @@ mod dispatches {
             Self::do_set_voting_power_ema_alpha(netuid, alpha)
         }
 
-        /// --- Subnet buyback: the extrinsic is a combination of add_stake(add_stake_limit) and
-        /// burn_alpha. We buy alpha token first and immediately burn the acquired amount of alpha.
+        /// --- The extrinsic is a combination of add_stake(add_stake_limit) and burn_alpha. We buy
+        /// alpha token first and immediately burn the acquired amount of alpha (aka Subnet buyback).
         #[pallet::call_index(132)]
         #[pallet::weight((
 		    Weight::from_parts(368_000_000, 8556)
@@ -2590,14 +2590,14 @@ mod dispatches {
             DispatchClass::Normal,
             Pays::Yes
         ))]
-        pub fn subnet_buyback(
+        pub fn add_stake_burn(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             netuid: NetUid,
             amount: TaoCurrency,
             limit: Option<TaoCurrency>,
         ) -> DispatchResult {
-            Self::do_subnet_buyback(origin, hotkey, netuid, amount, limit)
+            Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }
     }
 }

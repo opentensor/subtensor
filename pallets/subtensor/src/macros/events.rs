@@ -517,8 +517,8 @@ mod events {
             alpha: AlphaCurrency,
         },
 
-        /// Subnet buyback event: alpha token was purchased and burned.
-        SubnetBuyback {
+        /// "Add stake and burn" event: alpha token was purchased and burned.
+        AddStakeBurn {
             /// The subnet ID
             netuid: NetUid,
             /// hotky account ID
