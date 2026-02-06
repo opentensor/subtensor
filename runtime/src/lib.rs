@@ -55,9 +55,10 @@ use sp_core::{
     crypto::{ByteArray, KeyTypeId},
 };
 use sp_runtime::Cow;
-use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, SaturatedConversion, generic,
+    generic::Era,
+    impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
@@ -2504,6 +2505,67 @@ impl_runtime_apis! {
                     alpha_fee:    sr.fee_paid.into(),
                 },
             )
+        }
+    }
+
+    impl pallet_shield_runtime_api::MevShieldApi<Block, <Runtime as frame_system::Config>::Nonce>
+        for Runtime
+    {
+        fn build_announce_extrinsic(
+            next_public_key: Vec<u8>,
+            nonce: <Runtime as frame_system::Config>::Nonce,
+            aura_pub: sp_core::sr25519::Public,
+        ) -> Option<<Block as BlockT>::Extrinsic> {
+            let public_key = BoundedVec::try_from(next_public_key)
+                .inspect_err(|e| log::debug!(target: "mev-shield", "failed to convert next public key to bounded vec: {e:?}"))
+                .ok()?;
+            let call = RuntimeCall::MevShield(pallet_shield::Call::announce_next_key { public_key });
+
+            let period = 12;
+            let current_block = System::block_number()
+                .saturated_into::<u64>()
+                // The `System::block_number` is initialized with `n+1`,
+                // so the actual block number is `n`.
+                .saturating_sub(1);
+            let era = Era::mortal(period, current_block);
+
+            let extra: TransactionExtensions = (
+                frame_system::CheckNonZeroSender::<Runtime>::new(),
+                frame_system::CheckSpecVersion::<Runtime>::new(),
+                frame_system::CheckTxVersion::<Runtime>::new(),
+                frame_system::CheckGenesis::<Runtime>::new(),
+                frame_system::CheckEra::<Runtime>::from(era),
+                check_nonce::CheckNonce::<Runtime>::from(nonce),
+                frame_system::CheckWeight::<Runtime>::new(),
+                ChargeTransactionPaymentWrapper::<Runtime>::from(0),
+                SudoTransactionExtension::<Runtime>::new(),
+                pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+                pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+                frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+            );
+
+            let id = sp_runtime::key_types::AURA;
+            let raw_payload = SignedPayload::new(call.clone(), extra.clone())
+                .inspect_err(|e| log::debug!(target: "mev-shield", "failed to create payload: {e:?}"))
+                .ok()?;
+            let Some(signature) = raw_payload
+                .using_encoded(|payload| sp_io::crypto::sr25519_sign(id, &aura_pub, payload))
+            else {
+                log::debug!(target: "mev-shield", "failed to sign payload");
+                return None;
+            };
+
+            let who: AccountId32 = aura_pub.into();
+            let address = sp_runtime::MultiAddress::Id(who);
+
+            let uxt = UncheckedExtrinsic::new_signed(call.clone(), address.clone(), signature.into(), extra.clone());
+
+            log::debug!(
+                target: "mev-shield",
+                "announce_next_key extrinsic built: uxt={uxt:?}, nonce={nonce:?}, era={era:?}, address={address:?}, call={call:?}",
+            );
+
+            Some(uxt)
         }
     }
 }
