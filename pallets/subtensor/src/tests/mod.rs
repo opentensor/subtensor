@@ -32,3 +32,4 @@ mod swap_hotkey_with_subnet;
 mod uids;
 mod voting_power;
 mod weights;
+mod wide_scope_dividend;
