@@ -174,9 +174,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             frame_system::CheckEra::<Runtime>::from(Era::Immortal),
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
-            ChargeTransactionPaymentWrapper::new(
-                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
-            ),
+            ChargeTransactionPaymentWrapper::<Runtime>::from(0),
             SudoTransactionExtension::<Runtime>::new(),
             pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
             pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
