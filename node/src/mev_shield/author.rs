@@ -2,13 +2,15 @@ use chacha20poly1305::{
     KeyInit, XChaCha20Poly1305, XNonce,
     aead::{Aead, Payload},
 };
+use codec::Encode;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use ml_kem::{EncodedSizeUser, KemCore, MlKem768};
-use node_subtensor_runtime as runtime;
+use pallet_shield_runtime_api::MevShieldApi;
 use rand::rngs::OsRng;
+use sc_transaction_pool_api::TransactionSource;
 use sp_api::ProvideRuntimeApi;
 use sp_core::blake2_256;
-use sp_runtime::{AccountId32, KeyTypeId};
+use sp_runtime::{AccountId32, KeyTypeId, traits::Block as BlockT};
 use std::sync::{Arc, Mutex};
 use subtensor_macros::freeze_struct;
 use tokio::time::sleep;
@@ -146,7 +148,7 @@ where
         + Send
         + Sync
         + 'static,
-    C::Api: AccountNonceApi<B, AccountId32, u32>,
+    C::Api: AccountNonceApi<B, AccountId32, u32> + pallet_shield_runtime_api::MevShieldApi<B, u32>,
     Pool: sc_transaction_pool_api::TransactionPool<Block = B> + Send + Sync + 'static,
     B::Extrinsic: From<sp_runtime::OpaqueExtrinsic>,
 {
@@ -172,7 +174,6 @@ where
     let ctx_clone = ctx.clone();
     let client_clone = client.clone();
     let pool_clone = pool.clone();
-    let keystore_clone = keystore.clone();
 
     // Slot tick / key-announce loop.
     task_spawner.spawn(
@@ -262,7 +263,6 @@ where
                 if let Err(e) = submit_announce_extrinsic::<B, C, Pool>(
                     client_clone.clone(),
                     pool_clone.clone(),
-                    keystore_clone.clone(),
                     local_aura_pub,
                     next_pk.clone(),
                     nonce,
@@ -307,7 +307,6 @@ where
 pub async fn submit_announce_extrinsic<B, C, Pool>(
     client: Arc<C>,
     pool: Arc<Pool>,
-    keystore: sp_keystore::KeystorePtr,
     aura_pub: sp_core::sr25519::Public,
     next_public_key: Vec<u8>,
     nonce: u32,
@@ -315,154 +314,25 @@ pub async fn submit_announce_extrinsic<B, C, Pool>(
 where
     B: sp_runtime::traits::Block,
     C: sc_client_api::HeaderBackend<B> + sp_api::ProvideRuntimeApi<B> + Send + Sync + 'static,
-    C::Api: sp_api::Core<B>,
+    C::Api: pallet_shield_runtime_api::MevShieldApi<B, u32>,
     Pool: sc_transaction_pool_api::TransactionPool<Block = B> + Send + Sync + 'static,
-    B::Extrinsic: From<sp_runtime::OpaqueExtrinsic>,
-    B::Hash: AsRef<[u8]>,
 {
-    use node_subtensor_runtime as runtime;
-    use runtime::{RuntimeCall, SignedPayload, UncheckedExtrinsic};
+    let at_hash = client.info().best_hash;
 
-    use sc_transaction_pool_api::TransactionSource;
-    use sp_api::Core as _;
-    use sp_core::H256;
-    use sp_runtime::codec::Encode;
-    use sp_runtime::{
-        BoundedVec, MultiSignature,
-        generic::Era,
-        traits::{ConstU32, SaturatedConversion, TransactionExtension},
-    };
+    let xt: <B as BlockT>::Extrinsic = client
+        .runtime_api()
+        .build_announce_extrinsic(at_hash, next_public_key, nonce, aura_pub)?
+        .ok_or_else(|| anyhow::anyhow!("failed to build announce extrinsic"))?;
 
-    fn to_h256<H: AsRef<[u8]>>(h: H) -> H256 {
-        let bytes = h.as_ref();
-        let mut out = [0u8; 32];
-
-        if bytes.is_empty() {
-            return H256(out);
-        }
-
-        let n = bytes.len().min(32);
-        let src_start = bytes.len().saturating_sub(n);
-        let dst_start = 32usize.saturating_sub(n);
-
-        let src_slice = bytes.get(src_start..).and_then(|s| s.get(..n));
-
-        if let (Some(dst), Some(src)) = (out.get_mut(dst_start..32), src_slice) {
-            dst.copy_from_slice(src);
-            H256(out)
-        } else {
-            // Extremely defensive fallback.
-            H256([0u8; 32])
-        }
-    }
-
-    type MaxPk = ConstU32<2048>;
-    let public_key: BoundedVec<u8, MaxPk> = BoundedVec::try_from(next_public_key)
-        .map_err(|_| anyhow::anyhow!("public key too long (>2048 bytes)"))?;
-
-    // 1) Runtime call carrying the public key bytes.
-    let call = RuntimeCall::MevShield(pallet_shield::Call::announce_next_key { public_key });
-
-    // 2) Build the transaction extensions exactly like the runtime.
-    type Extra = runtime::TransactionExtensions;
-
-    let info = client.info();
-    let at_hash = info.best_hash;
-    let at_hash_h256: H256 = to_h256(at_hash);
-    let genesis_h256: H256 = to_h256(info.genesis_hash);
-
-    const ERA_PERIOD: u64 = 12;
-    let current_block: u64 = info.best_number.saturated_into();
-    let era = Era::mortal(ERA_PERIOD, current_block);
-
-    let extra: Extra = (
-        frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
-        frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
-        frame_system::CheckTxVersion::<runtime::Runtime>::new(),
-        frame_system::CheckGenesis::<runtime::Runtime>::new(),
-        frame_system::CheckEra::<runtime::Runtime>::from(era),
-        node_subtensor_runtime::check_nonce::CheckNonce::<runtime::Runtime>::from(nonce).into(),
-        frame_system::CheckWeight::<runtime::Runtime>::new(),
-        node_subtensor_runtime::transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<
-            runtime::Runtime,
-        >::new(pallet_transaction_payment::ChargeTransactionPayment::<
-            runtime::Runtime,
-        >::from(0u64)),
-        node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
-        pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
-        pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
-        frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
-    );
-
-    // 3) Manually construct the `Implicit` tuple that the runtime will also derive.
-    type Implicit = <Extra as TransactionExtension<RuntimeCall>>::Implicit;
-
-    // Try to get the *current* runtime version from on-chain WASM; if that fails,
-    // fall back to the compiled runtime::VERSION.
-    let (spec_version, tx_version) = match client.runtime_api().version(at_hash) {
-        Ok(v) => (v.spec_version, v.transaction_version),
-        Err(e) => {
-            log::debug!(
-                target: "mev-shield",
-                "runtime_api::version failed at_hash={at_hash:?}: {e:?}; \
-                 falling back to compiled runtime::VERSION",
-            );
-            (
-                runtime::VERSION.spec_version,
-                runtime::VERSION.transaction_version,
-            )
-        }
-    };
-
-    let implicit: Implicit = (
-        (),           // CheckNonZeroSender
-        spec_version, // dynamic or fallback spec_version
-        tx_version,   // dynamic or fallback transaction_version
-        genesis_h256, // CheckGenesis::Implicit = Hash
-        at_hash_h256, // CheckEra::Implicit = hash of the block the tx is created at
-        (),           // CheckNonce::Implicit = ()
-        (),           // CheckWeight::Implicit = ()
-        (),           // ChargeTransactionPaymentWrapper::Implicit = ()
-        (),           // SudoTransactionExtension::Implicit = ()
-        (),           // SubtensorTransactionExtension::Implicit = ()
-        (),           // DrandPriority::Implicit = ()
-        None,         // CheckMetadataHash::Implicit = Option<[u8; 32]>
-    );
-
-    // 4) Build the exact signable payload from call + extra + implicit.
-    let payload: SignedPayload = SignedPayload::from_raw(call.clone(), extra.clone(), implicit);
-
-    // 5) Sign with the local Aura key using the same SCALE bytes the runtime expects.
-    let sig_opt = payload
-        .using_encoded(|bytes| keystore.sr25519_sign(AURA_KEY_TYPE, &aura_pub, bytes))
-        .map_err(|e| anyhow::anyhow!("keystore sr25519_sign error: {e:?}"))?;
-
-    let sig = sig_opt
-        .ok_or_else(|| anyhow::anyhow!("keystore sr25519_sign returned None for Aura key"))?;
-
-    let signature: MultiSignature = sig.into();
-
-    // 6) Sender address = AccountId32 derived from the Aura sr25519 public key.
-    let who: AccountId32 = aura_pub.into();
-    let address = sp_runtime::MultiAddress::Id(who);
-
-    // 7) Assemble the signed extrinsic and submit it to the pool.
-    let uxt: UncheckedExtrinsic = UncheckedExtrinsic::new_signed(call, address, signature, extra);
-
-    let xt_bytes = uxt.encode();
-    let xt_hash = sp_core::hashing::blake2_256(&xt_bytes);
-    let xt_hash_hex = hex::encode(xt_hash);
-
-    let opaque: sp_runtime::OpaqueExtrinsic = uxt.into();
-    let xt: <B as sp_runtime::traits::Block>::Extrinsic = opaque.into();
-
-    pool.submit_one(at_hash, TransactionSource::Local, xt)
+    pool.submit_one(at_hash, TransactionSource::Local, xt.clone())
         .await?;
 
+    let xt_opaque: Vec<u8> = xt.clone().encode();
+    let xt_hash = sp_core::hashing::blake2_256(&xt_opaque);
+    let xt_hash_hex = hex::encode(xt_hash);
     log::debug!(
         target: "mev-shield",
-        "announce_next_key submitted: xt=0x{xt_hash_hex}, nonce={nonce:?}, \
-         spec_version={spec_version}, tx_version={tx_version}, era={era:?}",
+        "announce_next_key submitted: xt={xt:?}, xt_hash=0x{xt_hash_hex}, nonce={nonce:?}",
     );
 
     Ok(())
