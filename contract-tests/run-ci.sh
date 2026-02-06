@@ -1,21 +1,21 @@
 #!/bin/bash
 
 echo "start run-ci.sh"
+echo "$(date)"
 
-cd contract-tests
+# kill any existing node-subtensor processes, then re-run works
+i=$(ps -ef | grep node-subtensor | wc -l)
+while [ $i -gt 1 ]; do
+  echo "node-subtensor is running"
+  pkill node-subtensor
+  sleep 1
+  i=$(ps -ef | grep node-subtensor | wc -l)
+done
 
-cd bittensor
-
-rustup component add rust-src
-cargo install cargo-contract 
-cargo contract build --release 
-
-cd ../..
-
-scripts/localnet.sh &>/dev/null &
+scripts/localnet.sh --local5 &>/dev/null &
 
 i=1
-while [ $i -le 2000 ]; do
+while [ $i -le 1000 ]; do
   if nc -z localhost 9944; then
     echo "node subtensor is running after $i seconds"
     break
@@ -25,11 +25,12 @@ while [ $i -le 2000 ]; do
 done
 
 # port not available exit with error
-if [ "$i" -eq 2000 ]; then
+if [ "$i" -eq 1000 ]; then
     exit 1
 fi
 
-sleep 10
+# wait for node-subtensor to be stable
+sleep 2
 
 if ! nc -z localhost 9944; then
     echo "node subtensor exit, port not available"
@@ -55,7 +56,5 @@ if [ $TEST_EXIT_CODE -ne 0 ]; then
     pkill node-subtensor
     exit $TEST_EXIT_CODE
 fi
-
-pkill node-subtensor
 
 exit 0
