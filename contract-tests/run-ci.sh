@@ -3,6 +3,14 @@
 echo "start run-ci.sh"
 echo "$(date)"
 
+i=$(ps -ef | grep node-subtensor | wc -l)
+while [ $i -gt 1 ]; do
+  echo "node-subtensor is running"
+  pkill node-subtensor
+  sleep 1
+  i=$(ps -ef | grep node-subtensor | wc -l)
+done
+
 scripts/localnet.sh --local5 &>/dev/null &
 
 i=1
