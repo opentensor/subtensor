@@ -473,7 +473,7 @@ fn build_delegate_take(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>)
 
 // Weights group (config + usage shared).
 // scope: netuid
-// usage: netuid+neuron/netuid+mechanism+neuron
+// usage: netuid+mechanism+neuron
 // legacy source: WeightsSetRateLimit, LastUpdate (subnet/mechanism)
 fn build_weights(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
     let mut reads: u64 = 0;
@@ -524,17 +524,10 @@ fn build_weights(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u6
             let Ok(uid_u16) = u16::try_from(uid) else {
                 continue;
             };
-            let usage = if mecid == 0.into() {
-                RateLimitUsageKey::SubnetNeuron {
-                    netuid,
-                    uid: uid_u16,
-                }
-            } else {
-                RateLimitUsageKey::SubnetMechanismNeuron {
-                    netuid,
-                    mecid,
-                    uid: uid_u16,
-                }
+            let usage = RateLimitUsageKey::SubnetMechanismNeuron {
+                netuid,
+                mecid,
+                uid: uid_u16,
             };
             commits.push(Commit {
                 target: RateLimitTarget::Group(GROUP_WEIGHTS_SET),
@@ -1686,7 +1679,11 @@ mod tests {
             };
             let usage = {
                 let mut keys = BTreeSet::new();
-                keys.insert(UsageKey::SubnetNeuron { netuid, uid });
+                keys.insert(UsageKey::SubnetMechanismNeuron {
+                    netuid,
+                    mecid: subtensor_runtime_common::MechId::MAIN,
+                    uid,
+                });
                 Some(keys)
             };
 
@@ -1704,6 +1701,37 @@ mod tests {
                 origin.clone(),
                 usage,
                 scope,
+                legacy_weights,
+            );
+
+            let mechanism_weights_call =
+                RuntimeCall::SubtensorModule(SubtensorCall::set_mechanism_weights {
+                    netuid,
+                    mecid: subtensor_runtime_common::MechId::MAIN,
+                    dests: Vec::new(),
+                    weights: Vec::new(),
+                    version_key: 0,
+                });
+            let mechanism_scope = {
+                let mut scopes = BTreeSet::new();
+                scopes.insert(netuid);
+                Some(scopes)
+            };
+            let mechanism_usage = {
+                let mut keys = BTreeSet::new();
+                keys.insert(UsageKey::SubnetMechanismNeuron {
+                    netuid,
+                    mecid: subtensor_runtime_common::MechId::MAIN,
+                    uid,
+                });
+                Some(keys)
+            };
+            parity_check(
+                now,
+                mechanism_weights_call,
+                origin.clone(),
+                mechanism_usage,
+                mechanism_scope,
                 legacy_weights,
             );
 

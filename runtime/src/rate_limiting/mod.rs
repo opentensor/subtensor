@@ -39,7 +39,7 @@ use sp_runtime::{
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{
-    BlockNumber, NetUid,
+    BlockNumber, MechId, NetUid,
     rate_limiting::{RateLimitUsageKey, ServingEndpoint},
 };
 
@@ -272,7 +272,11 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                     for netuid in netuids {
                         let netuid: NetUid = (*netuid).into();
                         let uid = neuron_identity(origin, netuid)?;
-                        usage.insert(RateLimitUsageKey::<AccountId>::SubnetNeuron { netuid, uid });
+                        usage.insert(RateLimitUsageKey::<AccountId>::SubnetMechanismNeuron {
+                            netuid,
+                            mecid: MechId::MAIN,
+                            uid,
+                        });
                     }
                     if usage.is_empty() { None } else { Some(usage) }
                 }
@@ -283,14 +287,13 @@ impl RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<Accoun
                 | SubtensorCall::commit_timelocked_weights { netuid, .. } => {
                     let uid = neuron_identity(origin, *netuid)?;
                     let mut usage = BTreeSet::new();
-                    usage.insert(RateLimitUsageKey::<AccountId>::SubnetNeuron {
+                    usage.insert(RateLimitUsageKey::<AccountId>::SubnetMechanismNeuron {
                         netuid: *netuid,
+                        mecid: MechId::MAIN,
                         uid,
                     });
                     Some(usage)
                 }
-                // legacy implementation still used netuid only, but it was recalculating it using
-                // mecid, so switching to netuid AND mecid is logical here
                 SubtensorCall::set_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::commit_mechanism_weights { netuid, mecid, .. }
                 | SubtensorCall::reveal_mechanism_weights { netuid, mecid, .. }

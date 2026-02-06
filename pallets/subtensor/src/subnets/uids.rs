@@ -120,7 +120,11 @@ impl<T: Config> Pallet<T> {
             let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
             Incentive::<T>::mutate(netuid_index, |v| v.push(0));
             Self::set_last_update_for_uid(netuid_index, next_uid, block_number);
-            let usage = Self::weights_rl_usage_key(netuid, mecid, next_uid);
+            let usage = RateLimitUsageKey::SubnetMechanismNeuron {
+                netuid,
+                mecid,
+                uid: next_uid,
+            };
             T::RateLimiting::set_last_seen(
                 rate_limiting::GROUP_WEIGHTS_SET,
                 Some(usage),
@@ -287,7 +291,11 @@ impl<T: Config> Pallet<T> {
                 for uid in &trimmed_uids {
                     trimmed_incentive.push(incentive.get(*uid).cloned().unwrap_or_default());
                     trimmed_lastupdate.push(lastupdate.get(*uid).cloned().unwrap_or_default());
-                    let usage = Self::weights_rl_usage_key(netuid, mecid, *uid as u16);
+                    let usage = RateLimitUsageKey::SubnetMechanismNeuron {
+                        netuid,
+                        mecid,
+                        uid: *uid as u16,
+                    };
                     trimmed_last_seen.push(T::RateLimiting::last_seen(
                         rate_limiting::GROUP_WEIGHTS_SET,
                         Some(usage),
@@ -298,7 +306,7 @@ impl<T: Config> Pallet<T> {
                 LastUpdate::<T>::insert(netuid_index, trimmed_lastupdate);
 
                 for uid in 0..current_n {
-                    let usage = Self::weights_rl_usage_key(netuid, mecid, uid);
+                    let usage = RateLimitUsageKey::SubnetMechanismNeuron { netuid, mecid, uid };
                     T::RateLimiting::set_last_seen(
                         rate_limiting::GROUP_WEIGHTS_SET,
                         Some(usage),
@@ -309,7 +317,11 @@ impl<T: Config> Pallet<T> {
                     let Some(block) = last_seen else {
                         continue;
                     };
-                    let usage = Self::weights_rl_usage_key(netuid, mecid, new_uid as u16);
+                    let usage = RateLimitUsageKey::SubnetMechanismNeuron {
+                        netuid,
+                        mecid,
+                        uid: new_uid as u16,
+                    };
                     T::RateLimiting::set_last_seen(
                         rate_limiting::GROUP_WEIGHTS_SET,
                         Some(usage),
@@ -476,17 +488,5 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn is_hotkey_registered_on_specific_network(hotkey: &T::AccountId, netuid: NetUid) -> bool {
         IsNetworkMember::<T>::contains_key(hotkey, netuid)
-    }
-
-    fn weights_rl_usage_key(
-        netuid: NetUid,
-        mecid: MechId,
-        uid: u16,
-    ) -> RateLimitUsageKey<T::AccountId> {
-        if mecid == MechId::MAIN {
-            RateLimitUsageKey::SubnetNeuron { netuid, uid }
-        } else {
-            RateLimitUsageKey::SubnetMechanismNeuron { netuid, mecid, uid }
-        }
     }
 }

@@ -535,6 +535,58 @@ mod weights {
     }
 
     #[test]
+    fn set_weights_shares_rate_limit_with_set_mechanism_weights_main() {
+        let hotkey_pair = sr25519::Pair::from_seed(&[30u8; 32]);
+        let hotkey = AccountId::from(hotkey_pair.public());
+        let netuid = NetUid::from(20u16);
+        let span = 4u64;
+        let registration_block = 1u64;
+
+        ExtBuilder::default()
+            .with_balances(vec![(hotkey.clone(), 10_000_000_000_000_u64)])
+            .build()
+            .execute_with(|| {
+                setup_weights_network(netuid, &hotkey, registration_block, 1);
+                legacy_storage::set_weights_set_rate_limit(netuid, span);
+
+                Executive::execute_on_runtime_upgrade();
+
+                pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(
+                    netuid, false,
+                );
+
+                let version_key = pallet_subtensor::WeightsVersionKey::<Runtime>::get(netuid);
+                let set_weights_call =
+                    RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_weights {
+                        netuid,
+                        dests: vec![0],
+                        weights: vec![u16::MAX],
+                        version_key,
+                    });
+                let set_mechanism_main_call =
+                    RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_mechanism_weights {
+                        netuid,
+                        mecid: MechId::MAIN,
+                        dests: vec![0],
+                        weights: vec![u16::MAX],
+                        version_key,
+                    });
+
+                System::set_block_number((registration_block + span).saturated_into());
+                assert_extrinsic_ok(&hotkey, &hotkey_pair, set_weights_call.clone());
+                assert_extrinsic_rate_limited(
+                    &hotkey,
+                    &hotkey_pair,
+                    set_mechanism_main_call.clone(),
+                );
+
+                System::set_block_number((registration_block + span + span).saturated_into());
+                assert_extrinsic_ok(&hotkey, &hotkey_pair, set_mechanism_main_call.clone());
+                assert_extrinsic_rate_limited(&hotkey, &hotkey_pair, set_weights_call);
+            });
+    }
+
+    #[test]
     fn commit_timelocked_weights_is_rate_limited_after_migration() {
         let hotkey_pair = sr25519::Pair::from_seed(&[14u8; 32]);
         let hotkey = AccountId::from(hotkey_pair.public());
