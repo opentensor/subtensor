@@ -5,12 +5,10 @@ import { TypedApi } from "polkadot-api";
 import {
   convertH160ToSS58,
   convertPublicKeyToSs58,
-  ethAddressToH160,
 } from "../src/address-utils";
 import { tao, raoToEth } from "../src/balance-math";
 import {
   addNewSubnetwork,
-  addStake,
   disableWhiteListCheck,
   forceSetBalanceToEthAddress,
   forceSetBalanceToSs58Address,
@@ -20,7 +18,6 @@ import { ethers } from "ethers";
 import { generateRandomEthersWallet } from "../src/utils";
 
 import { abi, bytecode } from "../src/contracts/stakeWrap";
-import { setMaxIdleHTTPParsers } from "http";
 
 describe("Test staking precompile add from deployed contract", () => {
   const hotkey = getRandomSubstrateKeypair();
@@ -71,15 +68,12 @@ describe("Test staking precompile add from deployed contract", () => {
       wallet1,
     );
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
     const tx = await deployedContract.stake(
       hotkey.publicKey,
       netuid,
       tao(2),
     );
     await tx.wait();
-
-    await new Promise(resolve => setTimeout(resolve, 1000));
 
     const tx2 = await deployedContract.removeStake(
       hotkey.publicKey,
@@ -92,7 +86,6 @@ describe("Test staking precompile add from deployed contract", () => {
 
   it("Staker add stake limit", async () => {
     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1;
-    let ss58Address = convertH160ToSS58(wallet1.address);
 
     const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet1)
     const contract = await contractFactory.deploy()
@@ -109,7 +102,6 @@ describe("Test staking precompile add from deployed contract", () => {
     await txResponse.wait();
 
     const balance = await api.query.System.Account.getValue(convertH160ToSS58(contract.target.toString()))
-    console.log(" == balance is ", balance.data.free)
 
     const deployedContract = new ethers.Contract(
       contract.target.toString(),

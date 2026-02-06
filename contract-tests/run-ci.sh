@@ -29,6 +29,7 @@ if [ "$i" -eq 1000 ]; then
     exit 1
 fi
 
+# wait for node-subtensor to be stable
 sleep 2
 
 if ! nc -z localhost 9944; then
@@ -43,7 +44,7 @@ npm i -g polkadot-api
 
 bash get-metadata.sh
 
-sleep 2
+sleep 5
 
 yarn install --frozen-lockfile
 
@@ -55,9 +56,5 @@ if [ $TEST_EXIT_CODE -ne 0 ]; then
     pkill node-subtensor
     exit $TEST_EXIT_CODE
 fi
-
-pkill node-subtensor
-
-sleep 2
 
 exit 0

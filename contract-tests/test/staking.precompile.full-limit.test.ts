@@ -62,7 +62,7 @@ describe("Test staking precompile add remove limit methods", () => {
         IStakingV2ABI,
         wallet1,
       );
-      await new Promise(resolve => setTimeout(resolve, 1000));
+
       const tx = await contract.addStakeLimit(
         hotkey.publicKey,
         tao(2000),
@@ -131,7 +131,7 @@ describe("Test staking precompile add remove limit methods", () => {
         IStakingV2ABI,
         wallet2,
       );
-      await new Promise(resolve => setTimeout(resolve, 1000));
+
       const tx = await contract.addStakeLimit(
         hotkey.publicKey,
         tao(2000),
@@ -165,7 +165,7 @@ describe("Test staking precompile add remove limit methods", () => {
         IStakingV2ABI,
         wallet2,
       );
-      await new Promise(resolve => setTimeout(resolve, 1000));
+
       const tx = await contract.removeStakeFull(
         hotkey.publicKey,
         netuid,
