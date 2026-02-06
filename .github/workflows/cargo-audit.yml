@@ -10,6 +10,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+#      - name: Cache baedeker build
+#        uses: actions/cache@v4
+#        with:
+#          path: baedeker/target
+#          key: baedeker-${{ runner.os }}-${{ hashFiles('baedeker/Cargo.lock') }}
+#          restore-keys: baedeker-${{ runner.os }}-
+
+      - name: Build and install baedeker
+        run: |
+          git clone https://github.com/UniqueNetwork/baedeker.git
+          cd baedeker
+          cargo build --release
+          ./target/release/baedeker --version || true
+
       - name: Create timestamped file
         run: |
           TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
