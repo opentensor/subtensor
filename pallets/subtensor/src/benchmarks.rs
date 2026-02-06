@@ -1754,7 +1754,7 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::init_new_network(netuid, tempo);
         SubtokenEnabled::<T>::insert(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, 1000.into());
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
 
