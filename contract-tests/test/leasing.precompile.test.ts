@@ -7,7 +7,7 @@ import { ethers } from "ethers";
 import { TypedApi } from "polkadot-api";
 import { devnet } from "@polkadot-api/descriptors";
 import { getAliceSigner, getBobSigner, getDevnetApi, waitForFinalizedBlock } from "../src/substrate";
-import { forceSetBalanceToEthAddress, resetNetworkLastLock } from "../src/subtensor";
+import { forceSetBalanceToEthAddress, setNetworkLastLockCost } from "../src/subtensor";
 import { decodeAddress } from "@polkadot/util-crypto";
 import { u8aToHex } from "@polkadot/util";
 import { ILEASING_ADDRESS, ILeasingABI } from "../src/contracts/leasing";
@@ -43,7 +43,8 @@ describe("Test Leasing precompile", () => {
         await forceSetBalanceToEthAddress(api, wallet1.address);
         await forceSetBalanceToEthAddress(api, wallet2.address);
 
-        await resetNetworkLastLock(api);
+        const defaultNetworkLastLockCost = await api.query.SubtensorModule.NetworkMinLockCost.getValue()
+        await setNetworkLastLockCost(api, defaultNetworkLastLockCost);
         const minLockCost = await api.query.SubtensorModule.NetworkMinLockCost.getValue();
         // guarantee that the crowdloan cap is larger than the deposit
         if (minLockCost > crowdloanDeposit) {
@@ -196,6 +197,7 @@ describe("Test Leasing precompile", () => {
 
         let lease = await api.query.SubtensorModule.SubnetLeases.getValue(nextLeaseId);
         assert.ok(lease);
+
         const netuid = lease.netuid;
 
         tx = await leaseContract.terminateLease(nextLeaseId, convertH160ToPublicKey(hotkey.address));

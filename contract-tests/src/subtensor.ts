@@ -13,7 +13,9 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     const alice = getAliceSigner()
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
 
-    const defaultNetworkLastLockCost = await api.query.SubtensorModule.NetworkLastLockCost.getValue()
+    const defaultNetworkLastLockCost = await api.query.SubtensorModule.NetworkMinLockCost.getValue()
+
+    // const defaultNetworkMinLockCost = await api.query.SubtensorModule.NetworkMinLockCost.getValue()
 
     const rateLimit = await api.query.SubtensorModule.NetworkRateLimit.getValue()
     if (rateLimit !== BigInt(0)) {

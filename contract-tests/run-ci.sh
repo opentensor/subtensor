@@ -3,6 +3,7 @@
 echo "start run-ci.sh"
 echo "$(date)"
 
+# kill any existing node-subtensor processes, then re-run works
 i=$(ps -ef | grep node-subtensor | wc -l)
 while [ $i -gt 1 ]; do
   echo "node-subtensor is running"
