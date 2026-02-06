@@ -25,7 +25,9 @@ jobs:
           git clone https://github.com/UniqueNetwork/baedeker.git /tmp/baedeker
           cd /tmp/baedeker
           cargo build --release
-          ./target/release/baedeker version || true
+          sudo cp ./target/release/baedeker /usr/local/bin
+          sudo chmod +x /usr/local/bin/baedeker
+          baedeker version || true
 
       - name: Run baedeker
         run: |
