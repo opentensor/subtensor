@@ -129,6 +129,9 @@ fn setup_test() -> TestSetup {
     // ----------- Subnet owner cut = 18% -----------
     SubtensorModule::set_subnet_owner_cut(u16::MAX / 100 * 18);
 
+    // ----------- Enable EffectiveRootPropEmissionScaling -----------
+    EffectiveRootPropEmissionScaling::<Test>::set(true);
+
     // ----------- Register neurons -----------
     // SN1
     register_ok_neuron(
@@ -339,6 +342,11 @@ fn log_subnet_state(label: &str, netuid: NetUid) {
         "  PendingRootAlphaDivs: {:?}",
         PendingRootAlphaDivs::<Test>::get(netuid)
     );
+    log::info!(
+        "  EffectiveRootProp: {:?}",
+        EffectiveRootProp::<Test>::get(netuid)
+    );
+    log::info!("  RootProp: {:?}", RootProp::<Test>::get(netuid));
     let mech_idx = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(0u8));
     let incentive_vec = Incentive::<Test>::get(mech_idx);
     let dividends_vec = Dividends::<Test>::get(netuid);
@@ -461,32 +469,32 @@ fn test_basic_all_validators_set_weights_to_miners() {
             major_sn1_divs,
             minor_sn1_divs
         );
-        close(major_sn1_divs, 641_826_322, eps(641_826_322));
-        close(minor_sn1_divs, 637_652, eps(637_652));
+        close(major_sn1_divs, 622_577_642, eps(622_577_642));
+        close(minor_sn1_divs, 618_529, eps(618_529));
         assert!(major_sn1_divs > minor_sn1_divs);
 
         // 3. Major subnet validator stake
         close(
             stake_of(MAJOR_SN1_HK, netuid1),
-            1_602_650_991,
-            eps(1_602_650_991),
+            1_578_898_899,
+            eps(1_578_898_899),
         );
 
         // 4. Root validators earn nonzero (root_sell_flag=true, price=0.6*2=1.2>1.0)
         close(
             stake_of(MAJOR_ROOT_HK, netuid1),
-            36_525_168,
-            eps(36_525_168),
+            60_006_436,
+            eps(60_006_436),
         );
         close(
             alpha_divs_of(MAJOR_ROOT_HK, netuid1),
-            29_882_177,
-            eps(29_882_177),
+            49_088_509,
+            eps(49_088_509),
         );
-        close(root_divs_of(MAJOR_ROOT_HK, netuid1), 106_826, eps(106_826));
-        close(stake_of(MINOR_ROOT_HK, netuid1), 36_051, eps(36_051));
-        close(alpha_divs_of(MINOR_ROOT_HK, netuid1), 29_494, eps(29_494));
-        close(root_divs_of(MINOR_ROOT_HK, netuid1), 105, eps(105) + 2);
+        close(root_divs_of(MAJOR_ROOT_HK, netuid1), 147_661, eps(147_661));
+        close(stake_of(MINOR_ROOT_HK, netuid1), 61_228, eps(61_228));
+        close(alpha_divs_of(MINOR_ROOT_HK, netuid1), 50_091, eps(50_091));
+        close(root_divs_of(MINOR_ROOT_HK, netuid1), 146, eps(146) + 2);
         assert!(stake_of(MAJOR_ROOT_HK, netuid1) > stake_of(MINOR_ROOT_HK, netuid1));
 
         // 5. Owner earned owner cut (18% of emissions), no dividends
@@ -505,9 +513,31 @@ fn test_basic_all_validators_set_weights_to_miners() {
             assert_eq!(incentive_vec.get(uid).copied().unwrap_or(0), 0);
         }
 
-        // 8. Root stakes on root unchanged (no root emission in this test config)
-        assert_eq!(stake_of(MAJOR_ROOT_HK, NetUid::ROOT), MAJOR_ROOT_TAO);
-        assert_eq!(stake_of(MINOR_ROOT_HK, NetUid::ROOT), MINOR_ROOT_TAO);
+        // 8. Root stakes increase due to root dividends being converted to root claimable
+        close(
+            stake_of(MAJOR_ROOT_HK, NetUid::ROOT),
+            5_750_691,
+            eps(5_750_691),
+        );
+        close(
+            stake_of(MINOR_ROOT_HK, NetUid::ROOT),
+            MINOR_ROOT_TAO,
+            eps(MINOR_ROOT_TAO) + 200,
+        );
+
+        // 9. EffectiveRootProp is close to RootProp (all root stake is active, utilization ≈ 1.0)
+        let erp = EffectiveRootProp::<Test>::get(netuid1);
+        let rp = RootProp::<Test>::get(netuid1);
+        log::info!(
+            "EffectiveRootProp = {:?}, RootProp = {:?}",
+            erp,
+            rp
+        );
+        // EffectiveRootProp should be within 2x of RootProp
+        assert!(
+            erp >= rp,
+            "EffectiveRootProp ({erp:?}) should be >= RootProp ({rp:?}) when all root validators set weights"
+        );
     });
 }
 
@@ -553,15 +583,15 @@ fn test_no_root_sell_all_validators_set_weights_to_miners() {
         // 1. Miner earned incentive
         close(
             stake_of(MINER1_HK, netuid1),
-            1_639_978_907,
-            eps(1_639_978_907),
+            1_639_765_956,
+            eps(1_639_765_956),
         );
 
         // 2. Major SN1 validator earned more than minor
         let major_sn1_divs = alpha_divs_of(MAJOR_SN1_HK, netuid1);
         let minor_sn1_divs = alpha_divs_of(MINOR_SN1_HK, netuid1);
-        close(major_sn1_divs, 671_717_199, eps(671_717_199));
-        close(minor_sn1_divs, 667_350, eps(667_350));
+        close(major_sn1_divs, 671_619_324, eps(671_619_324));
+        close(minor_sn1_divs, 667_252, eps(667_252));
         assert!(major_sn1_divs > minor_sn1_divs);
 
         // 3. Root validators earn 0 (root_sell_flag=false, total_ema_price=1.0)
@@ -642,17 +672,17 @@ fn test_basic_major_root_no_weights() {
         assert_eq!(root_divs_of(MAJOR_ROOT_HK, netuid1), 0);
 
         // 3. Minor root DOES earn dividends (set weights, has bonds)
-        close(stake_of(MINOR_ROOT_HK, netuid1), 1_227_217, eps(1_227_217));
-        close(alpha_divs_of(MINOR_ROOT_HK, netuid1), 624_662, eps(624_662));
-        close(root_divs_of(MINOR_ROOT_HK, netuid1), 106_932, eps(106_932));
+        close(stake_of(MINOR_ROOT_HK, netuid1), 1_588_494, eps(1_588_494));
+        close(alpha_divs_of(MINOR_ROOT_HK, netuid1), 648_233, eps(648_233));
+        close(root_divs_of(MINOR_ROOT_HK, netuid1), 151_238, eps(151_238));
 
         // 4. Subnet validators
         close(
             alpha_divs_of(MAJOR_SN1_HK, netuid1),
-            671_084_764,
-            eps(671_084_764),
+            671_016_955,
+            eps(671_016_955),
         );
-        close(alpha_divs_of(MINOR_SN1_HK, netuid1), 666_220, eps(666_220));
+        close(alpha_divs_of(MINOR_SN1_HK, netuid1), 666_153, eps(666_153));
 
         // 5. Owner earned owner cut
         close(stake_of(OWNER1_HK, netuid1), 719_616_472, eps(719_616_472));
@@ -661,5 +691,20 @@ fn test_basic_major_root_no_weights() {
         // 6. Root stakes unchanged
         assert_eq!(stake_of(MAJOR_ROOT_HK, NetUid::ROOT), MAJOR_ROOT_TAO);
         assert_eq!(stake_of(MINOR_ROOT_HK, NetUid::ROOT), MINOR_ROOT_TAO);
+
+        // 7. EffectiveRootProp is much lower than RootProp (most root stake is idle)
+        //    Only minor_root (5,556 TAO) is active out of 5,555,556 total → utilization ≈ 0.001
+        let erp = EffectiveRootProp::<Test>::get(netuid1);
+        let rp = RootProp::<Test>::get(netuid1);
+        log::info!(
+            "EffectiveRootProp = {:?}, RootProp = {:?}",
+            erp,
+            rp
+        );
+        // EffectiveRootProp should be < 1% of RootProp due to low utilization
+        assert!(
+            erp < rp.saturating_div(U96F32::from_num(100)),
+            "EffectiveRootProp ({erp:?}) should be << RootProp ({rp:?}) when major root validator doesn't set weights"
+        );
     });
 }

@@ -520,7 +520,16 @@ fn test_effective_root_prop_all_root_dividends() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let hotkey1 = U256::from(100);
+        let coldkey1 = U256::from(200);
         let hotkey2 = U256::from(101);
+        let coldkey2 = U256::from(201);
+
+        // Register hotkeys on subnet and give them root stake so utilization = 1.0
+        Keys::<Test>::insert(netuid, 0u16, hotkey1);
+        Keys::<Test>::insert(netuid, 1u16, hotkey2);
+        SubnetworkN::<Test>::insert(netuid, 2u16);
+        increase_stake_on_coldkey_hotkey_account(&coldkey1, &hotkey1, 1000u64.into(), NetUid::ROOT);
+        increase_stake_on_coldkey_hotkey_account(&coldkey2, &hotkey2, 1000u64.into(), NetUid::ROOT);
 
         let alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
 
@@ -545,6 +554,12 @@ fn test_effective_root_prop_balanced() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let hotkey1 = U256::from(100);
+        let coldkey1 = U256::from(200);
+
+        // Register hotkey on subnet and give root stake so utilization = 1.0
+        Keys::<Test>::insert(netuid, 0u16, hotkey1);
+        SubnetworkN::<Test>::insert(netuid, 1u16);
+        increase_stake_on_coldkey_hotkey_account(&coldkey1, &hotkey1, 1000u64.into(), NetUid::ROOT);
 
         let mut alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
         alpha_dividends.insert(hotkey1, U96F32::from_num(5000));
@@ -590,6 +605,14 @@ fn test_effective_root_prop_different_subnets() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let hotkey1 = U256::from(100);
+        let coldkey1 = U256::from(200);
+
+        // Register hotkey on both subnets and give root stake so utilization = 1.0
+        Keys::<Test>::insert(netuid1, 0u16, hotkey1);
+        SubnetworkN::<Test>::insert(netuid1, 1u16);
+        Keys::<Test>::insert(netuid2, 0u16, hotkey1);
+        SubnetworkN::<Test>::insert(netuid2, 1u16);
+        increase_stake_on_coldkey_hotkey_account(&coldkey1, &hotkey1, 1000u64.into(), NetUid::ROOT);
 
         // Subnet 1: 25% root
         let mut alpha_divs1: BTreeMap<U256, U96F32> = BTreeMap::new();

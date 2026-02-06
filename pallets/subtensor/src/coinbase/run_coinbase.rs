@@ -653,9 +653,17 @@ impl<T: Config> Pallet<T> {
 
     /// Computes and stores the EffectiveRootProp for a subnet.
     ///
-    /// EffectiveRootProp = sum(root_alpha_dividends) / (sum(alpha_dividends) + sum(root_alpha_dividends))
+    /// EffectiveRootProp = raw_root_prop * utilization
     ///
-    /// This represents the proportion of total dividends on this subnet that flow to root stakers.
+    /// Where:
+    ///   raw_root_prop  = sum(root_alpha_dividends) / (sum(alpha_dividends) + sum(root_alpha_dividends))
+    ///   utilization    = active_root_stake / total_root_stake
+    ///
+    /// active_root_stake is the root stake of validators that earned root dividends this epoch.
+    /// total_root_stake is the root stake of ALL validators registered on the subnet.
+    ///
+    /// This weighting ensures that subnets where most root stake is idle (validators not setting
+    /// weights) get a much lower EffectiveRootProp than subnets where all root stake is active.
     pub fn compute_and_store_effective_root_prop(
         netuid: NetUid,
         alpha_dividends: &BTreeMap<T::AccountId, U96F32>,
@@ -673,14 +681,45 @@ impl<T: Config> Pallet<T> {
 
         let total = total_alpha_divs.saturating_add(total_root_divs);
 
-        let effective_root_prop = if total > zero {
+        let raw_root_prop = if total > zero {
             total_root_divs.checked_div(total).unwrap_or(zero)
         } else {
             zero
         };
 
+        // Compute root stake utilization: fraction of total root stake that actively earns dividends.
+        // Iterate all UIDs on the subnet and sum their root stakes. Hotkeys that appear in
+        // root_alpha_dividends with a nonzero value are considered "active".
+        let n = SubnetworkN::<T>::get(netuid);
+        let mut total_root_stake = zero;
+        let mut active_root_stake = zero;
+
+        for uid in 0..n {
+            if let Ok(hotkey) = Keys::<T>::try_get(netuid, uid) {
+                let root_stake = Self::get_stake_for_hotkey_on_subnet(&hotkey, NetUid::ROOT);
+                let rs = U96F32::saturating_from_num(root_stake.to_u64());
+                total_root_stake = total_root_stake.saturating_add(rs);
+                if root_alpha_dividends
+                    .get(&hotkey)
+                    .is_some_and(|v| *v > zero)
+                {
+                    active_root_stake = active_root_stake.saturating_add(rs);
+                }
+            }
+        }
+
+        let utilization = if total_root_stake > zero {
+            active_root_stake
+                .checked_div(total_root_stake)
+                .unwrap_or(zero)
+        } else {
+            zero
+        };
+
+        let effective_root_prop = raw_root_prop.saturating_mul(utilization);
+
         log::debug!(
-            "EffectiveRootProp for netuid {netuid:?}: {effective_root_prop:?} (root_divs: {total_root_divs:?}, alpha_divs: {total_alpha_divs:?})"
+            "EffectiveRootProp for netuid {netuid:?}: {effective_root_prop:?} (raw: {raw_root_prop:?}, utilization: {utilization:?}, active_root_stake: {active_root_stake:?}, total_root_stake: {total_root_stake:?})"
         );
 
         EffectiveRootProp::<T>::insert(netuid, effective_root_prop);
