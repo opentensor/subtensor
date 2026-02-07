@@ -508,18 +508,6 @@ impl<T: Config> Pallet<T> {
         alpha_dividends: BTreeMap<T::AccountId, U96F32>,
         root_alpha_dividends: BTreeMap<T::AccountId, U96F32>,
     ) {
-        // Compute and store EffectiveRootProp for the NEXT round before distributing.
-        // This intentionally computes the effective root proportion for the next epoch based on
-        // the current epoch's dividend distribution (using raw, pre-distribution dividend values).
-        // It is calculated once per epoch from the actual dividend proportions that occurred.
-        // Exploitation via temporary stake placement before this calculation is mitigated because
-        // apply_effective_root_prop_scaling uses min(EffectiveRootProp, RootProp), which caps the
-        // value at the protocol-level RootProp setting.
-        Self::compute_and_store_effective_root_prop(
-            netuid,
-            &alpha_dividends,
-            &root_alpha_dividends,
-        );
 
         // Distribute the owner cut.
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid)
@@ -651,25 +639,26 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Computes and stores the EffectiveRootProp for a subnet.
+    /// Computes and stores the EffectiveRootProp for a subnet. Returns the utilization value.
     ///
     /// EffectiveRootProp = raw_root_prop * utilization
     ///
     /// Where:
     ///   raw_root_prop  = sum(root_alpha_dividends) / (sum(alpha_dividends) + sum(root_alpha_dividends))
-    ///   utilization    = active_root_stake / total_root_stake
+    ///   utilization    = sum(root_stake_i * efficiency_i) / total_root_stake
+    ///   efficiency_i   = min(actual_share_i / expected_share_i, 1.0)
+    ///   expected_share_i = root_stake_i / total_root_stake
+    ///   actual_share_i   = root_alpha_dividends[i] / sum(root_alpha_dividends)
     ///
-    /// active_root_stake is the root stake of validators that earned root dividends this epoch.
-    /// total_root_stake is the root stake of ALL validators registered on the subnet.
-    ///
-    /// This weighting ensures that subnets where most root stake is idle (validators not setting
-    /// weights) get a much lower EffectiveRootProp than subnets where all root stake is active.
+    /// Only root stake of validators with UIDs on this subnet is counted.
+    /// TotalIssuance, unstaked TAO, and root stake on other subnets are irrelevant.
     pub fn compute_and_store_effective_root_prop(
         netuid: NetUid,
         alpha_dividends: &BTreeMap<T::AccountId, U96F32>,
         root_alpha_dividends: &BTreeMap<T::AccountId, U96F32>,
-    ) {
+    ) -> U96F32 {
         let zero = U96F32::saturating_from_num(0);
+        let one = U96F32::saturating_from_num(1);
 
         let total_alpha_divs: U96F32 = alpha_dividends
             .values()
@@ -687,31 +676,50 @@ impl<T: Config> Pallet<T> {
             zero
         };
 
-        // Compute root stake utilization: fraction of total root stake that actively earns dividends.
-        // Iterate all UIDs on the subnet and sum their root stakes. Hotkeys that appear in
-        // root_alpha_dividends with a nonzero value are considered "active".
+        // Compute dividend-efficiency-based utilization.
+        // For each root-staked validator registered on this subnet:
+        //   expected_share = root_stake_i / total_root_stake
+        //   actual_share   = root_dividends_i / total_root_divs
+        //   efficiency     = min(actual_share / expected_share, 1.0)
+        //   utilization    = sum(root_stake_i * efficiency_i) / total_root_stake
         let n = SubnetworkN::<T>::get(netuid);
         let mut total_root_stake = zero;
-        let mut active_root_stake = zero;
 
+        // First pass: compute total root stake on this subnet
+        let mut hotkey_root_stakes: Vec<(T::AccountId, U96F32)> = Vec::new();
         for uid in 0..n {
             if let Ok(hotkey) = Keys::<T>::try_get(netuid, uid) {
                 let root_stake = Self::get_stake_for_hotkey_on_subnet(&hotkey, NetUid::ROOT);
                 let rs = U96F32::saturating_from_num(root_stake.to_u64());
                 total_root_stake = total_root_stake.saturating_add(rs);
-                if root_alpha_dividends
-                    .get(&hotkey)
-                    .is_some_and(|v| *v > zero)
-                {
-                    active_root_stake = active_root_stake.saturating_add(rs);
+                if rs > zero {
+                    hotkey_root_stakes.push((hotkey, rs));
                 }
             }
         }
 
-        let utilization = if total_root_stake > zero {
-            active_root_stake
+        let utilization = if total_root_stake > zero && total_root_divs > zero {
+            // Second pass: compute weighted efficiency
+            let mut weighted_efficiency_sum = zero;
+            for (hotkey, rs) in &hotkey_root_stakes {
+                let expected_share = rs.checked_div(total_root_stake).unwrap_or(zero);
+                let actual_div = root_alpha_dividends.get(hotkey).copied().unwrap_or(zero);
+                let actual_share = actual_div.checked_div(total_root_divs).unwrap_or(zero);
+                let efficiency = if expected_share > zero {
+                    let raw_eff = actual_share.checked_div(expected_share).unwrap_or(zero);
+                    raw_eff.min(one)
+                } else {
+                    zero
+                };
+                weighted_efficiency_sum =
+                    weighted_efficiency_sum.saturating_add(rs.saturating_mul(efficiency));
+            }
+            weighted_efficiency_sum
                 .checked_div(total_root_stake)
                 .unwrap_or(zero)
+        } else if total_root_stake > zero {
+            // No root dividends at all → utilization = 0
+            zero
         } else {
             zero
         };
@@ -719,10 +727,11 @@ impl<T: Config> Pallet<T> {
         let effective_root_prop = raw_root_prop.saturating_mul(utilization);
 
         log::debug!(
-            "EffectiveRootProp for netuid {netuid:?}: {effective_root_prop:?} (raw: {raw_root_prop:?}, utilization: {utilization:?}, active_root_stake: {active_root_stake:?}, total_root_stake: {total_root_stake:?})"
+            "EffectiveRootProp for netuid {netuid:?}: {effective_root_prop:?} (raw: {raw_root_prop:?}, utilization: {utilization:?}, total_root_stake: {total_root_stake:?})"
         );
 
         EffectiveRootProp::<T>::insert(netuid, effective_root_prop);
+        utilization
     }
 
     pub fn get_stake_map(
@@ -811,7 +820,7 @@ impl<T: Config> Pallet<T> {
         let root_alpha = pending_root_alpha;
         let owner_cut = pending_owner_cut;
 
-        let (incentives, (alpha_dividends, root_alpha_dividends)) =
+        let (incentives, (mut alpha_dividends, mut root_alpha_dividends)) =
             Self::calculate_dividend_and_incentive_distribution(
                 netuid,
                 root_alpha,
@@ -819,6 +828,94 @@ impl<T: Config> Pallet<T> {
                 hotkey_emission,
                 tao_weight,
             );
+
+        // Compute and store EffectiveRootProp, getting back utilization for scaling.
+        let utilization = Self::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        let half = U96F32::saturating_from_num(0.5);
+        let one = U96F32::saturating_from_num(1);
+        let zero = U96F32::saturating_from_num(0);
+
+        if utilization < half {
+            // Hard cap: recycle ALL root alpha dividends
+            let total_root: U96F32 = root_alpha_dividends
+                .values()
+                .fold(zero, |acc, v| acc.saturating_add(*v));
+            Self::recycle_subnet_alpha(netuid, AlphaCurrency::from(tou64!(total_root)));
+            root_alpha_dividends.clear();
+
+            // Zero root-staked portion of alpha_dividends
+            for (_hotkey, alpha_div) in alpha_dividends.iter_mut() {
+                let root_stake = Self::get_stake_for_hotkey_on_subnet(_hotkey, NetUid::ROOT);
+                let root_stake_f = asfloat!(root_stake.to_u64());
+                if root_stake_f > zero {
+                    let root_alpha_weighted = root_stake_f.saturating_mul(tao_weight);
+                    let alpha_stake =
+                        Self::get_stake_for_hotkey_on_subnet(_hotkey, netuid);
+                    let alpha_stake_f = asfloat!(alpha_stake.to_u64());
+                    let total_stake = alpha_stake_f.saturating_add(root_alpha_weighted);
+                    if total_stake > zero {
+                        let root_fraction =
+                            root_alpha_weighted.checked_div(total_stake).unwrap_or(zero);
+                        let recycle_amount = (*alpha_div).saturating_mul(root_fraction);
+                        *alpha_div = (*alpha_div).saturating_sub(recycle_amount);
+                        Self::recycle_subnet_alpha(
+                            netuid,
+                            AlphaCurrency::from(tou64!(recycle_amount)),
+                        );
+                    }
+                }
+            }
+
+            // Overwrite EffectiveRootProp to 0
+            EffectiveRootProp::<T>::insert(netuid, U96F32::saturating_from_num(0));
+
+            log::debug!(
+                "Hard cap triggered for netuid {netuid:?}: utilization {utilization:?} < 0.5, all root dividends recycled"
+            );
+        } else if utilization < one {
+            // Scale root_alpha_dividends by utilization
+            for (_hotkey, root_div) in root_alpha_dividends.iter_mut() {
+                let scaled = (*root_div).saturating_mul(utilization);
+                let reduction = (*root_div).saturating_sub(scaled);
+                *root_div = scaled;
+                Self::recycle_subnet_alpha(netuid, AlphaCurrency::from(tou64!(reduction)));
+            }
+
+            // Scale root-staked portion of alpha_dividends by utilization
+            for (_hotkey, alpha_div) in alpha_dividends.iter_mut() {
+                let root_stake = Self::get_stake_for_hotkey_on_subnet(_hotkey, NetUid::ROOT);
+                let root_stake_f = asfloat!(root_stake.to_u64());
+                if root_stake_f > zero {
+                    let root_alpha_weighted = root_stake_f.saturating_mul(tao_weight);
+                    let alpha_stake =
+                        Self::get_stake_for_hotkey_on_subnet(_hotkey, netuid);
+                    let alpha_stake_f = asfloat!(alpha_stake.to_u64());
+                    let total_stake = alpha_stake_f.saturating_add(root_alpha_weighted);
+                    if total_stake > zero {
+                        let root_fraction =
+                            root_alpha_weighted.checked_div(total_stake).unwrap_or(zero);
+                        let root_portion = (*alpha_div).saturating_mul(root_fraction);
+                        let reduction =
+                            root_portion.saturating_mul(one.saturating_sub(utilization));
+                        *alpha_div = (*alpha_div).saturating_sub(reduction);
+                        Self::recycle_subnet_alpha(
+                            netuid,
+                            AlphaCurrency::from(tou64!(reduction)),
+                        );
+                    }
+                }
+            }
+
+            log::debug!(
+                "Utilization scaling for netuid {netuid:?}: utilization {utilization:?}, dividends scaled"
+            );
+        }
+        // else: utilization >= 1.0, no scaling needed
 
         Self::distribute_dividends_and_incentives(
             netuid,
