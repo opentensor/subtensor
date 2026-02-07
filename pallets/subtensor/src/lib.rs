@@ -79,17 +79,17 @@ pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
 pub mod pallet {
+    use crate::RateLimitKey;
     use crate::migrations;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
-    use crate::RateLimitKey;
     use frame_support::Twox64Concat;
     use frame_support::{
+        BoundedVec,
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
         traits::{
-            tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
+            OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable, tokens::fungible,
         },
-        BoundedVec,
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
@@ -1942,7 +1942,6 @@ pub mod pallet {
 
     #[pallet::storage]
     /// --- MAP ( netuid ) --> If subtoken trading enabled
-    #[pallet::storage]
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
@@ -1955,10 +1954,10 @@ pub mod pallet {
     /// alpha = 0.1 means slow response, 10% weight to new values per epoch
     pub fn DefaultVotingPowerEmaAlpha<T: Config>() -> u64 {
         0_003_570_000_000_000_000 // 0.00357 * 10^18 = 2 weeks e-folding (time-constant) @ 361
-                                  // blocks per tempo
-                                  // After 2 weeks  -> EMA reaches 63.2% of a step change
-                                  // After ~4 weeks -> 86.5%
-                                  // After ~6 weeks -> 95%
+        // blocks per tempo
+        // After 2 weeks  -> EMA reaches 63.2% of a step change
+        // After ~4 weeks -> 86.5%
+        // After ~6 weeks -> 95%
     }
 
     #[pallet::storage]
@@ -2727,7 +2726,7 @@ pub enum RateLimitKey<AccountId> {
 pub trait ProxyInterface<AccountId> {
     fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult;
     fn remove_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId)
-        -> DispatchResult;
+    -> DispatchResult;
 }
 
 impl<T> ProxyInterface<T> for () {
