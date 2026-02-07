@@ -840,7 +840,13 @@ impl<T: Config> Pallet<T> {
         let one = U96F32::saturating_from_num(1);
         let zero = U96F32::saturating_from_num(0);
 
-        if utilization < half {
+        // Only apply utilization scaling when there are root dividends to scale.
+        // When root_alpha is zero (e.g. root_sell_flag=false), there are no root dividends
+        // and the utilization metric is meaningless — skip all scaling.
+        let has_root_dividends = !root_alpha_dividends.is_empty()
+            && root_alpha_dividends.values().any(|v| *v > zero);
+
+        if has_root_dividends && utilization < half {
             // Hard cap: recycle ALL root alpha dividends
             let total_root: U96F32 = root_alpha_dividends
                 .values()
@@ -877,7 +883,7 @@ impl<T: Config> Pallet<T> {
             log::debug!(
                 "Hard cap triggered for netuid {netuid:?}: utilization {utilization:?} < 0.5, all root dividends recycled"
             );
-        } else if utilization < one {
+        } else if has_root_dividends && utilization < one {
             // Scale root_alpha_dividends by utilization
             for (_hotkey, root_div) in root_alpha_dividends.iter_mut() {
                 let scaled = (*root_div).saturating_mul(utilization);

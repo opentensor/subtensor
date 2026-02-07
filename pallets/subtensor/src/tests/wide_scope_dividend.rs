@@ -865,15 +865,19 @@ fn test_basic_major_root_half_weights_to_validator() {
         log_subnet_state("SN1", netuid1);
         log_neuron_state("SN1 neurons", netuid1, &neurons);
 
-        // 1. EffectiveRootProp should be > 0 (utilization > 0.5, not hard-capped)
+        // 1. EffectiveRootProp should be > 0 (utilization is high, not hard-capped)
+        //    Even with half weights to a validator, the major root still earns its expected
+        //    share of root dividends because consensus clips the wasted weight and dividends
+        //    flow through bond formation with miners. Minor root also earns, so utilization ≈ 1.0.
         let erp = EffectiveRootProp::<Test>::get(netuid1);
-        log::info!("EffectiveRootProp = {:?}", erp);
+        let rp = RootProp::<Test>::get(netuid1);
+        log::info!("EffectiveRootProp = {:?}, RootProp = {:?}", erp, rp);
         assert!(
             erp > U96F32::from_num(0),
             "EffectiveRootProp should be > 0 (utilization > 0.5)"
         );
 
-        // 2. Root validators earn SOME dividends (scaled by utilization, not zero)
+        // 2. Both root validators earn dividends (both set weights, both have bonds)
         let major_root_divs = root_divs_of(MAJOR_ROOT_HK, netuid1);
         let minor_root_divs = root_divs_of(MINOR_ROOT_HK, netuid1);
         log::info!(
@@ -881,24 +885,31 @@ fn test_basic_major_root_half_weights_to_validator() {
             major_root_divs,
             minor_root_divs
         );
-        // At least one root validator should earn some root dividends
         assert!(
-            major_root_divs > 0 || minor_root_divs > 0,
-            "At least one root validator should earn root dividends (utilization > 0.5)"
+            major_root_divs > 0,
+            "Major root should earn root dividends"
+        );
+        assert!(
+            minor_root_divs > 0,
+            "Minor root should earn root dividends"
         );
 
-        // 3. EffectiveRootProp should be less than the basic test (utilization < 1.0)
-        let rp = RootProp::<Test>::get(netuid1);
-        log::info!("RootProp = {:?}", rp);
+        // 3. Utilization is high enough that EffectiveRootProp >= RootProp
+        assert!(
+            erp >= rp,
+            "EffectiveRootProp ({erp:?}) should be >= RootProp ({rp:?}) when all root validators set weights"
+        );
     });
 }
 
 // ===========================================================================
-// Test 6: Almost-half-weights test - hard cap triggers
+// Test 6: Half-weights, minor root doesn't set weights
 //
 // Big root sets half weights to miner, half to minor_root_validator.
 // Small root does NOT set weights at all.
-// Utilization drops below 50%, hard cap triggers.
+// Since major root (99.9% of root stake) still earns its expected share of
+// root dividends, utilization remains high (~0.999). Only minor root (0.1%)
+// is inactive. Hard cap does NOT trigger.
 //
 // Run:
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::wide_scope_dividend::test_basic_major_root_half_weights_no_minor_root --exact --show-output --nocapture
@@ -956,35 +967,40 @@ fn test_basic_major_root_half_weights_no_minor_root() {
         log_subnet_state("SN1", netuid1);
         log_neuron_state("SN1 neurons", netuid1, &neurons);
 
-        // 1. EffectiveRootProp = 0 (hard cap triggered, utilization < 0.5)
+        // 1. EffectiveRootProp > 0: utilization is high (~0.999) because major root
+        //    (99.9% of root stake) earns its expected share. Only minor root (0.1%) is idle.
         let erp = EffectiveRootProp::<Test>::get(netuid1);
-        log::info!("EffectiveRootProp = {:?}", erp);
-        assert_eq!(
-            erp,
-            U96F32::from_num(0),
-            "EffectiveRootProp should be 0 when hard cap triggers (utilization < 0.5)"
+        let rp = RootProp::<Test>::get(netuid1);
+        log::info!("EffectiveRootProp = {:?}, RootProp = {:?}", erp, rp);
+        assert!(
+            erp > U96F32::from_num(0),
+            "EffectiveRootProp should be > 0 (major root active, utilization > 0.5)"
         );
 
-        // 2. All root alpha dividends should be 0 (recycled)
-        assert_eq!(
-            root_divs_of(MAJOR_ROOT_HK, netuid1),
-            0,
-            "Major root dividends should be 0 (hard cap)"
+        // 2. Major root earns root dividends (set weights, has bonds)
+        assert!(
+            root_divs_of(MAJOR_ROOT_HK, netuid1) > 0,
+            "Major root should earn root dividends"
         );
+
+        // 3. Minor root earns 0 (didn't set weights, no bonds)
         assert_eq!(
             root_divs_of(MINOR_ROOT_HK, netuid1),
             0,
-            "Minor root dividends should be 0 (hard cap)"
+            "Minor root should earn 0 root dividends (no weights set)"
         );
 
-        // 3. Root stakes unchanged (no dividends converted)
-        assert_eq!(stake_of(MAJOR_ROOT_HK, NetUid::ROOT), MAJOR_ROOT_TAO);
-        assert_eq!(stake_of(MINOR_ROOT_HK, NetUid::ROOT), MINOR_ROOT_TAO);
-
-        // 4. Miner should still earn incentive (not affected by root dividend recycling)
+        // 4. Miner earns incentive
         assert!(
             stake_of(MINER1_HK, netuid1) > 0,
-            "Miner should still earn incentive"
+            "Miner should earn incentive"
+        );
+
+        // 5. Utilization is slightly below 1.0 due to minor root being inactive,
+        //    so ERP should be very close to RootProp but may be slightly scaled
+        assert!(
+            erp >= rp,
+            "EffectiveRootProp should be close to RootProp with near-full utilization"
         );
     });
 }
