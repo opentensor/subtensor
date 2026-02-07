@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
         let registration_cost = Self::get_burn(netuid);
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost.into()),
-            Error::<T>::NotEnoughBalanceToStake
+            Error::<T>::NotEnoughBalanceToPayFee
         );
 
         // If the network account does not exist we will create it here.
