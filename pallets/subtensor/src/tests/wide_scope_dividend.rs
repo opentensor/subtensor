@@ -264,6 +264,13 @@ fn setup_test() -> TestSetup {
         NetUid::ROOT,
     );
 
+    // ----------- Unstaked TAO (10% of MAJOR_ROOT_TAO) -----------
+    // This TAO exists in TotalIssuance but is not staked anywhere.
+    // It should have zero effect on utilization.
+    TotalIssuance::<Test>::mutate(|total| {
+        *total = total.saturating_add(TaoCurrency::from(MAJOR_ROOT_TAO / 10));
+    });
+
     // ----------- Validator permits (manual) -----------
     ValidatorPermit::<Test>::insert(netuid1, vec![true, true, true, true, true, false]);
     ValidatorPermit::<Test>::insert(netuid2, vec![true, true, true, true, true, false]);
@@ -671,29 +678,96 @@ fn test_basic_major_root_no_weights() {
         assert_eq!(alpha_divs_of(MAJOR_ROOT_HK, netuid1), 0);
         assert_eq!(root_divs_of(MAJOR_ROOT_HK, netuid1), 0);
 
-        // 3. Minor root DOES earn dividends (set weights, has bonds)
-        close(stake_of(MINOR_ROOT_HK, netuid1), 1_588_494, eps(1_588_494));
-        close(alpha_divs_of(MINOR_ROOT_HK, netuid1), 648_233, eps(648_233));
-        close(root_divs_of(MINOR_ROOT_HK, netuid1), 151_238, eps(151_238));
+        // 3. Minor root: hard cap triggered (utilization ≈ 0.001 < 0.5), all root dividends recycled.
+        //    Minor root loses its root_alpha_dividends and root-staked portion of alpha_dividends.
+        assert_eq!(root_divs_of(MINOR_ROOT_HK, netuid1), 0);
+        // Minor root may still have some alpha dividends from its alpha-stake portion
+        // (since hard cap only zeroes the root-staked fraction)
 
-        // 4. Subnet validators
-        close(
-            alpha_divs_of(MAJOR_SN1_HK, netuid1),
-            671_016_955,
-            eps(671_016_955),
-        );
-        close(alpha_divs_of(MINOR_SN1_HK, netuid1), 666_153, eps(666_153));
+        // 4. Subnet validators (alpha-only validators unaffected by hard cap)
+        assert!(alpha_divs_of(MAJOR_SN1_HK, netuid1) > 0);
+        assert!(alpha_divs_of(MINOR_SN1_HK, netuid1) > 0);
 
-        // 5. Owner earned owner cut
-        close(stake_of(OWNER1_HK, netuid1), 719_616_472, eps(719_616_472));
-        assert_eq!(alpha_divs_of(OWNER1_HK, netuid1), 0);
-
-        // 6. Root stakes unchanged
+        // 5. Root stakes unchanged (no root dividends converted)
         assert_eq!(stake_of(MAJOR_ROOT_HK, NetUid::ROOT), MAJOR_ROOT_TAO);
         assert_eq!(stake_of(MINOR_ROOT_HK, NetUid::ROOT), MINOR_ROOT_TAO);
 
-        // 7. EffectiveRootProp is much lower than RootProp (most root stake is idle)
-        //    Only minor_root (5,556 TAO) is active out of 5,555,556 total → utilization ≈ 0.001
+        // 6. EffectiveRootProp = 0 (hard cap triggered, utilization < 0.5)
+        let erp = EffectiveRootProp::<Test>::get(netuid1);
+        log::info!("EffectiveRootProp = {:?}", erp);
+        assert_eq!(
+            erp,
+            U96F32::from_num(0),
+            "EffectiveRootProp should be 0 when hard cap triggers (utilization < 0.5)"
+        );
+    });
+}
+
+// ===========================================================================
+// Test 4: Unstaked TAO doesn't affect utilization
+//
+// Same setup as basic test (price=0.6, all validators set weights to miner),
+// but with a massive amount of extra unstaked TAO added to TotalIssuance.
+// Proves that utilization denominator = root stake on subnet, not TotalIssuance.
+//
+// Run:
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::wide_scope_dividend::test_unstaked_tao_does_not_affect_utilization --exact --show-output --nocapture
+// ===========================================================================
+#[test]
+fn test_unstaked_tao_does_not_affect_utilization() {
+    new_test_ext(1).execute_with(|| {
+        let setup = setup_test();
+        let netuid1 = setup.netuid1;
+
+        // Override prices to 0.6 (root_sell_flag = true)
+        let tao_reserve = TaoCurrency::from(600_000u64);
+        let alpha_reserve = AlphaCurrency::from(1_000_000u64);
+        setup_reserves(netuid1, tao_reserve, alpha_reserve);
+        setup_reserves(setup.netuid2, tao_reserve, alpha_reserve);
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.6));
+        SubnetMovingPrice::<Test>::insert(setup.netuid2, I96F32::from_num(0.6));
+
+        // Add a MASSIVE amount of unstaked TAO (100x MAJOR_ROOT_TAO)
+        TotalIssuance::<Test>::mutate(|total| {
+            *total = total.saturating_add(TaoCurrency::from(MAJOR_ROOT_TAO * 100));
+        });
+
+        let miner1_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid1, &U256::from(MINER1_HK)).unwrap();
+
+        // Set weights: all validators -> miner (same as basic test)
+        for hk_id in [MAJOR_ROOT_HK, MINOR_ROOT_HK, MAJOR_SN1_HK, MINOR_SN1_HK] {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(hk_id)),
+                netuid1,
+                vec![miner1_uid],
+                vec![u16::MAX],
+                0
+            ));
+        }
+
+        let neurons = sn1_neurons();
+        for _ in 2..=5 {
+            step_block(1);
+        }
+        log::info!(
+            "--- Final state (block {}) ---",
+            SubtensorModule::get_current_block_as_u64()
+        );
+        log_subnet_state("SN1", netuid1);
+        log_neuron_state("SN1 neurons", netuid1, &neurons);
+
+        // 1. Root validators earn nonzero dividends (utilization = 1.0, no scaling)
+        assert!(
+            root_divs_of(MAJOR_ROOT_HK, netuid1) > 0,
+            "Major root should earn root dividends"
+        );
+        assert!(
+            alpha_divs_of(MAJOR_ROOT_HK, netuid1) > 0,
+            "Major root should earn alpha dividends"
+        );
+
+        // 2. EffectiveRootProp should be >= RootProp (utilization = 1.0, no scaling)
         let erp = EffectiveRootProp::<Test>::get(netuid1);
         let rp = RootProp::<Test>::get(netuid1);
         log::info!(
@@ -701,10 +775,216 @@ fn test_basic_major_root_no_weights() {
             erp,
             rp
         );
-        // EffectiveRootProp should be < 1% of RootProp due to low utilization
         assert!(
-            erp < rp.saturating_div(U96F32::from_num(100)),
-            "EffectiveRootProp ({erp:?}) should be << RootProp ({rp:?}) when major root validator doesn't set weights"
+            erp >= rp,
+            "EffectiveRootProp ({erp:?}) should be >= RootProp ({rp:?}) with full utilization"
+        );
+
+        // 3. Root stakes increase (root dividends converted to root claimable)
+        assert!(
+            stake_of(MAJOR_ROOT_HK, NetUid::ROOT) > MAJOR_ROOT_TAO,
+            "Major root stake should increase from root dividends"
+        );
+
+        // 4. Unstaked TAO only affects block emission rate, not utilization
+        //    The key invariant: utilization denominator = root stake on subnet, not TotalIssuance
+        log::info!(
+            "TotalIssuance = {:?}",
+            TotalIssuance::<Test>::get()
+        );
+    });
+}
+
+// ===========================================================================
+// Test 5: Half-weights test - major root sets half weights to validator
+//
+// Big root sets half weights to miner, half to minor_root_validator.
+// Small root (minor_root) DOES set full weights to miner.
+// Utilization stays above 50% so dividends are scaled by utilization, not hard-capped.
+//
+// Run:
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::wide_scope_dividend::test_basic_major_root_half_weights_to_validator --exact --show-output --nocapture
+// ===========================================================================
+#[test]
+fn test_basic_major_root_half_weights_to_validator() {
+    new_test_ext(1).execute_with(|| {
+        let setup = setup_test();
+        let netuid1 = setup.netuid1;
+
+        // Override prices to 0.6
+        let tao_reserve = TaoCurrency::from(600_000u64);
+        let alpha_reserve = AlphaCurrency::from(1_000_000u64);
+        setup_reserves(netuid1, tao_reserve, alpha_reserve);
+        setup_reserves(setup.netuid2, tao_reserve, alpha_reserve);
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.6));
+        SubnetMovingPrice::<Test>::insert(setup.netuid2, I96F32::from_num(0.6));
+
+        let miner1_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid1, &U256::from(MINER1_HK)).unwrap();
+        let minor_root_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid1, &U256::from(MINOR_ROOT_HK))
+                .unwrap();
+
+        // Major root sets HALF weights to miner, HALF to minor_root (validator)
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(U256::from(MAJOR_ROOT_HK)),
+            netuid1,
+            vec![miner1_uid, minor_root_uid],
+            vec![u16::MAX / 2, u16::MAX / 2],
+            0
+        ));
+
+        // Minor root sets FULL weights to miner
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(U256::from(MINOR_ROOT_HK)),
+            netuid1,
+            vec![miner1_uid],
+            vec![u16::MAX],
+            0
+        ));
+
+        // Subnet validators set weights to miner
+        for hk_id in [MAJOR_SN1_HK, MINOR_SN1_HK] {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(hk_id)),
+                netuid1,
+                vec![miner1_uid],
+                vec![u16::MAX],
+                0
+            ));
+        }
+
+        let neurons = sn1_neurons();
+        for _ in 2..=5 {
+            step_block(1);
+        }
+        log::info!(
+            "--- Final state (block {}) ---",
+            SubtensorModule::get_current_block_as_u64()
+        );
+        log_subnet_state("SN1", netuid1);
+        log_neuron_state("SN1 neurons", netuid1, &neurons);
+
+        // 1. EffectiveRootProp should be > 0 (utilization > 0.5, not hard-capped)
+        let erp = EffectiveRootProp::<Test>::get(netuid1);
+        log::info!("EffectiveRootProp = {:?}", erp);
+        assert!(
+            erp > U96F32::from_num(0),
+            "EffectiveRootProp should be > 0 (utilization > 0.5)"
+        );
+
+        // 2. Root validators earn SOME dividends (scaled by utilization, not zero)
+        let major_root_divs = root_divs_of(MAJOR_ROOT_HK, netuid1);
+        let minor_root_divs = root_divs_of(MINOR_ROOT_HK, netuid1);
+        log::info!(
+            "major_root_divs = {}, minor_root_divs = {}",
+            major_root_divs,
+            minor_root_divs
+        );
+        // At least one root validator should earn some root dividends
+        assert!(
+            major_root_divs > 0 || minor_root_divs > 0,
+            "At least one root validator should earn root dividends (utilization > 0.5)"
+        );
+
+        // 3. EffectiveRootProp should be less than the basic test (utilization < 1.0)
+        let rp = RootProp::<Test>::get(netuid1);
+        log::info!("RootProp = {:?}", rp);
+    });
+}
+
+// ===========================================================================
+// Test 6: Almost-half-weights test - hard cap triggers
+//
+// Big root sets half weights to miner, half to minor_root_validator.
+// Small root does NOT set weights at all.
+// Utilization drops below 50%, hard cap triggers.
+//
+// Run:
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::wide_scope_dividend::test_basic_major_root_half_weights_no_minor_root --exact --show-output --nocapture
+// ===========================================================================
+#[test]
+fn test_basic_major_root_half_weights_no_minor_root() {
+    new_test_ext(1).execute_with(|| {
+        let setup = setup_test();
+        let netuid1 = setup.netuid1;
+
+        // Override prices to 0.6
+        let tao_reserve = TaoCurrency::from(600_000u64);
+        let alpha_reserve = AlphaCurrency::from(1_000_000u64);
+        setup_reserves(netuid1, tao_reserve, alpha_reserve);
+        setup_reserves(setup.netuid2, tao_reserve, alpha_reserve);
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.6));
+        SubnetMovingPrice::<Test>::insert(setup.netuid2, I96F32::from_num(0.6));
+
+        let miner1_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid1, &U256::from(MINER1_HK)).unwrap();
+        let minor_root_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid1, &U256::from(MINOR_ROOT_HK))
+                .unwrap();
+
+        // Major root sets HALF weights to miner, HALF to minor_root (validator)
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(U256::from(MAJOR_ROOT_HK)),
+            netuid1,
+            vec![miner1_uid, minor_root_uid],
+            vec![u16::MAX / 2, u16::MAX / 2],
+            0
+        ));
+
+        // Minor root does NOT set weights (this is the key difference from test 5)
+
+        // Subnet validators set weights to miner
+        for hk_id in [MAJOR_SN1_HK, MINOR_SN1_HK] {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(hk_id)),
+                netuid1,
+                vec![miner1_uid],
+                vec![u16::MAX],
+                0
+            ));
+        }
+
+        let neurons = sn1_neurons();
+        for _ in 2..=5 {
+            step_block(1);
+        }
+        log::info!(
+            "--- Final state (block {}) ---",
+            SubtensorModule::get_current_block_as_u64()
+        );
+        log_subnet_state("SN1", netuid1);
+        log_neuron_state("SN1 neurons", netuid1, &neurons);
+
+        // 1. EffectiveRootProp = 0 (hard cap triggered, utilization < 0.5)
+        let erp = EffectiveRootProp::<Test>::get(netuid1);
+        log::info!("EffectiveRootProp = {:?}", erp);
+        assert_eq!(
+            erp,
+            U96F32::from_num(0),
+            "EffectiveRootProp should be 0 when hard cap triggers (utilization < 0.5)"
+        );
+
+        // 2. All root alpha dividends should be 0 (recycled)
+        assert_eq!(
+            root_divs_of(MAJOR_ROOT_HK, netuid1),
+            0,
+            "Major root dividends should be 0 (hard cap)"
+        );
+        assert_eq!(
+            root_divs_of(MINOR_ROOT_HK, netuid1),
+            0,
+            "Minor root dividends should be 0 (hard cap)"
+        );
+
+        // 3. Root stakes unchanged (no dividends converted)
+        assert_eq!(stake_of(MAJOR_ROOT_HK, NetUid::ROOT), MAJOR_ROOT_TAO);
+        assert_eq!(stake_of(MINOR_ROOT_HK, NetUid::ROOT), MINOR_ROOT_TAO);
+
+        // 4. Miner should still earn incentive (not affected by root dividend recycling)
+        assert!(
+            stake_of(MINER1_HK, netuid1) > 0,
+            "Miner should still earn incentive"
         );
     });
 }

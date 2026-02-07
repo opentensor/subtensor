@@ -516,7 +516,13 @@ fn test_effective_root_prop_no_root_dividends() {
 
 #[test]
 fn test_effective_root_prop_all_root_dividends() {
-    // When there are only root alpha dividends, EffectiveRootProp should be 1.0
+    // When there are only root alpha dividends with equal root stakes but unequal dividends,
+    // efficiency-based utilization < 1.0 because the validator with less dividends than expected
+    // has efficiency < 1.0.
+    // hotkey1: expected_share=0.5, actual_share=1/3 → efficiency=2/3
+    // hotkey2: expected_share=0.5, actual_share=2/3 → efficiency=1.0 (capped)
+    // utilization = (1000*2/3 + 1000*1.0) / 2000 ≈ 0.8333
+    // raw_root_prop = 1.0 (all root divs), so ERP ≈ 0.8333
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let hotkey1 = U256::from(100);
@@ -537,14 +543,17 @@ fn test_effective_root_prop_all_root_dividends() {
         root_alpha_dividends.insert(hotkey1, U96F32::from_num(1000));
         root_alpha_dividends.insert(hotkey2, U96F32::from_num(2000));
 
-        SubtensorModule::compute_and_store_effective_root_prop(
+        let utilization = SubtensorModule::compute_and_store_effective_root_prop(
             netuid,
             &alpha_dividends,
             &root_alpha_dividends,
         );
 
+        assert_abs_diff_eq!(utilization.to_num::<f64>(), 0.8333, epsilon = 1e-3);
+
         let prop = EffectiveRootProp::<Test>::get(netuid);
-        assert_abs_diff_eq!(prop.to_num::<f64>(), 1.0, epsilon = 1e-12);
+        // raw_root_prop = 1.0, utilization ≈ 0.8333
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 0.8333, epsilon = 1e-3);
     });
 }
 
