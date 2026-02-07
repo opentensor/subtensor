@@ -1,6 +1,6 @@
 use super::*;
 use alloc::collections::BTreeMap;
-use safe_math::FixedExt;
+use safe_math::*;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 
@@ -22,13 +22,143 @@ impl<T: Config> Pallet<T> {
             .collect()
     }
 
+    /// Normalizes shares so they sum to 1.0. If all shares are zero, leaves them unchanged.
+    pub(crate) fn normalize_shares(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let sum: U64F64 = shares.values().copied().sum();
+        if sum > U64F64::saturating_from_num(0) {
+            for share in shares.values_mut() {
+                *share = share.safe_div(sum);
+            }
+        }
+    }
+
+    /// When EffectiveRootPropEmissionScaling is enabled, multiplies each subnet's share
+    /// by min(EffectiveRootProp, RootProp) and re-normalizes shares to sum to 1.0.
+    /// Using the minimum of the two prevents exploitation by disabling alpha validators
+    /// to artificially inflate EffectiveRootProp above the configured RootProp.
+    pub(crate) fn apply_effective_root_prop_scaling(shares: &mut BTreeMap<NetUid, U64F64>) {
+        if !EffectiveRootPropEmissionScaling::<T>::get() {
+            return;
+        }
+
+        for (netuid, share) in shares.iter_mut() {
+            let effective_root_prop =
+                U64F64::saturating_from_num(EffectiveRootProp::<T>::get(netuid));
+            let root_prop = U64F64::saturating_from_num(RootProp::<T>::get(netuid));
+            *share = share.saturating_mul(effective_root_prop.min(root_prop));
+        }
+
+        Self::normalize_shares(shares);
+    }
+
+    /// Zeros shares outside top_k (by descending share value) and re-normalizes the rest.
+    /// Subnets with equal shares at the boundary are included if they tie with the k-th position.
+    pub(crate) fn zero_and_redistribute_bottom_shares(
+        shares: &mut BTreeMap<NetUid, U64F64>,
+        top_k: usize,
+    ) {
+        let zero = U64F64::saturating_from_num(0);
+        if shares.is_empty() {
+            return;
+        }
+        if top_k == 0 {
+            for share in shares.values_mut() {
+                *share = zero;
+            }
+            return;
+        }
+        if top_k >= shares.len() {
+            return; // Nothing to filter
+        }
+
+        // Sort netuids by share descending
+        let mut sorted: Vec<(NetUid, U64F64)> = shares.iter().map(|(k, v)| (*k, *v)).collect();
+        sorted.sort_by(|a, b| b.1.cmp(&a.1));
+
+        // The threshold is the share value at the k-th position (0-indexed: top_k - 1).
+        // All entries with share >= threshold are kept (ties at the boundary are included).
+        let threshold = sorted
+            .get(top_k.saturating_sub(1))
+            .map(|(_, v)| *v)
+            .unwrap_or(zero);
+
+        for share in shares.values_mut() {
+            if *share < threshold {
+                *share = zero;
+            }
+        }
+
+        Self::normalize_shares(shares);
+    }
+
+    /// Filters subnets so only the top proportion (by share) receive emission.
+    /// Uses ceil(count * proportion) to determine how many subnets to keep.
+    /// A single subnet always counts as in top 50%.
+    pub(crate) fn apply_top_subnet_proportion_filter(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let proportion = EmissionTopSubnetProportion::<T>::get();
+        let one = U64F64::saturating_from_num(1);
+        if proportion >= one {
+            return; // 100% means all subnets get emission
+        }
+
+        let total = shares.len();
+        if total == 0 {
+            return;
+        }
+
+        // ceil(total * proportion): multiply total by proportion and round up
+        let top_k_f = U64F64::saturating_from_num(total).saturating_mul(proportion);
+        let top_k = top_k_f.ceil().saturating_to_num::<u64>().max(1) as usize;
+
+        log::debug!(
+            "EmissionTopSubnetProportion: keeping top {top_k} of {total} subnets (proportion: {proportion:?})"
+        );
+
+        Self::zero_and_redistribute_bottom_shares(shares, top_k);
+    }
+
+    /// Limits the number of subnets receiving emission to an absolute number.
+    /// When limit is None, no filtering occurs (disabled).
+    /// When limit is Some(N) and less than the number of subnets with nonzero shares,
+    /// zeros shares beyond the top N subnets and re-normalizes.
+    pub(crate) fn apply_top_subnet_absolute_limit(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let limit = match EmissionTopSubnetAbsoluteLimit::<T>::get() {
+            Some(limit) => limit,
+            None => return, // Disabled
+        };
+
+        let nonzero_count = shares
+            .values()
+            .filter(|v| **v > U64F64::saturating_from_num(0))
+            .count();
+
+        if nonzero_count <= limit as usize {
+            return; // Already within limit
+        }
+
+        log::debug!(
+            "EmissionTopSubnetAbsoluteLimit: limiting to top {limit} subnets (had {nonzero_count} nonzero)"
+        );
+
+        Self::zero_and_redistribute_bottom_shares(shares, limit as usize);
+    }
+
     pub fn get_subnet_block_emissions(
         subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
         // Get subnet TAO emissions.
-        let shares = Self::get_shares(subnets_to_emit_to);
+        let mut shares = Self::get_shares(subnets_to_emit_to);
         log::debug!("Subnet emission shares = {shares:?}");
+
+        // Apply EffectiveRootProp scaling if enabled.
+        Self::apply_effective_root_prop_scaling(&mut shares);
+
+        // Apply top subnet proportion filter.
+        Self::apply_top_subnet_proportion_filter(&mut shares);
+
+        // Apply absolute subnet limit.
+        Self::apply_top_subnet_absolute_limit(&mut shares);
 
         shares
             .into_iter()

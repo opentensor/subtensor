@@ -1488,6 +1488,44 @@ pub mod pallet {
     pub type FlowEmaSmoothingFactor<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultFlowEmaSmoothingFactor<T>>;
 
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> EffectiveRootProp for a subnet.
+    /// Computed during epoch in distribute_dividends_and_incentives() as:
+    ///   sum(RootAlphaDividendsPerSubnet[netuid]) /
+    ///   (sum(AlphaDividendsPerSubnet[netuid]) + sum(RootAlphaDividendsPerSubnet[netuid]))
+    /// This measures the proportion of dividends on a subnet that go to root stakers.
+    pub type EffectiveRootProp<T: Config> = StorageMap<_, Identity, NetUid, U96F32, ValueQuery>;
+
+    #[pallet::type_value]
+    /// Default: EffectiveRootPropEmissionScaling is disabled.
+    pub fn DefaultEffectiveRootPropEmissionScaling<T: Config>() -> bool {
+        false
+    }
+    #[pallet::storage]
+    /// When enabled, multiply each subnet's emission share by its EffectiveRootProp,
+    /// then re-normalize so shares sum to 1.0.
+    pub type EffectiveRootPropEmissionScaling<T: Config> =
+        StorageValue<_, bool, ValueQuery, DefaultEffectiveRootPropEmissionScaling<T>>;
+
+    #[pallet::type_value]
+    /// Default: all subnets receive emission (1.0 = 100%).
+    pub fn DefaultEmissionTopSubnetProportion<T: Config>() -> U64F64 {
+        U64F64::saturating_from_num(1)
+    }
+    #[pallet::storage]
+    /// Proportion of subnets (ranked by share) that receive emission.
+    /// Value in range [0.0, 1.0] where 0.5 = 50%, 1.0 = 100%.
+    /// Only the top ceil(count * proportion) subnets get emission.
+    /// Remaining subnets have shares zeroed and redistributed.
+    pub type EmissionTopSubnetProportion<T: Config> =
+        StorageValue<_, U64F64, ValueQuery, DefaultEmissionTopSubnetProportion<T>>;
+
+    #[pallet::storage]
+    /// Absolute maximum number of subnets that can receive emission.
+    /// None means no limit (disabled). When set to Some(N), only the top N
+    /// subnets by share receive emission; the rest are zeroed and redistributed.
+    pub type EmissionTopSubnetAbsoluteLimit<T: Config> = StorageValue<_, u16, OptionQuery>;
+
     /// ============================
     /// ==== Global Parameters =====
     /// ============================

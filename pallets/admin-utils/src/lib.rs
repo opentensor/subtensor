@@ -2279,6 +2279,66 @@ pub mod pallet {
             log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
             Ok(())
         }
+
+        /// Sets EffectiveRootProp emission scaling on/off
+        #[pallet::call_index(88)]
+        #[pallet::weight((
+            Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_effective_root_prop_emission_scaling(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_effective_root_prop_emission_scaling(enabled);
+            Ok(())
+        }
+
+        /// Sets the proportion of top subnets that receive emission
+        #[pallet::call_index(89)]
+        #[pallet::weight((
+            Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_emission_top_subnet_proportion(
+            origin: OriginFor<T>,
+            proportion: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(
+                proportion > 0 && proportion <= 100,
+                Error::<T>::InvalidValue
+            );
+            let prop = U64F64::saturating_from_num(proportion)
+                .saturating_div(U64F64::saturating_from_num(100));
+            pallet_subtensor::Pallet::<T>::set_emission_top_subnet_proportion(prop);
+            Ok(())
+        }
+
+        /// Sets the absolute limit on number of subnets receiving emission (None = no limit)
+        #[pallet::call_index(90)]
+        #[pallet::weight((
+            Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_emission_top_subnet_absolute_limit(
+            origin: OriginFor<T>,
+            limit: Option<u16>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_emission_top_subnet_absolute_limit(limit);
+            Ok(())
+        }
     }
 }
 
