@@ -1553,7 +1553,7 @@ pub mod pallet {
     /// ============================
     /// ==== Rate Limiting =====
     /// ============================
-    /// --- MAP ( RateLimitKey ) --> Block number in which the last rate limited operation occured
+    /// --- MAP ( RateLimitKey ) --> Block number in which the last rate limited operation occurred
     #[pallet::storage]
     pub type LastRateLimitedBlock<T: Config> =
         StorageMap<_, Identity, RateLimitKey<T::AccountId>, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -2653,7 +2653,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 }
 
 /// Enum that defines types of rate limited operations for
-/// storing last block when this operation occured
+/// storing last block when this operation occurred
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid

@@ -670,7 +670,7 @@ fn test_owner_cut_base() {
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
         mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
-        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_tempo(netuid, 10000); // Large number (don't drain)
         SubtensorModule::set_subnet_owner_cut(0);
         SubtensorModule::run_coinbase(U96F32::from_num(0));
         assert_eq!(PendingOwnerCut::<Test>::get(netuid), 0.into()); // No cut
@@ -695,7 +695,7 @@ fn test_pending_emission() {
         SubtensorModule::run_coinbase(U96F32::from_num(0));
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000)); // Add root weight.
         SubtensorModule::run_coinbase(U96F32::from_num(0));
-        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_tempo(netuid, 10000); // Large number (don't drain)
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         // Set moving price > 1.0
