@@ -2118,7 +2118,7 @@ pub mod pallet {
         }
 
         /// Sets EffectiveRootProp emission scaling on/off
-        #[pallet::call_index(88)]
+        #[pallet::call_index(91)]
         #[pallet::weight((
             Weight::from_parts(7_343_000, 0)
                 .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
