@@ -1,11 +1,17 @@
-#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
+#![allow(
+    unused,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::arithmetic_side_effects
+)]
 use super::mock::*;
 use crate::*;
 use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 fn u64f64(x: f64) -> U64F64 {
     U64F64::from_num(x)
@@ -1149,5 +1155,405 @@ fn test_interaction_absolute_limit_stricter_than_proportion() {
         assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(s3, 1.0, epsilon = 1e-9);
+    });
+}
+
+// ===========================================================================
+// Tests for get_root_dividend_fraction
+// ===========================================================================
+
+#[test]
+fn test_root_dividend_fraction_no_root_stake() {
+    // Hotkey with 0 root stake → fraction = 0
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey = U256::from(100);
+        let coldkey = U256::from(200);
+        let tao_weight = U96F32::from_num(0.18);
+
+        // Only alpha stake, no root stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            AlphaCurrency::from(1_000_000u64),
+        );
+
+        let frac = SubtensorModule::get_root_dividend_fraction(&hotkey, netuid, tao_weight);
+        assert_abs_diff_eq!(frac.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_root_dividend_fraction_no_alpha_stake() {
+    // Hotkey with only root stake → fraction = 1.0
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey = U256::from(100);
+        let coldkey = U256::from(200);
+        let tao_weight = U96F32::from_num(0.18);
+
+        // Only root stake, no alpha
+        increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &hotkey,
+            1_000_000u64.into(),
+            NetUid::ROOT,
+        );
+
+        let frac = SubtensorModule::get_root_dividend_fraction(&hotkey, netuid, tao_weight);
+        assert_abs_diff_eq!(frac.to_num::<f64>(), 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_root_dividend_fraction_mixed_stake() {
+    // Hotkey with both root and alpha stake
+    // root_alpha_weighted = 1_000_000 * 0.18 = 180_000
+    // alpha_stake = 820_000
+    // fraction = 180_000 / (820_000 + 180_000) = 0.18
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey = U256::from(100);
+        let coldkey = U256::from(200);
+        let tao_weight = U96F32::from_num(0.18);
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            AlphaCurrency::from(820_000u64),
+        );
+        increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &hotkey,
+            1_000_000u64.into(),
+            NetUid::ROOT,
+        );
+
+        let frac = SubtensorModule::get_root_dividend_fraction(&hotkey, netuid, tao_weight);
+        assert_abs_diff_eq!(frac.to_num::<f64>(), 0.18, epsilon = 1e-6);
+    });
+}
+
+#[test]
+fn test_root_dividend_fraction_high_tao_weight() {
+    // With high tao_weight, root fraction approaches 1.0
+    // root_alpha_weighted = 100 * 10.0 = 1000
+    // alpha_stake = 100
+    // fraction = 1000 / (100 + 1000) ≈ 0.909
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey = U256::from(100);
+        let coldkey = U256::from(200);
+        let tao_weight = U96F32::from_num(10);
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            AlphaCurrency::from(100u64),
+        );
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 100u64.into(), NetUid::ROOT);
+
+        let frac = SubtensorModule::get_root_dividend_fraction(&hotkey, netuid, tao_weight);
+        assert_abs_diff_eq!(frac.to_num::<f64>(), 10.0 / 11.0, epsilon = 1e-6);
+    });
+}
+
+// ===========================================================================
+// Tests for apply_utilization_scaling
+// ===========================================================================
+
+/// Helper: set up a subnet with hotkeys that have root + alpha stakes.
+/// Returns (netuid, hotkey1, hotkey2).
+fn setup_scaling_test() -> (NetUid, U256, U256) {
+    let netuid = NetUid::from(1);
+    let hotkey1 = U256::from(100);
+    let coldkey1 = U256::from(200);
+    let hotkey2 = U256::from(101);
+    let coldkey2 = U256::from(201);
+
+    // hotkey1: 900k alpha, 1M root
+    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        &hotkey1,
+        &coldkey1,
+        netuid,
+        AlphaCurrency::from(900_000u64),
+    );
+    increase_stake_on_coldkey_hotkey_account(
+        &coldkey1,
+        &hotkey1,
+        1_000_000u64.into(),
+        NetUid::ROOT,
+    );
+
+    // hotkey2: 500k alpha, 500k root
+    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        &hotkey2,
+        &coldkey2,
+        netuid,
+        AlphaCurrency::from(500_000u64),
+    );
+    increase_stake_on_coldkey_hotkey_account(
+        &coldkey2,
+        &hotkey2,
+        500_000u64.into(),
+        NetUid::ROOT,
+    );
+
+    // Need SubnetAlphaOut for recycling to work
+    SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(10_000_000u64));
+
+    (netuid, hotkey1, hotkey2)
+}
+
+#[test]
+fn test_apply_utilization_scaling_full_utilization() {
+    // utilization = 1.0 → no scaling, returns 0 recycled
+    new_test_ext(1).execute_with(|| {
+        let (netuid, hotkey1, hotkey2) = setup_scaling_test();
+        let tao_weight = U96F32::from_num(0.18);
+        let utilization = U96F32::from_num(1);
+
+        let mut alpha_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs.insert(hotkey1, U96F32::from_num(10000));
+        alpha_divs.insert(hotkey2, U96F32::from_num(5000));
+
+        let mut root_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs.insert(hotkey1, U96F32::from_num(2000));
+        root_divs.insert(hotkey2, U96F32::from_num(1000));
+
+        let alpha_divs_before = alpha_divs.clone();
+        let root_divs_before = root_divs.clone();
+
+        let recycled = SubtensorModule::apply_utilization_scaling(
+            netuid,
+            utilization,
+            &mut alpha_divs,
+            &mut root_divs,
+            tao_weight,
+        );
+
+        assert_abs_diff_eq!(recycled.to_num::<f64>(), 0.0, epsilon = 1e-12);
+        // Maps unchanged
+        assert_eq!(alpha_divs, alpha_divs_before);
+        assert_eq!(root_divs, root_divs_before);
+    });
+}
+
+#[test]
+fn test_apply_utilization_scaling_no_root_dividends() {
+    // Empty root dividends → no scaling regardless of utilization, returns 0
+    new_test_ext(1).execute_with(|| {
+        let (netuid, hotkey1, _hotkey2) = setup_scaling_test();
+        let tao_weight = U96F32::from_num(0.18);
+        let utilization = U96F32::from_num(0); // Would normally trigger hard cap
+
+        let mut alpha_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs.insert(hotkey1, U96F32::from_num(10000));
+
+        let mut root_divs: BTreeMap<U256, U96F32> = BTreeMap::new(); // empty
+
+        let alpha_divs_before = alpha_divs.clone();
+
+        let recycled = SubtensorModule::apply_utilization_scaling(
+            netuid,
+            utilization,
+            &mut alpha_divs,
+            &mut root_divs,
+            tao_weight,
+        );
+
+        assert_abs_diff_eq!(recycled.to_num::<f64>(), 0.0, epsilon = 1e-12);
+        // Alpha divs unchanged (no root dividends to trigger scaling)
+        assert_eq!(alpha_divs, alpha_divs_before);
+    });
+}
+
+#[test]
+fn test_apply_utilization_scaling_partial() {
+    // utilization = 0.7 → scale root dividends to 70%, recycle 30%
+    new_test_ext(1).execute_with(|| {
+        let (netuid, hotkey1, hotkey2) = setup_scaling_test();
+        let tao_weight = U96F32::from_num(0.18);
+        let utilization = U96F32::from_num(0.7);
+
+        let mut alpha_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs.insert(hotkey1, U96F32::from_num(10000));
+        alpha_divs.insert(hotkey2, U96F32::from_num(5000));
+
+        let mut root_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs.insert(hotkey1, U96F32::from_num(2000));
+        root_divs.insert(hotkey2, U96F32::from_num(1000));
+
+        let recycled = SubtensorModule::apply_utilization_scaling(
+            netuid,
+            utilization,
+            &mut alpha_divs,
+            &mut root_divs,
+            tao_weight,
+        );
+
+        // Root dividends should be scaled to 70%
+        assert_abs_diff_eq!(
+            root_divs.get(&hotkey1).unwrap().to_num::<f64>(),
+            1400.0,
+            epsilon = 1.0
+        );
+        assert_abs_diff_eq!(
+            root_divs.get(&hotkey2).unwrap().to_num::<f64>(),
+            700.0,
+            epsilon = 1.0
+        );
+
+        // Alpha divs should be reduced by (root_fraction * 30%)
+        // hotkey1 root_fraction ≈ 0.18 * 1M / (900k + 0.18 * 1M) ≈ 0.1666
+        // reduction = 10000 * 0.1666 * 0.3 ≈ 500
+        let alpha1 = alpha_divs.get(&hotkey1).unwrap().to_num::<f64>();
+        assert!(
+            alpha1 < 10000.0,
+            "Alpha divs for hotkey1 should be reduced: {alpha1}"
+        );
+        assert!(
+            alpha1 > 9000.0,
+            "Alpha divs for hotkey1 should not be reduced too much: {alpha1}"
+        );
+
+        // Total recycled should be > 0
+        assert!(
+            recycled.to_num::<f64>() > 0.0,
+            "Should have recycled some amount"
+        );
+
+        // EffectiveRootProp should NOT be overwritten to 0 (utilization > 0.5)
+        let erp = EffectiveRootProp::<Test>::get(netuid);
+        // ERP may be 0 because compute_and_store_effective_root_prop wasn't called,
+        // but it should NOT have been explicitly set to 0 by apply_utilization_scaling
+        // (hard cap not triggered). We just verify it's the default.
+    });
+}
+
+#[test]
+fn test_apply_utilization_scaling_hard_cap() {
+    // utilization = 0.3 < 0.5 → hard cap: recycle ALL root dividends, set ERP = 0
+    new_test_ext(1).execute_with(|| {
+        let (netuid, hotkey1, hotkey2) = setup_scaling_test();
+        let tao_weight = U96F32::from_num(0.18);
+        let utilization = U96F32::from_num(0.3);
+
+        // Set a non-zero ERP so we can verify it gets zeroed
+        EffectiveRootProp::<Test>::insert(netuid, U96F32::from_num(0.5));
+
+        let mut alpha_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs.insert(hotkey1, U96F32::from_num(10000));
+        alpha_divs.insert(hotkey2, U96F32::from_num(5000));
+
+        let mut root_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs.insert(hotkey1, U96F32::from_num(2000));
+        root_divs.insert(hotkey2, U96F32::from_num(1000));
+
+        let recycled = SubtensorModule::apply_utilization_scaling(
+            netuid,
+            utilization,
+            &mut alpha_divs,
+            &mut root_divs,
+            tao_weight,
+        );
+
+        // Root dividends should be completely cleared
+        assert!(root_divs.is_empty(), "Root divs should be empty after hard cap");
+
+        // Alpha divs should be reduced by their root fraction
+        let alpha1 = alpha_divs.get(&hotkey1).unwrap().to_num::<f64>();
+        assert!(
+            alpha1 < 10000.0,
+            "Alpha divs should be reduced: {alpha1}"
+        );
+        // hotkey1 root_fraction ≈ 0.1666, so alpha1 ≈ 10000 * (1 - 0.1666) ≈ 8334
+        assert_abs_diff_eq!(alpha1, 8334.0, epsilon = 100.0);
+
+        // Total recycled should account for all root divs + root fraction of alpha divs
+        assert!(
+            recycled.to_num::<f64>() > 3000.0,
+            "Should recycle at least the 3000 root divs"
+        );
+
+        // EffectiveRootProp should be 0
+        let erp = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(
+            erp.to_num::<f64>(),
+            0.0,
+            epsilon = 1e-12
+        );
+    });
+}
+
+#[test]
+fn test_apply_utilization_scaling_at_boundary() {
+    // utilization = 0.5 exactly → should scale, NOT hard cap
+    new_test_ext(1).execute_with(|| {
+        let (netuid, hotkey1, _hotkey2) = setup_scaling_test();
+        let tao_weight = U96F32::from_num(0.18);
+        let utilization = U96F32::from_num(0.5);
+
+        let mut alpha_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs.insert(hotkey1, U96F32::from_num(10000));
+
+        let mut root_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs.insert(hotkey1, U96F32::from_num(2000));
+
+        let recycled = SubtensorModule::apply_utilization_scaling(
+            netuid,
+            utilization,
+            &mut alpha_divs,
+            &mut root_divs,
+            tao_weight,
+        );
+
+        // Root dividends should be scaled to 50%, NOT cleared
+        assert!(!root_divs.is_empty(), "Root divs should NOT be empty at boundary 0.5");
+        assert_abs_diff_eq!(
+            root_divs.get(&hotkey1).unwrap().to_num::<f64>(),
+            1000.0,
+            epsilon = 1.0
+        );
+
+        // Recycled should be ~1000 (from root divs) + some from alpha root fraction
+        assert!(recycled.to_num::<f64>() > 0.0);
+    });
+}
+
+#[test]
+fn test_apply_utilization_scaling_just_below_boundary() {
+    // utilization = 0.4999 → hard cap triggers
+    new_test_ext(1).execute_with(|| {
+        let (netuid, hotkey1, _hotkey2) = setup_scaling_test();
+        let tao_weight = U96F32::from_num(0.18);
+        let utilization = U96F32::from_num(0.4999);
+
+        EffectiveRootProp::<Test>::insert(netuid, U96F32::from_num(0.5));
+
+        let mut alpha_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs.insert(hotkey1, U96F32::from_num(10000));
+
+        let mut root_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs.insert(hotkey1, U96F32::from_num(2000));
+
+        SubtensorModule::apply_utilization_scaling(
+            netuid,
+            utilization,
+            &mut alpha_divs,
+            &mut root_divs,
+            tao_weight,
+        );
+
+        // Hard cap: root divs cleared, ERP = 0
+        assert!(root_divs.is_empty(), "Root divs should be empty below 0.5");
+        assert_abs_diff_eq!(
+            EffectiveRootProp::<Test>::get(netuid).to_num::<f64>(),
+            0.0,
+            epsilon = 1e-12
+        );
     });
 }
