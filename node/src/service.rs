@@ -23,6 +23,7 @@ use sp_runtime::key_types;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::collections::HashSet;
 use std::str::FromStr;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
@@ -559,13 +560,18 @@ where
         };
         mev_timing = Some(timing.clone());
 
+        let mev_ctx = author::ShieldContext {
+            keys: Arc::new(Mutex::new(author::ShieldKeys::new())),
+        };
+
         // Start author-side tasks with dynamic timing.
-        let mev_ctx = author::spawn_author_tasks::<Block, _, _>(
+        author::spawn_author_tasks::<Block, _, _>(
             &task_manager.spawn_handle(),
             client.clone(),
             transaction_pool.clone(),
             keystore_container.keystore(),
             timing.clone(),
+            mev_ctx.clone(),
         );
 
         // Start last-portion-of-slot revealer (decrypt -> submit_one).
@@ -575,9 +581,7 @@ where
             transaction_pool.clone(),
             mev_ctx.clone(),
         );
-    }
 
-    if role.is_authority() {
         // manual-seal authorship
         if let Some(sealing) = sealing {
             run_manual_seal_authorship(
@@ -590,6 +594,7 @@ where
                 prometheus_registry.as_ref(),
                 telemetry.as_ref(),
                 commands_stream,
+                mev_ctx.clone(),
             )?;
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
@@ -601,6 +606,7 @@ where
             transaction_pool.clone(),
             prometheus_registry.as_ref(),
             telemetry.as_ref().map(|x| x.handle()),
+            Arc::new(move || mev_ctx.keys.lock().ok().map(|k| k.current_sk.clone())),
         );
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
@@ -766,6 +772,7 @@ fn run_manual_seal_authorship(
     commands_stream: mpsc::Receiver<
         sc_consensus_manual_seal::rpc::EngineCommand<<Block as BlockT>::Hash>,
     >,
+    mev_ctx: author::ShieldContext,
 ) -> Result<(), ServiceError> {
     let proposer_factory = sc_basic_authorship::ProposerFactory::new(
         task_manager.spawn_handle(),
@@ -773,6 +780,7 @@ fn run_manual_seal_authorship(
         transaction_pool.clone(),
         prometheus_registry,
         telemetry.as_ref().map(|x| x.handle()),
+        Arc::new(move || mev_ctx.keys.lock().ok().map(|k| k.current_sk.clone())),
     );
 
     thread_local!(static TIMESTAMP: RefCell<u64> = const { RefCell::new(0) });

@@ -1641,15 +1641,12 @@ pub type CheckedExtrinsic =
 
 // The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TransactionExtensions>;
+
+// Context for the executive.
+pub type Context = frame_system::ChainContext<Runtime>;
 // Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-    Runtime,
-    Block,
-    frame_system::ChainContext<Runtime>,
-    Runtime,
-    AllPalletsWithSystem,
-    Migrations,
->;
+pub type Executive =
+    frame_executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, Migrations>;
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
@@ -2551,6 +2548,186 @@ impl_runtime_apis! {
             )
         }
     }
+
+    impl pallet_shield_runtime_api::MevShieldApi<Block> for Runtime {
+        fn try_decrypt_extrinsic(
+            uxt: <Block as BlockT>::Extrinsic,
+            curr_sk_bytes: Vec<u8>,
+        ) -> Option<<Block as BlockT>::Extrinsic> {
+            try_decrypt_extrinsic::<Block>(uxt, curr_sk_bytes)
+        }
+    }
+}
+
+use chacha20poly1305::{
+    KeyInit, XChaCha20Poly1305, XNonce,
+    aead::{Aead, Payload},
+};
+use frame_executive::CheckedOf;
+use frame_support::traits::IsSubType;
+use ml_kem::{
+    Ciphertext, Encoded, EncodedSizeUser, MlKem768, MlKem768Params,
+    kem::{Decapsulate, DecapsulationKey},
+};
+use pallet_shield::Call as ShieldCall;
+use sp_runtime::traits::Applyable;
+use sp_runtime::traits::Checkable;
+
+type ExtrinsicOf<Block> = <Block as BlockT>::Extrinsic;
+type ApplyableCallOf<T> = <T as Applyable>::Call;
+
+fn try_decrypt_extrinsic<Block>(
+    uxt: ExtrinsicOf<Block>,
+    curr_sk_bytes: Vec<u8>,
+) -> Option<<Block as BlockT>::Extrinsic>
+where
+    Block: BlockT<
+            Header = frame_system::pallet_prelude::HeaderFor<Runtime>,
+            Hash = <Runtime as frame_system::Config>::Hash,
+        >,
+    Block::Extrinsic: Checkable<Context>,
+    CheckedOf<Block::Extrinsic, Context>: Applyable,
+    ApplyableCallOf<CheckedOf<Block::Extrinsic, Context>>: IsSubType<ShieldCall<Runtime>>,
+{
+    use sp_runtime::transaction_validity::InvalidTransaction;
+    const MAX_EXTRINSIC_DEPTH: u32 = 8;
+
+    // Prevent stack overflows by limiting the depth of the extrinsic.
+    let encoded = uxt.encode();
+    let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
+        MAX_EXTRINSIC_DEPTH,
+        &mut &encoded[..],
+    )
+    .inspect_err(|e| log::error!("Failed to decode extrinsic: {:?}", e))
+    .ok()?;
+
+    // Verify that the signature is good.
+    let xt = ExtrinsicOf::<Block>::check(uxt, &Context::default())
+        .inspect_err(|e| log::error!("Failed to check extrinsic: {:?}", e))
+        .ok()?;
+    let call = xt.call();
+
+    let Some(ShieldCall::submit_encrypted { ciphertext, .. }) =
+        IsSubType::<ShieldCall<Runtime>>::is_sub_type(call)
+    else {
+        return None;
+    };
+
+    if ciphertext.len() < 2 {
+        return None;
+    }
+
+    let mut cursor: usize = 0;
+
+    let Some(kem_len_end) = cursor.checked_add(2) else {
+        return None;
+    };
+
+    let Some(kem_len_slice) = ciphertext.get(cursor..kem_len_end) else {
+        return None;
+    };
+
+    let Ok(kem_len_bytes): Result<[u8; 2], _> = kem_len_slice.try_into() else {
+        return None;
+    };
+
+    let kem_len = u16::from_le_bytes(kem_len_bytes) as usize;
+    cursor = kem_len_end;
+
+    let Some(ken_ct_end) = cursor.checked_add(kem_len) else {
+        return None;
+    };
+
+    let Some(ket_ct_bytes) = ciphertext.get(cursor..ken_ct_end) else {
+        return None;
+    };
+    cursor = ken_ct_end;
+
+    const NONCE_LEN: usize = 24;
+    let Some(nonce_end) = cursor.checked_add(NONCE_LEN) else {
+        return None;
+    };
+
+    let Some(nonce_bytes) = ciphertext.get(cursor..nonce_end) else {
+        return None;
+    };
+    cursor = nonce_end;
+
+    let Some(aead_body) = ciphertext.get(cursor..) else {
+        return None;
+    };
+
+    let Ok(enc_sk) = Encoded::<DecapsulationKey<MlKem768Params>>::try_from(&curr_sk_bytes[..])
+    else {
+        return None;
+    };
+    let sk = DecapsulationKey::<MlKem768Params>::from_bytes(&enc_sk);
+
+    let Ok(ct) = Ciphertext::<MlKem768>::try_from(ket_ct_bytes) else {
+        return None;
+    };
+
+    let Ok(ss) = sk.decapsulate(&ct) else {
+        return None;
+    };
+
+    let ss_bytes: &[u8] = ss.as_ref();
+    if ss_bytes.len() != 32 {
+        return None;
+    }
+    let mut ss32 = [0u8; 32];
+    ss32.copy_from_slice(ss_bytes);
+    let aead_key = derive_aead_key(&ss32);
+
+    let mut nonce24 = [0u8; 24];
+    nonce24.copy_from_slice(nonce_bytes);
+
+    let Some(plaintext) = aead_decrypt(aead_key, nonce24, aead_body, &[]) else {
+        return None;
+    };
+
+    if plaintext.is_empty() {
+        return None;
+    }
+
+    let Some(signed_xt_bytes) = plaintext.get(0..plaintext.len()) else {
+        return None;
+    };
+
+    let Ok(signed_xt) = ExtrinsicOf::<Block>::decode(&mut &signed_xt_bytes[..]) else {
+        return None;
+    };
+
+    log::info!("Decrypted extrinsic: {:?}", signed_xt);
+
+    Some(signed_xt)
+}
+
+pub fn derive_aead_key(ss: &[u8]) -> [u8; 32] {
+    let mut key = [0u8; 32];
+    let n = ss.len().min(32);
+
+    if let (Some(dst), Some(src)) = (key.get_mut(..n), ss.get(..n)) {
+        dst.copy_from_slice(src);
+    }
+    key
+}
+
+pub fn aead_decrypt(
+    key: [u8; 32],
+    nonce24: [u8; 24],
+    ciphertext: &[u8],
+    aad: &[u8],
+) -> Option<Vec<u8>> {
+    let aead = XChaCha20Poly1305::new((&key).into());
+    aead.decrypt(
+        XNonce::from_slice(&nonce24),
+        Payload {
+            msg: ciphertext,
+            aad,
+        },
+    )
+    .ok()
 }
 
 #[test]

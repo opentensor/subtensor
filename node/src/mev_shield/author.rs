@@ -137,8 +137,8 @@ pub fn spawn_author_tasks<B, C, Pool>(
     pool: Arc<Pool>,
     keystore: sp_keystore::KeystorePtr,
     timing: TimeParams,
-) -> ShieldContext
-where
+    ctx: ShieldContext,
+) where
     B: sp_runtime::traits::Block,
     C: sc_client_api::HeaderBackend<B>
         + sc_client_api::BlockchainEvents<B>
@@ -150,10 +150,6 @@ where
     Pool: sc_transaction_pool_api::TransactionPool<Block = B> + Send + Sync + 'static,
     B::Extrinsic: From<sp_runtime::OpaqueExtrinsic>,
 {
-    let ctx = ShieldContext {
-        keys: Arc::new(Mutex::new(ShieldKeys::new())),
-    };
-
     let aura_keys: Vec<sp_core::sr25519::Public> = keystore.sr25519_public_keys(AURA_KEY_TYPE);
 
     let local_aura_pub = match aura_keys.first().copied() {
@@ -164,7 +160,7 @@ where
                 "spawn_author_tasks: no local Aura sr25519 key in keystore; \
                  this node will NOT announce MEV-Shield keys"
             );
-            return ctx;
+            return;
         }
     };
 
@@ -299,8 +295,6 @@ where
             }
         },
     );
-
-    ctx
 }
 
 /// Build & submit the signed `announce_next_key` extrinsic OFF-CHAIN
@@ -373,7 +367,7 @@ where
 
     const ERA_PERIOD: u64 = 12;
     let current_block: u64 = info.best_number.saturated_into();
-    let era = Era::mortal(ERA_PERIOD, current_block);
+    let era = Era::mortal(ERA_PERIOD, current_block.saturating_sub(1));
 
     let extra: Extra =
         (
