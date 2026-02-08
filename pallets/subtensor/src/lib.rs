@@ -345,7 +345,9 @@ pub mod pallet {
     }
 
     /// Enum for consensus mode used in liquid alpha calculation
-    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    #[derive(
+        Encode, Decode, DecodeWithMemTracking, Default, TypeInfo, Clone, PartialEq, Eq, Debug,
+    )]
     pub enum ConsensusMode {
         /// Use current in-memory consensus (current behavior)
         Current,

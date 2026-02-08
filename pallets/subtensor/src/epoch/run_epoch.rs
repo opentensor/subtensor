@@ -1377,32 +1377,28 @@ impl<T: Config> Pallet<T> {
             }
             ConsensusMode::Previous => {
                 // Use consensus from storage
-                let previous_consensus_u16 = Consensus::<T>::get(netuid);
-                previous_consensus_u16
-                    .iter()
-                    .map(|&c| {
-                        I32F32::saturating_from_num(c)
-                            .safe_div(I32F32::saturating_from_num(u16::MAX))
-                    })
-                    .collect()
+                Self::get_previous_consensus_as_i32f32(netuid)
             }
             ConsensusMode::Auto => {
                 // Auto mode: Previous if bond_penalty == 1, otherwise Current
                 let bonds_penalty = Self::get_float_bonds_penalty(netuid);
-                if bonds_penalty == I32F32::from_num(1) {
-                    let previous_consensus_u16 = Consensus::<T>::get(netuid);
-                    previous_consensus_u16
-                        .iter()
-                        .map(|&c| {
-                            I32F32::saturating_from_num(c)
-                                .safe_div(I32F32::saturating_from_num(u16::MAX))
-                        })
-                        .collect()
-                } else {
-                    current_consensus.to_vec()
-                }
+                (bonds_penalty == I32F32::from_num(1))
+                    .then(|| Self::get_previous_consensus_as_i32f32(netuid))
+                    .unwrap_or_else(|| current_consensus.to_vec())
             }
         }
+    }
+
+    /// Convert stored consensus (u16 values) to I32F32 format
+    /// Used by consensus modes that need to read from storage
+    fn get_previous_consensus_as_i32f32(netuid: NetUid) -> Vec<I32F32> {
+        let previous_consensus_u16 = Consensus::<T>::get(netuid);
+        previous_consensus_u16
+            .iter()
+            .map(|&c| {
+                I32F32::saturating_from_num(c).safe_div(I32F32::saturating_from_num(u16::MAX))
+            })
+            .collect()
     }
 
     /// Compute liquid alphas matrix
@@ -1619,7 +1615,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), DispatchError> {
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-        Self::set_liquid_alpha_consensus_mode(netuid, mode.clone());
+        Self::set_liquid_alpha_consensus_mode_storage(netuid, mode.clone());
 
         log::debug!("LiquidAlphaConsensusModeSet( netuid: {netuid:?}, mode: {mode:?} )",);
         Ok(())
