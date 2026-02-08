@@ -149,6 +149,8 @@ pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-root-testing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-contracts = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+# pallet-revive temporarily disabled due to compilation errors in EVM runtime module
+pallet-revive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
 # NPoS
 frame-election-provider-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -505,3 +507,4 @@ pallet-safe-mode = { git = "https://github.com/opentensor/polkadot-sdk.git", rev
 sc-consensus-manual-seal = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "df2f9b531e05ab2fa58a25113627c02d6fe96aaa" }
 sp-crypto-ec-utils = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "df2f9b531e05ab2fa58a25113627c02d6fe96aaa" }
 substrate-bip39 = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "df2f9b531e05ab2fa58a25113627c02d6fe96aaa" }
+pallet-revive = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "df2f9b531e05ab2fa58a25113627c02d6fe96aaa" }
