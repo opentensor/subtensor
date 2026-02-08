@@ -1,3 +1,4 @@
+use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_ok};
 use sp_core::U256;
 use substrate_fixed::types::I32F32;
@@ -175,7 +176,7 @@ fn test_compute_consensus_current_mode() {
 
         // Setup network and test data
         setup_consensus_test_environment(netuid);
-        SubtensorModule::set_liquid_alpha_consensus_mode(netuid, ConsensusMode::Current);
+        SubtensorModule::set_liquid_alpha_consensus_mode_storage(netuid, ConsensusMode::Current);
         let (current_consensus, _previous_values) = create_test_consensus_data(netuid);
 
         // Compute consensus for liquid alpha
@@ -199,7 +200,7 @@ fn test_compute_consensus_previous_mode() {
 
         // Setup network and test data
         setup_consensus_test_environment(netuid);
-        SubtensorModule::set_liquid_alpha_consensus_mode(netuid, ConsensusMode::Previous);
+        SubtensorModule::set_liquid_alpha_consensus_mode_storage(netuid, ConsensusMode::Previous);
         let (current_consensus, previous_values) = create_test_consensus_data(netuid);
 
         // Compute consensus for liquid alpha
@@ -210,15 +211,10 @@ fn test_compute_consensus_previous_mode() {
         assert_eq!(result.len(), n);
         for (res, &prev) in result.iter().zip(previous_values.iter()) {
             let expected = I32F32::from_num(prev);
-            // Allow small floating point difference
-            let diff = if *res > expected {
-                *res - expected
-            } else {
-                expected - *res
-            };
-            assert!(
-                diff < I32F32::from_num(0.001),
-                "Values should be approximately equal"
+            assert_abs_diff_eq!(
+                res.to_num::<f32>(),
+                expected.to_num::<f32>(),
+                epsilon = 0.001
             );
         }
     });
@@ -233,7 +229,7 @@ fn test_compute_consensus_auto_mode() {
 
         // Setup network and test data
         setup_consensus_test_environment(netuid);
-        SubtensorModule::set_liquid_alpha_consensus_mode(netuid, ConsensusMode::Auto);
+        SubtensorModule::set_liquid_alpha_consensus_mode_storage(netuid, ConsensusMode::Auto);
         let (current_consensus, previous_values) = create_test_consensus_data(netuid);
 
         // Test 1: bond_penalty != 1, should use Current
@@ -257,14 +253,10 @@ fn test_compute_consensus_auto_mode() {
         assert_eq!(result.len(), n);
         for (res, &prev) in result.iter().zip(previous_values.iter()) {
             let expected = I32F32::from_num(prev);
-            let diff = if *res > expected {
-                *res - expected
-            } else {
-                expected - *res
-            };
-            assert!(
-                diff < I32F32::from_num(0.001),
-                "Should use previous consensus when bond_penalty == 1"
+            assert_abs_diff_eq!(
+                res.to_num::<f32>(),
+                expected.to_num::<f32>(),
+                epsilon = 0.001
             );
         }
     });

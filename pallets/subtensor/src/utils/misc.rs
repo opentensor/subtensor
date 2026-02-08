@@ -780,7 +780,7 @@ impl<T: Config> Pallet<T> {
         LiquidAlphaConsensusMode::<T>::get(netuid)
     }
 
-    pub fn set_liquid_alpha_consensus_mode(netuid: NetUid, mode: ConsensusMode) {
+    pub fn set_liquid_alpha_consensus_mode_storage(netuid: NetUid, mode: ConsensusMode) {
         LiquidAlphaConsensusMode::<T>::insert(netuid, mode);
     }
 
