@@ -997,3 +997,187 @@ fn test_basic_major_root_half_weights_no_minor_root() {
         );
     });
 }
+
+// ===========================================================================
+// Test 7: Root validators abandon, then return
+//
+// Phase 1: Root validators don't set weights on SN1. Only subnet validators
+//          set weights. Hard cap triggers (utilization < 0.5), ERP = 0,
+//          root dividends recycled.
+// Phase 2: Root validators set weights to miner and we advance epochs.
+//          Subnet recovers — ERP > 0, root dividends flow again.
+//
+// This proves the hard cap is not permanent: subnets can recover once root
+// validators resume validating.
+//
+// Run:
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::wide_scope_dividend::test_root_validators_abandon_then_return --exact --show-output --nocapture
+// ===========================================================================
+#[test]
+fn test_root_validators_abandon_then_return() {
+    new_test_ext(1).execute_with(|| {
+        let setup = setup_test();
+        let netuid1 = setup.netuid1;
+
+        // Override prices to 0.6 (root_sell_flag = true: 2*0.6=1.2 > 1.0)
+        let tao_reserve = TaoCurrency::from(600_000u64);
+        let alpha_reserve = AlphaCurrency::from(1_000_000u64);
+        setup_reserves(netuid1, tao_reserve, alpha_reserve);
+        setup_reserves(setup.netuid2, tao_reserve, alpha_reserve);
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.6));
+        SubnetMovingPrice::<Test>::insert(setup.netuid2, I96F32::from_num(0.6));
+
+        let miner1_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid1, &U256::from(MINER1_HK)).unwrap();
+
+        // ====================================================================
+        // PHASE 1: Root validators ABANDON the subnet (don't set weights)
+        // Only subnet validators set weights to miner.
+        // ====================================================================
+        for hk_id in [MAJOR_SN1_HK, MINOR_SN1_HK] {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(hk_id)),
+                netuid1,
+                vec![miner1_uid],
+                vec![u16::MAX],
+                0
+            ));
+        }
+        log::info!(
+            "Phase 1: Only subnet validators set weights at block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+        // Step 4 blocks: block 1→5. Epochs fire at blocks 3 and 5 for netuid=1, tempo=1.
+        let neurons = sn1_neurons();
+        for _ in 2..=5 {
+            step_block(1);
+        }
+        log::info!(
+            "--- Phase 1 final state (block {}) ---",
+            SubtensorModule::get_current_block_as_u64()
+        );
+        log_subnet_state("SN1 Phase1", netuid1);
+        log_neuron_state("SN1 neurons Phase1", netuid1, &neurons);
+
+        // Phase 1 assertions: hard cap triggered
+        let erp_phase1 = EffectiveRootProp::<Test>::get(netuid1);
+        log::info!("Phase 1 EffectiveRootProp = {:?}", erp_phase1);
+        assert_eq!(
+            erp_phase1,
+            U96F32::from_num(0),
+            "Phase 1: EffectiveRootProp should be 0 (hard cap triggered, root validators abandoned)"
+        );
+
+        // Root validators earned 0 dividends
+        assert_eq!(
+            root_divs_of(MAJOR_ROOT_HK, netuid1),
+            0,
+            "Phase 1: Major root should earn 0 root dividends"
+        );
+        assert_eq!(
+            root_divs_of(MINOR_ROOT_HK, netuid1),
+            0,
+            "Phase 1: Minor root should earn 0 root dividends"
+        );
+
+        // Root stakes unchanged (no dividends converted)
+        assert_eq!(
+            stake_of(MAJOR_ROOT_HK, NetUid::ROOT),
+            MAJOR_ROOT_TAO,
+            "Phase 1: Major root stake should be unchanged"
+        );
+        assert_eq!(
+            stake_of(MINOR_ROOT_HK, NetUid::ROOT),
+            MINOR_ROOT_TAO,
+            "Phase 1: Minor root stake should be unchanged"
+        );
+
+        // Miner earned incentive (subnet still functions, just no root dividends)
+        assert!(
+            stake_of(MINER1_HK, netuid1) > 0,
+            "Phase 1: Miner should still earn incentive"
+        );
+
+        // Subnet validators earned dividends (alpha-only, unaffected by root hard cap)
+        assert!(
+            alpha_divs_of(MAJOR_SN1_HK, netuid1) > 0,
+            "Phase 1: Major SN1 should still earn alpha dividends"
+        );
+
+        // ====================================================================
+        // PHASE 2: Root validators RETURN — set weights to miner
+        // ====================================================================
+        for hk_id in [MAJOR_ROOT_HK, MINOR_ROOT_HK] {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(hk_id)),
+                netuid1,
+                vec![miner1_uid],
+                vec![u16::MAX],
+                0
+            ));
+        }
+        log::info!(
+            "Phase 2: Root validators set weights at block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+        // Step several more blocks so bonds form and dividends flow.
+        // Need at least 2 epochs for bonds to develop: epochs at blocks 7, 9, 11, 13.
+        for _ in 6..=13 {
+            step_block(1);
+        }
+        log::info!(
+            "--- Phase 2 final state (block {}) ---",
+            SubtensorModule::get_current_block_as_u64()
+        );
+        log_subnet_state("SN1 Phase2", netuid1);
+        log_neuron_state("SN1 neurons Phase2", netuid1, &neurons);
+
+        // Phase 2 assertions: subnet has recovered
+        let erp_phase2 = EffectiveRootProp::<Test>::get(netuid1);
+        let rp_phase2 = RootProp::<Test>::get(netuid1);
+        log::info!(
+            "Phase 2 EffectiveRootProp = {:?}, RootProp = {:?}",
+            erp_phase2,
+            rp_phase2
+        );
+        assert!(
+            erp_phase2 > U96F32::from_num(0),
+            "Phase 2: EffectiveRootProp should be > 0 (root validators returned, utilization > 0.5)"
+        );
+
+        // Root validators now earn dividends
+        assert!(
+            root_divs_of(MAJOR_ROOT_HK, netuid1) > 0,
+            "Phase 2: Major root should earn root dividends after returning"
+        );
+        assert!(
+            alpha_divs_of(MAJOR_ROOT_HK, netuid1) > 0,
+            "Phase 2: Major root should earn alpha dividends after returning"
+        );
+
+        // Root stakes increased (root dividends converted to root claimable)
+        assert!(
+            stake_of(MAJOR_ROOT_HK, NetUid::ROOT) > MAJOR_ROOT_TAO,
+            "Phase 2: Major root stake should increase from root dividends"
+        );
+
+        // EffectiveRootProp should be close to RootProp (all root validators active, utilization ≈ 1.0)
+        assert!(
+            erp_phase2 >= rp_phase2,
+            "Phase 2: EffectiveRootProp ({erp_phase2:?}) should be >= RootProp ({rp_phase2:?}) when all root validators returned"
+        );
+
+        // Miner continues earning
+        assert!(
+            stake_of(MINER1_HK, netuid1) > 0,
+            "Phase 2: Miner should continue earning incentive"
+        );
+
+        log::info!(
+            "Test passed: subnet recovered from root validator abandonment. ERP went from 0 to {:?}",
+            erp_phase2
+        );
+    });
+}
