@@ -508,7 +508,6 @@ impl<T: Config> Pallet<T> {
         alpha_dividends: BTreeMap<T::AccountId, U96F32>,
         root_alpha_dividends: BTreeMap<T::AccountId, U96F32>,
     ) {
-
         // Distribute the owner cut.
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid)
             && let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid)
@@ -843,8 +842,8 @@ impl<T: Config> Pallet<T> {
         // Only apply utilization scaling when there are root dividends to scale.
         // When root_alpha is zero (e.g. root_sell_flag=false), there are no root dividends
         // and the utilization metric is meaningless — skip all scaling.
-        let has_root_dividends = !root_alpha_dividends.is_empty()
-            && root_alpha_dividends.values().any(|v| *v > zero);
+        let has_root_dividends =
+            !root_alpha_dividends.is_empty() && root_alpha_dividends.values().any(|v| *v > zero);
 
         if has_root_dividends && utilization < half {
             // Hard cap: recycle ALL root alpha dividends
@@ -860,8 +859,7 @@ impl<T: Config> Pallet<T> {
                 let root_stake_f = asfloat!(root_stake.to_u64());
                 if root_stake_f > zero {
                     let root_alpha_weighted = root_stake_f.saturating_mul(tao_weight);
-                    let alpha_stake =
-                        Self::get_stake_for_hotkey_on_subnet(_hotkey, netuid);
+                    let alpha_stake = Self::get_stake_for_hotkey_on_subnet(_hotkey, netuid);
                     let alpha_stake_f = asfloat!(alpha_stake.to_u64());
                     let total_stake = alpha_stake_f.saturating_add(root_alpha_weighted);
                     if total_stake > zero {
@@ -898,8 +896,7 @@ impl<T: Config> Pallet<T> {
                 let root_stake_f = asfloat!(root_stake.to_u64());
                 if root_stake_f > zero {
                     let root_alpha_weighted = root_stake_f.saturating_mul(tao_weight);
-                    let alpha_stake =
-                        Self::get_stake_for_hotkey_on_subnet(_hotkey, netuid);
+                    let alpha_stake = Self::get_stake_for_hotkey_on_subnet(_hotkey, netuid);
                     let alpha_stake_f = asfloat!(alpha_stake.to_u64());
                     let total_stake = alpha_stake_f.saturating_add(root_alpha_weighted);
                     if total_stake > zero {
@@ -909,10 +906,7 @@ impl<T: Config> Pallet<T> {
                         let reduction =
                             root_portion.saturating_mul(one.saturating_sub(utilization));
                         *alpha_div = (*alpha_div).saturating_sub(reduction);
-                        Self::recycle_subnet_alpha(
-                            netuid,
-                            AlphaCurrency::from(tou64!(reduction)),
-                        );
+                        Self::recycle_subnet_alpha(netuid, AlphaCurrency::from(tou64!(reduction)));
                     }
                 }
             }

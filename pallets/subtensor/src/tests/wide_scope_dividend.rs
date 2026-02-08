@@ -770,11 +770,7 @@ fn test_unstaked_tao_does_not_affect_utilization() {
         // 2. EffectiveRootProp should be >= RootProp (utilization = 1.0, no scaling)
         let erp = EffectiveRootProp::<Test>::get(netuid1);
         let rp = RootProp::<Test>::get(netuid1);
-        log::info!(
-            "EffectiveRootProp = {:?}, RootProp = {:?}",
-            erp,
-            rp
-        );
+        log::info!("EffectiveRootProp = {:?}, RootProp = {:?}", erp, rp);
         assert!(
             erp >= rp,
             "EffectiveRootProp ({erp:?}) should be >= RootProp ({rp:?}) with full utilization"
@@ -788,10 +784,7 @@ fn test_unstaked_tao_does_not_affect_utilization() {
 
         // 4. Unstaked TAO only affects block emission rate, not utilization
         //    The key invariant: utilization denominator = root stake on subnet, not TotalIssuance
-        log::info!(
-            "TotalIssuance = {:?}",
-            TotalIssuance::<Test>::get()
-        );
+        log::info!("TotalIssuance = {:?}", TotalIssuance::<Test>::get());
     });
 }
 
