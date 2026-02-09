@@ -1,6 +1,5 @@
-use super::ShieldKeystore;
 use sp_inherents::{Error, InherentData, InherentIdentifier};
-use std::sync::Arc;
+use stp_shield::ShieldKeystorePtr;
 
 // The inherent identifier for the next MEV-Shield public key.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"shieldpk";
@@ -9,11 +8,11 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"shieldpk";
 pub type InherentType = Option<Vec<u8>>;
 
 pub struct InherentDataProvider {
-    keystore: Arc<ShieldKeystore>,
+    keystore: ShieldKeystorePtr,
 }
 
 impl InherentDataProvider {
-    pub fn new(keystore: Arc<ShieldKeystore>) -> Self {
+    pub fn new(keystore: ShieldKeystorePtr) -> Self {
         Self { keystore }
     }
 }

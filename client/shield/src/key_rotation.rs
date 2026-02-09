@@ -1,15 +1,15 @@
-use super::ShieldKeystore;
 use futures::StreamExt;
 use sc_client_api::BlockchainEvents;
 use sc_service::SpawnTaskHandle;
 use sp_consensus::BlockOrigin;
 use sp_runtime::traits::{Block, Header};
 use std::sync::Arc;
+use stp_shield::ShieldKeystorePtr;
 
 pub fn spawn_key_rotation_on_own_import<B, C>(
     task_spawner: &SpawnTaskHandle,
     client: Arc<C>,
-    keystore: Arc<ShieldKeystore>,
+    keystore: ShieldKeystorePtr,
 ) where
     B: Block,
     C: BlockchainEvents<B> + Send + Sync + 'static,
