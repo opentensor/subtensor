@@ -1762,7 +1762,10 @@ fn generate_genesis_json() -> Vec<u8> {
 
 type EventRecord = frame_system::EventRecord<RuntimeEvent, Hash>;
 
-impl_runtime_apis! {
+pallet_revive::impl_runtime_apis_plus_revive!(
+    Runtime,
+    Executive,
+    EthExtraImpl,
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
             VERSION
@@ -2551,7 +2554,7 @@ impl_runtime_apis! {
 
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
                 .saturating_mul(U96F32::from_num(1_000_000_000))
-                .saturating_to_num()
+                .saturating_to_num::<u64>()
         }
 
         fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
@@ -2562,16 +2565,16 @@ impl_runtime_apis! {
             )
             .map_or_else(
                 |_| SimSwapResult {
-                    tao_amount:   0.into(),
-                    alpha_amount: 0.into(),
-                    tao_fee:      0.into(),
-                    alpha_fee:    0.into(),
+                    tao_amount:   TaoCurrency::from(0u64),
+                    alpha_amount: AlphaCurrency::from(0u64),
+                    tao_fee:      TaoCurrency::from(0u64),
+                    alpha_fee:    AlphaCurrency::from(0u64),
                 },
                 |sr| SimSwapResult {
-                    tao_amount:   sr.amount_paid_in.into(),
-                    alpha_amount: sr.amount_paid_out.into(),
-                    tao_fee:      sr.fee_paid.into(),
-                    alpha_fee:    0.into(),
+                    tao_amount:   TaoCurrency::from(sr.amount_paid_in.to_u64()),
+                    alpha_amount: AlphaCurrency::from(sr.amount_paid_out.to_u64()),
+                    tao_fee:      TaoCurrency::from(sr.fee_paid.to_u64()),
+                    alpha_fee:    AlphaCurrency::from(0u64),
                 },
             )
         }
@@ -2584,21 +2587,21 @@ impl_runtime_apis! {
             )
             .map_or_else(
                 |_| SimSwapResult {
-                    tao_amount:   0.into(),
-                    alpha_amount: 0.into(),
-                    tao_fee:      0.into(),
-                    alpha_fee:    0.into(),
+                    tao_amount:   TaoCurrency::from(0u64),
+                    alpha_amount: AlphaCurrency::from(0u64),
+                    tao_fee:      TaoCurrency::from(0u64),
+                    alpha_fee:    AlphaCurrency::from(0u64),
                 },
                 |sr| SimSwapResult {
-                    tao_amount:   sr.amount_paid_out.into(),
-                    alpha_amount: sr.amount_paid_in.into(),
-                    tao_fee:      0.into(),
-                    alpha_fee:    sr.fee_paid.into(),
+                    tao_amount:   TaoCurrency::from(sr.amount_paid_out.to_u64()),
+                    alpha_amount: AlphaCurrency::from(sr.amount_paid_in.to_u64()),
+                    tao_fee:      TaoCurrency::from(0u64),
+                    alpha_fee:    AlphaCurrency::from(sr.fee_paid.to_u64()),
                 },
             )
         }
     }
-}
+);
 
 #[test]
 fn check_whitelist() {
