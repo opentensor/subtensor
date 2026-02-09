@@ -776,77 +776,42 @@ impl<T: Config> Pallet<T> {
         tao_weight: U96F32,
     ) -> U96F32 {
         let half = U96F32::saturating_from_num(0.5);
-        let one = U96F32::saturating_from_num(1);
         let zero = U96F32::saturating_from_num(0);
 
         let has_root_dividends =
             !root_alpha_dividends.is_empty() && root_alpha_dividends.values().any(|v| *v > zero);
 
-        if !has_root_dividends || utilization >= one {
+        if !has_root_dividends || utilization >= half {
             return zero;
         }
 
         let mut total_recycled = zero;
 
-        if utilization < half {
-            // Hard cap: recycle ALL root alpha dividends
-            let total_root: U96F32 = root_alpha_dividends
-                .values()
-                .fold(zero, |acc, v| acc.saturating_add(*v));
-            Self::recycle_subnet_alpha(netuid, AlphaCurrency::from(tou64!(total_root)));
-            total_recycled = total_recycled.saturating_add(total_root);
-            root_alpha_dividends.clear();
+        // Hard cap: utilization < 0.5 → recycle ALL root alpha dividends
+        let total_root: U96F32 = root_alpha_dividends
+            .values()
+            .fold(zero, |acc, v| acc.saturating_add(*v));
+        Self::recycle_subnet_alpha(netuid, AlphaCurrency::from(tou64!(total_root)));
+        total_recycled = total_recycled.saturating_add(total_root);
+        root_alpha_dividends.clear();
 
-            // Zero root-staked portion of alpha_dividends
-            for (hotkey, alpha_div) in alpha_dividends.iter_mut() {
-                let root_fraction = Self::get_root_dividend_fraction(hotkey, netuid, tao_weight);
-                if root_fraction > zero {
-                    let recycle_amount = (*alpha_div).saturating_mul(root_fraction);
-                    *alpha_div = (*alpha_div).saturating_sub(recycle_amount);
-                    Self::recycle_subnet_alpha(
-                        netuid,
-                        AlphaCurrency::from(tou64!(recycle_amount)),
-                    );
-                    total_recycled = total_recycled.saturating_add(recycle_amount);
-                }
+        // Zero root-staked portion of alpha_dividends
+        for (hotkey, alpha_div) in alpha_dividends.iter_mut() {
+            let root_fraction = Self::get_root_dividend_fraction(hotkey, netuid, tao_weight);
+            if root_fraction > zero {
+                let recycle_amount = (*alpha_div).saturating_mul(root_fraction);
+                *alpha_div = (*alpha_div).saturating_sub(recycle_amount);
+                Self::recycle_subnet_alpha(netuid, AlphaCurrency::from(tou64!(recycle_amount)));
+                total_recycled = total_recycled.saturating_add(recycle_amount);
             }
-
-            // Overwrite EffectiveRootProp to 0
-            EffectiveRootProp::<T>::insert(netuid, U96F32::saturating_from_num(0));
-
-            log::debug!(
-                "Hard cap triggered for netuid {netuid:?}: utilization {utilization:?} < 0.5, all root dividends recycled"
-            );
-        } else {
-            // Scale root_alpha_dividends by utilization
-            for (_hotkey, root_div) in root_alpha_dividends.iter_mut() {
-                let scaled = (*root_div).saturating_mul(utilization);
-                let reduction = (*root_div).saturating_sub(scaled);
-                *root_div = scaled;
-                Self::recycle_subnet_alpha(netuid, AlphaCurrency::from(tou64!(reduction)));
-                total_recycled = total_recycled.saturating_add(reduction);
-            }
-
-            // Scale root-staked portion of alpha_dividends by utilization
-            for (hotkey, alpha_div) in alpha_dividends.iter_mut() {
-                let root_fraction = Self::get_root_dividend_fraction(hotkey, netuid, tao_weight);
-                if root_fraction > zero {
-                    let root_portion = (*alpha_div).saturating_mul(root_fraction);
-                    let reduction =
-                        root_portion.saturating_mul(one.saturating_sub(utilization));
-                    *alpha_div = (*alpha_div).saturating_sub(reduction);
-                    Self::recycle_subnet_alpha(
-                        netuid,
-                        AlphaCurrency::from(tou64!(reduction)),
-                    );
-                    total_recycled = total_recycled.saturating_add(reduction);
-                }
-            }
-
-            log::debug!(
-                "Utilization scaling for netuid {netuid:?}: utilization {utilization:?}, dividends scaled"
-            );
         }
+
+        // Overwrite EffectiveRootProp to 0
+        EffectiveRootProp::<T>::insert(netuid, U96F32::saturating_from_num(0));
+
+        log::debug!(
+            "Hard cap triggered for netuid {netuid:?}: utilization {utilization:?} < 0.5, all root dividends recycled"
+        );
 
         total_recycled
     }

@@ -206,23 +206,21 @@ def analyze_subnets(
         util = compute_utilization(root_divs, hotkeys, root_stakes)
         utilizations[netuid] = util
 
-        # Apply hard cap / scaling
+        # Apply hard cap: util < 0.5 → withhold all; util >= 0.5 → full dividends
         if old_total == 0:
             new_sums[netuid] = 0.0
         elif util < HARD_CAP_THRESHOLD:
             new_sums[netuid] = 0.0
-        elif util < 1.0:
-            new_sums[netuid] = old_total * util
         else:
             new_sums[netuid] = old_total
 
-        # Compute effective root prop = raw_root_prop * utilization
+        # Compute effective root prop
         denom = alpha_total + old_total
         raw_root_prop = old_total / denom if denom > 0 else 0.0
         if old_total > 0 and util < HARD_CAP_THRESHOLD:
             effective_root_props[netuid] = 0.0
         else:
-            effective_root_props[netuid] = raw_root_prop * min(util, 1.0)
+            effective_root_props[netuid] = raw_root_prop
 
     return utilizations, old_sums, new_sums, effective_root_props
 
@@ -386,11 +384,7 @@ def run_debug(node, netuids, target_netuid):
             )
 
         util = weighted_eff_sum / total_root_stake
-        status = (
-            "HARD-CAP" if util < HARD_CAP_THRESHOLD
-            else "SCALED" if util < 1.0
-            else "FULL"
-        )
+        status = "HARD-CAP" if util < HARD_CAP_THRESHOLD else "ACTIVE"
         print(f"\nUtilization: {util:.6f} ({status})")
     else:
         print("\nUtilization: 0.000000 (no root stake or no root divs)")
@@ -418,13 +412,9 @@ def run_analysis(node, netuids):
         n for n in netuids
         if utilizations.get(n, 0) < HARD_CAP_THRESHOLD and old_sums.get(n, 0) > 0
     ]
-    scaled = [
+    active = [
         n for n in netuids
-        if HARD_CAP_THRESHOLD <= utilizations.get(n, 0) < 1.0 and old_sums.get(n, 0) > 0
-    ]
-    full = [
-        n for n in netuids
-        if utilizations.get(n, 0) >= 1.0 and old_sums.get(n, 0) > 0
+        if utilizations.get(n, 0) >= HARD_CAP_THRESHOLD and old_sums.get(n, 0) > 0
     ]
 
     sep = "=" * 90
@@ -436,12 +426,11 @@ def run_analysis(node, netuids):
         f"Hard-capped subnets (util < {HARD_CAP_THRESHOLD}, all root divs recycled): "
         f"{hard_capped}"
     )
-    print(f"Scaled subnets ({HARD_CAP_THRESHOLD} <= util < 1.0): {scaled}")
-    print(f"Full utilization subnets (util >= 1.0): {full}")
+    print(f"Active subnets (util >= {HARD_CAP_THRESHOLD}, full dividends): {active}")
 
     header = (
         f"{'Netuid':>8} {'Utilization':>12} {'Raw Root Divs':>15} "
-        f"{'Scaled Root Divs':>17} {'ERP':>12} {'Status':>12}"
+        f"{'Effective Root Divs':>20} {'ERP':>12} {'Status':>12}"
     )
     print(f"\n{header}")
     print("-" * 90)
@@ -451,15 +440,10 @@ def run_analysis(node, netuids):
         new = new_sums.get(netuid, 0)
         erp = effective_root_props.get(netuid, 0)
         if old > 0 or new > 0:
-            if util < HARD_CAP_THRESHOLD and old > 0:
-                status = "HARD-CAP"
-            elif util < 1.0:
-                status = "SCALED"
-            else:
-                status = "FULL"
+            status = "HARD-CAP" if util < HARD_CAP_THRESHOLD and old > 0 else "ACTIVE"
             print(
                 f"{netuid:>8} {util:>12.6f} {old:>15.2f} "
-                f"{new:>17.2f} {erp:>12.8f} {status:>12}"
+                f"{new:>20.2f} {erp:>12.8f} {status:>12}"
             )
 
     total_old = sum(old_sums.values())
