@@ -2365,6 +2365,10 @@ mod dispatches {
 
             if let RootClaimTypeEnum::KeepSubnets { subnets } = &new_root_claim_type {
                 ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
+                ensure!(
+                    subnets.len() <= MAX_SUBNET_CLAIMS,
+                    Error::<T>::InvalidSubnetNumber
+                );
             }
 
             Self::maybe_add_coldkey_index(&coldkey);
@@ -2408,7 +2412,7 @@ mod dispatches {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                new_value <= I96F32::from(MAX_ROOT_CLAIM_THRESHOLD),
+                new_value <= MAX_ROOT_CLAIM_THRESHOLD,
                 Error::<T>::InvalidRootClaimThreshold
             );
 
