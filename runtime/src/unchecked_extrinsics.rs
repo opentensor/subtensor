@@ -1,10 +1,12 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
     dispatch::{DispatchInfo, GetDispatchInfo},
-    traits::{InherentBuilder, SignedTransactionBuilder},
+    traits::{InherentBuilder, IsSubType, SignedTransactionBuilder},
 };
+use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use serde;
+use sp_core::{H256, U256};
 // use serde::{Deserialize, Serialize};
 use pallet_revive::evm::runtime::EthExtra;
 use sp_runtime::{
@@ -61,13 +63,26 @@ impl<Address, AccountId, Call, Signature, Lookup, E> Checkable<Lookup>
     for UncheckedExtrinsic<Address, Call, Signature, E>
 where
     Address: Member + MaybeDisplay,
-    Call: Encode + Member + SelfContainedCall,
+    Call: Encode
+        + Member
+        + SelfContainedCall
+        + IsSubType<pallet_revive::Call<E::Config>>
+        + From<pallet_revive::Call<E::Config>>,
     Signature: Member + traits::Verify,
     <Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
     E::Extension: Encode + TransactionExtension<Call>,
+    <E::Config as frame_system::Config>::Nonce: TryFrom<U256>,
+    <E::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+    pallet_revive::BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
+    pallet_revive::MomentOf<E::Config>: Into<U256>,
+    <E::Config as frame_system::Config>::RuntimeCall:
+        From<pallet_revive::Call<E::Config>> + IsSubType<pallet_revive::Call<E::Config>>,
+    <<E::Config as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<E::Config>>::Balance: Into<pallet_revive::BalanceOf<E::Config>>,
     AccountId: Member + MaybeDisplay,
     Lookup: traits::Lookup<Source = Address, Target = AccountId>,
     E: EthExtra,
+    // CallOf<E::Config>: From<crate::Call<E::Config>> + IsSubType<crate::Call<E::Config>>,
+    <E::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 {
     type Checked =
         CheckedExtrinsic<AccountId, Call, E::Extension, <Call as SelfContainedCall>::SignedInfo>;
@@ -88,6 +103,22 @@ where
                 function: self.0.function,
             })
         } else {
+            if !self.0.is_signed() {
+                if let Some(pallet_revive::Call::eth_transact { payload }) =
+                    self.0.function.is_sub_type()
+                {
+                    let checked = E::try_into_checked_extrinsic(
+                        payload.to_vec(),
+                        self.0.function.encoded_size(),
+                    )?;
+                    return Ok(CheckedExtrinsic {
+                        signed: CheckedSignature::GenericDelegated(checked.format.into()),
+                        function: checked.function.into(),
+                    })
+                };
+            }
+            // self.0.check(lookup)
+
             let checked = Checkable::<Lookup>::check(self.0, lookup)?;
             Ok(CheckedExtrinsic {
                 signed: CheckedSignature::GenericDelegated(checked.format),
