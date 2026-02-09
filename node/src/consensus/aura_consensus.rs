@@ -3,7 +3,6 @@ use crate::consensus::{ConsensusMechanism, StartAuthoringParams};
 use crate::{
     client::{FullBackend, FullClient},
     ethereum::EthConfiguration,
-    mev_shield::{InherentDataProvider as ShieldInherentDataProvider, ShieldKeystore},
     service::{BIQ, FullSelectChain, GrandpaBlockImport},
 };
 use jsonrpsee::tokio;
@@ -29,6 +28,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block as BlockT;
 use sp_runtime::traits::NumberFor;
+use stc_shield::{InherentDataProvider as ShieldInherentDataProvider, ShieldKeystore};
 use std::{error::Error, sync::Arc};
 
 pub struct AuraConsensus;

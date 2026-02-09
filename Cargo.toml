@@ -33,6 +33,7 @@ members = [
 	"runtime",
 	"support/*",
 	"chain-extensions",
+	"client/shield"
 ]
 resolver = "2"
 
@@ -235,6 +236,8 @@ substrate-prometheus-endpoint = { git = "https://github.com/opentensor/polkadot-
 polkadot-sdk = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "71629fd93b6c12a362a5cfb6331accef9b2b2b61", default-features = false }
 
 runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/opentensor/polkadot-sdk.git", rev = "71629fd93b6c12a362a5cfb6331accef9b2b2b61", default-features = false }
+
+stc-shield = { path = "client/shield", default-features = false }
 
 # Frontier
 fp-evm = { git = "https://github.com/opentensor/frontier", rev = "b51a81bb3f2a94eabaafcde40eab6a91accf3f36", default-features = false }

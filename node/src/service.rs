@@ -21,6 +21,7 @@ use sp_core::crypto::KeyTypeId;
 use sp_keystore::Keystore;
 use sp_runtime::key_types;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
+use stc_shield::{self, ShieldKeystore};
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
@@ -34,7 +35,6 @@ use crate::ethereum::{
     BackendType, EthConfiguration, FrontierBackend, FrontierPartialComponents, StorageOverride,
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
-use crate::mev_shield::{self, ShieldKeystore};
 
 const LOG_TARGET: &str = "node-service";
 
@@ -558,7 +558,7 @@ where
         }
 
         let shield_keystore = Arc::new(ShieldKeystore::new());
-        mev_shield::spawn_key_rotation_on_own_import(
+        stc_shield::spawn_key_rotation_on_own_import(
             &task_manager.spawn_handle(),
             client.clone(),
             shield_keystore.clone(),

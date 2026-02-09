@@ -4,7 +4,6 @@ use crate::{
     client::{FullBackend, FullClient},
     conditional_evm_block_import::ConditionalEVMBlockImport,
     ethereum::EthConfiguration,
-    mev_shield::{InherentDataProvider as ShieldInherentDataProvider, ShieldKeystore},
     service::{BIQ, FullSelectChain, GrandpaBlockImport},
 };
 use fc_consensus::FrontierBlockImport;
@@ -32,6 +31,7 @@ use sp_consensus_slots::SlotDuration;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::NumberFor;
+use stc_shield::{InherentDataProvider as ShieldInherentDataProvider, ShieldKeystore};
 use std::{error::Error, sync::Arc};
 
 pub struct BabeConsensus {

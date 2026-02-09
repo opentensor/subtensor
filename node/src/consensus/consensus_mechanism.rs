@@ -22,11 +22,11 @@ use sp_consensus_slots::SlotDuration;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::NumberFor;
+use stc::ShieldKeystore;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use crate::client::FullClient;
-use crate::mev_shield::ShieldKeystore;
 use crate::service::BIQ;
 use crate::service::FullSelectChain;
 

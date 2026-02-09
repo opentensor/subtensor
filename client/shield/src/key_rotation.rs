@@ -1,8 +1,9 @@
 use super::ShieldKeystore;
 use futures::StreamExt;
+use sc_client_api::BlockchainEvents;
 use sc_service::SpawnTaskHandle;
 use sp_consensus::BlockOrigin;
-use sp_runtime::traits::Header;
+use sp_runtime::traits::{Block, Header};
 use std::sync::Arc;
 
 pub fn spawn_key_rotation_on_own_import<B, C>(
@@ -10,8 +11,8 @@ pub fn spawn_key_rotation_on_own_import<B, C>(
     client: Arc<C>,
     keystore: Arc<ShieldKeystore>,
 ) where
-    B: sp_runtime::traits::Block,
-    C: sc_client_api::BlockchainEvents<B> + Send + Sync + 'static,
+    B: Block,
+    C: BlockchainEvents<B> + Send + Sync + 'static,
 {
     task_spawner.spawn("mev-shield-key-rotation", None, async move {
         log::debug!(target: "mev-shield", "Key-rotation task started");
