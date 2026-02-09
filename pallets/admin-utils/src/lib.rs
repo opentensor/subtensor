@@ -2135,7 +2135,9 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the proportion of top subnets that receive emission
+        /// Sets the proportion of top subnets that receive emission.
+        /// `proportion_ppm` is in parts-per-million: 1_000_000 = 100%, 500_000 = 50%, etc.
+        /// Must be in range (0, 1_000_000].
         #[pallet::call_index(89)]
         #[pallet::weight((
             Weight::from_parts(7_343_000, 0)
@@ -2146,15 +2148,15 @@ pub mod pallet {
         ))]
         pub fn sudo_set_emission_top_subnet_proportion(
             origin: OriginFor<T>,
-            proportion: u16,
+            proportion_ppm: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
-                proportion > 0 && proportion <= 100,
+                proportion_ppm > 0 && proportion_ppm <= 1_000_000,
                 Error::<T>::InvalidValue
             );
-            let prop = U64F64::saturating_from_num(proportion)
-                .saturating_div(U64F64::saturating_from_num(100));
+            let prop = U64F64::saturating_from_num(proportion_ppm)
+                .saturating_div(U64F64::saturating_from_num(1_000_000));
             pallet_subtensor::Pallet::<T>::set_emission_top_subnet_proportion(prop);
             Ok(())
         }
