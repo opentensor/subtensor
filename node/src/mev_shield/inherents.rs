@@ -6,7 +6,7 @@ use std::sync::Arc;
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"shieldpk";
 
 /// The inherent type for the next MEV-Shield public key.
-pub type InherentType = Vec<u8>;
+pub type InherentType = Option<Vec<u8>>;
 
 pub struct InherentDataProvider {
     keystore: Arc<ShieldKeystore>,
@@ -21,8 +21,8 @@ impl InherentDataProvider {
 #[async_trait::async_trait]
 impl sp_inherents::InherentDataProvider for InherentDataProvider {
     async fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
-        let public_key = self.keystore.next_public_key().ok().unwrap_or_default();
-        inherent_data.put_data(INHERENT_IDENTIFIER, &public_key)
+        let public_key = self.keystore.next_public_key().ok();
+        inherent_data.put_data::<InherentType>(INHERENT_IDENTIFIER, &public_key)
     }
 
     async fn try_handle_error(
