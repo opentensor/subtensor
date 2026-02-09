@@ -459,7 +459,7 @@ mod tests {
 
             let identifier = identifier_for(&call);
             let target = RateLimitTarget::Transaction(identifier);
-            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(3)));
+            Limits::<Test, ()>::insert(target, RateLimit::Global(RateLimitKind::Exact(3)));
             LastSeen::<Test, ()>::insert(target, None::<UsageKey>, 1);
 
             let (_valid, post_val, _) =
@@ -475,7 +475,7 @@ mod tests {
             let call = adjustable_call();
             let identifier = identifier_for(&call);
             let target = RateLimitTarget::Transaction(identifier);
-            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(4)));
+            Limits::<Test, ()>::insert(target, RateLimit::Global(RateLimitKind::Exact(4)));
             LastSeen::<Test, ()>::insert(target, Some(1u16), 10);
 
             System::set_block_number(14);
@@ -612,7 +612,7 @@ mod tests {
             let call = remark_call();
             let identifier = identifier_for(&call);
             let target = RateLimitTarget::Transaction(identifier);
-            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(5)));
+            Limits::<Test, ()>::insert(target, RateLimit::Global(RateLimitKind::Exact(5)));
 
             System::set_block_number(10);
 
@@ -651,7 +651,7 @@ mod tests {
             let call = remark_call();
             let identifier = identifier_for(&call);
             let target = RateLimitTarget::Transaction(identifier);
-            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(5)));
+            Limits::<Test, ()>::insert(target, RateLimit::Global(RateLimitKind::Exact(5)));
             LastSeen::<Test, ()>::insert(target, None::<UsageKey>, 20);
 
             System::set_block_number(22);
@@ -680,7 +680,7 @@ mod tests {
                 Box::new(call.clone()),
                 None,
             ));
-            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(5)));
+            Limits::<Test, ()>::insert(target, RateLimit::Global(RateLimitKind::Exact(5)));
 
             System::set_block_number(10);
 
@@ -730,7 +730,7 @@ mod tests {
             let call = remark_call();
             let identifier = identifier_for(&call);
             let target = RateLimitTarget::Transaction(identifier);
-            Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(0)));
+            Limits::<Test, ()>::insert(target, RateLimit::Global(RateLimitKind::Exact(0)));
 
             System::set_block_number(30);
 
@@ -785,7 +785,7 @@ mod tests {
 
             let tx_target = RateLimitTarget::Transaction(identifier);
             let usage_target = RateLimitTarget::Group(group);
-            Limits::<Test, ()>::insert(tx_target, RateLimit::global(RateLimitKind::Exact(2)));
+            Limits::<Test, ()>::insert(tx_target, RateLimit::Global(RateLimitKind::Exact(2)));
             LastSeen::<Test, ()>::insert(usage_target, Some(1u16), 2);
 
             System::set_block_number(5);
@@ -835,7 +835,7 @@ mod tests {
 
             let tx_target = RateLimitTarget::Transaction(identifier);
             let usage_target = RateLimitTarget::Group(group);
-            Limits::<Test, ()>::insert(tx_target, RateLimit::global(RateLimitKind::Exact(5)));
+            Limits::<Test, ()>::insert(tx_target, RateLimit::Global(RateLimitKind::Exact(5)));
             LastSeen::<Test, ()>::insert(usage_target, None::<UsageKey>, 10);
             System::set_block_number(12);
 
@@ -872,7 +872,7 @@ mod tests {
             let tx_target = RateLimitTarget::Transaction(identifier);
             let group_target = RateLimitTarget::Group(group);
             Limits::<Test, ()>::remove(tx_target);
-            Limits::<Test, ()>::insert(group_target, RateLimit::global(RateLimitKind::Exact(5)));
+            Limits::<Test, ()>::insert(group_target, RateLimit::Global(RateLimitKind::Exact(5)));
             LastSeen::<Test, ()>::insert(tx_target, None::<UsageKey>, 10);
             System::set_block_number(12);
 

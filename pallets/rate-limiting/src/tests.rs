@@ -563,7 +563,7 @@ fn cannot_delete_group_in_use_or_unknown() {
         let group = create_group(b"busy", GroupSharing::ConfigOnly);
         let identifier = register(remark_call(), Some(group));
         let target = RateLimitTarget::Group(group);
-        Limits::<Test, ()>::insert(target, RateLimit::global(RateLimitKind::Exact(1)));
+        Limits::<Test, ()>::insert(target, RateLimit::Global(RateLimitKind::Exact(1)));
         LastSeen::<Test, ()>::insert(target, None::<UsageKey>, 10);
 
         // Remove member so only config/usage keep the group in-use.
@@ -675,70 +675,6 @@ fn is_within_limit_detects_rate_limited_scope() {
         )
         .expect("ok");
         assert!(!result);
-    });
-}
-
-#[test]
-fn migrate_usage_key_tracks_scope() {
-    new_test_ext().execute_with(|| {
-        let call = scoped_call();
-        let identifier = identifier_for(&call);
-        let tx_target = target(identifier);
-        LastSeen::<Test, ()>::insert(tx_target, Some(6u16), 10);
-        assert!(RateLimiting::migrate_usage_key(
-            tx_target,
-            Some(6u16),
-            Some(7u16)
-        ));
-        assert_eq!(LastSeen::<Test, ()>::get(tx_target, Some(7u16)), Some(10));
-    });
-}
-
-#[test]
-fn migrate_limit_scope_covers_transitions() {
-    new_test_ext().execute_with(|| {
-        let identifier = register(remark_call(), None);
-        let tx_target = target(identifier);
-
-        // global -> scoped
-        assert!(RateLimiting::migrate_limit_scope(
-            tx_target,
-            None,
-            Some(42u16)
-        ));
-        match Limits::<Test, ()>::get(tx_target) {
-            Some(RateLimit::Scoped(map)) => {
-                assert_eq!(map.get(&42u16), Some(&RateLimitKind::Default))
-            }
-            other => panic!("unexpected config: {:?}", other),
-        }
-
-        // scoped -> scoped
-        assert!(RateLimiting::migrate_limit_scope(
-            tx_target,
-            Some(42u16),
-            Some(43u16)
-        ));
-        match Limits::<Test, ()>::get(tx_target) {
-            Some(RateLimit::Scoped(map)) => {
-                assert_eq!(map.get(&43u16), Some(&RateLimitKind::Default))
-            }
-            other => panic!("unexpected config: {:?}", other),
-        }
-
-        // scoped -> global (only entry)
-        assert!(RateLimiting::migrate_limit_scope(
-            tx_target,
-            Some(43u16),
-            None
-        ));
-        assert!(matches!(
-            Limits::<Test, ()>::get(tx_target),
-            Some(RateLimit::Global(RateLimitKind::Default))
-        ));
-
-        // no-op when scopes identical
-        assert!(RateLimiting::migrate_limit_scope(tx_target, None, None));
     });
 }
 

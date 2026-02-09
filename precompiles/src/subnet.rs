@@ -286,20 +286,12 @@ where
     #[precompile::public("setWeightsSetRateLimit(uint16,uint64)")]
     #[precompile::payable]
     fn set_weights_set_rate_limit(
-        handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        weights_set_rate_limit: u64,
+        _handle: &mut impl PrecompileHandle,
+        _netuid: u16,
+        _weights_set_rate_limit: u64,
     ) -> EvmResult<()> {
-        let call = pallet_rate_limiting::Call::<R>::set_rate_limit {
-            target: RateLimitTarget::Group(rate_limiting::GROUP_WEIGHTS_SET),
-            scope: Some(netuid.into()),
-            limit: RateLimitKind::Exact(weights_set_rate_limit.saturated_into()),
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        // DEPRECATED. Subnet owner cannot set weight setting rate limits
+        Ok(())
     }
 
     #[precompile::public("getAdjustmentAlpha(uint16)")]

@@ -68,7 +68,7 @@ mod benchmarks {
         let call = sample_call::<T>();
         let identifier = TransactionIdentifier::from_call(call.as_ref()).expect("id");
         let target = RateLimitTarget::Transaction(identifier);
-        Limits::<T, ()>::insert(target, RateLimit::global(RateLimitKind::Default));
+        Limits::<T, ()>::insert(target, RateLimit::Global(RateLimitKind::Default));
 
         let limit = RateLimitKind::<BlockNumberFor<T>>::Exact(BlockNumberFor::<T>::from(10u32));
 

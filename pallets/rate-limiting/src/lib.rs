@@ -288,11 +288,6 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    #[pallet::type_value]
-    pub fn DefaultLimitSettingRuleFor<T: Config<I>, I: 'static>() -> T::LimitSettingRule {
-        T::DefaultLimitSettingRule::get()
-    }
-
     /// Stores the rule used to authorize [`Pallet::set_rate_limit`] per call/group target.
     #[pallet::storage]
     #[pallet::getter(fn limit_setting_rule)]
@@ -302,7 +297,7 @@ pub mod pallet {
         RateLimitTarget<<T as Config<I>>::GroupId>,
         <T as Config<I>>::LimitSettingRule,
         ValueQuery,
-        DefaultLimitSettingRuleFor<T, I>,
+        T::DefaultLimitSettingRule,
     >;
 
     /// Tracks when a rate-limited target was last observed per usage key.
@@ -579,7 +574,7 @@ pub mod pallet {
                 let target = *identifier;
                 Limits::<T, I>::mutate(target, |entry| match scope {
                     None => {
-                        *entry = Some(RateLimit::global(*kind));
+                        *entry = Some(RateLimit::Global(*kind));
                     }
                     Some(sc) => {
                         if let Some(config) = entry {
@@ -711,88 +706,6 @@ pub mod pallet {
             }
         }
 
-        /// Inserts or updates the cached usage timestamp for a rate-limited call.
-        ///
-        /// This is primarily intended for migrations that need to hydrate the new tracking storage
-        /// from legacy pallets.
-        pub fn record_last_seen(
-            target: RateLimitTarget<<T as Config<I>>::GroupId>,
-            usage_key: Option<<T as Config<I>>::UsageKey>,
-            block_number: BlockNumberFor<T>,
-        ) {
-            LastSeen::<T, I>::insert(target, usage_key, block_number);
-        }
-
-        /// Migrates a stored rate limit configuration from one scope to another.
-        ///
-        /// Returns `true` when an entry was moved. Passing identical `from`/`to` scopes simply
-        /// checks that a configuration exists.
-        pub fn migrate_limit_scope(
-            target: RateLimitTarget<<T as Config<I>>::GroupId>,
-            from: Option<<T as Config<I>>::LimitScope>,
-            to: Option<<T as Config<I>>::LimitScope>,
-        ) -> bool {
-            if from == to {
-                return Limits::<T, I>::contains_key(target);
-            }
-
-            let mut migrated = false;
-            Limits::<T, I>::mutate(target, |maybe_config| {
-                if let Some(config) = maybe_config {
-                    match (from.as_ref(), to.as_ref()) {
-                        (None, Some(target)) => {
-                            if let RateLimit::Global(kind) = config {
-                                *config = RateLimit::scoped_single(target.clone(), *kind);
-                                migrated = true;
-                            }
-                        }
-                        (Some(source), Some(target)) => {
-                            if let RateLimit::Scoped(map) = config
-                                && let Some(kind) = map.remove(source)
-                            {
-                                map.insert(target.clone(), kind);
-                                migrated = true;
-                            }
-                        }
-                        (Some(source), None) => {
-                            if let RateLimit::Scoped(map) = config
-                                && map.len() == 1
-                                && map.contains_key(source)
-                                && let Some(kind) = map.remove(source)
-                            {
-                                *config = RateLimit::global(kind);
-                                migrated = true;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            });
-
-            migrated
-        }
-
-        /// Migrates the cached usage information for a rate-limited call to a new key.
-        ///
-        /// Returns `true` when an entry was moved. Passing identical keys simply checks that an
-        /// entry exists.
-        pub fn migrate_usage_key(
-            target: RateLimitTarget<<T as Config<I>>::GroupId>,
-            from: Option<<T as Config<I>>::UsageKey>,
-            to: Option<<T as Config<I>>::UsageKey>,
-        ) -> bool {
-            if from == to {
-                return LastSeen::<T, I>::contains_key(target, to);
-            }
-
-            let Some(block) = LastSeen::<T, I>::take(target, from) else {
-                return false;
-            };
-
-            LastSeen::<T, I>::insert(target, to, block);
-            true
-        }
-
         fn target_for(
             identifier: &TransactionIdentifier,
             predicate: impl Fn(GroupSharing) -> bool,
@@ -907,24 +820,16 @@ pub mod pallet {
             Limits::<T, I>::contains_key(tx_target) || CallGroups::<T, I>::contains_key(identifier)
         }
 
-        /// Resolves pallet/extrinsic names into a transaction identifier.
-        pub fn identifier_for_call_names(
-            pallet_name: &str,
-            extrinsic_name: &str,
-        ) -> Option<TransactionIdentifier> {
-            TransactionIdentifier::for_call_names::<<T as Config<I>>::RuntimeCall>(
-                pallet_name,
-                extrinsic_name,
-            )
-        }
-
         /// Returns the configured limit for the specified pallet/extrinsic names, if any.
         pub fn limit_for_call_names(
             pallet_name: &str,
             extrinsic_name: &str,
             scope: Option<<T as Config<I>>::LimitScope>,
         ) -> Option<RateLimitKind<BlockNumberFor<T>>> {
-            let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
+            let identifier = TransactionIdentifier::for_call_names::<<T as Config<I>>::RuntimeCall>(
+                pallet_name,
+                extrinsic_name,
+            )?;
             let target = Self::config_target(&identifier).ok()?;
             Limits::<T, I>::get(target).and_then(|config| config.kind_for(scope.as_ref()).copied())
         }
@@ -935,7 +840,10 @@ pub mod pallet {
             extrinsic_name: &str,
             scope: Option<<T as Config<I>>::LimitScope>,
         ) -> Option<BlockNumberFor<T>> {
-            let identifier = Self::identifier_for_call_names(pallet_name, extrinsic_name)?;
+            let identifier = TransactionIdentifier::for_call_names::<<T as Config<I>>::RuntimeCall>(
+                pallet_name,
+                extrinsic_name,
+            )?;
             let target = Self::config_target(&identifier).ok()?;
             Self::resolved_limit(&target, &scope)
         }
@@ -1024,7 +932,7 @@ pub mod pallet {
                 }
                 Limits::<T, I>::insert(target, RateLimit::Scoped(map));
             } else {
-                Limits::<T, I>::insert(target, RateLimit::global(RateLimitKind::Default));
+                Limits::<T, I>::insert(target, RateLimit::Global(RateLimitKind::Default));
             }
 
             let mut assigned_group = None;
@@ -1097,7 +1005,7 @@ pub mod pallet {
                     None => *slot = Some(RateLimit::scoped_single(scoped.clone(), limit)),
                 });
             } else {
-                Limits::<T, I>::insert(target, RateLimit::global(limit));
+                Limits::<T, I>::insert(target, RateLimit::Global(limit));
             }
 
             Self::deposit_event(Event::RateLimitSet {

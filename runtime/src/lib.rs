@@ -2201,7 +2201,9 @@ impl_runtime_apis! {
             let pallet_name = sp_std::str::from_utf8(&pallet).ok()?;
             let extrinsic_name = sp_std::str::from_utf8(&extrinsic).ok()?;
 
-            let identifier = RateLimiting::<Runtime>::identifier_for_call_names(
+            let identifier = pallet_rate_limiting::TransactionIdentifier::for_call_names::<
+                <Runtime as frame_system::Config>::RuntimeCall,
+            >(
                 pallet_name,
                 extrinsic_name,
             )?;

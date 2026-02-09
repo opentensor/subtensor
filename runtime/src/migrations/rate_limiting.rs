@@ -294,7 +294,7 @@ fn migrate_limits(limit_commits: Vec<(RateLimitTarget<GroupId>, MigratedLimit)>)
     for (target, MigratedLimit { span, scope }) in limit_commits {
         let entry = limits.entry(target).or_insert_with(|| match scope {
             Some(s) => RateLimit::scoped_single(s, RateLimitKind::Exact(span)),
-            None => RateLimit::global(RateLimitKind::Exact(span)),
+            None => RateLimit::Global(RateLimitKind::Exact(span)),
         });
 
         if let Some(netuid) = scope {
@@ -307,7 +307,7 @@ fn migrate_limits(limit_commits: Vec<(RateLimitTarget<GroupId>, MigratedLimit)>)
                 }
             }
         } else {
-            *entry = RateLimit::global(RateLimitKind::Exact(span));
+            *entry = RateLimit::Global(RateLimitKind::Exact(span));
         }
     }
 

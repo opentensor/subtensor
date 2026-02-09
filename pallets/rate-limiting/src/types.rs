@@ -189,11 +189,6 @@ impl<Scope, BlockNumber> RateLimit<Scope, BlockNumber>
 where
     Scope: Ord,
 {
-    /// Convenience helper to build a global configuration.
-    pub fn global(kind: RateLimitKind<BlockNumber>) -> Self {
-        Self::Global(kind)
-    }
-
     /// Convenience helper to build a scoped configuration containing a single entry.
     pub fn scoped_single(scope: Scope, kind: RateLimitKind<BlockNumber>) -> Self {
         let mut map = BTreeMap::new();
