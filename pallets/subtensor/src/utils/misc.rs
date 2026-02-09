@@ -922,7 +922,8 @@ impl<T: Config> Pallet<T> {
         EmissionTopSubnetProportion::<T>::set(proportion);
     }
 
-    /// Sets the absolute maximum number of subnets that receive emission (None = no limit).
+    /// Sets the absolute-limit cutoff for subnets that receive emission (None = no limit).
+    /// Ties at the cutoff are included, so the number of nonzero subnets may exceed N.
     pub fn set_emission_top_subnet_absolute_limit(limit: Option<u16>) {
         match limit {
             Some(l) => EmissionTopSubnetAbsoluteLimit::<T>::put(l),

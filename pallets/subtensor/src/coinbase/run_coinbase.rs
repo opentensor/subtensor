@@ -759,12 +759,11 @@ impl<T: Config> Pallet<T> {
         root_alpha_weighted.checked_div(total_stake).unwrap_or(zero)
     }
 
-    /// Applies utilization-based scaling or hard cap to root dividend maps.
+    /// Applies utilization-based hard cap to root dividend maps.
     ///
-    /// - utilization >= 1.0: no scaling, returns 0 recycled
-    /// - 0.5 <= utilization < 1.0: scales root dividends by utilization, recycles the rest
-    /// - utilization < 0.5 (hard cap): zeroes all root dividends, recycles everything,
-    ///   sets EffectiveRootProp to 0
+    /// - utilization >= 0.5: no scaling, returns 0 recycled
+    /// - utilization < 0.5: hard cap applied; zeroes all root dividends, recycles everything,
+    ///   and sets EffectiveRootProp to 0
     ///
     /// Also adjusts the root-staked portion of alpha_dividends accordingly.
     /// Returns the total amount recycled.
