@@ -17,12 +17,14 @@
     "ethers": "^6.13.5",
     "mocha": "^11.1.0",
     "polkadot-api": "^1.22.0",
+    "revive": "^1.1.8",
     "rxjs": "^7.8.2",
     "scale-ts": "^1.6.1",
     "viem": "2.23.4",
     "ws": "^8.18.2"
   },
   "devDependencies": {
+    "@parity/resolc": "^1.0.0",
     "@types/chai": "^5.0.1",
     "@types/node": "^22.18.0",
     "assert": "^2.1.0",

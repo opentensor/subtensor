@@ -10,6 +10,10 @@ rustup component add rust-src
 cargo install cargo-contract 
 cargo contract build --release 
 
+cargo install --git https://github.com/opentensor/polkadot-sdk \
+--rev df2f9b531e05ab2fa58a25113627c02d6fe96aaa \
+pallet-revive-eth-rpc --locked
+
 cd ../..
 
 scripts/localnet.sh &>/dev/null &
