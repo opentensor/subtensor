@@ -11,7 +11,7 @@ use sp_core::{H256, U256};
 use pallet_revive::evm::runtime::EthExtra;
 use sp_runtime::{
     OpaqueExtrinsic, RuntimeDebug,
-    generic::{self, Preamble},
+    generic::{self, ExtrinsicFormat, Preamble},
     traits::{
         self, Checkable, Dispatchable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata,
         IdentifyAccount, MaybeDisplay, Member, TransactionExtension,
@@ -67,7 +67,8 @@ where
         + Member
         + SelfContainedCall
         + IsSubType<pallet_revive::Call<E::Config>>
-        + From<pallet_revive::Call<E::Config>>,
+        + From<pallet_revive::Call<E::Config>>
+        + From<<<E as EthExtra>::Config as frame_system::Config>::RuntimeCall>,
     Signature: Member + traits::Verify,
     <Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
     E::Extension: Encode + TransactionExtension<Call>,
@@ -78,11 +79,12 @@ where
     <E::Config as frame_system::Config>::RuntimeCall:
         From<pallet_revive::Call<E::Config>> + IsSubType<pallet_revive::Call<E::Config>>,
     <<E::Config as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<E::Config>>::Balance: Into<pallet_revive::BalanceOf<E::Config>>,
-    AccountId: Member + MaybeDisplay,
+    AccountId: Member + MaybeDisplay + From<<E::Config as frame_system::Config>::AccountId> + Into<<E::Config as frame_system::Config>::AccountId>,
     Lookup: traits::Lookup<Source = Address, Target = AccountId>,
     E: EthExtra,
     // CallOf<E::Config>: From<crate::Call<E::Config>> + IsSubType<crate::Call<E::Config>>,
     <E::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+    ExtrinsicFormat<AccountId, <E as EthExtra>::Extension>: From<ExtrinsicFormat<<<E as EthExtra>::Config as frame_system::Config>::AccountId, <E as EthExtra>::Extension>>
 {
     type Checked =
         CheckedExtrinsic<AccountId, Call, E::Extension, <Call as SelfContainedCall>::SignedInfo>;
@@ -117,7 +119,6 @@ where
                     })
                 };
             }
-            // self.0.check(lookup)
 
             let checked = Checkable::<Lookup>::check(self.0, lookup)?;
             Ok(CheckedExtrinsic {
