@@ -1,95 +1,126 @@
-use codec::Encode;
+use chacha20poly1305::{
+    KeyInit, XChaCha20Poly1305, XNonce,
+    aead::{Aead, Payload},
+};
 use ml_kem::{
-    EncodedSizeUser, KemCore, MlKem768, MlKem768Params,
-    kem::{DecapsulationKey, EncapsulationKey},
+    Ciphertext, EncodedSizeUser, KemCore, MlKem768, MlKem768Params,
+    kem::{Decapsulate, DecapsulationKey, EncapsulationKey},
 };
 use rand::rngs::OsRng;
-use std::sync::Mutex;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use std::sync::RwLock;
+use stp_shield::{Error as TraitError, Result as TraitResult, ShieldKeystore};
 
-/// The keystore for the MEV-Shield.
-pub struct ShieldKeystore(Mutex<ShieldKeys>);
+/// An memory-based keystore for the MEV-Shield.
+pub struct MemoryShieldKeystore(RwLock<ShieldKeystoreInner>);
 
-impl ShieldKeystore {
+impl MemoryShieldKeystore {
     pub fn new() -> Self {
-        Self(Mutex::new(ShieldKeys::generate()))
-    }
-
-    pub fn roll_for_next_slot(&self) -> Result<(), anyhow::Error> {
-        let mut keys = self
-            .0
-            .lock()
-            .map_err(|e| anyhow::anyhow!("Failed to lock shield keystore: {}", e))?;
-
-        keys.current_sk.zeroize();
-
-        // SAFETY: We are swapping the private keys and public keys in a safe way
-        // without intermediate variables or implementing "Default" for the key types.
-        unsafe {
-            std::ptr::swap(&raw mut keys.current_sk, &raw mut keys.next_sk);
-            std::ptr::swap(&raw mut keys.current_pk, &raw mut keys.next_pk);
-        }
-
-        let (next_sk, next_pk) = MlKem768::generate(&mut OsRng);
-        keys.next_sk = next_sk.into();
-        keys.next_pk = next_pk.into();
-
-        Ok(())
-    }
-
-    pub fn next_public_key(&self) -> Result<Vec<u8>, anyhow::Error> {
-        let keys = self
-            .0
-            .lock()
-            .map_err(|e| anyhow::anyhow!("Failed to lock shield keystore: {}", e))?;
-        Ok(keys.next_pk.0.clone())
+        Self(RwLock::new(ShieldKeystoreInner::new()))
     }
 }
 
-#[derive(Zeroize, ZeroizeOnDrop)]
-struct PrivateKey(Vec<u8>);
-
-impl From<DecapsulationKey<MlKem768Params>> for PrivateKey {
-    fn from(key: DecapsulationKey<MlKem768Params>) -> Self {
-        PrivateKey(key.as_bytes().to_vec())
+impl ShieldKeystore for MemoryShieldKeystore {
+    fn roll_for_next_slot(&self) -> TraitResult<()> {
+        self.0
+            .write()
+            .map_err(|_| TraitError::Unavailable)?
+            .roll_for_next_slot()
     }
-}
 
-#[derive(Clone, Encode)]
-pub struct PublicKey(Vec<u8>);
+    fn next_public_key(&self) -> TraitResult<Vec<u8>> {
+        self.0
+            .read()
+            .map_err(|_| TraitError::Unavailable)?
+            .next_public_key()
+    }
 
-impl From<EncapsulationKey<MlKem768Params>> for PublicKey {
-    fn from(key: EncapsulationKey<MlKem768Params>) -> Self {
-        PublicKey(key.as_bytes().to_vec())
+    fn mlkem768_decapsulate(&self, ciphertext: &[u8]) -> TraitResult<[u8; 32]> {
+        self.0
+            .read()
+            .map_err(|_| TraitError::Unavailable)?
+            .mlkem768_decapsulate(ciphertext)
+    }
+
+    fn aead_decrypt(
+        &self,
+        key: [u8; 32],
+        nonce: [u8; 24],
+        msg: &[u8],
+        aad: &[u8],
+    ) -> TraitResult<Vec<u8>> {
+        self.0
+            .read()
+            .map_err(|_| TraitError::Unavailable)?
+            .aead_decrypt(key, nonce, msg, aad)
     }
 }
 
 /// Holds the current/next ML‑KEM keypairs in-memory for a single author.
-struct ShieldKeys {
-    current_sk: PrivateKey,
-    current_pk: PublicKey,
-    next_sk: PrivateKey,
-    next_pk: PublicKey,
+pub struct ShieldKeystoreInner {
+    current_pair: ShieldKeyPair,
+    next_pair: ShieldKeyPair,
 }
 
-impl ShieldKeys {
-    fn generate() -> Self {
-        let (current_sk, current_pk) = MlKem768::generate(&mut OsRng);
-        let (next_sk, next_pk) = MlKem768::generate(&mut OsRng);
+impl ShieldKeystoreInner {
+    fn new() -> Self {
         Self {
-            current_sk: PrivateKey::from(current_sk),
-            current_pk: PublicKey::from(current_pk),
-            next_sk: PrivateKey::from(next_sk),
-            next_pk: PublicKey::from(next_pk),
+            current_pair: ShieldKeyPair::generate(),
+            next_pair: ShieldKeyPair::generate(),
         }
     }
-}
 
-impl Zeroize for ShieldKeys {
-    fn zeroize(&mut self) {
-        self.current_sk.zeroize();
-        self.next_sk.zeroize();
+    fn roll_for_next_slot(&mut self) -> TraitResult<()> {
+        std::mem::swap(&mut self.current_pair, &mut self.next_pair);
+        self.next_pair = ShieldKeyPair::generate();
+        Ok(())
+    }
+
+    fn next_public_key(&self) -> TraitResult<Vec<u8>> {
+        Ok(self.next_pair.enc_key.as_bytes().to_vec())
+    }
+
+    fn mlkem768_decapsulate(&self, ciphertext: &[u8]) -> TraitResult<[u8; 32]> {
+        let ciphertext = Ciphertext::<MlKem768>::try_from(ciphertext)
+            .map_err(|e| TraitError::ValidationError(e.to_string()))?;
+        let shared_secret = self
+            .current_pair
+            .dec_key
+            .decapsulate(&ciphertext)
+            .map_err(|_| {
+                TraitError::Other("Failed to decapsulate ciphertext using ML-KEM 768".into())
+            })?;
+
+        Ok(shared_secret.into())
+    }
+
+    fn aead_decrypt(
+        &self,
+        key: [u8; 32],
+        nonce: [u8; 24],
+        msg: &[u8],
+        aad: &[u8],
+    ) -> TraitResult<Vec<u8>> {
+        let aead = XChaCha20Poly1305::new((&key).into());
+        let nonce = XNonce::from_slice(&nonce);
+        let payload = Payload { msg, aad };
+        let decrypted = aead
+            .decrypt(nonce, payload)
+            .map_err(|_| TraitError::Other("Failed to decrypt message using AEAD".into()))?;
+
+        Ok(decrypted)
     }
 }
 
-impl ZeroizeOnDrop for ShieldKeys {}
+/// A pair of ML‑KEM‑768 decapsulation and encapsulation keys.
+#[derive(Debug, Clone)]
+struct ShieldKeyPair {
+    dec_key: DecapsulationKey<MlKem768Params>,
+    enc_key: EncapsulationKey<MlKem768Params>,
+}
+
+impl ShieldKeyPair {
+    fn generate() -> Self {
+        let (dec_key, enc_key) = MlKem768::generate(&mut OsRng);
+        Self { dec_key, enc_key }
+    }
+}
