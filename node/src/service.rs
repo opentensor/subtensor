@@ -21,12 +21,13 @@ use sp_core::crypto::KeyTypeId;
 use sp_keystore::Keystore;
 use sp_runtime::key_types;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
-use stc_shield::{self, ShieldKeystore};
+use stc_shield::{self, MemoryShieldKeystore};
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
 use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
+use stp_shield::ShieldKeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
 use crate::cli::Sealing;
@@ -452,7 +453,7 @@ where
             prometheus_registry.clone(),
         ));
 
-        let shield_keystore = Arc::new(ShieldKeystore::new());
+        let shield_keystore = Arc::new(MemoryShieldKeystore::new());
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
         let pending_create_inherent_data_providers = move |_, ()| {
             let keystore = shield_keystore.clone();
@@ -540,6 +541,8 @@ where
     .await;
 
     if role.is_authority() {
+        let shield_keystore = Arc::new(MemoryShieldKeystore::new());
+
         // manual-seal authorship
         if let Some(sealing) = sealing {
             run_manual_seal_authorship(
@@ -552,12 +555,12 @@ where
                 prometheus_registry.as_ref(),
                 telemetry.as_ref(),
                 commands_stream,
+                shield_keystore.clone(),
             )?;
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
         }
 
-        let shield_keystore = Arc::new(ShieldKeystore::new());
         stc_shield::spawn_key_rotation_on_own_import(
             &task_manager.spawn_handle(),
             client.clone(),
@@ -570,6 +573,7 @@ where
             transaction_pool.clone(),
             prometheus_registry.as_ref(),
             telemetry.as_ref().map(|x| x.handle()),
+            shield_keystore.clone(),
         );
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
@@ -718,6 +722,7 @@ fn run_manual_seal_authorship(
     commands_stream: mpsc::Receiver<
         sc_consensus_manual_seal::rpc::EngineCommand<<Block as BlockT>::Hash>,
     >,
+    shield_keystore: ShieldKeystorePtr,
 ) -> Result<(), ServiceError> {
     let proposer_factory = sc_basic_authorship::ProposerFactory::new(
         task_manager.spawn_handle(),
@@ -725,6 +730,7 @@ fn run_manual_seal_authorship(
         transaction_pool.clone(),
         prometheus_registry,
         telemetry.as_ref().map(|x| x.handle()),
+        shield_keystore,
     );
 
     thread_local!(static TIMESTAMP: RefCell<u64> = const { RefCell::new(0) });

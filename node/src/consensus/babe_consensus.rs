@@ -31,8 +31,8 @@ use sp_consensus_slots::SlotDuration;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::NumberFor;
-use stc_shield::{InherentDataProvider as ShieldInherentDataProvider, ShieldKeystore};
 use std::{error::Error, sync::Arc};
+use stp_shield::ShieldKeystorePtr;
 
 pub struct BabeConsensus {
     babe_link: Option<BabeLink<Block>>,
@@ -43,7 +43,7 @@ impl ConsensusMechanism for BabeConsensus {
     type InherentDataProviders = (
         sp_consensus_babe::inherents::InherentDataProvider,
         sp_timestamp::InherentDataProvider,
-        ShieldInherentDataProvider,
+        stc_shield::InherentDataProvider,
     );
 
     #[allow(clippy::expect_used)]
@@ -113,7 +113,7 @@ impl ConsensusMechanism for BabeConsensus {
 
     fn create_inherent_data_providers(
         slot_duration: SlotDuration,
-        shield_keystore: Arc<ShieldKeystore>,
+        shield_keystore: ShieldKeystorePtr,
     ) -> Result<Self::InherentDataProviders, Box<dyn Error + Send + Sync>> {
         let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
         let slot =
@@ -121,7 +121,7 @@ impl ConsensusMechanism for BabeConsensus {
                 *timestamp,
                 slot_duration,
             );
-        let shield = ShieldInherentDataProvider::new(shield_keystore);
+        let shield = stc_shield::InherentDataProvider::new(shield_keystore);
         Ok((slot, timestamp, shield))
     }
 
