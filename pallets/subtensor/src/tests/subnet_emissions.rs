@@ -1295,12 +1295,7 @@ fn setup_scaling_test() -> (NetUid, U256, U256) {
         netuid,
         AlphaCurrency::from(500_000u64),
     );
-    increase_stake_on_coldkey_hotkey_account(
-        &coldkey2,
-        &hotkey2,
-        500_000u64.into(),
-        NetUid::ROOT,
-    );
+    increase_stake_on_coldkey_hotkey_account(&coldkey2, &hotkey2, 500_000u64.into(), NetUid::ROOT);
 
     // Need SubnetAlphaOut for recycling to work
     SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(10_000_000u64));
@@ -1373,7 +1368,7 @@ fn test_apply_utilization_scaling_no_root_dividends() {
 
 #[test]
 fn test_apply_utilization_scaling_partial() {
-    // utilization = 0.7 → scale root dividends to 70%, recycle 30%
+    // utilization = 0.7 >= 0.5 → full dividends, no scaling, no recycling
     new_test_ext(1).execute_with(|| {
         let (netuid, hotkey1, hotkey2) = setup_scaling_test();
         let tao_weight = U96F32::from_num(0.18);
@@ -1395,42 +1390,32 @@ fn test_apply_utilization_scaling_partial() {
             tao_weight,
         );
 
-        // Root dividends should be scaled to 70%
+        // Root dividends should be unchanged (no scaling when util >= 0.5)
         assert_abs_diff_eq!(
             root_divs.get(&hotkey1).unwrap().to_num::<f64>(),
-            1400.0,
+            2000.0,
             epsilon = 1.0
         );
         assert_abs_diff_eq!(
             root_divs.get(&hotkey2).unwrap().to_num::<f64>(),
-            700.0,
+            1000.0,
             epsilon = 1.0
         );
 
-        // Alpha divs should be reduced by (root_fraction * 30%)
-        // hotkey1 root_fraction ≈ 0.18 * 1M / (900k + 0.18 * 1M) ≈ 0.1666
-        // reduction = 10000 * 0.1666 * 0.3 ≈ 500
-        let alpha1 = alpha_divs.get(&hotkey1).unwrap().to_num::<f64>();
-        assert!(
-            alpha1 < 10000.0,
-            "Alpha divs for hotkey1 should be reduced: {alpha1}"
+        // Alpha divs should be unchanged
+        assert_abs_diff_eq!(
+            alpha_divs.get(&hotkey1).unwrap().to_num::<f64>(),
+            10000.0,
+            epsilon = 1.0
         );
-        assert!(
-            alpha1 > 9000.0,
-            "Alpha divs for hotkey1 should not be reduced too much: {alpha1}"
-        );
-
-        // Total recycled should be > 0
-        assert!(
-            recycled.to_num::<f64>() > 0.0,
-            "Should have recycled some amount"
+        assert_abs_diff_eq!(
+            alpha_divs.get(&hotkey2).unwrap().to_num::<f64>(),
+            5000.0,
+            epsilon = 1.0
         );
 
-        // EffectiveRootProp should NOT be overwritten to 0 (utilization > 0.5)
-        let erp = EffectiveRootProp::<Test>::get(netuid);
-        // ERP may be 0 because compute_and_store_effective_root_prop wasn't called,
-        // but it should NOT have been explicitly set to 0 by apply_utilization_scaling
-        // (hard cap not triggered). We just verify it's the default.
+        // Nothing recycled
+        assert_abs_diff_eq!(recycled.to_num::<f64>(), 0.0, epsilon = 1e-12);
     });
 }
 
@@ -1462,14 +1447,14 @@ fn test_apply_utilization_scaling_hard_cap() {
         );
 
         // Root dividends should be completely cleared
-        assert!(root_divs.is_empty(), "Root divs should be empty after hard cap");
+        assert!(
+            root_divs.is_empty(),
+            "Root divs should be empty after hard cap"
+        );
 
         // Alpha divs should be reduced by their root fraction
         let alpha1 = alpha_divs.get(&hotkey1).unwrap().to_num::<f64>();
-        assert!(
-            alpha1 < 10000.0,
-            "Alpha divs should be reduced: {alpha1}"
-        );
+        assert!(alpha1 < 10000.0, "Alpha divs should be reduced: {alpha1}");
         // hotkey1 root_fraction ≈ 0.1666, so alpha1 ≈ 10000 * (1 - 0.1666) ≈ 8334
         assert_abs_diff_eq!(alpha1, 8334.0, epsilon = 100.0);
 
@@ -1481,17 +1466,13 @@ fn test_apply_utilization_scaling_hard_cap() {
 
         // EffectiveRootProp should be 0
         let erp = EffectiveRootProp::<Test>::get(netuid);
-        assert_abs_diff_eq!(
-            erp.to_num::<f64>(),
-            0.0,
-            epsilon = 1e-12
-        );
+        assert_abs_diff_eq!(erp.to_num::<f64>(), 0.0, epsilon = 1e-12);
     });
 }
 
 #[test]
 fn test_apply_utilization_scaling_at_boundary() {
-    // utilization = 0.5 exactly → should scale, NOT hard cap
+    // utilization = 0.5 exactly → full dividends, NOT hard cap
     new_test_ext(1).execute_with(|| {
         let (netuid, hotkey1, _hotkey2) = setup_scaling_test();
         let tao_weight = U96F32::from_num(0.18);
@@ -1511,16 +1492,26 @@ fn test_apply_utilization_scaling_at_boundary() {
             tao_weight,
         );
 
-        // Root dividends should be scaled to 50%, NOT cleared
-        assert!(!root_divs.is_empty(), "Root divs should NOT be empty at boundary 0.5");
+        // Root dividends should be unchanged (full dividends at boundary)
+        assert!(
+            !root_divs.is_empty(),
+            "Root divs should NOT be empty at boundary 0.5"
+        );
         assert_abs_diff_eq!(
             root_divs.get(&hotkey1).unwrap().to_num::<f64>(),
-            1000.0,
+            2000.0,
             epsilon = 1.0
         );
 
-        // Recycled should be ~1000 (from root divs) + some from alpha root fraction
-        assert!(recycled.to_num::<f64>() > 0.0);
+        // Alpha divs should be unchanged
+        assert_abs_diff_eq!(
+            alpha_divs.get(&hotkey1).unwrap().to_num::<f64>(),
+            10000.0,
+            epsilon = 1.0
+        );
+
+        // Nothing recycled
+        assert_abs_diff_eq!(recycled.to_num::<f64>(), 0.0, epsilon = 1e-12);
     });
 }
 
