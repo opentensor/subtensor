@@ -18,6 +18,16 @@ pub enum Error {
     Other(String),
 }
 
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::Unavailable => write!(f, "Keystore unavailable"),
+            Error::ValidationError(e) => write!(f, "Validation error: {}", e),
+            Error::Other(e) => write!(f, "Other error: {}", e),
+        }
+    }
+}
+
 pub type Result<T> = core::result::Result<T, Error>;
 
 /// Something that generates, stores and provides access to secret keys
