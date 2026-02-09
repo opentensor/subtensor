@@ -1197,7 +1197,7 @@ impl<F: FindAuthor<u32>> FindAuthor<AccountId> for FindAuthorTruncated2<F> {
                     let raw_vec = authority_id.to_raw_vec();
                     if raw_vec.len() >= 32 {
                         let mut account_bytes = [0u8; 32];
-                        account_bytes.copy_from_slice(&raw_vec[..32]);
+                        account_bytes.copy_from_slice(&raw_vec.get(..32)?);
                         Some(AccountId::from(AccountId32::from(account_bytes)))
                     } else {
                         None
