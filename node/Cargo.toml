@@ -78,6 +78,7 @@ sp-keystore.workspace = true
 polkadot-sdk = { workspace = true, features = [
 	"cumulus-primitives-proof-size-hostfunction",
 ] }
+stc-shield = { workspace = true }
 
 # These dependencies are used for the subtensor's RPCs
 jsonrpsee = { workspace = true, features = ["server"] }
