@@ -1382,9 +1382,11 @@ impl<T: Config> Pallet<T> {
             ConsensusMode::Auto => {
                 // Auto mode: Previous if bond_penalty == 1, otherwise Current
                 let bonds_penalty = Self::get_float_bonds_penalty(netuid);
-                (bonds_penalty == I32F32::from_num(1))
-                    .then(|| Self::get_previous_consensus_as_i32f32(netuid))
-                    .unwrap_or_else(|| current_consensus.to_vec())
+                if bonds_penalty == I32F32::from_num(1) {
+                    Self::get_previous_consensus_as_i32f32(netuid)
+                } else {
+                    current_consensus.to_vec()
+                }
             }
         }
     }

@@ -2620,7 +2620,7 @@ mod dispatches {
             Weight::from_parts(10_000, 0)
             .saturating_add(T::DbWeight::get().reads(2))
             .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn set_liquid_alpha_consensus_mode(
