@@ -1,0 +1,19 @@
+[package]
+name = "stp-io"
+description = "Subtensor runtime primitives for I/O"
+version = "0.1.0"
+edition.workspace = true
+
+
+[dependencies]
+codec.workspace = true
+sp-runtime-interface.workspace = true
+sp-externalities.workspace = true
+stp-shield.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["std"]
+std = []
