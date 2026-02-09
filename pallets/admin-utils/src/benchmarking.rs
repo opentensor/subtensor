@@ -263,7 +263,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 2048u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 256u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
     }
 
     #[benchmark]
