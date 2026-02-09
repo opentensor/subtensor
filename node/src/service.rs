@@ -557,6 +557,13 @@ where
             return Ok(task_manager);
         }
 
+        let shield_keystore = Arc::new(ShieldKeystore::new());
+        mev_shield::spawn_key_rotation_on_own_import(
+            &task_manager.spawn_handle(),
+            client.clone(),
+            shield_keystore.clone(),
+        );
+
         let proposer_factory = sc_basic_authorship::ProposerFactory::new(
             task_manager.spawn_handle(),
             client.clone(),
