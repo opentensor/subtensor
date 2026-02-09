@@ -19,7 +19,9 @@ impl<T: Config> Pallet<T> {
         );
         let mut last_idx = start_index;
         for i in 0..k {
-            let bh_idx: usize = ((i.saturating_mul(8)) % 32) as usize;
+            let bh_idx: usize =
+                usize::try_from(i.saturating_mul(8).checked_rem(32).unwrap_or(0))
+                    .unwrap_or(0);
             let idx_step = u64::from_be_bytes(
                 block_hash_bytes
                     .get(bh_idx..(bh_idx.saturating_add(8)))
@@ -276,7 +278,7 @@ impl<T: Config> Pallet<T> {
         // Iterate over all the subnets this hotkey is staked on for root.
         let root_claimable = RootClaimable::<T>::get(hotkey);
         for (netuid, claimable_rate) in root_claimable.iter() {
-            if *netuid == NetUid::ROOT.into() {
+            if *netuid == NetUid::ROOT {
                 continue; // Skip the root netuid.
             }
 
@@ -340,8 +342,6 @@ impl<T: Config> Pallet<T> {
             if let Ok(coldkey) = StakingColdkeysByIndex::<T>::try_get(i) {
                 weight.saturating_accrue(Self::do_root_claim(coldkey.clone(), None));
             }
-
-            continue;
         }
 
         weight

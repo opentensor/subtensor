@@ -109,7 +109,8 @@ impl<T: Config> Pallet<T> {
 
         // ceil(total * proportion): multiply total by proportion and round up
         let top_k_f = U64F64::saturating_from_num(total).saturating_mul(proportion);
-        let top_k = top_k_f.ceil().saturating_to_num::<u64>().max(1) as usize;
+        let top_k = usize::try_from(top_k_f.ceil().saturating_to_num::<u64>().max(1))
+            .unwrap_or(usize::MAX);
 
         log::debug!(
             "EmissionTopSubnetProportion: keeping top {top_k} of {total} subnets (proportion: {proportion:?})"
