@@ -12,7 +12,7 @@ pub struct ShieldKeystore(Mutex<ShieldKeys>);
 
 impl ShieldKeystore {
     pub fn new() -> Self {
-        Self(Mutex::new(ShieldKeys::new()))
+        Self(Mutex::new(ShieldKeys::generate()))
     }
 
     pub fn roll_for_next_slot(&self) -> Result<(), anyhow::Error> {
@@ -22,8 +22,13 @@ impl ShieldKeystore {
             .map_err(|e| anyhow::anyhow!("Failed to lock shield keystore: {}", e))?;
 
         keys.current_sk.zeroize();
-        keys.current_sk = core::mem::take(&mut keys.next_sk);
-        keys.current_pk = core::mem::take(&mut keys.next_pk);
+
+        // SAFETY: We are swapping the private keys and public keys in a safe way
+        // without intermediate variables or implementing "Default" for the key types.
+        unsafe {
+            std::ptr::swap(&raw mut keys.current_sk, &raw mut keys.next_sk);
+            std::ptr::swap(&raw mut keys.current_pk, &raw mut keys.next_pk);
+        }
 
         let (next_sk, next_pk) = MlKem768::generate(&mut OsRng);
         keys.next_sk = next_sk.into();
@@ -32,16 +37,16 @@ impl ShieldKeystore {
         Ok(())
     }
 
-    pub fn next_public_key(&self) -> Result<PublicKey, anyhow::Error> {
+    pub fn next_public_key(&self) -> Result<Vec<u8>, anyhow::Error> {
         let keys = self
             .0
             .lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock shield keystore: {}", e))?;
-        Ok(keys.next_pk.clone())
+        Ok(keys.next_pk.0.clone())
     }
 }
 
-#[derive(Default, Zeroize, ZeroizeOnDrop)]
+#[derive(Zeroize, ZeroizeOnDrop)]
 struct PrivateKey(Vec<u8>);
 
 impl From<DecapsulationKey<MlKem768Params>> for PrivateKey {
@@ -50,7 +55,7 @@ impl From<DecapsulationKey<MlKem768Params>> for PrivateKey {
     }
 }
 
-#[derive(Default, Clone, Encode)]
+#[derive(Clone, Encode)]
 pub struct PublicKey(Vec<u8>);
 
 impl From<EncapsulationKey<MlKem768Params>> for PublicKey {
@@ -59,8 +64,8 @@ impl From<EncapsulationKey<MlKem768Params>> for PublicKey {
     }
 }
 
-/// Holds the current/next ML‑KEM keypairs.
-pub struct ShieldKeys {
+/// Holds the current/next ML‑KEM keypairs in-memory for a single author.
+struct ShieldKeys {
     current_sk: PrivateKey,
     current_pk: PublicKey,
     next_sk: PrivateKey,
@@ -68,7 +73,7 @@ pub struct ShieldKeys {
 }
 
 impl ShieldKeys {
-    pub fn new() -> Self {
+    fn generate() -> Self {
         let (current_sk, current_pk) = MlKem768::generate(&mut OsRng);
         let (next_sk, next_pk) = MlKem768::generate(&mut OsRng);
         Self {
@@ -77,12 +82,6 @@ impl ShieldKeys {
             next_sk: PrivateKey::from(next_sk),
             next_pk: PublicKey::from(next_pk),
         }
-    }
-}
-
-impl Default for ShieldKeys {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
