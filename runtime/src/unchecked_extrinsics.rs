@@ -105,8 +105,8 @@ where
                 function: self.0.function,
             })
         } else {
-            if !self.0.is_signed() {
-                if let Some(pallet_revive::Call::eth_transact { payload }) =
+            if !self.0.is_signed()
+                && let Some(pallet_revive::Call::eth_transact { payload }) =
                     self.0.function.is_sub_type()
                 {
                     let checked = E::try_into_checked_extrinsic(
@@ -118,7 +118,6 @@ where
                         function: checked.function.into(),
                     })
                 };
-            }
 
             let checked = Checkable::<Lookup>::check(self.0, lookup)?;
             Ok(CheckedExtrinsic {
