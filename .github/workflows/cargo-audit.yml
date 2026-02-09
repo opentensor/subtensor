@@ -5,6 +5,10 @@ on:
 jobs:
   create-file:
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: hel1
 
     steps:
       - name: Checkout repository
@@ -12,13 +16,6 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
-#      - name: Cache baedeker build
-#        uses: actions/cache@v4
-#        with:
-#          path: baedeker/target
-#          key: baedeker-${{ runner.os }}-${{ hashFiles('baedeker/Cargo.lock') }}
-#          restore-keys: baedeker-${{ runner.os }}-
 
       - name: Build and install baedeker
         run: |
@@ -33,12 +30,11 @@ jobs:
         run: |
           git clone https://github.com/opentensor/baedeker-for-subtensor.git /tmp/baedeker-for-subtensor
           cd /tmp/baedeker-for-subtensor
-          ./up.sh ./forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://archive.chain.opentensor.ai --corrupted-storage-strategy use-default
+#          ./up.sh ./forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://archive.chain.opentensor.ai --corrupted-storage-strategy use-default
+          ./up.sh ./forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://dev.chain.opentensor.ai:443 --corrupted-storage-strategy use-default
 
-#      - name: Create timestamped file
-#        run: |
-#          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-#          FILENAME="output_${TIMESTAMP}.txt"
-#          echo "File created at $(date)" > "$FILENAME"
-#          echo "Created file: $FILENAME"
-#          cat "$FILENAME"
+      - name: Upload subtensor.json to S3
+        run: |
+          aws s3 cp /tmp/baedeker-for-subtensor/subtensor.json \
+            s3://subtensor/subtensor.json \
+            --endpoint-url https://hel1.your-objectstorage.com
