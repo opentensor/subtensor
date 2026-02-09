@@ -16,7 +16,10 @@ use sp_runtime_interface::{
 };
 use stp_shield::ShieldKeystoreExt;
 
-use alloc::string::String;
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 #[cfg(not(substrate_runtime))]
 use sp_externalities::ExternalitiesExt;

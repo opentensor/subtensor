@@ -14,4 +14,4 @@ workspace = true
 
 [features]
 default = ["std"]
-std = []
+std = ["codec/std", "sp-externalities/std"]
