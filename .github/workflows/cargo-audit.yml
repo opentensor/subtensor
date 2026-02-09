@@ -30,7 +30,7 @@ jobs:
         run: |
           git clone https://github.com/opentensor/baedeker-for-subtensor.git /tmp/baedeker-for-subtensor
           cd /tmp/baedeker-for-subtensor
-          ./up.sh ./forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://dev.chain.opentensor.ai:443 --corrupted-storage-strategy use-default
+          ./up.sh ./forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://archive.chain.opentensor.ai --corrupted-storage-strategy use-default
 
       - name: Upload subtensor.json to S3
         run: |
