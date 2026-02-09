@@ -119,17 +119,9 @@ ahash = { version = "0.8", default-features = false }
 regex = { version = "1.11.1", default-features = false }
 ethereum = { version = "0.18.2", default-features = false }
 num_enum = { version = "0.7.4", default-features = false }
+tokio = { version = "1.38", default-features = false }
+zeroize = { version = "1.8.2", default-features = false }
 
-frame = { package = "polkadot-sdk-frame", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-metadata-hash-extension = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-frame-try-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-metadata = { version = "23.0.0", default-features = false }
 
 pallet-subtensor-proxy = { path = "pallets/proxy", default-features = false }
@@ -286,7 +278,10 @@ rand_chacha = { version = "0.3.1", default-features = false }
 tle = { git = "https://github.com/ideal-lab5/timelock", rev = "5416406cfd32799e31e1795393d4916894de4468", default-features = false }
 
 pallet-shield = { path = "pallets/shield", default-features = false }
-ml-kem = { version = "0.2.0", default-features = true }
+ml-kem = { version = "0.2.2", default-features = false }
+chacha20poly1305 = { version = "0.10", default-features = false }
+rand_core = "0.9.3"
+blake2 = "0.10.6"
 
 # Primitives
 
