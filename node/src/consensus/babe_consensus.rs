@@ -4,6 +4,7 @@ use crate::{
     client::{FullBackend, FullClient},
     conditional_evm_block_import::ConditionalEVMBlockImport,
     ethereum::EthConfiguration,
+    mev_shield::{InherentDataProvider as ShieldInherentDataProvider, ShieldKeystore},
     service::{BIQ, FullSelectChain, GrandpaBlockImport},
 };
 use fc_consensus::FrontierBlockImport;
@@ -42,6 +43,7 @@ impl ConsensusMechanism for BabeConsensus {
     type InherentDataProviders = (
         sp_consensus_babe::inherents::InherentDataProvider,
         sp_timestamp::InherentDataProvider,
+        ShieldInherentDataProvider,
     );
 
     #[allow(clippy::expect_used)]
@@ -111,6 +113,7 @@ impl ConsensusMechanism for BabeConsensus {
 
     fn create_inherent_data_providers(
         slot_duration: SlotDuration,
+        shield_keystore: Arc<ShieldKeystore>,
     ) -> Result<Self::InherentDataProviders, Box<dyn Error + Send + Sync>> {
         let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
         let slot =
@@ -118,7 +121,8 @@ impl ConsensusMechanism for BabeConsensus {
                 *timestamp,
                 slot_duration,
             );
-        Ok((slot, timestamp))
+        let shield = ShieldInherentDataProvider::new(shield_keystore);
+        Ok((slot, timestamp, shield))
     }
 
     fn new() -> Self {

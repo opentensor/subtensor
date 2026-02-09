@@ -3,6 +3,7 @@ use crate::consensus::{ConsensusMechanism, StartAuthoringParams};
 use crate::{
     client::{FullBackend, FullClient},
     ethereum::EthConfiguration,
+    mev_shield::{InherentDataProvider as ShieldInherentDataProvider, ShieldKeystore},
     service::{BIQ, FullSelectChain, GrandpaBlockImport},
 };
 use jsonrpsee::tokio;
@@ -36,6 +37,7 @@ impl ConsensusMechanism for AuraConsensus {
     type InherentDataProviders = (
         sp_consensus_aura::inherents::InherentDataProvider,
         sp_timestamp::InherentDataProvider,
+        ShieldInherentDataProvider,
     );
 
     fn start_authoring<C, SC, I, PF, SO, L, CIDP, BS, Error>(
@@ -101,6 +103,7 @@ impl ConsensusMechanism for AuraConsensus {
 
     fn create_inherent_data_providers(
         slot_duration: SlotDuration,
+        shield_keystore: Arc<ShieldKeystore>,
     ) -> Result<Self::InherentDataProviders, Box<dyn Error + Send + Sync>> {
         let current = sp_timestamp::InherentDataProvider::from_system_time();
         let next_slot = current
@@ -113,7 +116,8 @@ impl ConsensusMechanism for AuraConsensus {
                 *timestamp,
                 slot_duration,
             );
-        Ok((slot, timestamp))
+        let shield = ShieldInherentDataProvider::new(shield_keystore);
+        Ok((slot, timestamp, shield))
     }
 
     fn new() -> Self {

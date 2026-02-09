@@ -34,7 +34,7 @@ use crate::ethereum::{
     BackendType, EthConfiguration, FrontierBackend, FrontierPartialComponents, StorageOverride,
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
-use crate::mev_shield::{author, proposer};
+use crate::mev_shield::{self, ShieldKeystore};
 
 const LOG_TARGET: &str = "node-service";
 
@@ -452,9 +452,12 @@ where
             prometheus_registry.clone(),
         ));
 
+        let shield_keystore = Arc::new(ShieldKeystore::new());
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
-        let pending_create_inherent_data_providers =
-            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
+        let pending_create_inherent_data_providers = move |_, ()| {
+            let keystore = shield_keystore.clone();
+            async move { CM::create_inherent_data_providers(slot_duration, keystore) }
+        };
 
         let rpc_methods = consensus_mechanism.rpc_methods(
             client.clone(),
@@ -483,7 +486,8 @@ where
                 fee_history_cache_limit,
                 execute_gas_limit_multiplier,
                 forced_parent_hashes: None,
-                pending_create_inherent_data_providers,
+                pending_create_inherent_data_providers: pending_create_inherent_data_providers
+                    .clone(),
             };
             let deps = crate::rpc::FullDeps {
                 client: client.clone(),
@@ -535,48 +539,6 @@ where
     )
     .await;
 
-    // ==== MEV-SHIELD HOOKS ====
-    let mut mev_timing: Option<author::TimeParams> = None;
-
-    if role.is_authority() {
-        let slot_duration = consensus_mechanism.slot_duration(&client)?;
-        let slot_duration_ms: u64 = u64::try_from(slot_duration.as_millis()).unwrap_or(u64::MAX);
-
-        // For 12s blocks: announce ≈ 7s, decrypt window ≈ 3s.
-        // For 250ms blocks: announce ≈ 145ms, decrypt window ≈ 62ms, etc.
-        let announce_at_ms_raw = slot_duration_ms.saturating_mul(7).saturating_div(12);
-
-        let decrypt_window_ms = slot_duration_ms.saturating_mul(3).saturating_div(12);
-
-        // Ensure announce_at_ms + decrypt_window_ms never exceeds slot_ms.
-        let max_announce = slot_duration_ms.saturating_sub(decrypt_window_ms);
-        let announce_at_ms = announce_at_ms_raw.min(max_announce);
-
-        let timing = author::TimeParams {
-            slot_ms: slot_duration_ms,
-            announce_at_ms,
-            decrypt_window_ms,
-        };
-        mev_timing = Some(timing.clone());
-
-        // Start author-side tasks with dynamic timing.
-        let mev_ctx = author::spawn_author_tasks::<Block, _, _>(
-            &task_manager.spawn_handle(),
-            client.clone(),
-            transaction_pool.clone(),
-            keystore_container.keystore(),
-            timing.clone(),
-        );
-
-        // Start last-portion-of-slot revealer (decrypt -> submit_one).
-        proposer::spawn_revealer::<Block, _, _>(
-            &task_manager.spawn_handle(),
-            client.clone(),
-            transaction_pool.clone(),
-            mev_ctx.clone(),
-        );
-    }
-
     if role.is_authority() {
         // manual-seal authorship
         if let Some(sealing) = sealing {
@@ -605,27 +567,10 @@ where
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
 
-        let start_fraction: f32 = {
-            let (slot_ms, decrypt_ms) = mev_timing
-                .as_ref()
-                .map(|t| (t.slot_ms, t.decrypt_window_ms))
-                .unwrap_or((slot_duration.as_millis(), 3_000));
-
-            let guard_ms: u64 = 200; // small cushion so reveals hit the pool first
-            let after_decrypt_ms = slot_ms.saturating_sub(decrypt_ms).saturating_add(guard_ms);
-
-            let f_raw = if slot_ms > 0 {
-                (after_decrypt_ms as f32) / (slot_ms as f32)
-            } else {
-                // Extremely defensive fallback; should never happen in practice.
-                0.75
-            };
-
-            f_raw.clamp(0.50, 0.98)
+        let create_inherent_data_providers = move |_, ()| {
+            let keystore = shield_keystore.clone();
+            async move { CM::create_inherent_data_providers(slot_duration, keystore) }
         };
-
-        let create_inherent_data_providers =
-            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
         consensus_mechanism.start_authoring(
             &mut task_manager,
@@ -641,7 +586,7 @@ where
                 force_authoring,
                 backoff_authoring_blocks,
                 keystore: keystore_container.keystore(),
-                block_proposal_slot_portion: SlotProportion::new(start_fraction),
+                block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
                 max_block_proposal_slot_portion: None,
                 telemetry: telemetry.as_ref().map(|x| x.handle()),
             },

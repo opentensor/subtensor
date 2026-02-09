@@ -26,6 +26,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use crate::client::FullClient;
+use crate::mev_shield::ShieldKeystore;
 use crate::service::BIQ;
 use crate::service::FullSelectChain;
 
@@ -85,6 +86,7 @@ pub trait ConsensusMechanism {
     /// Creates IDPs for the consensus mechanism.
     fn create_inherent_data_providers(
         slot_duration: SlotDuration,
+        shield_keystore: Arc<ShieldKeystore>,
     ) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>>;
 
     /// Creates the frontier consensus data provider with this mechanism.
