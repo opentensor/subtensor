@@ -94,6 +94,7 @@ impl<T: Config> Pallet<T> {
     /// Filters subnets so only the top proportion (by share) receive emission.
     /// Uses ceil(count * proportion) to determine how many subnets to keep.
     /// A single subnet always counts as in top 50%.
+    /// Ties at the cutoff are included, so the number kept can exceed ceil(count * proportion).
     pub(crate) fn apply_top_subnet_proportion_filter(shares: &mut BTreeMap<NetUid, U64F64>) {
         let proportion = EmissionTopSubnetProportion::<T>::get();
         let one = U64F64::saturating_from_num(1);
@@ -117,10 +118,11 @@ impl<T: Config> Pallet<T> {
         Self::zero_and_redistribute_bottom_shares(shares, top_k);
     }
 
-    /// Limits the number of subnets receiving emission to an absolute number.
+    /// Applies the absolute-limit feature for subnets receiving emission.
     /// When limit is None, no filtering occurs (disabled).
     /// When limit is Some(N) and less than the number of subnets with nonzero shares,
-    /// zeros shares beyond the top N subnets and re-normalizes.
+    /// subnets strictly below the N-th share are zeroed and the rest are re-normalized.
+    /// Ties at the cutoff are included, so more than N subnets may remain nonzero.
     pub(crate) fn apply_top_subnet_absolute_limit(shares: &mut BTreeMap<NetUid, U64F64>) {
         let limit = match EmissionTopSubnetAbsoluteLimit::<T>::get() {
             Some(limit) => limit,
@@ -137,7 +139,7 @@ impl<T: Config> Pallet<T> {
         }
 
         log::debug!(
-            "EmissionTopSubnetAbsoluteLimit: limiting to top {limit} subnets (had {nonzero_count} nonzero)"
+            "EmissionTopSubnetAbsoluteLimit: applying cutoff at N={limit} with tie inclusion (had {nonzero_count} nonzero)"
         );
 
         Self::zero_and_redistribute_bottom_shares(shares, limit as usize);
@@ -171,13 +173,13 @@ impl<T: Config> Pallet<T> {
 
     pub fn record_tao_inflow(netuid: NetUid, tao: TaoCurrency) {
         SubnetTaoFlow::<T>::mutate(netuid, |flow| {
-            *flow = flow.saturating_add(u64::from(tao) as i64);
+            *flow = flow.saturating_add(i64::try_from(u64::from(tao)).unwrap_or(i64::MAX));
         });
     }
 
     pub fn record_tao_outflow(netuid: NetUid, tao: TaoCurrency) {
         SubnetTaoFlow::<T>::mutate(netuid, |flow| {
-            *flow = flow.saturating_sub(u64::from(tao) as i64)
+            *flow = flow.saturating_sub(i64::try_from(u64::from(tao)).unwrap_or(i64::MAX));
         });
     }
 

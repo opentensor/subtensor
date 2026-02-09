@@ -2159,7 +2159,8 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the absolute limit on number of subnets receiving emission (None = no limit)
+        /// Sets the absolute-limit cutoff for subnets receiving emission (None = no limit).
+        /// Ties at the cutoff are included, so the number of nonzero subnets may exceed N.
         #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(7_343_000, 0)

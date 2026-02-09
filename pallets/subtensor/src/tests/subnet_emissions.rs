@@ -157,137 +157,137 @@ fn inplace_pow_normalize_fractional_exponent() {
         })
 }
 
-// /// Normal (moderate, non-zero) EMA flows across 3 subnets.
-// /// Expect: shares sum to ~1 and are monotonic with flows.
-// #[test]
-// fn get_shares_normal_flows_three_subnets() {
-//     new_test_ext(1).execute_with(|| {
-//         let owner_hotkey = U256::from(10);
-//         let owner_coldkey = U256::from(20);
+/// Normal (moderate, non-zero) EMA flows across 3 subnets.
+/// Expect: shares sum to ~1 and are monotonic with flows.
+#[test]
+fn get_shares_normal_flows_three_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(10);
+        let owner_coldkey = U256::from(20);
 
-//         let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//         let n3 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n3 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-//         let block_num = FlowHalfLife::<Test>::get();
-//         System::set_block_number(block_num);
+        let block_num = FlowHalfLife::<Test>::get();
+        System::set_block_number(block_num);
 
-//         // Set (block_number, flow) with reasonable positive flows
-//         SubnetEmaTaoFlow::<Test>::insert(n1, (block_num, i64f64(1_000.0)));
-//         SubnetEmaTaoFlow::<Test>::insert(n2, (block_num, i64f64(3_000.0)));
-//         SubnetEmaTaoFlow::<Test>::insert(n3, (block_num, i64f64(6_000.0)));
+        // Set (block_number, flow) with reasonable positive flows
+        SubnetEmaTaoFlow::<Test>::insert(n1, (block_num, i64f64(1_000.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n2, (block_num, i64f64(3_000.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n3, (block_num, i64f64(6_000.0)));
 
-//         let subnets = vec![n1, n2, n3];
-//         let shares = SubtensorModule::get_shares(&subnets);
+        let subnets = vec![n1, n2, n3];
+        let shares = SubtensorModule::get_shares(&subnets);
 
-//         // Sum ≈ 1
-//         let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
-//         assert_abs_diff_eq!(sum, 1.0_f64, epsilon = 1e-9);
+        // Sum ≈ 1
+        let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+        assert_abs_diff_eq!(sum, 1.0_f64, epsilon = 1e-9);
 
-//         // Each share in [0,1] and finite
-//         for (k, v) in &shares {
-//             let f = v.to_num::<f64>();
-//             assert!(f.is_finite(), "share for {k:?} not finite");
-//             assert!(
-//                 (0.0..=1.0).contains(&f),
-//                 "share for {k:?} out of [0,1]: {f}"
-//             );
-//         }
+        // Each share in [0,1] and finite
+        for (k, v) in &shares {
+            let f = v.to_num::<f64>();
+            assert!(f.is_finite(), "share for {k:?} not finite");
+            assert!(
+                (0.0..=1.0).contains(&f),
+                "share for {k:?} out of [0,1]: {f}"
+            );
+        }
 
-//         // Monotonicity with the flows: share(n3) > share(n2) > share(n1)
-//         let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-//         let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-//         let s3 = shares.get(&n3).unwrap().to_num::<f64>();
-//         assert!(
-//             s3 > s2 && s2 > s1,
-//             "expected s3 > s2 > s1; got {s1}, {s2}, {s3}"
-//         );
-//     });
-// }
+        // Monotonicity with the flows: share(n3) > share(n2) > share(n1)
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+        let s3 = shares.get(&n3).unwrap().to_num::<f64>();
+        assert!(
+            s3 > s2 && s2 > s1,
+            "expected s3 > s2 > s1; got {s1}, {s2}, {s3}"
+        );
+    });
+}
 
-// /// Very low (but non-zero) EMA flows across 2 subnets.
-// /// Expect: shares sum to ~1 and higher-flow subnet gets higher share.
-// #[test]
-// fn get_shares_low_flows_sum_one_and_ordering() {
-//     new_test_ext(1).execute_with(|| {
-//         let owner_hotkey = U256::from(11);
-//         let owner_coldkey = U256::from(21);
+/// Very low (but non-zero) EMA flows across 2 subnets.
+/// Expect: shares sum to ~1 and higher-flow subnet gets higher share.
+#[test]
+fn get_shares_low_flows_sum_one_and_ordering() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(11);
+        let owner_coldkey = U256::from(21);
 
-//         let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-//         let block_num = FlowHalfLife::<Test>::get();
-//         System::set_block_number(block_num);
+        let block_num = FlowHalfLife::<Test>::get();
+        System::set_block_number(block_num);
 
-//         // Tiny flows to exercise precision/scaling path
-//         SubnetEmaTaoFlow::<Test>::insert(n1, (block_num, i64f64(1e-9)));
-//         SubnetEmaTaoFlow::<Test>::insert(n2, (block_num, i64f64(2e-9)));
+        // Tiny flows to exercise precision/scaling path
+        SubnetEmaTaoFlow::<Test>::insert(n1, (block_num, i64f64(1e-9)));
+        SubnetEmaTaoFlow::<Test>::insert(n2, (block_num, i64f64(2e-9)));
 
-//         let subnets = vec![n1, n2];
-//         let shares = SubtensorModule::get_shares(&subnets);
+        let subnets = vec![n1, n2];
+        let shares = SubtensorModule::get_shares(&subnets);
 
-//         let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
-//         assert_abs_diff_eq!(sum, 1.0_f64, epsilon = 1e-8);
+        let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+        assert_abs_diff_eq!(sum, 1.0_f64, epsilon = 1e-8);
 
-//         for (k, v) in &shares {
-//             let f = v.to_num::<f64>();
-//             assert!(f.is_finite(), "share for {k:?} not finite");
-//             assert!(
-//                 (0.0..=1.0).contains(&f),
-//                 "share for {k:?} out of [0,1]: {f}"
-//             );
-//         }
+        for (k, v) in &shares {
+            let f = v.to_num::<f64>();
+            assert!(f.is_finite(), "share for {k:?} not finite");
+            assert!(
+                (0.0..=1.0).contains(&f),
+                "share for {k:?} out of [0,1]: {f}"
+            );
+        }
 
-//         let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-//         let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-//         assert!(
-//             s2 > s1,
-//             "expected s2 > s1 with higher flow; got s1={s1}, s2={s2}"
-//         );
-//     });
-// }
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+        assert!(
+            s2 > s1,
+            "expected s2 > s1 with higher flow; got s1={s1}, s2={s2}"
+        );
+    });
+}
 
-// /// High EMA flows across 2 subnets.
-// /// Expect: no overflow, shares sum to ~1, and ordering follows flows.
-// #[test]
-// fn get_shares_high_flows_sum_one_and_ordering() {
-//     new_test_ext(1).execute_with(|| {
-//         let owner_hotkey = U256::from(12);
-//         let owner_coldkey = U256::from(22);
+/// High EMA flows across 2 subnets.
+/// Expect: no overflow, shares sum to ~1, and ordering follows flows.
+#[test]
+fn get_shares_high_flows_sum_one_and_ordering() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(12);
+        let owner_coldkey = U256::from(22);
 
-//         let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-//         let block_num = FlowHalfLife::<Test>::get();
-//         System::set_block_number(block_num);
+        let block_num = FlowHalfLife::<Test>::get();
+        System::set_block_number(block_num);
 
-//         // Large but safe flows for I64F64
-//         SubnetEmaTaoFlow::<Test>::insert(n1, (block_num, i64f64(9.0e11)));
-//         SubnetEmaTaoFlow::<Test>::insert(n2, (block_num, i64f64(1.8e12)));
+        // Large but safe flows for I64F64
+        SubnetEmaTaoFlow::<Test>::insert(n1, (block_num, i64f64(9.0e11)));
+        SubnetEmaTaoFlow::<Test>::insert(n2, (block_num, i64f64(1.8e12)));
 
-//         let subnets = vec![n1, n2];
-//         let shares = SubtensorModule::get_shares(&subnets);
+        let subnets = vec![n1, n2];
+        let shares = SubtensorModule::get_shares(&subnets);
 
-//         let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
-//         assert_abs_diff_eq!(sum, 1.0_f64, epsilon = 1e-9);
+        let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+        assert_abs_diff_eq!(sum, 1.0_f64, epsilon = 1e-9);
 
-//         for (k, v) in &shares {
-//             let f = v.to_num::<f64>();
-//             assert!(f.is_finite(), "share for {k:?} not finite");
-//             assert!(
-//                 (0.0..=1.0).contains(&f),
-//                 "share for {k:?} out of [0,1]: {f}"
-//             );
-//         }
+        for (k, v) in &shares {
+            let f = v.to_num::<f64>();
+            assert!(f.is_finite(), "share for {k:?} not finite");
+            assert!(
+                (0.0..=1.0).contains(&f),
+                "share for {k:?} out of [0,1]: {f}"
+            );
+        }
 
-//         let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-//         let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-//         assert!(
-//             s2 > s1,
-//             "expected s2 > s1 with higher flow; got s1={s1}, s2={s2}"
-//         );
-//     });
-// }
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+        assert!(
+            s2 > s1,
+            "expected s2 > s1 with higher flow; got s1={s1}, s2={s2}"
+        );
+    });
+}
 
 /// Helper to (re)seed EMA price & flow at the *current* block.
 fn seed_price_and_flow(n1: NetUid, n2: NetUid, price1: f64, price2: f64, flow1: f64, flow2: f64) {
@@ -298,202 +298,181 @@ fn seed_price_and_flow(n1: NetUid, n2: NetUid, price1: f64, price2: f64, flow1: 
     SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(flow2)));
 }
 
-// /// If one subnet has a negative EMA flow and the other positive,
-// /// the negative one should contribute no weight (treated as zero),
-// /// so the positive-flow subnet gets the full share.
-// #[test]
-// fn get_shares_negative_vs_positive_flow() {
-//     new_test_ext(1).execute_with(|| {
-//         // 2 subnets
-//         let owner_hotkey = U256::from(60);
-//         let owner_coldkey = U256::from(61);
-//         let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+/// If one subnet has a negative EMA flow and the other positive,
+/// the negative one should contribute no weight (treated as zero),
+/// so the positive-flow subnet gets the full share.
+#[test]
+fn get_shares_negative_vs_positive_flow() {
+    new_test_ext(1).execute_with(|| {
+        // 2 subnets
+        let owner_hotkey = U256::from(60);
+        let owner_coldkey = U256::from(61);
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-//         // Configure blending window and current block
-//         let half_life: u64 = FlowHalfLife::<Test>::get();
-//         FlowNormExponent::<Test>::set(u64f64(1.0));
-//         frame_system::Pallet::<Test>::set_block_number(half_life);
-//         TaoFlowCutoff::<Test>::set(I64F64::from_num(0));
+        // Configure blending window and current block
+        let half_life: u64 = FlowHalfLife::<Test>::get();
+        FlowNormExponent::<Test>::set(u64f64(1.0));
+        frame_system::Pallet::<Test>::set_block_number(half_life);
+        TaoFlowCutoff::<Test>::set(I64F64::from_num(0));
 
-//         // Equal EMA prices so price side doesn't bias
-//         SubnetMovingPrice::<Test>::insert(n1, i96f32(1.0));
-//         SubnetMovingPrice::<Test>::insert(n2, i96f32(1.0));
+        // Set flows: n1 negative, n2 positive
+        let now = frame_system::Pallet::<Test>::block_number();
+        SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(-100.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(500.0)));
 
-//         // Set flows: n1 negative, n2 positive
-//         let now = frame_system::Pallet::<Test>::block_number();
-//         SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(-100.0)));
-//         SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(500.0)));
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
 
-//         let shares = SubtensorModule::get_shares(&[n1, n2]);
-//         let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-//         let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+        // Sum ~ 1
+        assert_abs_diff_eq!(s1 + s2, 1.0_f64, epsilon = 1e-9);
+        // Negative flow subnet should not get weight from flow;
+        // positive-flow subnet should get all the allocation.
+        assert!(
+            s2 > 0.999_999 && s1 < 1e-6,
+            "expected s2≈1, s1≈0; got s1={s1}, s2={s2}"
+        );
+    });
+}
 
-//         // Sum ~ 1
-//         assert_abs_diff_eq!(s1 + s2, 1.0_f64, epsilon = 1e-9);
-//         // Negative flow subnet should not get weight from flow; with equal prices mid-window,
-//         // positive-flow subnet should dominate and get all the allocation.
-//         assert!(
-//             s2 > 0.999_999 && s1 < 1e-6,
-//             "expected s2≈1, s1≈0; got s1={s1}, s2={s2}"
-//         );
-//     });
-// }
+/// If both subnets have negative EMA flows, flows should contribute zero weight
+#[test]
+fn get_shares_both_negative_flows_zero_emission() {
+    new_test_ext(1).execute_with(|| {
+        // 2 subnets
+        let owner_hotkey = U256::from(60);
+        let owner_coldkey = U256::from(61);
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-// /// If both subnets have negative EMA flows, flows should contribute zero weight
-// #[test]
-// fn get_shares_both_negative_flows_zero_emission() {
-//     new_test_ext(1).execute_with(|| {
-//         // 2 subnets
-//         let owner_hotkey = U256::from(60);
-//         let owner_coldkey = U256::from(61);
-//         let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        // Configure blending window and current block
+        let half_life: u64 = FlowHalfLife::<Test>::get();
+        FlowNormExponent::<Test>::set(u64f64(1.0));
+        frame_system::Pallet::<Test>::set_block_number(half_life);
+        TaoFlowCutoff::<Test>::set(I64F64::from_num(0));
 
-//         // Configure blending window and current block
-//         let half_life: u64 = FlowHalfLife::<Test>::get();
-//         FlowNormExponent::<Test>::set(u64f64(1.0));
-//         frame_system::Pallet::<Test>::set_block_number(half_life);
-//         TaoFlowCutoff::<Test>::set(I64F64::from_num(0));
+        // Set flows
+        let now = frame_system::Pallet::<Test>::block_number();
+        SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(-100.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(-200.0)));
 
-//         // Equal EMA prices so price side doesn't bias
-//         SubnetMovingPrice::<Test>::insert(n1, i96f32(1.0));
-//         SubnetMovingPrice::<Test>::insert(n2, i96f32(1.0));
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
 
-//         // Set flows
-//         let now = frame_system::Pallet::<Test>::block_number();
-//         SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(-100.0)));
-//         SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(-200.0)));
+        assert!(
+            s1 < 1e-20 && s2 < 1e-20,
+            "expected s2≈0, s1≈0; got s1={s1}, s2={s2}"
+        );
+    });
+}
 
-//         let shares = SubtensorModule::get_shares(&[n1, n2]);
-//         let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-//         let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+/// If both subnets have positive EMA flows lower than or equal to cutoff, flows should contribute zero weight
+#[test]
+fn get_shares_both_below_cutoff_zero_emission() {
+    new_test_ext(1).execute_with(|| {
+        // 2 subnets
+        let owner_hotkey = U256::from(60);
+        let owner_coldkey = U256::from(61);
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-//         assert!(
-//             s1 < 1e-20 && s2 < 1e-20,
-//             "expected s2≈0, s1≈0; got s1={s1}, s2={s2}"
-//         );
-//     });
-// }
+        // Configure blending window and current block
+        let half_life: u64 = FlowHalfLife::<Test>::get();
+        FlowNormExponent::<Test>::set(u64f64(1.0));
+        frame_system::Pallet::<Test>::set_block_number(half_life);
+        TaoFlowCutoff::<Test>::set(I64F64::from_num(2_000));
 
-// /// If both subnets have positive EMA flows lower than or equal to cutoff, flows should contribute zero weight
-// #[test]
-// fn get_shares_both_below_cutoff_zero_emission() {
-//     new_test_ext(1).execute_with(|| {
-//         // 2 subnets
-//         let owner_hotkey = U256::from(60);
-//         let owner_coldkey = U256::from(61);
-//         let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        // Set flows
+        let now = frame_system::Pallet::<Test>::block_number();
+        SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(1000.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(2000.0)));
 
-//         // Configure blending window and current block
-//         let half_life: u64 = FlowHalfLife::<Test>::get();
-//         FlowNormExponent::<Test>::set(u64f64(1.0));
-//         frame_system::Pallet::<Test>::set_block_number(half_life);
-//         TaoFlowCutoff::<Test>::set(I64F64::from_num(2_000));
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
 
-//         // Equal EMA prices so price side doesn't bias
-//         SubnetMovingPrice::<Test>::insert(n1, i96f32(1.0));
-//         SubnetMovingPrice::<Test>::insert(n2, i96f32(1.0));
+        assert!(
+            s1 < 1e-20 && s2 < 1e-20,
+            "expected s2≈0, s1≈0; got s1={s1}, s2={s2}"
+        );
+    });
+}
 
-//         // Set flows
-//         let now = frame_system::Pallet::<Test>::block_number();
-//         SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(1000.0)));
-//         SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(2000.0)));
+/// If one subnet has positive EMA flow lower than cutoff, the other gets full emission
+#[test]
+fn get_shares_one_below_cutoff_other_full_emission() {
+    new_test_ext(1).execute_with(|| {
+        [(1000.0, 2000.00001), (1000.0, 2000.001), (1000.0, 5000.0)]
+            .into_iter()
+            .for_each(|(flow1, flow2)| {
+                // 2 subnets
+                let owner_hotkey = U256::from(60);
+                let owner_coldkey = U256::from(61);
+                let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+                let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-//         let shares = SubtensorModule::get_shares(&[n1, n2]);
-//         let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-//         let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+                // Configure blending window and current block
+                let half_life: u64 = FlowHalfLife::<Test>::get();
+                FlowNormExponent::<Test>::set(u64f64(1.0));
+                frame_system::Pallet::<Test>::set_block_number(half_life);
+                TaoFlowCutoff::<Test>::set(I64F64::from_num(2_000));
 
-//         assert!(
-//             s1 < 1e-20 && s2 < 1e-20,
-//             "expected s2≈0, s1≈0; got s1={s1}, s2={s2}"
-//         );
-//     });
-// }
+                // Set flows
+                let now = frame_system::Pallet::<Test>::block_number();
+                SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(flow1)));
+                SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(flow2)));
 
-// /// If one subnet has positive EMA flow lower than cutoff, the other gets full emission
-// #[test]
-// fn get_shares_one_below_cutoff_other_full_emission() {
-//     new_test_ext(1).execute_with(|| {
-//         [(1000.0, 2000.00001), (1000.0, 2000.001), (1000.0, 5000.0)]
-//             .into_iter()
-//             .for_each(|(flow1, flow2)| {
-//                 // 2 subnets
-//                 let owner_hotkey = U256::from(60);
-//                 let owner_coldkey = U256::from(61);
-//                 let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//                 let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+                let shares = SubtensorModule::get_shares(&[n1, n2]);
+                let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+                let s2 = shares.get(&n2).unwrap().to_num::<f64>();
 
-//                 // Configure blending window and current block
-//                 let half_life: u64 = FlowHalfLife::<Test>::get();
-//                 FlowNormExponent::<Test>::set(u64f64(1.0));
-//                 frame_system::Pallet::<Test>::set_block_number(half_life);
-//                 TaoFlowCutoff::<Test>::set(I64F64::from_num(2_000));
+                // Sum ~ 1
+                assert_abs_diff_eq!(s1 + s2, 1.0_f64, epsilon = 1e-9);
+                assert!(
+                    s2 > 0.999_999 && s1 < 1e-6,
+                    "expected s2≈1, s1≈0; got s1={s1}, s2={s2}"
+                );
+            });
+    });
+}
 
-//                 // Equal EMA prices (price side doesn't bias)
-//                 SubnetMovingPrice::<Test>::insert(n1, i96f32(1.0));
-//                 SubnetMovingPrice::<Test>::insert(n2, i96f32(1.0));
+/// If subnets have negative EMA flows, but they are above the cut-off, emissions are proportional
+/// for all except the bottom one, which gets nothing
+#[test]
+fn get_shares_both_negative_above_cutoff() {
+    new_test_ext(1).execute_with(|| {
+        // 3 subnets
+        let owner_hotkey = U256::from(60);
+        let owner_coldkey = U256::from(61);
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n3 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-//                 // Set flows
-//                 let now = frame_system::Pallet::<Test>::block_number();
-//                 SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(flow1)));
-//                 SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(flow2)));
+        // Configure blending window and current block
+        let half_life: u64 = FlowHalfLife::<Test>::get();
+        FlowNormExponent::<Test>::set(u64f64(1.0));
+        frame_system::Pallet::<Test>::set_block_number(half_life);
+        TaoFlowCutoff::<Test>::set(I64F64::from_num(-1000));
 
-//                 let shares = SubtensorModule::get_shares(&[n1, n2]);
-//                 let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-//                 let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+        // Set flows
+        let now = frame_system::Pallet::<Test>::block_number();
+        SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(-100.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(-300.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n3, (now, i64f64(-400.0)));
 
-//                 // Sum ~ 1
-//                 assert_abs_diff_eq!(s1 + s2, 1.0_f64, epsilon = 1e-9);
-//                 assert!(
-//                     s2 > 0.999_999 && s1 < 1e-6,
-//                     "expected s2≈1, s1≈0; got s1={s1}, s2={s2}"
-//                 );
-//             });
-//     });
-// }
+        let shares = SubtensorModule::get_shares(&[n1, n2, n3]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+        let s3 = shares.get(&n3).unwrap().to_num::<f64>();
 
-// /// If subnets have negative EMA flows, but they are above the cut-off, emissions are proportional
-// /// for all except the bottom one, which gets nothing
-// #[test]
-// fn get_shares_both_negative_above_cutoff() {
-//     new_test_ext(1).execute_with(|| {
-//         // 2 subnets
-//         let owner_hotkey = U256::from(60);
-//         let owner_coldkey = U256::from(61);
-//         let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//         let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-//         let n3 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-
-//         // Configure blending window and current block
-//         let half_life: u64 = FlowHalfLife::<Test>::get();
-//         FlowNormExponent::<Test>::set(u64f64(1.0));
-//         frame_system::Pallet::<Test>::set_block_number(half_life);
-//         TaoFlowCutoff::<Test>::set(I64F64::from_num(-1000.0));
-
-//         // Equal EMA prices so price side doesn't bias
-//         SubnetMovingPrice::<Test>::insert(n1, i96f32(1.0));
-//         SubnetMovingPrice::<Test>::insert(n2, i96f32(1.0));
-//         SubnetMovingPrice::<Test>::insert(n3, i96f32(1.0));
-
-//         // Set flows
-//         let now = frame_system::Pallet::<Test>::block_number();
-//         SubnetEmaTaoFlow::<Test>::insert(n1, (now, i64f64(-100.0)));
-//         SubnetEmaTaoFlow::<Test>::insert(n2, (now, i64f64(-300.0)));
-//         SubnetEmaTaoFlow::<Test>::insert(n3, (now, i64f64(-400.0)));
-
-//         let shares = SubtensorModule::get_shares(&[n1, n2, n3]);
-//         let s1 = shares.get(&n1).unwrap().to_num::<f64>();
-//         let s2 = shares.get(&n2).unwrap().to_num::<f64>();
-//         let s3 = shares.get(&n3).unwrap().to_num::<f64>();
-
-//         assert_abs_diff_eq!(s1, 0.75, epsilon = s1 / 100.0);
-//         assert_abs_diff_eq!(s2, 0.25, epsilon = s2 / 100.0);
-//         assert_abs_diff_eq!(s3, 0.0, epsilon = 1e-9);
-//         assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
-//     });
-// }
+        assert_abs_diff_eq!(s1, 0.75, epsilon = s1 / 100.0);
+        assert_abs_diff_eq!(s2, 0.25, epsilon = s2 / 100.0);
+        assert_abs_diff_eq!(s3, 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
+    });
+}
 
 #[test]
 fn test_effective_root_prop_no_root_dividends() {
@@ -1155,6 +1134,471 @@ fn test_interaction_absolute_limit_stricter_than_proportion() {
         assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(s3, 1.0, epsilon = 1e-9);
+    });
+}
+
+// ===========================================================================
+// Tests for full filter chain composition (ERP scaling -> proportion -> absolute)
+// ===========================================================================
+
+#[test]
+fn test_full_filter_chain_erp_zeroes_shares_then_proportion_sees_fewer_nonzero() {
+    // Full filter chain: apply_effective_root_prop_scaling -> apply_top_subnet_proportion_filter
+    // -> apply_top_subnet_absolute_limit compose correctly.
+    //
+    // Setup: 4 subnets. After ERP scaling, two subnets are effectively zeroed (ERP = 0),
+    // leaving only 2 nonzero. The proportion filter at 50% of 4 would normally keep
+    // ceil(4 * 0.5) = 2, but since only 2 are nonzero, both survive. The absolute limit
+    // of 3 is not binding. Result: exactly 2 nonzero subnets.
+    new_test_ext(1).execute_with(|| {
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(0.5)); // 50%
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(3));
+
+        // Subnets 1 and 2 have zero ERP -> their shares will be zeroed by ERP scaling
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0));
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0));
+        EffectiveRootProp::<Test>::insert(NetUid::from(3), U96F32::from_num(0.5));
+        EffectiveRootProp::<Test>::insert(NetUid::from(4), U96F32::from_num(0.8));
+
+        RootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.5));
+        RootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0.5));
+        RootProp::<Test>::insert(NetUid::from(3), U96F32::from_num(0.5));
+        RootProp::<Test>::insert(NetUid::from(4), U96F32::from_num(0.8));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.25));
+        shares.insert(NetUid::from(2), u64f64(0.25));
+        shares.insert(NetUid::from(3), u64f64(0.25));
+        shares.insert(NetUid::from(4), u64f64(0.25));
+
+        // Step 1: ERP scaling zeros subnets 1 and 2
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+        // Subnets 3 and 4 are the only nonzero ones
+        let nonzero_after_erp = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_after_erp, 2);
+
+        // Step 2: Proportion filter (50% of 4 = ceil(2) = 2)
+        // The top 2 by share are subnets 3 and 4, and subnets 1,2 are already zero.
+        // Threshold is set by 2nd-highest share. Subnets 1,2 are below it -> stay zero.
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        let nonzero_after_prop = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_after_prop, 2);
+
+        // Step 3: Absolute limit of 3 is not binding since only 2 nonzero
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        let nonzero_final = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_final, 2);
+
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+        let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+        assert!(s3 > 0.0);
+        assert!(s4 > 0.0);
+        assert_abs_diff_eq!(s3 + s4, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_full_filter_chain_erp_reduces_then_absolute_limit_binds() {
+    // After ERP scaling, 3 of 5 subnets remain nonzero.
+    // Proportion filter at 100% does nothing.
+    // Absolute limit = 2 then trims to top 2.
+    new_test_ext(1).execute_with(|| {
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(1.0)); // 100%
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(2));
+
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0));
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0));
+        EffectiveRootProp::<Test>::insert(NetUid::from(3), U96F32::from_num(0.3));
+        EffectiveRootProp::<Test>::insert(NetUid::from(4), U96F32::from_num(0.5));
+        EffectiveRootProp::<Test>::insert(NetUid::from(5), U96F32::from_num(0.7));
+
+        RootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.5));
+        RootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0.5));
+        RootProp::<Test>::insert(NetUid::from(3), U96F32::from_num(0.5));
+        RootProp::<Test>::insert(NetUid::from(4), U96F32::from_num(0.5));
+        RootProp::<Test>::insert(NetUid::from(5), U96F32::from_num(0.7));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.2));
+        shares.insert(NetUid::from(2), u64f64(0.2));
+        shares.insert(NetUid::from(3), u64f64(0.2));
+        shares.insert(NetUid::from(4), u64f64(0.2));
+        shares.insert(NetUid::from(5), u64f64(0.2));
+
+        // Step 1: ERP scaling zeros subnets 1 and 2 (ERP=0), leaves 3,4,5
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+        let nonzero_after_erp = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_after_erp, 3);
+
+        // Step 2: Proportion at 100% keeps all
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+        let nonzero_after_prop = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_after_prop, 3);
+
+        // Step 3: Absolute limit of 2 trims to top 2 nonzero by share
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+        let nonzero_final = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_final, 2);
+
+        // Subnets 1 and 2 were zeroed by ERP, subnet 3 zeroed by absolute limit
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s3, 0.0, epsilon = 1e-12);
+
+        let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+        let s5 = shares.get(&NetUid::from(5)).unwrap().to_num::<f64>();
+        assert!(s4 > 0.0);
+        assert!(s5 > 0.0);
+        assert_abs_diff_eq!(s4 + s5, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_full_filter_chain_all_three_filters_active_and_binding() {
+    // ERP scaling differentiates shares, proportion filter trims further,
+    // absolute limit trims even further. Each stage reduces nonzero count.
+    new_test_ext(1).execute_with(|| {
+        EffectiveRootPropEmissionScaling::<Test>::set(true);
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(0.5)); // 50%
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(2));
+
+        // 6 subnets, all start equal. After ERP scaling, subnet 6 has the highest
+        // effective share because it has the highest min(ERP, RP).
+        EffectiveRootProp::<Test>::insert(NetUid::from(1), U96F32::from_num(0.1));
+        EffectiveRootProp::<Test>::insert(NetUid::from(2), U96F32::from_num(0.2));
+        EffectiveRootProp::<Test>::insert(NetUid::from(3), U96F32::from_num(0.3));
+        EffectiveRootProp::<Test>::insert(NetUid::from(4), U96F32::from_num(0.4));
+        EffectiveRootProp::<Test>::insert(NetUid::from(5), U96F32::from_num(0.5));
+        EffectiveRootProp::<Test>::insert(NetUid::from(6), U96F32::from_num(0.6));
+
+        // RootProp >= ERP for all, so min(ERP, RP) = ERP
+        for i in 1u16..=6 {
+            RootProp::<Test>::insert(NetUid::from(i), U96F32::from_num(1.0));
+        }
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        for i in 1u16..=6 {
+            shares.insert(NetUid::from(i), u64f64(1.0 / 6.0));
+        }
+
+        // Step 1: ERP scaling. Each share *= its ERP, then re-normalize.
+        // After: shares proportional to [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+        SubtensorModule::apply_effective_root_prop_scaling(&mut shares);
+        let nonzero_after_erp = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_after_erp, 6);
+
+        // Step 2: Proportion filter at 50% of 6 = ceil(3) = 3. Keep top 3 by share.
+        // That's subnets 4, 5, 6.
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+        let nonzero_after_prop = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_after_prop, 3);
+
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s2, 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(s3, 0.0, epsilon = 1e-12);
+
+        // Step 3: Absolute limit of 2 trims to top 2. Subnets 5 and 6.
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+        let nonzero_final = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(nonzero_final, 2);
+
+        let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+        let s5 = shares.get(&NetUid::from(5)).unwrap().to_num::<f64>();
+        let s6 = shares.get(&NetUid::from(6)).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(s4, 0.0, epsilon = 1e-12);
+        assert!(s5 > 0.0);
+        assert!(s6 > 0.0);
+        assert_abs_diff_eq!(s5 + s6, 1.0, epsilon = 1e-9);
+    });
+}
+
+// ===========================================================================
+// Tie-inclusion tests for zero_and_redistribute_bottom_shares
+// ===========================================================================
+
+#[test]
+fn test_zero_and_redistribute_bottom_shares_multiple_ties_at_cutoff_all_kept() {
+    // 5 subnets: A=0.4, B=0.2, C=0.2, D=0.2, E=0.0 with top_k=2.
+    // Top 1 is A (0.4). The 2nd position threshold is 0.2.
+    // B, C, D all tie at 0.2 (the cutoff), so all must be included.
+    // Result: 4 nonzero subnets (exceeding top_k=2).
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(0.4));
+    shares.insert(NetUid::from(2), u64f64(0.2));
+    shares.insert(NetUid::from(3), u64f64(0.2));
+    shares.insert(NetUid::from(4), u64f64(0.2));
+    shares.insert(NetUid::from(5), u64f64(0.0));
+
+    SubtensorModule::zero_and_redistribute_bottom_shares(&mut shares, 2);
+
+    let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+    let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+    let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+    let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+    let s5 = shares.get(&NetUid::from(5)).unwrap().to_num::<f64>();
+
+    // A and all three tied subnets should be kept (4 nonzero, exceeding top_k=2)
+    assert!(s1 > 0.0, "Subnet 1 (highest) should be kept");
+    assert!(s2 > 0.0, "Subnet 2 should be kept (tie at cutoff)");
+    assert!(s3 > 0.0, "Subnet 3 should be kept (tie at cutoff)");
+    assert!(s4 > 0.0, "Subnet 4 should be kept (tie at cutoff)");
+    assert_abs_diff_eq!(s5, 0.0, epsilon = 1e-12); // Subnet 5 (zero) should stay zero
+
+    let nonzero_count = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+    assert_eq!(
+        nonzero_count, 4,
+        "Tie inclusion should allow more than top_k nonzero subnets"
+    );
+    assert_abs_diff_eq!(s1 + s2 + s3 + s4, 1.0, epsilon = 1e-9);
+}
+
+#[test]
+fn test_zero_and_redistribute_bottom_shares_all_equal_top_k_less_than_total() {
+    // When all subnets have equal shares and top_k < total, all should be kept
+    // because they all tie at the cutoff value.
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(0.2));
+    shares.insert(NetUid::from(2), u64f64(0.2));
+    shares.insert(NetUid::from(3), u64f64(0.2));
+    shares.insert(NetUid::from(4), u64f64(0.2));
+    shares.insert(NetUid::from(5), u64f64(0.2));
+
+    SubtensorModule::zero_and_redistribute_bottom_shares(&mut shares, 1);
+
+    // All 5 subnets should be kept because they all tie at the threshold
+    for i in 1u16..=5 {
+        let s = shares.get(&NetUid::from(i)).unwrap().to_num::<f64>();
+        assert!(
+            s > 0.0,
+            "Subnet {i} should be kept (all tied at cutoff with top_k=1)"
+        );
+    }
+
+    let nonzero_count = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+    assert_eq!(
+        nonzero_count, 5,
+        "All subnets should survive when they all tie"
+    );
+
+    let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+    assert_abs_diff_eq!(sum, 1.0, epsilon = 1e-9);
+}
+
+#[test]
+fn test_zero_and_redistribute_bottom_shares_large_tie_group_exceeds_top_k() {
+    // 6 subnets: top 1 distinct, then 5 tied at the cutoff. top_k=3.
+    // Threshold = value at position 2 (0-indexed). Positions 0-4 have >= threshold.
+    // So 6 nonzero (all tied subnets kept), exceeding top_k=3.
+    let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+    shares.insert(NetUid::from(1), u64f64(0.5));
+    shares.insert(NetUid::from(2), u64f64(0.1));
+    shares.insert(NetUid::from(3), u64f64(0.1));
+    shares.insert(NetUid::from(4), u64f64(0.1));
+    shares.insert(NetUid::from(5), u64f64(0.1));
+    shares.insert(NetUid::from(6), u64f64(0.1));
+
+    SubtensorModule::zero_and_redistribute_bottom_shares(&mut shares, 3);
+
+    // The threshold is set at position 2 (top_k-1=2), which has value 0.1.
+    // All 5 subnets with 0.1 tie at the cutoff + subnet 1 at 0.5.
+    // All 6 should be kept.
+    let nonzero_count = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+    assert_eq!(
+        nonzero_count, 6,
+        "All 6 subnets kept: 1 above threshold + 5 tied at threshold"
+    );
+
+    let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+    assert_abs_diff_eq!(sum, 1.0, epsilon = 1e-9);
+}
+
+// ===========================================================================
+// Tie-inclusion test for apply_top_subnet_proportion_filter
+// ===========================================================================
+
+#[test]
+fn test_apply_top_subnet_proportion_filter_ties_at_boundary_included() {
+    // 5 subnets with shares: A=0.4, B=0.2, C=0.2, D=0.1, E=0.1
+    // Proportion = 40% -> ceil(5 * 0.4) = 2 -> top_k=2.
+    // Top by share: A=0.4 (1st), B=0.2 (2nd-tied), C=0.2 (2nd-tied).
+    // Threshold = 0.2 (value at position 1). B and C tie at boundary,
+    // both should be included -> 3 nonzero (exceeding top_k=2).
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(0.4)); // 40%
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.4));
+        shares.insert(NetUid::from(2), u64f64(0.2));
+        shares.insert(NetUid::from(3), u64f64(0.2));
+        shares.insert(NetUid::from(4), u64f64(0.1));
+        shares.insert(NetUid::from(5), u64f64(0.1));
+
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+        let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+        let s5 = shares.get(&NetUid::from(5)).unwrap().to_num::<f64>();
+
+        assert!(s1 > 0.0, "Subnet 1 (highest) should be kept");
+        assert!(s2 > 0.0, "Subnet 2 should be kept (tie at proportion boundary)");
+        assert!(s3 > 0.0, "Subnet 3 should be kept (tie at proportion boundary)");
+        assert_abs_diff_eq!(s4, 0.0, epsilon = 1e-12); // Subnet 4 should be zeroed
+        assert_abs_diff_eq!(s5, 0.0, epsilon = 1e-12); // Subnet 5 should be zeroed
+
+        let nonzero_count = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(
+            nonzero_count, 3,
+            "Tie inclusion means 3 subnets kept, exceeding ceil(5*0.4)=2"
+        );
+
+        assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_proportion_filter_all_equal_shares() {
+    // When all subnets have equal shares and proportion < 1.0,
+    // all tie at the cutoff -> all should be kept.
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetProportion::<Test>::set(U64F64::saturating_from_num(0.25)); // 25%
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.25));
+        shares.insert(NetUid::from(2), u64f64(0.25));
+        shares.insert(NetUid::from(3), u64f64(0.25));
+        shares.insert(NetUid::from(4), u64f64(0.25));
+
+        SubtensorModule::apply_top_subnet_proportion_filter(&mut shares);
+
+        // All tie -> all should be kept
+        let nonzero_count = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(
+            nonzero_count, 4,
+            "All 4 subnets kept because they all tie at the cutoff"
+        );
+
+        let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+        assert_abs_diff_eq!(sum, 1.0, epsilon = 1e-9);
+    });
+}
+
+// ===========================================================================
+// Tie-inclusion test for apply_top_subnet_absolute_limit
+// ===========================================================================
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_ties_at_boundary_included() {
+    // 5 subnets with shares: A=0.4, B=0.2, C=0.2, D=0.1, E=0.1
+    // Absolute limit = 2. Top 2 by share: A=0.4 (1st), B=0.2 (2nd-tied), C=0.2 (2nd-tied).
+    // Both B and C tie at boundary -> 3 nonzero (exceeding limit=2).
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(2));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.4));
+        shares.insert(NetUid::from(2), u64f64(0.2));
+        shares.insert(NetUid::from(3), u64f64(0.2));
+        shares.insert(NetUid::from(4), u64f64(0.1));
+        shares.insert(NetUid::from(5), u64f64(0.1));
+
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        let s1 = shares.get(&NetUid::from(1)).unwrap().to_num::<f64>();
+        let s2 = shares.get(&NetUid::from(2)).unwrap().to_num::<f64>();
+        let s3 = shares.get(&NetUid::from(3)).unwrap().to_num::<f64>();
+        let s4 = shares.get(&NetUid::from(4)).unwrap().to_num::<f64>();
+        let s5 = shares.get(&NetUid::from(5)).unwrap().to_num::<f64>();
+
+        assert!(s1 > 0.0, "Subnet 1 (highest) should be kept");
+        assert!(s2 > 0.0, "Subnet 2 should be kept (tie at absolute limit boundary)");
+        assert!(s3 > 0.0, "Subnet 3 should be kept (tie at absolute limit boundary)");
+        assert_abs_diff_eq!(s4, 0.0, epsilon = 1e-12); // Subnet 4 should be zeroed
+        assert_abs_diff_eq!(s5, 0.0, epsilon = 1e-12); // Subnet 5 should be zeroed
+
+        let nonzero_count = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(
+            nonzero_count, 3,
+            "Tie inclusion means 3 subnets kept, exceeding limit=2"
+        );
+
+        assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
+        // Verify normalization: 0.4/0.8 = 0.5, 0.2/0.8 = 0.25 each
+        assert_abs_diff_eq!(s1, 0.4 / 0.8, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 0.2 / 0.8, epsilon = 1e-9);
+        assert_abs_diff_eq!(s3, 0.2 / 0.8, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_all_equal_shares() {
+    // When all subnets have equal shares and limit < total nonzero,
+    // all tie at the cutoff -> all should be kept.
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(1));
+
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.2));
+        shares.insert(NetUid::from(2), u64f64(0.2));
+        shares.insert(NetUid::from(3), u64f64(0.2));
+        shares.insert(NetUid::from(4), u64f64(0.2));
+        shares.insert(NetUid::from(5), u64f64(0.2));
+
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        // All tie -> all should be kept despite limit=1
+        let nonzero_count = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(
+            nonzero_count, 5,
+            "All 5 subnets kept because they all tie at the cutoff (limit=1)"
+        );
+
+        let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+        assert_abs_diff_eq!(sum, 1.0, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_apply_top_subnet_absolute_limit_ties_with_large_tie_group() {
+    // 7 subnets: one at 0.3, six tied at ~0.116667. Limit=3.
+    // Threshold at position 2 = ~0.116667. All 6 tied subnets >= threshold.
+    // So all 7 should be kept.
+    new_test_ext(1).execute_with(|| {
+        EmissionTopSubnetAbsoluteLimit::<Test>::set(Some(3));
+
+        let tied_share = 0.7 / 6.0; // ~0.116667
+        let mut shares: BTreeMap<NetUid, U64F64> = BTreeMap::new();
+        shares.insert(NetUid::from(1), u64f64(0.3));
+        for i in 2u16..=7 {
+            shares.insert(NetUid::from(i), u64f64(tied_share));
+        }
+
+        SubtensorModule::apply_top_subnet_absolute_limit(&mut shares);
+
+        let nonzero_count = shares.values().filter(|v| v.to_num::<f64>() > 0.0).count();
+        assert_eq!(
+            nonzero_count, 7,
+            "All 7 kept: 1 above threshold + 6 tied at threshold, exceeding limit=3"
+        );
+
+        let sum: f64 = shares.values().map(|v| v.to_num::<f64>()).sum();
+        assert_abs_diff_eq!(sum, 1.0, epsilon = 1e-9);
     });
 }
 

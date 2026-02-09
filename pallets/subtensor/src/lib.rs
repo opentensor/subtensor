@@ -1290,7 +1290,10 @@ pub mod pallet {
     pub type SubnetMovingPrice<T: Config> =
         StorageMap<_, Identity, NetUid, I96F32, ValueQuery, DefaultMovingPrice<T>>;
 
-    /// --- MAP ( netuid ) --> root_prop | The subnet root proportion.
+    /// --- MAP ( netuid ) --> root_prop | The subnet root proportion (global measure).
+    /// Computed as: tao_weight * root_tao / (tao_weight * root_tao + alpha_issuance).
+    /// This represents the proportion of the subnet's value from root TAO.
+    /// Note: This is distinct from EffectiveRootProp, which accounts for dividend-efficiency utilization.
     #[pallet::storage]
     pub type RootProp<T: Config> =
         StorageMap<_, Identity, NetUid, U96F32, ValueQuery, DefaultRootProp<T>>;
@@ -1494,11 +1497,10 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultFlowEmaSmoothingFactor<T>>;
 
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> EffectiveRootProp for a subnet.
-    /// Computed during epoch in distribute_dividends_and_incentives() as:
-    ///   sum(RootAlphaDividendsPerSubnet[netuid]) /
-    ///   (sum(AlphaDividendsPerSubnet[netuid]) + sum(RootAlphaDividendsPerSubnet[netuid]))
-    /// This measures the proportion of dividends on a subnet that go to root stakers.
+    /// --- MAP ( netuid ) --> EffectiveRootProp for a subnet (per-epoch measure).
+    /// Computed as: raw_root_prop * utilization, where raw_root_prop = root_dividends / (alpha_dividends + root_dividends)
+    /// and utilization is the dividend-efficiency metric. This accounts for actual dividend distribution efficiency.
+    /// Note: This is distinct from RootProp, which is a global measure of value proportion without efficiency adjustment.
     pub type EffectiveRootProp<T: Config> = StorageMap<_, Identity, NetUid, U96F32, ValueQuery>;
 
     #[pallet::type_value]
@@ -1520,15 +1522,16 @@ pub mod pallet {
     #[pallet::storage]
     /// Proportion of subnets (ranked by share) that receive emission.
     /// Value in range [0.0, 1.0] where 0.5 = 50%, 1.0 = 100%.
-    /// Only the top ceil(count * proportion) subnets get emission.
-    /// Remaining subnets have shares zeroed and redistributed.
+    /// Subnets strictly below the ceil(count * proportion)-th share are zeroed and redistributed.
+    /// Ties at the cutoff are included, so the number of nonzero subnets can exceed ceil(count * proportion).
     pub type EmissionTopSubnetProportion<T: Config> =
         StorageValue<_, U64F64, ValueQuery, DefaultEmissionTopSubnetProportion<T>>;
 
     #[pallet::storage]
     /// Absolute maximum number of subnets that can receive emission.
-    /// None means no limit (disabled). When set to Some(N), only the top N
-    /// subnets by share receive emission; the rest are zeroed and redistributed.
+    /// None means no limit (disabled). When set to Some(N), subnets with share
+    /// strictly below the N-th position are zeroed and redistributed.
+    /// Ties at the cutoff are included, so the number of nonzero subnets can exceed N.
     pub type EmissionTopSubnetAbsoluteLimit<T: Config> = StorageValue<_, u16, OptionQuery>;
 
     /// ============================
