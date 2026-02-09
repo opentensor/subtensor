@@ -26,6 +26,7 @@ clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
 serde = { workspace = true, features = ["derive"] }
 hex.workspace = true
+tokio = { workspace = true, features = ["time"] }
 
 # Storage import
 memmap2.workspace = true
@@ -77,7 +78,6 @@ sp-keystore.workspace = true
 polkadot-sdk = { workspace = true, features = [
 	"cumulus-primitives-proof-size-hostfunction",
 ] }
-stc-shield = { workspace = true }
 
 # These dependencies are used for the subtensor's RPCs
 jsonrpsee = { workspace = true, features = ["server"] }
@@ -95,6 +95,7 @@ pallet-transaction-payment-rpc-runtime-api.workspace = true
 # These dependencies are used for runtime benchmarking
 frame-benchmarking.workspace = true
 frame-benchmarking-cli.workspace = true
+pallet-subtensor.workspace = true
 
 # Needed for Frontier
 fc-mapping-sync.workspace = true
@@ -116,9 +117,8 @@ fp-consensus.workspace = true
 num-traits = { workspace = true, features = ["std"] }
 
 # Mev Shield
-tokio = { workspace = true, features = ["time"] }
-codec.workspace = true
-pallet-subtensor.workspace = true
+stp-shield.workspace = true
+stc-shield.workspace = true
 
 # Local Dependencies
 node-subtensor-runtime = { workspace = true, features = ["std"] }
