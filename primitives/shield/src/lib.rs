@@ -4,6 +4,10 @@
 
 extern crate alloc;
 
+mod runtime_api;
+
+pub use runtime_api::*;
+
 use codec::{Decode, Encode};
 
 use alloc::{string::String, sync::Arc, vec::Vec};
