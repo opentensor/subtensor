@@ -33,6 +33,7 @@ members = [
 	"runtime",
 	"support/*",
 	"chain-extensions",
+	"client/shield"
 ]
 resolver = "2"
 
@@ -121,6 +122,8 @@ ethereum = { version = "0.18.2", default-features = false }
 num_enum = { version = "0.7.4", default-features = false }
 tokio = { version = "1.38", default-features = false }
 zeroize = { version = "1.8.2", default-features = false }
+
+stc-shield = { path = "client/shield", default-features = false }
 
 frame-metadata = { version = "23.0.0", default-features = false }
 
