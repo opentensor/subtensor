@@ -63,38 +63,40 @@ describe("Test the dispatch precompile", () => {
         assert.equal(aliceBalance + transferAmount, aliceBalanceAfterTransfer)
     })
 
-    it("Storage query only allow SubtensorModule prefixed storage", async () => {
-        const key = await api.query.SubtensorModule.MaxChildkeyTake.getKey();
-        const unauthorizedKey = await api.query.System.Events.getKey();
-        const code = xxhashAsHex(":code" , 128)
+    it("Storage query only allow some pallets prefixed storage", async () => {
+        const authorizedKeys = [
+            await api.query.SubtensorModule.TotalNetworks.getKey(),
+            await api.query.Swap.AlphaSqrtPrice.getKey(),
+            await api.query.Balances.TotalIssuance.getKey(),
+            await api.query.Proxy.Announcements.getKey(),
+            await api.query.Scheduler.Agenda.getKey(),
+            await api.query.Drand.Pulses.getKey(),
+            await api.query.Crowdloan.Crowdloans.getKey(),
+        ];
+        
+        for (const key of authorizedKeys) {
+            await assert.doesNotReject(
+                publicClient.call({
+                    to: ISTORAGE_QUERY_ADDRESS,
+                    data: key.toString() as `0x${string}`,
+                })
+            );
+        }
 
-        // Some authorized storage query call
-        const maxChildkeyTake = 257;
-        await setMaxChildkeyTake(api, maxChildkeyTake)
-        const rawCallResponse = await publicClient.call({
-            to: ISTORAGE_QUERY_ADDRESS,
-            data: key.toString() as `0x${string}`,
-        })
-        const rawResultData = rawCallResponse.data ?? "";
-        const codec = await getTypedCodecs(devnet);
-        const maxChildkeyTakeCodec = codec.query.SubtensorModule.MaxChildkeyTake.value;
-        const maxChildkeyTakeFromContract = maxChildkeyTakeCodec.dec(rawResultData);
-        assert.equal(maxChildkeyTakeFromContract, maxChildkeyTake, "value should be 257")
-        
-        
-        // Some unauthorized storage query call
-        assert.rejects(
-            publicClient.call({
-                to: ISTORAGE_QUERY_ADDRESS,
-                data: unauthorizedKey.toString() as `0x${string}`,
-            })
-        )
-        assert.rejects(
-            publicClient.call({
-                to: ISTORAGE_QUERY_ADDRESS,
-                data: code.toString() as `0x${string}`,
-            })
-        )
+        const unauthorizedKeys = [
+            await api.query.System.Events.getKey(),
+            await api.query.Grandpa.CurrentSetId.getKey(),
+            xxhashAsHex(":code" , 128),
+        ];
+
+        for (const key of unauthorizedKeys) {
+            await assert.rejects(
+                publicClient.call({
+                    to: ISTORAGE_QUERY_ADDRESS,
+                    data: key.toString() as `0x${string}`,
+                })
+            );
+        }
     })
 
 
@@ -147,7 +149,6 @@ describe("Test the dispatch precompile", () => {
         const totalHotkeyAlphaValueCodec = codec.query.SubtensorModule.TotalHotkeyAlpha.value;
         const decodedValue = totalHotkeyAlphaValueCodec.dec(rawResultData);
         assert.equal(totalHotkeyAlphaOnChain, decodedValue, "value should be the same as on chain")
-
     })
 
     // Polkadot api can't decode the boolean type for now.
