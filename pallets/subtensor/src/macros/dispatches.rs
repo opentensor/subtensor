@@ -2580,6 +2580,33 @@ mod dispatches {
             Self::do_set_voting_power_ema_alpha(netuid, alpha)
         }
 
+        /// --- Set or clear the root override for emission suppression on a subnet.
+        /// Some(true) forces suppression, Some(false) forces unsuppression,
+        /// None removes the override and falls back to vote-based suppression.
+        #[pallet::call_index(133)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_emission_suppression_override(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            override_value: Option<bool>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(
+                Self::if_subnet_exist(netuid),
+                Error::<T>::SubnetNotExists
+            );
+            match override_value {
+                Some(val) => EmissionSuppressionOverride::<T>::insert(netuid, val),
+                None => EmissionSuppressionOverride::<T>::remove(netuid),
+            }
+            Ok(())
+        }
+
         /// --- The extrinsic is a combination of add_stake(add_stake_limit) and burn_alpha. We buy
         /// alpha token first and immediately burn the acquired amount of alpha (aka Subnet buyback).
         #[pallet::call_index(132)]

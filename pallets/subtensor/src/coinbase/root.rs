@@ -304,6 +304,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 12b. Emission suppression.
         EmissionSuppression::<T>::remove(netuid);
+        EmissionSuppressionOverride::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);

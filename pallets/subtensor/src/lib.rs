@@ -2426,6 +2426,13 @@ pub mod pallet {
     pub type EmissionSuppression<T: Config> =
         StorageMap<_, Identity, NetUid, U64F64, ValueQuery>;
 
+    /// Root override for emission suppression per subnet.
+    /// Some(true) = force suppressed, Some(false) = force unsuppressed,
+    /// None = use vote-based EmissionSuppression value.
+    #[pallet::storage]
+    pub type EmissionSuppressionOverride<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, OptionQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         /// Stakes record in genesis.

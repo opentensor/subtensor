@@ -261,14 +261,19 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Zero the emission share of any subnet whose suppression fraction exceeds 50%,
-    /// then re-normalize the remaining shares.
+    /// Zero the emission share of any subnet whose suppression fraction exceeds 50%
+    /// (or is force-suppressed via override), then re-normalize the remaining shares.
     pub(crate) fn apply_emission_suppression(shares: &mut BTreeMap<NetUid, U64F64>) {
         let half = U64F64::saturating_from_num(0.5);
         let zero = U64F64::saturating_from_num(0);
         let mut any_zeroed = false;
         for (netuid, share) in shares.iter_mut() {
-            if EmissionSuppression::<T>::get(netuid) > half {
+            let suppressed = match EmissionSuppressionOverride::<T>::get(netuid) {
+                Some(true) => true,
+                Some(false) => false,
+                None => EmissionSuppression::<T>::get(netuid) > half,
+            };
+            if suppressed {
                 *share = zero;
                 any_zeroed = true;
             }
