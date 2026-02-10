@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use frame_support::traits::IsSubType;
-use frame_support::{pallet_prelude::*, sp_runtime::traits::Hash, traits::FindAuthor};
+use frame_support::{pallet_prelude::*, sp_runtime::traits::Hash};
 use frame_system::{ensure_none, ensure_signed, pallet_prelude::*};
 use sp_runtime::Vec;
 use sp_runtime::traits::Applyable;
@@ -41,8 +41,8 @@ pub mod pallet {
         /// The identifier type for an authority.
         type AuthorityId: Member + Parameter + MaybeSerializeDeserialize + MaxEncodedLen;
 
-        /// A way to find the author of a block.
-        type FindAuthor: FindAuthor<Self::AuthorityId>;
+        /// A way to find the current and next author of a block.
+        type FindAuthors: FindAuthors<Self>;
     }
 
     #[pallet::pallet]
@@ -53,6 +53,10 @@ pub mod pallet {
     /// Current block author ML‑KEM‑768 public key bytes.
     #[pallet::storage]
     pub type CurrentKey<T> = StorageValue<_, PublicKey, OptionQuery>;
+
+    // Next block author ML‑KEM‑768 public key bytes.
+    #[pallet::storage]
+    pub type NextKey<T> = StorageValue<_, PublicKey, OptionQuery>;
 
     /// Current and next ML‑KEM‑768 public key bytes of all block authors.
     #[pallet::storage]
@@ -88,22 +92,20 @@ pub mod pallet {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             let mut weight = Weight::zero();
 
-            // We clear the current key no matter what.
+            // We clear the current key and next key no matter what.
             CurrentKey::<T>::kill();
-            weight = weight.saturating_add(T::DbWeight::get().writes(1_u64));
+            NextKey::<T>::kill();
+            weight = weight.saturating_add(T::DbWeight::get().writes(2_u64));
 
-            weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
-            let Some(author) = Self::block_author() else {
-                return weight;
-            };
+            weight = weight.saturating_add(Self::try_roll_key(
+                T::FindAuthors::find_current_author,
+                |key| CurrentKey::<T>::put(key),
+            ));
 
-            weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
-            let Some((Some(current_key), _)) = AuthorKeys::<T>::get(author) else {
-                return weight;
-            };
-
-            CurrentKey::<T>::put(current_key);
-            weight = weight.saturating_add(T::DbWeight::get().writes(1_u64));
+            weight = weight.saturating_add(Self::try_roll_key(
+                T::FindAuthors::find_next_author,
+                |key| NextKey::<T>::put(key),
+            ));
 
             weight
         }
@@ -133,10 +135,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_none(origin)?;
 
-            let Some(author) = Self::block_author() else {
+            let author = T::FindAuthors::find_current_author()
                 // This should never happen as we are in an inherent.
-                return Err(Error::<T>::Unreachable.into());
-            };
+                .ok_or_else(|| Error::<T>::Unreachable)?;
 
             if let Some(public_key) = &public_key {
                 const MAX_KYBER768_PK_LENGTH: usize = 1184;
@@ -213,11 +214,25 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn block_author() -> Option<T::AuthorityId> {
-        let digest = frame_system::Pallet::<T>::digest();
-        let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+    pub fn try_roll_key(
+        who: impl Fn() -> Option<T::AuthorityId>,
+        put: impl Fn(PublicKey) -> (),
+    ) -> Weight {
+        let mut weight = Weight::zero();
 
-        T::FindAuthor::find_author(pre_runtime_digests)
+        weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
+        let Some(author) = who() else {
+            return weight;
+        };
+
+        weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
+        let Some((Some(key), _)) = AuthorKeys::<T>::get(author) else {
+            return weight;
+        };
+
+        put(key);
+
+        weight
     }
 
     pub fn try_decrypt_extrinsic<Block, Context>(
@@ -308,4 +323,9 @@ impl EncryptedMessage {
 
         Some(Self { kem, aead, nonce })
     }
+}
+
+pub trait FindAuthors<T: Config> {
+    fn find_current_author() -> Option<T::AuthorityId>;
+    fn find_next_author() -> Option<T::AuthorityId>;
 }
