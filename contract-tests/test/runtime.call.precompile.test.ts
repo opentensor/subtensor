@@ -72,6 +72,9 @@ describe("Test the dispatch precompile", () => {
             await api.query.Scheduler.Agenda.getKey(),
             await api.query.Drand.Pulses.getKey(),
             await api.query.Crowdloan.Crowdloans.getKey(),
+            await api.query.Sudo.Key.getKey(),
+            await api.query.Multisig.Multisigs.getKey(),
+            await api.query.Timestamp.Now.getKey(),
         ];
         
         for (const key of authorizedKeys) {
