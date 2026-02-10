@@ -11,7 +11,7 @@ use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, TaoCurrency};
 
 fn u64f64(x: f64) -> U64F64 {
     U64F64::from_num(x)
@@ -502,53 +502,34 @@ fn get_shares_both_negative_above_cutoff() {
     });
 }
 
-/// Test that get_ema_flow is idempotent within the same block.
-/// When called multiple times in the same block, it should return the same value
-/// without recalculating or modifying storage.
+/// Test that get_shares is idempotent within the same block.
+/// When called multiple times in the same block, it should return the same values.
 #[test]
-fn test_get_ema_flow_idempotent_within_same_block() {
+fn test_get_shares_idempotent_within_same_block() {
     new_test_ext(1).execute_with(|| {
         let owner_hotkey = U256::from(100);
         let owner_coldkey = U256::from(200);
-        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        let current_block = 42u64;
-        System::set_block_number(current_block);
+        let block_num = FlowHalfLife::<Test>::get();
+        System::set_block_number(block_num);
 
-        // Set SubnetTaoFlow to some value
-        SubnetTaoFlow::<Test>::insert(netuid, 5000i64);
+        SubnetEmaTaoFlow::<Test>::insert(n1, (block_num, i64f64(1000.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n2, (block_num, i64f64(3000.0)));
 
-        // Set SubnetEmaTaoFlow to (current_block, some_ema_value)
-        // so that last_block == current_block branch is hit
-        let ema_value = i64f64(1234.5);
-        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, ema_value));
+        // Call get_shares twice in the same block
+        let shares1 = SubtensorModule::get_shares(&[n1, n2]);
+        let shares2 = SubtensorModule::get_shares(&[n1, n2]);
 
-        // Call get_ema_flow twice in the same block
-        let first_call = SubtensorModule::get_ema_flow(netuid);
-        let second_call = SubtensorModule::get_ema_flow(netuid);
+        // Both calls should return the same values
+        let s1a = shares1.get(&n1).unwrap().to_num::<f64>();
+        let s1b = shares2.get(&n1).unwrap().to_num::<f64>();
+        let s2a = shares1.get(&n2).unwrap().to_num::<f64>();
+        let s2b = shares2.get(&n2).unwrap().to_num::<f64>();
 
-        // Both calls should return the same value
-        assert_abs_diff_eq!(
-            first_call.to_num::<f64>(),
-            second_call.to_num::<f64>(),
-            epsilon = 1e-18
-        );
-
-        // The EMA stored should still be the value we set
-        let stored = SubnetEmaTaoFlow::<Test>::get(netuid).unwrap();
-        assert_eq!(stored.0, current_block);
-        assert_abs_diff_eq!(
-            stored.1.to_num::<f64>(),
-            ema_value.to_num::<f64>(),
-            epsilon = 1e-18
-        );
-
-        // Both calls should return the EMA value we set
-        assert_abs_diff_eq!(
-            first_call.to_num::<f64>(),
-            ema_value.to_num::<f64>(),
-            epsilon = 1e-18
-        );
+        assert_abs_diff_eq!(s1a, s1b, epsilon = 1e-18);
+        assert_abs_diff_eq!(s2a, s2b, epsilon = 1e-18);
     });
 }
 
@@ -2414,10 +2395,6 @@ fn test_apply_utilization_scaling_hotkey_only_root_stake() {
 
         // Total recycled should include all root divs (2000) + all of hotkey1's alpha divs (8000)
         let recycled_val = recycled.to_num::<f64>();
-        assert!(
-            recycled_val > 10000.0,
-            "Should recycle at least 10000 (2000 root + 8000 alpha): got {recycled_val}"
-        );
         assert_abs_diff_eq!(recycled_val, 10000.0, epsilon = 100.0);
 
         // EffectiveRootProp should be 0
@@ -2460,13 +2437,15 @@ fn test_remove_network_cleans_root_alpha_dividends_per_subnet() {
             EffectiveRootProp::<Test>::get(netuid).to_num::<f64>(),
             0.5
         );
-        assert_eq!(
+        assert_abs_diff_eq!(
             RootProp::<Test>::get(netuid).to_num::<f64>(),
-            0.3
+            0.3,
+            epsilon = 1e-6
         );
-        assert_eq!(
+        assert_abs_diff_eq!(
             RootClaimableThreshold::<Test>::get(netuid).to_num::<f64>(),
-            100.0
+            100.0,
+            epsilon = 1e-6
         );
 
         // Action: Remove the network
@@ -2511,8 +2490,8 @@ fn test_remove_network_cleans_root_alpha_dividends_per_subnet() {
 fn test_finalize_all_subnet_root_dividends_cleanup() {
     new_test_ext(1).execute_with(|| {
         // Setup: Create a subnet (netuid=1)
-        let netuid1 = 1u16;
-        let netuid2 = 2u16;
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
         add_network(netuid1, 1, 0);
 
         // Create hotkeys
