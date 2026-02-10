@@ -2416,8 +2416,8 @@ fn test_remove_network_cleans_root_alpha_dividends_per_subnet() {
         let hotkey2 = U256::from(102);
 
         // Insert entries into RootAlphaDividendsPerSubnet
-        RootAlphaDividendsPerSubnet::<Test>::insert(netuid, &hotkey1, AlphaCurrency::from(1000u64));
-        RootAlphaDividendsPerSubnet::<Test>::insert(netuid, &hotkey2, AlphaCurrency::from(2000u64));
+        RootAlphaDividendsPerSubnet::<Test>::insert(netuid, hotkey1, AlphaCurrency::from(1000u64));
+        RootAlphaDividendsPerSubnet::<Test>::insert(netuid, hotkey2, AlphaCurrency::from(2000u64));
 
         // Insert entries into EffectiveRootProp, RootProp, and RootClaimableThreshold
         EffectiveRootProp::<Test>::insert(netuid, U96F32::from_num(0.5));
@@ -2426,11 +2426,11 @@ fn test_remove_network_cleans_root_alpha_dividends_per_subnet() {
 
         // Verify that the data exists before removal
         assert_eq!(
-            RootAlphaDividendsPerSubnet::<Test>::get(netuid, &hotkey1),
+            RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey1),
             AlphaCurrency::from(1000u64)
         );
         assert_eq!(
-            RootAlphaDividendsPerSubnet::<Test>::get(netuid, &hotkey2),
+            RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey2),
             AlphaCurrency::from(2000u64)
         );
         assert_eq!(
@@ -2453,12 +2453,12 @@ fn test_remove_network_cleans_root_alpha_dividends_per_subnet() {
 
         // Assert: Verify that RootAlphaDividendsPerSubnet entries are cleaned up
         assert_eq!(
-            RootAlphaDividendsPerSubnet::<Test>::get(netuid, &hotkey1),
+            RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey1),
             AlphaCurrency::from(0u64),
             "RootAlphaDividendsPerSubnet for hotkey1 should be zero after remove_network"
         );
         assert_eq!(
-            RootAlphaDividendsPerSubnet::<Test>::get(netuid, &hotkey2),
+            RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey2),
             AlphaCurrency::from(0u64),
             "RootAlphaDividendsPerSubnet for hotkey2 should be zero after remove_network"
         );
@@ -2504,12 +2504,12 @@ fn test_finalize_all_subnet_root_dividends_cleanup() {
         let mut claimable_map1 = BTreeMap::new();
         claimable_map1.insert(netuid1, I96F32::from_num(1000.0));
         claimable_map1.insert(netuid2, I96F32::from_num(2000.0));
-        RootClaimable::<Test>::insert(&hotkey1, claimable_map1);
+        RootClaimable::<Test>::insert(hotkey1, claimable_map1);
 
         let mut claimable_map2 = BTreeMap::new();
         claimable_map2.insert(netuid1, I96F32::from_num(1500.0));
         claimable_map2.insert(netuid2, I96F32::from_num(2500.0));
-        RootClaimable::<Test>::insert(&hotkey2, claimable_map2);
+        RootClaimable::<Test>::insert(hotkey2, claimable_map2);
 
         // Set up RootClaimed entries for (netuid, hotkey, coldkey) pairs
         // For netuid=1
@@ -2521,10 +2521,10 @@ fn test_finalize_all_subnet_root_dividends_cleanup() {
         RootClaimed::<Test>::insert((netuid2, &hotkey2, &coldkey2), 800u128);
 
         // Verify setup
-        assert!(RootClaimable::<Test>::get(&hotkey1).contains_key(&netuid1));
-        assert!(RootClaimable::<Test>::get(&hotkey1).contains_key(&netuid2));
-        assert!(RootClaimable::<Test>::get(&hotkey2).contains_key(&netuid1));
-        assert!(RootClaimable::<Test>::get(&hotkey2).contains_key(&netuid2));
+        assert!(RootClaimable::<Test>::get(hotkey1).contains_key(&netuid1));
+        assert!(RootClaimable::<Test>::get(hotkey1).contains_key(&netuid2));
+        assert!(RootClaimable::<Test>::get(hotkey2).contains_key(&netuid1));
+        assert!(RootClaimable::<Test>::get(hotkey2).contains_key(&netuid2));
 
         assert_eq!(RootClaimed::<Test>::get((netuid1, &hotkey1, &coldkey1)), 500u128);
         assert_eq!(RootClaimed::<Test>::get((netuid1, &hotkey2, &coldkey2)), 600u128);
@@ -2536,30 +2536,30 @@ fn test_finalize_all_subnet_root_dividends_cleanup() {
 
         // Assert: RootClaimable for hotkey1 no longer contains netuid=1 (but still contains netuid=2)
         assert!(
-            !RootClaimable::<Test>::get(&hotkey1).contains_key(&netuid1),
+            !RootClaimable::<Test>::get(hotkey1).contains_key(&netuid1),
             "RootClaimable for hotkey1 should not contain netuid=1 after cleanup"
         );
         assert!(
-            RootClaimable::<Test>::get(&hotkey1).contains_key(&netuid2),
+            RootClaimable::<Test>::get(hotkey1).contains_key(&netuid2),
             "RootClaimable for hotkey1 should still contain netuid=2"
         );
         assert_eq!(
-            RootClaimable::<Test>::get(&hotkey1).get(&netuid2).unwrap().to_num::<f64>(),
+            RootClaimable::<Test>::get(hotkey1).get(&netuid2).unwrap().to_num::<f64>(),
             2000.0,
             "RootClaimable for hotkey1 netuid=2 should be unchanged"
         );
 
         // Assert: RootClaimable for hotkey2 no longer contains netuid=1 (but still contains netuid=2)
         assert!(
-            !RootClaimable::<Test>::get(&hotkey2).contains_key(&netuid1),
+            !RootClaimable::<Test>::get(hotkey2).contains_key(&netuid1),
             "RootClaimable for hotkey2 should not contain netuid=1 after cleanup"
         );
         assert!(
-            RootClaimable::<Test>::get(&hotkey2).contains_key(&netuid2),
+            RootClaimable::<Test>::get(hotkey2).contains_key(&netuid2),
             "RootClaimable for hotkey2 should still contain netuid=2"
         );
         assert_eq!(
-            RootClaimable::<Test>::get(&hotkey2).get(&netuid2).unwrap().to_num::<f64>(),
+            RootClaimable::<Test>::get(hotkey2).get(&netuid2).unwrap().to_num::<f64>(),
             2500.0,
             "RootClaimable for hotkey2 netuid=2 should be unchanged"
         );
@@ -2608,8 +2608,8 @@ fn test_root_sell_flag_boundary() {
 
         let subnets = vec![netuid1, netuid2];
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&subnets);
-        assert_eq!(
-            root_sell_flag, false,
+        assert!(
+            !root_sell_flag,
             "Root sell flag should be false when total moving price equals 1.0"
         );
 
@@ -2619,8 +2619,8 @@ fn test_root_sell_flag_boundary() {
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.500001));
 
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&subnets);
-        assert_eq!(
-            root_sell_flag, true,
+        assert!(
+            root_sell_flag,
             "Root sell flag should be true when total moving price is above 1.0"
         );
 
@@ -2630,8 +2630,8 @@ fn test_root_sell_flag_boundary() {
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.4));
 
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&subnets);
-        assert_eq!(
-            root_sell_flag, false,
+        assert!(
+            !root_sell_flag,
             "Root sell flag should be false when total moving price is below 1.0"
         );
     });
