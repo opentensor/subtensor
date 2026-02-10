@@ -390,10 +390,9 @@ impl<T: Config> Pallet<T> {
 
     /// Claim all root dividends for subnet and remove all associated data.
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
-
-        for hotkey in hotkeys.iter() {
-            RootClaimable::<T>::mutate(hotkey, |claimable| {
+        // Iterate directly without collecting to avoid unnecessary allocation
+        for hotkey in RootClaimable::<T>::iter_keys() {
+            RootClaimable::<T>::mutate(&hotkey, |claimable| {
                 claimable.remove(&netuid);
             });
         }
