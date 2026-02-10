@@ -396,6 +396,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        // --- 18d. Root prop.
+        RootProp::<T>::remove(netuid);
+        RootClaimableThreshold::<T>::remove(netuid);
+
         // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
         let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
