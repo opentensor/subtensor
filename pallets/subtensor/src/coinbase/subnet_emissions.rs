@@ -282,4 +282,32 @@ impl<T: Config> Pallet<T> {
             Self::normalize_shares(shares);
         }
     }
+
+    /// Collect emission suppression votes from root validators for a subnet
+    /// and update the EmissionSuppression storage.
+    /// Called once per subnet per epoch.
+    pub(crate) fn collect_emission_suppression_votes(netuid: NetUid) {
+        let root_n = SubnetworkN::<T>::get(NetUid::ROOT);
+        let mut suppress_stake = U64F64::saturating_from_num(0u64);
+        let mut total_root_stake = U64F64::saturating_from_num(0u64);
+
+        for uid in 0..root_n {
+            let hotkey = Keys::<T>::get(NetUid::ROOT, uid);
+            let root_stake = Self::get_stake_for_hotkey_on_subnet(&hotkey, NetUid::ROOT);
+            let stake_u64f64 = U64F64::saturating_from_num(u64::from(root_stake));
+            total_root_stake = total_root_stake.saturating_add(stake_u64f64);
+
+            let coldkey = Owner::<T>::get(&hotkey);
+            if let Some(true) = EmissionSuppressionVote::<T>::get(netuid, &coldkey) {
+                suppress_stake = suppress_stake.saturating_add(stake_u64f64);
+            }
+        }
+
+        let suppression = if total_root_stake > U64F64::saturating_from_num(0u64) {
+            suppress_stake.safe_div(total_root_stake)
+        } else {
+            U64F64::saturating_from_num(0u64)
+        };
+        EmissionSuppression::<T>::insert(netuid, suppression);
+    }
 }

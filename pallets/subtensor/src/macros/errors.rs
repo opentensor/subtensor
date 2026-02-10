@@ -282,5 +282,9 @@ mod errors {
         Deprecated,
         /// "Add stake and burn" exceeded the operation rate limit
         AddStakeBurnRateLimitExceeded,
+        /// Cannot vote on emission suppression for the root subnet.
+        CannotVoteOnRootSubnet,
+        /// Coldkey does not own a root-registered hotkey with enough stake.
+        NotEnoughStakeToVote,
     }
 }

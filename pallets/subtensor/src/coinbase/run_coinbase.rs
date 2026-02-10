@@ -265,6 +265,9 @@ impl<T: Config> Pallet<T> {
             if Self::should_run_epoch(netuid, current_block)
                 && Self::is_epoch_input_state_consistent(netuid)
             {
+                // Collect emission suppression votes for this subnet.
+                Self::collect_emission_suppression_votes(netuid);
+
                 // Restart counters.
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);

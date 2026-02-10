@@ -517,6 +517,16 @@ mod events {
             alpha: AlphaCurrency,
         },
 
+        /// A root validator cast (or cleared) an emission suppression vote.
+        EmissionSuppressionVoteCast {
+            /// The coldkey that cast the vote
+            coldkey: T::AccountId,
+            /// The subnet voted on
+            netuid: NetUid,
+            /// The vote: Some(true) = suppress, Some(false) = unsuppress, None = cleared
+            suppress: Option<bool>,
+        },
+
         /// "Add stake and burn" event: alpha token was purchased and burned.
         AddStakeBurn {
             /// The subnet ID

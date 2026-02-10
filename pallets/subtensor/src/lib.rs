@@ -2433,6 +2433,20 @@ pub mod pallet {
     pub type EmissionSuppressionOverride<T: Config> =
         StorageMap<_, Identity, NetUid, bool, OptionQuery>;
 
+    /// Per-(netuid, coldkey) vote on whether to suppress a subnet's emissions.
+    /// Keyed by coldkey because coldkey swaps must migrate votes and one coldkey
+    /// can control multiple root hotkeys.
+    #[pallet::storage]
+    pub type EmissionSuppressionVote<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Blake2_128Concat,
+        T::AccountId,
+        bool,
+        OptionQuery,
+    >;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         /// Stakes record in genesis.
