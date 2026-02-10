@@ -7,6 +7,7 @@ mod consensus;
 mod delegate_info;
 mod difficulty;
 mod emission;
+mod emission_suppression;
 mod ensure;
 mod epoch;
 mod epoch_logs;
