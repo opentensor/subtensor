@@ -752,7 +752,12 @@ fn test_effective_root_prop_single_validator_always_full_utilization() {
         SubnetworkN::<Test>::insert(netuid, 1u16);
 
         // Give it root stake (1M)
-        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1_000_000u64.into(), NetUid::ROOT);
+        increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &hotkey,
+            1_000_000u64.into(),
+            NetUid::ROOT,
+        );
 
         // Create alpha_dividends with hotkey: 5000
         let mut alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
@@ -1603,8 +1608,14 @@ fn test_apply_top_subnet_proportion_filter_ties_at_boundary_included() {
         let s5 = shares.get(&NetUid::from(5)).unwrap().to_num::<f64>();
 
         assert!(s1 > 0.0, "Subnet 1 (highest) should be kept");
-        assert!(s2 > 0.0, "Subnet 2 should be kept (tie at proportion boundary)");
-        assert!(s3 > 0.0, "Subnet 3 should be kept (tie at proportion boundary)");
+        assert!(
+            s2 > 0.0,
+            "Subnet 2 should be kept (tie at proportion boundary)"
+        );
+        assert!(
+            s3 > 0.0,
+            "Subnet 3 should be kept (tie at proportion boundary)"
+        );
         assert_abs_diff_eq!(s4, 0.0, epsilon = 1e-12); // Subnet 4 should be zeroed
         assert_abs_diff_eq!(s5, 0.0, epsilon = 1e-12); // Subnet 5 should be zeroed
 
@@ -1673,8 +1684,14 @@ fn test_apply_top_subnet_absolute_limit_ties_at_boundary_included() {
         let s5 = shares.get(&NetUid::from(5)).unwrap().to_num::<f64>();
 
         assert!(s1 > 0.0, "Subnet 1 (highest) should be kept");
-        assert!(s2 > 0.0, "Subnet 2 should be kept (tie at absolute limit boundary)");
-        assert!(s3 > 0.0, "Subnet 3 should be kept (tie at absolute limit boundary)");
+        assert!(
+            s2 > 0.0,
+            "Subnet 2 should be kept (tie at absolute limit boundary)"
+        );
+        assert!(
+            s3 > 0.0,
+            "Subnet 3 should be kept (tie at absolute limit boundary)"
+        );
         assert_abs_diff_eq!(s4, 0.0, epsilon = 1e-12); // Subnet 4 should be zeroed
         assert_abs_diff_eq!(s5, 0.0, epsilon = 1e-12); // Subnet 5 should be zeroed
 
@@ -1873,7 +1890,8 @@ fn test_get_root_dividend_fraction_no_stake_at_all() {
         let hotkey_no_stake = U256::from(999);
         let tao_weight = U96F32::from_num(0.18);
 
-        let frac = SubtensorModule::get_root_dividend_fraction(&hotkey_no_stake, netuid, tao_weight);
+        let frac =
+            SubtensorModule::get_root_dividend_fraction(&hotkey_no_stake, netuid, tao_weight);
         assert_abs_diff_eq!(frac.to_num::<f64>(), 0.0, epsilon = 1e-12);
     });
 }
@@ -2433,10 +2451,7 @@ fn test_remove_network_cleans_root_alpha_dividends_per_subnet() {
             RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey2),
             AlphaCurrency::from(2000u64)
         );
-        assert_eq!(
-            EffectiveRootProp::<Test>::get(netuid).to_num::<f64>(),
-            0.5
-        );
+        assert_eq!(EffectiveRootProp::<Test>::get(netuid).to_num::<f64>(), 0.5);
         assert_abs_diff_eq!(
             RootProp::<Test>::get(netuid).to_num::<f64>(),
             0.3,
@@ -2477,11 +2492,10 @@ fn test_remove_network_cleans_root_alpha_dividends_per_subnet() {
             "RootProp should be zero after remove_network"
         );
 
-        // Assert: Verify that RootClaimableThreshold is cleaned up
-        assert_eq!(
-            RootClaimableThreshold::<Test>::get(netuid).to_num::<f64>(),
-            0.0,
-            "RootClaimableThreshold should be zero after remove_network"
+        // Assert: Verify that RootClaimableThreshold is cleaned up (returns default 500_000)
+        assert!(
+            !RootClaimableThreshold::<Test>::contains_key(netuid),
+            "RootClaimableThreshold key should be removed after remove_network"
         );
     });
 }
@@ -2526,10 +2540,22 @@ fn test_finalize_all_subnet_root_dividends_cleanup() {
         assert!(RootClaimable::<Test>::get(hotkey2).contains_key(&netuid1));
         assert!(RootClaimable::<Test>::get(hotkey2).contains_key(&netuid2));
 
-        assert_eq!(RootClaimed::<Test>::get((netuid1, &hotkey1, &coldkey1)), 500u128);
-        assert_eq!(RootClaimed::<Test>::get((netuid1, &hotkey2, &coldkey2)), 600u128);
-        assert_eq!(RootClaimed::<Test>::get((netuid2, &hotkey1, &coldkey1)), 700u128);
-        assert_eq!(RootClaimed::<Test>::get((netuid2, &hotkey2, &coldkey2)), 800u128);
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid1, &hotkey1, &coldkey1)),
+            500u128
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid1, &hotkey2, &coldkey2)),
+            600u128
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid2, &hotkey1, &coldkey1)),
+            700u128
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid2, &hotkey2, &coldkey2)),
+            800u128
+        );
 
         // Action: Call finalize_all_subnet_root_dividends for netuid=1
         SubtensorModule::finalize_all_subnet_root_dividends(NetUid::from(netuid1));
@@ -2544,7 +2570,10 @@ fn test_finalize_all_subnet_root_dividends_cleanup() {
             "RootClaimable for hotkey1 should still contain netuid=2"
         );
         assert_eq!(
-            RootClaimable::<Test>::get(hotkey1).get(&netuid2).unwrap().to_num::<f64>(),
+            RootClaimable::<Test>::get(hotkey1)
+                .get(&netuid2)
+                .unwrap()
+                .to_num::<f64>(),
             2000.0,
             "RootClaimable for hotkey1 netuid=2 should be unchanged"
         );
@@ -2559,7 +2588,10 @@ fn test_finalize_all_subnet_root_dividends_cleanup() {
             "RootClaimable for hotkey2 should still contain netuid=2"
         );
         assert_eq!(
-            RootClaimable::<Test>::get(hotkey2).get(&netuid2).unwrap().to_num::<f64>(),
+            RootClaimable::<Test>::get(hotkey2)
+                .get(&netuid2)
+                .unwrap()
+                .to_num::<f64>(),
             2500.0,
             "RootClaimable for hotkey2 netuid=2 should be unchanged"
         );
@@ -2683,18 +2715,42 @@ fn test_distribute_emission_zero_incentive_sum() {
 
         // Set up weights so validators are voting for each other (simulating all validators, no miners)
         let idx = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(0));
-        Weights::<Test>::insert(idx, 0, vec![(0u16, 0xFFFF / 3), (1u16, 0xFFFF / 3), (2u16, 0xFFFF / 3)]);
-        Weights::<Test>::insert(idx, 1, vec![(0u16, 0xFFFF / 3), (1u16, 0xFFFF / 3), (2u16, 0xFFFF / 3)]);
-        Weights::<Test>::insert(idx, 2, vec![(0u16, 0xFFFF / 3), (1u16, 0xFFFF / 3), (2u16, 0xFFFF / 3)]);
+        Weights::<Test>::insert(
+            idx,
+            0,
+            vec![(0u16, 0xFFFF / 3), (1u16, 0xFFFF / 3), (2u16, 0xFFFF / 3)],
+        );
+        Weights::<Test>::insert(
+            idx,
+            1,
+            vec![(0u16, 0xFFFF / 3), (1u16, 0xFFFF / 3), (2u16, 0xFFFF / 3)],
+        );
+        Weights::<Test>::insert(
+            idx,
+            2,
+            vec![(0u16, 0xFFFF / 3), (1u16, 0xFFFF / 3), (2u16, 0xFFFF / 3)],
+        );
 
         // Manually set all incentives to ZERO (this simulates no miners getting any incentive)
         // This will cause incentive_sum to be zero in distribute_emission
         Incentive::<Test>::insert(idx, vec![0u16, 0u16, 0u16]);
 
         // Record initial stakes
-        let initial_stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator1, &coldkey1, netuid);
-        let initial_stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator2, &coldkey2, netuid);
-        let initial_stake3 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator3, &coldkey3, netuid);
+        let initial_stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator1,
+            &coldkey1,
+            netuid,
+        );
+        let initial_stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator2,
+            &coldkey2,
+            netuid,
+        );
+        let initial_stake3 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator3,
+            &coldkey3,
+            netuid,
+        );
 
         // Set up emission amounts
         let pending_server_alpha = AlphaCurrency::from(500_000_000); // 500M for miners
@@ -2713,15 +2769,29 @@ fn test_distribute_emission_zero_incentive_sum() {
         );
 
         // Check final stakes
-        let final_stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator1, &coldkey1, netuid);
-        let final_stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator2, &coldkey2, netuid);
-        let final_stake3 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator3, &coldkey3, netuid);
+        let final_stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator1,
+            &coldkey1,
+            netuid,
+        );
+        let final_stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator2,
+            &coldkey2,
+            netuid,
+        );
+        let final_stake3 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator3,
+            &coldkey3,
+            netuid,
+        );
 
         // Calculate the increase in stake
         let increase1 = final_stake1.saturating_sub(initial_stake1);
         let increase2 = final_stake2.saturating_sub(initial_stake2);
         let increase3 = final_stake3.saturating_sub(initial_stake3);
-        let total_increase = increase1.saturating_add(increase2).saturating_add(increase3);
+        let total_increase = increase1
+            .saturating_add(increase2)
+            .saturating_add(increase3);
 
         // The total increase should be close to server_alpha + validator_alpha = 1B
         // (minus any rounding or take amounts)
@@ -2731,7 +2801,8 @@ fn test_distribute_emission_zero_incentive_sum() {
         let tolerance = expected_total.to_u64() / 10;
 
         assert!(
-            (total_increase.to_u64() as i128 - expected_total.to_u64() as i128).abs() < tolerance as i128,
+            (total_increase.to_u64() as i128 - expected_total.to_u64() as i128).abs()
+                < tolerance as i128,
             "When incentive_sum == 0, validators should receive both server and validator alpha. \
              Expected: {}, Got: {}, Difference: {}",
             expected_total.to_u64(),

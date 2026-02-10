@@ -20,8 +20,7 @@ impl<T: Config> Pallet<T> {
         let mut last_idx = start_index;
         for i in 0..k {
             let bh_idx: usize =
-                usize::try_from(i.saturating_mul(8).checked_rem(32).unwrap_or(0))
-                    .unwrap_or(0);
+                usize::try_from(i.saturating_mul(8).checked_rem(32).unwrap_or(0)).unwrap_or(0);
             let idx_step = u64::from_be_bytes(
                 block_hash_bytes
                     .get(bh_idx..(bh_idx.saturating_add(8)))
