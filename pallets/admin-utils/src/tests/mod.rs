@@ -1274,7 +1274,7 @@ fn test_sudo_get_set_alpha() {
         pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<
             Test,
         >();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
 
         // Should fail as signer does not own the subnet

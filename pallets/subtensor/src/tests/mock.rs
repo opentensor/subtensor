@@ -77,7 +77,7 @@ pub type Address = AccountId;
 
 // Balance of an account.
 #[allow(dead_code)]
-pub type Balance = u64;
+pub type Balance = TaoCurrency;
 
 // An index to a block.
 #[allow(dead_code)]
@@ -137,7 +137,7 @@ impl system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<TaoCurrency>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -160,8 +160,8 @@ parameter_types! {
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
-    pub const ExistentialDeposit: Balance = 1;
-    pub const TransactionByteFee: Balance = 100;
+    pub const ExistentialDeposit: Balance = TaoCurrency::new(1);
+    pub const TransactionByteFee: Balance = TaoCurrency::new(100);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialAlphaSigmoidSteepness: i16 = 1000;
@@ -368,8 +368,8 @@ impl pallet_utility::Config for Test {
 
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: Balance = 1;
-    pub const PreimageByteDeposit: Balance = 1;
+    pub const PreimageBaseDeposit: Balance = TaoCurrency::new(1);
+    pub const PreimageByteDeposit: Balance = TaoCurrency::new(1);
 }
 
 impl pallet_preimage::Config for Test {
@@ -432,17 +432,17 @@ impl pallet_crowdloan::Config for Test {
 // Proxy Pallet config
 parameter_types! {
     // Set as 1 for testing purposes
-    pub const ProxyDepositBase: Balance = 1;
+    pub const ProxyDepositBase: Balance = TaoCurrency::new(1);
     // Set as 1 for testing purposes
-    pub const ProxyDepositFactor: Balance = 1;
+    pub const ProxyDepositFactor: Balance = TaoCurrency::new(1);
     // Set as 20 for testing purposes
     pub const MaxProxies: u32 = 20; // max num proxies per acct
     // Set as 15 for testing purposes
     pub const MaxPending: u32 = 15; // max blocks pending ~15min
     // Set as 1 for testing purposes
-    pub const AnnouncementDepositBase: Balance =  1;
+    pub const AnnouncementDepositBase: Balance =  TaoCurrency::new(1);
     // Set as 1 for testing purposes
-    pub const AnnouncementDepositFactor: Balance = 1;
+    pub const AnnouncementDepositFactor: Balance = TaoCurrency::new(1);
 }
 
 impl pallet_proxy::Config for Test {
@@ -640,8 +640,8 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
     pallet_balances::GenesisConfig::<Test> {
         balances: balances
             .iter()
-            .map(|(a, b)| (*a, *b as u64))
-            .collect::<Vec<(U256, u64)>>(),
+            .map(|(a, b)| (*a, TaoCurrency::from(*b as u64)))
+            .collect::<Vec<(U256, TaoCurrency)>>(),
         dev_accounts: None,
     }
     .assimilate_storage(&mut t)

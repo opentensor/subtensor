@@ -43,7 +43,7 @@ fn test_initialise_ti() {
     use frame_support::traits::OnRuntimeUpgrade;
 
     new_test_ext(1).execute_with(|| {
-        pallet_balances::TotalIssuance::<Test>::put(1000);
+        pallet_balances::TotalIssuance::<Test>::put(TaoCurrency::from(1000));
         crate::SubnetTAO::<Test>::insert(NetUid::from(1), TaoCurrency::from(100));
         crate::SubnetTAO::<Test>::insert(NetUid::from(2), TaoCurrency::from(5));
 
@@ -1178,7 +1178,7 @@ fn test_migrate_fix_root_subnet_tao() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_fix_root_subnet_tao";
 
-        let mut expected_total_stake = 0;
+        let mut expected_total_stake = 0_u64;
         // Seed some hotkeys with some fake stake.
         for i in 0..100_000 {
             Owner::<Test>::insert(U256::from(U256::from(i)), U256::from(i + 1_000_000));
@@ -1221,7 +1221,7 @@ fn test_migrate_fix_root_tao_and_alpha_in() {
         const MIGRATION_NAME: &str = "migrate_fix_root_tao_and_alpha_in";
 
         // Set counters initially
-        let initial_value = 1_000_000_000_000;
+        let initial_value = 1_000_000_000_000_u64;
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(initial_value));
         SubnetAlphaIn::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));
         SubnetAlphaOut::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));

@@ -3,6 +3,7 @@
 use super::{SubtensorChainExtension, SubtensorExtensionEnv, mock};
 use crate::types::{FunctionId, Output};
 use codec::{Decode, Encode};
+use frame_support::pallet_prelude::Zero;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::RetVal;
@@ -82,15 +83,15 @@ fn remove_stake_full_limit_success_with_limit_price() {
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
         mock::setup_reserves(
             netuid,
-            TaoCurrency::from(130_000_000_000),
-            AlphaCurrency::from(110_000_000_000),
+            TaoCurrency::from(130_000_000_000_u64),
+            AlphaCurrency::from(110_000_000_000_u64),
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            TaoCurrency::from(stake_amount_raw + 1_000_000_000),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -147,13 +148,13 @@ fn swap_stake_limit_with_tight_price_returns_slippage_error() {
 
         mock::setup_reserves(
             netuid_a,
-            TaoCurrency::from(150_000_000_000),
-            AlphaCurrency::from(110_000_000_000),
+            TaoCurrency::from(150_000_000_000_u64),
+            AlphaCurrency::from(110_000_000_000_u64),
         );
         mock::setup_reserves(
             netuid_b,
-            TaoCurrency::from(120_000_000_000),
-            AlphaCurrency::from(90_000_000_000),
+            TaoCurrency::from(120_000_000_000_u64),
+            AlphaCurrency::from(90_000_000_000_u64),
         );
 
         mock::register_ok_neuron(netuid_a, hotkey, coldkey, 0);
@@ -221,15 +222,15 @@ fn remove_stake_limit_success_respects_price_limit() {
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
         mock::setup_reserves(
             netuid,
-            TaoCurrency::from(120_000_000_000),
-            AlphaCurrency::from(100_000_000_000),
+            TaoCurrency::from(120_000_000_000_u64),
+            AlphaCurrency::from(100_000_000_000_u64),
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            TaoCurrency::from(stake_amount_raw + 1_000_000_000),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -297,15 +298,15 @@ fn add_stake_limit_success_executes_within_price_guard() {
 
         mock::setup_reserves(
             netuid,
-            TaoCurrency::from(150_000_000_000),
-            AlphaCurrency::from(100_000_000_000),
+            TaoCurrency::from(150_000_000_000_u64),
+            AlphaCurrency::from(100_000_000_000_u64),
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            amount_raw + 1_000_000_000,
+            (amount_raw + 1_000_000_000).into(),
         );
 
         let stake_before =
@@ -380,7 +381,7 @@ fn swap_stake_success_moves_between_subnets() {
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -457,7 +458,7 @@ fn transfer_stake_success_moves_between_coldkeys() {
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &origin_coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -541,7 +542,7 @@ fn move_stake_success_moves_alpha_between_hotkeys() {
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -621,7 +622,7 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -668,7 +669,7 @@ fn add_proxy_success_creates_proxy_relationship() {
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &delegator,
-            1_000_000_000,
+            1_000_000_000.into(),
         );
 
         assert_eq!(
@@ -706,7 +707,7 @@ fn remove_proxy_success_removes_proxy_relationship() {
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &delegator,
-            1_000_000_000,
+            1_000_000_000.into(),
         );
 
         let mut add_env = MockEnv::new(FunctionId::AddProxyV1, delegator, delegate.encode());
@@ -842,7 +843,8 @@ fn add_stake_success_updates_stake_and_returns_success_code() {
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &coldkey, amount_raw,
+            &coldkey,
+            amount_raw.into(),
         );
 
         assert!(
@@ -930,7 +932,7 @@ fn unstake_all_success_unstakes_balance() {
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(

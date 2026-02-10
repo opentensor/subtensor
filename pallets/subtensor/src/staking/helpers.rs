@@ -306,7 +306,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<TaoCurrency, DispatchError> {
-        if amount == 0 {
+        if amount == 0.into() {
             return Ok(TaoCurrency::ZERO);
         }
 
@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();
 
-        if credit == 0 {
+        if credit == 0.into() {
             return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 
@@ -330,9 +330,9 @@ impl<T: Config> Pallet<T> {
     pub fn kill_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> Result<u64, DispatchError> {
-        if amount == 0 {
-            return Ok(0);
+    ) -> Result<TaoCurrency, DispatchError> {
+        if amount == 0.into() {
+            return Ok(0.into());
         }
 
         let credit = <T as Config>::Currency::withdraw(
@@ -345,7 +345,7 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();
 
-        if credit == 0 {
+        if credit == 0.into() {
             return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 

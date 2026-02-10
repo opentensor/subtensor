@@ -14,7 +14,7 @@ use frame_support::{
     dispatch::GetDispatchInfo,
     pallet_prelude::*,
     sp_runtime::{
-        RuntimeDebug,
+        RuntimeDebug, Saturating,
         traits::{AccountIdConversion, Dispatchable, Zero},
     },
     traits::{
@@ -26,6 +26,7 @@ use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_runtime::traits::CheckedSub;
 use sp_std::vec::Vec;
+use subtensor_runtime_common::TaoCurrency;
 use weights::WeightInfo;
 
 pub use pallet::*;
@@ -107,7 +108,7 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
         /// The currency mechanism.
-        type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
+        type Currency: fungible::Balanced<Self::AccountId, Balance = TaoCurrency>
             + fungible::Mutate<Self::AccountId>;
 
         /// The weight information for the pallet.
@@ -440,7 +441,7 @@ pub mod pallet {
             // and it does not exceed the cap
             let left_to_raise = crowdloan
                 .cap
-                .checked_sub(crowdloan.raised)
+                .checked_sub(&crowdloan.raised)
                 .ok_or(Error::<T>::Underflow)?;
 
             // If the contribution would raise the amount above the cap,
@@ -450,7 +451,7 @@ pub mod pallet {
             // Ensure contribution does not overflow the actual raised amount
             crowdloan.raised = crowdloan
                 .raised
-                .checked_add(amount)
+                .checked_add(&amount)
                 .ok_or(Error::<T>::Overflow)?;
 
             // Compute the new total contribution and ensure it does not overflow, we
@@ -458,7 +459,7 @@ pub mod pallet {
             let contribution =
                 if let Some(contribution) = Contributions::<T>::get(crowdloan_id, &contributor) {
                     contribution
-                        .checked_add(amount)
+                        .checked_add(&amount)
                         .ok_or(Error::<T>::Overflow)?
                 } else {
                     // We have a new contribution

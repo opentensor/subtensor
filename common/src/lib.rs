@@ -19,7 +19,7 @@ pub use currency::*;
 mod currency;
 
 /// Balance of an account.
-pub type Balance = u64;
+pub type Balance = TaoCurrency;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -40,7 +40,8 @@ pub type Hash = sp_core::H256;
 pub type Nonce = u32;
 
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
-pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
+pub const SMALL_TRANSFER_LIMIT: Balance = TaoCurrency::new(500_000_000); // 0.5 TAO
+pub const SMALL_ALPHA_TRANSFER_LIMIT: AlphaCurrency = AlphaCurrency::new(500_000_000); // 0.5 Alpha
 
 #[freeze_struct("c972489bff40ae48")]
 #[repr(transparent)]
@@ -315,19 +316,19 @@ impl From<u8> for MechId {
 
 impl From<MechId> for u16 {
     fn from(val: MechId) -> Self {
-        u16::from(val.0)
+        Into::<u16>::into(val.0)
     }
 }
 
 impl From<MechId> for u64 {
     fn from(val: MechId) -> Self {
-        u64::from(val.0)
+        Into::<u64>::into(val.0)
     }
 }
 
 impl From<MechId> for u8 {
     fn from(val: MechId) -> Self {
-        u8::from(val.0)
+        Into::<u8>::into(val.0)
     }
 }
 

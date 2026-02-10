@@ -564,7 +564,7 @@ impl<T: Config> Pallet<T> {
             // Credit each share directly to coldkey free balance.
             for p in portions {
                 if p.share > 0 {
-                    Self::add_balance_to_coldkey_account(&p.cold, p.share);
+                    Self::add_balance_to_coldkey_account(&p.cold, TaoCurrency::from(p.share));
                 }
             }
         }
@@ -598,7 +598,7 @@ impl<T: Config> Pallet<T> {
         };
 
         if !refund.is_zero() {
-            Self::add_balance_to_coldkey_account(&owner_coldkey, refund.to_u64());
+            Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
         }
 
         Ok(())

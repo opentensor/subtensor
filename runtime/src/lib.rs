@@ -175,7 +175,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
             ChargeTransactionPaymentWrapper::new(
-                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0.into()),
             ),
             SudoTransactionExtension::<Runtime>::new(),
             pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
@@ -198,11 +198,13 @@ pub use pallet_subtensor;
 
 // Method used to calculate the fee of an extrinsic
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
-    pub const ITEMS_FEE: Balance = 2_000 * 10_000;
-    pub const BYTES_FEE: Balance = 100 * 10_000;
-    (items as Balance)
-        .saturating_mul(ITEMS_FEE)
-        .saturating_add((bytes as Balance).saturating_mul(BYTES_FEE))
+    pub const ITEMS_FEE: u64 = 2_000 * 10_000;
+    pub const BYTES_FEE: u64 = 100 * 10_000;
+    TaoCurrency::new(
+        (items as u64)
+            .saturating_mul(ITEMS_FEE)
+            .saturating_add((bytes as u64).saturating_mul(BYTES_FEE)),
+    )
 }
 
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -429,6 +431,12 @@ impl pallet_safe_mode::Config for Runtime {
 
 // Existential deposit.
 pub const EXISTENTIAL_DEPOSIT: u64 = 500;
+pub struct ExistentialDeposit;
+impl frame_support::traits::Get<TaoCurrency> for ExistentialDeposit {
+    fn get() -> TaoCurrency {
+        TaoCurrency::new(500)
+    }
+}
 
 impl pallet_balances::Config for Runtime {
     type MaxLocks = ConstU32<50>;
@@ -439,7 +447,7 @@ impl pallet_balances::Config for Runtime {
     // The ubiquitous event type.
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ConstU64<EXISTENTIAL_DEPOSIT>;
+    type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 
@@ -568,7 +576,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
                     alpha_amount,
                     ..
-                }) => *alpha_amount < SMALL_TRANSFER_LIMIT.into(),
+                }) => *alpha_amount < SMALL_ALPHA_TRANSFER_LIMIT,
                 _ => false,
             },
             ProxyType::Owner => {
@@ -855,8 +863,8 @@ impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
 // Configure registry pallet.
 parameter_types! {
     pub const MaxAdditionalFields: u32 = 1;
-    pub const InitialDeposit: Balance = 100_000_000; // 0.1 TAO
-    pub const FieldDeposit: Balance = 100_000_000; // 0.1 TAO
+    pub const InitialDeposit: Balance = TaoCurrency::new(100_000_000); // 0.1 TAO
+    pub const FieldDeposit: Balance = TaoCurrency::new(100_000_000); // 0.1 TAO
 }
 
 impl pallet_registry::Config for Runtime {
@@ -872,8 +880,8 @@ impl pallet_registry::Config for Runtime {
 
 parameter_types! {
     pub const MaxCommitFieldsInner: u32 = 3;
-    pub const CommitmentInitialDeposit: Balance = 0; // Free
-    pub const CommitmentFieldDeposit: Balance = 0; // Free
+    pub const CommitmentInitialDeposit: Balance = TaoCurrency::ZERO; // Free
+    pub const CommitmentFieldDeposit: Balance = TaoCurrency::ZERO; // Free
 }
 
 #[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
@@ -905,7 +913,7 @@ impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
         // Reset bonds for each mechanism of this subnet
         let mechanism_count = SubtensorModule::get_current_mechanism_count(netuid);
-        for mecid in 0..u8::from(mechanism_count) {
+        for mecid in 0..<u8 as From<MechId>>::from(mechanism_count) {
             let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid.into());
             let _ = SubtensorModule::do_reset_bonds(netuid_index, address);
         }
@@ -961,7 +969,7 @@ parameter_types! {
     pub const SubtensorInitialAlphaSigmoidSteepness: i16 = 1000;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
     pub const SubtensorInitialMaxAllowedUids: u16 = 256;
-    pub const SubtensorInitialIssuance: u64 = 0;
+    pub const SubtensorInitialIssuance: TaoCurrency = TaoCurrency::ZERO;
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
@@ -988,23 +996,23 @@ parameter_types! {
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
     pub const SubtensorInitialServingRateLimit: u64 = 50;
-    pub const SubtensorInitialBurn: u64 = 100_000_000; // 0.1 tao
-    pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
-    pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const SubtensorInitialBurn: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 tao
+    pub const SubtensorInitialMinBurn: TaoCurrency = TaoCurrency::new(500_000); // 500k RAO
+    pub const SubtensorInitialMaxBurn: TaoCurrency = TaoCurrency::new(100_000_000_000); // 100 tao
     pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
-    pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
+    pub const SubtensorInitialRAORecycledForRegistration: TaoCurrency = TaoCurrency::ZERO; // 0 rao
     pub const SubtensorInitialRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 1_296_000;
     pub const SubtensorInitialMinAllowedUids: u16 = 64;
-    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
+    pub const SubtensorInitialMinLockCost: TaoCurrency = TaoCurrency::new(1_000_000_000_000_u64); // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
-    pub const SubtensorInitialKeySwapCost: u64 = 100_000_000; // 0.1 TAO
+    pub const SubtensorInitialKeySwapCost: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
@@ -1016,7 +1024,7 @@ parameter_types! {
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     // 0 days
     pub const InitialStartCallDelay: u64 = 0;
-    pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
+    pub const SubtensorInitialKeySwapOnSubnetCost: TaoCurrency = TaoCurrency::new(1_000_000); // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
@@ -1210,7 +1218,7 @@ const EVM_TO_SUBSTRATE_DECIMALS: u64 = 1_000_000_000_u64;
 pub struct SubtensorEvmBalanceConverter;
 
 impl BalanceConverter for SubtensorEvmBalanceConverter {
-    /// Convert from Substrate balance (u64) to EVM balance (U256)
+    /// Convert from Substrate balance (TaoCurrency) to EVM balance (U256)
     fn into_evm_balance(value: SubstrateBalance) -> Option<EvmBalance> {
         let value = value.into_u256();
         if let Some(evm_value) = value.checked_mul(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
@@ -1231,7 +1239,7 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
         }
     }
 
-    /// Convert from EVM balance (U256) to Substrate balance (u64)
+    /// Convert from EVM balance (U256) to Substrate balance (TaoCurrency)
     fn into_substrate_balance(value: EvmBalance) -> Option<SubstrateBalance> {
         let value = value.into_u256();
         if let Some(substrate_value) = value.checked_div(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
@@ -1410,8 +1418,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 // Crowdloan
 parameter_types! {
     pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
-    pub const MinimumDeposit: Balance = 10_000_000_000; // 10 TAO
-    pub const AbsoluteMinimumContribution: Balance = 100_000_000; // 0.1 TAO
+    pub const MinimumDeposit: Balance = TaoCurrency::new(10_000_000_000); // 10 TAO
+    pub const AbsoluteMinimumContribution: Balance = TaoCurrency::new(100_000_000); // 0.1 TAO
     // 7 days minimum (7 * 24 * 60 * 60 / 12)
     pub const MinimumBlockDuration: BlockNumber = prod_or_fast!(50400, 50);
     // 60 days maximum (60 * 24 * 60 * 60 / 12)
@@ -1445,19 +1453,19 @@ fn contracts_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedu
     }
 }
 
-const CONTRACT_STORAGE_KEY_PERCENT: Balance = 15;
-const CONTRACT_STORAGE_BYTE_PERCENT: Balance = 6;
+const CONTRACT_STORAGE_KEY_PERCENT: u64 = 15;
+const CONTRACT_STORAGE_BYTE_PERCENT: u64 = 6;
 
 /// Contracts deposits charged at 15% of the existential deposit per key, 6% per byte.
 pub const fn contract_deposit(items: u32, bytes: u32) -> Balance {
-    let key_fee =
-        (EXISTENTIAL_DEPOSIT as Balance).saturating_mul(CONTRACT_STORAGE_KEY_PERCENT) / 100;
-    let byte_fee =
-        (EXISTENTIAL_DEPOSIT as Balance).saturating_mul(CONTRACT_STORAGE_BYTE_PERCENT) / 100;
+    let key_fee = EXISTENTIAL_DEPOSIT.saturating_mul(CONTRACT_STORAGE_KEY_PERCENT) / 100;
+    let byte_fee = EXISTENTIAL_DEPOSIT.saturating_mul(CONTRACT_STORAGE_BYTE_PERCENT) / 100;
 
-    (items as Balance)
-        .saturating_mul(key_fee)
-        .saturating_add((bytes as Balance).saturating_mul(byte_fee))
+    TaoCurrency::new(
+        (items as u64)
+            .saturating_mul(key_fee)
+            .saturating_add((bytes as u64).saturating_mul(byte_fee)),
+    )
 }
 
 parameter_types! {

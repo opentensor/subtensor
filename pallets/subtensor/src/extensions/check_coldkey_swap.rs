@@ -203,7 +203,7 @@ mod tests {
             add_network(netuid, 1, 0);
             register_ok_neuron(netuid, hotkey, who, 0);
 
-            SubtensorModule::add_balance_to_coldkey_account(&who, u64::MAX);
+            SubtensorModule::add_balance_to_coldkey_account(&who, u64::MAX.into());
 
             let forbidden_calls: Vec<RuntimeCall> = vec![
                 RuntimeCall::SubtensorModule(SubtensorCall::dissolve_network {
@@ -269,11 +269,11 @@ mod tests {
                 }),
                 RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
                     dest: new_coldkey,
-                    value: 100_000_000_000,
+                    value: 100_000_000_000_u64.into(),
                 }),
                 RuntimeCall::Balances(BalancesCall::transfer_allow_death {
                     dest: new_coldkey,
-                    value: 100_000_000_000,
+                    value: 100_000_000_000_u64.into(),
                 }),
             ];
 

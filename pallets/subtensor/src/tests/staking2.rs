@@ -24,8 +24,8 @@ fn test_stake_base_case() {
         SubnetMechanism::<Test>::insert(netuid, 1);
 
         // Initialize subnet with some existing TAO and Alpha
-        let initial_subnet_tao = TaoCurrency::from(10_000_000_000); // 10 TAO
-        let initial_subnet_alpha = AlphaCurrency::from(5_000_000_000); // 5 Alpha
+        let initial_subnet_tao = TaoCurrency::from(10_000_000_000_u64); // 10 TAO
+        let initial_subnet_alpha = AlphaCurrency::from(5_000_000_000_u64); // 5 Alpha
         mock::setup_reserves(netuid, initial_subnet_tao, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
@@ -407,7 +407,7 @@ fn test_share_based_staking() {
 fn test_share_based_staking_denominator_precision() {
     // Test case amounts: stake, unstake, inject, tolerance
     [
-        (1_000, 990),
+        (1_000_u64, 990_u64),
         (1_000, 999),
         (1_000_000, 990_000),
         (1_000_000, 999_990),
@@ -464,7 +464,7 @@ fn test_share_based_staking_denominator_precision() {
 fn test_share_based_staking_stake_unstake_inject() {
     // Test case amounts: stake, unstake, inject, tolerance
     [
-        (1_000, 999, 1_000_000, 0),
+        (1_000_u64, 999_u64, 1_000_000_u64, 0),
         (1_000_000, 999_000, 100_000_000, 0),
         (1_000_000, 900_000, 100_000_000, 0),
         (100_000_000_000, 1_000_000_000, 1_000_000_000_000, 1),
@@ -540,7 +540,7 @@ fn test_share_based_staking_stake_unstake_inject() {
 fn test_share_based_staking_stake_inject_stake_new() {
     // Test case amounts: stake, inject, stake, tolerance
     [
-        (1, 2_000_000_000, 500_000_000, 1),
+        (1_u64, 2_000_000_000_u64, 500_000_000_u64, 1),
         (1, 5_000_000_000, 50_000_000, 1),
         (500_000_000, 1_000_000_000, 1_000_000_000, 1),
     ]
@@ -661,15 +661,15 @@ fn test_stake_fee_api() {
         let netuid1 = NetUid::from(2);
         let root_netuid = NetUid::ROOT;
 
-        let alpha_divs = AlphaCurrency::from(100_000_000_000);
-        let total_hotkey_alpha = AlphaCurrency::from(100_000_000_000);
-        let tao_in = TaoCurrency::from(100_000_000_000); // 100 TAO
+        let alpha_divs = AlphaCurrency::from(100_000_000_000_u64);
+        let total_hotkey_alpha = AlphaCurrency::from(100_000_000_000_u64);
+        let tao_in = TaoCurrency::from(100_000_000_000_u64); // 100 TAO
         let reciprocal_price = 2; // 1 / price
-        let stake_amount = 100_000_000_000;
+        let stake_amount = 100_000_000_000_u64;
 
         // Setup alpha out
-        SubnetAlphaOut::<Test>::insert(netuid0, AlphaCurrency::from(100_000_000_000));
-        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(100_000_000_000));
+        SubnetAlphaOut::<Test>::insert(netuid0, AlphaCurrency::from(100_000_000_000_u64));
+        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(100_000_000_000_u64));
         // Set pools using price
         SubnetAlphaIn::<Test>::insert(
             netuid0,
@@ -840,17 +840,17 @@ fn test_stake_fee_calculation() {
         SubnetMechanism::<Test>::insert(netuid0, 1);
         SubnetMechanism::<Test>::insert(netuid1, 1);
 
-        let alpha_divs = AlphaCurrency::from(100_000_000_000);
-        let total_hotkey_alpha = AlphaCurrency::from(100_000_000_000);
-        let tao_in = TaoCurrency::from(100_000_000_000); // 100 TAO
+        let alpha_divs = AlphaCurrency::from(100_000_000_000_u64);
+        let total_hotkey_alpha = AlphaCurrency::from(100_000_000_000_u64);
+        let tao_in = TaoCurrency::from(100_000_000_000_u64); // 100 TAO
         let reciprocal_price = 2; // 1 / price
-        let stake_amount = TaoCurrency::from(100_000_000_000);
+        let stake_amount = TaoCurrency::from(100_000_000_000_u64);
 
         let default_fee = TaoCurrency::ZERO; // FIXME: DefaultStakingFee is deprecated
 
         // Setup alpha out
-        SubnetAlphaOut::<Test>::insert(netuid0, AlphaCurrency::from(100_000_000_000));
-        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(100_000_000_000));
+        SubnetAlphaOut::<Test>::insert(netuid0, AlphaCurrency::from(100_000_000_000_u64));
+        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(100_000_000_000_u64));
         // Set pools using price
         mock::setup_reserves(
             netuid0,

@@ -93,7 +93,7 @@ pub struct TaoReserve;
 impl CurrencyReserve<TaoCurrency> for TaoReserve {
     fn reserve(netuid: NetUid) -> TaoCurrency {
         match netuid.into() {
-            123u16 => 10_000,
+            123u16 => 10_000_u64,
             WRAPPING_FEES_NETUID => 100_000_000_000,
             _ => 1_000_000_000_000,
         }
@@ -110,9 +110,9 @@ pub struct AlphaReserve;
 impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
     fn reserve(netuid: NetUid) -> AlphaCurrency {
         match netuid.into() {
-            123u16 => 10_000.into(),
-            WRAPPING_FEES_NETUID => 400_000_000_000.into(),
-            _ => 4_000_000_000_000.into(),
+            123u16 => 10_000_u64.into(),
+            WRAPPING_FEES_NETUID => 400_000_000_000_u64.into(),
+            _ => 4_000_000_000_000_u64.into(),
         }
     }
 

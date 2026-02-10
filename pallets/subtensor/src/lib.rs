@@ -2597,7 +2597,7 @@ pub type GetAlphaForTao<T> =
 pub type GetTaoForAlpha<T> =
     subtensor_swap_interface::GetTaoForAlpha<AlphaCurrencyReserve<T>, TaoCurrencyReserve<T>>;
 
-impl<T: Config + pallet_balances::Config<Balance = u64>>
+impl<T: Config + pallet_balances::Config<Balance = TaoCurrency>>
     subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
 {
     #![deny(clippy::expect_used)]
@@ -2630,7 +2630,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     }
 }
 
-impl<T: Config + pallet_balances::Config<Balance = u64>>
+impl<T: Config + pallet_balances::Config<Balance = TaoCurrency>>
     subtensor_runtime_common::BalanceOps<T::AccountId> for Pallet<T>
 {
     #![deny(clippy::expect_used)]

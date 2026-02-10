@@ -19,7 +19,7 @@ fn test_recycle_success() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         let initial_balance = 1_000_000_000;
-        Balances::make_free_balance_be(&coldkey, initial_balance);
+        Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
         // associate coldkey and hotkey
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -75,7 +75,7 @@ fn test_recycle_two_stakers() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         let initial_balance = 1_000_000_000;
-        Balances::make_free_balance_be(&coldkey, initial_balance);
+        Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
         // associate coldkey and hotkey
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -145,7 +145,7 @@ fn test_recycle_staker_is_nominator() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         let initial_balance = 1_000_000_000;
-        Balances::make_free_balance_be(&coldkey, initial_balance);
+        Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
         // associate coldkey and hotkey
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -218,7 +218,7 @@ fn test_burn_success() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         let initial_balance = 1_000_000_000;
-        Balances::make_free_balance_be(&coldkey, initial_balance);
+        Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
         // associate coldkey and hotkey
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -274,7 +274,7 @@ fn test_burn_staker_is_nominator() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         let initial_balance = 1_000_000_000;
-        Balances::make_free_balance_be(&coldkey, initial_balance);
+        Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
         // associate coldkey and hotkey
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -344,7 +344,7 @@ fn test_burn_two_stakers() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         let initial_balance = 1_000_000_000;
-        Balances::make_free_balance_be(&coldkey, initial_balance);
+        Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
         // associate coldkey and hotkey
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -416,7 +416,7 @@ fn test_recycle_errors() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let initial_balance = 1_000_000_000;
-        Balances::make_free_balance_be(&coldkey, initial_balance);
+        Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
@@ -488,7 +488,7 @@ fn test_burn_errors() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let initial_balance = 1_000_000_000;
-        Balances::make_free_balance_be(&coldkey, initial_balance);
+        Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
@@ -553,7 +553,7 @@ fn test_recycle_precision_loss() {
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
 
-        Balances::make_free_balance_be(&coldkey, 1_000_000_000);
+        Balances::make_free_balance_be(&coldkey, 1_000_000_000.into());
         // sanity check
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
@@ -590,7 +590,7 @@ fn test_burn_precision_loss() {
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
 
-        Balances::make_free_balance_be(&coldkey, 1_000_000_000);
+        Balances::make_free_balance_be(&coldkey, 1_000_000_000.into());
         // sanity check
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
@@ -634,7 +634,7 @@ fn test_subnet_buyback_success() {
             (amount * 10_000_000).into(),
         );
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
         // Check we have zero staked before transfer
         assert_eq!(
@@ -660,8 +660,8 @@ fn test_subnet_buyback_success() {
         // We spent TAO
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-            0u64,
-            epsilon = 1u64
+            0u64.into(),
+            epsilon = 1u64.into()
         );
 
         // Verify AlphaBurned event was emitted
@@ -693,8 +693,8 @@ fn test_subnet_buyback_with_limit_success() {
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
         // Setup reserves with large liquidity to minimize slippage
-        let tao_reserve = TaoCurrency::from(1_000_000_000_000); // 1000 TAO
-        let alpha_in = AlphaCurrency::from(1_000_000_000_000); // 1000 Alpha
+        let tao_reserve = TaoCurrency::from(1_000_000_000_000_u64); // 1000 TAO
+        let alpha_in = AlphaCurrency::from(1_000_000_000_000_u64); // 1000 Alpha
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Verify current price is 1.0
@@ -703,7 +703,7 @@ fn test_subnet_buyback_with_limit_success() {
         assert_eq!(current_price, U96F32::from_num(1.0));
 
         // Give coldkey sufficient balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
         let initial_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
 
@@ -770,7 +770,7 @@ fn test_subnet_buyback_non_owner_fails() {
         );
 
         // Give non-owner some balance
-        SubtensorModule::add_balance_to_coldkey_account(&non_owner_coldkey, amount);
+        SubtensorModule::add_balance_to_coldkey_account(&non_owner_coldkey, amount.into());
 
         // Non-owner trying to call subnet_buyback should fail with BadOrigin
         assert_noop!(
@@ -794,7 +794,7 @@ fn test_subnet_buyback_nonexistent_subnet_fails() {
         let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         // Give some balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
         // Try to call subnet_buyback on non-existent subnet
         let nonexistent_netuid = NetUid::from(999);
@@ -852,12 +852,12 @@ fn test_subnet_buyback_rate_limit_exceeded() {
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
         // Setup reserves with large liquidity
-        let tao_reserve = TaoCurrency::from(1_000_000_000_000);
-        let alpha_in = AlphaCurrency::from(1_000_000_000_000);
+        let tao_reserve = TaoCurrency::from(1_000_000_000_000_u64);
+        let alpha_in = AlphaCurrency::from(1_000_000_000_000_u64);
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Give coldkey sufficient balance for multiple buybacks
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount * 10);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, (amount * 10).into());
 
         assert_eq!(
             SubtensorModule::get_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid)),

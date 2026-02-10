@@ -3,6 +3,7 @@
 use core::num::NonZeroU64;
 
 use crate::TransactionFeeHandler;
+use frame_support::pallet_prelude::Zero;
 use frame_support::{
     PalletId, assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
@@ -21,7 +22,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-pub use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+pub use subtensor_runtime_common::{AlphaCurrency, ConstTao, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 use crate::SubtensorTxFeeHandler;
@@ -74,7 +75,7 @@ pub type Address = AccountId;
 
 // Balance of an account.
 #[allow(dead_code)]
-pub type Balance = u64;
+pub type Balance = TaoCurrency;
 
 // An index to a block.
 #[allow(dead_code)]
@@ -146,8 +147,8 @@ parameter_types! {
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
-    pub const ExistentialDeposit: Balance = 1;
-    pub const TransactionByteFee: Balance = 100;
+    pub const ExistentialDeposit: Balance = TaoCurrency::new(1);
+    pub const TransactionByteFee: Balance = TaoCurrency::new(100);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialAlphaSigmoidSteepness: i16 = 1000;
@@ -172,15 +173,15 @@ parameter_types! {
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialTxDelegateTakeRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialTxChildKeyTakeRateLimit: u64 = 0; // Disable rate limit for testing
-    pub const InitialBurn: u64 = 0;
-    pub const InitialMinBurn: u64 = 500_000;
-    pub const InitialMaxBurn: u64 = 1_000_000_000;
+    pub const InitialBurn: TaoCurrency = TaoCurrency::new(0);
+    pub const InitialMinBurn: TaoCurrency = TaoCurrency::new(500_000);
+    pub const InitialMaxBurn: TaoCurrency = TaoCurrency::new(1_000_000_000);
     pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
-    pub const InitialIssuance: u64 = 0;
+    pub const InitialIssuance: TaoCurrency = TaoCurrency::new(0);
     pub const InitialDifficulty: u64 = 10000;
     pub const InitialActivityCutoff: u16 = 5000;
     pub const InitialAdjustmentInterval: u16 = 100;
@@ -191,13 +192,13 @@ parameter_types! {
     pub const InitialRegistrationRequirement: u16 = u16::MAX; // Top 100%
     pub const InitialMinDifficulty: u64 = 1;
     pub const InitialMaxDifficulty: u64 = u64::MAX;
-    pub const InitialRAORecycledForRegistration: u64 = 0;
+    pub const InitialRAORecycledForRegistration: TaoCurrency = TaoCurrency::new(0);
     pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
-    pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
+    pub const InitialNetworkMinLockCost: TaoCurrency = TaoCurrency::new(100_000_000_000_u64);
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialNetworkRateLimit: u64 = 0;
-    pub const InitialKeySwapCost: u64 = 1_000_000_000;
+    pub const InitialKeySwapCost: TaoCurrency = TaoCurrency::new(1_000_000_000);
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
@@ -208,7 +209,7 @@ parameter_types! {
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const InitialStartCallDelay: u64 = 0; // 0 days
-    pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
+    pub const InitialKeySwapOnSubnetCost: TaoCurrency = TaoCurrency::new(10_000_000);
     pub const HotkeySwapOnSubnetInterval: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
@@ -291,8 +292,8 @@ impl pallet_subtensor::Config for Test {
 
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: Balance = 1;
-    pub const PreimageByteDeposit: Balance = 1;
+    pub const PreimageBaseDeposit: Balance = TaoCurrency::new(1);
+    pub const PreimageByteDeposit: Balance = TaoCurrency::new(1);
 }
 
 impl pallet_preimage::Config for Test {
@@ -305,8 +306,8 @@ impl pallet_preimage::Config for Test {
 
 parameter_types! {
     pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
-    pub const MinimumDeposit: u64 = 50;
-    pub const AbsoluteMinimumContribution: u64 = 10;
+    pub const MinimumDeposit: TaoCurrency = TaoCurrency::new(50);
+    pub const AbsoluteMinimumContribution: TaoCurrency = TaoCurrency::new(10);
     pub const MinimumBlockDuration: u64 = 20;
     pub const MaximumBlockDuration: u64 = 100;
     pub const RefundContributorsLimit: u32 = 5;
@@ -343,7 +344,7 @@ impl system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<TaoCurrency>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -372,10 +373,10 @@ impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
-    type Balance = u64;
+    type Balance = TaoCurrency;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ConstU64<1>;
+    type ExistentialDeposit = ConstTao<1>;
     type AccountStore = System;
     type WeightInfo = ();
     type FreezeIdentifier = ();
@@ -516,7 +517,7 @@ where
         let extra: TransactionExtensions = (
             frame_system::CheckNonZeroSender::<Test>::new(),
             frame_system::CheckWeight::<Test>::new(),
-            pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0),
+            pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into()),
         );
 
         Some(UncheckedExtrinsic::new_signed(call, nonce, (), extra))
@@ -654,7 +655,7 @@ pub fn setup_subnets(sncount: u16, neurons: u16) -> TestSetup {
     let owner_hk_start_id = 200;
     let coldkey = U256::from(10000);
     let neuron_hk_start_id = 20000;
-    let amount = 1_000_000_000_000;
+    let amount = 1_000_000_000_000_u64;
     let mut hotkeys: Vec<U256> = Vec::new();
 
     for sn in 0..sncount {
@@ -685,7 +686,7 @@ pub fn setup_subnets(sncount: u16, neurons: u16) -> TestSetup {
         SubtensorModule::swap_tao_for_alpha(
             subnet.netuid,
             0.into(),
-            1_000_000_000_000.into(),
+            1_000_000_000_000_u64.into(),
             false,
         )
         .unwrap();
@@ -707,7 +708,10 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
 #[allow(dead_code)]
 pub fn setup_stake(netuid: NetUid, coldkey: &U256, hotkey: &U256, amount: u64) {
     // Stake to hotkey account, and check if the result is ok
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, amount + ExistentialDeposit::get());
+    SubtensorModule::add_balance_to_coldkey_account(
+        coldkey,
+        TaoCurrency::from(amount) + ExistentialDeposit::get(),
+    );
     remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
     assert_ok!(SubtensorModule::add_stake(
         RuntimeOrigin::signed(*coldkey),

@@ -18,13 +18,13 @@ impl<T: Config> Pallet<T> {
         //
         // These values can be off slightly due to float rounding errors.
         // They are corrected every runtime upgrade.
-        let delta = 1000;
-        let total_issuance = TotalIssuance::<T>::get().to_u64();
+        let delta = TaoCurrency::from(1000);
+        let total_issuance = TotalIssuance::<T>::get();
 
         let diff = if total_issuance > expected_total_issuance {
-            total_issuance.checked_sub(expected_total_issuance)
+            total_issuance.checked_sub(&expected_total_issuance)
         } else {
-            expected_total_issuance.checked_sub(total_issuance)
+            expected_total_issuance.checked_sub(&total_issuance)
         }
         .expect("LHS > RHS");
 

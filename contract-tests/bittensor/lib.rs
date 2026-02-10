@@ -154,7 +154,7 @@ impl ink::env::Environment for CustomEnvironment {
     const MAX_EVENT_TOPICS: usize = 4;
 
     type AccountId = ink::primitives::AccountId;
-    type Balance = u64;
+    type Balance = TaoCurrency;
     type Hash = ink::primitives::Hash;
     type BlockNumber = u32;
     type Timestamp = u64;

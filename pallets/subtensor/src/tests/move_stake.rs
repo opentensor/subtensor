@@ -861,7 +861,7 @@ fn test_moving_too_little_unstakes() {
 
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
-            amount.to_u64() + fee * 2,
+            amount + (fee * 2).into(),
         );
 
         assert_ok!(SubtensorModule::add_stake(
@@ -1052,7 +1052,10 @@ fn test_do_transfer_wrong_origin() {
         let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
-        SubtensorModule::add_balance_to_coldkey_account(&origin_coldkey, stake_amount + fee);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &origin_coldkey,
+            (stake_amount + fee).into(),
+        );
         SubtensorModule::stake_into_subnet(
             &hotkey,
             &origin_coldkey,
@@ -1136,7 +1139,7 @@ fn test_do_transfer_different_subnets() {
         SubtensorModule::create_account_if_non_existent(&destination_coldkey, &hotkey);
 
         // 4. Deposit free balance so transaction fees do not reduce staked funds.
-        SubtensorModule::add_balance_to_coldkey_account(&origin_coldkey, 1_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&origin_coldkey, 1_000_000_000.into());
 
         // 5. Stake into the origin subnet.
         SubtensorModule::stake_into_subnet(
@@ -1688,10 +1691,10 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
 
         let existing_shares: U64F64 =
             U64F64::from_num(161_986_254).saturating_div(U64F64::from_num(u64::MAX));
-        let existing_stake = AlphaCurrency::from(36_711_495_953);
+        let existing_stake = AlphaCurrency::from(36_711_495_953_u64);
 
-        let tao_in = TaoCurrency::from(2_409_892_148_947);
-        let alpha_in = AlphaCurrency::from(15_358_708_513_716);
+        let tao_in = TaoCurrency::from(2_409_892_148_947_u64);
+        let alpha_in = AlphaCurrency::from(15_358_708_513_716_u64);
 
         let tao_staked = 200_000_000;
 
@@ -1729,7 +1732,7 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
         // Give TAO balance to coldkey
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
-            tao_staked + 1_000_000_000,
+            (tao_staked + 1_000_000_000).into(),
         );
 
         // Setup Subnet pool for origin netuid

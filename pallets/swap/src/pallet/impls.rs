@@ -3,7 +3,7 @@ use core::ops::Neg;
 use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
-use sp_arithmetic::helpers_128bit;
+use sp_arithmetic::{helpers_128bit, traits::Zero};
 use sp_runtime::{DispatchResult, Vec, traits::AccountIdConversion};
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
@@ -130,7 +130,7 @@ impl<T: Config> Pallet<T> {
                 tao_equivalent.into(),
                 amount_alpha,
                 amount_tao.saturating_sub(TaoCurrency::from(tao_equivalent)),
-                0.into(),
+                0_u32.into(),
             )
         } else {
             // Too much Alpha
@@ -140,7 +140,7 @@ impl<T: Config> Pallet<T> {
             (
                 amount_tao,
                 alpha_equivalent.into(),
-                0.into(),
+                0_u32.into(),
                 u64::from(amount_alpha)
                     .saturating_sub(alpha_equivalent)
                     .into(),
@@ -1100,7 +1100,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
                 Ok(SwapResult {
                     amount_paid_in: actual_amount,
                     amount_paid_out: actual_amount.to_u64().into(),
-                    fee_paid: 0.into(),
+                    fee_paid: 0_u64.into(),
                 })
             }
         }

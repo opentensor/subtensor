@@ -116,7 +116,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
 
         // Cold-key received full pot
         let after = SubtensorModule::get_coldkey_balance(&s_cold);
-        assert_eq!(after, before + pot);
+        assert_eq!(after, before + pot.into());
 
         // No α entries left for dissolved subnet
         assert!(Alpha::<Test>::iter().all(|((_h, _c, n), _)| n != net));
@@ -188,17 +188,17 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         // Cold-keys received their τ shares
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&s1_cold),
-            s1_before + expected1
+            s1_before + expected1.into()
         );
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&s2_cold),
-            s2_before + expected2
+            s2_before + expected2.into()
         );
 
         // Owner refunded lock (no emission)
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&oc),
-            owner_before + 5_000
+            owner_before + 5_000.into()
         );
 
         // α entries for dissolved subnet gone
@@ -699,7 +699,7 @@ fn dissolve_rounding_remainder_distribution() {
         let c1_after = SubtensorModule::get_coldkey_balance(&s1c);
         let c2_after = SubtensorModule::get_coldkey_balance(&s2c);
 
-        assert_eq!(c1_after, c1_before + 1);
+        assert_eq!(c1_after, c1_before + 1.into());
         assert_eq!(c2_after, c2_before);
 
         // α records for subnet gone; TAO key gone
@@ -731,8 +731,8 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         let s1: u64 = 3u64 * min_total_u64;
         let s2: u64 = 7u64 * min_total_u64;
 
-        SubtensorModule::add_balance_to_coldkey_account(&c1, s1 + 50_000);
-        SubtensorModule::add_balance_to_coldkey_account(&c2, s2 + 50_000);
+        SubtensorModule::add_balance_to_coldkey_account(&c1, (s1 + 50_000).into());
+        SubtensorModule::add_balance_to_coldkey_account(&c2, (s2 + 50_000).into());
 
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(c1),
@@ -785,17 +785,17 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         // 9. Cold-key balances must have increased accordingly
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&c1),
-            c1_before + s1_share
+            c1_before + s1_share.into()
         );
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&c2),
-            c2_before + s2_share
+            c2_before + s2_share.into()
         );
 
         // 10. Owner refund (5 000 τ) to cold-key (no emission)
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&owner_cold),
-            owner_before + 5_000
+            owner_before + 5_000.into()
         );
 
         // 11. α entries cleared for the subnet
@@ -841,7 +841,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             stake[i] = (i as u64 + 1u64) * min_amount_u64; // multiples of min_amount
 
             register_ok_neuron(netuid, hot[i], cold[i], 0);
-            SubtensorModule::add_balance_to_coldkey_account(&cold[i], stake[i] + 100_000);
+            SubtensorModule::add_balance_to_coldkey_account(&cold[i], (stake[i] + 100_000).into());
 
             assert_ok!(SubtensorModule::do_add_stake(
                 RuntimeOrigin::signed(cold[i]),
@@ -872,7 +872,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         SubnetOwnerCut::<Test>::put(32_768u16); // ~ 0.5 in fixed-point
 
         // ── 4) balances before ──────────────────────────────────────────────
-        let mut bal_before = [0u64; N];
+        let mut bal_before = [TaoCurrency::new(0); N];
         for i in 0..N {
             bal_before[i] = SubtensorModule::get_coldkey_balance(&cold[i]);
         }
@@ -924,7 +924,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             // cold-key balances increased by expected τ share
             assert_eq!(
                 SubtensorModule::get_coldkey_balance(&cold[i]),
-                bal_before[i] + share[i],
+                bal_before[i] + share[i].into(),
                 "staker {i} cold-key balance changed unexpectedly"
             );
         }
@@ -932,7 +932,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         // owner refund
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&owner_cold),
-            owner_before + expected_refund
+            owner_before + expected_refund.into()
         );
 
         // α cleared for dissolved subnet & related counters reset
@@ -1004,7 +1004,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
 
         // Owner received their refund…
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
-        assert_eq!(owner_after, owner_before + expected_refund);
+        assert_eq!(owner_after, owner_before + expected_refund.into());
 
         // …and the lock is always cleared to zero by destroy_alpha_in_out_stakes.
         assert_eq!(
@@ -1384,7 +1384,10 @@ fn register_network_prunes_and_recycles_netuid() {
         let new_cold = U256::from(30);
         let new_hot = U256::from(31);
         let needed: u64 = SubtensorModule::get_network_lock_cost().into();
-        SubtensorModule::add_balance_to_coldkey_account(&new_cold, needed.saturating_mul(10));
+        SubtensorModule::add_balance_to_coldkey_account(
+            &new_cold,
+            needed.saturating_mul(10).into(),
+        );
 
         assert_ok!(SubtensorModule::do_register_network(
             RuntimeOrigin::signed(new_cold),
@@ -1715,7 +1718,7 @@ fn test_register_subnet_low_lock_cost() {
 
         // Make sure lock cost is lower than 100 TAO
         let lock_cost = SubtensorModule::get_network_lock_cost();
-        assert!(lock_cost < 100_000_000_000.into());
+        assert!(lock_cost < 100_000_000_000_u64.into());
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
@@ -1735,13 +1738,13 @@ fn test_register_subnet_low_lock_cost() {
 #[test]
 fn test_register_subnet_high_lock_cost() {
     new_test_ext(1).execute_with(|| {
-        let lock_cost = TaoCurrency::from(1_000_000_000_000);
+        let lock_cost = TaoCurrency::from(1_000_000_000_000_u64);
         NetworkMinLockCost::<Test>::set(lock_cost);
         NetworkLastLockCost::<Test>::set(lock_cost);
 
         // Make sure lock cost is higher than 100 TAO
         let lock_cost = SubtensorModule::get_network_lock_cost();
-        assert!(lock_cost >= 1_000_000_000_000.into());
+        assert!(lock_cost >= 1_000_000_000_000_u64.into());
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
@@ -1883,7 +1886,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         // 3) LPs per net: register each (hot, cold), massive τ prefund, and stake
         // ────────────────────────────────────────────────────────────────────
         for &cold in cold_lps.iter() {
-            SubtensorModule::add_balance_to_coldkey_account(&cold, u64::MAX);
+            SubtensorModule::add_balance_to_coldkey_account(&cold, u64::MAX.into());
         }
 
         // τ balances before LP adds (after staking):
@@ -1935,7 +1938,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
 
         // Record τ balances now (post‑stake, pre‑LP).
         for &cold in cold_lps.iter() {
-            tao_before.insert(cold, SubtensorModule::get_coldkey_balance(&cold));
+            tao_before.insert(cold, SubtensorModule::get_coldkey_balance(&cold).into());
         }
 
         // Capture **pair‑level** α snapshot per net (pre‑LP).
@@ -1973,7 +1976,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         // Snapshot τ balances AFTER LP adds (to measure actual principal debit).
         let mut tao_after_adds: BTreeMap<U256, u64> = BTreeMap::new();
         for &cold in cold_lps.iter() {
-            tao_after_adds.insert(cold, SubtensorModule::get_coldkey_balance(&cold));
+            tao_after_adds.insert(cold, SubtensorModule::get_coldkey_balance(&cold).into());
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -2032,7 +2035,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         for &cold in cold_lps.iter() {
             let before = tao_before[&cold];
             let after = SubtensorModule::get_coldkey_balance(&cold);
-            actual_pot_cold.insert(cold, after.saturating_sub(before));
+            actual_pot_cold.insert(cold, after.saturating_sub(before.into()).into());
         }
 
         // (a) Sum of actual pot credits equals total pots.
@@ -2074,10 +2077,10 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             let mid = tao_after_adds[&cold];
             let after = SubtensorModule::get_coldkey_balance(&cold);
             let principal_actual = before.saturating_sub(mid);
-            let actual_pot = after.saturating_sub(before);
+            let actual_pot = after.saturating_sub(before.into());
             assert_eq!(
-                after.saturating_sub(mid),
-                principal_actual.saturating_add(actual_pot),
+                after.saturating_sub(mid.into()),
+                principal_actual.saturating_add(actual_pot.into()).into(),
                 "cold {cold:?} τ balance incorrect vs 'after_adds'"
             );
         }
@@ -2202,7 +2205,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             // τ decreased by exactly the amount we sent.
             assert_eq!(
                 after_tao,
-                before_tao.saturating_sub(min_amount_required),
+                before_tao.saturating_sub(min_amount_required.into()),
                 "τ did not decrease by the min required restake amount for cold {cold:?}"
             );
 

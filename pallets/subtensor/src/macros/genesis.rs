@@ -78,8 +78,8 @@ mod genesis {
             let hotkey = DefaultAccount::<T>::get();
             SubnetMechanism::<T>::insert(netuid, 1); // Make dynamic.
             Owner::<T>::insert(hotkey.clone(), hotkey.clone());
-            SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(10_000_000_000));
-            SubnetTAO::<T>::insert(netuid, TaoCurrency::from(10_000_000_000));
+            SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(10_000_000_000_u64));
+            SubnetTAO::<T>::insert(netuid, TaoCurrency::from(10_000_000_000_u64));
             NetworksAdded::<T>::insert(netuid, true);
             TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
             SubnetworkN::<T>::insert(netuid, 0);

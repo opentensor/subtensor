@@ -195,14 +195,14 @@ fn test_coinbase_tao_issuance_different_prices() {
         SubtensorModule::swap_tao_for_alpha(
             netuid1,
             TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
+            1_000_000_000_000_u64.into(),
             false,
         )
         .unwrap();
         SubtensorModule::swap_tao_for_alpha(
             netuid2,
             TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
+            1_000_000_000_000_u64.into(),
             false,
         )
         .unwrap();
@@ -589,14 +589,14 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubtensorModule::swap_tao_for_alpha(
             netuid1,
             TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
+            1_000_000_000_000_u64.into(),
             false,
         )
         .unwrap();
         SubtensorModule::swap_tao_for_alpha(
             netuid2,
             TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
+            1_000_000_000_000_u64.into(),
             false,
         )
         .unwrap();
@@ -606,8 +606,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         let price_2_before = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid2);
 
         // Set issuance at 21M
-        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(21_000_000_000_000_000)); // Set issuance above 21M
-        SubnetAlphaOut::<Test>::insert(netuid2, AlphaCurrency::from(21_000_000_000_000_000)); // Set issuance above 21M
+        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(21_000_000_000_000_000_u64)); // Set issuance above 21M
+        SubnetAlphaOut::<Test>::insert(netuid2, AlphaCurrency::from(21_000_000_000_000_000_u64)); // Set issuance above 21M
 
         // Run coinbase
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
@@ -639,7 +639,11 @@ fn test_owner_cut_base() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
-        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
+        mock::setup_reserves(
+            netuid,
+            1_000_000_000_000_u64.into(),
+            1_000_000_000_000_u64.into(),
+        );
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_subnet_owner_cut(0);
         SubtensorModule::run_coinbase(U96F32::from_num(0));
@@ -1374,7 +1378,7 @@ fn test_get_root_children_drain() {
         // Get Bob stake amounts on subnet alpha.
         let (bob_total, bob_alpha, bob_tao): (I64F64, I64F64, I64F64) =
             SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&bob, alpha);
-        assert_eq!(bob_total, I64F64::from_num(4 * bob_root_stake));
+        assert_eq!(bob_total, I64F64::from_num(4_u64 * bob_root_stake));
 
         // Lets drain
         let pending_alpha = AlphaCurrency::from(1_000_000_000);
@@ -1994,8 +1998,8 @@ fn test_calculate_dividend_distribution_totals() {
         let mut stake_map: BTreeMap<U256, (AlphaCurrency, AlphaCurrency)> = BTreeMap::new();
         let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
 
-        let pending_validator_alpha = AlphaCurrency::from(183_123_567_452);
-        let pending_root_alpha = AlphaCurrency::from(837_120_949_872);
+        let pending_validator_alpha = AlphaCurrency::from(183_123_567_452_u64);
+        let pending_root_alpha = AlphaCurrency::from(837_120_949_872_u64);
         let tao_weight: U96F32 = U96F32::from_num(0.18); // 18%
 
         let hotkeys = [U256::from(0), U256::from(1)];
@@ -2039,7 +2043,7 @@ fn test_calculate_dividend_distribution_total_only_tao() {
         let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
 
         let pending_validator_alpha = AlphaCurrency::ZERO;
-        let pending_root_alpha = AlphaCurrency::from(837_120_949_872);
+        let pending_root_alpha = AlphaCurrency::from(837_120_949_872_u64);
         let tao_weight: U96F32 = U96F32::from_num(0.18); // 18%
 
         let hotkeys = [U256::from(0), U256::from(1)];
@@ -2082,7 +2086,7 @@ fn test_calculate_dividend_distribution_total_no_tao_weight() {
         let mut stake_map: BTreeMap<U256, (AlphaCurrency, AlphaCurrency)> = BTreeMap::new();
         let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
 
-        let pending_validator_alpha = AlphaCurrency::from(183_123_567_452);
+        let pending_validator_alpha = AlphaCurrency::from(183_123_567_452_u64);
         let pending_tao = TaoCurrency::ZERO; // If tao weight is 0, then only alpha dividends should be input.
         let tao_weight: U96F32 = U96F32::from_num(0.0); // 0%
 
@@ -2126,7 +2130,7 @@ fn test_calculate_dividend_distribution_total_only_alpha() {
         let mut stake_map: BTreeMap<U256, (AlphaCurrency, AlphaCurrency)> = BTreeMap::new();
         let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
 
-        let pending_validator_alpha = AlphaCurrency::from(183_123_567_452);
+        let pending_validator_alpha = AlphaCurrency::from(183_123_567_452_u64);
         let pending_tao = TaoCurrency::ZERO;
         let tao_weight: U96F32 = U96F32::from_num(0.18); // 18%
 
@@ -2714,7 +2718,7 @@ fn test_coinbase_v3_liquidity_update() {
         SubtensorModule::swap_tao_for_alpha(
             netuid,
             TaoCurrency::ZERO,
-            1_000_000_000_000.into(),
+            1_000_000_000_000_u64.into(),
             false,
         )
         .unwrap();
@@ -2970,23 +2974,23 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         SubnetMechanism::<Test>::insert(netuid, 1); // Set mechanism to 1
 
         // Setup large LPs to prevent slippage
-        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000));
-        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
+        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000_u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000_u64));
 
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
         register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
         register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
         SubtensorModule::add_balance_to_coldkey_account(
             &validator_coldkey,
-            stake + ExistentialDeposit::get(),
+            TaoCurrency::from(stake) + ExistentialDeposit::get(),
         );
         SubtensorModule::add_balance_to_coldkey_account(
             &validator_miner_coldkey,
-            stake + ExistentialDeposit::get(),
+            TaoCurrency::from(stake) + ExistentialDeposit::get(),
         );
         SubtensorModule::add_balance_to_coldkey_account(
             &miner_coldkey,
-            stake + ExistentialDeposit::get(),
+            TaoCurrency::from(stake) + ExistentialDeposit::get(),
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
@@ -3165,23 +3169,23 @@ fn test_mining_emission_distribution_with_root_sell() {
         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
 
         // Setup large LPs to prevent slippage
-        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000));
-        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
+        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000_u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000_u64));
 
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
         register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
         register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
         SubtensorModule::add_balance_to_coldkey_account(
             &validator_coldkey,
-            stake + ExistentialDeposit::get(),
+            TaoCurrency::from(stake) + ExistentialDeposit::get(),
         );
         SubtensorModule::add_balance_to_coldkey_account(
             &validator_miner_coldkey,
-            stake + ExistentialDeposit::get(),
+            TaoCurrency::from(stake) + ExistentialDeposit::get(),
         );
         SubtensorModule::add_balance_to_coldkey_account(
             &miner_coldkey,
-            stake + ExistentialDeposit::get(),
+            TaoCurrency::from(stake) + ExistentialDeposit::get(),
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
@@ -3360,8 +3364,8 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         mock::setup_reserves(
             netuid0,
-            TaoCurrency::from(1_000_000_000_000_000),
-            AlphaCurrency::from(1_000_000_000_000_000),
+            TaoCurrency::from(1_000_000_000_000_000_u64),
+            AlphaCurrency::from(1_000_000_000_000_000_u64),
         );
         // Initialize swap v3
         Swap::maybe_initialize_v3(netuid0);
@@ -3436,8 +3440,8 @@ fn test_coinbase_subnet_terms_with_alpha_in_lte_alpha_emission() {
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         mock::setup_reserves(
             netuid0,
-            TaoCurrency::from(1_000_000_000_000_000),
-            AlphaCurrency::from(1_000_000_000_000_000),
+            TaoCurrency::from(1_000_000_000_000_000_u64),
+            AlphaCurrency::from(1_000_000_000_000_000_u64),
         );
         // Initialize swap v3
         Swap::maybe_initialize_v3(netuid0);
@@ -3499,8 +3503,8 @@ fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         mock::setup_reserves(
             netuid0,
-            TaoCurrency::from(1_000_000_000_000_000),
-            AlphaCurrency::from(1_000_000_000_000_000),
+            TaoCurrency::from(1_000_000_000_000_000_u64),
+            AlphaCurrency::from(1_000_000_000_000_000_u64),
         );
         // Initialize swap v3
         Swap::maybe_initialize_v3(netuid0);
@@ -3633,8 +3637,8 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
         SubnetOwnerCut::<Test>::set(u16::MAX / 10);
         mock::setup_reserves(
             netuid0,
-            TaoCurrency::from(1_000_000_000_000_000),
-            AlphaCurrency::from(1_000_000_000_000_000),
+            TaoCurrency::from(1_000_000_000_000_000_u64),
+            AlphaCurrency::from(1_000_000_000_000_000_u64),
         );
         // Initialize swap v3
         Swap::maybe_initialize_v3(netuid0);
@@ -3724,8 +3728,8 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
         SubnetOwnerCut::<Test>::set(u16::MAX / 10);
         mock::setup_reserves(
             netuid0,
-            TaoCurrency::from(1_000_000_000_000_000),
-            AlphaCurrency::from(1_000_000_000_000_000),
+            TaoCurrency::from(1_000_000_000_000_000_u64),
+            AlphaCurrency::from(1_000_000_000_000_000_u64),
         );
         // Initialize swap v3
         Swap::maybe_initialize_v3(netuid0);
@@ -3833,7 +3837,7 @@ fn test_pending_emission_start_call_not_done() {
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
         SubtensorModule::add_balance_to_coldkey_account(
             &validator_coldkey,
-            stake + ExistentialDeposit::get(),
+            TaoCurrency::from(stake) + ExistentialDeposit::get(),
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
@@ -3901,8 +3905,8 @@ fn test_root_prop_filled_on_block_step() {
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000_000u64));
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoCurrency::from(50_000_000_000_u64);
+        let alpha_in = AlphaCurrency::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid1, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid1, alpha_in);
         SubnetTAO::<Test>::insert(netuid2, tao_reserve);

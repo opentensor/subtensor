@@ -141,25 +141,26 @@ impl<T: Config> Pallet<T> {
         let mut refunded_cap = 0u64;
         for (contributor, amount) in contributions {
             // Compute the share of the contributor to the lease
-            let share: U64F64 = U64F64::from(amount).saturating_div(U64F64::from(crowdloan.raised));
+            let share: U64F64 = U64F64::from(u64::from(amount))
+                .saturating_div(U64F64::from(u64::from(crowdloan.raised)));
             SubnetLeaseShares::<T>::insert(lease_id, &contributor, share);
 
             // Refund the unused part of the cap to the contributor relative to their share
             let contributor_refund = share
-                .saturating_mul(U64F64::from(leftover_cap))
+                .saturating_mul(U64F64::from(u64::from(leftover_cap)))
                 .floor()
                 .saturating_to_num::<u64>();
             <T as Config>::Currency::transfer(
                 &lease_coldkey,
                 &contributor,
-                contributor_refund,
+                contributor_refund.into(),
                 Preservation::Expendable,
             )?;
             refunded_cap = refunded_cap.saturating_add(contributor_refund);
         }
 
         // Refund what's left after refunding the contributors to the beneficiary
-        let beneficiary_refund = leftover_cap.saturating_sub(refunded_cap);
+        let beneficiary_refund = leftover_cap.saturating_sub(refunded_cap.into());
         <T as Config>::Currency::transfer(
             &lease_coldkey,
             &who,

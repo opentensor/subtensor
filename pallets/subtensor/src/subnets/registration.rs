@@ -374,9 +374,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Add Balance via faucet.
         let balance_to_add: u64 = 1_000_000_000_000;
-        Self::increase_issuance(100_000_000_000.into()); // We are creating tokens here from the coinbase.
+        Self::increase_issuance(100_000_000_000_u64.into()); // We are creating tokens here from the coinbase.
 
-        Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
+        Self::add_balance_to_coldkey_account(&coldkey, balance_to_add.into());
 
         // --- 6. Deposit successful event.
         log::debug!("Faucet( coldkey:{coldkey:?} amount:{balance_to_add:?} ) ");

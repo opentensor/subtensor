@@ -1280,7 +1280,7 @@ fn test_swap_multiple_positions() {
 fn test_swap_precision_edge_case() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(123); // 123 is netuid with low edge case liquidity
-        let order = GetTaoForAlpha::with_amount(1_000_000_000_000_000_000);
+        let order = GetTaoForAlpha::with_amount(1_000_000_000_000_000_000_u64);
         let tick_low = TickIndex::MIN;
 
         let sqrt_limit_price: SqrtPrice = tick_low.try_to_sqrt_price().unwrap();
@@ -2261,15 +2261,10 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         // Mirror extrinsic bookkeeping: withdraw funds & bump provided‑reserve counters.
         let tao_taken = <Test as Config>::BalanceOps::decrease_balance(&cold, need_tao.into())
             .expect("decrease TAO");
-        let alpha_taken = <Test as Config>::BalanceOps::decrease_stake(
-            &cold,
-            &hot,
-            netuid.into(),
-            need_alpha.into(),
-        )
-        .expect("decrease ALPHA");
+        <Test as Config>::BalanceOps::decrease_stake(&cold, &hot, netuid.into(), need_alpha.into())
+            .expect("decrease ALPHA");
         TaoReserve::increase_provided(netuid.into(), tao_taken);
-        AlphaReserve::increase_provided(netuid.into(), alpha_taken);
+        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(need_alpha));
 
         // Users‑only liquidation.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2328,14 +2323,14 @@ fn refund_alpha_single_provider_exact() {
         let alpha_before_total = alpha_before_hot + alpha_before_owner;
 
         // --- Mimic extrinsic bookkeeping: withdraw α and record provided reserve.
-        let alpha_taken = <Test as Config>::BalanceOps::decrease_stake(
+        <Test as Config>::BalanceOps::decrease_stake(
             &cold,
             &hot,
             netuid.into(),
             alpha_needed.into(),
         )
         .expect("decrease ALPHA");
-        AlphaReserve::increase_provided(netuid.into(), alpha_taken);
+        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(alpha_needed));
 
         // --- Act: users‑only dissolve.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2403,15 +2398,13 @@ fn refund_alpha_multiple_providers_proportional_to_principal() {
         let a2_before = a2_before_hot + a2_before_owner;
 
         // Withdraw α and account reserves for each provider.
-        let a1_taken =
-            <Test as Config>::BalanceOps::decrease_stake(&c1, &h1, netuid.into(), a1.into())
-                .expect("decrease α #1");
-        AlphaReserve::increase_provided(netuid.into(), a1_taken);
+        <Test as Config>::BalanceOps::decrease_stake(&c1, &h1, netuid.into(), a1.into())
+            .expect("decrease α #1");
+        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(a1));
 
-        let a2_taken =
-            <Test as Config>::BalanceOps::decrease_stake(&c2, &h2, netuid.into(), a2.into())
-                .expect("decrease α #2");
-        AlphaReserve::increase_provided(netuid.into(), a2_taken);
+        <Test as Config>::BalanceOps::decrease_stake(&c2, &h2, netuid.into(), a2.into())
+            .expect("decrease α #2");
+        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(a2));
 
         // Act
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2465,15 +2458,13 @@ fn refund_alpha_same_cold_multiple_hotkeys_conserved_to_owner() {
         let before_total = before_hot1 + before_hot2 + before_owner;
 
         // Withdraw α from both hotkeys; track provided‑reserve.
-        let t1 =
-            <Test as Config>::BalanceOps::decrease_stake(&cold, &hot1, netuid.into(), a1.into())
-                .expect("decr α #hot1");
-        AlphaReserve::increase_provided(netuid.into(), t1);
+        <Test as Config>::BalanceOps::decrease_stake(&cold, &hot1, netuid.into(), a1.into())
+            .expect("decr α #hot1");
+        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(a1));
 
-        let t2 =
-            <Test as Config>::BalanceOps::decrease_stake(&cold, &hot2, netuid.into(), a2.into())
-                .expect("decr α #hot2");
-        AlphaReserve::increase_provided(netuid.into(), t2);
+        <Test as Config>::BalanceOps::decrease_stake(&cold, &hot2, netuid.into(), a2.into())
+            .expect("decr α #hot2");
+        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(a2));
 
         // Act
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2555,7 +2546,7 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
         // --- Mirror extrinsic bookkeeping: withdraw τ & α; bump provided reserves ---
         let tao_taken = <Test as Config>::BalanceOps::decrease_balance(&cold, tao_needed.into())
             .expect("decrease TAO");
-        let alpha_taken = <Test as Config>::BalanceOps::decrease_stake(
+        <Test as Config>::BalanceOps::decrease_stake(
             &cold,
             &hot,
             netuid.into(),
@@ -2564,7 +2555,7 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
         .expect("decrease ALPHA");
 
         TaoReserve::increase_provided(netuid.into(), tao_taken);
-        AlphaReserve::increase_provided(netuid.into(), alpha_taken);
+        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(alpha_needed));
 
         // --- Act: dissolve (GREEN PATH: permitted validators exist) ---
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));

@@ -39,9 +39,7 @@ pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
     let prev_total_issuance = crate::TotalIssuance::<T>::get();
 
     // Calculate the new total issuance
-    let new_total_issuance: TaoCurrency = total_account_balances
-        .saturating_add(total_stake.to_u64())
-        .into();
+    let new_total_issuance: TaoCurrency = total_account_balances.saturating_add(total_stake).into();
 
     // Update the total issuance in storage
     crate::TotalIssuance::<T>::put(new_total_issuance);

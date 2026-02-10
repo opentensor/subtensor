@@ -600,8 +600,8 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubnetMechanism::<Test>::insert(netuid, 1);
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoCurrency::from(50_000_000_000_u64);
+        let alpha_in = AlphaCurrency::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
         let current_price =
@@ -1314,8 +1314,8 @@ fn test_claim_root_on_network_deregistration() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubnetMechanism::<Test>::insert(netuid, 1);
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoCurrency::from(50_000_000_000_u64);
+        let alpha_in = AlphaCurrency::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
         let current_price =
@@ -1562,8 +1562,8 @@ fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubnetMechanism::<Test>::insert(netuid, 1);
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoCurrency::from(50_000_000_000_u64);
+        let alpha_in = AlphaCurrency::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
@@ -1728,8 +1728,8 @@ fn test_claim_root_keep_subnets_swap_claim_type() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubnetMechanism::<Test>::insert(netuid, 1);
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoCurrency::from(50_000_000_000_u64);
+        let alpha_in = AlphaCurrency::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
         let current_price =

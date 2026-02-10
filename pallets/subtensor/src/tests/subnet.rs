@@ -70,7 +70,7 @@ fn test_do_start_call_fail_not_owner() {
         add_network_without_emission_block(netuid, tempo, 0);
         mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
 
         add_network_without_emission_block(netuid, tempo, 0);
 
@@ -100,7 +100,7 @@ fn test_do_start_call_can_start_now() {
         add_network_without_emission_block(netuid, tempo, 0);
         mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
 
         add_network_without_emission_block(netuid, tempo, 0);
 
@@ -129,7 +129,7 @@ fn test_do_start_call_fail_for_set_again() {
         mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -391,9 +391,9 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         let hotkey_account_2_id: U256 = U256::from(3);
         let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
 
-        let stake_bal = AlphaCurrency::from(10_000_000_000); // 10 Alpha
+        let stake_bal = AlphaCurrency::from(10_000_000_000_u64); // 10 Alpha
 
-        let limit_price = TaoCurrency::from(1_000_000_000); // not important
+        let limit_price = TaoCurrency::from(1_000_000_000_u64); // not important
 
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);
@@ -402,8 +402,8 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         assert!(!SubtokenEnabled::<Test>::get(netuid2));
 
         // Set liq high enough to not trigger other errors
-        SubnetTAO::<Test>::set(netuid, TaoCurrency::from(20_000_000_000));
-        SubnetAlphaIn::<Test>::set(netuid, AlphaCurrency::from(20_000_000_000));
+        SubnetTAO::<Test>::set(netuid, TaoCurrency::from(20_000_000_000_u64));
+        SubnetAlphaIn::<Test>::set(netuid, AlphaCurrency::from(20_000_000_000_u64));
 
         // Register so staking *could* work
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 0);
@@ -411,7 +411,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         register_ok_neuron(netuid, hotkey_account_2_id, coldkey_account_id, 0);
         register_ok_neuron(netuid2, hotkey_account_2_id, coldkey_account_id, 100);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000.into());
 
         // Give some stake
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -586,7 +586,7 @@ fn test_subtoken_enable_trading_ok_with_enable() {
 
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
-            stake_amount.to_u64() * 10,
+            stake_amount * 10.into(),
         );
 
         // all trading extrinsic should be possible now that subtoken is enabled.
@@ -696,7 +696,7 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
         // Give enough to burned register
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
-            burn_cost.to_u64() * 2 + 5_000,
+            burn_cost * 2.into() + 5_000.into(),
         );
 
         // Should be possible to burned register before enable is activated

@@ -1,6 +1,7 @@
 use core::marker::PhantomData;
 
 use safe_math::*;
+use sp_arithmetic::traits::Zero;
 use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 
