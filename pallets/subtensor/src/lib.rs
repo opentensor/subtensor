@@ -2419,6 +2419,13 @@ pub mod pallet {
     pub type PendingChildKeyCooldown<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultPendingChildKeyCooldown<T>>;
 
+    /// Stake-weighted suppression fraction for each subnet.
+    /// Updated every epoch from root validator votes.
+    /// When this value exceeds 0.5, the subnet's emission share is zeroed.
+    #[pallet::storage]
+    pub type EmissionSuppression<T: Config> =
+        StorageMap<_, Identity, NetUid, U64F64, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         /// Stakes record in genesis.

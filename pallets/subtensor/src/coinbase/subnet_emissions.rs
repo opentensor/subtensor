@@ -27,7 +27,8 @@ impl<T: Config> Pallet<T> {
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
         // Get subnet TAO emissions.
-        let shares = Self::get_shares(subnets_to_emit_to);
+        let mut shares = Self::get_shares(subnets_to_emit_to);
+        Self::apply_emission_suppression(&mut shares);
         log::debug!("Subnet emission shares = {shares:?}");
 
         shares
@@ -245,5 +246,35 @@ impl<T: Config> Pallet<T> {
                 (*netuid, share)
             })
             .collect::<BTreeMap<NetUid, U64F64>>()
+    }
+
+    /// Normalize shares so they sum to 1.0.
+    pub(crate) fn normalize_shares(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let sum: U64F64 = shares.values().copied().fold(
+            U64F64::saturating_from_num(0),
+            |acc, v| acc.saturating_add(v),
+        );
+        if sum > U64F64::saturating_from_num(0) {
+            for s in shares.values_mut() {
+                *s = s.safe_div(sum);
+            }
+        }
+    }
+
+    /// Zero the emission share of any subnet whose suppression fraction exceeds 50%,
+    /// then re-normalize the remaining shares.
+    pub(crate) fn apply_emission_suppression(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let half = U64F64::saturating_from_num(0.5);
+        let zero = U64F64::saturating_from_num(0);
+        let mut any_zeroed = false;
+        for (netuid, share) in shares.iter_mut() {
+            if EmissionSuppression::<T>::get(netuid) > half {
+                *share = zero;
+                any_zeroed = true;
+            }
+        }
+        if any_zeroed {
+            Self::normalize_shares(shares);
+        }
     }
 }
