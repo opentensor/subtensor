@@ -62,14 +62,17 @@ pub trait Crypto {
         nonce: PassPointerAndRead<&[u8; 24], 24>,
         msg: PassFatPointerAndRead<&[u8]>,
         aad: PassFatPointerAndRead<&[u8]>,
-        buffer: PassFatPointerAndReadWrite<&mut [u8]>,
-    ) -> AllocateAndReturnByCodec<Result<(), Error>> {
-        let result = &self
+    ) -> AllocateAndReturnByCodec<Result<Vec<u8>, Error>> {
+        Ok(self
             .extension::<ShieldKeystoreExt>()
             .expect("No `shield keystore` associated for the current context!")
             .aead_decrypt(*key, *nonce, msg, aad)
-            .map_err(|e| Error::Crypto(e.to_string()))?;
-        buffer.copy_from_slice(result);
-        Ok(())
+            .map_err(|e| Error::Crypto(e.to_string()))?)
     }
 }
+
+/// The host functions Subtensor provides for the Wasm runtime environment.
+///
+/// All these host functions will be callable from inside the Wasm environment.
+#[cfg(not(substrate_runtime))]
+pub type SubtensorHostFunctions = (crypto::HostFunctions,);
