@@ -374,6 +374,7 @@ impl<T: Config> Pallet<T> {
         let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 
