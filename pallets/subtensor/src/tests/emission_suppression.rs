@@ -4,16 +4,12 @@ use crate::*;
 use alloc::collections::BTreeMap;
 use frame_support::{assert_err, assert_ok};
 use sp_core::U256;
-use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::NetUid;
+use substrate_fixed::types::{U64F64, U96F32};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
 /// Helper: set up root network + register a hotkey on root with given stake.
 /// Returns (hotkey, coldkey).
-fn setup_root_validator(
-    hotkey_seed: u64,
-    coldkey_seed: u64,
-    root_stake: u64,
-) -> (U256, U256) {
+fn setup_root_validator(hotkey_seed: u64, coldkey_seed: u64, root_stake: u64) -> (U256, U256) {
     let hotkey = U256::from(hotkey_seed);
     let coldkey = U256::from(coldkey_seed);
     assert_ok!(SubtensorModule::root_register(
@@ -249,7 +245,7 @@ fn test_vote_clear() {
             Some(true),
         ));
         assert_eq!(
-            EmissionSuppressionVote::<Test>::get(sn1, &coldkey),
+            EmissionSuppressionVote::<Test>::get(sn1, coldkey),
             Some(true)
         );
 
@@ -259,10 +255,7 @@ fn test_vote_clear() {
             sn1,
             None,
         ));
-        assert_eq!(
-            EmissionSuppressionVote::<Test>::get(sn1, &coldkey),
-            None
-        );
+        assert_eq!(EmissionSuppressionVote::<Test>::get(sn1, coldkey), None);
 
         // Collect votes - should result in 0 suppression.
         SubtensorModule::collect_emission_suppression_votes(sn1);
@@ -324,7 +317,7 @@ fn test_coldkey_swap_migrates_votes() {
             Some(true),
         ));
         assert_eq!(
-            EmissionSuppressionVote::<Test>::get(sn1, &old_coldkey),
+            EmissionSuppressionVote::<Test>::get(sn1, old_coldkey),
             Some(true)
         );
 
@@ -334,14 +327,11 @@ fn test_coldkey_swap_migrates_votes() {
 
         // Vote should be on new coldkey.
         assert_eq!(
-            EmissionSuppressionVote::<Test>::get(sn1, &new_coldkey),
+            EmissionSuppressionVote::<Test>::get(sn1, new_coldkey),
             Some(true)
         );
         // Old coldkey should have no vote.
-        assert_eq!(
-            EmissionSuppressionVote::<Test>::get(sn1, &old_coldkey),
-            None
-        );
+        assert_eq!(EmissionSuppressionVote::<Test>::get(sn1, old_coldkey), None);
     });
 }
 
@@ -372,10 +362,7 @@ fn test_dissolution_clears_all() {
         // Everything should be cleaned up.
         assert_eq!(EmissionSuppression::<Test>::get(sn1), U64F64::from_num(0));
         assert_eq!(EmissionSuppressionOverride::<Test>::get(sn1), None);
-        assert_eq!(
-            EmissionSuppressionVote::<Test>::get(sn1, &coldkey),
-            None
-        );
+        assert_eq!(EmissionSuppressionVote::<Test>::get(sn1, coldkey), None);
     });
 }
 
@@ -458,6 +445,170 @@ fn test_unstaked_tao_not_in_denominator() {
         assert!(
             (suppression2 - 0.5).abs() < 1e-6,
             "suppression should still be 0.5 after adding unstaked TAO, got {suppression2}"
+        );
+    });
+}
+
+/// Helper: set up root + subnet with proper SubnetTAO and alpha issuance
+/// so that root_proportion returns a meaningful nonzero value.
+fn setup_root_with_tao(sn: NetUid) {
+    // Set SubnetTAO for root so root_proportion numerator is nonzero.
+    SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000));
+    // Set alpha issuance for subnet so denominator is meaningful.
+    SubnetAlphaOut::<Test>::insert(sn, AlphaCurrency::from(1_000_000_000));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 14: Suppress subnet, default flag=true → root still gets alpha
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_suppressed_subnet_root_alpha_by_default() {
+    new_test_ext(1).execute_with(|| {
+        add_network(NetUid::ROOT, 1, 0);
+        let sn1 = NetUid::from(1);
+        setup_subnet_with_flow(sn1, 10, 100_000_000);
+
+        // Register a root validator and add stake on root so root_proportion > 0.
+        let hotkey = U256::from(10);
+        let coldkey = U256::from(11);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            1_000_000_000u64.into(),
+        );
+        // Set TAO weight so root_proportion is nonzero.
+        SubtensorModule::set_tao_weight(u64::MAX);
+        setup_root_with_tao(sn1);
+
+        // Force-suppress sn1.
+        EmissionSuppressionOverride::<Test>::insert(sn1, true);
+
+        // Default: KeepRootSellPressureOnSuppressedSubnets = true.
+        assert!(KeepRootSellPressureOnSuppressedSubnets::<Test>::get());
+
+        // Clear any pending emissions.
+        PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+
+        // Build emission map with some emission for sn1.
+        let mut subnet_emissions = BTreeMap::new();
+        subnet_emissions.insert(sn1, U96F32::from_num(1_000_000));
+
+        SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+        // Root should have received some alpha (pending root alpha divs > 0).
+        let pending_root = PendingRootAlphaDivs::<Test>::get(sn1);
+        assert!(
+            pending_root > AlphaCurrency::ZERO,
+            "with flag=true, root should still get alpha on suppressed subnet"
+        );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 15: Suppress subnet, flag=false → root gets no alpha
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_suppressed_subnet_no_root_alpha_flag_off() {
+    new_test_ext(1).execute_with(|| {
+        add_network(NetUid::ROOT, 1, 0);
+        let sn1 = NetUid::from(1);
+        setup_subnet_with_flow(sn1, 10, 100_000_000);
+
+        // Register a root validator and add stake on root so root_proportion > 0.
+        let hotkey = U256::from(10);
+        let coldkey = U256::from(11);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            1_000_000_000u64.into(),
+        );
+        SubtensorModule::set_tao_weight(u64::MAX);
+        setup_root_with_tao(sn1);
+
+        // Force-suppress sn1.
+        EmissionSuppressionOverride::<Test>::insert(sn1, true);
+
+        // Set flag to false: no root sell pressure on suppressed subnets.
+        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(false);
+
+        // Clear any pending emissions.
+        PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+        PendingValidatorEmission::<Test>::insert(sn1, AlphaCurrency::ZERO);
+
+        // Build emission map.
+        let mut subnet_emissions = BTreeMap::new();
+        subnet_emissions.insert(sn1, U96F32::from_num(1_000_000));
+
+        SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+        // Root should get NO alpha.
+        let pending_root = PendingRootAlphaDivs::<Test>::get(sn1);
+        assert_eq!(
+            pending_root,
+            AlphaCurrency::ZERO,
+            "with flag=false, root should get no alpha on suppressed subnet"
+        );
+
+        // But validator emission should be non-zero (all alpha goes to validators).
+        let pending_validator = PendingValidatorEmission::<Test>::get(sn1);
+        assert!(
+            pending_validator > AlphaCurrency::ZERO,
+            "validators should receive all alpha when root alpha is zeroed"
+        );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 16: Non-suppressed subnet → root alpha normal regardless of flag
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_unsuppressed_subnet_unaffected_by_flag() {
+    new_test_ext(1).execute_with(|| {
+        add_network(NetUid::ROOT, 1, 0);
+        let sn1 = NetUid::from(1);
+        setup_subnet_with_flow(sn1, 10, 100_000_000);
+
+        let hotkey = U256::from(10);
+        let coldkey = U256::from(11);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            1_000_000_000u64.into(),
+        );
+        SubtensorModule::set_tao_weight(u64::MAX);
+        setup_root_with_tao(sn1);
+
+        // sn1 is NOT suppressed.
+        // Set flag to false (should not matter for unsuppressed subnets).
+        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(false);
+
+        PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+
+        let mut subnet_emissions = BTreeMap::new();
+        subnet_emissions.insert(sn1, U96F32::from_num(1_000_000));
+
+        SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+        // Root should still get alpha since subnet is not suppressed.
+        let pending_root = PendingRootAlphaDivs::<Test>::get(sn1);
+        assert!(
+            pending_root > AlphaCurrency::ZERO,
+            "non-suppressed subnet should still give root alpha regardless of flag"
         );
     });
 }

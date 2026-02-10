@@ -250,10 +250,12 @@ impl<T: Config> Pallet<T> {
 
     /// Normalize shares so they sum to 1.0.
     pub(crate) fn normalize_shares(shares: &mut BTreeMap<NetUid, U64F64>) {
-        let sum: U64F64 = shares.values().copied().fold(
-            U64F64::saturating_from_num(0),
-            |acc, v| acc.saturating_add(v),
-        );
+        let sum: U64F64 = shares
+            .values()
+            .copied()
+            .fold(U64F64::saturating_from_num(0), |acc, v| {
+                acc.saturating_add(v)
+            });
         if sum > U64F64::saturating_from_num(0) {
             for s in shares.values_mut() {
                 *s = s.safe_div(sum);
@@ -261,19 +263,22 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Check if a subnet is currently emission-suppressed, considering override first.
+    pub(crate) fn is_subnet_emission_suppressed(netuid: NetUid) -> bool {
+        match EmissionSuppressionOverride::<T>::get(netuid) {
+            Some(true) => true,
+            Some(false) => false,
+            None => EmissionSuppression::<T>::get(netuid) > U64F64::saturating_from_num(0.5),
+        }
+    }
+
     /// Zero the emission share of any subnet whose suppression fraction exceeds 50%
     /// (or is force-suppressed via override), then re-normalize the remaining shares.
     pub(crate) fn apply_emission_suppression(shares: &mut BTreeMap<NetUid, U64F64>) {
-        let half = U64F64::saturating_from_num(0.5);
         let zero = U64F64::saturating_from_num(0);
         let mut any_zeroed = false;
         for (netuid, share) in shares.iter_mut() {
-            let suppressed = match EmissionSuppressionOverride::<T>::get(netuid) {
-                Some(true) => true,
-                Some(false) => false,
-                None => EmissionSuppression::<T>::get(netuid) > half,
-            };
-            if suppressed {
+            if Self::is_subnet_emission_suppressed(*netuid) {
                 *share = zero;
                 any_zeroed = true;
             }

@@ -164,10 +164,7 @@ impl<T: Config> Pallet<T> {
     /// Transfer emission suppression votes from the old coldkey to the new coldkey.
     /// Since EmissionSuppressionVote is keyed by (netuid, coldkey), we must iterate
     /// all subnets to find votes belonging to the old coldkey.
-    fn transfer_emission_suppression_votes(
-        old_coldkey: &T::AccountId,
-        new_coldkey: &T::AccountId,
-    ) {
+    fn transfer_emission_suppression_votes(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
         for netuid in Self::get_all_subnet_netuids() {
             if let Some(vote) = EmissionSuppressionVote::<T>::take(netuid, old_coldkey) {
                 EmissionSuppressionVote::<T>::insert(netuid, new_coldkey, vote);

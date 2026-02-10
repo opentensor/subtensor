@@ -2596,14 +2596,31 @@ mod dispatches {
             override_value: Option<bool>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            ensure!(
-                Self::if_subnet_exist(netuid),
-                Error::<T>::SubnetNotExists
-            );
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
             match override_value {
                 Some(val) => EmissionSuppressionOverride::<T>::insert(netuid, val),
                 None => EmissionSuppressionOverride::<T>::remove(netuid),
             }
+            Ok(())
+        }
+
+        /// --- Set whether root validators continue receiving alpha dividends (sell pressure)
+        /// from emission-suppressed subnets. When true (default), root validators still
+        /// accumulate alpha on suppressed subnets. When false, all alpha goes to subnet
+        /// validators instead.
+        #[pallet::call_index(135)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_keep_root_sell_pressure_on_suppressed_subnets(
+            origin: OriginFor<T>,
+            value: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            KeepRootSellPressureOnSuppressedSubnets::<T>::put(value);
             Ok(())
         }
 
@@ -2624,10 +2641,7 @@ mod dispatches {
             suppress: Option<bool>,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
-            ensure!(
-                Self::if_subnet_exist(netuid),
-                Error::<T>::SubnetNotExists
-            );
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
             ensure!(!netuid.is_root(), Error::<T>::CannotVoteOnRootSubnet);
 
             // Coldkey must own at least one hotkey registered on root with enough stake.

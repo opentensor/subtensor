@@ -209,9 +209,17 @@ impl<T: Config> Pallet<T> {
             log::debug!("root_proportion: {root_proportion:?}");
 
             // Get root alpha from root prop.
-            let root_alpha: U96F32 = root_proportion
-                .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
-                .saturating_mul(asfloat!(0.5)); // 50% to validators.
+            // If the subnet is suppressed and KeepRootSellPressureOnSuppressedSubnets
+            // is false, zero out root alpha so all validator alpha goes to subnet validators.
+            let root_alpha: U96F32 = if Self::is_subnet_emission_suppressed(*netuid_i)
+                && !KeepRootSellPressureOnSuppressedSubnets::<T>::get()
+            {
+                asfloat!(0)
+            } else {
+                root_proportion
+                    .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
+                    .saturating_mul(asfloat!(0.5)) // 50% to validators.
+            };
             log::debug!("root_alpha: {root_alpha:?}");
 
             // Get pending server alpha, which is the miner cut of the alpha out.

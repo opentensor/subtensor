@@ -2423,8 +2423,7 @@ pub mod pallet {
     /// Updated every epoch from root validator votes.
     /// When this value exceeds 0.5, the subnet's emission share is zeroed.
     #[pallet::storage]
-    pub type EmissionSuppression<T: Config> =
-        StorageMap<_, Identity, NetUid, U64F64, ValueQuery>;
+    pub type EmissionSuppression<T: Config> = StorageMap<_, Identity, NetUid, U64F64, ValueQuery>;
 
     /// Root override for emission suppression per subnet.
     /// Some(true) = force suppressed, Some(false) = force unsuppressed,
@@ -2437,15 +2436,21 @@ pub mod pallet {
     /// Keyed by coldkey because coldkey swaps must migrate votes and one coldkey
     /// can control multiple root hotkeys.
     #[pallet::storage]
-    pub type EmissionSuppressionVote<T: Config> = StorageDoubleMap<
-        _,
-        Identity,
-        NetUid,
-        Blake2_128Concat,
-        T::AccountId,
-        bool,
-        OptionQuery,
-    >;
+    pub type EmissionSuppressionVote<T: Config> =
+        StorageDoubleMap<_, Identity, NetUid, Blake2_128Concat, T::AccountId, bool, OptionQuery>;
+
+    /// Whether root validators continue receiving alpha dividends (sell pressure)
+    /// from suppressed subnets. Default: true (maintain sell pressure).
+    /// When false, all alpha goes to subnet validators instead.
+    #[pallet::storage]
+    pub type KeepRootSellPressureOnSuppressedSubnets<T: Config> =
+        StorageValue<_, bool, ValueQuery, KeepRootSellPressureDefault>;
+
+    /// Default value for KeepRootSellPressureOnSuppressedSubnets (true).
+    #[pallet::type_value]
+    pub fn KeepRootSellPressureDefault() -> bool {
+        true
+    }
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
