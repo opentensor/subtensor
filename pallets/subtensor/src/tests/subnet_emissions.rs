@@ -11,7 +11,7 @@ use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
 fn u64f64(x: f64) -> U64F64 {
     U64F64::from_num(x)
@@ -289,6 +289,34 @@ fn get_shares_high_flows_sum_one_and_ordering() {
     });
 }
 
+/// Single subnet should receive 100% of the share (1.0).
+/// Expect: shares contain exactly 1 entry with value 1.0.
+#[test]
+fn test_get_shares_single_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(13);
+        let owner_coldkey = U256::from(23);
+
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        let block_num = FlowHalfLife::<Test>::get();
+        System::set_block_number(block_num);
+
+        // Set (block_number, flow) with a positive flow
+        SubnetEmaTaoFlow::<Test>::insert(n1, (block_num, i64f64(1_000.0)));
+
+        let subnets = vec![n1];
+        let shares = SubtensorModule::get_shares(&subnets);
+
+        // Should have exactly 1 entry
+        assert_eq!(shares.len(), 1, "expected exactly 1 entry in shares");
+
+        // The single subnet should get share of 1.0
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(s1, 1.0_f64, epsilon = 1e-9);
+    });
+}
+
 /// Helper to (re)seed EMA price & flow at the *current* block.
 fn seed_price_and_flow(n1: NetUid, n2: NetUid, price1: f64, price2: f64, flow1: f64, flow2: f64) {
     let now = frame_system::Pallet::<Test>::block_number();
@@ -474,6 +502,56 @@ fn get_shares_both_negative_above_cutoff() {
     });
 }
 
+/// Test that get_ema_flow is idempotent within the same block.
+/// When called multiple times in the same block, it should return the same value
+/// without recalculating or modifying storage.
+#[test]
+fn test_get_ema_flow_idempotent_within_same_block() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(100);
+        let owner_coldkey = U256::from(200);
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        let current_block = 42u64;
+        System::set_block_number(current_block);
+
+        // Set SubnetTaoFlow to some value
+        SubnetTaoFlow::<Test>::insert(netuid, 5000i64);
+
+        // Set SubnetEmaTaoFlow to (current_block, some_ema_value)
+        // so that last_block == current_block branch is hit
+        let ema_value = i64f64(1234.5);
+        SubnetEmaTaoFlow::<Test>::insert(netuid, (current_block, ema_value));
+
+        // Call get_ema_flow twice in the same block
+        let first_call = SubtensorModule::get_ema_flow(netuid);
+        let second_call = SubtensorModule::get_ema_flow(netuid);
+
+        // Both calls should return the same value
+        assert_abs_diff_eq!(
+            first_call.to_num::<f64>(),
+            second_call.to_num::<f64>(),
+            epsilon = 1e-18
+        );
+
+        // The EMA stored should still be the value we set
+        let stored = SubnetEmaTaoFlow::<Test>::get(netuid).unwrap();
+        assert_eq!(stored.0, current_block);
+        assert_abs_diff_eq!(
+            stored.1.to_num::<f64>(),
+            ema_value.to_num::<f64>(),
+            epsilon = 1e-18
+        );
+
+        // Both calls should return the EMA value we set
+        assert_abs_diff_eq!(
+            first_call.to_num::<f64>(),
+            ema_value.to_num::<f64>(),
+            epsilon = 1e-18
+        );
+    });
+}
+
 #[test]
 fn test_effective_root_prop_no_root_dividends() {
     // When there are no root alpha dividends, EffectiveRootProp should be 0
@@ -494,6 +572,51 @@ fn test_effective_root_prop_no_root_dividends() {
             &root_alpha_dividends,
         );
 
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_root_stake_but_no_root_dividends() {
+    // When validators have root stake registered on the subnet but there are NO root dividends,
+    // utilization should be 0 (the else if total_root_stake > zero branch).
+    // This is different from test_effective_root_prop_no_root_dividends which has no registered
+    // validators with root stake.
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey1 = U256::from(100);
+        let coldkey1 = U256::from(200);
+        let hotkey2 = U256::from(101);
+        let coldkey2 = U256::from(201);
+
+        // Register hotkeys on subnet
+        Keys::<Test>::insert(netuid, 0u16, hotkey1);
+        Keys::<Test>::insert(netuid, 1u16, hotkey2);
+        SubnetworkN::<Test>::insert(netuid, 2u16);
+
+        // Give the hotkeys root stake
+        increase_stake_on_coldkey_hotkey_account(&coldkey1, &hotkey1, 1000u64.into(), NetUid::ROOT);
+        increase_stake_on_coldkey_hotkey_account(&coldkey2, &hotkey2, 1000u64.into(), NetUid::ROOT);
+
+        // Create non-empty alpha dividends (so raw_root_prop denominator is non-zero)
+        let mut alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_dividends.insert(hotkey1, U96F32::from_num(1000));
+        alpha_dividends.insert(hotkey2, U96F32::from_num(2000));
+
+        // Create EMPTY root_alpha_dividends (so total_root_divs = 0)
+        let root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        let utilization = SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        // Assert utilization is 0 because no root dividends despite having root stake
+        assert_abs_diff_eq!(utilization.to_num::<f64>(), 0.0, epsilon = 1e-12);
+
+        // Assert EffectiveRootProp is also 0
         let prop = EffectiveRootProp::<Test>::get(netuid);
         assert_abs_diff_eq!(prop.to_num::<f64>(), 0.0, epsilon = 1e-12);
     });
@@ -629,6 +752,48 @@ fn test_effective_root_prop_different_subnets() {
 
         assert_abs_diff_eq!(prop1.to_num::<f64>(), 0.25, epsilon = 1e-9);
         assert_abs_diff_eq!(prop2.to_num::<f64>(), 0.75, epsilon = 1e-9);
+    });
+}
+
+#[test]
+fn test_effective_root_prop_single_validator_always_full_utilization() {
+    // A single validator should always achieve 100% utilization because it gets
+    // 100% of both expected and actual share (efficiency = 1.0).
+    // With equal alpha and root dividends, raw_root_prop = 0.5.
+    // EffectiveRootProp = raw_root_prop * utilization = 0.5 * 1.0 = 0.5
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey = U256::from(100);
+        let coldkey = U256::from(200);
+
+        // Register ONE hotkey on subnet
+        Keys::<Test>::insert(netuid, 0u16, hotkey);
+        SubnetworkN::<Test>::insert(netuid, 1u16);
+
+        // Give it root stake (1M)
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1_000_000u64.into(), NetUid::ROOT);
+
+        // Create alpha_dividends with hotkey: 5000
+        let mut alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_dividends.insert(hotkey, U96F32::from_num(5000));
+
+        // Create root_alpha_dividends with hotkey: 5000
+        let mut root_alpha_dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_alpha_dividends.insert(hotkey, U96F32::from_num(5000));
+
+        let utilization = SubtensorModule::compute_and_store_effective_root_prop(
+            netuid,
+            &alpha_dividends,
+            &root_alpha_dividends,
+        );
+
+        // Single validator always gets 100% utilization
+        assert_abs_diff_eq!(utilization.to_num::<f64>(), 1.0, epsilon = 1e-12);
+
+        let prop = EffectiveRootProp::<Test>::get(netuid);
+        // raw_root_prop = 5000/(5000+5000) = 0.5
+        // EffectiveRootProp = 0.5 * 1.0 = 0.5
+        assert_abs_diff_eq!(prop.to_num::<f64>(), 0.5, epsilon = 1e-9);
     });
 }
 
@@ -1705,6 +1870,96 @@ fn test_root_dividend_fraction_high_tao_weight() {
     });
 }
 
+#[test]
+fn test_get_root_dividend_fraction_zero_tao_weight() {
+    // With tao_weight = 0, root_alpha_weighted = root_stake * 0 = 0
+    // fraction = 0 / (alpha_stake + 0) = 0
+    new_test_ext(1).execute_with(|| {
+        let (netuid, hotkey1, _hotkey2) = setup_scaling_test();
+        let tao_weight = U96F32::from_num(0);
+
+        let frac = SubtensorModule::get_root_dividend_fraction(&hotkey1, netuid, tao_weight);
+        assert_abs_diff_eq!(frac.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_get_root_dividend_fraction_no_stake_at_all() {
+    // Hotkey with no stake anywhere (no root, no alpha) → fraction = 0
+    // Early return when root_stake_f <= 0
+    new_test_ext(1).execute_with(|| {
+        let (netuid, _hotkey1, _hotkey2) = setup_scaling_test();
+        let hotkey_no_stake = U256::from(999);
+        let tao_weight = U96F32::from_num(0.18);
+
+        let frac = SubtensorModule::get_root_dividend_fraction(&hotkey_no_stake, netuid, tao_weight);
+        assert_abs_diff_eq!(frac.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_root_proportion_computation() {
+    // Test the root_proportion() function that computes:
+    // root_proportion = (tao_weight * SubnetTAO(ROOT)) / ((tao_weight * SubnetTAO(ROOT)) + alpha_issuance)
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+
+        // Scenario 1: Zero root TAO → root_proportion should be 0
+        {
+            // Set SubnetTAO for ROOT to 0
+            SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(0u64));
+
+            // Set alpha issuance components (only SubnetAlphaOut for simplicity)
+            SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(1_000_000u64));
+
+            // Set TaoWeight to 0.18 (18% of u64::MAX)
+            TaoWeight::<Test>::set(u64::MAX / 100 * 18);
+
+            let root_prop = SubtensorModule::root_proportion(netuid);
+            assert_abs_diff_eq!(root_prop.to_num::<f64>(), 0.0, epsilon = 1e-12);
+        }
+
+        // Scenario 2: Zero alpha issuance, nonzero root → should return close to 1.0
+        {
+            // Set SubnetTAO for ROOT to a nonzero value
+            SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000u64));
+
+            // Set alpha issuance to 0 (clear all components)
+            SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(0u64));
+            SubnetAlphaInProvided::<Test>::insert(netuid, AlphaCurrency::from(0u64));
+            SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(0u64));
+
+            // Set TaoWeight to 0.18
+            TaoWeight::<Test>::set(u64::MAX / 100 * 18);
+
+            let root_prop = SubtensorModule::root_proportion(netuid);
+            // With zero alpha issuance, denominator = tao_weight * root_tao + 0
+            // So root_prop = tao_weight * root_tao / tao_weight * root_tao = 1.0
+            assert_abs_diff_eq!(root_prop.to_num::<f64>(), 1.0, epsilon = 1e-9);
+        }
+
+        // Scenario 3: Balanced - equal weighted root and alpha → should be ~0.5
+        {
+            // Set SubnetTAO for ROOT
+            SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000u64));
+
+            // Set TaoWeight to 0.5 (50% of u64::MAX)
+            TaoWeight::<Test>::set(u64::MAX / 2);
+
+            // Set alpha issuance such that alpha_issuance = tao_weight * root_tao
+            // tao_weight * root_tao = 0.5 * 1_000_000 = 500_000
+            // So we need alpha_issuance = 500_000
+            SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(500_000u64));
+            SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(0u64));
+            SubnetAlphaInProvided::<Test>::insert(netuid, AlphaCurrency::from(0u64));
+
+            let root_prop = SubtensorModule::root_proportion(netuid);
+            // root_prop = 500_000 / (500_000 + 500_000) = 0.5
+            assert_abs_diff_eq!(root_prop.to_num::<f64>(), 0.5, epsilon = 1e-9);
+        }
+    });
+}
+
 // ===========================================================================
 // Tests for apply_utilization_scaling
 // ===========================================================================
@@ -1989,6 +2244,582 @@ fn test_apply_utilization_scaling_just_below_boundary() {
             EffectiveRootProp::<Test>::get(netuid).to_num::<f64>(),
             0.0,
             epsilon = 1e-12
+        );
+    });
+}
+
+#[test]
+fn test_apply_utilization_scaling_no_root_stake_at_all() {
+    // Verify early exit when root_alpha_dividends is empty (pure alpha-only subnet)
+    // Even with low utilization, nothing should happen since there are no root dividends
+    new_test_ext(1).execute_with(|| {
+        let (netuid, hotkey1, hotkey2) = setup_scaling_test();
+        let tao_weight = U96F32::from_num(0.18);
+        let utilization = U96F32::from_num(0); // Low utilization - doesn't matter
+
+        // Create alpha_dividends with entries
+        let mut alpha_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs.insert(hotkey1, U96F32::from_num(10000));
+        alpha_divs.insert(hotkey2, U96F32::from_num(5000));
+
+        // Empty root_alpha_dividends (pure alpha-only subnet with no root stake)
+        let mut root_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        let alpha_divs_before = alpha_divs.clone();
+
+        let recycled = SubtensorModule::apply_utilization_scaling(
+            netuid,
+            utilization,
+            &mut alpha_divs,
+            &mut root_divs,
+            tao_weight,
+        );
+
+        // Should return 0 recycled (early exit on !has_root_dividends)
+        assert_abs_diff_eq!(recycled.to_num::<f64>(), 0.0, epsilon = 1e-12);
+
+        // alpha_dividends should be unchanged
+        assert_eq!(alpha_divs, alpha_divs_before);
+        assert_abs_diff_eq!(
+            alpha_divs.get(&hotkey1).unwrap().to_num::<f64>(),
+            10000.0,
+            epsilon = 1.0
+        );
+        assert_abs_diff_eq!(
+            alpha_divs.get(&hotkey2).unwrap().to_num::<f64>(),
+            5000.0,
+            epsilon = 1.0
+        );
+
+        // root_alpha_dividends should still be empty
+        assert!(root_divs.is_empty(), "Root divs should remain empty");
+    });
+}
+
+#[test]
+fn test_apply_utilization_scaling_zero_utilization() {
+    // utilization = 0 → hard cap: recycle ALL root dividends, set ERP = 0
+    new_test_ext(1).execute_with(|| {
+        let (netuid, hotkey1, hotkey2) = setup_scaling_test();
+        let tao_weight = U96F32::from_num(0.18);
+        let utilization = U96F32::from_num(0);
+
+        // Set a non-zero ERP so we can verify it gets zeroed
+        EffectiveRootProp::<Test>::insert(netuid, U96F32::from_num(0.5));
+
+        let mut alpha_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs.insert(hotkey1, U96F32::from_num(10000));
+        alpha_divs.insert(hotkey2, U96F32::from_num(5000));
+
+        let mut root_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs.insert(hotkey1, U96F32::from_num(2000));
+        root_divs.insert(hotkey2, U96F32::from_num(1000));
+
+        let recycled = SubtensorModule::apply_utilization_scaling(
+            netuid,
+            utilization,
+            &mut alpha_divs,
+            &mut root_divs,
+            tao_weight,
+        );
+
+        // Root dividends should be completely cleared
+        assert!(
+            root_divs.is_empty(),
+            "Root divs should be empty after hard cap"
+        );
+
+        // Alpha divs should be reduced by their root fraction
+        let alpha1 = alpha_divs.get(&hotkey1).unwrap().to_num::<f64>();
+        assert!(alpha1 < 10000.0, "Alpha divs should be reduced: {alpha1}");
+        // hotkey1 root_fraction ≈ 0.1666, so alpha1 ≈ 10000 * (1 - 0.1666) ≈ 8334
+        assert_abs_diff_eq!(alpha1, 8334.0, epsilon = 100.0);
+
+        // Total recycled should account for all root divs + root fraction of alpha divs
+        assert!(
+            recycled.to_num::<f64>() > 3000.0,
+            "Should recycle at least the 3000 root divs"
+        );
+
+        // EffectiveRootProp should be 0
+        let erp = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(erp.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_apply_utilization_scaling_hotkey_only_root_stake() {
+    // Test case: hotkey with ONLY root stake (no alpha stake on subnet)
+    // Should have root_fraction = 1.0, causing all alpha dividends to be recycled
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey1 = U256::from(100);
+        let coldkey1 = U256::from(200);
+        let hotkey2 = U256::from(101);
+        let coldkey2 = U256::from(201);
+
+        // hotkey1: 0 alpha stake, 1M root stake (only root stake)
+        increase_stake_on_coldkey_hotkey_account(
+            &coldkey1,
+            &hotkey1,
+            1_000_000u64.into(),
+            NetUid::ROOT,
+        );
+
+        // hotkey2: 500k alpha stake, 0 root stake (for comparison)
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey2,
+            netuid,
+            AlphaCurrency::from(500_000u64),
+        );
+
+        // Need SubnetAlphaOut for recycling to work
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(10_000_000u64));
+
+        let tao_weight = U96F32::from_num(0.18);
+        let utilization = U96F32::from_num(0.3); // Triggers hard cap
+
+        // Set a non-zero ERP so we can verify it gets zeroed
+        EffectiveRootProp::<Test>::insert(netuid, U96F32::from_num(0.5));
+
+        let mut alpha_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        alpha_divs.insert(hotkey1, U96F32::from_num(8000));
+        alpha_divs.insert(hotkey2, U96F32::from_num(5000));
+
+        let mut root_divs: BTreeMap<U256, U96F32> = BTreeMap::new();
+        root_divs.insert(hotkey1, U96F32::from_num(2000));
+
+        let recycled = SubtensorModule::apply_utilization_scaling(
+            netuid,
+            utilization,
+            &mut alpha_divs,
+            &mut root_divs,
+            tao_weight,
+        );
+
+        // Root dividends should be completely cleared
+        assert!(
+            root_divs.is_empty(),
+            "Root divs should be empty after hard cap"
+        );
+
+        // hotkey1 has only root stake (root_fraction = 1.0), so ALL alpha dividends should be recycled
+        let alpha1 = alpha_divs.get(&hotkey1).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(alpha1, 0.0, epsilon = 1.0);
+
+        // hotkey2 has no root stake (root_fraction = 0.0), so alpha dividends should be unchanged
+        let alpha2 = alpha_divs.get(&hotkey2).unwrap().to_num::<f64>();
+        assert_abs_diff_eq!(alpha2, 5000.0, epsilon = 1.0);
+
+        // Total recycled should include all root divs (2000) + all of hotkey1's alpha divs (8000)
+        let recycled_val = recycled.to_num::<f64>();
+        assert!(
+            recycled_val > 10000.0,
+            "Should recycle at least 10000 (2000 root + 8000 alpha): got {recycled_val}"
+        );
+        assert_abs_diff_eq!(recycled_val, 10000.0, epsilon = 100.0);
+
+        // EffectiveRootProp should be 0
+        let erp = EffectiveRootProp::<Test>::get(netuid);
+        assert_abs_diff_eq!(erp.to_num::<f64>(), 0.0, epsilon = 1e-12);
+    });
+}
+
+#[test]
+fn test_remove_network_cleans_root_alpha_dividends_per_subnet() {
+    new_test_ext(1).execute_with(|| {
+        // Setup: Create a subnet
+        let owner_hotkey = U256::from(100);
+        let owner_coldkey = U256::from(200);
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Create some hotkeys to test cleanup
+        let hotkey1 = U256::from(101);
+        let hotkey2 = U256::from(102);
+
+        // Insert entries into RootAlphaDividendsPerSubnet
+        RootAlphaDividendsPerSubnet::<Test>::insert(netuid, &hotkey1, AlphaCurrency::from(1000u64));
+        RootAlphaDividendsPerSubnet::<Test>::insert(netuid, &hotkey2, AlphaCurrency::from(2000u64));
+
+        // Insert entries into EffectiveRootProp, RootProp, and RootClaimableThreshold
+        EffectiveRootProp::<Test>::insert(netuid, U96F32::from_num(0.5));
+        RootProp::<Test>::insert(netuid, U96F32::from_num(0.3));
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(100));
+
+        // Verify that the data exists before removal
+        assert_eq!(
+            RootAlphaDividendsPerSubnet::<Test>::get(netuid, &hotkey1),
+            AlphaCurrency::from(1000u64)
+        );
+        assert_eq!(
+            RootAlphaDividendsPerSubnet::<Test>::get(netuid, &hotkey2),
+            AlphaCurrency::from(2000u64)
+        );
+        assert_eq!(
+            EffectiveRootProp::<Test>::get(netuid).to_num::<f64>(),
+            0.5
+        );
+        assert_eq!(
+            RootProp::<Test>::get(netuid).to_num::<f64>(),
+            0.3
+        );
+        assert_eq!(
+            RootClaimableThreshold::<Test>::get(netuid).to_num::<f64>(),
+            100.0
+        );
+
+        // Action: Remove the network
+        SubtensorModule::remove_network(netuid);
+
+        // Assert: Verify that RootAlphaDividendsPerSubnet entries are cleaned up
+        assert_eq!(
+            RootAlphaDividendsPerSubnet::<Test>::get(netuid, &hotkey1),
+            AlphaCurrency::from(0u64),
+            "RootAlphaDividendsPerSubnet for hotkey1 should be zero after remove_network"
+        );
+        assert_eq!(
+            RootAlphaDividendsPerSubnet::<Test>::get(netuid, &hotkey2),
+            AlphaCurrency::from(0u64),
+            "RootAlphaDividendsPerSubnet for hotkey2 should be zero after remove_network"
+        );
+
+        // Assert: Verify that EffectiveRootProp is cleaned up
+        assert_eq!(
+            EffectiveRootProp::<Test>::get(netuid).to_num::<f64>(),
+            0.0,
+            "EffectiveRootProp should be zero after remove_network"
+        );
+
+        // Assert: Verify that RootProp is cleaned up
+        assert_eq!(
+            RootProp::<Test>::get(netuid).to_num::<f64>(),
+            0.0,
+            "RootProp should be zero after remove_network"
+        );
+
+        // Assert: Verify that RootClaimableThreshold is cleaned up
+        assert_eq!(
+            RootClaimableThreshold::<Test>::get(netuid).to_num::<f64>(),
+            0.0,
+            "RootClaimableThreshold should be zero after remove_network"
+        );
+    });
+}
+
+#[test]
+fn test_finalize_all_subnet_root_dividends_cleanup() {
+    new_test_ext(1).execute_with(|| {
+        // Setup: Create a subnet (netuid=1)
+        let netuid1 = 1u16;
+        let netuid2 = 2u16;
+        add_network(netuid1, 1, 0);
+
+        // Create hotkeys
+        let hotkey1 = U256::from(101);
+        let hotkey2 = U256::from(102);
+        let coldkey1 = U256::from(201);
+        let coldkey2 = U256::from(202);
+
+        // Set up RootClaimable for both hotkeys with entries for netuid=1 and netuid=2
+        let mut claimable_map1 = BTreeMap::new();
+        claimable_map1.insert(netuid1, I96F32::from_num(1000.0));
+        claimable_map1.insert(netuid2, I96F32::from_num(2000.0));
+        RootClaimable::<Test>::insert(&hotkey1, claimable_map1);
+
+        let mut claimable_map2 = BTreeMap::new();
+        claimable_map2.insert(netuid1, I96F32::from_num(1500.0));
+        claimable_map2.insert(netuid2, I96F32::from_num(2500.0));
+        RootClaimable::<Test>::insert(&hotkey2, claimable_map2);
+
+        // Set up RootClaimed entries for (netuid, hotkey, coldkey) pairs
+        // For netuid=1
+        RootClaimed::<Test>::insert((netuid1, &hotkey1, &coldkey1), 500u128);
+        RootClaimed::<Test>::insert((netuid1, &hotkey2, &coldkey2), 600u128);
+
+        // For netuid=2 (these should NOT be cleaned)
+        RootClaimed::<Test>::insert((netuid2, &hotkey1, &coldkey1), 700u128);
+        RootClaimed::<Test>::insert((netuid2, &hotkey2, &coldkey2), 800u128);
+
+        // Verify setup
+        assert!(RootClaimable::<Test>::get(&hotkey1).contains_key(&netuid1));
+        assert!(RootClaimable::<Test>::get(&hotkey1).contains_key(&netuid2));
+        assert!(RootClaimable::<Test>::get(&hotkey2).contains_key(&netuid1));
+        assert!(RootClaimable::<Test>::get(&hotkey2).contains_key(&netuid2));
+
+        assert_eq!(RootClaimed::<Test>::get((netuid1, &hotkey1, &coldkey1)), 500u128);
+        assert_eq!(RootClaimed::<Test>::get((netuid1, &hotkey2, &coldkey2)), 600u128);
+        assert_eq!(RootClaimed::<Test>::get((netuid2, &hotkey1, &coldkey1)), 700u128);
+        assert_eq!(RootClaimed::<Test>::get((netuid2, &hotkey2, &coldkey2)), 800u128);
+
+        // Action: Call finalize_all_subnet_root_dividends for netuid=1
+        SubtensorModule::finalize_all_subnet_root_dividends(NetUid::from(netuid1));
+
+        // Assert: RootClaimable for hotkey1 no longer contains netuid=1 (but still contains netuid=2)
+        assert!(
+            !RootClaimable::<Test>::get(&hotkey1).contains_key(&netuid1),
+            "RootClaimable for hotkey1 should not contain netuid=1 after cleanup"
+        );
+        assert!(
+            RootClaimable::<Test>::get(&hotkey1).contains_key(&netuid2),
+            "RootClaimable for hotkey1 should still contain netuid=2"
+        );
+        assert_eq!(
+            RootClaimable::<Test>::get(&hotkey1).get(&netuid2).unwrap().to_num::<f64>(),
+            2000.0,
+            "RootClaimable for hotkey1 netuid=2 should be unchanged"
+        );
+
+        // Assert: RootClaimable for hotkey2 no longer contains netuid=1 (but still contains netuid=2)
+        assert!(
+            !RootClaimable::<Test>::get(&hotkey2).contains_key(&netuid1),
+            "RootClaimable for hotkey2 should not contain netuid=1 after cleanup"
+        );
+        assert!(
+            RootClaimable::<Test>::get(&hotkey2).contains_key(&netuid2),
+            "RootClaimable for hotkey2 should still contain netuid=2"
+        );
+        assert_eq!(
+            RootClaimable::<Test>::get(&hotkey2).get(&netuid2).unwrap().to_num::<f64>(),
+            2500.0,
+            "RootClaimable for hotkey2 netuid=2 should be unchanged"
+        );
+
+        // Assert: RootClaimed for (netuid=1, hotkey, coldkey) is gone
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid1, &hotkey1, &coldkey1)),
+            0u128,
+            "RootClaimed for (netuid1, hotkey1, coldkey1) should be zero after cleanup"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid1, &hotkey2, &coldkey2)),
+            0u128,
+            "RootClaimed for (netuid1, hotkey2, coldkey2) should be zero after cleanup"
+        );
+
+        // Assert: RootClaimed for (netuid=2, hotkey, coldkey) is still present
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid2, &hotkey1, &coldkey1)),
+            700u128,
+            "RootClaimed for (netuid2, hotkey1, coldkey1) should remain unchanged"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid2, &hotkey2, &coldkey2)),
+            800u128,
+            "RootClaimed for (netuid2, hotkey2, coldkey2) should remain unchanged"
+        );
+    });
+}
+
+#[test]
+fn test_root_sell_flag_boundary() {
+    new_test_ext(1).execute_with(|| {
+        // Setup: Create owner for subnets
+        let owner_hotkey = U256::from(100);
+        let owner_coldkey = U256::from(200);
+
+        // Create 2 subnets
+        let netuid1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let netuid2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Scenario 1: Total exactly at 1.0 (both at 0.5)
+        // Should return false (not strictly above 1.0)
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.5));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.5));
+
+        let subnets = vec![netuid1, netuid2];
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&subnets);
+        assert_eq!(
+            root_sell_flag, false,
+            "Root sell flag should be false when total moving price equals 1.0"
+        );
+
+        // Scenario 2: Total just above 1.0 (e.g., 0.500001 and 0.500001)
+        // Should return true (strictly above 1.0)
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.500001));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.500001));
+
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&subnets);
+        assert_eq!(
+            root_sell_flag, true,
+            "Root sell flag should be true when total moving price is above 1.0"
+        );
+
+        // Scenario 3: Total below 1.0 (both at 0.4)
+        // Should return false
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.4));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.4));
+
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&subnets);
+        assert_eq!(
+            root_sell_flag, false,
+            "Root sell flag should be false when total moving price is below 1.0"
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::subnet_emissions::test_distribute_emission_zero_incentive_sum --exact --show-output --nocapture
+#[test]
+fn test_distribute_emission_zero_incentive_sum() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 1, 0);
+
+        // Register 3 validator hotkeys
+        let validator1 = U256::from(1);
+        let validator2 = U256::from(2);
+        let validator3 = U256::from(3);
+        let coldkey1 = U256::from(11);
+        let coldkey2 = U256::from(12);
+        let coldkey3 = U256::from(13);
+
+        // Register all validators
+        register_ok_neuron(netuid, validator1, coldkey1, 0);
+        register_ok_neuron(netuid, validator2, coldkey2, 0);
+        register_ok_neuron(netuid, validator3, coldkey3, 0);
+
+        // Give them some stake so they can receive dividends
+        let stake_amount = AlphaCurrency::from(1_000_000_000);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator1,
+            &coldkey1,
+            netuid,
+            stake_amount,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator2,
+            &coldkey2,
+            netuid,
+            stake_amount,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator3,
+            &coldkey3,
+            netuid,
+            stake_amount,
+        );
+
+        // Mark them as validators so they can set weights
+        ValidatorPermit::<Test>::insert(netuid, vec![true, true, true]);
+
+        // Set up weights so validators are voting for each other (simulating all validators, no miners)
+        let idx = SubtensorModule::get_mechanism_storage_index(netuid, MechId::from(0));
+        Weights::<Test>::insert(idx, 0, vec![(0u16, 0xFFFF / 3), (1u16, 0xFFFF / 3), (2u16, 0xFFFF / 3)]);
+        Weights::<Test>::insert(idx, 1, vec![(0u16, 0xFFFF / 3), (1u16, 0xFFFF / 3), (2u16, 0xFFFF / 3)]);
+        Weights::<Test>::insert(idx, 2, vec![(0u16, 0xFFFF / 3), (1u16, 0xFFFF / 3), (2u16, 0xFFFF / 3)]);
+
+        // Manually set all incentives to ZERO (this simulates no miners getting any incentive)
+        // This will cause incentive_sum to be zero in distribute_emission
+        Incentive::<Test>::insert(idx, vec![0u16, 0u16, 0u16]);
+
+        // Record initial stakes
+        let initial_stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator1, &coldkey1, netuid);
+        let initial_stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator2, &coldkey2, netuid);
+        let initial_stake3 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator3, &coldkey3, netuid);
+
+        // Set up emission amounts
+        let pending_server_alpha = AlphaCurrency::from(500_000_000); // 500M for miners
+        let pending_validator_alpha = AlphaCurrency::from(500_000_000); // 500M for validators
+        let pending_root_alpha = AlphaCurrency::ZERO;
+        let pending_owner_cut = AlphaCurrency::ZERO;
+
+        // Call distribute_emission
+        // When incentive_sum == 0, validators should get BOTH server and validator alpha
+        SubtensorModule::distribute_emission(
+            netuid,
+            pending_server_alpha,
+            pending_validator_alpha,
+            pending_root_alpha,
+            pending_owner_cut,
+        );
+
+        // Check final stakes
+        let final_stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator1, &coldkey1, netuid);
+        let final_stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator2, &coldkey2, netuid);
+        let final_stake3 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&validator3, &coldkey3, netuid);
+
+        // Calculate the increase in stake
+        let increase1 = final_stake1.saturating_sub(initial_stake1);
+        let increase2 = final_stake2.saturating_sub(initial_stake2);
+        let increase3 = final_stake3.saturating_sub(initial_stake3);
+        let total_increase = increase1.saturating_add(increase2).saturating_add(increase3);
+
+        // The total increase should be close to server_alpha + validator_alpha = 1B
+        // (minus any rounding or take amounts)
+        let expected_total = pending_server_alpha.saturating_add(pending_validator_alpha);
+
+        // Allow 10% margin for rounding, take, etc.
+        let tolerance = expected_total.to_u64() / 10;
+
+        assert!(
+            (total_increase.to_u64() as i128 - expected_total.to_u64() as i128).abs() < tolerance as i128,
+            "When incentive_sum == 0, validators should receive both server and validator alpha. \
+             Expected: {}, Got: {}, Difference: {}",
+            expected_total.to_u64(),
+            total_increase.to_u64(),
+            (total_increase.to_u64() as i128 - expected_total.to_u64() as i128).abs()
+        );
+
+        // Verify that each validator got some emission (roughly equal since they have equal stake)
+        assert!(
+            increase1 > AlphaCurrency::ZERO,
+            "Validator 1 should receive emission"
+        );
+        assert!(
+            increase2 > AlphaCurrency::ZERO,
+            "Validator 2 should receive emission"
+        );
+        assert!(
+            increase3 > AlphaCurrency::ZERO,
+            "Validator 3 should receive emission"
+        );
+    });
+}
+
+#[test]
+fn test_get_subnets_to_emit_to_excludes_registration_disabled() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(100);
+        let owner_coldkey = U256::from(200);
+
+        // Create 3 subnets with registration enabled by default
+        let subnet1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let subnet2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let subnet3 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Subnet 1: keep registration enabled (default from add_dynamic_network)
+        // Subnet 2: disable both NetworkRegistrationAllowed and NetworkPowRegistrationAllowed
+        NetworkRegistrationAllowed::<Test>::insert(subnet2, false);
+        NetworkPowRegistrationAllowed::<Test>::insert(subnet2, false);
+        // Subnet 3: keep registration enabled (default from add_dynamic_network)
+
+        // Get all subnets
+        let all_subnets = vec![subnet1, subnet2, subnet3];
+
+        // Call get_subnets_to_emit_to
+        let subnets_to_emit = SubtensorModule::get_subnets_to_emit_to(&all_subnets);
+
+        // Assert subnet2 is excluded (registration disabled)
+        assert!(
+            !subnets_to_emit.contains(&subnet2),
+            "Subnet with disabled registration should be excluded from emission"
+        );
+
+        // Assert subnet1 and subnet3 are included (registration enabled)
+        assert!(
+            subnets_to_emit.contains(&subnet1),
+            "Subnet 1 with enabled registration should be included in emission"
+        );
+        assert!(
+            subnets_to_emit.contains(&subnet3),
+            "Subnet 3 with enabled registration should be included in emission"
+        );
+
+        // Verify exactly 2 subnets are in the result
+        assert_eq!(
+            subnets_to_emit.len(),
+            2,
+            "Expected 2 subnets to be eligible for emission"
         );
     });
 }
