@@ -9,8 +9,7 @@ extern crate alloc;
 use codec::{Decode, Encode};
 use sp_runtime_interface::{
     pass_by::{
-        AllocateAndReturnByCodec, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-        PassPointerAndRead, PassPointerAndWrite,
+        AllocateAndReturnByCodec, PassFatPointerAndRead, PassPointerAndRead, PassPointerAndWrite,
     },
     runtime_interface,
 };
