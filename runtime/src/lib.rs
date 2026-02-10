@@ -124,8 +124,8 @@ impl frame_system::offchain::SigningTypes for Runtime {
 }
 
 impl pallet_shield::Config for Runtime {
-    type RuntimeCall = RuntimeCall;
-    type AuthorityOrigin = pallet_shield::EnsureAuraAuthority<Self>;
+    type AuthorityId = AuraId;
+    type FindAuthor = pallet_aura::FindAccountFromAuthorIndex<Runtime, Aura>;
 }
 
 parameter_types! {
@@ -1642,11 +1642,17 @@ pub type CheckedExtrinsic =
 // The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TransactionExtensions>;
 
-// Context for the executive.
-pub type Context = frame_system::ChainContext<Runtime>;
+// Chain context for the executive.
+pub type ChainContext = frame_system::ChainContext<Runtime>;
 // Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, Migrations>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    ChainContext,
+    Runtime,
+    AllPalletsWithSystem,
+    Migrations,
+>;
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
@@ -2546,6 +2552,14 @@ impl_runtime_apis! {
                     alpha_fee:    sr.fee_paid.into(),
                 },
             )
+        }
+    }
+
+    impl stp_shield::ShieldApi<Block> for Runtime {
+        fn try_decrypt_extrinsic(
+            uxt: <Block as BlockT>::Extrinsic,
+        ) -> Option<<Block as BlockT>::Extrinsic> {
+            MevShield::try_decrypt_extrinsic::<Block, ChainContext>(uxt)
         }
     }
 }
