@@ -88,7 +88,7 @@ sp_externalities::decl_extension! {
 }
 
 impl ShieldKeystoreExt {
-    pub fn new<T: ShieldKeystore + 'static>(keystore: T) -> Self {
-        Self(Arc::new(keystore))
+    pub fn from(keystore: ShieldKeystorePtr) -> Self {
+        Self(keystore)
     }
 }

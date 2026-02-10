@@ -15,6 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
+log.workspace = true
 
 subtensor-macros.workspace = true
 
@@ -29,13 +30,10 @@ sp-runtime.workspace = true
 sp-io.workspace = true
 sp-std.workspace = true
 sp-weights.workspace = true
+sp-inherents.workspace = true
 
-# Pallets used in Config
-pallet-timestamp.workspace = true
-pallet-aura.workspace = true
-sp-consensus-aura.workspace = true
-
-[dev-dependencies]
+# Subtensor primitives
+stp-io.workspace = true
 
 [features]
 default = ["std"]
@@ -43,6 +41,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",
+	"log/std",
 	"frame-support/std",
 	"frame-system/std",
 	"frame-benchmarking?/std",
@@ -51,9 +50,7 @@ std = [
 	"sp-io/std",
 	"sp-std/std",
 	"sp-weights/std",
-	"pallet-timestamp/std",
-	"pallet-aura/std",
-	"sp-consensus-aura/std",
+	"stp-io/std",
 ]
 
 runtime-benchmarks = [
@@ -61,13 +58,10 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 ]
 
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-aura/try-runtime",
-	"pallet-timestamp/try-runtime",
 ]
