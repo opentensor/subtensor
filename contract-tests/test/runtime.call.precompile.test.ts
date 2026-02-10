@@ -7,6 +7,7 @@ import { PublicClient } from "viem";
 import { PolkadotSigner, TypedApi, getTypedCodecs } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { forceSetBalanceToEthAddress, setMaxChildkeyTake, burnedRegister, forceSetBalanceToSs58Address, addStake, setTxRateLimit, addNewSubnetwork, startCall, setTempo } from "../src/subtensor";
+import { xxhashAsHex } from "@polkadot/util-crypto";
 
 describe("Test the dispatch precompile", () => {
     let publicClient: PublicClient;
@@ -60,6 +61,40 @@ describe("Test the dispatch precompile", () => {
         const aliceBalanceAfterTransfer = (await api.query.System.Account.getValue(convertPublicKeyToSs58(alice.publicKey))).data.free
 
         assert.equal(aliceBalance + transferAmount, aliceBalanceAfterTransfer)
+    })
+
+    it("Storage query only allow SubtensorModule prefixed storage", async () => {
+        const key = await api.query.SubtensorModule.MaxChildkeyTake.getKey();
+        const unauthorizedKey = await api.query.System.Events.getKey();
+        const code = xxhashAsHex(":code" , 128)
+
+        // Some authorized storage query call
+        const maxChildkeyTake = 257;
+        await setMaxChildkeyTake(api, maxChildkeyTake)
+        const rawCallResponse = await publicClient.call({
+            to: ISTORAGE_QUERY_ADDRESS,
+            data: key.toString() as `0x${string}`,
+        })
+        const rawResultData = rawCallResponse.data ?? "";
+        const codec = await getTypedCodecs(devnet);
+        const maxChildkeyTakeCodec = codec.query.SubtensorModule.MaxChildkeyTake.value;
+        const maxChildkeyTakeFromContract = maxChildkeyTakeCodec.dec(rawResultData);
+        assert.equal(maxChildkeyTakeFromContract, maxChildkeyTake, "value should be 257")
+        
+        
+        // Some unauthorized storage query call
+        assert.rejects(
+            publicClient.call({
+                to: ISTORAGE_QUERY_ADDRESS,
+                data: unauthorizedKey.toString() as `0x${string}`,
+            })
+        )
+        assert.rejects(
+            publicClient.call({
+                to: ISTORAGE_QUERY_ADDRESS,
+                data: code.toString() as `0x${string}`,
+            })
+        )
     })
 
 
