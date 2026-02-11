@@ -1594,7 +1594,7 @@ pub type TransactionExtensions = (
     frame_system::CheckWeight<Runtime>,
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
-    pallet_shield::CheckEncryptedTx<Runtime>,
+    pallet_shield::CheckShieldedTxValidity<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
