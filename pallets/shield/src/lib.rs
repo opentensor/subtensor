@@ -255,12 +255,18 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let m = EncryptedMessage::parse(&ciphertext)?;
-        let mut shared_secret = [0u8; 32];
+        let shielded_tx = ShieldedTransaction::parse(&ciphertext)?;
 
-        stp_io::crypto::mlkem768_decapsulate(&m.kem, &mut shared_secret).ok()?;
-        let plaintext =
-            stp_io::crypto::aead_decrypt(&shared_secret, &m.nonce, &m.aead, &[]).ok()?;
+        let mut shared_secret = [0u8; 32];
+        stp_io::crypto::mlkem768_decapsulate(&shielded_tx.kem_ct, &mut shared_secret).ok()?;
+
+        let plaintext = stp_io::crypto::aead_decrypt(
+            &shared_secret,
+            &shielded_tx.nonce,
+            &shielded_tx.aead_ct,
+            &[],
+        )
+        .ok()?;
 
         if plaintext.is_empty() {
             return None;
@@ -274,35 +280,47 @@ impl<T: Config> Pallet<T> {
 }
 
 #[derive(Debug)]
-struct EncryptedMessage {
-    kem: Vec<u8>,
-    aead: Vec<u8>,
+pub(crate) struct ShieldedTransaction {
+    pub(crate) key_hash: [u8; KEY_HASH_LEN],
+    kem_ct: Vec<u8>,
+    aead_ct: Vec<u8>,
     nonce: [u8; 24],
 }
 
-impl EncryptedMessage {
+impl ShieldedTransaction {
     fn parse(ciphertext: &[u8]) -> Option<Self> {
         let mut cursor: usize = 0;
 
-        let kem_len_end = cursor.checked_add(2)?;
-        let kem_len_slice = ciphertext.get(cursor..kem_len_end)?;
-        let kem_len_bytes: [u8; 2] = kem_len_slice.try_into().ok()?;
-        let kem_len = u16::from_le_bytes(kem_len_bytes) as usize;
-        cursor = kem_len_end;
+        let key_hash_end = cursor.checked_add(KEY_HASH_LEN)?;
+        let key_hash: [u8; KEY_HASH_LEN] = ciphertext.get(cursor..key_hash_end)?.try_into().ok()?;
+        cursor = key_hash_end;
 
-        let kem_end = cursor.checked_add(kem_len)?;
-        let kem = ciphertext.get(cursor..kem_end)?.to_vec();
-        cursor = kem_end;
+        let kem_ct_len_end = cursor.checked_add(2)?;
+        let kem_ct_len = ciphertext
+            .get(cursor..kem_ct_len_end)?
+            .try_into()
+            .map(u16::from_le_bytes)
+            .ok()?
+            .into();
+        cursor = kem_ct_len_end;
+
+        let kem_ct_end = cursor.checked_add(kem_ct_len)?;
+        let kem_ct = ciphertext.get(cursor..kem_ct_end)?.to_vec();
+        cursor = kem_ct_end;
 
         const NONCE_LEN: usize = 24;
         let nonce_end = cursor.checked_add(NONCE_LEN)?;
-        let nonce_bytes = ciphertext.get(cursor..nonce_end)?;
-        let nonce: [u8; NONCE_LEN] = nonce_bytes.try_into().ok()?;
+        let nonce = ciphertext.get(cursor..nonce_end)?.try_into().ok()?;
         cursor = nonce_end;
 
-        let aead = ciphertext.get(cursor..)?.to_vec();
+        let aead_ct = ciphertext.get(cursor..)?.to_vec();
 
-        Some(Self { kem, aead, nonce })
+        Some(Self {
+            key_hash,
+            kem_ct,
+            aead_ct,
+            nonce,
+        })
     }
 }
 
