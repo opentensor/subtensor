@@ -3,6 +3,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_election_provider_support::private::sp_arithmetic::traits::SaturatedConversion;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo};
 use frame_support::pallet_prelude::TypeInfo;
+use pallet_transaction_payment::OnChargeTransaction;
 use pallet_transaction_payment::{ChargeTransactionPayment, Config, Pre, Val};
 use sp_runtime::DispatchResult;
 use sp_runtime::traits::{
@@ -15,11 +16,13 @@ use sp_runtime::transaction_validity::{
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("5f10cb9db06873c0")]
+type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+
+#[freeze_struct("f003cde1f9da4a90")]
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeTransactionPaymentWrapper<T: Config> {
-    charge_transaction_payment: ChargeTransactionPayment<T>,
+    inner: ChargeTransactionPayment<T>,
 }
 
 impl<T: Config> core::fmt::Debug for ChargeTransactionPaymentWrapper<T> {
@@ -33,11 +36,14 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPaymentWrapper<T> {
     }
 }
 
-impl<T: Config> ChargeTransactionPaymentWrapper<T> {
-    pub fn new(charge_transaction_payment: ChargeTransactionPayment<T>) -> Self {
-        Self {
-            charge_transaction_payment,
-        }
+impl<T: Config> ChargeTransactionPaymentWrapper<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    BalanceOf<T>: Send + Sync,
+{
+    pub fn new(fee: BalanceOf<T>) -> Self {
+        let inner = ChargeTransactionPayment::<T>::from(fee);
+        Self { inner }
     }
 }
 
@@ -51,7 +57,7 @@ where
     type Pre = Pre<T>;
 
     fn weight(&self, call: &T::RuntimeCall) -> Weight {
-        self.charge_transaction_payment.weight(call)
+        self.inner.weight(call)
     }
 
     fn validate(
@@ -64,7 +70,7 @@ where
         inherited_implication: &impl Implication,
         source: TransactionSource,
     ) -> ValidateResult<Self::Val, T::RuntimeCall> {
-        let inner_validate = self.charge_transaction_payment.validate(
+        let inner_validate = self.inner.validate(
             origin,
             call,
             info,
@@ -101,8 +107,7 @@ where
         info: &DispatchInfoOf<T::RuntimeCall>,
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        self.charge_transaction_payment
-            .prepare(val, origin, call, info, len)
+        self.inner.prepare(val, origin, call, info, len)
     }
     fn metadata() -> Vec<TransactionExtensionMetadata> {
         ChargeTransactionPayment::<T>::metadata()

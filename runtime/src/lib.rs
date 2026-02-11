@@ -187,20 +187,23 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
         use sp_runtime::traits::StaticLookup;
 
         let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
-        let extra: TransactionExtensions = (
-            frame_system::CheckNonZeroSender::<Runtime>::new(),
-            frame_system::CheckSpecVersion::<Runtime>::new(),
-            frame_system::CheckTxVersion::<Runtime>::new(),
-            frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
-            check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
-            frame_system::CheckWeight::<Runtime>::new(),
-            ChargeTransactionPaymentWrapper::new(
-                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+        let extra: TxExtension = (
+            (
+                frame_system::CheckNonZeroSender::<Runtime>::new(),
+                frame_system::CheckSpecVersion::<Runtime>::new(),
+                frame_system::CheckTxVersion::<Runtime>::new(),
+                frame_system::CheckGenesis::<Runtime>::new(),
+                frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+                check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
+                frame_system::CheckWeight::<Runtime>::new(),
             ),
-            SudoTransactionExtension::<Runtime>::new(),
-            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
-            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+            (
+                ChargeTransactionPaymentWrapper::new(0),
+                SudoTransactionExtension::<Runtime>::new(),
+                pallet_shield::CheckShieldedTxValidity::<Runtime>::new(),
+                pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+                pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+            ),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
 
@@ -1584,7 +1587,7 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 // Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 // The extensions to the basic transaction logic.
-pub type TransactionExtensions = (
+pub type SystemTxExtension = (
     frame_system::CheckNonZeroSender<Runtime>,
     frame_system::CheckSpecVersion<Runtime>,
     frame_system::CheckTxVersion<Runtime>,
@@ -1592,11 +1595,17 @@ pub type TransactionExtensions = (
     frame_system::CheckEra<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
+);
+pub type CustomTxExtension = (
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
     pallet_shield::CheckShieldedTxValidity<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
+);
+pub type TxExtension = (
+    SystemTxExtension,
+    CustomTxExtension,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
@@ -1610,14 +1619,14 @@ type Migrations = (
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, TransactionExtensions>;
+    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic =
-    fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, TransactionExtensions, H160>;
+    fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, TxExtension, H160>;
 
 // The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, TransactionExtensions>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 
 // Chain context for the executive.
 pub type ChainContext = frame_system::ChainContext<Runtime>;
