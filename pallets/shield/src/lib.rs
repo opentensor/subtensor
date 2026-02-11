@@ -25,6 +25,7 @@ pub mod mock;
 mod tests;
 
 mod extension;
+pub use extension::CheckShieldedTxValidity;
 
 const KEY_HASH_LEN: usize = 16;
 
