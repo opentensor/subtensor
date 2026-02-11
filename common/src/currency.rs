@@ -647,7 +647,11 @@ impl From<usize> for TaoCurrency {
 }
 impl From<sp_core::U256> for TaoCurrency {
     fn from(n: sp_core::U256) -> Self {
-        Self(n.as_u64())
+        if let Ok(n_u64) = n.try_into() {
+            Self(n_u64)
+        } else {
+            Self(u64::MAX)
+        }
     }
 }
 
