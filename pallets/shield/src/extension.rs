@@ -16,6 +16,12 @@ use subtensor_macros::freeze_struct;
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 pub struct CheckShieldedTxValidity<T: Config + Send + Sync + TypeInfo>(PhantomData<T>);
 
+impl<T: Config + Send + Sync + TypeInfo> CheckShieldedTxValidity<T> {
+    pub fn new() -> Self {
+        Self(Default::default())
+    }
+}
+
 impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for CheckShieldedTxValidity<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
         write!(f, "CheckShieldedTxValidity")
