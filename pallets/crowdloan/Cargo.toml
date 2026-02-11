@@ -43,6 +43,7 @@ std = [
   "sp-io/std",
   "log/std",
   "sp-core/std",
+  "subtensor-runtime-common/std",
   "pallet-balances/std",
   "pallet-preimage/std",
 ]
