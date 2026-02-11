@@ -1063,7 +1063,6 @@ fn test_commit_reveal_mechanism_weights_ok() {
 
         // Enable commit-reveal path and make caller a validator with stake
         SubtensorModule::set_stake_threshold(0);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
@@ -1147,7 +1146,6 @@ fn test_commit_reveal_above_mechanism_count_fails() {
 
         // Enable commit-reveal path and make caller a validator with stake
         SubtensorModule::set_stake_threshold(0);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
@@ -1228,7 +1226,6 @@ fn test_reveal_crv3_commits_sub_success() {
         register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
         register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
         SubtensorModule::set_stake_threshold(0);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
 
@@ -1334,7 +1331,6 @@ fn test_crv3_above_mechanism_count_fails() {
         register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
         register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
         SubtensorModule::set_stake_threshold(0);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, 3));
 
@@ -1385,101 +1381,6 @@ fn test_crv3_above_mechanism_count_fails() {
             ),
             Error::<Test>::MechanismDoesNotExist
         );
-    });
-}
-
-#[test]
-fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let mecid = MechId::from(1u8);
-        let hotkey: AccountId = U256::from(1);
-        let commit_data_1: Vec<u8> = vec![1, 2, 3];
-        let commit_data_2: Vec<u8> = vec![4, 5, 6];
-        let reveal_round: u64 = 1000;
-
-        add_network(netuid, 5, 0);
-        MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8)); // allow subids {0,1}
-
-        register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-
-        let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("uid");
-        let idx1 = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
-        SubtensorModule::set_last_update_for_uid(idx1, uid, 0);
-
-        // make validator with stake
-        SubtensorModule::set_stake_threshold(0);
-        SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(2), 1);
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &U256::from(2),
-            netuid,
-            1.into(),
-        );
-
-        // first commit OK on mecid=1
-        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            mecid,
-            commit_data_1.clone().try_into().expect("bounded"),
-            reveal_round,
-            SubtensorModule::get_commit_reveal_weights_version()
-        ));
-
-        // immediate second commit on SAME mecid blocked
-        assert_noop!(
-            SubtensorModule::commit_timelocked_mechanism_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                mecid,
-                commit_data_2.clone().try_into().expect("bounded"),
-                reveal_round,
-                SubtensorModule::get_commit_reveal_weights_version()
-            ),
-            Error::<Test>::CommittingWeightsTooFast
-        );
-
-        // BUT committing too soon on a DIFFERENT mecid is allowed
-        let other_subid = MechId::from(0u8);
-        let idx0 = SubtensorModule::get_mechanism_storage_index(netuid, other_subid);
-        SubtensorModule::set_last_update_for_uid(idx0, uid, 0); // baseline like above
-        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            other_subid,
-            commit_data_2.clone().try_into().expect("bounded"),
-            reveal_round,
-            SubtensorModule::get_commit_reveal_weights_version()
-        ));
-
-        // still too fast on original mecid after 2 blocks
-        step_block(2);
-        assert_noop!(
-            SubtensorModule::commit_timelocked_mechanism_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                mecid,
-                commit_data_2.clone().try_into().expect("bounded"),
-                reveal_round,
-                SubtensorModule::get_commit_reveal_weights_version()
-            ),
-            Error::<Test>::CommittingWeightsTooFast
-        );
-
-        // after enough blocks, OK again on original mecid
-        step_block(3);
-        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            mecid,
-            commit_data_2.try_into().expect("bounded"),
-            reveal_round,
-            SubtensorModule::get_commit_reveal_weights_version()
-        ));
     });
 }
 
