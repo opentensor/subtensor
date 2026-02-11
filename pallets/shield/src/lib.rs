@@ -10,6 +10,7 @@ use sp_runtime::Vec;
 use sp_runtime::traits::Applyable;
 use sp_runtime::traits::Block as BlockT;
 use sp_runtime::traits::Checkable;
+use stp_shield::ShieldedTransaction;
 
 use alloc::vec;
 
@@ -26,8 +27,6 @@ mod tests;
 
 mod extension;
 pub use extension::CheckShieldedTxValidity;
-
-const KEY_HASH_LEN: usize = 16;
 
 type PublicKey = BoundedVec<u8, ConstU32<2048>>;
 
@@ -217,15 +216,13 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn try_decrypt_extrinsic<Block, Context>(
+    pub fn try_unshield_tx<Block: BlockT, Context: Default>(
         uxt: ExtrinsicOf<Block>,
-    ) -> Option<<Block as BlockT>::Extrinsic>
+    ) -> Option<ShieldedTransaction>
     where
-        Block: BlockT<Header = HeaderFor<T>, Hash = <T as frame_system::Config>::Hash>,
         Block::Extrinsic: Checkable<Context>,
         CheckedOf<Block::Extrinsic, Context>: Applyable,
         ApplyableCallOf<CheckedOf<Block::Extrinsic, Context>>: IsSubType<Call<T>>,
-        Context: Default,
     {
         const MAX_EXTRINSIC_DEPTH: u32 = 8;
 
@@ -250,14 +247,12 @@ impl<T: Config> Pallet<T> {
             return None;
         };
 
-        log::info!("Submit encrypted received: {}", ciphertext.len());
+        ShieldedTransaction::parse(&ciphertext)
+    }
 
-        if ciphertext.len() < 2 {
-            return None;
-        }
-
-        let shielded_tx = ShieldedTransaction::parse(&ciphertext)?;
-
+    pub fn try_decrypt_shielded_tx<Block: BlockT>(
+        shielded_tx: ShieldedTransaction,
+    ) -> Option<<Block as BlockT>::Extrinsic> {
         let mut shared_secret = [0u8; 32];
         stp_io::crypto::mlkem768_decapsulate(&shielded_tx.kem_ct, &mut shared_secret).ok()?;
 
@@ -273,55 +268,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let signed_xt = ExtrinsicOf::<Block>::decode(&mut &plaintext[..]).ok()?;
-        log::info!("Decrypted extrinsic: {:?}", signed_xt);
-
-        None
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct ShieldedTransaction {
-    pub(crate) key_hash: [u8; KEY_HASH_LEN],
-    kem_ct: Vec<u8>,
-    aead_ct: Vec<u8>,
-    nonce: [u8; 24],
-}
-
-impl ShieldedTransaction {
-    fn parse(ciphertext: &[u8]) -> Option<Self> {
-        let mut cursor: usize = 0;
-
-        let key_hash_end = cursor.checked_add(KEY_HASH_LEN)?;
-        let key_hash: [u8; KEY_HASH_LEN] = ciphertext.get(cursor..key_hash_end)?.try_into().ok()?;
-        cursor = key_hash_end;
-
-        let kem_ct_len_end = cursor.checked_add(2)?;
-        let kem_ct_len = ciphertext
-            .get(cursor..kem_ct_len_end)?
-            .try_into()
-            .map(u16::from_le_bytes)
-            .ok()?
-            .into();
-        cursor = kem_ct_len_end;
-
-        let kem_ct_end = cursor.checked_add(kem_ct_len)?;
-        let kem_ct = ciphertext.get(cursor..kem_ct_end)?.to_vec();
-        cursor = kem_ct_end;
-
-        const NONCE_LEN: usize = 24;
-        let nonce_end = cursor.checked_add(NONCE_LEN)?;
-        let nonce = ciphertext.get(cursor..nonce_end)?.try_into().ok()?;
-        cursor = nonce_end;
-
-        let aead_ct = ciphertext.get(cursor..)?.to_vec();
-
-        Some(Self {
-            key_hash,
-            kem_ct,
-            aead_ct,
-            nonce,
-        })
+        ExtrinsicOf::<Block>::decode(&mut &plaintext[..]).ok()
     }
 }
 
