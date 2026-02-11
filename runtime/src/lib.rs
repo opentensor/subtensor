@@ -73,6 +73,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use substrate_fixed::types::U64F64;
+use stp_shield::ShieldedTransaction;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -2564,10 +2565,14 @@ impl_runtime_apis! {
     }
 
     impl stp_shield::ShieldApi<Block> for Runtime {
-        fn try_decrypt_extrinsic(
-            uxt: <Block as BlockT>::Extrinsic,
+        fn try_unshield_tx(uxt: <Block as BlockT>::Extrinsic) -> Option<ShieldedTransaction> {
+            MevShield::try_unshield_tx::<Block, ChainContext>(uxt)
+        }
+
+        fn try_decrypt_shielded_tx(
+            shielded_tx: ShieldedTransaction,
         ) -> Option<<Block as BlockT>::Extrinsic> {
-            MevShield::try_decrypt_extrinsic::<Block, ChainContext>(uxt)
+            MevShield::try_decrypt_shielded_tx::<Block>(shielded_tx)
         }
     }
 }
