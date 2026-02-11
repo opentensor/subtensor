@@ -126,7 +126,8 @@ impl<T: Config> Pallet<T> {
         _destination_coldkey_account: T::AccountId,
         amount: u64,
     ) -> u64 {
-        if destination == origin {
+        // if same subnet, no fee
+        if origin.clone().map(|v| v.1) == destination.clone().map(|v| v.1) {
             0_u64
         } else {
             let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
