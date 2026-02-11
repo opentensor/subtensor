@@ -1,4 +1,4 @@
-use crate::{Call, Config, KEY_HASH_LEN, NextKey};
+use crate::{Call, Config, NextKey, ShieldedTransaction};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::*;
 use frame_support::traits::IsSubType;
@@ -57,18 +57,15 @@ where
             return Err(InvalidTransaction::BadSigner.into());
         };
 
-        if ciphertext.len() < KEY_HASH_LEN {
+        let Some(shielded_tx) = ShieldedTransaction::parse(&ciphertext) else {
             return Err(InvalidTransaction::BadProof.into());
-        }
-
-        let key_hash: &[u8] = ciphertext[..KEY_HASH_LEN]
-            .try_into()
-            .map_err(|_| InvalidTransaction::BadProof)?;
+        };
 
         let next_key_hash = NextKey::<T>::get().map(|key| twox_128(&key.into_inner()[..]));
 
         // The transaction must be encrypted with the next key or we discard it
-        if next_key_hash.is_none() || next_key_hash.is_some_and(|hash| hash != key_hash) {
+        if next_key_hash.is_none() || next_key_hash.is_some_and(|hash| hash != shielded_tx.key_hash)
+        {
             return Err(InvalidTransaction::BadProof)?;
         }
 
