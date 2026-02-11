@@ -24,6 +24,10 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 
+mod extension;
+
+const KEY_HASH_LEN: usize = 16;
+
 type PublicKey = BoundedVec<u8, ConstU32<2048>>;
 
 type InherentType = Option<Vec<u8>>;
@@ -41,7 +45,7 @@ pub mod pallet {
         /// The identifier type for an authority.
         type AuthorityId: Member + Parameter + MaybeSerializeDeserialize + MaxEncodedLen;
 
-        /// A way to find the current and next author of a block.
+        /// A way to find the current and next block author.
         type FindAuthors: FindAuthors<Self>;
     }
 
@@ -49,10 +53,6 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     // ----------------- Storage -----------------
-
-    /// Current block author ML‑KEM‑768 public key bytes.
-    #[pallet::storage]
-    pub type CurrentKey<T> = StorageValue<_, PublicKey, OptionQuery>;
 
     // Next block author ML‑KEM‑768 public key bytes.
     #[pallet::storage]
@@ -89,23 +89,25 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+        fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
             let mut weight = Weight::zero();
 
-            // We clear the current key and next key no matter what.
-            CurrentKey::<T>::kill();
+            // We clear the next key no matter what happens next.
             NextKey::<T>::kill();
-            weight = weight.saturating_add(T::DbWeight::get().writes(2_u64));
+            weight = weight.saturating_add(T::DbWeight::get().writes(1_u64));
 
-            weight = weight.saturating_add(Self::try_roll_key(
-                T::FindAuthors::find_current_author,
-                |key| CurrentKey::<T>::put(key),
-            ));
+            weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
+            let Some(author) = T::FindAuthors::find_next_author() else {
+                return weight;
+            };
 
-            weight = weight.saturating_add(Self::try_roll_key(
-                T::FindAuthors::find_next_author,
-                |key| NextKey::<T>::put(key),
-            ));
+            weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
+            let Some((Some(key), _)) = AuthorKeys::<T>::get(author) else {
+                return weight;
+            };
+
+            NextKey::<T>::put(key);
+            weight = weight.saturating_add(T::DbWeight::get().writes(1_u64));
 
             weight
         }
@@ -214,27 +216,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn try_roll_key(
-        who: impl Fn() -> Option<T::AuthorityId>,
-        put: impl Fn(PublicKey) -> (),
-    ) -> Weight {
-        let mut weight = Weight::zero();
-
-        weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
-        let Some(author) = who() else {
-            return weight;
-        };
-
-        weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
-        let Some((Some(key), _)) = AuthorKeys::<T>::get(author) else {
-            return weight;
-        };
-
-        put(key);
-
-        weight
-    }
-
     pub fn try_decrypt_extrinsic<Block, Context>(
         uxt: ExtrinsicOf<Block>,
     ) -> Option<<Block as BlockT>::Extrinsic>
