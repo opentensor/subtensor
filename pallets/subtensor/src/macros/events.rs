@@ -527,6 +527,20 @@ mod events {
             suppress: Option<bool>,
         },
 
+        /// Root set or cleared the emission suppression override for a subnet.
+        EmissionSuppressionOverrideSet {
+            /// The subnet affected
+            netuid: NetUid,
+            /// The override value: Some(true) = force suppress, Some(false) = force unsuppress, None = cleared
+            override_value: Option<bool>,
+        },
+
+        /// Root set the KeepRootSellPressureOnSuppressedSubnets flag.
+        KeepRootSellPressureOnSuppressedSubnetsSet {
+            /// The new value
+            value: bool,
+        },
+
         /// "Add stake and burn" event: alpha token was purchased and burned.
         AddStakeBurn {
             /// The subnet ID

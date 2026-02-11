@@ -2586,6 +2586,7 @@ mod dispatches {
         #[pallet::call_index(133)]
         #[pallet::weight((
             Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(1))
                 .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
             Pays::No
@@ -2601,6 +2602,10 @@ mod dispatches {
                 Some(val) => EmissionSuppressionOverride::<T>::insert(netuid, val),
                 None => EmissionSuppressionOverride::<T>::remove(netuid),
             }
+            Self::deposit_event(Event::EmissionSuppressionOverrideSet {
+                netuid,
+                override_value,
+            });
             Ok(())
         }
 
@@ -2621,6 +2626,7 @@ mod dispatches {
         ) -> DispatchResult {
             ensure_root(origin)?;
             KeepRootSellPressureOnSuppressedSubnets::<T>::put(value);
+            Self::deposit_event(Event::KeepRootSellPressureOnSuppressedSubnetsSet { value });
             Ok(())
         }
 

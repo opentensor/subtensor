@@ -31,7 +31,7 @@ impl<T: Config> Pallet<T> {
         }
         Self::transfer_staking_hotkeys(old_coldkey, new_coldkey);
         Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey);
-        Self::transfer_emission_suppression_votes(old_coldkey, new_coldkey);
+        Self::transfer_emission_suppression_votes(old_coldkey, new_coldkey)?;
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);
@@ -164,11 +164,23 @@ impl<T: Config> Pallet<T> {
     /// Transfer emission suppression votes from the old coldkey to the new coldkey.
     /// Since EmissionSuppressionVote is keyed by (netuid, coldkey), we must iterate
     /// all subnets to find votes belonging to the old coldkey.
-    fn transfer_emission_suppression_votes(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+    /// Fails if the new coldkey already has any emission suppression votes.
+    fn transfer_emission_suppression_votes(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) -> DispatchResult {
+        // First pass: verify the destination has no existing votes.
+        for netuid in Self::get_all_subnet_netuids() {
+            if EmissionSuppressionVote::<T>::get(netuid, new_coldkey).is_some() {
+                return Err(Error::<T>::DestinationColdkeyHasExistingVotes.into());
+            }
+        }
+        // Second pass: move votes.
         for netuid in Self::get_all_subnet_netuids() {
             if let Some(vote) = EmissionSuppressionVote::<T>::take(netuid, old_coldkey) {
                 EmissionSuppressionVote::<T>::insert(netuid, new_coldkey, vote);
             }
         }
+        Ok(())
     }
 }

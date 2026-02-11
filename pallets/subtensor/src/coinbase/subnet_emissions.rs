@@ -290,8 +290,11 @@ impl<T: Config> Pallet<T> {
 
     /// Collect emission suppression votes from root validators for a subnet
     /// and update the EmissionSuppression storage.
-    /// Called once per subnet per epoch.
+    /// Called once per subnet per epoch. No-op for root subnet.
     pub(crate) fn collect_emission_suppression_votes(netuid: NetUid) {
+        if netuid.is_root() {
+            return;
+        }
         let root_n = SubnetworkN::<T>::get(NetUid::ROOT);
         let mut suppress_stake = U64F64::saturating_from_num(0u64);
         let mut total_root_stake = U64F64::saturating_from_num(0u64);

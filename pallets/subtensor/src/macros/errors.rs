@@ -286,5 +286,7 @@ mod errors {
         CannotVoteOnRootSubnet,
         /// Coldkey does not own a root-registered hotkey with enough stake.
         NotEnoughStakeToVote,
+        /// Coldkey swap destination already has emission suppression votes.
+        DestinationColdkeyHasExistingVotes,
     }
 }
