@@ -12,23 +12,23 @@ use sp_runtime::traits::{
 use sp_runtime::transaction_validity::TransactionSource;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("316ffb58250f9f1b")]
+#[freeze_struct("dabd89c6963de25d")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-pub struct CheckShieldTxValidity<T: Config + Send + Sync + TypeInfo>(PhantomData<T>);
+pub struct CheckShieldedTxValidity<T: Config + Send + Sync + TypeInfo>(PhantomData<T>);
 
-impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for CheckShieldTxValidity<T> {
+impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for CheckShieldedTxValidity<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-        write!(f, "CheckShieldTxValidity")
+        write!(f, "CheckShieldedTxValidity")
     }
 }
 
 impl<T: Config + Send + Sync + TypeInfo>
-    TransactionExtension<<T as frame_system::Config>::RuntimeCall> for CheckShieldTxValidity<T>
+    TransactionExtension<<T as frame_system::Config>::RuntimeCall> for CheckShieldedTxValidity<T>
 where
     <T as frame_system::Config>::RuntimeCall: Dispatchable + IsSubType<Call<T>>,
     <T as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId>,
 {
-    const IDENTIFIER: &'static str = "CheckShieldTxValidity";
+    const IDENTIFIER: &'static str = "CheckShieldedTxValidity";
 
     type Implicit = ();
     type Val = ();
