@@ -177,6 +177,17 @@ mod hooks {
             // Self::check_total_stake()?;
             Ok(())
         }
+
+        fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
+            let mut weight_meter = WeightMeter::with_limit(limit.saturating_div(2));
+            let on_idle_weight = T::DbWeight::get().reads(1);
+            // let on_idle_weight = T::WeightInfo::on_idle_base();
+            if !weight_meter.can_consume(on_idle_weight) {
+                return weight_meter.consumed();
+            }
+            weight_meter.consume(on_idle_weight);
+            weight_meter.consumed()
+        }
     }
 
     impl<T: Config> Pallet<T> {
