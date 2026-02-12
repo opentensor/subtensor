@@ -278,7 +278,7 @@ mod errors {
         InvalidVotingPowerEmaAlpha,
         /// Deprecated call.
         Deprecated,
-        /// Subnet buyback exceeded the operation rate limit
-        SubnetBuybackRateLimitExceeded,
+        /// "Add stake and burn" exceeded the operation rate limit
+        AddStakeBurnRateLimitExceeded,
     }
 }

@@ -20,7 +20,7 @@ use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 
-const SUBNET_BUYBACK_PRIORITY_BOOST: u64 = 100;
+const ADD_STAKE_BURN_PRIORITY_BOOST: u64 = 100;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type OriginOf<T> = <T as frame_system::Config>::RuntimeOrigin;
@@ -297,12 +297,12 @@ where
                     .map_err(|_| CustomTransactionError::EvmKeyAssociateRateLimitExceeded)?;
                 Ok((Default::default(), (), origin))
             }
-            Some(Call::subnet_buyback { netuid, .. }) => {
+            Some(Call::add_stake_burn { netuid, .. }) => {
                 Pallet::<T>::ensure_subnet_owner(origin.clone(), *netuid).map_err(|_| {
                     TransactionValidityError::Invalid(InvalidTransaction::BadSigner)
                 })?;
 
-                Ok((Self::validity_ok(SUBNET_BUYBACK_PRIORITY_BOOST), (), origin))
+                Ok((Self::validity_ok(ADD_STAKE_BURN_PRIORITY_BOOST), (), origin))
             }
             _ => Ok((Default::default(), (), origin)),
         }

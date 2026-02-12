@@ -8478,6 +8478,7 @@ dependencies = [
  "polkadot-runtime-common",
  "precompile-utils",
  "rand_chacha 0.3.1",
+ "safe-math",
  "scale-info",
  "serde_json",
  "sha2 0.10.9",
@@ -8696,7 +8697,7 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77e878c846a8abae00dd069496dbe8751b16ac1c3d6bd2a7283a938e8228f90d"
 dependencies = [
- "proc-macro-crate 3.4.0",
+ "proc-macro-crate 1.1.3",
  "proc-macro2",
  "quote",
  "syn 2.0.106",
@@ -10955,6 +10956,9 @@ dependencies = [
  "log",
  "pallet-subtensor-swap-runtime-api",
  "parity-scale-codec",
+ "rand 0.8.5",
+ "rayon",
+ "safe-bigmath",
  "safe-math",
  "scale-info",
  "serde",
@@ -10991,6 +10995,7 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-api",
  "sp-std",
  "subtensor-macros",

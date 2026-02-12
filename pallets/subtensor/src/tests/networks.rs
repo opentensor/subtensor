@@ -7,9 +7,12 @@ use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
-use substrate_fixed::types::{I96F32, U96F32};
+use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::{Order, SwapHandler};
+use subtensor_swap_interface::{
+    //Order,
+    SwapHandler,
+};
 
 #[test]
 fn test_registration_ok() {
@@ -247,8 +250,9 @@ fn dissolve_owner_cut_refund_logic() {
 
         // Use the current alpha price to estimate the TAO equivalent.
         let owner_emission_tao = {
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -365,8 +369,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         TokenSymbol::<Test>::insert(net, b"XX".to_vec());
         SubnetMovingPrice::<Test>::insert(net, substrate_fixed::types::I96F32::from_num(1));
-        SubnetTaoProvided::<Test>::insert(net, TaoCurrency::from(1));
-        SubnetAlphaInProvided::<Test>::insert(net, AlphaCurrency::from(1));
 
         // TAO Flow
         SubnetTaoFlow::<Test>::insert(net, 0i64);
@@ -529,8 +531,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         assert!(!TokenSymbol::<Test>::contains_key(net));
         assert!(!SubnetMovingPrice::<Test>::contains_key(net));
-        assert!(!SubnetTaoProvided::<Test>::contains_key(net));
-        assert!(!SubnetAlphaInProvided::<Test>::contains_key(net));
 
         // Subnet locks
         assert!(!TransferToggle::<Test>::contains_key(net));
@@ -906,8 +906,9 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
 
         let owner_emission_tao: u64 = {
             // Fallback matches the pallet's fallback
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -986,8 +987,9 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
             .saturating_to_num::<u64>();
 
         let owner_emission_tao_u64 = {
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()

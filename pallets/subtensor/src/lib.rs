@@ -1290,11 +1290,6 @@ pub mod pallet {
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
 
-    /// --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
-    #[pallet::storage]
-    pub type SubnetTaoProvided<T: Config> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
-
     /// --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     #[pallet::storage]
     pub type SubnetAlphaInEmission<T: Config> =
@@ -1313,11 +1308,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     #[pallet::storage]
     pub type SubnetAlphaIn<T: Config> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
-
-    /// --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
-    #[pallet::storage]
-    pub type SubnetAlphaInProvided<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
@@ -2593,7 +2583,7 @@ pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
 impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> TaoCurrency {
-        SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
+        SubnetTAO::<T>::get(netuid)
     }
 
     fn increase_provided(netuid: NetUid, tao: TaoCurrency) {
@@ -2611,7 +2601,7 @@ pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
 impl<T: Config> CurrencyReserve<AlphaCurrency> for AlphaCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> AlphaCurrency {
-        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
+        SubnetAlphaIn::<T>::get(netuid)
     }
 
     fn increase_provided(netuid: NetUid, alpha: AlphaCurrency) {
@@ -2758,9 +2748,9 @@ pub enum RateLimitKey<AccountId> {
     // Last tx block delegate key limit per account ID
     #[codec(index = 5)]
     LastTxBlockDelegateTake(AccountId),
-    // Subnet buyback rate limit
+    // "Add stake and burn" rate limit
     #[codec(index = 6)]
-    SubnetBuyback(NetUid),
+    AddStakeBurn(NetUid),
 }
 
 pub trait ProxyInterface<AccountId> {
