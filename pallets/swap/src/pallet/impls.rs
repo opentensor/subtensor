@@ -142,8 +142,7 @@ impl<T: Config> Pallet<T> {
                 amount_tao,
                 alpha_equivalent,
                 TaoBalance::ZERO,
-                amount_alpha
-                    .saturating_sub(alpha_equivalent),
+                amount_alpha.saturating_sub(alpha_equivalent),
             )
         }
     }
