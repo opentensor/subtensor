@@ -2586,14 +2586,12 @@ impl_runtime_apis! {
     }
 
     impl stp_shield::ShieldApi<Block> for Runtime {
-        fn try_unshield_tx(uxt: <Block as BlockT>::Extrinsic) -> Option<ShieldedTransaction> {
-            MevShield::try_unshield_tx::<Block, ChainContext>(uxt)
+        fn try_decode_shielded_tx(uxt: <Block as BlockT>::Extrinsic) -> Option<ShieldedTransaction> {
+            MevShield::try_decode_shielded_tx::<Block, ChainContext>(uxt)
         }
 
-        fn try_decrypt_shielded_tx(
-            shielded_tx: ShieldedTransaction,
-        ) -> Option<<Block as BlockT>::Extrinsic> {
-            MevShield::try_decrypt_shielded_tx::<Block>(shielded_tx)
+        fn try_unshield_tx(shielded_tx: ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+            MevShield::try_unshield_tx::<Block>(shielded_tx)
         }
     }
 }

@@ -216,7 +216,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn try_unshield_tx<Block: BlockT, Context: Default>(
+    pub fn try_decode_shielded_tx<Block: BlockT, Context: Default>(
         uxt: ExtrinsicOf<Block>,
     ) -> Option<ShieldedTransaction>
     where
@@ -250,7 +250,7 @@ impl<T: Config> Pallet<T> {
         ShieldedTransaction::parse(&ciphertext)
     }
 
-    pub fn try_decrypt_shielded_tx<Block: BlockT>(
+    pub fn try_unshield_tx<Block: BlockT>(
         shielded_tx: ShieldedTransaction,
     ) -> Option<<Block as BlockT>::Extrinsic> {
         let mut shared_secret = [0u8; 32];
