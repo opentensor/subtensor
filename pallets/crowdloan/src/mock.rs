@@ -12,7 +12,7 @@ use frame_support::{
 use frame_system::{EnsureRoot, pallet_prelude::BlockNumberFor};
 use sp_core::U256;
 use sp_runtime::{BuildStorage, traits::IdentityLookup};
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::TaoBalance;
 
 use crate::{BalanceOf, CrowdloanId, pallet as pallet_crowdloan, weights::WeightInfo};
 
@@ -56,22 +56,22 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 impl frame_system::Config for Test {
     type Block = Block;
     type AccountId = U256;
-    type AccountData = pallet_balances::AccountData<TaoCurrency>;
+    type AccountData = pallet_balances::AccountData<TaoBalance>;
     type Lookup = IdentityLookup<Self::AccountId>;
 }
 
 // Existential deposit.
 pub struct ExistentialDeposit;
-impl frame_support::traits::Get<TaoCurrency> for ExistentialDeposit {
-    fn get() -> TaoCurrency {
-        TaoCurrency::new(1)
+impl frame_support::traits::Get<TaoBalance> for ExistentialDeposit {
+    fn get() -> TaoBalance {
+        TaoBalance::new(1)
     }
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type AccountStore = System;
-    type Balance = TaoCurrency;
+    type Balance = TaoBalance;
     type ExistentialDeposit = ExistentialDeposit;
 }
 
@@ -108,8 +108,8 @@ impl WeightInfo for TestWeightInfo {
 
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: TaoCurrency = TaoCurrency::new(1);
-    pub const PreimageByteDeposit: TaoCurrency = TaoCurrency::new(1);
+    pub const PreimageBaseDeposit: TaoBalance = TaoBalance::new(1);
+    pub const PreimageByteDeposit: TaoBalance = TaoBalance::new(1);
 }
 
 impl pallet_preimage::Config for Test {
@@ -122,8 +122,8 @@ impl pallet_preimage::Config for Test {
 
 parameter_types! {
     pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
-    pub const MinimumDeposit: TaoCurrency = TaoCurrency::new(50);
-    pub const AbsoluteMinimumContribution: TaoCurrency = TaoCurrency::new(10);
+    pub const MinimumDeposit: TaoBalance = TaoBalance::new(50);
+    pub const AbsoluteMinimumContribution: TaoBalance = TaoBalance::new(10);
     pub const MinimumBlockDuration: u64 = 20;
     pub const MaximumBlockDuration: u64 = 100;
     pub const RefundContributorsLimit: u32 = 5;
@@ -154,14 +154,14 @@ pub(crate) mod pallet_test {
         pallet_prelude::{OptionQuery, StorageValue},
     };
     use frame_system::pallet_prelude::OriginFor;
-    use subtensor_runtime_common::TaoCurrency;
+    use subtensor_runtime_common::TaoBalance;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_crowdloan::Config {
-        type Currency: fungible::Balanced<Self::AccountId, Balance = TaoCurrency>
+        type Currency: fungible::Balanced<Self::AccountId, Balance = TaoBalance>
             + fungible::Mutate<Self::AccountId>;
     }
 

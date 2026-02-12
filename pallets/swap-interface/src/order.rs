@@ -1,13 +1,13 @@
 use core::marker::PhantomData;
 
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, TaoBalance, Token, TokenReserve};
 
 pub trait Order: Clone {
-    type PaidIn: Currency;
-    type PaidOut: Currency;
-    type ReserveIn: CurrencyReserve<Self::PaidIn>;
-    type ReserveOut: CurrencyReserve<Self::PaidOut>;
+    type PaidIn: Token;
+    type PaidOut: Token;
+    type ReserveIn: TokenReserve<Self::PaidIn>;
+    type ReserveOut: TokenReserve<Self::PaidOut>;
 
     fn with_amount(amount: impl Into<Self::PaidIn>) -> Self;
     fn amount(&self) -> Self::PaidIn;
@@ -17,20 +17,20 @@ pub trait Order: Clone {
 #[derive(Clone, Default)]
 pub struct GetAlphaForTao<ReserveIn, ReserveOut>
 where
-    ReserveIn: CurrencyReserve<TaoCurrency>,
-    ReserveOut: CurrencyReserve<AlphaCurrency>,
+    ReserveIn: TokenReserve<TaoBalance>,
+    ReserveOut: TokenReserve<AlphaBalance>,
 {
-    amount: TaoCurrency,
+    amount: TaoBalance,
     _phantom: PhantomData<(ReserveIn, ReserveOut)>,
 }
 
 impl<ReserveIn, ReserveOut> Order for GetAlphaForTao<ReserveIn, ReserveOut>
 where
-    ReserveIn: CurrencyReserve<TaoCurrency> + Clone,
-    ReserveOut: CurrencyReserve<AlphaCurrency> + Clone,
+    ReserveIn: TokenReserve<TaoBalance> + Clone,
+    ReserveOut: TokenReserve<AlphaBalance> + Clone,
 {
-    type PaidIn = TaoCurrency;
-    type PaidOut = AlphaCurrency;
+    type PaidIn = TaoBalance;
+    type PaidOut = AlphaBalance;
     type ReserveIn = ReserveIn;
     type ReserveOut = ReserveOut;
 
@@ -41,7 +41,7 @@ where
         }
     }
 
-    fn amount(&self) -> TaoCurrency {
+    fn amount(&self) -> TaoBalance {
         self.amount
     }
 
@@ -53,20 +53,20 @@ where
 #[derive(Clone, Default)]
 pub struct GetTaoForAlpha<ReserveIn, ReserveOut>
 where
-    ReserveIn: CurrencyReserve<AlphaCurrency>,
-    ReserveOut: CurrencyReserve<TaoCurrency>,
+    ReserveIn: TokenReserve<AlphaBalance>,
+    ReserveOut: TokenReserve<TaoBalance>,
 {
-    amount: AlphaCurrency,
+    amount: AlphaBalance,
     _phantom: PhantomData<(ReserveIn, ReserveOut)>,
 }
 
 impl<ReserveIn, ReserveOut> Order for GetTaoForAlpha<ReserveIn, ReserveOut>
 where
-    ReserveIn: CurrencyReserve<AlphaCurrency> + Clone,
-    ReserveOut: CurrencyReserve<TaoCurrency> + Clone,
+    ReserveIn: TokenReserve<AlphaBalance> + Clone,
+    ReserveOut: TokenReserve<TaoBalance> + Clone,
 {
-    type PaidIn = AlphaCurrency;
-    type PaidOut = TaoCurrency;
+    type PaidIn = AlphaBalance;
+    type PaidOut = TaoBalance;
     type ReserveIn = ReserveIn;
     type ReserveOut = ReserveOut;
 
@@ -77,7 +77,7 @@ where
         }
     }
 
-    fn amount(&self) -> AlphaCurrency {
+    fn amount(&self) -> AlphaBalance {
         self.amount
     }
 

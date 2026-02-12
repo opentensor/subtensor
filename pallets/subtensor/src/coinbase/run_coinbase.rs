@@ -2,7 +2,7 @@ use super::*;
 use alloc::collections::BTreeMap;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 // Distribute dividends to each hotkey
@@ -60,16 +60,15 @@ impl<T: Config> Pallet<T> {
         excess_tao: &BTreeMap<NetUid, U96F32>,
     ) {
         for netuid_i in subnets_to_emit_to.iter() {
-            let tao_in_i: TaoCurrency =
-                tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            let alpha_in_i: AlphaCurrency =
+            let tao_in_i: TaoBalance = tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
+            let alpha_in_i: AlphaBalance =
                 tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            let tao_to_swap_with: TaoCurrency =
+            let tao_to_swap_with: TaoBalance =
                 tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
 
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
-            if tao_to_swap_with > TaoCurrency::ZERO {
+            if tao_to_swap_with > TaoBalance::ZERO {
                 let buy_swap_result = Self::swap_tao_for_alpha(
                     *netuid_i,
                     tao_to_swap_with,
@@ -77,21 +76,21 @@ impl<T: Config> Pallet<T> {
                     true,
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
-                    let bought_alpha: AlphaCurrency = buy_swap_result_ok.amount_paid_out.into();
+                    let bought_alpha: AlphaBalance = buy_swap_result_ok.amount_paid_out.into();
                     Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
                 }
             }
 
             // Inject Alpha in.
             let alpha_in_i =
-                AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
+                AlphaBalance::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
             SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
             SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(alpha_in_i);
             });
 
             // Inject TAO in.
-            let injected_tao: TaoCurrency =
+            let injected_tao: TaoBalance =
                 tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
             SubnetTaoInEmission::<T>::insert(*netuid_i, injected_tao);
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
@@ -126,7 +125,7 @@ impl<T: Config> Pallet<T> {
         let mut excess_tao: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let tao_block_emission: U96F32 = U96F32::saturating_from_num(
             Self::get_block_emission()
-                .unwrap_or(TaoCurrency::ZERO)
+                .unwrap_or(TaoBalance::ZERO)
                 .to_u64(),
         );
 
@@ -188,7 +187,7 @@ impl<T: Config> Pallet<T> {
             // Get alpha_out for this block.
             let mut alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
 
-            let alpha_created: AlphaCurrency = AlphaCurrency::from(tou64!(alpha_out_i));
+            let alpha_created: AlphaBalance = AlphaBalance::from(tou64!(alpha_out_i));
             SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_created);
             SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(alpha_created);
@@ -241,7 +240,7 @@ impl<T: Config> Pallet<T> {
                 });
             } else {
                 // If we are not selling the root alpha, we should recycle it.
-                Self::recycle_subnet_alpha(*netuid_i, AlphaCurrency::from(tou64!(root_alpha)));
+                Self::recycle_subnet_alpha(*netuid_i, AlphaBalance::from(tou64!(root_alpha)));
             }
         }
     }
@@ -249,11 +248,11 @@ impl<T: Config> Pallet<T> {
     pub fn drain_pending(
         subnets: &[NetUid],
         current_block: u64,
-    ) -> BTreeMap<NetUid, (AlphaCurrency, AlphaCurrency, AlphaCurrency, AlphaCurrency)> {
+    ) -> BTreeMap<NetUid, (AlphaBalance, AlphaBalance, AlphaBalance, AlphaBalance)> {
         // Map of netuid to (pending_server_alpha, pending_validator_alpha, pending_root_alpha, pending_owner_cut).
         let mut emissions_to_distribute: BTreeMap<
             NetUid,
-            (AlphaCurrency, AlphaCurrency, AlphaCurrency, AlphaCurrency),
+            (AlphaBalance, AlphaBalance, AlphaBalance, AlphaBalance),
         > = BTreeMap::new();
         // --- Drain pending emissions for all subnets hat are at their tempo.
         // Run the epoch for *all* subnets, even if we don't emit anything.
@@ -271,18 +270,18 @@ impl<T: Config> Pallet<T> {
 
                 // Get and drain the subnet pending emission.
                 let pending_server_alpha = PendingServerEmission::<T>::get(netuid);
-                PendingServerEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
+                PendingServerEmission::<T>::insert(netuid, AlphaBalance::ZERO);
 
                 let pending_validator_alpha = PendingValidatorEmission::<T>::get(netuid);
-                PendingValidatorEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
+                PendingValidatorEmission::<T>::insert(netuid, AlphaBalance::ZERO);
 
                 // Get and drain the pending Alpha for root divs.
                 let pending_root_alpha = PendingRootAlphaDivs::<T>::get(netuid);
-                PendingRootAlphaDivs::<T>::insert(netuid, AlphaCurrency::ZERO);
+                PendingRootAlphaDivs::<T>::insert(netuid, AlphaBalance::ZERO);
 
                 // Get and drain the pending owner cut.
                 let owner_cut = PendingOwnerCut::<T>::get(netuid);
-                PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
+                PendingOwnerCut::<T>::insert(netuid, AlphaBalance::ZERO);
 
                 // Save the emissions to distribute.
                 emissions_to_distribute.insert(
@@ -302,7 +301,7 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_emissions_to_subnets(
         emissions_to_distribute: &BTreeMap<
             NetUid,
-            (AlphaCurrency, AlphaCurrency, AlphaCurrency, AlphaCurrency),
+            (AlphaBalance, AlphaBalance, AlphaBalance, AlphaBalance),
         >,
     ) {
         for (
@@ -334,13 +333,13 @@ impl<T: Config> Pallet<T> {
 
     pub fn calculate_dividends_and_incentives(
         netuid: NetUid,
-        hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)>,
+        hotkey_emission: Vec<(T::AccountId, AlphaBalance, AlphaBalance)>,
     ) -> (
-        BTreeMap<T::AccountId, AlphaCurrency>,
+        BTreeMap<T::AccountId, AlphaBalance>,
         BTreeMap<T::AccountId, U96F32>,
     ) {
         // Accumulate emission of dividends and incentive per hotkey.
-        let mut incentives: BTreeMap<T::AccountId, AlphaCurrency> = BTreeMap::new();
+        let mut incentives: BTreeMap<T::AccountId, AlphaBalance> = BTreeMap::new();
         let mut dividends: BTreeMap<T::AccountId, U96F32> = BTreeMap::new();
         for (hotkey, incentive, dividend) in hotkey_emission {
             // Accumulate incentives to miners.
@@ -349,7 +348,7 @@ impl<T: Config> Pallet<T> {
                 .and_modify(|e| *e = e.saturating_add(incentive))
                 .or_insert(incentive);
             // Accumulate dividends to parents.
-            let div_tuples: Vec<(T::AccountId, AlphaCurrency)> =
+            let div_tuples: Vec<(T::AccountId, AlphaBalance)> =
                 Self::get_parent_child_dividends_distribution(&hotkey, netuid, dividend);
             // Accumulate dividends per hotkey.
             for (parent, parent_div) in div_tuples {
@@ -366,10 +365,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn calculate_dividend_distribution(
-        pending_alpha: AlphaCurrency,
-        pending_root_alpha: AlphaCurrency,
+        pending_alpha: AlphaBalance,
+        pending_root_alpha: AlphaBalance,
         tao_weight: U96F32,
-        stake_map: BTreeMap<T::AccountId, (AlphaCurrency, AlphaCurrency)>,
+        stake_map: BTreeMap<T::AccountId, (AlphaBalance, AlphaBalance)>,
         dividends: BTreeMap<T::AccountId, U96F32>,
     ) -> (
         BTreeMap<T::AccountId, U96F32>,
@@ -503,8 +502,8 @@ impl<T: Config> Pallet<T> {
 
     pub fn distribute_dividends_and_incentives(
         netuid: NetUid,
-        owner_cut: AlphaCurrency,
-        incentives: BTreeMap<T::AccountId, AlphaCurrency>,
+        owner_cut: AlphaBalance,
+        incentives: BTreeMap<T::AccountId, AlphaBalance>,
         alpha_dividends: BTreeMap<T::AccountId, U96F32>,
         root_alpha_dividends: BTreeMap<T::AccountId, U96F32>,
     ) {
@@ -641,8 +640,8 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_map(
         netuid: NetUid,
         hotkeys: Vec<&T::AccountId>,
-    ) -> BTreeMap<T::AccountId, (AlphaCurrency, AlphaCurrency)> {
-        let mut stake_map: BTreeMap<T::AccountId, (AlphaCurrency, AlphaCurrency)> = BTreeMap::new();
+    ) -> BTreeMap<T::AccountId, (AlphaBalance, AlphaBalance)> {
+        let mut stake_map: BTreeMap<T::AccountId, (AlphaBalance, AlphaBalance)> = BTreeMap::new();
         for hotkey in hotkeys {
             // Get hotkey ALPHA on subnet.
             let alpha_stake = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
@@ -655,12 +654,12 @@ impl<T: Config> Pallet<T> {
 
     pub fn calculate_dividend_and_incentive_distribution(
         netuid: NetUid,
-        pending_root_alpha: AlphaCurrency,
-        pending_validator_alpha: AlphaCurrency,
-        hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)>,
+        pending_root_alpha: AlphaBalance,
+        pending_validator_alpha: AlphaBalance,
+        hotkey_emission: Vec<(T::AccountId, AlphaBalance, AlphaBalance)>,
         tao_weight: U96F32,
     ) -> (
-        BTreeMap<T::AccountId, AlphaCurrency>,
+        BTreeMap<T::AccountId, AlphaBalance>,
         (
             BTreeMap<T::AccountId, U96F32>,
             BTreeMap<T::AccountId, U96F32>,
@@ -684,10 +683,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn distribute_emission(
         netuid: NetUid,
-        pending_server_alpha: AlphaCurrency,
-        pending_validator_alpha: AlphaCurrency,
-        pending_root_alpha: AlphaCurrency,
-        pending_owner_cut: AlphaCurrency,
+        pending_server_alpha: AlphaBalance,
+        pending_validator_alpha: AlphaBalance,
+        pending_root_alpha: AlphaBalance,
+        pending_owner_cut: AlphaBalance,
     ) {
         log::debug!(
             "Draining pending alpha emission for netuid {netuid:?}, pending_server_alpha: {pending_server_alpha:?}, pending_validator_alpha: {pending_validator_alpha:?}, pending_root_alpha: {pending_root_alpha:?}, pending_owner_cut: {pending_owner_cut:?}"
@@ -699,7 +698,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(pending_root_alpha);
 
         // Run the epoch, using the alpha going to both the servers and the validators.
-        let hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> =
+        let hotkey_emission: Vec<(T::AccountId, AlphaBalance, AlphaBalance)> =
             Self::epoch_with_mechanisms(netuid, total_alpha_minus_owner_cut);
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
@@ -710,7 +709,7 @@ impl<T: Config> Pallet<T> {
         // Important! If the incentives are 0, then Validators get 100% of the alpha.
         let incentive_sum = hotkey_emission
             .iter()
-            .fold(AlphaCurrency::default(), |acc, (_, incentive, _)| {
+            .fold(AlphaBalance::default(), |acc, (_, incentive, _)| {
                 acc.saturating_add(*incentive)
             });
         log::debug!("incentive_sum: {incentive_sum:?}");
@@ -791,10 +790,10 @@ impl<T: Config> Pallet<T> {
     pub fn get_parent_child_dividends_distribution(
         hotkey: &T::AccountId,
         netuid: NetUid,
-        dividends: AlphaCurrency,
-    ) -> Vec<(T::AccountId, AlphaCurrency)> {
+        dividends: AlphaBalance,
+    ) -> Vec<(T::AccountId, AlphaBalance)> {
         // hotkey dividends.
-        let mut dividend_tuples: Vec<(T::AccountId, AlphaCurrency)> = vec![];
+        let mut dividend_tuples: Vec<(T::AccountId, AlphaBalance)> = vec![];
 
         // Calculate the hotkey's share of the validator emission based on its childkey take
         let validating_emission: U96F32 = U96F32::saturating_from_num(dividends);
@@ -887,7 +886,7 @@ impl<T: Config> Pallet<T> {
 
                 Self::recycle_subnet_alpha(
                     netuid,
-                    AlphaCurrency::from(burn_take.saturating_to_num::<u64>()),
+                    AlphaBalance::from(burn_take.saturating_to_num::<u64>()),
                 );
             };
             log::debug!("burn_takee: {burn_take:?} for hotkey {hotkey:?}");

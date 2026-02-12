@@ -29,17 +29,17 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | Function ID | Name | Description | Parameters | Returns |
 |------------|------|-------------|------------|---------|
 | 0 | `get_stake_info_for_hotkey_coldkey_netuid` | Query stake information | `(AccountId, AccountId, NetUid)` | `Option<StakeInfo>` |
-| 1 | `add_stake` | Delegate stake from coldkey to hotkey | `(AccountId, NetUid, TaoCurrency)` | Error code |
-| 2 | `remove_stake` | Withdraw stake from hotkey back to coldkey | `(AccountId, NetUid, AlphaCurrency)` | Error code |
+| 1 | `add_stake` | Delegate stake from coldkey to hotkey | `(AccountId, NetUid, TaoBalance)` | Error code |
+| 2 | `remove_stake` | Withdraw stake from hotkey back to coldkey | `(AccountId, NetUid, AlphaBalance)` | Error code |
 | 3 | `unstake_all` | Unstake all TAO from a hotkey | `(AccountId)` | Error code |
 | 4 | `unstake_all_alpha` | Unstake all Alpha from a hotkey | `(AccountId)` | Error code |
-| 5 | `move_stake` | Move stake between hotkeys | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
-| 6 | `transfer_stake` | Transfer stake between coldkeys | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
-| 7 | `swap_stake` | Swap stake allocations between subnets | `(AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
-| 8 | `add_stake_limit` | Delegate stake with a price limit | `(AccountId, NetUid, TaoCurrency, TaoCurrency, bool)` | Error code |
-| 9 | `remove_stake_limit` | Withdraw stake with a price limit | `(AccountId, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
-| 10 | `swap_stake_limit` | Swap stake between subnets with price limit | `(AccountId, NetUid, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
-| 11 | `remove_stake_full_limit` | Fully withdraw stake with optional price limit | `(AccountId, NetUid, Option<TaoCurrency>)` | Error code |
+| 5 | `move_stake` | Move stake between hotkeys | `(AccountId, AccountId, NetUid, NetUid, AlphaBalance)` | Error code |
+| 6 | `transfer_stake` | Transfer stake between coldkeys | `(AccountId, AccountId, NetUid, NetUid, AlphaBalance)` | Error code |
+| 7 | `swap_stake` | Swap stake allocations between subnets | `(AccountId, NetUid, NetUid, AlphaBalance)` | Error code |
+| 8 | `add_stake_limit` | Delegate stake with a price limit | `(AccountId, NetUid, TaoBalance, TaoBalance, bool)` | Error code |
+| 9 | `remove_stake_limit` | Withdraw stake with a price limit | `(AccountId, NetUid, AlphaBalance, TaoBalance, bool)` | Error code |
+| 10 | `swap_stake_limit` | Swap stake between subnets with price limit | `(AccountId, NetUid, NetUid, AlphaBalance, TaoBalance, bool)` | Error code |
+| 11 | `remove_stake_full_limit` | Fully withdraw stake with optional price limit | `(AccountId, NetUid, Option<TaoBalance>)` | Error code |
 | 12 | `set_coldkey_auto_stake_hotkey` | Configure automatic stake destination | `(NetUid, AccountId)` | Error code |
 | 13 | `add_proxy` | Add a staking proxy for the caller | `(AccountId)` | Error code |
 | 14 | `remove_proxy` | Remove a staking proxy for the caller | `(AccountId)` | Error code |

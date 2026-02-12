@@ -6,7 +6,7 @@ use node_subtensor_runtime::{
     RuntimeOrigin, SubtensorModule, System, SystemCall,
 };
 use pallet_subtensor_proxy as pallet_proxy;
-use subtensor_runtime_common::{AccountId, NetUid, ProxyType, TaoCurrency};
+use subtensor_runtime_common::{AccountId, NetUid, ProxyType, TaoBalance};
 
 const ACCOUNT: [u8; 32] = [1_u8; 32];
 const DELEGATE: [u8; 32] = [2_u8; 32];
@@ -16,7 +16,7 @@ type SystemError = frame_system::Error<Runtime>;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
-    let amount = TaoCurrency::from(1_000_000_000_000_u64);
+    let amount = TaoBalance::from(1_000_000_000_000_u64);
     let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
         balances: pallet_balances::GenesisConfig {
             balances: vec![
@@ -37,7 +37,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 // transfer call
 fn call_transfer() -> RuntimeCall {
-    let value = TaoCurrency::from(100);
+    let value = TaoBalance::from(100);
     RuntimeCall::Balances(BalancesCall::transfer_allow_death {
         dest: AccountId::from(OTHER_ACCOUNT).into(),
         value,

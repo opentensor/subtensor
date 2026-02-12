@@ -19,7 +19,7 @@ use sp_runtime::{
     Perbill, Saturating,
     traits::{DispatchInfoOf, PostDispatchInfoOf},
 };
-use subtensor_runtime_common::{Currency, TaoCurrency};
+use subtensor_runtime_common::{TaoBalance, Token};
 
 // Pallets
 use pallet_subtensor::Call as SubtensorCall;
@@ -43,11 +43,11 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 pub struct LinearWeightToFee;
 impl WeightToFeePolynomial for LinearWeightToFee {
-    type Balance = TaoCurrency;
+    type Balance = TaoBalance;
 
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient: WeightToFeeCoefficient<Self::Balance> = WeightToFeeCoefficient {
-            coeff_integer: TaoCurrency::new(0),
+            coeff_integer: TaoBalance::new(0),
             coeff_frac: Perbill::from_parts(50_000),
             negative: false,
             degree: 1,
@@ -62,12 +62,12 @@ pub trait AlphaFeeHandler<T: frame_system::Config> {
     fn can_withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
-        tao_amount: TaoCurrency,
+        tao_amount: TaoBalance,
     ) -> bool;
     fn withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
-        tao_amount: TaoCurrency,
+        tao_amount: TaoBalance,
     );
     fn get_all_netuids_for_coldkey_and_hotkey(
         coldkey: &AccountIdOf<T>,
@@ -93,13 +93,13 @@ type BalancesImbalanceOf<T> = FungibleImbalance<
 impl<T> OnUnbalanced<BalancesImbalanceOf<T>> for TransactionFeeHandler<T>
 where
     T: frame_system::Config + pallet_balances::Config + pallet_subtensor::Config,
-    // You must be able to convert the fee amount into TaoCurrency because TotalIssuance is TaoCurrency.
-    <T as pallet_balances::Config>::Balance: Into<TaoCurrency> + Copy,
+    // You must be able to convert the fee amount into TaoBalance because TotalIssuance is TaoBalance.
+    <T as pallet_balances::Config>::Balance: Into<TaoBalance> + Copy,
 {
     fn on_nonzero_unbalanced(imbalance: BalancesImbalanceOf<T>) {
-        let ti_before: TaoCurrency = pallet_subtensor::TotalIssuance::<T>::get();
+        let ti_before: TaoBalance = pallet_subtensor::TotalIssuance::<T>::get();
 
-        let fee: TaoCurrency = imbalance.peek().into();
+        let fee: TaoBalance = imbalance.peek().into();
 
         pallet_subtensor::TotalIssuance::<T>::put(ti_before.saturating_sub(fee));
 
@@ -127,7 +127,7 @@ where
     fn can_withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
-        tao_amount: TaoCurrency,
+        tao_amount: TaoBalance,
     ) -> bool {
         if alpha_vec.is_empty() {
             // Alpha vector is empty, nothing to withdraw
@@ -136,8 +136,8 @@ where
 
         // Divide tao_amount among all alpha entries
         let tao_per_entry = tao_amount
-            .checked_div(&TaoCurrency::from(alpha_vec.len()))
-            .unwrap_or(TaoCurrency::ZERO);
+            .checked_div(&TaoBalance::from(alpha_vec.len()))
+            .unwrap_or(TaoBalance::ZERO);
 
         // The rule here is that we should be able to withdraw at least from one entry.
         // This is not ideal because it may not pay all fees, but UX is the priority
@@ -156,15 +156,15 @@ where
     fn withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
-        tao_amount: TaoCurrency,
+        tao_amount: TaoBalance,
     ) {
         if alpha_vec.is_empty() {
             return;
         }
 
         let tao_per_entry = tao_amount
-            .checked_div(&TaoCurrency::from(alpha_vec.len()))
-            .unwrap_or(TaoCurrency::ZERO);
+            .checked_div(&TaoBalance::from(alpha_vec.len()))
+            .unwrap_or(TaoBalance::ZERO);
 
         alpha_vec.iter().for_each(|(hotkey, netuid)| {
             // Divide tao_amount evenly among all alpha entries
@@ -301,7 +301,7 @@ where
     CallOf<T>: IsSubType<pallet_subtensor::Call<T>>,
     F: Balanced<T::AccountId>,
     OU: OnUnbalanced<Credit<T::AccountId, F>> + AlphaFeeHandler<T>,
-    <F as Inspect<AccountIdOf<T>>>::Balance: Into<TaoCurrency>,
+    <F as Inspect<AccountIdOf<T>>>::Balance: Into<TaoBalance>,
 {
     type LiquidityInfo = Option<WithdrawnFee<T, F>>;
     type Balance = <F as Inspect<<T as frame_system::Config>::AccountId>>::Balance;

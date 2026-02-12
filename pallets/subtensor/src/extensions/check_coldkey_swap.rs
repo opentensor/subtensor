@@ -120,7 +120,7 @@ mod tests {
         BoundedVec,
         traits::{AsTransactionAuthorizedOrigin, Hash, TxBaseImplication},
     };
-    use subtensor_runtime_common::{Currency, NetUid};
+    use subtensor_runtime_common::{NetUid, Token};
 
     type HashingOf<T> = <T as frame_system::Config>::Hashing;
 

@@ -28,7 +28,7 @@ use sp_arithmetic::traits::{
 #[cfg(feature = "std")]
 use sp_rpc::number::NumberOrHex;
 
-#[freeze_struct("40205476b6d995b2")]
+#[freeze_struct("3ad2c79c0e81406d")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -47,9 +47,9 @@ use sp_rpc::number::NumberOrHex;
     PartialOrd,
     RuntimeDebug,
 )]
-pub struct AlphaCurrency(u64);
+pub struct AlphaBalance(u64);
 
-#[freeze_struct("4d1bcb31c40c2594")]
+#[freeze_struct("5f0d6c02f3ac2c1")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -68,7 +68,7 @@ pub struct AlphaCurrency(u64);
     PartialOrd,
     RuntimeDebug,
 )]
-pub struct TaoCurrency(u64);
+pub struct TaoBalance(u64);
 
 // implements traits required by the Currency trait (ToFixed + Into<u64> + From<u64>) and CompactAs,
 // TypeInfo and Display. It expects a wrapper structure for u64 (CurrencyT(u64)).
@@ -295,7 +295,7 @@ macro_rules! impl_approx {
     };
 }
 
-pub trait Currency:
+pub trait Token:
     ToFixed
     + Into<u64>
     + From<u64>
@@ -335,30 +335,30 @@ pub trait Currency:
     }
 }
 
-impl_arithmetic_operators!(AlphaCurrency);
-impl_approx!(AlphaCurrency);
-impl_currency_reqs!(AlphaCurrency);
+impl_arithmetic_operators!(AlphaBalance);
+impl_approx!(AlphaBalance);
+impl_currency_reqs!(AlphaBalance);
 
-impl_arithmetic_operators!(TaoCurrency);
-impl_approx!(TaoCurrency);
-impl_currency_reqs!(TaoCurrency);
+impl_arithmetic_operators!(TaoBalance);
+impl_approx!(TaoBalance);
+impl_currency_reqs!(TaoBalance);
 
-impl Currency for AlphaCurrency {
+impl Token for AlphaBalance {
     const MAX: Self = Self(u64::MAX);
     const ZERO: Self = Self(0);
 }
 
-impl Currency for TaoCurrency {
+impl Token for TaoBalance {
     const MAX: Self = Self(u64::MAX);
     const ZERO: Self = Self(0);
 }
 
 // // Required explicitly by the bound
-// impl From<u32> for TaoCurrency {
+// impl From<u32> for TaoBalance {
 //     fn from(x: u32) -> Self { Self(x as u64) }
 // }
 
-impl Bounded for TaoCurrency {
+impl Bounded for TaoBalance {
     fn min_value() -> Self {
         Self(u64::MIN)
     }
@@ -367,7 +367,7 @@ impl Bounded for TaoCurrency {
     }
 }
 
-impl Saturating for TaoCurrency {
+impl Saturating for TaoBalance {
     fn saturating_add(self, rhs: Self) -> Self {
         Self(self.0.saturating_add(rhs.0))
     }
@@ -378,13 +378,13 @@ impl Saturating for TaoCurrency {
 
 //////////////////
 
-impl CheckedNeg for TaoCurrency {
-    fn checked_neg(&self) -> Option<TaoCurrency> {
+impl CheckedNeg for TaoBalance {
+    fn checked_neg(&self) -> Option<TaoBalance> {
         Some(*self)
     }
 }
 
-impl CheckedRem for TaoCurrency {
+impl CheckedRem for TaoBalance {
     fn checked_rem(&self, rhs: &Self) -> Option<Self> {
         let lhs_u64: u64 = (*self).into();
         let rhs_u64: u64 = (*rhs).into();
@@ -392,7 +392,7 @@ impl CheckedRem for TaoCurrency {
     }
 }
 
-impl Shl<u32> for TaoCurrency {
+impl Shl<u32> for TaoBalance {
     type Output = Self;
 
     #[allow(clippy::arithmetic_side_effects)]
@@ -405,7 +405,7 @@ impl Shl<u32> for TaoCurrency {
     }
 }
 
-impl Shr<u32> for TaoCurrency {
+impl Shr<u32> for TaoBalance {
     type Output = Self;
 
     #[allow(clippy::arithmetic_side_effects)]
@@ -416,7 +416,7 @@ impl Shr<u32> for TaoCurrency {
     }
 }
 
-impl Shl<usize> for TaoCurrency {
+impl Shl<usize> for TaoBalance {
     type Output = Self;
 
     #[allow(clippy::arithmetic_side_effects)]
@@ -429,7 +429,7 @@ impl Shl<usize> for TaoCurrency {
     }
 }
 
-impl Shr<usize> for TaoCurrency {
+impl Shr<usize> for TaoBalance {
     type Output = Self;
 
     #[allow(clippy::arithmetic_side_effects)]
@@ -440,57 +440,57 @@ impl Shr<usize> for TaoCurrency {
     }
 }
 
-impl Not for TaoCurrency {
+impl Not for TaoBalance {
     type Output = Self;
     fn not(self) -> Self {
         Self(!self.0)
     }
 }
-impl BitAnd for TaoCurrency {
+impl BitAnd for TaoBalance {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self {
         Self(self.0 & rhs.0)
     }
 }
-impl BitOr for TaoCurrency {
+impl BitOr for TaoBalance {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self {
         Self(self.0 | rhs.0)
     }
 }
 
-impl BitXor for TaoCurrency {
+impl BitXor for TaoBalance {
     type Output = Self;
     fn bitxor(self, rhs: Self) -> Self {
         Self(self.0 ^ rhs.0)
     }
 }
 
-impl CheckedAdd for TaoCurrency {
+impl CheckedAdd for TaoBalance {
     fn checked_add(&self, rhs: &Self) -> Option<Self> {
         self.0.checked_add(rhs.0).map(Self)
     }
 }
-impl CheckedSub for TaoCurrency {
+impl CheckedSub for TaoBalance {
     fn checked_sub(&self, rhs: &Self) -> Option<Self> {
         self.0.checked_sub(rhs.0).map(Self)
     }
 }
 
-impl CheckedMul for TaoCurrency {
+impl CheckedMul for TaoBalance {
     fn checked_mul(&self, rhs: &Self) -> Option<Self> {
         self.0.checked_mul(rhs.0).map(Self)
     }
 }
 
-impl CheckedDiv for TaoCurrency {
+impl CheckedDiv for TaoBalance {
     fn checked_div(&self, rhs: &Self) -> Option<Self> {
         self.0.checked_div(rhs.0).map(Self)
     }
 }
 
 #[allow(clippy::arithmetic_side_effects)]
-impl CheckedShl for TaoCurrency {
+impl CheckedShl for TaoBalance {
     fn checked_shl(&self, rhs: u32) -> Option<Self> {
         // Validate first (so we can return None), then use the operator as requested.
         let lhs: u64 = (*self).into();
@@ -500,7 +500,7 @@ impl CheckedShl for TaoCurrency {
 }
 
 #[allow(clippy::arithmetic_side_effects)]
-impl CheckedShr for TaoCurrency {
+impl CheckedShr for TaoBalance {
     fn checked_shr(&self, rhs: u32) -> Option<Self> {
         let lhs: u64 = (*self).into();
         lhs.checked_shr(rhs)?;
@@ -508,14 +508,14 @@ impl CheckedShr for TaoCurrency {
     }
 }
 
-impl RemAssign for TaoCurrency {
+impl RemAssign for TaoBalance {
     #[allow(clippy::arithmetic_side_effects)]
     fn rem_assign(&mut self, rhs: Self) {
         *self = *self % rhs;
     }
 }
 
-impl PrimInt for TaoCurrency {
+impl PrimInt for TaoBalance {
     fn count_ones(self) -> u32 {
         self.0.count_ones()
     }
@@ -567,9 +567,9 @@ impl PrimInt for TaoCurrency {
     }
 }
 
-impl Unsigned for TaoCurrency {}
+impl Unsigned for TaoBalance {}
 
-impl Num for TaoCurrency {
+impl Num for TaoBalance {
     type FromStrRadixErr = <u64 as Num>::FromStrRadixErr;
 
     fn from_str_radix(s: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
@@ -577,13 +577,13 @@ impl Num for TaoCurrency {
     }
 }
 
-impl NumCast for TaoCurrency {
+impl NumCast for TaoBalance {
     fn from<T: ToPrimitive>(n: T) -> Option<Self> {
         n.to_u64().map(Self)
     }
 }
 
-impl ToPrimitive for TaoCurrency {
+impl ToPrimitive for TaoBalance {
     fn to_i64(&self) -> Option<i64> {
         self.0.to_i64()
     }
@@ -598,7 +598,7 @@ impl ToPrimitive for TaoCurrency {
     }
 }
 
-impl FromPrimitive for TaoCurrency {
+impl FromPrimitive for TaoBalance {
     fn from_u64(n: u64) -> Option<Self> {
         Some(Self(n))
     }
@@ -617,7 +617,7 @@ impl FromPrimitive for TaoCurrency {
     }
 }
 
-impl MultiplyRational for TaoCurrency {
+impl MultiplyRational for TaoBalance {
     fn multiply_rational(self, n: Self, d: Self, r: Rounding) -> Option<Self> {
         let a: u64 = self.into();
         let n: u64 = n.into();
@@ -626,12 +626,12 @@ impl MultiplyRational for TaoCurrency {
     }
 }
 
-impl From<u16> for TaoCurrency {
+impl From<u16> for TaoBalance {
     fn from(x: u16) -> Self {
-        TaoCurrency(x as u64)
+        TaoBalance(x as u64)
     }
 }
-impl From<u128> for TaoCurrency {
+impl From<u128> for TaoBalance {
     fn from(n: u128) -> Self {
         if n <= u64::MAX as u128 {
             Self(n as u64)
@@ -640,12 +640,12 @@ impl From<u128> for TaoCurrency {
         }
     }
 }
-impl From<usize> for TaoCurrency {
+impl From<usize> for TaoBalance {
     fn from(n: usize) -> Self {
         Self(n as u64)
     }
 }
-impl From<sp_core::U256> for TaoCurrency {
+impl From<sp_core::U256> for TaoBalance {
     fn from(n: sp_core::U256) -> Self {
         if let Ok(n_u64) = n.try_into() {
             Self(n_u64)
@@ -656,42 +656,42 @@ impl From<sp_core::U256> for TaoCurrency {
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<usize> for TaoCurrency {
+impl Into<usize> for TaoBalance {
     fn into(self) -> usize {
         self.0 as usize
     }
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<u128> for TaoCurrency {
+impl Into<u128> for TaoBalance {
     fn into(self) -> u128 {
         self.0 as u128
     }
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<u32> for TaoCurrency {
+impl Into<u32> for TaoBalance {
     fn into(self) -> u32 {
         self.0 as u32
     }
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<u16> for TaoCurrency {
+impl Into<u16> for TaoBalance {
     fn into(self) -> u16 {
         self.0 as u16
     }
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<u8> for TaoCurrency {
+impl Into<u8> for TaoBalance {
     fn into(self) -> u8 {
         self.0 as u8
     }
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<sp_core::U256> for TaoCurrency {
+impl Into<sp_core::U256> for TaoBalance {
     fn into(self) -> sp_core::U256 {
         sp_core::U256::from(self.0)
     }
@@ -699,7 +699,7 @@ impl Into<sp_core::U256> for TaoCurrency {
 
 #[allow(clippy::from_over_into)]
 #[cfg(feature = "std")]
-impl Into<NumberOrHex> for TaoCurrency {
+impl Into<NumberOrHex> for TaoBalance {
     fn into(self) -> NumberOrHex {
         NumberOrHex::Number(self.0)
     }
@@ -707,8 +707,8 @@ impl Into<NumberOrHex> for TaoCurrency {
 
 pub struct ConstTao<const N: u64>;
 
-impl<const N: u64> Get<TaoCurrency> for ConstTao<N> {
-    fn get() -> TaoCurrency {
-        TaoCurrency::new(N)
+impl<const N: u64> Get<TaoBalance> for ConstTao<N> {
+    fn get() -> TaoBalance {
+        TaoBalance::new(N)
     }
 }

@@ -5,7 +5,7 @@ use frame_support::{StorageDoubleMap, assert_err, assert_ok, traits::StorePreima
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::U256;
 use sp_runtime::DispatchError;
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::TaoBalance;
 
 use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, mock::*, pallet as pallet_crowdloan};
 
@@ -55,7 +55,7 @@ fn test_create_succeeds() {
             // ensure the creator has been deducted the deposit
             assert_eq!(
                 Balances::free_balance(creator),
-                TaoCurrency::from(100) - deposit
+                TaoBalance::from(100) - deposit
             );
             // ensure the contributions have been updated
             assert_eq!(
@@ -369,7 +369,7 @@ fn test_contribute_succeeds() {
             );
             assert_eq!(
                 Balances::free_balance(creator),
-                TaoCurrency::from(200) - amount - initial_deposit
+                TaoBalance::from(200) - amount - initial_deposit
             );
 
             // second contribution to the crowdloan
@@ -399,7 +399,7 @@ fn test_contribute_succeeds() {
             );
             assert_eq!(
                 Balances::free_balance(contributor1),
-                TaoCurrency::from(500) - amount
+                TaoBalance::from(500) - amount
             );
 
             // third contribution to the crowdloan
@@ -429,7 +429,7 @@ fn test_contribute_succeeds() {
             );
             assert_eq!(
                 Balances::free_balance(contributor2),
-                TaoCurrency::from(200) - amount
+                TaoBalance::from(200) - amount
             );
 
             // ensure the contributions are present in the funds account
@@ -493,7 +493,7 @@ fn test_contribute_succeeds_if_contribution_will_make_the_raised_amount_exceed_t
             );
             assert_eq!(
                 Balances::free_balance(creator),
-                TaoCurrency::from(200) - amount - initial_deposit
+                TaoBalance::from(200) - amount - initial_deposit
             );
 
             // second contribution to the crowdloan above the cap
@@ -934,7 +934,7 @@ fn test_withdraw_from_creator_with_contribution_over_deposit_succeeds() {
             // ensure the creator has the correct amount
             assert_eq!(
                 pallet_balances::Pallet::<Test>::free_balance(creator),
-                TaoCurrency::from(200) - initial_deposit
+                TaoBalance::from(200) - initial_deposit
             );
             // ensure the creator contribution has been removed
             assert_eq!(
@@ -1563,12 +1563,12 @@ fn test_refund_succeeds() {
             let funds_account = pallet_crowdloan::Pallet::<Test>::funds_account(crowdloan_id);
             assert_eq!(
                 Balances::free_balance(funds_account),
-                TaoCurrency::from(350) - TaoCurrency::from(5) * amount
+                TaoBalance::from(350) - TaoBalance::from(5) * amount
             );
             // ensure raised amount is updated correctly
             assert!(
                 pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id).is_some_and(
-                    |c| c.raised == TaoCurrency::from(350) - TaoCurrency::from(5) * amount
+                    |c| c.raised == TaoBalance::from(350) - TaoBalance::from(5) * amount
                 )
             );
             // ensure the event is emitted

@@ -19,7 +19,7 @@ pub use currency::*;
 mod currency;
 
 /// Balance of an account.
-pub type Balance = TaoCurrency;
+pub type Balance = TaoBalance;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -40,8 +40,8 @@ pub type Hash = sp_core::H256;
 pub type Nonce = u32;
 
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
-pub const SMALL_TRANSFER_LIMIT: Balance = TaoCurrency::new(500_000_000); // 0.5 TAO
-pub const SMALL_ALPHA_TRANSFER_LIMIT: AlphaCurrency = AlphaCurrency::new(500_000_000); // 0.5 Alpha
+pub const SMALL_TRANSFER_LIMIT: Balance = TaoBalance::new(500_000_000); // 0.5 TAO
+pub const SMALL_ALPHA_TRANSFER_LIMIT: AlphaBalance = AlphaBalance::new(500_000_000); // 0.5 Alpha
 
 #[freeze_struct("c972489bff40ae48")]
 #[repr(transparent)]
@@ -233,32 +233,29 @@ pub trait SubnetInfo<AccountId> {
     fn hotkey_of_uid(netuid: NetUid, uid: u16) -> Option<AccountId>;
 }
 
-pub trait CurrencyReserve<C: Currency> {
+pub trait TokenReserve<C: Token> {
     fn reserve(netuid: NetUid) -> C;
     fn increase_provided(netuid: NetUid, amount: C);
     fn decrease_provided(netuid: NetUid, amount: C);
 }
 
 pub trait BalanceOps<AccountId> {
-    fn tao_balance(account_id: &AccountId) -> TaoCurrency;
-    fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> AlphaCurrency;
-    fn increase_balance(coldkey: &AccountId, tao: TaoCurrency);
-    fn decrease_balance(
-        coldkey: &AccountId,
-        tao: TaoCurrency,
-    ) -> Result<TaoCurrency, DispatchError>;
+    fn tao_balance(account_id: &AccountId) -> TaoBalance;
+    fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> AlphaBalance;
+    fn increase_balance(coldkey: &AccountId, tao: TaoBalance);
+    fn decrease_balance(coldkey: &AccountId, tao: TaoBalance) -> Result<TaoBalance, DispatchError>;
     fn increase_stake(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: NetUid,
-        alpha: AlphaCurrency,
+        alpha: AlphaBalance,
     ) -> Result<(), DispatchError>;
     fn decrease_stake(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: NetUid,
-        alpha: AlphaCurrency,
-    ) -> Result<AlphaCurrency, DispatchError>;
+        alpha: AlphaBalance,
+    ) -> Result<AlphaBalance, DispatchError>;
 }
 
 pub mod time {

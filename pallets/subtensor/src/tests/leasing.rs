@@ -9,7 +9,7 @@ use frame_support::{StorageDoubleMap, assert_err, assert_ok};
 use sp_core::U256;
 use sp_runtime::Percent;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::AlphaCurrency;
+use subtensor_runtime_common::AlphaBalance;
 
 #[test]
 fn test_register_leased_network_works() {
@@ -511,32 +511,32 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
             &contributions[0].0,
             lease.netuid,
         );
-        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor1_alpha_before, AlphaBalance::ZERO);
         let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &contributions[1].0,
             lease.netuid,
         );
-        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor2_alpha_before, AlphaBalance::ZERO);
         let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &beneficiary,
             lease.netuid,
         );
-        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(beneficiary_alpha_before, AlphaBalance::ZERO);
 
         // Setup some previously accumulated dividends
-        let accumulated_dividends = AlphaCurrency::from(10_000_000_000_u64);
+        let accumulated_dividends = AlphaBalance::from(10_000_000_000_u64);
         AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
 
         // Distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000_000_u64);
+        let owner_cut_alpha = AlphaBalance::from(5_000_000_000_u64);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were distributed correctly relative to their shares
         let distributed_alpha =
             accumulated_dividends + emissions_share.mul_ceil(owner_cut_alpha.to_u64()).into();
-        assert_ne!(distributed_alpha, AlphaCurrency::ZERO);
+        assert_ne!(distributed_alpha, AlphaBalance::ZERO);
 
         let contributor1_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
@@ -544,7 +544,7 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
             lease.netuid,
         )
         .saturating_sub(contributor1_alpha_before);
-        assert_ne!(contributor1_alpha_delta, AlphaCurrency::ZERO);
+        assert_ne!(contributor1_alpha_delta, AlphaBalance::ZERO);
 
         let contributor2_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
@@ -552,7 +552,7 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
             lease.netuid,
         )
         .saturating_sub(contributor2_alpha_before);
-        assert_ne!(contributor2_alpha_delta, AlphaCurrency::ZERO);
+        assert_ne!(contributor2_alpha_delta, AlphaBalance::ZERO);
 
         let beneficiary_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
@@ -560,7 +560,7 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
             lease.netuid,
         )
         .saturating_sub(beneficiary_alpha_before);
-        assert_ne!(beneficiary_alpha_delta, AlphaCurrency::ZERO);
+        assert_ne!(beneficiary_alpha_delta, AlphaBalance::ZERO);
 
         // What has been distributed should be equal to the sum of all contributors received alpha
         assert_eq!(
@@ -614,7 +614,7 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         // Ensure nothing was accumulated for later distribution
         assert_eq!(
             AccumulatedLeaseDividends::<Test>::get(lease_id),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
     });
 }
@@ -650,20 +650,20 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
             &beneficiary,
             lease.netuid,
         );
-        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(beneficiary_alpha_before, AlphaBalance::ZERO);
 
         // Setup some previously accumulated dividends
-        let accumulated_dividends = AlphaCurrency::from(10_000_000_000_u64);
+        let accumulated_dividends = AlphaBalance::from(10_000_000_000_u64);
         AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
 
         // Distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000_000_u64);
+        let owner_cut_alpha = AlphaBalance::from(5_000_000_000_u64);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were distributed correctly relative to their shares
         let distributed_alpha =
             accumulated_dividends + emissions_share.mul_ceil(owner_cut_alpha.to_u64()).into();
-        assert_ne!(distributed_alpha, AlphaCurrency::ZERO);
+        assert_ne!(distributed_alpha, AlphaBalance::ZERO);
         let beneficiary_alpha_delta = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &beneficiary,
@@ -682,7 +682,7 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
         // Ensure nothing was accumulated for later distribution
         assert_eq!(
             AccumulatedLeaseDividends::<Test>::get(lease_id),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
     });
 }
@@ -721,26 +721,26 @@ fn test_distribute_lease_network_dividends_accumulates_if_not_the_correct_block(
             &contributions[0].0,
             lease.netuid,
         );
-        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor1_alpha_before, AlphaBalance::ZERO);
         let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &contributions[1].0,
             lease.netuid,
         );
-        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor2_alpha_before, AlphaBalance::ZERO);
         let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &beneficiary,
             lease.netuid,
         );
-        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(beneficiary_alpha_before, AlphaBalance::ZERO);
 
         // Setup some previously accumulated dividends
-        let accumulated_dividends = AlphaCurrency::from(10_000_000_000_u64);
+        let accumulated_dividends = AlphaBalance::from(10_000_000_000_u64);
         AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
 
         // Distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000_000_u64);
+        let owner_cut_alpha = AlphaBalance::from(5_000_000_000_u64);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
@@ -782,7 +782,7 @@ fn test_distribute_lease_network_dividends_accumulates_if_not_the_correct_block(
 fn test_distribute_lease_network_dividends_does_nothing_if_lease_does_not_exist() {
     new_test_ext(1).execute_with(|| {
         let lease_id = 0;
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
+        let owner_cut_alpha = AlphaBalance::from(5_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
     });
 }
@@ -821,26 +821,26 @@ fn test_distribute_lease_network_dividends_does_nothing_if_lease_has_ended() {
             &contributions[0].0,
             lease.netuid,
         );
-        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor1_alpha_before, AlphaBalance::ZERO);
         let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &contributions[1].0,
             lease.netuid,
         );
-        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor2_alpha_before, AlphaBalance::ZERO);
         let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &beneficiary,
             lease.netuid,
         );
-        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(beneficiary_alpha_before, AlphaBalance::ZERO);
 
         // No dividends are present, lease is new
         let accumulated_dividends_before = AccumulatedLeaseDividends::<Test>::get(lease_id);
-        assert_eq!(accumulated_dividends_before, AlphaCurrency::ZERO);
+        assert_eq!(accumulated_dividends_before, AlphaBalance::ZERO);
 
         // Try to distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000_000_u64);
+        let owner_cut_alpha = AlphaBalance::from(5_000_000_000_u64);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
@@ -907,22 +907,22 @@ fn test_distribute_lease_network_dividends_accumulates_if_amount_is_too_low() {
             &contributions[0].0,
             lease.netuid,
         );
-        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor1_alpha_before, AlphaBalance::ZERO);
         let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &contributions[1].0,
             lease.netuid,
         );
-        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor2_alpha_before, AlphaBalance::ZERO);
         let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &beneficiary,
             lease.netuid,
         );
-        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(beneficiary_alpha_before, AlphaBalance::ZERO);
 
         // Try to distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000);
+        let owner_cut_alpha = AlphaBalance::from(5_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
@@ -988,22 +988,22 @@ fn test_distribute_lease_network_dividends_accumulates_if_insufficient_liquidity
             &contributions[0].0,
             lease.netuid,
         );
-        assert_eq!(contributor1_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor1_alpha_before, AlphaBalance::ZERO);
         let contributor2_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &contributions[1].0,
             lease.netuid,
         );
-        assert_eq!(contributor2_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(contributor2_alpha_before, AlphaBalance::ZERO);
         let beneficiary_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &lease.hotkey,
             &beneficiary,
             lease.netuid,
         );
-        assert_eq!(beneficiary_alpha_before, AlphaCurrency::ZERO);
+        assert_eq!(beneficiary_alpha_before, AlphaBalance::ZERO);
 
         // Try to distribute the dividends
-        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
+        let owner_cut_alpha = AlphaBalance::from(5_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
@@ -1047,15 +1047,15 @@ fn setup_crowdloan(
     contributions: &[(U256, u64)],
 ) {
     let funds_account = U256::from(42424242 + id);
-    let deposit = TaoCurrency::from(deposit);
-    let cap = TaoCurrency::from(cap);
+    let deposit = TaoBalance::from(deposit);
+    let cap = TaoBalance::from(cap);
 
     pallet_crowdloan::Crowdloans::<Test>::insert(
         id,
         pallet_crowdloan::CrowdloanInfo {
             creator: beneficiary,
             deposit,
-            min_contribution: TaoCurrency::ZERO,
+            min_contribution: TaoBalance::ZERO,
             end: 0,
             cap,
             raised: cap,
@@ -1070,7 +1070,7 @@ fn setup_crowdloan(
     // Simulate contributions
     pallet_crowdloan::Contributions::<Test>::insert(id, beneficiary, deposit);
     for (contributor, amount) in contributions {
-        let amount = TaoCurrency::from(*amount);
+        let amount = TaoBalance::from(*amount);
         pallet_crowdloan::Contributions::<Test>::insert(id, contributor, amount);
     }
 

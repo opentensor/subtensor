@@ -24,7 +24,7 @@ use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 pub type LeaseId = u32;
 
@@ -254,7 +254,7 @@ impl<T: Config> Pallet<T> {
     /// for the contributors and the beneficiary in shares relative to their initial contributions.
     /// It accumulates dividends to be distributed later when the interval for distribution is reached.
     /// Distribution is made in alpha and stake to the contributor coldkey and lease hotkey.
-    pub fn distribute_leased_network_dividends(lease_id: LeaseId, owner_cut_alpha: AlphaCurrency) {
+    pub fn distribute_leased_network_dividends(lease_id: LeaseId, owner_cut_alpha: AlphaBalance) {
         // Ensure the lease exists
         let Some(lease) = SubnetLeases::<T>::get(lease_id) else {
             log::debug!("Lease {lease_id} doesn't exists so we can't distribute dividends");
@@ -294,7 +294,7 @@ impl<T: Config> Pallet<T> {
 
         // We use a storage layer to ensure the distribution is atomic.
         if let Err(err) = frame_support::storage::with_storage_layer(|| {
-            let mut alpha_distributed = AlphaCurrency::ZERO;
+            let mut alpha_distributed = AlphaBalance::ZERO;
 
             // Distribute the contributors cut to the contributors and accumulate the alpha
             // distributed so far to obtain how much alpha is left to distribute to the beneficiary
@@ -339,7 +339,7 @@ impl<T: Config> Pallet<T> {
             });
 
             // Reset the accumulated dividends
-            AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaCurrency::ZERO);
+            AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaBalance::ZERO);
 
             Ok::<(), DispatchError>(())
         }) {

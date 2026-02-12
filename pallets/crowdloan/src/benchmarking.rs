@@ -9,7 +9,7 @@ use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, CurrencyOf, pallet::*};
 use frame_benchmarking::{account, v2::*};
 use frame_support::traits::{Get, StorePreimage, fungible::*};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
-use subtensor_runtime_common::{Currency, TaoCurrency};
+use subtensor_runtime_common::{TaoBalance, Token};
 
 extern crate alloc;
 
@@ -75,7 +75,7 @@ mod benchmarks {
             })
         );
         // ensure the creator has been deducted the deposit
-        assert!(CurrencyOf::<T>::balance(&creator) == TaoCurrency::ZERO);
+        assert!(CurrencyOf::<T>::balance(&creator) == TaoBalance::ZERO);
         // ensure the initial deposit is stored correctly as contribution
         assert_eq!(
             Contributions::<T>::get(crowdloan_id, &creator),
@@ -137,7 +137,7 @@ mod benchmarks {
             Some(amount)
         );
         // ensure the contributor has been deducted the amount
-        assert!(CurrencyOf::<T>::balance(&contributor) == TaoCurrency::ZERO);
+        assert!(CurrencyOf::<T>::balance(&contributor) == TaoBalance::ZERO);
         // ensure the crowdloan raised amount is updated correctly
         assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == deposit + amount));
         // ensure the contribution is present in the crowdloan account
@@ -311,7 +311,7 @@ mod benchmarks {
         _(RawOrigin::Signed(creator.clone()), crowdloan_id);
 
         // ensure the creator has not been refunded and contribution is the actual initial deposit
-        assert_eq!(CurrencyOf::<T>::balance(&creator), TaoCurrency::ZERO);
+        assert_eq!(CurrencyOf::<T>::balance(&creator), TaoBalance::ZERO);
         assert_eq!(
             Contributions::<T>::get(crowdloan_id, &creator),
             Some(deposit)

@@ -28,7 +28,7 @@ mod config {
             + GetDispatchInfo;
 
         ///  Currency type that will be used to place deposits on neurons
-        type Currency: fungible::Balanced<Self::AccountId, Balance = TaoCurrency>
+        type Currency: fungible::Balanced<Self::AccountId, Balance = TaoBalance>
             + fungible::Mutate<Self::AccountId>;
 
         /// The scheduler type used for scheduling delayed calls.
@@ -65,7 +65,7 @@ mod config {
 
         /// Initial currency issuance.
         #[pallet::constant]
-        type InitialIssuance: Get<TaoCurrency>;
+        type InitialIssuance: Get<TaoBalance>;
         /// Initial min allowed weights setting.
         #[pallet::constant]
         type InitialMinAllowedWeights: Get<u16>;
@@ -86,22 +86,22 @@ mod config {
         type InitialMinDifficulty: Get<u64>;
         /// Initial RAO Recycled.
         #[pallet::constant]
-        type InitialRAORecycledForRegistration: Get<TaoCurrency>;
+        type InitialRAORecycledForRegistration: Get<TaoBalance>;
         /// Initial Burn.
         #[pallet::constant]
-        type InitialBurn: Get<TaoCurrency>;
+        type InitialBurn: Get<TaoBalance>;
         /// Initial Max Burn.
         #[pallet::constant]
-        type InitialMaxBurn: Get<TaoCurrency>;
+        type InitialMaxBurn: Get<TaoBalance>;
         /// Initial Min Burn.
         #[pallet::constant]
-        type InitialMinBurn: Get<TaoCurrency>;
+        type InitialMinBurn: Get<TaoBalance>;
         /// Min  burn upper bound.
         #[pallet::constant]
-        type MinBurnUpperBound: Get<TaoCurrency>;
+        type MinBurnUpperBound: Get<TaoBalance>;
         /// Max burn lower bound.
         #[pallet::constant]
-        type MaxBurnLowerBound: Get<TaoCurrency>;
+        type MaxBurnLowerBound: Get<TaoBalance>;
         /// Initial adjustment interval.
         #[pallet::constant]
         type InitialAdjustmentInterval: Get<u16>;
@@ -191,7 +191,7 @@ mod config {
         type InitialNetworkImmunityPeriod: Get<u64>;
         /// Initial network minimum burn cost
         #[pallet::constant]
-        type InitialNetworkMinLockCost: Get<TaoCurrency>;
+        type InitialNetworkMinLockCost: Get<TaoBalance>;
         /// Initial network subnet cut.
         #[pallet::constant]
         type InitialSubnetOwnerCut: Get<u16>;
@@ -203,7 +203,7 @@ mod config {
         type InitialNetworkRateLimit: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
-        type KeySwapCost: Get<TaoCurrency>;
+        type KeySwapCost: Get<TaoBalance>;
         /// The upper bound for the alpha parameter. Used for Liquid Alpha.
         #[pallet::constant]
         type AlphaHigh: Get<u16>;
@@ -236,7 +236,7 @@ mod config {
         type InitialStartCallDelay: Get<u64>;
         /// Cost of swapping a hotkey in a subnet.
         #[pallet::constant]
-        type KeySwapOnSubnetCost: Get<TaoCurrency>;
+        type KeySwapOnSubnetCost: Get<TaoBalance>;
         /// Block number for a coldkey swap the hotkey in specific subnet.
         #[pallet::constant]
         type HotkeySwapOnSubnetInterval: Get<u64>;

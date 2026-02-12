@@ -5,7 +5,7 @@ use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use sp_core::U256;
 use substrate_fixed::types::{U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT};
+use subtensor_runtime_common::{AlphaBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 #[test]
@@ -36,7 +36,7 @@ fn test_recycle_success() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let recycle_amount = AlphaCurrency::from(stake / 2);
+        let recycle_amount = AlphaBalance::from(stake / 2);
 
         // recycle
         assert_ok!(SubtensorModule::recycle_alpha(
@@ -96,7 +96,7 @@ fn test_recycle_two_stakers() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let recycle_amount = AlphaCurrency::from(stake / 2);
+        let recycle_amount = AlphaBalance::from(stake / 2);
 
         // recycle
         assert_ok!(SubtensorModule::recycle_alpha(
@@ -172,7 +172,7 @@ fn test_recycle_staker_is_nominator() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let recycle_amount = AlphaCurrency::from(stake / 2);
+        let recycle_amount = AlphaBalance::from(stake / 2);
 
         // recycle from nominator coldkey
         assert_ok!(SubtensorModule::recycle_alpha(
@@ -296,7 +296,7 @@ fn test_burn_staker_is_nominator() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let burn_amount = AlphaCurrency::from(stake / 2);
+        let burn_amount = AlphaBalance::from(stake / 2);
 
         // burn from nominator coldkey
         assert_ok!(SubtensorModule::burn_alpha(
@@ -365,7 +365,7 @@ fn test_burn_two_stakers() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let burn_amount = AlphaCurrency::from(stake / 2);
+        let burn_amount = AlphaBalance::from(stake / 2);
 
         // burn from coldkey
         assert_ok!(SubtensorModule::burn_alpha(
@@ -562,7 +562,7 @@ fn test_recycle_precision_loss() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // amount to recycle
-        let recycle_amount = AlphaCurrency::from(stake / 2);
+        let recycle_amount = AlphaBalance::from(stake / 2);
 
         // Modify the alpha pool denominator so it's low-precision
         let denominator = U64F64::from_num(0.00000001);
@@ -599,7 +599,7 @@ fn test_burn_precision_loss() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // amount to recycle
-        let burn_amount = AlphaCurrency::from(stake / 2);
+        let burn_amount = AlphaBalance::from(stake / 2);
 
         // Modify the alpha pool denominator so it's low-precision
         let denominator = U64F64::from_num(0.00000001);
@@ -639,7 +639,7 @@ fn test_add_stake_burn_success() {
         // Check we have zero staked before transfer
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
 
         // Execute add_stake_burn - this stakes TAO to get Alpha, then burns the Alpha
@@ -654,7 +654,7 @@ fn test_add_stake_burn_success() {
         // After "add stake and burn", hotkey should have zero stake since alpha is burned immediately
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
 
         // We spent TAO
@@ -693,8 +693,8 @@ fn test_add_stake_burn_with_limit_success() {
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
         // Setup reserves with large liquidity to minimize slippage
-        let tao_reserve = TaoCurrency::from(1_000_000_000_000_u64); // 1000 TAO
-        let alpha_in = AlphaCurrency::from(1_000_000_000_000_u64); // 1000 Alpha
+        let tao_reserve = TaoBalance::from(1_000_000_000_000_u64); // 1000 TAO
+        let alpha_in = AlphaBalance::from(1_000_000_000_000_u64); // 1000 Alpha
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Verify current price is 1.0
@@ -709,7 +709,7 @@ fn test_add_stake_burn_with_limit_success() {
 
         // Setup limit price at 2.0 TAO per Alpha
         // With 100 TAO into 1000/1000 pool, price moves from 1.0 to ~1.21
-        let limit_price = TaoCurrency::from(2_000_000_000); // 2.0 TAO per Alpha
+        let limit_price = TaoBalance::from(2_000_000_000); // 2.0 TAO per Alpha
 
         // Execute add_stake_burn with limit
         assert_ok!(SubtensorModule::add_stake_burn(
@@ -723,7 +723,7 @@ fn test_add_stake_burn_with_limit_success() {
         // After "add stake and burn", hotkey should have zero stake since alpha is burned immediately
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
 
         // TAO should have been spent
@@ -852,8 +852,8 @@ fn test_add_stake_burn_rate_limit_exceeded() {
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
         // Setup reserves with large liquidity
-        let tao_reserve = TaoCurrency::from(1_000_000_000_000_u64);
-        let alpha_in = AlphaCurrency::from(1_000_000_000_000_u64);
+        let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(1_000_000_000_000_u64);
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Give coldkey sufficient balance for multiple "add stake and burn" operations.

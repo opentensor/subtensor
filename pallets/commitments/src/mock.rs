@@ -12,7 +12,7 @@ use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, ConstU16, IdentityLookup},
 };
-use subtensor_runtime_common::{ConstTao, TaoCurrency};
+use subtensor_runtime_common::{ConstTao, TaoBalance};
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic =
@@ -46,7 +46,7 @@ impl frame_system::Config for Test {
     type BlockHashCount = ConstU64<250>;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<TaoCurrency>;
+    type AccountData = pallet_balances::AccountData<TaoBalance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -62,7 +62,7 @@ impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
-    type Balance = TaoCurrency;
+    type Balance = TaoBalance;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ConstTao<1>;

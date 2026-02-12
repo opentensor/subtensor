@@ -4,9 +4,9 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
-#[freeze_struct("e526a1c6d2303d32")]
+#[freeze_struct("cf677afa654c96a6")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -18,14 +18,14 @@ pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     last_step: Compact<u64>,
     blocks_since_last_step: Compact<u64>,
     emission: Compact<u64>,
-    alpha_in: Compact<AlphaCurrency>,
-    alpha_out: Compact<AlphaCurrency>,
-    tao_in: Compact<TaoCurrency>,
-    alpha_out_emission: Compact<AlphaCurrency>,
-    alpha_in_emission: Compact<AlphaCurrency>,
-    tao_in_emission: Compact<TaoCurrency>,
-    pending_alpha_emission: Compact<AlphaCurrency>,
-    pending_root_emission: Compact<TaoCurrency>,
+    alpha_in: Compact<AlphaBalance>,
+    alpha_out: Compact<AlphaBalance>,
+    tao_in: Compact<TaoBalance>,
+    alpha_out_emission: Compact<AlphaBalance>,
+    alpha_in_emission: Compact<AlphaBalance>,
+    tao_in_emission: Compact<TaoBalance>,
+    pending_alpha_emission: Compact<AlphaBalance>,
+    pending_root_emission: Compact<TaoBalance>,
     subnet_volume: Compact<u128>,
     network_registered_at: Compact<u64>,
     subnet_identity: Option<SubnetIdentityV3>,
@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
             pending_alpha_emission: PendingValidatorEmission::<T>::get(netuid)
                 .saturating_add(PendingServerEmission::<T>::get(netuid))
                 .into(),
-            pending_root_emission: TaoCurrency::from(0u64).into(),
+            pending_root_emission: TaoBalance::from(0u64).into(),
             subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
             subnet_identity: SubnetIdentitiesV3::<T>::get(netuid),

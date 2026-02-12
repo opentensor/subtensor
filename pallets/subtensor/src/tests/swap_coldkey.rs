@@ -21,7 +21,7 @@ use sp_runtime::traits::Hash;
 use sp_runtime::traits::{DispatchInfoOf, DispatchTransaction, TransactionExtension};
 use sp_runtime::{DispatchError, traits::TxBaseImplication};
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaCurrency, Currency, SubnetInfo, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, SubnetInfo, TaoBalance, Token};
 use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
 use super::mock;
@@ -508,7 +508,7 @@ fn test_swap_coldkey_works_with_zero_cost() {
         let hotkey2 = U256::from(1002);
         let hotkey3 = U256::from(1003);
         let ed = ExistentialDeposit::get();
-        let swap_cost = TaoCurrency::from(0);
+        let swap_cost = TaoBalance::from(0);
         let min_stake = DefaultMinStake::<Test>::get();
         let stake1 = min_stake * 10.into();
         let stake2 = min_stake * 20.into();
@@ -692,11 +692,11 @@ fn test_do_swap_coldkey_with_no_stake() {
 
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
     });
 }
@@ -713,7 +713,7 @@ fn test_do_swap_coldkey_with_max_values() {
         let other_coldkey = U256::from(7);
         let netuid = NetUid::from(1);
         let netuid2 = NetUid::from(2);
-        let max_stake = TaoCurrency::from(21_000_000_000_000_000_u64); // 21 Million TAO; max possible balance.
+        let max_stake = TaoBalance::from(21_000_000_000_000_000_u64); // 21 Million TAO; max possible balance.
 
         // Add a network
         add_network(netuid, 1, 0);
@@ -765,21 +765,21 @@ fn test_do_swap_coldkey_with_max_values() {
 
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
             expected_stake1.to_u64().into(),
-            epsilon = TaoCurrency::from(expected_stake1.to_u64()) / 1000.into()
+            epsilon = TaoBalance::from(expected_stake1.to_u64()) / 1000.into()
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey2),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey2),
             expected_stake2.to_u64().into(),
-            epsilon = TaoCurrency::from(expected_stake2.to_u64()) / 1000.into()
+            epsilon = TaoBalance::from(expected_stake2.to_u64()) / 1000.into()
         );
     });
 }
@@ -795,7 +795,7 @@ fn test_do_swap_coldkey_effect_on_delegated_stake() {
         let new_coldkey = U256::from(2);
         let delegator = U256::from(3);
         let hotkey = U256::from(4);
-        let stake = TaoCurrency::from(100_000_000_000_u64);
+        let stake = TaoBalance::from(100_000_000_000_u64);
 
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
         StakingHotkeys::<Test>::insert(delegator, vec![hotkey]);
@@ -832,7 +832,7 @@ fn test_do_swap_coldkey_effect_on_delegated_stake() {
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
-            TaoCurrency::ZERO,
+            TaoBalance::ZERO,
             epsilon = 500.into()
         );
     });
@@ -936,7 +936,7 @@ fn test_swap_delegated_stake_for_coldkey() {
                 &old_coldkey,
                 netuid
             ),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -944,7 +944,7 @@ fn test_swap_delegated_stake_for_coldkey() {
                 &old_coldkey,
                 netuid
             ),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
 
         // Verify TotalColdkeyStake
@@ -954,7 +954,7 @@ fn test_swap_delegated_stake_for_coldkey() {
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
 
         // Verify TotalHotkeyStake remains unchanged
@@ -1212,7 +1212,7 @@ fn test_coldkey_swap_total() {
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&coldkey),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
 
         // Check everything is swapped.
@@ -1351,7 +1351,7 @@ fn test_do_swap_coldkey_effect_on_delegations() {
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&coldkey),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
@@ -1711,7 +1711,7 @@ macro_rules! comprehensive_checks {
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&$who),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&$new_coldkey),

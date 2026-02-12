@@ -717,7 +717,7 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_staked: TaoCurrency,
+            amount_staked: TaoBalance,
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, netuid, amount_staked).map(|_| ())
         }
@@ -761,7 +761,7 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_unstaked: AlphaCurrency,
+            amount_unstaked: AlphaBalance,
         ) -> DispatchResult {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
@@ -1078,7 +1078,7 @@ mod dispatches {
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
-            swap_cost: TaoCurrency,
+            swap_cost: TaoBalance,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -1542,7 +1542,7 @@ mod dispatches {
             destination_hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            alpha_amount: AlphaBalance,
         ) -> DispatchResult {
             Self::do_move_stake(
                 origin,
@@ -1585,7 +1585,7 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            alpha_amount: AlphaBalance,
         ) -> DispatchResult {
             Self::do_transfer_stake(
                 origin,
@@ -1629,7 +1629,7 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            alpha_amount: AlphaBalance,
         ) -> DispatchResult {
             Self::do_swap_stake(
                 origin,
@@ -1690,8 +1690,8 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_staked: TaoCurrency,
-            limit_price: TaoCurrency,
+            amount_staked: TaoBalance,
+            limit_price: TaoBalance,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_add_stake_limit(
@@ -1755,8 +1755,8 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_unstaked: AlphaCurrency,
-            limit_price: TaoCurrency,
+            amount_unstaked: AlphaBalance,
+            limit_price: TaoBalance,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_remove_stake_limit(
@@ -1803,8 +1803,8 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
-            limit_price: TaoCurrency,
+            alpha_amount: AlphaBalance,
+            limit_price: TaoBalance,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_swap_stake_limit(
@@ -1922,7 +1922,7 @@ mod dispatches {
         pub fn recycle_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            amount: AlphaCurrency,
+            amount: AlphaBalance,
             netuid: NetUid,
         ) -> DispatchResult {
             Self::do_recycle_alpha(origin, hotkey, amount, netuid)
@@ -1947,7 +1947,7 @@ mod dispatches {
         pub fn burn_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            amount: AlphaCurrency,
+            amount: AlphaBalance,
             netuid: NetUid,
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
@@ -1977,7 +1977,7 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             netuid: NetUid,
-            limit_price: Option<TaoCurrency>,
+            limit_price: Option<TaoBalance>,
         ) -> DispatchResult {
             Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
         }
@@ -2594,8 +2594,8 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount: TaoCurrency,
-            limit: Option<TaoCurrency>,
+            amount: TaoBalance,
+            limit: Option<TaoBalance>,
         ) -> DispatchResult {
             Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }

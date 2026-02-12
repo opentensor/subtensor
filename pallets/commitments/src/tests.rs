@@ -2,7 +2,7 @@
 
 use codec::Encode;
 use sp_std::prelude::*;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoBalance};
 
 #[cfg(test)]
 use crate::{
@@ -1171,11 +1171,11 @@ fn set_commitment_unreserve_leftover_fails() {
 
         Balances::make_free_balance_be(&who, 10_000.into());
 
-        let fake_deposit: TaoCurrency = 100.into();
+        let fake_deposit: TaoBalance = 100.into();
         let dummy_info = CommitmentInfo::<TestMaxFields> {
             fields: BoundedVec::try_from(vec![]).expect("empty fields is fine"),
         };
-        let registration = Registration::<TaoCurrency, TestMaxFields, u64> {
+        let registration = Registration::<TaoBalance, TestMaxFields, u64> {
             deposit: fake_deposit,
             info: dummy_info,
             block: 0u64.into(),

@@ -7,7 +7,7 @@ pub mod deprecated_pending_emission_format {
 
     #[storage_alias]
     pub(super) type PendingEmission<T: Config> =
-        StorageMap<Pallet<T>, Identity, NetUid, AlphaCurrency, ValueQuery>;
+        StorageMap<Pallet<T>, Identity, NetUid, AlphaBalance, ValueQuery>;
 }
 
 pub fn migrate_pending_emissions<T: Config>() -> Weight {
@@ -39,8 +39,7 @@ pub fn migrate_pending_emissions<T: Config>() -> Weight {
         let server_emission_float: U96F32 = U96F32::saturating_from_num(pending_emission.to_u64())
             .saturating_add(root_alpha)
             .saturating_div(U96F32::saturating_from_num(2));
-        let server_emission: AlphaCurrency =
-            server_emission_float.saturating_to_num::<u64>().into();
+        let server_emission: AlphaBalance = server_emission_float.saturating_to_num::<u64>().into();
         let validator_emission = pending_emission.saturating_sub(server_emission);
 
         PendingValidatorEmission::<T>::mutate(netuid, |total| {

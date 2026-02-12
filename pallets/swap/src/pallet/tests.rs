@@ -553,8 +553,8 @@ fn test_remove_liquidity_basic() {
                 alpha,
                 epsilon = alpha / 1000
             );
-            assert_eq!(remove_result.fee_tao, TaoCurrency::ZERO);
-            assert_eq!(remove_result.fee_alpha, AlphaCurrency::ZERO);
+            assert_eq!(remove_result.fee_tao, TaoBalance::ZERO);
+            assert_eq!(remove_result.fee_alpha, AlphaBalance::ZERO);
 
             // Liquidity position is removed
             assert_eq!(
@@ -679,8 +679,8 @@ fn test_modify_position_basic() {
                 alpha / 10,
                 epsilon = alpha / 1000
             );
-            assert!(modify_result.fee_tao > TaoCurrency::ZERO);
-            assert_eq!(modify_result.fee_alpha, AlphaCurrency::ZERO);
+            assert!(modify_result.fee_tao > TaoBalance::ZERO);
+            assert_eq!(modify_result.fee_alpha, AlphaBalance::ZERO);
 
             // Liquidity position is reduced
             assert_eq!(
@@ -734,8 +734,8 @@ fn test_modify_position_basic() {
                 alpha / 100,
                 epsilon = alpha / 1000
             );
-            assert_eq!(modify_result.fee_tao, TaoCurrency::ZERO);
-            assert_eq!(modify_result.fee_alpha, AlphaCurrency::ZERO);
+            assert_eq!(modify_result.fee_tao, TaoBalance::ZERO);
+            assert_eq!(modify_result.fee_alpha, AlphaBalance::ZERO);
         });
     });
 }
@@ -1292,7 +1292,7 @@ fn test_swap_precision_edge_case() {
         let swap_result =
             Pallet::<Test>::do_swap(netuid, order, sqrt_limit_price, false, true).unwrap();
 
-        assert!(swap_result.amount_paid_out > TaoCurrency::ZERO);
+        assert!(swap_result.amount_paid_out > TaoBalance::ZERO);
     });
 }
 
@@ -1370,7 +1370,7 @@ fn test_convert_deltas() {
                 AlphaSqrtPrice::<Test>::insert(netuid, sqrt_price);
 
                 assert_abs_diff_eq!(
-                    BasicSwapStep::<Test, AlphaCurrency, TaoCurrency>::convert_deltas(
+                    BasicSwapStep::<Test, AlphaBalance, TaoBalance>::convert_deltas(
                         netuid,
                         delta_in.into()
                     ),
@@ -1378,7 +1378,7 @@ fn test_convert_deltas() {
                     epsilon = 2.into()
                 );
                 assert_abs_diff_eq!(
-                    BasicSwapStep::<Test, TaoCurrency, AlphaCurrency>::convert_deltas(
+                    BasicSwapStep::<Test, TaoBalance, AlphaBalance>::convert_deltas(
                         netuid,
                         delta_in.into()
                     ),
@@ -2264,7 +2264,7 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         <Test as Config>::BalanceOps::decrease_stake(&cold, &hot, netuid.into(), need_alpha.into())
             .expect("decrease ALPHA");
         TaoReserve::increase_provided(netuid.into(), tao_taken);
-        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(need_alpha));
+        AlphaReserve::increase_provided(netuid.into(), AlphaBalance::from(need_alpha));
 
         // Users‑only liquidation.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2330,7 +2330,7 @@ fn refund_alpha_single_provider_exact() {
             alpha_needed.into(),
         )
         .expect("decrease ALPHA");
-        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(alpha_needed));
+        AlphaReserve::increase_provided(netuid.into(), AlphaBalance::from(alpha_needed));
 
         // --- Act: users‑only dissolve.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2400,11 +2400,11 @@ fn refund_alpha_multiple_providers_proportional_to_principal() {
         // Withdraw α and account reserves for each provider.
         <Test as Config>::BalanceOps::decrease_stake(&c1, &h1, netuid.into(), a1.into())
             .expect("decrease α #1");
-        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(a1));
+        AlphaReserve::increase_provided(netuid.into(), AlphaBalance::from(a1));
 
         <Test as Config>::BalanceOps::decrease_stake(&c2, &h2, netuid.into(), a2.into())
             .expect("decrease α #2");
-        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(a2));
+        AlphaReserve::increase_provided(netuid.into(), AlphaBalance::from(a2));
 
         // Act
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2460,11 +2460,11 @@ fn refund_alpha_same_cold_multiple_hotkeys_conserved_to_owner() {
         // Withdraw α from both hotkeys; track provided‑reserve.
         <Test as Config>::BalanceOps::decrease_stake(&cold, &hot1, netuid.into(), a1.into())
             .expect("decr α #hot1");
-        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(a1));
+        AlphaReserve::increase_provided(netuid.into(), AlphaBalance::from(a1));
 
         <Test as Config>::BalanceOps::decrease_stake(&cold, &hot2, netuid.into(), a2.into())
             .expect("decr α #hot2");
-        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(a2));
+        AlphaReserve::increase_provided(netuid.into(), AlphaBalance::from(a2));
 
         // Act
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2555,7 +2555,7 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
         .expect("decrease ALPHA");
 
         TaoReserve::increase_provided(netuid.into(), tao_taken);
-        AlphaReserve::increase_provided(netuid.into(), AlphaCurrency::from(alpha_needed));
+        AlphaReserve::increase_provided(netuid.into(), AlphaBalance::from(alpha_needed));
 
         // --- Act: dissolve (GREEN PATH: permitted validators exist) ---
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2730,7 +2730,7 @@ fn test_clear_protocol_liquidity_green_path() {
 }
 
 fn as_tuple(
-    (t_used, a_used, t_rem, a_rem): (TaoCurrency, AlphaCurrency, TaoCurrency, AlphaCurrency),
+    (t_used, a_used, t_rem, a_rem): (TaoBalance, AlphaBalance, TaoBalance, AlphaBalance),
 ) -> (u64, u64, u64, u64) {
     (
         u64::from(t_used),
@@ -2744,8 +2744,8 @@ fn as_tuple(
 fn proportional_when_price_is_one_and_tao_is_plenty() {
     // sqrt_price = 1.0  => price = 1.0
     let sqrt = U64F64::from_num(1u64);
-    let amount_tao: TaoCurrency = 10u64.into();
-    let amount_alpha: AlphaCurrency = 3u64.into();
+    let amount_tao: TaoBalance = 10u64.into();
+    let amount_alpha: AlphaBalance = 3u64.into();
 
     // alpha * price = 3 * 1 = 3 <= amount_tao(10)
     let out =
@@ -2757,8 +2757,8 @@ fn proportional_when_price_is_one_and_tao_is_plenty() {
 fn proportional_when_price_is_one_and_alpha_is_excess() {
     // sqrt_price = 1.0  => price = 1.0
     let sqrt = U64F64::from_num(1u64);
-    let amount_tao: TaoCurrency = 5u64.into();
-    let amount_alpha: AlphaCurrency = 10u64.into();
+    let amount_tao: TaoBalance = 5u64.into();
+    let amount_alpha: AlphaBalance = 10u64.into();
 
     // tao is limiting: alpha_equiv = floor(5 / 1) = 5
     let out =
@@ -2770,8 +2770,8 @@ fn proportional_when_price_is_one_and_alpha_is_excess() {
 fn proportional_with_higher_price_and_alpha_limiting() {
     // Choose sqrt_price = 2.0 => price = 4.0 (since implementation squares it)
     let sqrt = U64F64::from_num(2u64);
-    let amount_tao: TaoCurrency = 85u64.into();
-    let amount_alpha: AlphaCurrency = 20u64.into();
+    let amount_tao: TaoBalance = 85u64.into();
+    let amount_alpha: AlphaBalance = 20u64.into();
 
     // tao_equivalent = alpha * price = 20 * 4 = 80 < 85 => alpha limits tao
     // remainders: tao 5, alpha 0
@@ -2784,8 +2784,8 @@ fn proportional_with_higher_price_and_alpha_limiting() {
 fn proportional_with_higher_price_and_tao_limiting() {
     // Choose sqrt_price = 2.0 => price = 4.0 (since implementation squares it)
     let sqrt = U64F64::from_num(2u64);
-    let amount_tao: TaoCurrency = 50u64.into();
-    let amount_alpha: AlphaCurrency = 20u64.into();
+    let amount_tao: TaoBalance = 50u64.into();
+    let amount_alpha: AlphaBalance = 20u64.into();
 
     // tao_equivalent = alpha * price = 20 * 4 = 80 > 50 => tao limits alpha
     // alpha_equivalent = floor(50 / 4) = 12
@@ -2799,8 +2799,8 @@ fn proportional_with_higher_price_and_tao_limiting() {
 fn zero_price_uses_no_tao_and_all_alpha() {
     // sqrt_price = 0 => price = 0
     let sqrt = U64F64::from_num(0u64);
-    let amount_tao: TaoCurrency = 42u64.into();
-    let amount_alpha: AlphaCurrency = 17u64.into();
+    let amount_tao: TaoBalance = 42u64.into();
+    let amount_alpha: AlphaBalance = 17u64.into();
 
     // tao_equivalent = 17 * 0 = 0 <= 42
     let out =
@@ -2812,8 +2812,8 @@ fn zero_price_uses_no_tao_and_all_alpha() {
 fn rounding_down_behavior_when_dividing_by_price() {
     // sqrt_price = 2.0 => price = 4.0
     let sqrt = U64F64::from_num(2u64);
-    let amount_tao: TaoCurrency = 13u64.into();
-    let amount_alpha: AlphaCurrency = 100u64.into();
+    let amount_tao: TaoBalance = 13u64.into();
+    let amount_alpha: AlphaBalance = 100u64.into();
 
     // tao is limiting; alpha_equiv = floor(13 / 4) = 3
     // remainders: tao 0, alpha 100 - 3 = 97
@@ -2826,8 +2826,8 @@ fn rounding_down_behavior_when_dividing_by_price() {
 fn exact_fit_when_tao_matches_alpha_times_price() {
     // sqrt_price = 1.0 => price = 1.0
     let sqrt = U64F64::from_num(1u64);
-    let amount_tao: TaoCurrency = 9u64.into();
-    let amount_alpha: AlphaCurrency = 9u64.into();
+    let amount_tao: TaoBalance = 9u64.into();
+    let amount_alpha: AlphaBalance = 9u64.into();
 
     let out =
         Pallet::<Test>::get_proportional_alpha_tao_and_remainders(sqrt, amount_tao, amount_alpha);
@@ -2865,8 +2865,8 @@ fn adjust_protocol_liquidity_uses_and_sets_scrap_reservoirs() {
         AlphaSqrtPrice::<Test>::insert(netuid, U64F64::saturating_from_num(1u64));
 
         // Start with some non-zero scrap reservoirs
-        ScrapReservoirTao::<Test>::insert(netuid, TaoCurrency::from(7u64));
-        ScrapReservoirAlpha::<Test>::insert(netuid, AlphaCurrency::from(5u64));
+        ScrapReservoirTao::<Test>::insert(netuid, TaoBalance::from(7u64));
+        ScrapReservoirAlpha::<Test>::insert(netuid, AlphaBalance::from(5u64));
 
         // Create a minimal protocol position so the function’s body executes.
         let protocol = Pallet::<Test>::protocol_account_id();
@@ -2889,11 +2889,11 @@ fn adjust_protocol_liquidity_uses_and_sets_scrap_reservoirs() {
         // --- Assert: reservoirs were READ (used in proportional calc) and then SET (updated)
         assert_eq!(
             ScrapReservoirTao::<Test>::get(netuid),
-            TaoCurrency::from(2u64)
+            TaoBalance::from(2u64)
         );
         assert_eq!(
             ScrapReservoirAlpha::<Test>::get(netuid),
-            AlphaCurrency::from(0u64)
+            AlphaBalance::from(0u64)
         );
     });
 }

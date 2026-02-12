@@ -21,7 +21,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,
@@ -257,7 +257,7 @@ fn test_set_weights_validate() {
 
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
 
-        let min_stake = TaoCurrency::from(500_000_000_000_u64);
+        let min_stake = TaoBalance::from(500_000_000_000_u64);
 
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake.into());
@@ -363,7 +363,7 @@ fn test_reveal_weights_validate() {
         crate::Owner::<Test>::insert(hotkey2, coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
 
-        let min_stake = TaoCurrency::from(500_000_000_000_u64);
+        let min_stake = TaoBalance::from(500_000_000_000_u64);
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake.into());
 
@@ -547,7 +547,7 @@ fn test_batch_reveal_weights_validate() {
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
-        let min_stake = TaoCurrency::from(500_000_000_000_u64);
+        let min_stake = TaoBalance::from(500_000_000_000_u64);
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake.into());
 

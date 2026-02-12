@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Config, HasMigrationRun, SubnetLocked, TaoCurrency};
+use crate::{Config, HasMigrationRun, SubnetLocked, TaoBalance};
 use frame_support::weights::Weight;
 use log;
 use scale_info::prelude::string::String;
@@ -93,7 +93,7 @@ pub fn migrate_restore_subnet_locked<T: Config>() -> Weight {
     // ── 1) Re-insert the historical values ────────────────────────────────
     for &(netuid_u16, amount_rao_u64) in SUBNET_LOCKED.iter() {
         let key: NetUid = NetUid::from(netuid_u16);
-        let amount: TaoCurrency = TaoCurrency::from(amount_rao_u64);
+        let amount: TaoBalance = TaoBalance::from(amount_rao_u64);
 
         SubnetLocked::<T>::insert(key, amount);
 

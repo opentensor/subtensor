@@ -5,7 +5,7 @@ use parity_scale_codec::Compact;
 #[derive(Debug, Clone)]
 pub struct CustomEnvironment;
 
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 pub enum FunctionId {
     GetStakeInfoForHotkeyColdkeyNetuidV1 = 0,
     AddStakeV1 = 1,
@@ -40,14 +40,14 @@ pub trait RuntimeReadWrite {
     fn add_stake(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         netuid: NetUid,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
     );
 
     #[ink(function = 2)]
     fn remove_stake(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         netuid: NetUid,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
     );
 
     #[ink(function = 3)]
@@ -62,7 +62,7 @@ pub trait RuntimeReadWrite {
         destination_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
     );
 
     #[ink(function = 6)]
@@ -71,7 +71,7 @@ pub trait RuntimeReadWrite {
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
     );
 
     #[ink(function = 7)]
@@ -79,15 +79,15 @@ pub trait RuntimeReadWrite {
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
     );
 
     #[ink(function = 8)]
     fn add_stake_limit(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         netuid: NetUid,
-        amount: TaoCurrency,
-        limit_price: TaoCurrency,
+        amount: TaoBalance,
+        limit_price: TaoBalance,
         allow_partial: bool,
     );
 
@@ -95,8 +95,8 @@ pub trait RuntimeReadWrite {
     fn remove_stake_limit(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         netuid: NetUid,
-        amount: TaoCurrency,
-        limit_price: TaoCurrency,
+        amount: TaoBalance,
+        limit_price: TaoBalance,
         allow_partial: bool,
     );
 
@@ -105,8 +105,8 @@ pub trait RuntimeReadWrite {
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        amount: AlphaCurrency,
-        limit_price: TaoCurrency,
+        amount: AlphaBalance,
+        limit_price: TaoBalance,
         allow_partial: bool,
     );
 
@@ -114,7 +114,7 @@ pub trait RuntimeReadWrite {
     fn remove_stake_full_limit(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         netuid: NetUid,
-        limit_price: TaoCurrency,
+        limit_price: TaoBalance,
     );
 
     #[ink(function = 12)]
@@ -154,7 +154,7 @@ impl ink::env::Environment for CustomEnvironment {
     const MAX_EVENT_TOPICS: usize = 4;
 
     type AccountId = ink::primitives::AccountId;
-    type Balance = TaoCurrency;
+    type Balance = TaoBalance;
     type Hash = ink::primitives::Hash;
     type BlockNumber = u32;
     type Timestamp = u64;
@@ -167,10 +167,10 @@ pub struct StakeInfo<AccountId> {
     hotkey: AccountId,
     coldkey: AccountId,
     netuid: Compact<NetUid>,
-    stake: Compact<AlphaCurrency>,
+    stake: Compact<AlphaBalance>,
     locked: Compact<u64>,
-    emission: Compact<AlphaCurrency>,
-    tao_emission: Compact<TaoCurrency>,
+    emission: Compact<AlphaBalance>,
+    tao_emission: Compact<TaoBalance>,
     drain: Compact<u64>,
     is_registered: bool,
 }

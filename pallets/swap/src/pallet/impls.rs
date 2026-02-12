@@ -7,7 +7,7 @@ use sp_arithmetic::{helpers_128bit, traits::Zero};
 use sp_runtime::{DispatchResult, Vec, traits::AccountIdConversion};
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve,
 };
 use subtensor_swap_interface::{
     DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
@@ -25,10 +25,10 @@ const MAX_SWAP_ITERATIONS: u16 = 1000;
 
 #[derive(Debug, PartialEq)]
 pub struct UpdateLiquidityResult {
-    pub tao: TaoCurrency,
-    pub alpha: AlphaCurrency,
-    pub fee_tao: TaoCurrency,
-    pub fee_alpha: AlphaCurrency,
+    pub tao: TaoBalance,
+    pub alpha: AlphaBalance,
+    pub fee_tao: TaoBalance,
+    pub fee_alpha: AlphaBalance,
     pub removed: bool,
     pub tick_low: TickIndex,
     pub tick_high: TickIndex,
@@ -36,10 +36,10 @@ pub struct UpdateLiquidityResult {
 
 #[derive(Debug, PartialEq)]
 pub struct RemoveLiquidityResult {
-    pub tao: TaoCurrency,
-    pub alpha: AlphaCurrency,
-    pub fee_tao: TaoCurrency,
-    pub fee_alpha: AlphaCurrency,
+    pub tao: TaoBalance,
+    pub alpha: AlphaBalance,
+    pub fee_tao: TaoBalance,
+    pub fee_alpha: AlphaBalance,
     pub tick_low: TickIndex,
     pub tick_high: TickIndex,
     pub liquidity: u64,
@@ -115,9 +115,9 @@ impl<T: Config> Pallet<T> {
 
     pub(crate) fn get_proportional_alpha_tao_and_remainders(
         sqrt_alpha_price: U64F64,
-        amount_tao: TaoCurrency,
-        amount_alpha: AlphaCurrency,
-    ) -> (TaoCurrency, AlphaCurrency, TaoCurrency, AlphaCurrency) {
+        amount_tao: TaoBalance,
+        amount_alpha: AlphaBalance,
+    ) -> (TaoBalance, AlphaBalance, TaoBalance, AlphaBalance) {
         let price = sqrt_alpha_price.saturating_mul(sqrt_alpha_price);
         let tao_equivalent: u64 = U64F64::saturating_from_num(u64::from(amount_alpha))
             .saturating_mul(price)
@@ -129,7 +129,7 @@ impl<T: Config> Pallet<T> {
             (
                 tao_equivalent.into(),
                 amount_alpha,
-                amount_tao.saturating_sub(TaoCurrency::from(tao_equivalent)),
+                amount_tao.saturating_sub(TaoBalance::from(tao_equivalent)),
                 0_u32.into(),
             )
         } else {
@@ -151,8 +151,8 @@ impl<T: Config> Pallet<T> {
     /// Adjusts protocol liquidity with new values of TAO and Alpha reserve
     pub(super) fn adjust_protocol_liquidity(
         netuid: NetUid,
-        tao_delta: TaoCurrency,
-        alpha_delta: AlphaCurrency,
+        tao_delta: TaoBalance,
+        alpha_delta: AlphaBalance,
     ) {
         // Update protocol position with new liquidity
         let protocol_account_id = Self::protocol_account_id();
@@ -172,10 +172,10 @@ impl<T: Config> Pallet<T> {
                 Self::get_proportional_alpha_tao_and_remainders(
                     current_sqrt_price,
                     tao_delta
-                        .saturating_add(TaoCurrency::from(tao_fees))
+                        .saturating_add(TaoBalance::from(tao_fees))
                         .saturating_add(tao_reservoir),
                     alpha_delta
-                        .saturating_add(AlphaCurrency::from(alpha_fees))
+                        .saturating_add(AlphaBalance::from(alpha_fees))
                         .saturating_add(alpha_reservoir),
                 );
 
@@ -359,11 +359,7 @@ impl<T: Config> Pallet<T> {
     /// Calculate fee amount
     ///
     /// Fee is provided by state ops as u16-normalized value.
-    pub(crate) fn calculate_fee_amount<C: Currency>(
-        netuid: NetUid,
-        amount: C,
-        drop_fees: bool,
-    ) -> C {
+    pub(crate) fn calculate_fee_amount<C: Token>(netuid: NetUid, amount: C, drop_fees: bool) -> C {
         if drop_fees {
             return C::ZERO;
         }
@@ -450,12 +446,12 @@ impl<T: Config> Pallet<T> {
         let position_id = position.id;
 
         ensure!(
-            T::BalanceOps::tao_balance(coldkey_account_id) >= TaoCurrency::from(tao)
+            T::BalanceOps::tao_balance(coldkey_account_id) >= TaoBalance::from(tao)
                 && T::BalanceOps::alpha_balance(
                     netuid.into(),
                     coldkey_account_id,
                     hotkey_account_id
-                ) >= AlphaCurrency::from(alpha),
+                ) >= AlphaBalance::from(alpha),
             Error::<T>::InsufficientBalance
         );
 
@@ -619,9 +615,9 @@ impl<T: Config> Pallet<T> {
             // Check that user has enough balances
             ensure!(
                 T::BalanceOps::tao_balance(coldkey_account_id)
-                    >= TaoCurrency::from(tao.saturating_to_num::<u64>())
+                    >= TaoBalance::from(tao.saturating_to_num::<u64>())
                     && T::BalanceOps::alpha_balance(netuid, coldkey_account_id, hotkey_account_id)
-                        >= AlphaCurrency::from(alpha.saturating_to_num::<u64>()),
+                        >= AlphaBalance::from(alpha.saturating_to_num::<u64>()),
                 Error::<T>::InsufficientBalance
             );
         } else {
@@ -810,7 +806,7 @@ impl<T: Config> Pallet<T> {
         T::ProtocolId::get().into_account_truncating()
     }
 
-    pub(crate) fn min_price_inner<C: Currency>() -> C {
+    pub(crate) fn min_price_inner<C: Token>() -> C {
         TickIndex::min_sqrt_price()
             .saturating_mul(TickIndex::min_sqrt_price())
             .saturating_mul(SqrtPrice::saturating_from_num(1_000_000_000))
@@ -818,7 +814,7 @@ impl<T: Config> Pallet<T> {
             .into()
     }
 
-    pub(crate) fn max_price_inner<C: Currency>() -> C {
+    pub(crate) fn max_price_inner<C: Token>() -> C {
         TickIndex::max_sqrt_price()
             .saturating_mul(TickIndex::max_sqrt_price())
             .saturating_mul(SqrtPrice::saturating_from_num(1_000_000_000))
@@ -851,8 +847,8 @@ impl<T: Config> Pallet<T> {
                 return Ok(());
             }
 
-            let mut user_refunded_tao = TaoCurrency::ZERO;
-            let mut user_staked_alpha = AlphaCurrency::ZERO;
+            let mut user_refunded_tao = TaoBalance::ZERO;
+            let mut user_staked_alpha = AlphaBalance::ZERO;
 
             let trust: Vec<u16> = T::SubnetInfo::get_validator_trust(netuid.into());
             let permit: Vec<bool> = T::SubnetInfo::get_validator_permit(netuid.into());
@@ -874,14 +870,14 @@ impl<T: Config> Pallet<T> {
                 match Self::do_remove_liquidity(netuid, &owner, pos_id) {
                     Ok(rm) => {
                         // α withdrawn from the pool = principal + accrued fees
-                        let alpha_total_from_pool: AlphaCurrency =
+                        let alpha_total_from_pool: AlphaBalance =
                             rm.alpha.saturating_add(rm.fee_alpha);
 
                         // ---------------- USER: refund τ and convert α → stake ----------------
 
                         // 1) Refund τ principal directly.
-                        let tao_total_from_pool: TaoCurrency = rm.tao.saturating_add(rm.fee_tao);
-                        if tao_total_from_pool > TaoCurrency::ZERO {
+                        let tao_total_from_pool: TaoBalance = rm.tao.saturating_add(rm.fee_tao);
+                        if tao_total_from_pool > TaoBalance::ZERO {
                             T::BalanceOps::increase_balance(&owner, tao_total_from_pool);
                             user_refunded_tao =
                                 user_refunded_tao.saturating_add(tao_total_from_pool);
@@ -889,7 +885,7 @@ impl<T: Config> Pallet<T> {
                         }
 
                         // 2) Stake ALL withdrawn α (principal + fees) to the best permitted validator.
-                        if alpha_total_from_pool > AlphaCurrency::ZERO {
+                        if alpha_total_from_pool > AlphaBalance::ZERO {
                             if let Some(target_uid) = pick_target_uid(&trust, &permit) {
                                 let validator_hotkey: T::AccountId =
                                     T::SubnetInfo::hotkey_of_uid(netuid.into(), target_uid).ok_or(
@@ -950,8 +946,8 @@ impl<T: Config> Pallet<T> {
         let protocol_account = Self::protocol_account_id();
 
         // 1) Force-close only protocol positions, burning proceeds.
-        let mut burned_tao = TaoCurrency::ZERO;
-        let mut burned_alpha = AlphaCurrency::ZERO;
+        let mut burned_tao = TaoBalance::ZERO;
+        let mut burned_alpha = AlphaBalance::ZERO;
 
         // Collect protocol position IDs first to avoid mutating while iterating.
         let protocol_pos_ids: sp_std::vec::Vec<PositionId> = Positions::<T>::iter_prefix((netuid,))
@@ -967,14 +963,13 @@ impl<T: Config> Pallet<T> {
         for pos_id in protocol_pos_ids {
             match Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
                 Ok(rm) => {
-                    let alpha_total_from_pool: AlphaCurrency =
-                        rm.alpha.saturating_add(rm.fee_alpha);
-                    let tao_total_from_pool: TaoCurrency = rm.tao.saturating_add(rm.fee_tao);
+                    let alpha_total_from_pool: AlphaBalance = rm.alpha.saturating_add(rm.fee_alpha);
+                    let tao_total_from_pool: TaoBalance = rm.tao.saturating_add(rm.fee_tao);
 
-                    if tao_total_from_pool > TaoCurrency::ZERO {
+                    if tao_total_from_pool > TaoBalance::ZERO {
                         burned_tao = burned_tao.saturating_add(tao_total_from_pool);
                     }
-                    if alpha_total_from_pool > AlphaCurrency::ZERO {
+                    if alpha_total_from_pool > AlphaBalance::ZERO {
                         burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
                     }
 
@@ -1020,14 +1015,14 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> DefaultPriceLimit<TaoCurrency, AlphaCurrency> for Pallet<T> {
-    fn default_price_limit<C: Currency>() -> C {
+impl<T: Config> DefaultPriceLimit<TaoBalance, AlphaBalance> for Pallet<T> {
+    fn default_price_limit<C: Token>() -> C {
         Self::max_price_inner::<C>()
     }
 }
 
-impl<T: Config> DefaultPriceLimit<AlphaCurrency, TaoCurrency> for Pallet<T> {
-    fn default_price_limit<C: Currency>() -> C {
+impl<T: Config> DefaultPriceLimit<AlphaBalance, TaoBalance> for Pallet<T> {
+    fn default_price_limit<C: Token>() -> C {
         Self::min_price_inner::<C>()
     }
 }
@@ -1042,7 +1037,7 @@ where
     fn swap(
         netuid: NetUid,
         order: O,
-        price_limit: TaoCurrency,
+        price_limit: TaoBalance,
         drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError> {
@@ -1066,7 +1061,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn swap<O>(
         netuid: NetUid,
         order: O,
-        price_limit: TaoCurrency,
+        price_limit: TaoBalance,
         drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
@@ -1087,7 +1082,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     {
         match T::SubnetInfo::mechanism(netuid) {
             1 => {
-                let price_limit = Self::default_price_limit::<TaoCurrency>();
+                let price_limit = Self::default_price_limit::<TaoBalance>();
 
                 <Self as SwapEngine<O>>::swap(netuid, order, price_limit, false, true)
             }
@@ -1106,7 +1101,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
         }
     }
 
-    fn approx_fee_amount<C: Currency>(netuid: NetUid, amount: C) -> C {
+    fn approx_fee_amount<C: Token>(netuid: NetUid, amount: C) -> C {
         Self::calculate_fee_amount(netuid, amount, false)
     }
 
@@ -1114,7 +1109,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::current_price(netuid.into())
     }
 
-    fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
+    fn get_protocol_tao(netuid: NetUid) -> TaoBalance {
         let protocol_account_id = Self::protocol_account_id();
         let mut positions =
             Positions::<T>::iter_prefix_values((netuid, protocol_account_id.clone()))
@@ -1129,22 +1124,18 @@ impl<T: Config> SwapHandler for Pallet<T> {
             }
         }
 
-        TaoCurrency::ZERO
+        TaoBalance::ZERO
     }
 
-    fn min_price<C: Currency>() -> C {
+    fn min_price<C: Token>() -> C {
         Self::min_price_inner()
     }
 
-    fn max_price<C: Currency>() -> C {
+    fn max_price<C: Token>() -> C {
         Self::max_price_inner()
     }
 
-    fn adjust_protocol_liquidity(
-        netuid: NetUid,
-        tao_delta: TaoCurrency,
-        alpha_delta: AlphaCurrency,
-    ) {
+    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: TaoBalance, alpha_delta: AlphaBalance) {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
     }
 

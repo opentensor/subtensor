@@ -5,7 +5,7 @@ use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance, Token};
 
 use super::mock::*;
 use crate::*;
@@ -91,11 +91,11 @@ fn test_swap_total_hotkey_stake() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
             (amount - fee).into(),
-            epsilon = TaoCurrency::from(amount / 100),
+            epsilon = TaoBalance::from(amount / 100),
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
-            TaoCurrency::ZERO,
+            TaoBalance::ZERO,
             epsilon = 1.into(),
         );
 
@@ -111,13 +111,13 @@ fn test_swap_total_hotkey_stake() {
         // Verify that total hotkey stake swapped
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
-            TaoCurrency::ZERO,
+            TaoBalance::ZERO,
             epsilon = 1.into(),
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
-            TaoCurrency::from(amount - fee),
-            epsilon = TaoCurrency::from(amount / 100),
+            TaoBalance::from(amount - fee),
+            epsilon = TaoBalance::from(amount / 100),
         );
     });
 }
@@ -436,7 +436,7 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
             RuntimeOrigin::signed(coldkey2),
             old_hotkey,
             netuid,
-            TaoCurrency::from(stake / 2)
+            TaoBalance::from(stake / 2)
         ));
         let stake1_before = SubtensorModule::get_total_stake_for_coldkey(&coldkey1);
         let stake2_before = SubtensorModule::get_total_stake_for_coldkey(&coldkey2);
@@ -709,7 +709,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
                 &coldkey1,
                 netuid1
             ),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -717,7 +717,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
                 &coldkey2,
                 netuid2
             ),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
 
         // Check subnet membership transfer
@@ -746,7 +746,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         );
     });
 }
@@ -761,7 +761,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         let new_hotkey_1 = U256::from(2);
         let new_hotkey_2 = U256::from(4);
         let coldkey = U256::from(3);
-        let swap_cost = TaoCurrency::from(1_000_000_000u64) * 2.into();
+        let swap_cost = TaoBalance::from(1_000_000_000u64) * 2.into();
 
         let tx_rate_limit = 1;
 
@@ -821,7 +821,7 @@ fn test_do_swap_hotkey_err_not_owner() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let not_owner_coldkey = U256::from(4);
-        let swap_cost = TaoCurrency::from(1_000_000_000u64);
+        let swap_cost = TaoBalance::from(1_000_000_000u64);
 
         // Setup initial state
         add_network(netuid, tempo, 0);
@@ -921,15 +921,15 @@ fn test_swap_stake_success() {
         let shares = U64F64::from_num(123456);
 
         // Initialize staking variables for old_hotkey
-        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaCurrency::from(amount));
+        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaBalance::from(amount));
         TotalHotkeyAlphaLastEpoch::<Test>::insert(
             old_hotkey,
             netuid,
-            AlphaCurrency::from(amount * 2),
+            AlphaBalance::from(amount * 2),
         );
         TotalHotkeyShares::<Test>::insert(old_hotkey, netuid, U64F64::from_num(shares));
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(amount));
-        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaCurrency::from(amount));
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaBalance::from(amount));
 
         // Perform the swap
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -943,19 +943,19 @@ fn test_swap_stake_success() {
         // Verify the swap
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
-            AlphaCurrency::from(amount)
+            AlphaBalance::from(amount)
         );
         assert_eq!(
             TotalHotkeyAlphaLastEpoch::<Test>::get(old_hotkey, netuid),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
         assert_eq!(
             TotalHotkeyAlphaLastEpoch::<Test>::get(new_hotkey, netuid),
-            AlphaCurrency::from(amount * 2)
+            AlphaBalance::from(amount * 2)
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(old_hotkey, netuid),
@@ -975,11 +975,11 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, new_hotkey),
-            AlphaCurrency::from(amount)
+            AlphaBalance::from(amount)
         );
     });
 }
@@ -1101,11 +1101,11 @@ fn test_swap_child_keys_self_loop() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
-        let amount = AlphaCurrency::from(12345);
+        let amount = AlphaBalance::from(12345);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
 
         // Only for checking
-        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaCurrency::from(amount));
+        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaBalance::from(amount));
 
         let children = vec![(200u64, new_hotkey)];
 
@@ -1130,7 +1130,7 @@ fn test_swap_child_keys_self_loop() {
         assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), amount);
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
-            AlphaCurrency::from(0)
+            AlphaBalance::from(0)
         );
     });
 }

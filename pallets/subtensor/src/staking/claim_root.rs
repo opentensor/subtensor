@@ -40,7 +40,7 @@ impl<T: Config> Pallet<T> {
     pub fn increase_root_claimable_for_hotkey_and_subnet(
         hotkey: &T::AccountId,
         netuid: NetUid,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
     ) {
         // Get total stake on this hotkey on root.
         let total: I96F32 =
@@ -168,7 +168,7 @@ impl<T: Config> Pallet<T> {
             let owed_tao = match Self::swap_alpha_for_tao(
                 netuid,
                 owed_u64.into(),
-                T::SwapInterface::min_price::<TaoCurrency>(),
+                T::SwapInterface::min_price::<TaoBalance>(),
                 true,
             ) {
                 Ok(owed_tao) => owed_tao,
@@ -271,7 +271,7 @@ impl<T: Config> Pallet<T> {
     pub fn remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
     ) {
         // Iterate over all the subnets this hotkey is staked on for root.
         let root_claimable = RootClaimable::<T>::get(hotkey);

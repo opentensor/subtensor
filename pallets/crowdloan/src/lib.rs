@@ -26,7 +26,7 @@ use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_runtime::traits::CheckedSub;
 use sp_std::vec::Vec;
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::TaoBalance;
 use weights::WeightInfo;
 
 pub use pallet::*;
@@ -108,7 +108,7 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
         /// The currency mechanism.
-        type Currency: fungible::Balanced<Self::AccountId, Balance = TaoCurrency>
+        type Currency: fungible::Balanced<Self::AccountId, Balance = TaoBalance>
             + fungible::Mutate<Self::AccountId>;
 
         /// The weight information for the pallet.

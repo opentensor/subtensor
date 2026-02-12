@@ -12,7 +12,7 @@ use frame_support::{assert_err, assert_ok};
 use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::{Get, U256};
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
@@ -565,7 +565,7 @@ fn test_1_graph() {
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            TaoCurrency::from(stake_amount) + ExistentialDeposit::get(),
+            TaoBalance::from(stake_amount) + ExistentialDeposit::get(),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -656,7 +656,7 @@ fn test_10_graph() {
         for i in 0..n {
             assert_eq!(
                 SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
-                TaoCurrency::from(1)
+                TaoBalance::from(1)
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
@@ -734,7 +734,7 @@ fn test_512_graph() {
                 for uid in servers {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        TaoCurrency::ZERO
+                        TaoBalance::ZERO
                     );
                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 146);
                     assert_eq!(
@@ -778,7 +778,7 @@ fn test_512_graph_random_weights() {
                     Vec<u16>,
                     Vec<u16>,
                     Vec<u16>,
-                    Vec<AlphaCurrency>,
+                    Vec<AlphaBalance>,
                     Vec<I32F32>,
                     Vec<I32F32>,
                 ) = (vec![], vec![], vec![], vec![], vec![], vec![]);
@@ -1325,7 +1325,7 @@ fn test_set_alpha_disabled() {
             signer.clone(),
             hotkey,
             netuid,
-            TaoCurrency::from(5) * DefaultMinStake::<Test>::get() + fee
+            TaoBalance::from(5) * DefaultMinStake::<Test>::get() + fee
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -2538,19 +2538,19 @@ fn test_epoch_outputs_single_staker_registered_no_weights() {
             1.into(),
         );
 
-        let pending_alpha = AlphaCurrency::from(1_000_000_000);
+        let pending_alpha = AlphaBalance::from(1_000_000_000);
         let hotkey_emission = SubtensorModule::epoch(netuid, pending_alpha);
 
         let sum_incentives = hotkey_emission
             .iter()
             .map(|(_, incentive, _)| incentive)
             .copied()
-            .fold(AlphaCurrency::ZERO, |acc, x| acc + x);
-        let sum_dividends: AlphaCurrency = hotkey_emission
+            .fold(AlphaBalance::ZERO, |acc, x| acc + x);
+        let sum_dividends: AlphaBalance = hotkey_emission
             .iter()
             .map(|(_, _, dividend)| dividend)
             .copied()
-            .fold(AlphaCurrency::ZERO, |acc, x| acc + x);
+            .fold(AlphaBalance::ZERO, |acc, x| acc + x);
 
         assert_abs_diff_eq!(
             sum_incentives.saturating_add(sum_dividends),
@@ -3833,7 +3833,7 @@ fn test_last_update_size_mismatch() {
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            TaoCurrency::from(stake_amount) + ExistentialDeposit::get(),
+            TaoBalance::from(stake_amount) + ExistentialDeposit::get(),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);

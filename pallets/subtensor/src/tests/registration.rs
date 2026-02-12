@@ -9,7 +9,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, Token};
 
 use super::mock;
 use super::mock::*;
@@ -125,7 +125,7 @@ fn test_registration_ok() {
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
     });
 }
@@ -488,7 +488,7 @@ fn test_burned_registration_ok() {
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
     });
 }
@@ -1428,7 +1428,7 @@ fn test_registration_get_uid_to_prune_owner_immortality() {
             // uid0=0, uid1=0, uid2=1
             Emission::<Test>::insert(
                 netuid,
-                vec![AlphaCurrency::from(0), 0u64.into(), 1u64.into()],
+                vec![AlphaBalance::from(0), 0u64.into(), 1u64.into()],
             );
 
             assert_eq!(
@@ -1477,7 +1477,7 @@ fn test_registration_get_uid_to_prune_owner_immortality_all_immune() {
         // Lowest emission among non-immortal candidates -> uid2
         Emission::<Test>::insert(
             netuid,
-            vec![AlphaCurrency::from(0), 0u64.into(), 1u64.into()],
+            vec![AlphaBalance::from(0), 0u64.into(), 1u64.into()],
         );
 
         assert_eq!(

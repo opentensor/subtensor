@@ -8,7 +8,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::AlphaCurrency;
+use subtensor_runtime_common::AlphaBalance;
 
 use mock::*;
 mod mock;
@@ -18,7 +18,7 @@ mod mock;
 fn test_remove_stake_fees_tao() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -26,7 +26,7 @@ fn test_remove_stake_fees_tao() {
             &sn.hotkeys[0],
             stake_amount,
         );
-        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TaoCurrency::from(TAO));
+        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TaoBalance::from(TAO));
 
         // Simulate stake removal to get how much TAO should we get for unstaked Alpha
         let (expected_unstaked_tao, _swap_fee) =
@@ -64,12 +64,12 @@ fn test_remove_stake_fees_tao() {
         );
 
         let actual_tao_fee =
-            balance_before + TaoCurrency::from(expected_unstaked_tao) - final_balance;
+            balance_before + TaoBalance::from(expected_unstaked_tao) - final_balance;
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in TAO because ck has sufficient TAO balance
         assert!(actual_tao_fee > 0.into());
-        assert_eq!(actual_alpha_fee, AlphaCurrency::from(0));
+        assert_eq!(actual_alpha_fee, AlphaBalance::from(0));
     });
 }
 
@@ -79,7 +79,7 @@ fn test_remove_stake_fees_tao() {
 fn test_remove_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -131,7 +131,7 @@ fn test_remove_stake_fees_alpha() {
         );
 
         let actual_tao_fee =
-            balance_before + TaoCurrency::from(expected_unstaked_tao) - final_balance;
+            balance_before + TaoBalance::from(expected_unstaked_tao) - final_balance;
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in Alpha
@@ -192,7 +192,7 @@ fn test_remove_stake_root() {
 
         let actual_tao_fee = balance_before + unstake_amount.into() - final_balance;
         let actual_alpha_fee =
-            AlphaCurrency::from(stake_amount) - alpha_after - unstake_amount.into();
+            AlphaBalance::from(stake_amount) - alpha_after - unstake_amount.into();
 
         // Remove stake extrinsic should pay fees in Alpha (withdrawn from staked TAO)
         assert_eq!(actual_tao_fee, 0.into());
@@ -347,7 +347,7 @@ fn test_remove_stake_not_enough_balance_for_fees() {
         );
 
         // For-set Alpha balance to low
-        let new_current_stake = AlphaCurrency::from(1_000);
+        let new_current_stake = AlphaBalance::from(1_000);
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &sn.hotkeys[0],
             &sn.coldkey,
@@ -414,7 +414,7 @@ fn test_remove_stake_edge_alpha() {
         );
 
         // For-set Alpha balance to low, but enough to pay tx fees at the current Alpha price
-        let new_current_stake = AlphaCurrency::from(1_000_000);
+        let new_current_stake = AlphaBalance::from(1_000_000);
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &sn.hotkeys[0],
             &sn.coldkey,
@@ -470,7 +470,7 @@ fn test_remove_stake_edge_alpha() {
 fn test_remove_stake_failing_transaction_tao_fees() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -481,7 +481,7 @@ fn test_remove_stake_failing_transaction_tao_fees() {
         SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TAO.into());
 
         // Make unstaking fail by reducing liquidity to critical
-        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1));
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoBalance::from(1));
 
         // Remove stake
         let balance_before = Balances::free_balance(sn.coldkey);
@@ -530,7 +530,7 @@ fn test_remove_stake_failing_transaction_tao_fees() {
 fn test_remove_stake_failing_transaction_alpha_fees() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -540,7 +540,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
         );
 
         // Make unstaking fail by reducing liquidity to critical
-        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1));
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoBalance::from(1));
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
@@ -596,7 +596,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
 fn test_remove_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -805,7 +805,7 @@ fn test_unstake_all_alpha_fees_alpha() {
 fn test_move_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(2, 2);
         setup_stake(
             sn.subnets[0].netuid,
@@ -878,7 +878,7 @@ fn test_transfer_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let destination_coldkey = U256::from(100000);
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(2, 2);
         setup_stake(
             sn.subnets[0].netuid,
@@ -950,7 +950,7 @@ fn test_transfer_stake_fees_alpha() {
 fn test_swap_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(2, 2);
         setup_stake(
             sn.subnets[0].netuid,
@@ -1021,7 +1021,7 @@ fn test_swap_stake_fees_alpha() {
 fn test_swap_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(2, 2);
         setup_stake(
             sn.subnets[0].netuid,
@@ -1094,7 +1094,7 @@ fn test_swap_stake_limit_fees_alpha() {
 fn test_burn_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let alpha_amount = AlphaCurrency::from(TAO / 50);
+        let alpha_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -1156,7 +1156,7 @@ fn test_burn_alpha_fees_alpha() {
 fn test_recycle_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let alpha_amount = AlphaCurrency::from(TAO / 50);
+        let alpha_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,

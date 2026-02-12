@@ -6,7 +6,7 @@ use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 use crate::{utils::rate_limiting::TransactionType, *};
@@ -2639,8 +2639,8 @@ fn test_childkey_set_weights_single_parent() {
         let coldkey_child: U256 = U256::from(101);
         let coldkey_weight_setter: U256 = U256::from(102);
 
-        let balance_to_give_child = TaoCurrency::from(109_999);
-        let stake_to_give_child = AlphaCurrency::from(109_999);
+        let balance_to_give_child = TaoBalance::from(109_999);
+        let stake_to_give_child = AlphaBalance::from(109_999);
 
         // Register parent with minimal stake and child with high stake
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 1.into());
@@ -2748,8 +2748,8 @@ fn test_set_weights_no_parent() {
         let coldkey: U256 = U256::from(101);
         let spare_ck = U256::from(102);
 
-        let balance_to_give_child = TaoCurrency::from(109_999);
-        let stake_to_give_child = AlphaCurrency::from(109_999);
+        let balance_to_give_child = TaoBalance::from(109_999);
+        let stake_to_give_child = AlphaBalance::from(109_999);
 
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
@@ -2865,11 +2865,11 @@ fn test_childkey_take_drain() {
             register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
             SubtensorModule::add_balance_to_coldkey_account(
                 &parent_coldkey,
-                TaoCurrency::from(stake) + ExistentialDeposit::get(),
+                TaoBalance::from(stake) + ExistentialDeposit::get(),
             );
             SubtensorModule::add_balance_to_coldkey_account(
                 &nominator,
-                TaoCurrency::from(stake) + ExistentialDeposit::get(),
+                TaoBalance::from(stake) + ExistentialDeposit::get(),
             );
             SubtensorModule::set_weights_set_rate_limit(netuid, 0);
             SubtensorModule::set_max_allowed_validators(netuid, 2);
@@ -2948,7 +2948,7 @@ fn test_childkey_take_drain() {
                 SubtensorModule::get_total_stake_for_coldkey(&nominator) - nominator_stake_before;
             let total_emission = child_emission + parent_emission + nominator_emission;
 
-            assert_abs_diff_eq!(child_emission, TaoCurrency::ZERO, epsilon = 10.into());
+            assert_abs_diff_eq!(child_emission, TaoBalance::ZERO, epsilon = 10.into());
             assert_abs_diff_eq!(
                 parent_emission,
                 total_emission * 9.into() / 20.into(),
@@ -2982,8 +2982,8 @@ fn test_parent_child_chain_emission() {
         Tempo::<Test>::insert(netuid, 1);
 
         // Setup large LPs to prevent slippage
-        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000_u64));
-        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000_u64));
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(1_000_000_000_000_000_u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_000_000_000_000_u64));
 
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
@@ -3098,13 +3098,13 @@ fn test_parent_child_chain_emission() {
 
         let emission = U96F32::from_num(
             SubtensorModule::get_block_emission()
-                .unwrap_or(TaoCurrency::ZERO)
+                .unwrap_or(TaoBalance::ZERO)
                 .to_u64(),
         );
 
         // Set pending emission to 0
-        PendingValidatorEmission::<Test>::insert(netuid, AlphaCurrency::ZERO);
-        PendingServerEmission::<Test>::insert(netuid, AlphaCurrency::ZERO);
+        PendingValidatorEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
+        PendingServerEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
 
         // Run epoch with emission value
         SubtensorModule::run_coinbase(emission);
@@ -3161,7 +3161,7 @@ fn test_parent_child_chain_emission() {
         );
 
         let hotkeys = [hotkey_a, hotkey_b, hotkey_c];
-        let mut total_stake_now = AlphaCurrency::ZERO;
+        let mut total_stake_now = AlphaBalance::ZERO;
         for (hotkey, netuid, stake) in TotalHotkeyAlpha::<Test>::iter() {
             if hotkeys.contains(&hotkey) {
                 total_stake_now += stake;
