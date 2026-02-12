@@ -306,7 +306,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<TaoBalance, DispatchError> {
-        if amount == 0.into() {
+        if amount.is_zero() {
             return Ok(TaoBalance::ZERO);
         }
 
@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();
 
-        if credit == 0.into() {
+        if credit.is_zero() {
             return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 
@@ -331,7 +331,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<TaoBalance, DispatchError> {
-        if amount == 0.into() {
+        if amount.is_zero() {
             return Ok(0.into());
         }
 
@@ -345,7 +345,7 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();
 
-        if credit == 0.into() {
+        if credit.is_zero() {
             return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 

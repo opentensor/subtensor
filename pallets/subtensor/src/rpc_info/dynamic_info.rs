@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
             pending_alpha_emission: PendingValidatorEmission::<T>::get(netuid)
                 .saturating_add(PendingServerEmission::<T>::get(netuid))
                 .into(),
-            pending_root_emission: TaoBalance::from(0u64).into(),
+            pending_root_emission: TaoBalance::ZERO.into(),
             subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
             subnet_identity: SubnetIdentitiesV3::<T>::get(netuid),

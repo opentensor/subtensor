@@ -75,7 +75,7 @@ pub struct WeightToBalance;
 
 impl Convert<Weight, Balance> for WeightToBalance {
     fn convert(weight: Weight) -> Balance {
-        TaoBalance::from(weight.ref_time())
+        weight.ref_time().into()
     }
 }
 

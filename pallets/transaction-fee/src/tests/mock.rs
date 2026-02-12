@@ -710,7 +710,7 @@ pub fn setup_stake(netuid: NetUid, coldkey: &U256, hotkey: &U256, amount: u64) {
     // Stake to hotkey account, and check if the result is ok
     SubtensorModule::add_balance_to_coldkey_account(
         coldkey,
-        TaoBalance::from(amount) + ExistentialDeposit::get(),
+        ExistentialDeposit::get() + amount.into(),
     );
     remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
     assert_ok!(SubtensorModule::add_stake(

@@ -93,7 +93,7 @@ pub fn migrate_restore_subnet_locked<T: Config>() -> Weight {
     // ── 1) Re-insert the historical values ────────────────────────────────
     for &(netuid_u16, amount_rao_u64) in SUBNET_LOCKED.iter() {
         let key: NetUid = NetUid::from(netuid_u16);
-        let amount: TaoBalance = TaoBalance::from(amount_rao_u64);
+        let amount: TaoBalance = amount_rao_u64.into();
 
         SubnetLocked::<T>::insert(key, amount);
 

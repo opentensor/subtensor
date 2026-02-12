@@ -468,7 +468,7 @@ impl<T: Config> Pallet<T> {
                         .saturating_mul(cur_price)
                         .floor()
                         .saturating_to_num::<u64>();
-                    TaoBalance::from(val_u64)
+                    val_u64.into()
                 } else {
                     TaoBalance::ZERO
                 };
@@ -564,7 +564,7 @@ impl<T: Config> Pallet<T> {
             // Credit each share directly to coldkey free balance.
             for p in portions {
                 if p.share > 0 {
-                    Self::add_balance_to_coldkey_account(&p.cold, TaoBalance::from(p.share));
+                    Self::add_balance_to_coldkey_account(&p.cold, p.share.into());
                 }
             }
         }

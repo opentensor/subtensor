@@ -119,31 +119,31 @@ impl<T: Config> Pallet<T> {
         amount_alpha: AlphaBalance,
     ) -> (TaoBalance, AlphaBalance, TaoBalance, AlphaBalance) {
         let price = sqrt_alpha_price.saturating_mul(sqrt_alpha_price);
-        let tao_equivalent: u64 = U64F64::saturating_from_num(u64::from(amount_alpha))
+        let tao_equivalent: TaoBalance = U64F64::saturating_from_num(u64::from(amount_alpha))
             .saturating_mul(price)
-            .saturating_to_num();
-        let amount_tao_u64 = u64::from(amount_tao);
+            .saturating_to_num::<u64>()
+            .into();
 
-        if tao_equivalent <= amount_tao_u64 {
+        if tao_equivalent <= amount_tao {
             // Too much or just enough TAO
             (
                 tao_equivalent.into(),
                 amount_alpha,
-                amount_tao.saturating_sub(TaoBalance::from(tao_equivalent)),
-                0_u32.into(),
+                amount_tao.saturating_sub(tao_equivalent),
+                AlphaBalance::ZERO,
             )
         } else {
             // Too much Alpha
-            let alpha_equivalent: u64 = U64F64::saturating_from_num(u64::from(amount_tao))
+            let alpha_equivalent: AlphaBalance = U64F64::saturating_from_num(u64::from(amount_tao))
                 .safe_div(price)
-                .saturating_to_num();
+                .saturating_to_num::<u64>()
+                .into();
             (
                 amount_tao,
-                alpha_equivalent.into(),
-                0_u32.into(),
-                u64::from(amount_alpha)
-                    .saturating_sub(alpha_equivalent)
-                    .into(),
+                alpha_equivalent,
+                TaoBalance::ZERO,
+                amount_alpha
+                    .saturating_sub(alpha_equivalent),
             )
         }
     }

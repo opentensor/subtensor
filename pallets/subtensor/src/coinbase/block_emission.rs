@@ -5,9 +5,6 @@ use safe_math::*;
 use substrate_fixed::{transcendental::log2, types::I96F32};
 use subtensor_runtime_common::TaoBalance;
 
-// type PositiveImbalanceOf<T> =
-//     <<T as Config>::Currency as BalancesCurrency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
-
 impl<T: Config> Pallet<T> {
     /// Calculates the block emission based on the total issuance.
     ///

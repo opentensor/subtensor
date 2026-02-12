@@ -26,7 +26,7 @@ pub fn migrate_network_lock_cost_2500<T: Config>() -> Weight {
     let block_to_set = if current_block == 0 { 1 } else { current_block };
 
     // Set last_lock so that price = 2 * last_lock = 2,500 TAO at this block
-    Pallet::<T>::set_network_last_lock(TaoBalance::from(NEW_LAST_LOCK_RAO));
+    Pallet::<T>::set_network_last_lock(NEW_LAST_LOCK_RAO.into());
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     // Start decay from "now" (no backdated decay)

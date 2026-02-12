@@ -697,7 +697,7 @@ impl<T: Config> Pallet<T> {
             pending_alpha_emission: PendingValidatorEmission::<T>::get(netuid)
                 .saturating_add(PendingServerEmission::<T>::get(netuid))
                 .into(), // pending alpha to be distributed
-            pending_root_emission: TaoBalance::from(0u64).into(), // panding tao for root divs to be distributed
+            pending_root_emission: TaoBalance::ZERO.into(), // panding tao for root divs to be distributed
             subnet_volume: subnet_volume.into(),
             moving_price: SubnetMovingPrice::<T>::get(netuid),
 
