@@ -236,7 +236,7 @@ fn test_vote_clear() {
         let sn1 = NetUid::from(1);
         setup_subnet_with_flow(sn1, 10, 100_000_000);
 
-        let (hotkey, coldkey) = setup_root_validator(10, 11, 1_000_000);
+        let (_hotkey, coldkey) = setup_root_validator(10, 11, 1_000_000);
 
         // Vote to suppress.
         assert_ok!(SubtensorModule::vote_emission_suppression(
@@ -274,7 +274,7 @@ fn test_votes_collected_on_epoch() {
         let sn1 = NetUid::from(1);
         setup_subnet_with_flow(sn1, 10, 100_000_000);
 
-        let (hotkey, coldkey) = setup_root_validator(10, 11, 1_000_000);
+        let (_hotkey, coldkey) = setup_root_validator(10, 11, 1_000_000);
 
         // Vote to suppress.
         assert_ok!(SubtensorModule::vote_emission_suppression(
@@ -308,7 +308,7 @@ fn test_coldkey_swap_migrates_votes() {
         let sn1 = NetUid::from(1);
         setup_subnet_with_flow(sn1, 10, 100_000_000);
 
-        let (hotkey, old_coldkey) = setup_root_validator(10, 11, 1_000_000);
+        let (_hotkey, old_coldkey) = setup_root_validator(10, 11, 1_000_000);
 
         // Vote to suppress.
         assert_ok!(SubtensorModule::vote_emission_suppression(
@@ -345,7 +345,7 @@ fn test_dissolution_clears_all() {
         let sn1 = NetUid::from(1);
         setup_subnet_with_flow(sn1, 10, 100_000_000);
 
-        let (hotkey, coldkey) = setup_root_validator(10, 11, 1_000_000);
+        let (_hotkey, coldkey) = setup_root_validator(10, 11, 1_000_000);
 
         // Vote and set suppression.
         assert_ok!(SubtensorModule::vote_emission_suppression(
@@ -416,7 +416,7 @@ fn test_unstaked_tao_not_in_denominator() {
 
         // Two root validators: one votes suppress, one doesn't.
         let (_hk1, ck1) = setup_root_validator(10, 11, 1_000_000);
-        let (_hk2, ck2) = setup_root_validator(20, 21, 1_000_000);
+        let (_hk2, _ck2) = setup_root_validator(20, 21, 1_000_000);
 
         // Only ck1 votes to suppress.
         assert_ok!(SubtensorModule::vote_emission_suppression(
