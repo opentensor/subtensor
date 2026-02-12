@@ -655,10 +655,7 @@ fn test_vote_explicit_false() {
             sn1,
             Some(false),
         ));
-        assert_eq!(
-            EmissionSuppressionVote::<Test>::get(sn1, ck),
-            Some(false)
-        );
+        assert_eq!(EmissionSuppressionVote::<Test>::get(sn1, ck), Some(false));
 
         // Collect votes: sole validator voted false → suppression should be 0.
         SubtensorModule::collect_emission_suppression_votes(sn1);
