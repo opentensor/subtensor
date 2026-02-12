@@ -2580,6 +2580,26 @@ mod dispatches {
             Self::do_set_voting_power_ema_alpha(netuid, alpha)
         }
 
+        /// --- The extrinsic is a combination of add_stake(add_stake_limit) and burn_alpha. We buy
+        /// alpha token first and immediately burn the acquired amount of alpha (aka Subnet buyback).
+        #[pallet::call_index(132)]
+        #[pallet::weight((
+		    Weight::from_parts(368_000_000, 8556)
+			.saturating_add(T::DbWeight::get().reads(28_u64))
+			.saturating_add(T::DbWeight::get().writes(17_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn add_stake_burn(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount: TaoCurrency,
+            limit: Option<TaoCurrency>,
+        ) -> DispatchResult {
+            Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
+        }
+
         /// --- Set or clear the root override for emission suppression on a subnet.
         /// Some(true) forces suppression, Some(false) forces unsuppression,
         /// None removes the override and falls back to vote-based suppression.
@@ -2598,6 +2618,7 @@ mod dispatches {
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(!netuid.is_root(), Error::<T>::CannotVoteOnRootSubnet);
             match override_value {
                 Some(val) => EmissionSuppressionOverride::<T>::insert(netuid, val),
                 None => EmissionSuppressionOverride::<T>::remove(netuid),
@@ -2605,6 +2626,54 @@ mod dispatches {
             Self::deposit_event(Event::EmissionSuppressionOverrideSet {
                 netuid,
                 override_value,
+            });
+            Ok(())
+        }
+
+        /// --- Vote to suppress or unsuppress emissions for a subnet.
+        /// The caller must be a coldkey that owns at least one hotkey registered on root
+        /// with stake >= StakeThreshold. Pass suppress=None to clear the vote.
+        #[pallet::call_index(134)]
+        #[pallet::weight((
+            Weight::from_parts(20_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(3))
+                .saturating_add(T::DbWeight::get().reads(128))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn vote_emission_suppression(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            suppress: Option<bool>,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(!netuid.is_root(), Error::<T>::CannotVoteOnRootSubnet);
+
+            // Only require root registration + stake threshold when *setting* a vote.
+            // Clearing (None) is always allowed so that deregistered/understaked coldkeys
+            // can clean up their own stale entries.
+            if suppress.is_some() {
+                // Coldkey must own at least one hotkey registered on root with enough stake.
+                let stake_threshold = Self::get_stake_threshold();
+                let hotkeys = OwnedHotkeys::<T>::get(&coldkey);
+                let has_qualifying_hotkey = hotkeys.iter().any(|hk| {
+                    Self::is_hotkey_registered_on_network(NetUid::ROOT, hk)
+                        && u64::from(Self::get_stake_for_hotkey_on_subnet(hk, NetUid::ROOT))
+                            >= stake_threshold
+                });
+                ensure!(has_qualifying_hotkey, Error::<T>::NotEnoughStakeToVote);
+            }
+
+            match suppress {
+                Some(val) => EmissionSuppressionVote::<T>::insert(netuid, &coldkey, val),
+                None => EmissionSuppressionVote::<T>::remove(netuid, &coldkey),
+            }
+            Self::deposit_event(Event::EmissionSuppressionVoteCast {
+                coldkey,
+                netuid,
+                suppress,
             });
             Ok(())
         }
@@ -2628,68 +2697,6 @@ mod dispatches {
             KeepRootSellPressureOnSuppressedSubnets::<T>::put(value);
             Self::deposit_event(Event::KeepRootSellPressureOnSuppressedSubnetsSet { value });
             Ok(())
-        }
-
-        /// --- Vote to suppress or unsuppress emissions for a subnet.
-        /// The caller must be a coldkey that owns at least one hotkey registered on root
-        /// with stake >= StakeThreshold. Pass suppress=None to clear the vote.
-        #[pallet::call_index(134)]
-        #[pallet::weight((
-            Weight::from_parts(20_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(5))
-                .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Normal,
-            Pays::Yes
-        ))]
-        pub fn vote_emission_suppression(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            suppress: Option<bool>,
-        ) -> DispatchResult {
-            let coldkey = ensure_signed(origin)?;
-            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
-            ensure!(!netuid.is_root(), Error::<T>::CannotVoteOnRootSubnet);
-
-            // Coldkey must own at least one hotkey registered on root with enough stake.
-            let stake_threshold = Self::get_stake_threshold();
-            let hotkeys = StakingHotkeys::<T>::get(&coldkey);
-            let has_qualifying_hotkey = hotkeys.iter().any(|hk| {
-                Self::is_hotkey_registered_on_network(NetUid::ROOT, hk)
-                    && u64::from(Self::get_stake_for_hotkey_on_subnet(hk, NetUid::ROOT))
-                        >= stake_threshold
-            });
-            ensure!(has_qualifying_hotkey, Error::<T>::NotEnoughStakeToVote);
-
-            match suppress {
-                Some(val) => EmissionSuppressionVote::<T>::insert(netuid, &coldkey, val),
-                None => EmissionSuppressionVote::<T>::remove(netuid, &coldkey),
-            }
-            Self::deposit_event(Event::EmissionSuppressionVoteCast {
-                coldkey,
-                netuid,
-                suppress,
-            });
-            Ok(())
-        }
-
-        /// --- The extrinsic is a combination of add_stake(add_stake_limit) and burn_alpha. We buy
-        /// alpha token first and immediately burn the acquired amount of alpha (aka Subnet buyback).
-        #[pallet::call_index(132)]
-        #[pallet::weight((
-		    Weight::from_parts(368_000_000, 8556)
-			.saturating_add(T::DbWeight::get().reads(28_u64))
-			.saturating_add(T::DbWeight::get().writes(17_u64)),
-            DispatchClass::Normal,
-            Pays::Yes
-        ))]
-        pub fn add_stake_burn(
-            origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
-            netuid: NetUid,
-            amount: TaoCurrency,
-            limit: Option<TaoCurrency>,
-        ) -> DispatchResult {
-            Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }
     }
 }

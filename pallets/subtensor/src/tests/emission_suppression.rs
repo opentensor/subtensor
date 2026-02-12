@@ -1,9 +1,8 @@
-#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
+#![allow(clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use super::mock::*;
 use crate::*;
 use alloc::collections::BTreeMap;
 use frame_support::{assert_err, assert_ok};
-use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::U256;
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
@@ -697,7 +696,7 @@ fn test_all_subnets_suppressed() {
         let total: u64 = emissions
             .values()
             .map(|e| e.saturating_to_num::<u64>())
-            .sum();
+            .fold(0u64, |a, b| a.saturating_add(b));
         assert_eq!(total, 0, "all-suppressed should yield zero total emission");
     });
 }
