@@ -15,9 +15,10 @@ pub mod check_nonce;
 mod migrations;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
+pub mod unchecked_extrinsics;
 
 extern crate alloc;
-
+use crate::unchecked_extrinsics::UncheckedExtrinsic as CombinedUncheckedExtrinsic;
 use codec::{Compact, Decode, Encode};
 use ethereum::AuthorizationList;
 use frame_support::{
@@ -193,6 +194,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
 }
 
 // Subtensor module
+// pub use pallet_revive; // Temporarily disabled
 pub use pallet_scheduler;
 pub use pallet_subtensor;
 
@@ -1182,6 +1184,31 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
     }
 }
 
+pub struct FindAuthorTruncated2<F>(PhantomData<F>);
+impl<F: FindAuthor<u32>> FindAuthor<AccountId> for FindAuthorTruncated2<F> {
+    fn find_author<'a, I>(digests: I) -> Option<AccountId>
+    where
+        I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+    {
+        if let Some(author_index) = F::find_author(digests) {
+            pallet_aura::Authorities::<Runtime>::get()
+                .get(author_index as usize)
+                .and_then(|authority_id| {
+                    let raw_vec = authority_id.to_raw_vec();
+                    if raw_vec.len() >= 32 {
+                        let mut account_bytes = [0u8; 32];
+                        account_bytes.copy_from_slice(raw_vec.get(..32)?);
+                        Some(AccountId::from(AccountId32::from(account_bytes)))
+                    } else {
+                        None
+                    }
+                })
+        } else {
+            None
+        }
+    }
+}
+
 const BLOCK_GAS_LIMIT: u64 = 75_000_000;
 pub const NORMAL_DISPATCH_BASE_PRIORITY: TransactionPriority = 1;
 pub const OPERATIONAL_DISPATCH_PRIORITY: TransactionPriority = 10_000_000_000;
@@ -1517,6 +1544,68 @@ impl pallet_contracts::Config for Runtime {
     type ApiVersion = ();
 }
 
+// PolkaVM smart contracts (pallet-revive)
+// Temporarily disabled due to compilation errors in EVM runtime module
+// The pallet-revive crate has a bug where it tries to import ExtrinsicCall from
+// frame_support::traits but it should be from sp_runtime::traits
+parameter_types! {
+    pub const DepositPerItem: Balance = deposit(1, 0);
+    pub const DepositPerByte: Balance = deposit(0, 1);
+}
+
+// EthExtraImpl is only used for pallet-revive EVM runtime
+// The EthExtra trait is not available in the current SDK version
+#[derive(Clone, PartialEq, Eq, Debug, TypeInfo, Encode, Decode)]
+pub struct EthExtraImpl;
+
+impl pallet_revive::evm::runtime::EthExtra for EthExtraImpl {
+    type Config = Runtime;
+    type Extension = TransactionExtensions;
+
+    fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
+        (
+            frame_system::CheckNonZeroSender::<Runtime>::new(),
+            frame_system::CheckSpecVersion::<Runtime>::new(),
+            frame_system::CheckTxVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::from(crate::generic::Era::Immortal),
+            check_nonce::CheckNonce::<Runtime>::from(nonce),
+            frame_system::CheckWeight::<Runtime>::new(),
+            ChargeTransactionPaymentWrapper::new(
+                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+            ),
+            SudoTransactionExtension::<Runtime>::new(),
+            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+            frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+        )
+    }
+}
+
+impl pallet_revive::Config for Runtime {
+    type Time = Timestamp;
+    type Currency = Balances;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type DepositPerItem = DepositPerItem;
+    type DepositPerByte = DepositPerByte;
+    type WeightPrice = pallet_transaction_payment::Pallet<Self>;
+    type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
+    type Precompiles = ();
+    type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
+    type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
+    type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
+    type UnsafeUnstableInterface = ConstBool<false>;
+    type UploadOrigin = EnsureSigned<Self::AccountId>;
+    type InstantiateOrigin = EnsureSigned<Self::AccountId>;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+    type ChainId = ConstU64<420_420_420>;
+    type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
+    type EthGasEncoder = ();
+    type FindAuthor = FindAuthorTruncated2<Aura>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -1555,6 +1644,7 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
+        Revive: pallet_revive = 31,
     }
 );
 
@@ -1590,7 +1680,7 @@ type Migrations = (
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, TransactionExtensions>;
+    CombinedUncheckedExtrinsic<Address, RuntimeCall, Signature, EthExtraImpl>;
 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic =
@@ -1672,7 +1762,10 @@ fn generate_genesis_json() -> Vec<u8> {
 
 type EventRecord = frame_system::EventRecord<RuntimeEvent, Hash>;
 
-impl_runtime_apis! {
+pallet_revive::impl_runtime_apis_plus_revive!(
+    Runtime,
+    Executive,
+    EthExtraImpl,
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
             VERSION
@@ -2461,7 +2554,7 @@ impl_runtime_apis! {
 
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
                 .saturating_mul(U96F32::from_num(1_000_000_000))
-                .saturating_to_num()
+                .saturating_to_num::<u64>()
         }
 
         fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
@@ -2472,16 +2565,16 @@ impl_runtime_apis! {
             )
             .map_or_else(
                 |_| SimSwapResult {
-                    tao_amount:   0.into(),
-                    alpha_amount: 0.into(),
-                    tao_fee:      0.into(),
-                    alpha_fee:    0.into(),
+                    tao_amount:   TaoCurrency::from(0u64),
+                    alpha_amount: AlphaCurrency::from(0u64),
+                    tao_fee:      TaoCurrency::from(0u64),
+                    alpha_fee:    AlphaCurrency::from(0u64),
                 },
                 |sr| SimSwapResult {
-                    tao_amount:   sr.amount_paid_in.into(),
-                    alpha_amount: sr.amount_paid_out.into(),
-                    tao_fee:      sr.fee_paid.into(),
-                    alpha_fee:    0.into(),
+                    tao_amount:   TaoCurrency::from(sr.amount_paid_in.to_u64()),
+                    alpha_amount: AlphaCurrency::from(sr.amount_paid_out.to_u64()),
+                    tao_fee:      TaoCurrency::from(sr.fee_paid.to_u64()),
+                    alpha_fee:    AlphaCurrency::from(0u64),
                 },
             )
         }
@@ -2494,21 +2587,21 @@ impl_runtime_apis! {
             )
             .map_or_else(
                 |_| SimSwapResult {
-                    tao_amount:   0.into(),
-                    alpha_amount: 0.into(),
-                    tao_fee:      0.into(),
-                    alpha_fee:    0.into(),
+                    tao_amount:   TaoCurrency::from(0u64),
+                    alpha_amount: AlphaCurrency::from(0u64),
+                    tao_fee:      TaoCurrency::from(0u64),
+                    alpha_fee:    AlphaCurrency::from(0u64),
                 },
                 |sr| SimSwapResult {
-                    tao_amount:   sr.amount_paid_out.into(),
-                    alpha_amount: sr.amount_paid_in.into(),
-                    tao_fee:      0.into(),
-                    alpha_fee:    sr.fee_paid.into(),
+                    tao_amount:   TaoCurrency::from(sr.amount_paid_out.to_u64()),
+                    alpha_amount: AlphaCurrency::from(sr.amount_paid_in.to_u64()),
+                    tao_fee:      TaoCurrency::from(0u64),
+                    alpha_fee:    AlphaCurrency::from(sr.fee_paid.to_u64()),
                 },
             )
         }
     }
-}
+);
 
 #[test]
 fn check_whitelist() {
