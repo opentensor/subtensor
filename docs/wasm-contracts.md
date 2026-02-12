@@ -44,18 +44,7 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 13 | `add_proxy` | Add a staking proxy for the caller | `(AccountId)` | Error code |
 | 14 | `remove_proxy` | Remove a staking proxy for the caller | `(AccountId)` | Error code |
 | 15 | `get_alpha_price` | Get the current alpha price for a subnet | `(NetUid)` | `u64` (price × 10⁹) |
-| 16 | `add_stake_v2` | Add stake with explicit coldkey (proxy-aware) | `(AccountId, AccountId, NetUid, TaoCurrency)` | Error code |
-| 17 | `remove_stake_v2` | Remove stake with explicit coldkey | `(AccountId, AccountId, NetUid, AlphaCurrency)` | Error code |
-| 18 | `unstake_all_v2` | Unstake all TAO with explicit coldkey | `(AccountId, AccountId)` | Error code |
-| 19 | `unstake_all_alpha_v2` | Unstake all Alpha with explicit coldkey | `(AccountId, AccountId)` | Error code |
-| 20 | `move_stake_v2` | Move stake between hotkeys with explicit coldkey | `(AccountId, AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
-| 21 | `transfer_stake_v2` | Transfer stake between coldkeys (requires Transfer proxy) | `(AccountId, AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
-| 22 | `swap_stake_v2` | Swap stake between subnets with explicit coldkey | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency)` | Error code |
-| 23 | `add_stake_limit_v2` | Add stake with price limit and explicit coldkey | `(AccountId, AccountId, NetUid, TaoCurrency, TaoCurrency, bool)` | Error code |
-| 24 | `remove_stake_limit_v2` | Remove stake with price limit and explicit coldkey | `(AccountId, AccountId, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
-| 25 | `swap_stake_limit_v2` | Swap stake with price limit and explicit coldkey | `(AccountId, AccountId, NetUid, NetUid, AlphaCurrency, TaoCurrency, bool)` | Error code |
-| 26 | `remove_stake_full_limit_v2` | Full unstake with price limit and explicit coldkey | `(AccountId, AccountId, NetUid, Option<TaoCurrency>)` | Error code |
-| 27 | `set_coldkey_auto_stake_hotkey_v2` | Set auto-stake hotkey with explicit coldkey | `(AccountId, NetUid, AccountId)` | Error code |
+| 16 | `proxy_call` | Dispatch any RuntimeCall through pallet_proxy | `(AccountId, Option<u8>, BoundedVec<u8, 1024>)` | Error code |
 
 Example usage in your ink! contract:
 ```rust
@@ -100,16 +89,17 @@ Chain extension functions that modify state return error codes as `u32` values. 
 | 19 | `ProxyNotFound` | Proxy relationship not found |
 | 20 | `NotAuthorizedProxy` | Caller is not an authorized proxy for the account |
 
-#### V2 Functions (Proxy-Aware)
+#### ProxyCall (ID 16) — Proxy-Aware Generic Dispatcher
 
-Functions 16-27 are V2 versions that accept an explicit `coldkey` parameter as the first argument. These functions:
+Instead of per-function proxy variants, a single `proxy_call` extension dispatches any SCALE-encoded `RuntimeCall` through `pallet_proxy`. Parameters:
 
-- If `coldkey == caller`: Execute directly (no proxy check needed)
-- If `coldkey != caller`: Verify caller has appropriate proxy permissions for coldkey
+- `real_coldkey: AccountId` — the account to act on behalf of
+- `force_proxy_type: Option<u8>` — optional proxy type filter (e.g., `5` for Staking), or `None` to match any
+- `call_data: BoundedVec<u8, 1024>` — SCALE-encoded `RuntimeCall`
 
-**Proxy Types Required:**
-- Most V2 functions require `ProxyType::Staking`
-- `transfer_stake_v2` (ID 21) requires `ProxyType::Transfer`
+Behavior:
+- If `real_coldkey == caller`: dispatches the call directly (no proxy needed)
+- If `real_coldkey != caller`: routes through `pallet_proxy::proxy()`, which checks proxy permissions via `InstanceFilter` — correctly supporting `Any`, `Staking`, `Transfer`, and all other proxy types
 
 ### Call Filter
 
