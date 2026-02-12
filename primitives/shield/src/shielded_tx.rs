@@ -9,7 +9,7 @@ use scale_info::TypeInfo;
 
 const KEY_HASH_LEN: usize = 16;
 
-#[derive(Debug, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
 pub struct ShieldedTransaction {
     pub key_hash: [u8; KEY_HASH_LEN],
     pub kem_ct: Vec<u8>,
