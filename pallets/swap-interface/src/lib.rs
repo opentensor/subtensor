@@ -4,7 +4,7 @@ use core::ops::Neg;
 use frame_support::pallet_prelude::*;
 use substrate_fixed::types::U96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 
 pub use order::*;
 
@@ -14,7 +14,7 @@ pub trait SwapEngine<O: Order>: DefaultPriceLimit<O::PaidIn, O::PaidOut> {
     fn swap(
         netuid: NetUid,
         order: O,
-        price_limit: TaoCurrency,
+        price_limit: TaoBalance,
         drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>;
@@ -24,7 +24,7 @@ pub trait SwapHandler {
     fn swap<O: Order>(
         netuid: NetUid,
         order: O,
-        price_limit: TaoCurrency,
+        price_limit: TaoBalance,
         drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
@@ -37,16 +37,12 @@ pub trait SwapHandler {
     where
         Self: SwapEngine<O>;
 
-    fn approx_fee_amount<T: Currency>(netuid: NetUid, amount: T) -> T;
+    fn approx_fee_amount<T: Token>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U96F32;
-    fn get_protocol_tao(netuid: NetUid) -> TaoCurrency;
-    fn max_price<C: Currency>() -> C;
-    fn min_price<C: Currency>() -> C;
-    fn adjust_protocol_liquidity(
-        netuid: NetUid,
-        tao_delta: TaoCurrency,
-        alpha_delta: AlphaCurrency,
-    );
+    fn get_protocol_tao(netuid: NetUid) -> TaoBalance;
+    fn max_price<C: Token>() -> C;
+    fn min_price<C: Token>() -> C;
+    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: TaoBalance, alpha_delta: AlphaBalance);
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
     fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
@@ -55,18 +51,18 @@ pub trait SwapHandler {
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>
 where
-    PaidIn: Currency,
-    PaidOut: Currency,
+    PaidIn: Token,
+    PaidOut: Token,
 {
-    fn default_price_limit<C: Currency>() -> C;
+    fn default_price_limit<C: Token>() -> C;
 }
 
-#[freeze_struct("d3d0b124fe5a97c8")]
+#[freeze_struct("20e853edfff00122")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SwapResult<PaidIn, PaidOut>
 where
-    PaidIn: Currency,
-    PaidOut: Currency,
+    PaidIn: Token,
+    PaidOut: Token,
 {
     pub amount_paid_in: PaidIn,
     pub amount_paid_out: PaidOut,
@@ -75,8 +71,8 @@ where
 
 impl<PaidIn, PaidOut> SwapResult<PaidIn, PaidOut>
 where
-    PaidIn: Currency,
-    PaidOut: Currency,
+    PaidIn: Token,
+    PaidOut: Token,
 {
     pub fn paid_in_reserve_delta(&self) -> i128 {
         self.amount_paid_in.to_u64() as i128

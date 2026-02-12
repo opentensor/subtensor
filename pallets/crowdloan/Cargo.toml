@@ -19,9 +19,10 @@ codec = { workspace = true, features = ["max-encoded-len"] }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+log.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
-log.workspace = true
+subtensor-runtime-common.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -42,6 +43,7 @@ std = [
   "sp-io/std",
   "log/std",
   "sp-core/std",
+  "subtensor-runtime-common/std",
   "pallet-balances/std",
   "pallet-preimage/std",
 ]

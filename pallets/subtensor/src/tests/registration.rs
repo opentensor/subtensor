@@ -9,7 +9,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, Token};
 
 use super::mock;
 use super::mock::*;
@@ -125,7 +125,7 @@ fn test_registration_ok() {
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
     });
 }
@@ -291,12 +291,15 @@ fn test_burned_registration_under_limit() {
         // Set the burn cost
         SubtensorModule::set_burn(netuid, burn_cost.into());
 
-        let reserve = 1_000_000_000_000;
+        let reserve = 1_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost + 10_000);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            (burn_cost + 10_000).into(),
+        );
 
         let target_registrants = 2;
         let max_registrants = target_registrants * 3; // Maximum is 3 times the target
@@ -391,12 +394,15 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
         // Set the burn cost
         SubtensorModule::set_burn(netuid, burn_cost.into());
 
-        let reserve = 1_000_000_000_000;
+        let reserve = 1_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost + 10_000);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            (burn_cost + 10_000).into(),
+        );
 
         let target_registrants = 1; // Target is 1, but we can register more than that, up to some maximum.
         SubtensorModule::set_target_registrations_per_interval(netuid, target_registrants);
@@ -448,11 +454,11 @@ fn test_burned_registration_ok() {
         SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
 
-        let reserve = 1_000_000_000_000;
+        let reserve = 1_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -462,7 +468,7 @@ fn test_burned_registration_ok() {
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-            10000 - burn_cost
+            (10000 - burn_cost).into()
         ); // funds drained on reg.
         // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -482,7 +488,7 @@ fn test_burned_registration_ok() {
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
     });
 }
@@ -499,7 +505,7 @@ fn test_burn_registration_without_neuron_slot() {
         SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
         SubtensorModule::set_max_allowed_uids(netuid, 0);
 
         assert_noop!(
@@ -527,7 +533,10 @@ fn test_burn_registration_doesnt_write_on_failure() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_burn(netuid, burn_cost.into());
         // Give coldkey balance to pay for registration
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            initial_balance.into(),
+        );
         // Set max allowed uids to 0 so registration will fail, but only on last check.
         SubtensorModule::set_max_allowed_uids(netuid, 0);
 
@@ -544,7 +553,7 @@ fn test_burn_registration_doesnt_write_on_failure() {
         // Make sure the coldkey balance is unchanged.
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-            initial_balance
+            initial_balance.into()
         );
         // Make sure the neuron is not registered.
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
@@ -570,13 +579,16 @@ fn test_burn_adjustment() {
             target_registrations_per_interval,
         );
 
-        let reserve = 1_000_000_000_000;
+        let reserve = 1_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
         let coldkey_account_id_1 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id_1, init_burn_cost);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id_1,
+            init_burn_cost.into(),
+        );
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1),
             netuid,
@@ -586,7 +598,10 @@ fn test_burn_adjustment() {
         // Register key 2.
         let hotkey_account_id_2 = U256::from(2);
         let coldkey_account_id_2 = U256::from(2);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id_2, init_burn_cost);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id_2,
+            init_burn_cost.into(),
+        );
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2),
             netuid,
@@ -630,13 +645,13 @@ fn test_burn_registration_pruning_scenarios() {
         SubtensorModule::set_target_registrations_per_interval(netuid, max_allowed_uids);
         SubtensorModule::set_immunity_period(netuid, immunity_period);
 
-        let reserve = 1_000_000_000_000;
+        let reserve = 1_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         add_network(netuid, tempo, 0);
 
         let mint_balance = burn_cost * max_allowed_uids as u64 + 1_000_000_000;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, mint_balance);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, mint_balance.into());
 
         // Register first half of neurons (uids: 0,1,2); all will be immune initially.
         for i in 0..3 {
@@ -1413,7 +1428,7 @@ fn test_registration_get_uid_to_prune_owner_immortality() {
             // uid0=0, uid1=0, uid2=1
             Emission::<Test>::insert(
                 netuid,
-                vec![AlphaCurrency::from(0), 0u64.into(), 1u64.into()],
+                vec![AlphaBalance::from(0), 0u64.into(), 1u64.into()],
             );
 
             assert_eq!(
@@ -1462,7 +1477,7 @@ fn test_registration_get_uid_to_prune_owner_immortality_all_immune() {
         // Lowest emission among non-immortal candidates -> uid2
         Emission::<Test>::insert(
             netuid,
-            vec![AlphaCurrency::from(0), 0u64.into(), 1u64.into()],
+            vec![AlphaBalance::from(0), 0u64.into(), 1u64.into()],
         );
 
         assert_eq!(
@@ -1591,7 +1606,7 @@ fn test_burn_registration_increase_recycled_rao() {
         let _ =
             Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000_u64));
 
-        let reserve = 1_000_000_000_000;
+        let reserve = 1_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
         mock::setup_reserves(netuid2, reserve.into(), reserve.into());
 
@@ -2135,7 +2150,7 @@ fn test_last_update_correctness() {
         SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
 
-        let reserve = 1_000_000_000_000;
+        let reserve = 1_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Simulate existing neurons
@@ -2146,7 +2161,7 @@ fn test_last_update_correctness() {
         LastUpdate::<Test>::remove(NetUidStorageIndex::from(netuid));
 
         // Give some $$$ to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
