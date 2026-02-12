@@ -282,5 +282,7 @@ mod errors {
         Deprecated,
         /// Subnet buyback exceeded the operation rate limit
         SubnetBuybackRateLimitExceeded,
+        /// Network already dissolved
+        NetworkAlreadyDissolved,
     }
 }

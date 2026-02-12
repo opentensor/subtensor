@@ -1,5 +1,6 @@
 use frame_support::pallet_macros::pallet_section;
-
+// use subtensor_commitments_interface::CommitmentsHandler;
+// use subtensor_swap_interface::SwapHandler;
 /// A [`pallet_section`] that defines the events for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
@@ -186,6 +187,9 @@ mod hooks {
                 return weight_meter.consumed();
             }
             weight_meter.consume(on_idle_weight);
+            weight_meter.consumed();
+
+            let _ = Self::remove_data_for_dissolved_networks(weight_meter.remaining());
             weight_meter.consumed()
         }
     }
@@ -226,6 +230,42 @@ mod hooks {
                 }
             }
             weight
+        }
+
+        // Clean the data for dissolved networks
+        //
+        // # Args:
+        // 	* 'remaining_weight': (Weight):
+        // 		- The remaining weight for the function.
+        //
+        // # Returns:
+        // 	* 'Weight': The weight consumed by the function.
+        //
+        fn remove_data_for_dissolved_networks(remaining_weight: Weight) -> Weight {
+            let dissolved_networks = DissolvedNetworks::<T>::get();
+
+            for netuid in dissolved_networks.iter() {
+                Self::finalize_all_subnet_root_dividends(*netuid);
+                let _ = T::SwapInterface::dissolve_all_liquidity_providers(*netuid);
+                let _ = Self::destroy_alpha_in_out_stakes(*netuid);
+                let _ = T::SwapInterface::clear_protocol_liquidity(*netuid);
+                let _ = T::CommitmentsInterface::purge_netuid(*netuid);
+                let _ = Self::remove_network(*netuid);
+
+                Self::deposit_event(Event::DissolvedNetworkDataCleaned { netuid: *netuid });
+            }
+            let mut _weight_meter = WeightMeter::with_limit(remaining_weight);
+            Weight::from_parts(0, 0)
+            // Self::finalize_all_subnet_root_dividends(netuid);
+
+            // --- Perform the cleanup before removing the network.
+            // T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
+            // Self::destroy_alpha_in_out_stakes(netuid)?;
+            // T::SwapInterface::clear_protocol_liquidity(netuid)?;
+            // T::CommitmentsInterface::purge_netuid(netuid);
+
+            // --- Remove the network
+            // Self::remove_network(netuid);
         }
     }
 }
