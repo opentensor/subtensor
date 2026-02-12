@@ -10,7 +10,7 @@ type ExtrinsicOf<Block> = <Block as BlockT>::Extrinsic;
 
 sp_api::decl_runtime_apis! {
     pub trait ShieldApi {
-        fn try_unshield_tx(uxt: ExtrinsicOf<Block>) -> Option<ShieldedTransaction>;
-        fn try_decrypt_shielded_tx(shielded_tx: ShieldedTransaction) -> Option<ExtrinsicOf<Block>>;
+        fn try_decode_shielded_tx(uxt: ExtrinsicOf<Block>) -> Option<ShieldedTransaction>;
+        fn try_unshield_tx(shielded_tx: ShieldedTransaction) -> Option<ExtrinsicOf<Block>>;
     }
 }
