@@ -1747,7 +1747,7 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn subnet_buyback() {
+    fn add_stake_burn() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;
         let seed: u32 = 1;
