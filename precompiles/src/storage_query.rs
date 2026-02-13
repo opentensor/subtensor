@@ -7,7 +7,7 @@ use sp_std::vec::Vec;
 
 use crate::PrecompileExt;
 
-pub(crate) struct StorageQueryPrecompile<R>(PhantomData<R>);
+pub struct StorageQueryPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for StorageQueryPrecompile<R>
 where
