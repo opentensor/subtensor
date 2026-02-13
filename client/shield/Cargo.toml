@@ -10,6 +10,7 @@ async-trait.workspace = true
 anyhow.workspace = true
 codec.workspace = true
 futures.workspace = true
+hex.workspace = true
 
 # Crypto
 rand.workspace = true
@@ -31,4 +32,16 @@ workspace = true
 
 [features]
 default = ["std"]
-std = []
+std = [
+    "anyhow/std",
+    "chacha20poly1305/std",
+    "ml-kem/std",
+    "stp-shield/std",
+    "codec/std",
+    "futures/std",
+    "hex/std",
+    "log/std",
+    "rand/std",
+    "sp-runtime/std",
+    "sp-inherents/std",
+]
