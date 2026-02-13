@@ -164,9 +164,8 @@ mod tests {
         // The "next" public key is what will be announced in the inherent.
         // After a roll, it becomes the "current" key used for decapsulation.
         let pk_bytes = ks.next_public_key().unwrap();
-        let enc_key = EncapsulationKey::<MlKem768Params>::from_bytes(
-            pk_bytes.as_slice().try_into().unwrap(),
-        );
+        let enc_key =
+            EncapsulationKey::<MlKem768Params>::from_bytes(pk_bytes.as_slice().try_into().unwrap());
 
         let (ct, ss_sender) = enc_key.encapsulate(&mut OsRng).unwrap();
 
@@ -259,9 +258,10 @@ mod tests {
             )
             .unwrap();
 
-        assert!(ks
-            .aead_decrypt(key, nonce, &ciphertext, b"wrong aad")
-            .is_err());
+        assert!(
+            ks.aead_decrypt(key, nonce, &ciphertext, b"wrong aad")
+                .is_err()
+        );
     }
 
     #[test]
@@ -273,9 +273,8 @@ mod tests {
 
         // Client side: read the announced public key and encrypt.
         let pk_bytes = ks.next_public_key().unwrap();
-        let enc_key = EncapsulationKey::<MlKem768Params>::from_bytes(
-            pk_bytes.as_slice().try_into().unwrap(),
-        );
+        let enc_key =
+            EncapsulationKey::<MlKem768Params>::from_bytes(pk_bytes.as_slice().try_into().unwrap());
         let (kem_ct, shared_secret) = enc_key.encapsulate(&mut OsRng).unwrap();
 
         let nonce = [13u8; 24];
@@ -307,9 +306,8 @@ mod tests {
         let ks = MemoryShieldKeystore::new();
 
         let pk_bytes = ks.next_public_key().unwrap();
-        let enc_key = EncapsulationKey::<MlKem768Params>::from_bytes(
-            pk_bytes.as_slice().try_into().unwrap(),
-        );
+        let enc_key =
+            EncapsulationKey::<MlKem768Params>::from_bytes(pk_bytes.as_slice().try_into().unwrap());
         let (kem_ct, ss_sender) = enc_key.encapsulate(&mut OsRng).unwrap();
 
         // DO NOT roll — decapsulate uses initial current_pair, not next_pair.
