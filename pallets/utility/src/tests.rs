@@ -839,7 +839,7 @@ fn with_weight_works() {
         );
         assert_eq!(
             with_weight_call.get_dispatch_info().class,
-            frame_support::dispatch::DispatchClass::Operational
+            frame_support::dispatch::DispatchClass::Normal // We only allow normal in subtensor
         );
     })
 }
