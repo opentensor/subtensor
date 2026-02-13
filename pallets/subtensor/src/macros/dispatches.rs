@@ -1069,11 +1069,9 @@ mod dispatches {
         ///
         /// Only callable by root as it doesn't require an announcement and can be used to swap any coldkey.
         #[pallet::call_index(71)]
-        #[pallet::weight(
-            Weight::from_parts(183_600_000, 0)
-            .saturating_add(T::DbWeight::get().reads(17_u64))
-            .saturating_add(T::DbWeight::get().writes(10_u64))
-        )]
+        #[pallet::weight(Weight::from_parts(161_700_000, 0)
+        .saturating_add(T::DbWeight::get().reads(16_u64))
+        .saturating_add(T::DbWeight::get().writes(11_u64)))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
@@ -1157,13 +1155,9 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(69)]
-        #[pallet::weight((
-            Weight::from_parts(5_660_000, 0)
-            .saturating_add(T::DbWeight::get().reads(0))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(5_660_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0))
+        .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
             origin: OriginFor<T>,
             tx_rate_limit: u64,
@@ -1185,13 +1179,9 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(76)]
-        #[pallet::weight((
-            Weight::from_parts(6_000, 0)
-            .saturating_add(T::DbWeight::get().reads(1))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(6_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_min_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_min_childkey_take(take);
@@ -1210,13 +1200,9 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(77)]
-        #[pallet::weight((
-            Weight::from_parts(6_000, 0)
-            .saturating_add(T::DbWeight::get().reads(1))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(6_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_max_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_max_childkey_take(take);
@@ -1256,9 +1242,9 @@ mod dispatches {
         /// Remove a user's subnetwork
         /// The caller must be the owner of the network
         #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        #[pallet::weight(Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(31)))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
             _coldkey: T::AccountId,
@@ -1955,7 +1941,7 @@ mod dispatches {
 
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
-        #[pallet::weight((Weight::from_parts(1_970_000_000_000, 0), DispatchClass::Operational, Pays::Yes))]
+        #[pallet::weight(Weight::from_parts(1_970_000_000_000, 0))]
         pub fn set_pending_childkey_cooldown(
             origin: OriginFor<T>,
             cooldown: u64,
@@ -2225,9 +2211,9 @@ mod dispatches {
         /// Remove a subnetwork
         /// The caller must be root
         #[pallet::call_index(120)]
-        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        #[pallet::weight(Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(31)))]
         pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_dissolve_network(netuid)
@@ -2305,13 +2291,9 @@ mod dispatches {
 
         /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
         #[pallet::call_index(123)]
-        #[pallet::weight((
-            Weight::from_parts(4_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(0_u64))
-            .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(4_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0_u64))
+        .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -2331,7 +2313,7 @@ mod dispatches {
             Weight::from_parts(5_711_000, 0)
             .saturating_add(T::DbWeight::get().reads(0_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn sudo_set_root_claim_threshold(
