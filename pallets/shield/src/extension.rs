@@ -57,22 +57,23 @@ where
             return Ok((Default::default(), (), origin));
         };
 
-        // Ensure the transaction is encrypted
+        // Ensure the transaction is a shielded transaction, else we just skip the extension.
         let Some(Call::submit_encrypted { ciphertext }) = IsSubType::<Call<T>>::is_sub_type(call)
         else {
-            return Err(InvalidTransaction::BadSigner.into());
+            return Ok((Default::default(), (), origin));
         };
 
         let Some(shielded_tx) = ShieldedTransaction::parse(&ciphertext) else {
             return Err(InvalidTransaction::BadProof.into());
         };
 
-        let next_key_hash = NextKey::<T>::get().map(|key| twox_128(&key.into_inner()[..]));
+        let next_key = NextKey::<T>::get();
+        let next_key_hash = next_key.map(|key| twox_128(&key.into_inner()[..]));
 
-        // The transaction must be encrypted with the next key or we discard it
+        // The transaction must be encrypted with the next key or we discard it.
         if next_key_hash.is_none() || next_key_hash.is_some_and(|hash| hash != shielded_tx.key_hash)
         {
-            return Err(InvalidTransaction::BadProof)?;
+            return Err(InvalidTransaction::BadProof.into());
         }
 
         Ok((Default::default(), (), origin))
