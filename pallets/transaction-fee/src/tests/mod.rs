@@ -516,7 +516,8 @@ fn test_remove_stake_failing_transaction_tao_fees() {
     });
 }
 
-// Validation passes, but transaction fails => Alpha fees are paid
+// Validation passes, but transaction fails (artificially disable subtoken) =>
+// Alpha fees are still paid
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_failing_transaction_alpha_fees --exact --show-output
 #[test]
@@ -532,8 +533,8 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
             stake_amount,
         );
 
-        // Make unstaking fail by reducing liquidity to critical
-        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1));
+        // Provide adequate TAO reserve so that sim swap works ok in validation
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1_000_000_000));
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
@@ -541,6 +542,9 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
+
+        // Disable subtoken so that removing stake tx fails (still allows the validation to pass)
+        pallet_subtensor::SubtokenEnabled::<Test>::insert(sn.subnets[0].netuid, false);
 
         // Remove stake
         let balance_before = Balances::free_balance(sn.coldkey);
@@ -552,7 +556,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
             hotkey: sn.hotkeys[0],
             netuid: sn.subnets[0].netuid,
-            amount_unstaked: unstake_amount,
+            amount_unstaked: alpha_before,
         });
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension

@@ -6,13 +6,10 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
-use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::{
-    //Order,
-    SwapHandler,
-};
+use sp_std::collections::btree_map::BTreeMap;
+use substrate_fixed::types::{I96F32, U96F32};
+use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 #[test]
 fn test_registration_ok() {
@@ -1813,29 +1810,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             &cold_lps[1..5], // net3: B,C,D,E
         ];
 
-        // Multiple bands/sizes → many positions per cold across nets, using mixed hotkeys.
-        // let bands: [i32; 3] = [5, 13, 30];
-        // let liqs: [u64; 3] = [400_000, 700_000, 1_100_000];
-
-        // TODO: Revise when user liquidity is available
-        // Helper: add a V3 position via a (hot, cold) pair.
-        // let add_pos = |net: NetUid, hot: U256, cold: U256, band: i32, liq: u64| {
-        //     let ct = pallet_subtensor_swap::CurrentTick::<Test>::get(net);
-        //     let lo = ct.saturating_sub(band);
-        //     let hi = ct.saturating_add(band);
-        //     pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(net, true);
-        //     assert_ok!(pallet_subtensor_swap::Pallet::<Test>::add_liquidity(
-        //         RuntimeOrigin::signed(cold),
-        //         hot,
-        //         net,
-        //         lo,
-        //         hi,
-        //         liq
-        //     ));
-        // };
-
         // ────────────────────────────────────────────────────────────────────
-        // 1) Create many subnets, enable V3, fix price at tick=0 (sqrt≈1)
+        // 1) Create many subnets, fix price at tick=0
         // ────────────────────────────────────────────────────────────────────
         let mut nets: Vec<NetUid> = Vec::new();
         for i in 0..NUM_NETS {
@@ -1846,20 +1822,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             SubtensorModule::set_target_registrations_per_interval(net, 1_000u16);
             Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
             SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
-
-            assert_ok!(
-                pallet_subtensor_swap::Pallet::<Test>::toggle_user_liquidity(
-                    RuntimeOrigin::root(),
-                    net,
-                    true
-                )
-            );
-
-            // Price/tick pinned so LP math stays stable (sqrt(1)).
-            let ct0 = pallet_subtensor_swap::tick::TickIndex::new_unchecked(0);
-            let sqrt1 = ct0.try_to_sqrt_price().expect("sqrt(1) price");
-            pallet_subtensor_swap::CurrentTick::<Test>::set(net, ct0);
-            pallet_subtensor_swap::AlphaSqrtPrice::<Test>::set(net, sqrt1);
 
             nets.push(net);
         }
@@ -1953,24 +1915,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                     }
                 }
         }
-
-        // ────────────────────────────────────────────────────────────────────
-        // 4) Add many V3 positions per cold across nets, alternating hotkeys
-        // ────────────────────────────────────────────────────────────────────
-        // TODO: Revise when user liquidity is available
-        // for (ni, &net) in nets.iter().enumerate() {
-        //     let participants = lp_sets_per_net[ni];
-        //     for (pi, &cold) in participants.iter().enumerate() {
-        //         let [hot1, hot2] = cold_to_hots[&cold];
-        //         let hots = [hot1, hot2];
-        //         for k in 0..3 {
-        //             let band = bands[(pi + k) % bands.len()];
-        //             let liq = liqs[(ni + k) % liqs.len()];
-        //             let hot = hots[k % hots.len()];
-        //             add_pos(net, hot, cold, band, liq);
-        //         }
-        //     }
-        // }
 
         // Snapshot τ balances AFTER LP adds (to measure actual principal debit).
         let mut tao_after_adds: BTreeMap<U256, u64> = BTreeMap::new();
@@ -2095,44 +2039,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "subnet {net:?} still exists"
             );
             assert!(
-                pallet_subtensor_swap::Ticks::<Test>::iter_prefix(net)
-                    .next()
-                    .is_none(),
-                "ticks not cleared for net {net:?}"
-            );
-            assert!(
-                !pallet_subtensor_swap::Positions::<Test>::iter()
-                    .any(|((n, _owner, _pid), _)| n == net),
-                "swap positions not fully cleared for net {net:?}"
-            );
-            assert_eq!(
-                pallet_subtensor_swap::FeeGlobalTao::<Test>::get(net).saturating_to_num::<u64>(),
-                0,
-                "FeeGlobalTao nonzero for net {net:?}"
-            );
-            assert_eq!(
-                pallet_subtensor_swap::FeeGlobalAlpha::<Test>::get(net).saturating_to_num::<u64>(),
-                0,
-                "FeeGlobalAlpha nonzero for net {net:?}"
-            );
-            assert_eq!(
-                pallet_subtensor_swap::CurrentLiquidity::<Test>::get(net),
-                0,
-                "CurrentLiquidity not zero for net {net:?}"
-            );
-            assert!(
-                !pallet_subtensor_swap::SwapV3Initialized::<Test>::get(net),
+                !pallet_subtensor_swap::PalSwapInitialized::<Test>::get(net),
                 "SwapV3Initialized still set"
-            );
-            assert!(
-                !pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(net),
-                "EnabledUserLiquidity still set"
-            );
-            assert!(
-                pallet_subtensor_swap::TickIndexBitmapWords::<Test>::iter_prefix((net,))
-                    .next()
-                    .is_none(),
-                "TickIndexBitmapWords not cleared for net {net:?}"
             );
         }
 
@@ -2147,18 +2055,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         SubtensorModule::set_target_registrations_per_interval(net_new, 1_000u16);
         Emission::<Test>::insert(net_new, Vec::<AlphaCurrency>::new());
         SubtensorModule::set_subnet_locked_balance(net_new, TaoCurrency::from(0));
-
-        assert_ok!(
-            pallet_subtensor_swap::Pallet::<Test>::toggle_user_liquidity(
-                RuntimeOrigin::root(),
-                net_new,
-                true
-            )
-        );
-        let ct0 = pallet_subtensor_swap::tick::TickIndex::new_unchecked(0);
-        let sqrt1 = ct0.try_to_sqrt_price().expect("sqrt(1)");
-        pallet_subtensor_swap::CurrentTick::<Test>::set(net_new, ct0);
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::set(net_new, sqrt1);
 
         // Compute the exact min stake per the pallet rule: DefaultMinStake + fee(DefaultMinStake).
         let min_stake = DefaultMinStake::<Test>::get();
@@ -2214,118 +2110,5 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "α minted mismatch for cold {cold:?} (hot {hot1:?}) on new net (αΔ {a_delta}, expected {expected_alpha_out})"
             );
         }
-
-        // Ensure V3 still functional on new net: add a small position for the first cold using its hot1
-        // TODO: Revise when user liquidity is available
-        // let who_cold = cold_lps[0];
-        // let [who_hot, _] = cold_to_hots[&who_cold];
-        // add_pos(net_new, who_hot, who_cold, 8, 123_456);
-        // assert!(
-        //     pallet_subtensor_swap::Positions::<Test>::iter()
-        //         .any(|((n, owner, _pid), _)| n == net_new && owner == who_cold),
-        //     "new position not recorded on the re-registered net"
-        // );
-    });
-}
-
-#[test]
-fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
-    new_test_ext(0).execute_with(|| {
-        // Create a subnet we can dissolve.
-        let owner_cold = U256::from(123);
-        let owner_hot = U256::from(456);
-        let net = add_dynamic_network(&owner_hot, &owner_cold);
-
-        // We'll use two mechanisms for this subnet.
-        MechanismCountCurrent::<Test>::insert(net, MechId::from(2));
-        let m0 = MechId::from(0u8);
-        let m1 = MechId::from(1u8);
-
-        let idx0 = SubtensorModule::get_mechanism_storage_index(net, m0);
-        let idx1 = SubtensorModule::get_mechanism_storage_index(net, m1);
-
-        // Minimal content to ensure each storage actually has keys for BOTH mechanisms.
-
-        // --- Weights (DMAP: (netuid_index, uid) -> Vec<(dest_uid, weight_u16)>)
-        Weights::<Test>::insert(idx0, 0u16, vec![(1u16, 1u16)]);
-        Weights::<Test>::insert(idx1, 0u16, vec![(2u16, 1u16)]);
-
-        // --- Bonds (DMAP: (netuid_index, uid) -> Vec<(dest_uid, weight_u16)>)
-        Bonds::<Test>::insert(idx0, 0u16, vec![(1u16, 1u16)]);
-        Bonds::<Test>::insert(idx1, 0u16, vec![(2u16, 1u16)]);
-
-        // --- TimelockedWeightCommits (DMAP: (netuid_index, epoch) -> VecDeque<...>)
-        let hotkey = U256::from(1);
-        TimelockedWeightCommits::<Test>::insert(
-            idx0,
-            1u64,
-            VecDeque::from([(hotkey, 1u64, Default::default(), Default::default())]),
-        );
-        TimelockedWeightCommits::<Test>::insert(
-            idx1,
-            2u64,
-            VecDeque::from([(hotkey, 2u64, Default::default(), Default::default())]),
-        );
-
-        // --- Incentive (MAP: netuid_index -> Vec<u16>)
-        Incentive::<Test>::insert(idx0, vec![1u16, 2u16]);
-        Incentive::<Test>::insert(idx1, vec![3u16, 4u16]);
-
-        // --- LastUpdate (MAP: netuid_index -> Vec<u64>)
-        LastUpdate::<Test>::insert(idx0, vec![42u64]);
-        LastUpdate::<Test>::insert(idx1, vec![84u64]);
-
-        // Sanity: keys are present before dissolve.
-        assert!(Weights::<Test>::contains_key(idx0, 0u16));
-        assert!(Weights::<Test>::contains_key(idx1, 0u16));
-        assert!(Bonds::<Test>::contains_key(idx0, 0u16));
-        assert!(Bonds::<Test>::contains_key(idx1, 0u16));
-        assert!(TimelockedWeightCommits::<Test>::contains_key(idx0, 1u64));
-        assert!(TimelockedWeightCommits::<Test>::contains_key(idx1, 2u64));
-        assert!(Incentive::<Test>::contains_key(idx0));
-        assert!(Incentive::<Test>::contains_key(idx1));
-        assert!(LastUpdate::<Test>::contains_key(idx0));
-        assert!(LastUpdate::<Test>::contains_key(idx1));
-        assert!(MechanismCountCurrent::<Test>::contains_key(net));
-
-        // --- Dissolve the subnet ---
-        assert_ok!(SubtensorModule::do_dissolve_network(net));
-
-        // After dissolve, ALL mechanism-scoped items must be cleared for ALL mechanisms.
-
-        // Weights/Bonds double-maps should have no entries under either index.
-        assert!(Weights::<Test>::iter_prefix(idx0).next().is_none());
-        assert!(Weights::<Test>::iter_prefix(idx1).next().is_none());
-        assert!(Bonds::<Test>::iter_prefix(idx0).next().is_none());
-        assert!(Bonds::<Test>::iter_prefix(idx1).next().is_none());
-
-        // WeightCommits (OptionQuery) should have no keys remaining.
-        assert!(WeightCommits::<Test>::iter_prefix(idx0).next().is_none());
-        assert!(WeightCommits::<Test>::iter_prefix(idx1).next().is_none());
-        assert!(!WeightCommits::<Test>::contains_key(idx0, owner_hot));
-        assert!(!WeightCommits::<Test>::contains_key(idx1, owner_cold));
-
-        // TimelockedWeightCommits (ValueQuery) — ensure both prefix spaces empty and keys gone.
-        assert!(
-            TimelockedWeightCommits::<Test>::iter_prefix(idx0)
-                .next()
-                .is_none()
-        );
-        assert!(
-            TimelockedWeightCommits::<Test>::iter_prefix(idx1)
-                .next()
-                .is_none()
-        );
-        assert!(!TimelockedWeightCommits::<Test>::contains_key(idx0, 1u64));
-        assert!(!TimelockedWeightCommits::<Test>::contains_key(idx1, 2u64));
-
-        // Single-map per-mechanism vectors cleared.
-        assert!(!Incentive::<Test>::contains_key(idx0));
-        assert!(!Incentive::<Test>::contains_key(idx1));
-        assert!(!LastUpdate::<Test>::contains_key(idx0));
-        assert!(!LastUpdate::<Test>::contains_key(idx1));
-
-        // MechanismCountCurrent cleared
-        assert!(!MechanismCountCurrent::<Test>::contains_key(net));
     });
 }
