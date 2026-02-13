@@ -2196,7 +2196,9 @@ impl_runtime_apis! {
             extrinsic: Vec<u8>,
         ) -> Option<pallet_rate_limiting_runtime_api::RateLimitRpcResponse> {
             use pallet_rate_limiting::{Pallet as RateLimiting, RateLimit};
-            use pallet_rate_limiting_runtime_api::RateLimitRpcResponse;
+            use pallet_rate_limiting_runtime_api::{
+                RateLimitConfigRpcResponse, RateLimitRpcResponse,
+            };
 
             let pallet_name = sp_std::str::from_utf8(&pallet).ok()?;
             let extrinsic_name = sp_std::str::from_utf8(&extrinsic).ok()?;
@@ -2207,19 +2209,11 @@ impl_runtime_apis! {
                 pallet_name,
                 extrinsic_name,
             )?;
-            let target =
-                RateLimiting::<Runtime>::config_target(&identifier).ok()?;
-            let limits =
-                pallet_rate_limiting::Limits::<Runtime>::get(target)?;
-            let default_limit =
-                pallet_rate_limiting::DefaultLimit::<Runtime>::get();
-            let resolved =
-                RateLimiting::<Runtime>::resolved_limit(&target, &None);
-
-            let (global, contextual) = match limits {
-                RateLimit::Global(kind) => (Some(kind), sp_std::vec::Vec::new()),
-                RateLimit::Scoped(entries) => (
-                    None,
+            let group_id = pallet_rate_limiting::CallGroups::<Runtime>::get(&identifier);
+            let target = RateLimiting::<Runtime>::config_target(&identifier).ok()?;
+            let limit = match pallet_rate_limiting::Limits::<Runtime>::get(target)? {
+                RateLimit::Global(kind) => RateLimitConfigRpcResponse::Global(kind),
+                RateLimit::Scoped(entries) => RateLimitConfigRpcResponse::Scoped(
                     entries
                         .into_iter()
                         .map(|(scope, kind)| (scope.encode(), kind))
@@ -2227,11 +2221,9 @@ impl_runtime_apis! {
                 ),
             };
 
-            Some(RateLimitRpcResponse {
-                global,
-                contextual,
-                default_limit,
-                resolved,
+            Some(match group_id {
+                Some(group_id) => RateLimitRpcResponse::Grouped { group_id, limit },
+                None => RateLimitRpcResponse::Standalone { limit },
             })
         }
     }
