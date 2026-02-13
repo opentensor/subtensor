@@ -10,7 +10,7 @@ use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, Uniqu
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
-pub(crate) struct BalanceTransferPrecompile<R>(PhantomData<R>);
+pub struct BalanceTransferPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for BalanceTransferPrecompile<R>
 where

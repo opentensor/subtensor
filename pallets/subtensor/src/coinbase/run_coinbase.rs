@@ -67,7 +67,8 @@ impl<T: Config> Pallet<T> {
             let tao_to_swap_with: TaoCurrency =
                 tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
 
-            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
+            let (actual_injected_tao, actual_injected_alpha) =
+                T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
             if tao_to_swap_with > TaoCurrency::ZERO {
                 let buy_swap_result = Self::swap_tao_for_alpha(
@@ -87,7 +88,8 @@ impl<T: Config> Pallet<T> {
                 AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
             SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
             SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_in_i);
+                // Reserves also received fees in addition to alpha_in_i
+                *total = total.saturating_add(actual_injected_alpha);
             });
 
             // Inject TAO in.
@@ -95,7 +97,8 @@ impl<T: Config> Pallet<T> {
                 tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
             SubnetTaoInEmission::<T>::insert(*netuid_i, injected_tao);
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(injected_tao);
+                // Reserves also received fees in addition to injected_tao
+                *total = total.saturating_add(actual_injected_tao);
             });
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_add(injected_tao);
@@ -140,7 +143,8 @@ impl<T: Config> Pallet<T> {
             log::debug!("alpha_emission_i: {alpha_emission_i:?}");
 
             // Get subnet price.
-            let price_i: U96F32 = T::SwapInterface::current_alpha_price(netuid_i.into());
+            let price_i: U96F32 =
+                U96F32::saturating_from_num(T::SwapInterface::current_alpha_price(netuid_i.into()));
             log::debug!("price_i: {price_i:?}");
 
             let mut tao_in_i: U96F32 = tao_emission_i;
