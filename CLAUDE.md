@@ -1,0 +1,2 @@
+- never use slice indexing like `arr[n..]` or `arr[i]`; use `.get(n..)`, `.get(i)` etc. instead to avoid panics (clippy::indexing_slicing)
+- never use `*`, `+`, `-`, `/` for arithmetic; use `.saturating_mul()`, `.saturating_add()`, `.saturating_sub()`, `.saturating_div()` or checked variants instead (clippy::arithmetic_side_effects)
