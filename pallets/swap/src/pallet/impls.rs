@@ -1,6 +1,6 @@
 use core::ops::Neg;
-
 use frame_support::storage::{TransactionOutcome, transactional};
+use frame_support::weights::{Weight, WeightMeter};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
@@ -828,7 +828,18 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Dissolve all LPs and clean state.
-    pub fn do_dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
+    pub fn do_dissolve_all_liquidity_providers(
+        netuid: NetUid,
+        remaining_weight: Option<Weight>,
+    ) -> Weight {
+        let mut meter_weight = remaining_weight.map(|value| WeightMeter::with_limit(value));
+        if let Some(meter_weight) = &mut meter_weight {
+            if meter_weight.can_consume(T::DbWeight::get().reads(1)) {
+                return meter_weight.consumed();
+            } else {
+                meter_weight.consume(T::DbWeight::get().reads(1));
+            }
+        }
         if SwapV3Initialized::<T>::get(netuid) {
             // 1) Snapshot only *non‑protocol* positions: (owner, position_id).
             struct CloseItem<A> {
@@ -848,7 +859,11 @@ impl<T: Config> Pallet<T> {
                 log::debug!(
                     "dissolve_all_lp: no user positions; netuid={netuid:?}, protocol liquidity untouched"
                 );
-                return Ok(());
+                if let Some(meter_weight) = meter_weight {
+                    return meter_weight.consumed();
+                } else {
+                    return Weight::from_parts(0, 0);
+                }
             }
 
             let mut user_refunded_tao = TaoCurrency::ZERO;
@@ -891,20 +906,34 @@ impl<T: Config> Pallet<T> {
                         // 2) Stake ALL withdrawn α (principal + fees) to the best permitted validator.
                         if alpha_total_from_pool > AlphaCurrency::ZERO {
                             if let Some(target_uid) = pick_target_uid(&trust, &permit) {
-                                let validator_hotkey: T::AccountId =
+                                let validator_hotkey: Result<T::AccountId, DispatchError> =
                                     T::SubnetInfo::hotkey_of_uid(netuid.into(), target_uid).ok_or(
                                         sp_runtime::DispatchError::Other(
                                             "validator_hotkey_missing",
                                         ),
-                                    )?;
+                                    );
 
-                                // Stake α from LP owner (coldkey) to chosen validator (hotkey).
-                                T::BalanceOps::increase_stake(
-                                    &owner,
-                                    &validator_hotkey,
-                                    netuid,
-                                    alpha_total_from_pool,
-                                )?;
+                                if let Ok(validator_hotkey) = validator_hotkey {
+                                    // Stake α from LP owner (coldkey) to chosen validator (hotkey).
+                                    if let Err(_e) = T::BalanceOps::increase_stake(
+                                        &owner,
+                                        &validator_hotkey,
+                                        netuid,
+                                        alpha_total_from_pool,
+                                    ) {
+                                        if let Some(meter_weight) = meter_weight {
+                                            return meter_weight.consumed();
+                                        } else {
+                                            return Weight::from_parts(0, 0);
+                                        }
+                                    }
+                                } else {
+                                    if let Some(meter_weight) = meter_weight {
+                                        return meter_weight.consumed();
+                                    } else {
+                                        return Weight::from_parts(0, 0);
+                                    }
+                                }
 
                                 user_staked_alpha =
                                     user_staked_alpha.saturating_add(alpha_total_from_pool);
@@ -935,14 +964,22 @@ impl<T: Config> Pallet<T> {
                 "dissolve_all_liquidity_providers (users-only): netuid={netuid:?}, users_refunded_total_τ={user_refunded_tao:?}, users_staked_total_α={user_staked_alpha:?}; protocol liquidity untouched"
             );
 
-            return Ok(());
+            if let Some(meter_weight) = meter_weight {
+                return meter_weight.consumed();
+            } else {
+                return Weight::from_parts(0, 0);
+            }
         }
 
         log::debug!(
             "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, leaving all liquidity/state intact"
         );
 
-        Ok(())
+        if let Some(meter_weight) = meter_weight {
+            return meter_weight.consumed();
+        } else {
+            return Weight::from_parts(0, 0);
+        }
     }
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
@@ -1151,8 +1188,11 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
         EnabledUserLiquidity::<T>::get(netuid)
     }
-    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
-        Self::do_dissolve_all_liquidity_providers(netuid)
+    fn dissolve_all_liquidity_providers(
+        netuid: NetUid,
+        remaining_weight: Option<Weight>,
+    ) -> Weight {
+        Self::do_dissolve_all_liquidity_providers(netuid, remaining_weight)
     }
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
         EnabledUserLiquidity::<T>::insert(netuid, enabled)

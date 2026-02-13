@@ -621,7 +621,7 @@ mod pallet {
                 // Remove provided liquidity unconditionally because the network may have
                 // user liquidity previously disabled
                 // Ignore result to avoid early stopping
-                let _ = Self::do_dissolve_all_liquidity_providers(netuid);
+                let _ = Self::do_dissolve_all_liquidity_providers(netuid, None);
             }
 
             Ok(())
