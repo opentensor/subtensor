@@ -150,10 +150,15 @@ pub mod pallet {
         ///   3. Encrypt:
         ///
         ///        plaintext = signed_extrinsic
+        ///        key_hash = xxhash128(NextKey)
+        ///        kem_len = Length of kem_ct in bytes (u16)
+        ///        kem_ct = Ciphertext from ML‑KEM‑768
+        ///        nonce = Random 24 bytes used for XChaCha20‑Poly1305
+        ///        aead_ct = Ciphertext from XChaCha20‑Poly1305
         ///
         ///      with ML‑KEM‑768 + XChaCha20‑Poly1305, producing
         ///
-        ///        ciphertext = [u16 kem_len] || kem_ct || nonce24 || aead_ct
+        ///        ciphertext = key_hash || kem_len || kem_ct || nonce || aead_ct
         ///
         #[pallet::call_index(1)]
         #[pallet::weight(Weight::from_parts(13_980_000, 0)
