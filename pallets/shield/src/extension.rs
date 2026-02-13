@@ -1,4 +1,4 @@
-use crate::{Call, Config, NextKey, ShieldedTransaction};
+use crate::{Call, Config, CurrentKey, NextKey, ShieldedTransaction};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::*;
 use frame_support::traits::IsSubType;
@@ -50,7 +50,7 @@ where
         _len: usize,
         _self_implicit: Self::Implicit,
         _inherited_implication: &impl Implication,
-        _source: TransactionSource,
+        source: TransactionSource,
     ) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
         // Ensure the transaction is signed, else we just skip the extension.
         let Some(_who) = origin.as_system_origin_signer() else {
@@ -63,17 +63,24 @@ where
             return Ok((Default::default(), (), origin));
         };
 
-        let Some(shielded_tx) = ShieldedTransaction::parse(&ciphertext) else {
+        // Reject malformed ciphertext regardless of source.
+        let Some(ShieldedTransaction { key_hash, .. }) = ShieldedTransaction::parse(&ciphertext)
+        else {
             return Err(InvalidTransaction::BadProof.into());
         };
 
-        let next_key = NextKey::<T>::get();
-        let next_key_hash = next_key.map(|key| twox_128(&key.into_inner()[..]));
+        // Only enforce the key_hash check during block building/import.
+        // The fork-aware tx pool validates against multiple views (recent block states),
+        // and stale views may not contain the key the tx was encrypted with,
+        // causing spurious rejections. Pool validation only checks structure above.
+        if source == TransactionSource::InBlock {
+            let matches_any = [CurrentKey::<T>::get(), NextKey::<T>::get()]
+                .iter()
+                .any(|k| k.as_ref().is_some_and(|k| twox_128(&k[..]) == key_hash));
 
-        // The transaction must be encrypted with the next key or we discard it.
-        if next_key_hash.is_none() || next_key_hash.is_some_and(|hash| hash != shielded_tx.key_hash)
-        {
-            return Err(InvalidTransaction::BadProof.into());
+            if !matches_any {
+                return Err(InvalidTransaction::BadProof.into());
+            }
         }
 
         Ok((Default::default(), (), origin))
