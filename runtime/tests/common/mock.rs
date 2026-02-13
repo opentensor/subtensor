@@ -26,6 +26,7 @@ impl ExtBuilder {
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_block_number(mut self, block_number: u64) -> Self {
         self.block_number = block_number;
         self
@@ -47,8 +48,4 @@ impl ExtBuilder {
         ext.execute_with(|| System::set_block_number(block_number.saturated_into()));
         ext
     }
-}
-
-pub fn new_test_ext() -> TestExternalities {
-    ExtBuilder::default().build()
 }

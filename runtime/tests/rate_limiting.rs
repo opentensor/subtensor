@@ -99,8 +99,6 @@ mod register_network {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
-
                 // Run runtime upgrades explicitly so rate-limiting config is seeded for tests.
                 Executive::execute_on_runtime_upgrade();
 
@@ -145,8 +143,6 @@ mod register_network {
     #[test]
     fn register_network_lock_cost_formula_is_preserved_after_migration() {
         ExtBuilder::default().build().execute_with(|| {
-            System::set_block_number(1);
-
             Executive::execute_on_runtime_upgrade();
 
             let last_seen = <Runtime as pallet_subtensor::Config>::RateLimiting::last_seen(
@@ -197,7 +193,6 @@ mod serving {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 // Run runtime upgrades explicitly so rate-limiting config is seeded for tests.
                 Executive::execute_on_runtime_upgrade();
 
@@ -285,7 +280,6 @@ mod delegate_take {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 // Run runtime upgrades explicitly so rate-limiting config is seeded for tests.
                 Executive::execute_on_runtime_upgrade();
 
@@ -341,7 +335,6 @@ mod delegate_take {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 // Run runtime upgrades explicitly so rate-limiting config is seeded for tests.
                 Executive::execute_on_runtime_upgrade();
 
@@ -384,7 +377,6 @@ mod delegate_take {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 // Run runtime upgrades explicitly so rate-limiting config is seeded for tests.
                 Executive::execute_on_runtime_upgrade();
 
@@ -761,7 +753,6 @@ mod staking_ops {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 setup_staking_network(netuid);
                 pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(
                     &coldkey, &hotkey,
@@ -808,7 +799,6 @@ mod staking_ops {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 setup_staking_network(netuid);
                 pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(
                     &coldkey, &hotkey,
@@ -858,7 +848,6 @@ mod staking_ops {
             ])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 setup_staking_network(origin_netuid);
                 setup_staking_network(destination_netuid);
                 seed_stake(origin_netuid, &hotkey, &coldkey, stake_amount);
@@ -912,7 +901,6 @@ mod staking_ops {
             .with_balances(vec![(coldkey.clone(), stake_amount * 10)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 setup_staking_network(origin_netuid);
                 setup_staking_network(destination_netuid);
                 seed_stake(origin_netuid, &hotkey, &coldkey, stake_amount);
@@ -996,7 +984,6 @@ mod swap_keys {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 setup_swap_hotkey_state(netuid, &coldkey, &old_hotkey, 1);
 
                 legacy_storage::set_tx_rate_limit(legacy_span);
@@ -1044,7 +1031,6 @@ mod swap_keys {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 setup_swap_hotkey_state(netuid, &coldkey, &old_hotkey, 1);
 
                 legacy_storage::set_tx_rate_limit(legacy_span);
@@ -1097,7 +1083,6 @@ mod swap_keys {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 setup_swap_hotkey_state(netuid, &coldkey, &old_hotkey, 1);
 
                 legacy_storage::set_last_rate_limited_block(
@@ -1159,7 +1144,6 @@ mod swap_keys {
             .with_balances(vec![(coldkey.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 setup_swap_hotkey_state(netuid, &coldkey, &old_hotkey, 1);
 
                 legacy_storage::set_last_rate_limited_block(
@@ -1340,7 +1324,6 @@ mod owner_hparams {
             .with_balances(vec![(owner.clone(), balance)])
             .build()
             .execute_with(|| {
-                System::set_block_number(1);
                 setup_owner_network(netuid_a, &owner, tempo);
                 setup_owner_network(netuid_b, &owner, tempo);
                 pallet_subtensor::AdminFreezeWindow::<Runtime>::put(0);
