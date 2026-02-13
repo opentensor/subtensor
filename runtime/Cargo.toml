@@ -58,7 +58,7 @@ sp-version.workspace = true
 sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
-sp-debug-derive = { workspace = true, features = ["force-debug"] }
+sp-debug-derive = { workspace = true, features = [] }
 stp-io.workspace = true
 
 # Temporary sudo
@@ -279,6 +279,8 @@ std = [
 	"ethereum/std",
 	"pallet-shield/std",
 	"stp-shield/std",
+	"stp-io/std",
+	"sp-debug-derive/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
