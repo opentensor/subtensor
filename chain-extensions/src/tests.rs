@@ -966,6 +966,514 @@ fn unstake_all_success_unstakes_balance() {
     });
 }
 
+// ============================================================
+// ProxyCall tests (proxy-aware generic call dispatcher)
+// ============================================================
+
+/// Helper: encode an inner RuntimeCall into ProxyCall input bytes.
+fn encode_proxy_call_input(
+    real_coldkey: AccountId,
+    force_proxy_type: Option<u8>,
+    inner_call: mock::RuntimeCall,
+) -> Vec<u8> {
+    use frame_support::{BoundedVec, traits::ConstU32};
+    let call_data: BoundedVec<u8, ConstU32<1024>> = inner_call.encode().try_into().unwrap();
+    (real_coldkey, force_proxy_type, call_data).encode()
+}
+
+#[test]
+fn proxy_call_self_call_add_stake_succeeds() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let coldkey = U256::from(101);
+        let hotkey = U256::from(202);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let amount_raw = min_stake.to_u64().saturating_mul(10);
+        let amount: TaoCurrency = amount_raw.into();
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            (amount_raw * 1_000_000).into(),
+            AlphaCurrency::from(amount_raw * 10_000_000),
+        );
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &coldkey, amount_raw,
+        );
+
+        assert!(
+            pallet_subtensor::Pallet::<mock::Test>::get_total_stake_for_hotkey(&hotkey).is_zero()
+        );
+
+        let inner_call: mock::RuntimeCall = pallet_subtensor::Call::<mock::Test>::add_stake {
+            hotkey,
+            netuid,
+            amount_staked: amount,
+        }
+        .into();
+        let input = encode_proxy_call_input(coldkey, None, inner_call);
+
+        let mut env = MockEnv::new(FunctionId::ProxyCall, coldkey, input);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+
+        assert_success(ret);
+        assert!(env.charged_weight().is_some());
+
+        let total_stake =
+            pallet_subtensor::Pallet::<mock::Test>::get_total_stake_for_hotkey(&hotkey);
+        assert!(total_stake > TaoCurrency::ZERO);
+    });
+}
+
+#[test]
+fn proxy_call_with_staking_proxy_add_stake_succeeds() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let real_coldkey = U256::from(101);
+        let proxy_contract = U256::from(102);
+        let hotkey = U256::from(202);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let amount_raw = min_stake.to_u64().saturating_mul(10);
+        let amount: TaoCurrency = amount_raw.into();
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            (amount_raw * 1_000_000).into(),
+            AlphaCurrency::from(amount_raw * 10_000_000),
+        );
+        mock::register_ok_neuron(netuid, hotkey, real_coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &real_coldkey,
+            amount_raw + 1_000_000_000,
+        );
+
+        // Add proxy relationship: real_coldkey grants Staking proxy to proxy_contract
+        assert_ok!(pallet_subtensor_proxy::Pallet::<mock::Test>::add_proxy(
+            RawOrigin::Signed(real_coldkey).into(),
+            proxy_contract,
+            subtensor_runtime_common::ProxyType::Staking,
+            0u64,
+        ));
+
+        let inner_call: mock::RuntimeCall = pallet_subtensor::Call::<mock::Test>::add_stake {
+            hotkey,
+            netuid,
+            amount_staked: amount,
+        }
+        .into();
+        let input = encode_proxy_call_input(real_coldkey, None, inner_call);
+
+        // proxy_contract calls ProxyCall on behalf of real_coldkey
+        let mut env = MockEnv::new(FunctionId::ProxyCall, proxy_contract, input);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+
+        assert_success(ret);
+
+        let total_stake =
+            pallet_subtensor::Pallet::<mock::Test>::get_total_stake_for_hotkey(&hotkey);
+        assert!(total_stake > TaoCurrency::ZERO);
+    });
+}
+
+#[test]
+fn proxy_call_with_any_proxy_add_stake_succeeds() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let real_coldkey = U256::from(101);
+        let proxy_contract = U256::from(102);
+        let hotkey = U256::from(202);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let amount_raw = min_stake.to_u64().saturating_mul(10);
+        let amount: TaoCurrency = amount_raw.into();
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            (amount_raw * 1_000_000).into(),
+            AlphaCurrency::from(amount_raw * 10_000_000),
+        );
+        mock::register_ok_neuron(netuid, hotkey, real_coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &real_coldkey,
+            amount_raw + 1_000_000_000,
+        );
+
+        // Add proxy relationship with ProxyType::Any (was broken in V2!)
+        assert_ok!(pallet_subtensor_proxy::Pallet::<mock::Test>::add_proxy(
+            RawOrigin::Signed(real_coldkey).into(),
+            proxy_contract,
+            subtensor_runtime_common::ProxyType::Any,
+            0u64,
+        ));
+
+        let inner_call: mock::RuntimeCall = pallet_subtensor::Call::<mock::Test>::add_stake {
+            hotkey,
+            netuid,
+            amount_staked: amount,
+        }
+        .into();
+        let input = encode_proxy_call_input(real_coldkey, None, inner_call);
+
+        let mut env = MockEnv::new(FunctionId::ProxyCall, proxy_contract, input);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+
+        // Any proxy should allow staking calls — this was the primary bug in V2
+        assert_success(ret);
+
+        let total_stake =
+            pallet_subtensor::Pallet::<mock::Test>::get_total_stake_for_hotkey(&hotkey);
+        assert!(total_stake > TaoCurrency::ZERO);
+    });
+}
+
+#[test]
+fn proxy_call_without_proxy_fails() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let real_coldkey = U256::from(101);
+        let unauthorized_caller = U256::from(102);
+        let hotkey = U256::from(202);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let amount_raw = min_stake.to_u64().saturating_mul(10);
+        let amount: TaoCurrency = amount_raw.into();
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            (amount_raw * 1_000_000).into(),
+            AlphaCurrency::from(amount_raw * 10_000_000),
+        );
+        mock::register_ok_neuron(netuid, hotkey, real_coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &real_coldkey,
+            amount_raw + 1_000_000_000,
+        );
+
+        // No proxy relationship established
+
+        let inner_call: mock::RuntimeCall = pallet_subtensor::Call::<mock::Test>::add_stake {
+            hotkey,
+            netuid,
+            amount_staked: amount,
+        }
+        .into();
+        let input = encode_proxy_call_input(real_coldkey, None, inner_call);
+
+        let mut env = MockEnv::new(FunctionId::ProxyCall, unauthorized_caller, input);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+
+        // Should return NotAuthorizedProxy error code (not a hard DispatchError)
+        match ret {
+            RetVal::Converging(code) => {
+                assert_eq!(
+                    code,
+                    Output::NotAuthorizedProxy as u32,
+                    "expected NotAuthorizedProxy error"
+                );
+            }
+            _ => panic!("unexpected return value"),
+        }
+    });
+}
+
+#[test]
+fn proxy_call_with_wrong_proxy_type_fails() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let real_coldkey = U256::from(101);
+        let proxy_contract = U256::from(102);
+        let hotkey = U256::from(202);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let amount_raw = min_stake.to_u64().saturating_mul(10);
+        let amount: TaoCurrency = amount_raw.into();
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            (amount_raw * 1_000_000).into(),
+            AlphaCurrency::from(amount_raw * 10_000_000),
+        );
+        mock::register_ok_neuron(netuid, hotkey, real_coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &real_coldkey,
+            amount_raw + 1_000_000_000,
+        );
+
+        // Add Senate proxy — can't do staking (hits _ => false in InstanceFilter)
+        assert_ok!(pallet_subtensor_proxy::Pallet::<mock::Test>::add_proxy(
+            RawOrigin::Signed(real_coldkey).into(),
+            proxy_contract,
+            subtensor_runtime_common::ProxyType::Senate,
+            0u64,
+        ));
+
+        let inner_call: mock::RuntimeCall = pallet_subtensor::Call::<mock::Test>::add_stake {
+            hotkey,
+            netuid,
+            amount_staked: amount,
+        }
+        .into();
+        let input = encode_proxy_call_input(real_coldkey, None, inner_call);
+
+        let mut env = MockEnv::new(FunctionId::ProxyCall, proxy_contract, input);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+
+        // Senate proxy cannot do staking calls
+        match ret {
+            RetVal::Converging(code) => {
+                assert_ne!(code, Output::Success as u32, "should not succeed");
+            }
+            _ => panic!("unexpected return value"),
+        }
+    });
+}
+
+#[test]
+fn proxy_call_with_transfer_proxy_transfer_stake_succeeds() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(4301);
+        let owner_coldkey = U256::from(4302);
+        let origin_coldkey = U256::from(5301);
+        let destination_coldkey = U256::from(5302);
+        let proxy_contract = U256::from(5304);
+        let hotkey = U256::from(5303);
+
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let stake_amount_raw = min_stake.to_u64().saturating_mul(250);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            stake_amount_raw.saturating_mul(15).into(),
+            AlphaCurrency::from(stake_amount_raw.saturating_mul(25)),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, origin_coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &origin_coldkey,
+            stake_amount_raw + 1_000_000_000,
+        );
+
+        assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
+            RawOrigin::Signed(origin_coldkey).into(),
+            hotkey,
+            netuid,
+            stake_amount_raw.into(),
+        ));
+
+        mock::remove_stake_rate_limit_for_tests(&hotkey, &origin_coldkey, netuid);
+
+        // Add Transfer proxy
+        assert_ok!(pallet_subtensor_proxy::Pallet::<mock::Test>::add_proxy(
+            RawOrigin::Signed(origin_coldkey).into(),
+            proxy_contract,
+            subtensor_runtime_common::ProxyType::Transfer,
+            0u64,
+        ));
+
+        let alpha_before =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &origin_coldkey,
+                netuid,
+            );
+        let alpha_to_transfer: AlphaCurrency = (alpha_before.to_u64() / 3).into();
+
+        let inner_call: mock::RuntimeCall = pallet_subtensor::Call::<mock::Test>::transfer_stake {
+            destination_coldkey,
+            hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: alpha_to_transfer,
+        }
+        .into();
+        let input = encode_proxy_call_input(origin_coldkey, None, inner_call);
+
+        let mut env = MockEnv::new(FunctionId::ProxyCall, proxy_contract, input);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+
+        let origin_alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &origin_coldkey,
+                netuid,
+            );
+        let destination_alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &destination_coldkey,
+                netuid,
+            );
+
+        assert_eq!(origin_alpha_after, alpha_before - alpha_to_transfer);
+        assert_eq!(destination_alpha_after, alpha_to_transfer);
+    });
+}
+
+#[test]
+fn proxy_call_with_staking_proxy_transfer_stake_fails() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(4301);
+        let owner_coldkey = U256::from(4302);
+        let origin_coldkey = U256::from(5301);
+        let destination_coldkey = U256::from(5302);
+        let proxy_contract = U256::from(5304);
+        let hotkey = U256::from(5303);
+
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let stake_amount_raw = min_stake.to_u64().saturating_mul(250);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            stake_amount_raw.saturating_mul(15).into(),
+            AlphaCurrency::from(stake_amount_raw.saturating_mul(25)),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, origin_coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &origin_coldkey,
+            stake_amount_raw + 1_000_000_000,
+        );
+
+        assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
+            RawOrigin::Signed(origin_coldkey).into(),
+            hotkey,
+            netuid,
+            stake_amount_raw.into(),
+        ));
+
+        mock::remove_stake_rate_limit_for_tests(&hotkey, &origin_coldkey, netuid);
+
+        // Add Staking proxy — cannot do transfer_stake
+        assert_ok!(pallet_subtensor_proxy::Pallet::<mock::Test>::add_proxy(
+            RawOrigin::Signed(origin_coldkey).into(),
+            proxy_contract,
+            subtensor_runtime_common::ProxyType::Staking,
+            0u64,
+        ));
+
+        let alpha_before =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &origin_coldkey,
+                netuid,
+            );
+        let alpha_to_transfer: AlphaCurrency = (alpha_before.to_u64() / 3).into();
+
+        let inner_call: mock::RuntimeCall = pallet_subtensor::Call::<mock::Test>::transfer_stake {
+            destination_coldkey,
+            hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: alpha_to_transfer,
+        }
+        .into();
+        let input = encode_proxy_call_input(origin_coldkey, None, inner_call);
+
+        let mut env = MockEnv::new(FunctionId::ProxyCall, proxy_contract, input);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+
+        // Staking proxy cannot perform transfer_stake (requires Transfer proxy)
+        match ret {
+            RetVal::Converging(code) => {
+                assert_ne!(code, Output::Success as u32, "should not succeed");
+            }
+            _ => panic!("unexpected return value"),
+        }
+
+        // Verify stake was NOT transferred
+        let origin_alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &origin_coldkey,
+                netuid,
+            );
+        assert_eq!(
+            origin_alpha_after, alpha_before,
+            "stake should be unchanged"
+        );
+    });
+}
+
+#[test]
+fn proxy_call_with_invalid_call_data_fails() {
+    mock::new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(101);
+
+        // Use garbage bytes that won't decode as a RuntimeCall
+        let garbage_data: frame_support::BoundedVec<u8, frame_support::traits::ConstU32<1024>> =
+            vec![0xFF, 0xFE, 0xFD, 0xFC, 0xFB].try_into().unwrap();
+        let input = (coldkey, None::<u8>, garbage_data).encode();
+
+        let mut env = MockEnv::new(FunctionId::ProxyCall, coldkey, input);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env);
+
+        // Should fail with decode error
+        assert!(matches!(
+            ret,
+            Err(DispatchError::Other("Failed to decode call"))
+        ));
+    });
+}
+
+#[test]
+fn proxy_call_with_invalid_proxy_type_byte_fails() {
+    mock::new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(101);
+        let hotkey = U256::from(202);
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        let inner_call: mock::RuntimeCall = pallet_subtensor::Call::<mock::Test>::add_stake {
+            hotkey,
+            netuid,
+            amount_staked: 1_000u64.into(),
+        }
+        .into();
+        let call_data: frame_support::BoundedVec<u8, frame_support::traits::ConstU32<1024>> =
+            inner_call.encode().try_into().unwrap();
+
+        // Use an invalid proxy type byte (255 is not a valid ProxyType)
+        let input = (coldkey, Some(255u8), call_data).encode();
+
+        let mut env = MockEnv::new(FunctionId::ProxyCall, coldkey, input);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env);
+
+        // Should fail with invalid proxy type error
+        assert!(matches!(
+            ret,
+            Err(DispatchError::Other("Invalid proxy type"))
+        ));
+    });
+}
+
 #[test]
 fn get_alpha_price_returns_encoded_price() {
     mock::new_test_ext(1).execute_with(|| {
