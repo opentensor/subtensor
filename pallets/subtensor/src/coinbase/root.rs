@@ -300,6 +300,11 @@ impl<T: Config> Pallet<T> {
         SubnetTaoFlow::<T>::remove(netuid);
         SubnetEmaTaoFlow::<T>::remove(netuid);
 
+        // --- 12b. Emission suppression.
+        EmissionSuppression::<T>::remove(netuid);
+        EmissionSuppressionOverride::<T>::remove(netuid);
+        let _ = EmissionSuppressionVote::<T>::clear_prefix(netuid, u32::MAX, None);
+
         // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);
         SubnetMechanism::<T>::remove(netuid);
