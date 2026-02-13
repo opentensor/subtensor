@@ -30,7 +30,7 @@ type ExtrinsicOf<Block> = <Block as BlockT>::Extrinsic;
 type CheckedOf<T, Context> = <T as Checkable<Context>>::Checked;
 type ApplyableCallOf<T> = <T as Applyable>::Call;
 
-const MAX_KYBER768_PK_LENGTH: usize = 1184;
+const MLKEM768_PK_LEN: usize = 1184;
 const MAX_EXTRINSIC_DEPTH: u32 = 8;
 
 #[frame_support::pallet]
@@ -119,7 +119,7 @@ pub mod pallet {
 
             if let Some(public_key) = &public_key {
                 ensure!(
-                    public_key.len() == MAX_KYBER768_PK_LENGTH,
+                    public_key.len() == MLKEM768_PK_LEN,
                     Error::<T>::BadPublicKeyLen
                 );
                 AuthorKeys::<T>::insert(&author, public_key.clone());

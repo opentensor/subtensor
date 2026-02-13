@@ -68,3 +68,10 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+[dev-dependencies]
+stc-shield.workspace = true
+ml-kem.workspace = true
+chacha20poly1305 = { workspace = true, features = ["std"] }
+rand.workspace = true
+pallet-subtensor-utility.workspace = true
