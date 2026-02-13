@@ -1,4 +1,5 @@
 use super::*;
+use crate::WeightMeterWrapper;
 use frame_support::weights::{Weight, WeightMeter};
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
@@ -395,6 +396,8 @@ impl<T: Config> Pallet<T> {
         if !weight_meter.can_consume(T::DbWeight::get().reads(1)) {
             return weight_meter.consumed();
         }
+        // MeterX!(weight_meter, T::DbWeight::get().reads(1));
+
         // Iterate directly without collecting to avoid unnecessary allocation
         for hotkey in RootClaimable::<T>::iter_keys() {
             weight_meter.consume(T::DbWeight::get().reads(1));
@@ -403,9 +406,13 @@ impl<T: Config> Pallet<T> {
                 return weight_meter.consumed();
             }
 
-            RootClaimable::<T>::mutate(&hotkey, |claimable| {
-                claimable.remove(&netuid);
-            });
+            WeightMeterWrapper!(
+                weight_meter,
+                T::DbWeight::get().reads(1),
+                RootClaimable::<T>::mutate(&hotkey, |claimable| {
+                    claimable.remove(&netuid);
+                })
+            );
             weight_meter.consume(T::DbWeight::get().writes(1));
         }
 

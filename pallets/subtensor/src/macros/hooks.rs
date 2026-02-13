@@ -246,7 +246,7 @@ mod hooks {
             let mut _weight_meter = WeightMeter::with_limit(remaining_weight);
 
             for netuid in dissolved_networks.iter() {
-                Self::finalize_all_subnet_root_dividends(*netuid);
+                Self::finalize_all_subnet_root_dividends(*netuid, remaining_weight);
                 let _ = T::SwapInterface::dissolve_all_liquidity_providers(*netuid);
                 let _ = Self::destroy_alpha_in_out_stakes(*netuid);
                 let _ = T::SwapInterface::clear_protocol_liquidity(*netuid);
