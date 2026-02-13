@@ -871,7 +871,7 @@ impl<T: Config> Pallet<T> {
             };
 
             for CloseItem { owner, pos_id } in to_close.into_iter() {
-                match Self::do_remove_liquidity(netuid, &owner, pos_id) {
+                match Self::do_remove_liquixdity(netuid, &owner, pos_id) {
                     Ok(rm) => {
                         // α withdrawn from the pool = principal + accrued fees
                         let alpha_total_from_pool: AlphaCurrency =

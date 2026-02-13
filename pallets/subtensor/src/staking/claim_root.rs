@@ -393,30 +393,24 @@ impl<T: Config> Pallet<T> {
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid, remaining_weight: Weight) -> Weight {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
-        if !weight_meter.can_consume(T::DbWeight::get().reads(1)) {
-            return weight_meter.consumed();
-        }
-        // MeterX!(weight_meter, T::DbWeight::get().reads(1));
-
         // Iterate directly without collecting to avoid unnecessary allocation
         for hotkey in RootClaimable::<T>::iter_keys() {
-            weight_meter.consume(T::DbWeight::get().reads(1));
-
-            if !weight_meter.can_consume(T::DbWeight::get().writes(1)) {
-                return weight_meter.consumed();
-            }
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1), {});
 
             WeightMeterWrapper!(
                 weight_meter,
-                T::DbWeight::get().reads(1),
+                T::DbWeight::get().writes(1),
                 RootClaimable::<T>::mutate(&hotkey, |claimable| {
                     claimable.remove(&netuid);
                 })
             );
-            weight_meter.consume(T::DbWeight::get().writes(1));
         }
 
-        let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
-        Weight::from_parts(0, 0)
+        WeightMeterWrapper!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None)
+        );
+        weight_meter.consumed()
     }
 }

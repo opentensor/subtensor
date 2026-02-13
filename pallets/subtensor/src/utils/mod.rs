@@ -13,7 +13,7 @@ macro_rules! WeightMeterWrapper {
         if !$meter.can_consume($weight) {
             return $meter.consumed();
         }
-        $body;
+        let _ = $body;
         $meter.consume($weight);
     }};
 }

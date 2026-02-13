@@ -242,16 +242,26 @@ mod hooks {
         // 	* 'Weight': The weight consumed by the function.
         //
         fn remove_data_for_dissolved_networks(remaining_weight: Weight) -> Weight {
+            let mut remaining_weight = remaining_weight;
             let dissolved_networks = DissolvedNetworks::<T>::get();
             let mut _weight_meter = WeightMeter::with_limit(remaining_weight);
 
             for netuid in dissolved_networks.iter() {
-                Self::finalize_all_subnet_root_dividends(*netuid, remaining_weight);
-                let _ = T::SwapInterface::dissolve_all_liquidity_providers(*netuid);
-                let _ = Self::destroy_alpha_in_out_stakes(*netuid);
-                let _ = T::SwapInterface::clear_protocol_liquidity(*netuid);
-                let _ = T::CommitmentsInterface::purge_netuid(*netuid);
-                let _ = Self::remove_network(*netuid);
+                let weight_used =
+                    Self::finalize_all_subnet_root_dividends(*netuid, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(weight_used);
+                // let weight_used = T::SwapInterface::dissolve_all_liquidity_providers(*netuid);
+                // remaining_weight = remaining_weight.saturating_sub(weight_used);
+                // let weight_used = Self::destroy_alpha_in_out_stakes(*netuid);
+                // remaining_weight = remaining_weight.saturating_sub(weight_used);
+                // let weight_used = T::SwapInterface::clear_protocol_liquidity(*netuid);
+                // remaining_weight = remaining_weight.saturating_sub(weight_used);
+                // let weight_used_ = T::CommitmentsInterface::purge_netuid(*netuid);
+                // remaining_weight = remaining_weight.saturating_sub(weight_used);
+                // let weight_used = Self::remove_network(*netuid);
+                // remaining_weight = remaining_weight.saturating_sub(weight_used);
+
+                DissolvedNetworks::<T>::mutate(|networks| networks.retain(|n| *n != *netuid));
 
                 Self::deposit_event(Event::DissolvedNetworkDataCleaned { netuid: *netuid });
             }
