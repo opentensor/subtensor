@@ -257,6 +257,7 @@ impl<T: Config> Pallet<T> {
                         TaoCurrency::ZERO, // no price limit
                         true,              // drop fees
                     ) {
+                        Self::record_tao_outflow(*netuid_i, swap_result.amount_paid_out);
                         Self::recycle_tao(swap_result.amount_paid_out);
                     }
                 } else {
