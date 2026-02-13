@@ -153,6 +153,14 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
+pub struct MockAuthorshipProvider;
+
+impl crate::pallet::AuthorshipProvider<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(12345u64))
+    }
+}
+
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
@@ -302,14 +310,7 @@ impl crate::Config for Test {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
-}
-
-pub struct MockAuthorshipProvider;
-
-impl pallet_subtensor_swap::AuthorshipProvider<U256> for MockAuthorshipProvider {
-    fn author() -> Option<U256> {
-        Some(U256::from(1u64))
-    }
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 // Swap-related parameter types
@@ -330,7 +331,6 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
-    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 pub struct OriginPrivilegeCmp;

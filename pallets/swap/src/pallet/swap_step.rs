@@ -117,17 +117,26 @@ where
         // Convert amounts, actual swap happens here
         let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
         log::trace!("\tDelta Out        : {delta_out}");
+        let mut fee_to_block_author = 0.into();
         if self.delta_in > 0.into() {
             ensure!(delta_out > 0.into(), Error::<T>::ReservesTooLow);
 
-            // Hold the fees
-            Self::add_fees(self.netuid, self.fee);
+            // Forward 100% of fees to the block author
+            // If case we want to split fees between liquidity pool and validators, it 
+            // can be done this way:
+            // ```
+            //   let lp_fee = self.fee.to_u64().saturating_mul(3).safe_div(5).into();
+            //   Self::add_fees(self.netuid, lp_fee);
+            //   fee_to_block_author = self.fee.saturating_sub(lp_fee);
+            // ```
+            fee_to_block_author = self.fee;
         }
 
         Ok(SwapStepResult {
             fee_paid: self.fee,
             delta_in: self.delta_in,
             delta_out,
+            fee_to_block_author,
         })
     }
 }
@@ -265,4 +274,5 @@ where
     pub(crate) fee_paid: PaidIn,
     pub(crate) delta_in: PaidIn,
     pub(crate) delta_out: PaidOut,
+    pub(crate) fee_to_block_author: PaidIn,
 }

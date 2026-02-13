@@ -41,10 +41,9 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
-use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
+use pallet_subtensor::{AuthorshipProvider, CommitmentsInterface, ProxyInterface};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::{SimSwapResult, SubnetPrice};
-use pallet_subtensor_swap::AuthorshipProvider;
 use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
 use safe_math::FixedExt;
@@ -1128,6 +1127,7 @@ impl pallet_subtensor::Config for Runtime {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = BlockAuthorFromAura<Aura>;
 }
 
 parameter_types! {
@@ -1148,7 +1148,6 @@ impl pallet_subtensor_swap::Config for Runtime {
     type MinimumReserve = SwapMinimumReserve;
     // TODO: set measured weights when the pallet been benchmarked and the type is generated
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
-    type AuthorshipProvider = BlockAuthorFromAura<Aura>;
 }
 
 use crate::sudo_wrapper::SudoTransactionExtension;

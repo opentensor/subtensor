@@ -10,6 +10,12 @@ mod config {
     use pallet_commitments::GetCommitments;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
+    /// Allow to query the current block author
+    pub trait AuthorshipProvider<AccountId> {
+        /// Return the current block author
+        fn author() -> Option<AccountId>;
+    }
+
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config:
@@ -58,6 +64,9 @@ mod config {
 
         /// Rate limit for associating an EVM key.
         type EvmKeyAssociateRateLimit: Get<u64>;
+                
+        /// Provider of current block author
+        type AuthorshipProvider: AuthorshipProvider<Self::AccountId>;
 
         /// =================================
         /// ==== Initial Value Constants ====

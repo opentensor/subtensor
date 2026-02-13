@@ -142,6 +142,14 @@ impl pallet_transaction_payment::Config for Test {
     type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Test>;
 }
 
+pub struct MockAuthorshipProvider;
+
+impl pallet_subtensor::AuthorshipProvider<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(12345u64))
+    }
+}
+
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
@@ -290,6 +298,7 @@ impl pallet_subtensor::Config for Test {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 parameter_types! {
@@ -386,14 +395,6 @@ impl pallet_balances::Config for Test {
     type RuntimeHoldReason = ();
 }
 
-pub struct MockAuthorshipProvider;
-
-impl pallet_subtensor_swap::AuthorshipProvider<U256> for MockAuthorshipProvider {
-    fn author() -> Option<U256> {
-        Some(U256::from(1u64))
-    }
-}
-
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
@@ -412,7 +413,6 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
-    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 pub struct OriginPrivilegeCmp;

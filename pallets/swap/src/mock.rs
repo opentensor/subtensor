@@ -295,14 +295,6 @@ impl BalanceOps<AccountId> for MockBalanceOps {
     }
 }
 
-pub struct MockAuthorshipProvider;
-
-impl crate::pallet::AuthorshipProvider<u32> for MockAuthorshipProvider {
-    fn author() -> Option<u32> {
-        Some(1u32)
-    }
-}
-
 impl crate::pallet::Config for Test {
     type SubnetInfo = MockLiquidityProvider;
     type TaoReserve = TaoReserve;
@@ -313,7 +305,6 @@ impl crate::pallet::Config for Test {
     type MinimumLiquidity = MinimumLiquidity;
     type MinimumReserve = MinimumReserves;
     type WeightInfo = ();
-    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 // Build genesis storage according to the mock runtime.
