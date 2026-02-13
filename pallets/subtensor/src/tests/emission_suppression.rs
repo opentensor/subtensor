@@ -459,7 +459,7 @@ fn setup_root_with_tao(sn: NetUid) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 14: Suppress subnet, default flag=true → root still gets alpha
+// Test 14: Suppress subnet, Enable mode → root still gets alpha
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
 fn test_suppressed_subnet_root_alpha_by_default() {
@@ -488,8 +488,14 @@ fn test_suppressed_subnet_root_alpha_by_default() {
         // Force-suppress sn1.
         EmissionSuppressionOverride::<Test>::insert(sn1, true);
 
-        // Default: KeepRootSellPressureOnSuppressedSubnets = true.
-        assert!(KeepRootSellPressureOnSuppressedSubnets::<Test>::get());
+        // Default mode is Recycle; verify that, then set to Enable for this test.
+        assert_eq!(
+            KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
+            RootSellPressureOnSuppressedSubnetsMode::Recycle,
+        );
+        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(
+            RootSellPressureOnSuppressedSubnetsMode::Enable,
+        );
 
         // Clear any pending emissions.
         PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
@@ -504,13 +510,13 @@ fn test_suppressed_subnet_root_alpha_by_default() {
         let pending_root = PendingRootAlphaDivs::<Test>::get(sn1);
         assert!(
             pending_root > AlphaCurrency::ZERO,
-            "with flag=true, root should still get alpha on suppressed subnet"
+            "with Enable mode, root should still get alpha on suppressed subnet"
         );
     });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 15: Suppress subnet, flag=false → root gets no alpha
+// Test 15: Suppress subnet, Disable mode → root gets no alpha
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
 fn test_suppressed_subnet_no_root_alpha_flag_off() {
@@ -538,8 +544,10 @@ fn test_suppressed_subnet_no_root_alpha_flag_off() {
         // Force-suppress sn1.
         EmissionSuppressionOverride::<Test>::insert(sn1, true);
 
-        // Set flag to false: no root sell pressure on suppressed subnets.
-        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(false);
+        // Set mode to Disable: no root sell pressure on suppressed subnets.
+        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(
+            RootSellPressureOnSuppressedSubnetsMode::Disable,
+        );
 
         // Clear any pending emissions.
         PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
@@ -556,7 +564,7 @@ fn test_suppressed_subnet_no_root_alpha_flag_off() {
         assert_eq!(
             pending_root,
             AlphaCurrency::ZERO,
-            "with flag=false, root should get no alpha on suppressed subnet"
+            "with Disable mode, root should get no alpha on suppressed subnet"
         );
 
         // But validator emission should be non-zero (all alpha goes to validators).
@@ -569,7 +577,7 @@ fn test_suppressed_subnet_no_root_alpha_flag_off() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 16: Non-suppressed subnet → root alpha normal regardless of flag
+// Test 16: Non-suppressed subnet → root alpha normal regardless of mode
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
 fn test_unsuppressed_subnet_unaffected_by_flag() {
@@ -594,8 +602,10 @@ fn test_unsuppressed_subnet_unaffected_by_flag() {
         setup_root_with_tao(sn1);
 
         // sn1 is NOT suppressed.
-        // Set flag to false (should not matter for unsuppressed subnets).
-        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(false);
+        // Set mode to Disable (should not matter for unsuppressed subnets).
+        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(
+            RootSellPressureOnSuppressedSubnetsMode::Disable,
+        );
 
         PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
 
@@ -608,7 +618,7 @@ fn test_unsuppressed_subnet_unaffected_by_flag() {
         let pending_root = PendingRootAlphaDivs::<Test>::get(sn1);
         assert!(
             pending_root > AlphaCurrency::ZERO,
-            "non-suppressed subnet should still give root alpha regardless of flag"
+            "non-suppressed subnet should still give root alpha regardless of mode"
         );
     });
 }
@@ -839,7 +849,7 @@ fn test_sudo_override_emits_event() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 23: sudo_set_keep_root_sell_pressure emits event
+// Test 23: sudo_set_root_sell_pressure_on_suppressed_subnets_mode emits event
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
 fn test_sudo_sell_pressure_emits_event() {
@@ -848,9 +858,9 @@ fn test_sudo_sell_pressure_emits_event() {
         System::reset_events();
 
         assert_ok!(
-            SubtensorModule::sudo_set_keep_root_sell_pressure_on_suppressed_subnets(
+            SubtensorModule::sudo_set_root_sell_pressure_on_suppressed_subnets_mode(
                 RuntimeOrigin::root(),
-                false,
+                RootSellPressureOnSuppressedSubnetsMode::Disable,
             )
         );
 
@@ -859,11 +869,11 @@ fn test_sudo_sell_pressure_emits_event() {
                 matches!(
                     &e.event,
                     RuntimeEvent::SubtensorModule(
-                        Event::KeepRootSellPressureOnSuppressedSubnetsSet { value }
-                    ) if !(*value)
+                        Event::RootSellPressureOnSuppressedSubnetsModeSet { mode }
+                    ) if *mode == RootSellPressureOnSuppressedSubnetsMode::Disable
                 )
             }),
-            "should emit KeepRootSellPressureOnSuppressedSubnetsSet event"
+            "should emit RootSellPressureOnSuppressedSubnetsModeSet event"
         );
     });
 }
@@ -889,6 +899,361 @@ fn test_collect_votes_skips_root() {
         assert_eq!(
             EmissionSuppression::<Test>::get(NetUid::ROOT),
             U64F64::from_num(0)
+        );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 25: default mode is Recycle
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_default_mode_is_recycle() {
+    new_test_ext(1).execute_with(|| {
+        assert_eq!(
+            KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
+            RootSellPressureOnSuppressedSubnetsMode::Recycle,
+        );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 26: Recycle mode, suppressed subnet → alpha swapped to TAO, TAO burned
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_recycle_mode_suppressed_subnet_swaps_and_recycles() {
+    new_test_ext(1).execute_with(|| {
+        add_network(NetUid::ROOT, 1, 0);
+        let sn1 = NetUid::from(1);
+        setup_subnet_with_flow(sn1, 10, 100_000_000);
+
+        // Make it a dynamic subnet so swap_alpha_for_tao actually works via AMM.
+        SubnetMechanism::<Test>::insert(sn1, 1);
+
+        // Seed the pool with TAO and alpha reserves.
+        let initial_tao = TaoCurrency::from(500_000_000u64);
+        let initial_alpha_in = AlphaCurrency::from(500_000_000u64);
+        SubnetTAO::<Test>::insert(sn1, initial_tao);
+        SubnetAlphaIn::<Test>::insert(sn1, initial_alpha_in);
+
+        // Also set root TAO so root_proportion is nonzero.
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000));
+        SubnetAlphaOut::<Test>::insert(sn1, AlphaCurrency::from(1_000_000_000));
+
+        // Register a root validator.
+        let hotkey = U256::from(10);
+        let coldkey = U256::from(11);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            1_000_000_000u64.into(),
+        );
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        // Force-suppress sn1.
+        EmissionSuppressionOverride::<Test>::insert(sn1, true);
+
+        // Default mode is Recycle.
+        assert_eq!(
+            KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
+            RootSellPressureOnSuppressedSubnetsMode::Recycle,
+        );
+
+        // Record TotalIssuance before emission.
+        let issuance_before = TotalIssuance::<Test>::get();
+
+        // Clear pending.
+        PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+
+        // Build emission map.
+        let mut subnet_emissions = BTreeMap::new();
+        subnet_emissions.insert(sn1, U96F32::from_num(1_000_000));
+
+        SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+        // PendingRootAlphaDivs should be 0 (root did NOT accumulate alpha).
+        let pending_root = PendingRootAlphaDivs::<Test>::get(sn1);
+        assert_eq!(
+            pending_root,
+            AlphaCurrency::ZERO,
+            "in Recycle mode, PendingRootAlphaDivs should be 0"
+        );
+
+        // SubnetAlphaIn should have increased (alpha was swapped into pool).
+        let alpha_in_after = SubnetAlphaIn::<Test>::get(sn1);
+        assert!(
+            alpha_in_after > initial_alpha_in,
+            "SubnetAlphaIn should increase after swap"
+        );
+
+        // TotalIssuance should have decreased (TAO was recycled/burned).
+        let issuance_after = TotalIssuance::<Test>::get();
+        assert!(
+            issuance_after < issuance_before,
+            "TotalIssuance should decrease (TAO recycled)"
+        );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 27: Recycle mode on non-suppressed subnet → normal PendingRootAlphaDivs
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_recycle_mode_non_suppressed_subnet_normal() {
+    new_test_ext(1).execute_with(|| {
+        add_network(NetUid::ROOT, 1, 0);
+        let sn1 = NetUid::from(1);
+        setup_subnet_with_flow(sn1, 10, 100_000_000);
+
+        let hotkey = U256::from(10);
+        let coldkey = U256::from(11);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            1_000_000_000u64.into(),
+        );
+        SubtensorModule::set_tao_weight(u64::MAX);
+        setup_root_with_tao(sn1);
+
+        // sn1 is NOT suppressed. Mode is Recycle (default).
+        assert_eq!(
+            KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
+            RootSellPressureOnSuppressedSubnetsMode::Recycle,
+        );
+
+        PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+
+        let mut subnet_emissions = BTreeMap::new();
+        subnet_emissions.insert(sn1, U96F32::from_num(1_000_000));
+
+        SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+        // Root should still get alpha — Recycle only affects suppressed subnets.
+        let pending_root = PendingRootAlphaDivs::<Test>::get(sn1);
+        assert!(
+            pending_root > AlphaCurrency::ZERO,
+            "non-suppressed subnet should still give root alpha in Recycle mode"
+        );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 28: Recycle mode ignores RootClaimType (alpha never enters claim flow)
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_recycle_mode_ignores_root_claim_type() {
+    new_test_ext(1).execute_with(|| {
+        add_network(NetUid::ROOT, 1, 0);
+        let sn1 = NetUid::from(1);
+        setup_subnet_with_flow(sn1, 10, 100_000_000);
+
+        // Dynamic subnet for AMM swap.
+        SubnetMechanism::<Test>::insert(sn1, 1);
+        SubnetTAO::<Test>::insert(sn1, TaoCurrency::from(500_000_000u64));
+        SubnetAlphaIn::<Test>::insert(sn1, AlphaCurrency::from(500_000_000u64));
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(1_000_000_000));
+        SubnetAlphaOut::<Test>::insert(sn1, AlphaCurrency::from(1_000_000_000));
+
+        let hotkey = U256::from(10);
+        let coldkey = U256::from(11);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            1_000_000_000u64.into(),
+        );
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        // Force-suppress sn1.
+        EmissionSuppressionOverride::<Test>::insert(sn1, true);
+
+        // Set RootClaimType to Keep — in normal flow this would keep alpha.
+        // But Recycle mode should override and swap+burn regardless.
+        RootClaimType::<Test>::insert(coldkey, RootClaimTypeEnum::Keep);
+
+        // Default mode is Recycle.
+        assert_eq!(
+            KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
+            RootSellPressureOnSuppressedSubnetsMode::Recycle,
+        );
+
+        PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+
+        let issuance_before = TotalIssuance::<Test>::get();
+
+        let mut subnet_emissions = BTreeMap::new();
+        subnet_emissions.insert(sn1, U96F32::from_num(1_000_000));
+
+        SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+        // PendingRootAlphaDivs should still be 0 (recycled, not claimed).
+        let pending_root = PendingRootAlphaDivs::<Test>::get(sn1);
+        assert_eq!(
+            pending_root,
+            AlphaCurrency::ZERO,
+            "Recycle mode should swap+burn regardless of RootClaimType"
+        );
+
+        // TAO was burned.
+        let issuance_after = TotalIssuance::<Test>::get();
+        assert!(
+            issuance_after < issuance_before,
+            "TotalIssuance should decrease even with RootClaimType::Keep"
+        );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 29: sudo_set_mode all 3 variants emit events
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_sudo_set_mode_all_variants_emit_events() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(1);
+
+        for mode in [
+            RootSellPressureOnSuppressedSubnetsMode::Disable,
+            RootSellPressureOnSuppressedSubnetsMode::Enable,
+            RootSellPressureOnSuppressedSubnetsMode::Recycle,
+        ] {
+            System::reset_events();
+
+            assert_ok!(
+                SubtensorModule::sudo_set_root_sell_pressure_on_suppressed_subnets_mode(
+                    RuntimeOrigin::root(),
+                    mode,
+                )
+            );
+
+            assert_eq!(
+                KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
+                mode,
+            );
+
+            assert!(
+                System::events().iter().any(|e| {
+                    matches!(
+                        &e.event,
+                        RuntimeEvent::SubtensorModule(
+                            Event::RootSellPressureOnSuppressedSubnetsModeSet { mode: m }
+                        ) if *m == mode
+                    )
+                }),
+                "should emit RootSellPressureOnSuppressedSubnetsModeSet for {mode:?}"
+            );
+        }
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 30: Recycle mode decreases price and flow EMA; Disable/Enable do not
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_recycle_mode_decreases_price_and_flow_ema() {
+    new_test_ext(1).execute_with(|| {
+        add_network(NetUid::ROOT, 1, 0);
+        let sn1 = NetUid::from(1);
+        setup_subnet_with_flow(sn1, 10, 100_000_000);
+
+        // Dynamic subnet.
+        SubnetMechanism::<Test>::insert(sn1, 1);
+
+        // Large pool reserves to ensure swaps produce measurable effects.
+        let pool_reserve = 1_000_000_000u64;
+        SubnetTAO::<Test>::insert(sn1, TaoCurrency::from(pool_reserve));
+        SubnetAlphaIn::<Test>::insert(sn1, AlphaCurrency::from(pool_reserve));
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(pool_reserve));
+        SubnetAlphaOut::<Test>::insert(sn1, AlphaCurrency::from(pool_reserve));
+
+        let hotkey = U256::from(10);
+        let coldkey = U256::from(11);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            1_000_000_000u64.into(),
+        );
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        // Force-suppress sn1.
+        EmissionSuppressionOverride::<Test>::insert(sn1, true);
+
+        let emission_amount = U96F32::from_num(10_000_000);
+        let mut subnet_emissions = BTreeMap::new();
+        subnet_emissions.insert(sn1, emission_amount);
+
+        // ── First: verify that Disable and Enable modes do NOT cause TAO outflow ──
+
+        for mode in [
+            RootSellPressureOnSuppressedSubnetsMode::Disable,
+            RootSellPressureOnSuppressedSubnetsMode::Enable,
+        ] {
+            // Reset pool state.
+            SubnetTAO::<Test>::insert(sn1, TaoCurrency::from(pool_reserve));
+            SubnetAlphaIn::<Test>::insert(sn1, AlphaCurrency::from(pool_reserve));
+            SubnetTaoFlow::<Test>::insert(sn1, 0i64);
+            PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+            SubnetAlphaOut::<Test>::insert(sn1, AlphaCurrency::from(pool_reserve));
+
+            KeepRootSellPressureOnSuppressedSubnets::<Test>::put(mode);
+
+            SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+            let flow = SubnetTaoFlow::<Test>::get(sn1);
+            assert!(
+                flow >= 0,
+                "mode {mode:?}: SubnetTaoFlow should not be negative, got {flow}"
+            );
+        }
+
+        // ── Now: verify that Recycle mode DOES cause TAO outflow ──
+
+        // Reset pool state.
+        SubnetTAO::<Test>::insert(sn1, TaoCurrency::from(pool_reserve));
+        SubnetAlphaIn::<Test>::insert(sn1, AlphaCurrency::from(pool_reserve));
+        SubnetTaoFlow::<Test>::insert(sn1, 0i64);
+        PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+        SubnetAlphaOut::<Test>::insert(sn1, AlphaCurrency::from(pool_reserve));
+
+        // Set Recycle mode.
+        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(
+            RootSellPressureOnSuppressedSubnetsMode::Recycle,
+        );
+
+        // Record price before.
+        let price_before = SubnetMovingPrice::<Test>::get(sn1);
+
+        SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+        // SubnetTaoFlow should be negative (TAO left the pool via swap).
+        let flow_after = SubnetTaoFlow::<Test>::get(sn1);
+        assert!(
+            flow_after < 0,
+            "Recycle mode: SubnetTaoFlow should be negative (TAO outflow), got {flow_after}"
+        );
+
+        // Moving price should have decreased (alpha was sold into pool for TAO).
+        let price_after = SubnetMovingPrice::<Test>::get(sn1);
+        assert!(
+            price_after < price_before,
+            "Recycle mode: SubnetMovingPrice should decrease, before={price_before:?} after={price_after:?}"
         );
     });
 }

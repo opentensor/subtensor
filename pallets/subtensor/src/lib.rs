@@ -344,6 +344,29 @@ pub mod pallet {
         },
     }
 
+    /// Controls how root alpha dividends are handled on emission-suppressed subnets.
+    #[derive(
+        Encode,
+        Decode,
+        Default,
+        TypeInfo,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        Debug,
+        DecodeWithMemTracking,
+    )]
+    pub enum RootSellPressureOnSuppressedSubnetsMode {
+        /// Root gets no alpha on suppressed subnets; alpha recycled to subnet.
+        Disable,
+        /// Root still accumulates alpha on suppressed subnets (old `true`).
+        Enable,
+        /// Root alpha is swapped to TAO via AMM and the TAO is burned.
+        #[default]
+        Recycle,
+    }
+
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
     /// Any amount less than this will not be claimed.
@@ -2439,18 +2462,13 @@ pub mod pallet {
     pub type EmissionSuppressionVote<T: Config> =
         StorageDoubleMap<_, Identity, NetUid, Blake2_128Concat, T::AccountId, bool, OptionQuery>;
 
-    /// Whether root validators continue receiving alpha dividends (sell pressure)
-    /// from suppressed subnets. Default: true (maintain sell pressure).
-    /// When false, all alpha goes to subnet validators instead.
+    /// Controls how root alpha dividends are handled on emission-suppressed subnets.
+    /// - Disable (0x00): root gets no alpha; alpha recycled to subnet validators.
+    /// - Enable  (0x01): root still accumulates alpha (old behaviour).
+    /// - Recycle (0x02, default): root alpha swapped to TAO and TAO burned.
     #[pallet::storage]
     pub type KeepRootSellPressureOnSuppressedSubnets<T: Config> =
-        StorageValue<_, bool, ValueQuery, KeepRootSellPressureDefault>;
-
-    /// Default value for KeepRootSellPressureOnSuppressedSubnets (true).
-    #[pallet::type_value]
-    pub fn KeepRootSellPressureDefault() -> bool {
-        true
-    }
+        StorageValue<_, RootSellPressureOnSuppressedSubnetsMode, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {

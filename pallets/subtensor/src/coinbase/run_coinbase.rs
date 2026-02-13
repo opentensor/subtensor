@@ -183,6 +183,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Inject ALPHA for participants.
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
+        let suppression_mode = KeepRootSellPressureOnSuppressedSubnets::<T>::get();
 
         for netuid_i in subnets_to_emit_to.iter() {
             // Get alpha_out for this block.
@@ -209,10 +210,10 @@ impl<T: Config> Pallet<T> {
             log::debug!("root_proportion: {root_proportion:?}");
 
             // Get root alpha from root prop.
-            // If the subnet is suppressed and KeepRootSellPressureOnSuppressedSubnets
-            // is false, zero out root alpha so all validator alpha goes to subnet validators.
+            // When mode is Disable and subnet is suppressed, zero out root alpha
+            // so all validator alpha goes to subnet validators.
             let root_alpha: U96F32 = if Self::is_subnet_emission_suppressed(*netuid_i)
-                && !KeepRootSellPressureOnSuppressedSubnets::<T>::get()
+                && suppression_mode == RootSellPressureOnSuppressedSubnetsMode::Disable
             {
                 asfloat!(0)
             } else {
@@ -243,10 +244,28 @@ impl<T: Config> Pallet<T> {
             });
 
             if root_sell_flag {
-                // Only accumulate root alpha divs if root sell is allowed.
-                PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(tou64!(root_alpha).into());
-                });
+                // Determine disposition of root alpha based on suppression mode.
+                let is_suppressed = Self::is_subnet_emission_suppressed(*netuid_i);
+                if is_suppressed
+                    && suppression_mode == RootSellPressureOnSuppressedSubnetsMode::Recycle
+                {
+                    // Recycle mode: swap alpha → TAO via AMM, then burn the TAO.
+                    let root_alpha_currency =
+                        AlphaCurrency::from(tou64!(root_alpha));
+                    if let Ok(swap_result) = Self::swap_alpha_for_tao(
+                        *netuid_i,
+                        root_alpha_currency,
+                        TaoCurrency::ZERO, // no price limit
+                        true,              // drop fees
+                    ) {
+                        Self::recycle_tao(swap_result.amount_paid_out);
+                    }
+                } else {
+                    // Enable mode (or non-suppressed subnet): accumulate for root validators.
+                    PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
+                        *total = total.saturating_add(tou64!(root_alpha).into());
+                    });
+                }
             } else {
                 // If we are not selling the root alpha, we should recycle it.
                 Self::recycle_subnet_alpha(*netuid_i, AlphaCurrency::from(tou64!(root_alpha)));

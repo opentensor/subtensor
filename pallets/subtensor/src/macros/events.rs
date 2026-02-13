@@ -535,10 +535,10 @@ mod events {
             override_value: Option<bool>,
         },
 
-        /// Root set the KeepRootSellPressureOnSuppressedSubnets flag.
-        KeepRootSellPressureOnSuppressedSubnetsSet {
-            /// The new value
-            value: bool,
+        /// Root set the RootSellPressureOnSuppressedSubnetsMode.
+        RootSellPressureOnSuppressedSubnetsModeSet {
+            /// The new mode
+            mode: RootSellPressureOnSuppressedSubnetsMode,
         },
 
         /// "Add stake and burn" event: alpha token was purchased and burned.

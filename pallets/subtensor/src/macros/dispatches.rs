@@ -2678,10 +2678,10 @@ mod dispatches {
             Ok(())
         }
 
-        /// --- Set whether root validators continue receiving alpha dividends (sell pressure)
-        /// from emission-suppressed subnets. When true (default), root validators still
-        /// accumulate alpha on suppressed subnets. When false, all alpha goes to subnet
-        /// validators instead.
+        /// --- Set the mode for root alpha dividends on emission-suppressed subnets.
+        /// - Disable: root gets no alpha; alpha recycled to subnet validators.
+        /// - Enable: root still accumulates alpha (old behaviour).
+        /// - Recycle: root alpha swapped to TAO via AMM, TAO burned.
         #[pallet::call_index(135)]
         #[pallet::weight((
             Weight::from_parts(5_000_000, 0)
@@ -2689,13 +2689,13 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::No
         ))]
-        pub fn sudo_set_keep_root_sell_pressure_on_suppressed_subnets(
+        pub fn sudo_set_root_sell_pressure_on_suppressed_subnets_mode(
             origin: OriginFor<T>,
-            value: bool,
+            mode: RootSellPressureOnSuppressedSubnetsMode,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            KeepRootSellPressureOnSuppressedSubnets::<T>::put(value);
-            Self::deposit_event(Event::KeepRootSellPressureOnSuppressedSubnetsSet { value });
+            KeepRootSellPressureOnSuppressedSubnets::<T>::put(mode);
+            Self::deposit_event(Event::RootSellPressureOnSuppressedSubnetsModeSet { mode });
             Ok(())
         }
     }
