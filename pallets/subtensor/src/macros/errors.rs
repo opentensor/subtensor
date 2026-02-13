@@ -284,5 +284,7 @@ mod errors {
         SubnetBuybackRateLimitExceeded,
         /// Network already dissolved
         NetworkAlreadyDissolved,
+        /// "Add stake and burn" exceeded the operation rate limit
+        AddStakeBurnRateLimitExceeded,
     }
 }

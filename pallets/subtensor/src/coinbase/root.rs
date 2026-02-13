@@ -19,6 +19,7 @@ use super::*;
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -217,6 +218,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NetworkAlreadyDissolved
         );
 
+        // --- Perform the cleanup before removing the network.
+        Self::destroy_alpha_in_out_stakes(netuid)?;
+        T::SwapInterface::clear_protocol_liquidity(netuid)?;
+        T::CommitmentsInterface::purge_netuid(netuid);
+
         dissolved_networks.push(netuid);
         DissolvedNetworks::<T>::set(dissolved_networks);
 
@@ -299,7 +305,6 @@ impl<T: Config> Pallet<T> {
         SubnetMovingPrice::<T>::remove(netuid);
         SubnetTaoFlow::<T>::remove(netuid);
         SubnetEmaTaoFlow::<T>::remove(netuid);
-        SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);
