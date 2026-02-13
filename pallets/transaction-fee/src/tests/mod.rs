@@ -73,7 +73,6 @@ fn test_remove_stake_fees_tao() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -142,7 +141,6 @@ fn test_remove_stake_fees_alpha() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_root --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_root() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -201,7 +199,6 @@ fn test_remove_stake_root() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_completely_root --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_completely_root() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -253,7 +250,6 @@ fn test_remove_stake_completely_root() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_completely_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_completely_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -384,7 +380,6 @@ fn test_remove_stake_not_enough_balance_for_fees() {
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_edge_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_edge_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -521,11 +516,11 @@ fn test_remove_stake_failing_transaction_tao_fees() {
     });
 }
 
-// Validation passes, but transaction fails => Alpha fees are paid
+// Validation passes, but transaction fails (artificially disable subtoken) =>
+// Alpha fees are still paid
 //
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_failing_transaction_alpha_fees --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_failing_transaction_alpha_fees() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -538,8 +533,8 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
             stake_amount,
         );
 
-        // Make unstaking fail by reducing liquidity to critical
-        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1));
+        // Provide adequate TAO reserve so that sim swap works ok in validation
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1_000_000_000));
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
@@ -547,6 +542,9 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
+
+        // Disable subtoken so that removing stake tx fails (still allows the validation to pass)
+        pallet_subtensor::SubtokenEnabled::<Test>::insert(sn.subnets[0].netuid, false);
 
         // Remove stake
         let balance_before = Balances::free_balance(sn.coldkey);
@@ -558,7 +556,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
             hotkey: sn.hotkeys[0],
             netuid: sn.subnets[0].netuid,
-            amount_unstaked: unstake_amount,
+            amount_unstaked: alpha_before,
         });
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
@@ -591,7 +589,6 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_limit_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_remove_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -605,8 +602,12 @@ fn test_remove_stake_limit_fees_alpha() {
         );
 
         // Simulate stake removal to get how much TAO should we get for unstaked Alpha
-        let (expected_unstaked_tao, _swap_fee) =
-            mock::swap_alpha_to_tao(sn.subnets[0].netuid, unstake_amount);
+        let alpha_fee = AlphaCurrency::from(24229); // This is measured alpha fee that matches the withdrawn tx fee
+        let (expected_burned_tao_fees, _swap_fee) =
+            mock::swap_alpha_to_tao(sn.subnets[0].netuid, alpha_fee);
+        let (expected_unstaked_tao_plus_fees, _swap_fee) =
+            mock::swap_alpha_to_tao(sn.subnets[0].netuid, unstake_amount + alpha_fee);
+        let expected_unstaked_tao = expected_unstaked_tao_plus_fees - expected_burned_tao_fees;
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
@@ -659,7 +660,6 @@ fn test_remove_stake_limit_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_unstake_all_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_unstake_all_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -732,7 +732,6 @@ fn test_unstake_all_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_unstake_all_alpha_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_unstake_all_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -800,7 +799,6 @@ fn test_unstake_all_alpha_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_move_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_move_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -872,7 +870,6 @@ fn test_move_stake_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_transfer_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_transfer_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let destination_coldkey = U256::from(100000);
@@ -945,7 +942,6 @@ fn test_transfer_stake_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_swap_stake_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_swap_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1016,7 +1012,6 @@ fn test_swap_stake_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_swap_stake_limit_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_swap_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1089,7 +1084,6 @@ fn test_swap_stake_limit_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_burn_alpha_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_burn_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
@@ -1151,7 +1145,6 @@ fn test_burn_alpha_fees_alpha() {
 
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_recycle_alpha_fees_alpha --exact --show-output
 #[test]
-#[ignore]
 fn test_recycle_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
