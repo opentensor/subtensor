@@ -349,12 +349,15 @@ pub mod pallet {
         Encode, Decode, Default, TypeInfo, Clone, Copy, PartialEq, Eq, Debug, DecodeWithMemTracking,
     )]
     pub enum RootSellPressureOnSuppressedSubnetsMode {
-        /// Root gets no alpha on suppressed subnets; alpha recycled to subnet.
+        /// Root gets no alpha on suppressed subnets; all validator alpha goes to subnet validators.
+        #[codec(index = 0)]
         Disable,
         /// Root still accumulates alpha on suppressed subnets (old `true`).
+        #[codec(index = 1)]
         Enable,
         /// Root alpha is swapped to TAO via AMM and the TAO is burned.
         #[default]
+        #[codec(index = 2)]
         Recycle,
     }
 

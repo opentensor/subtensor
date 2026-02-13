@@ -209,10 +209,13 @@ impl<T: Config> Pallet<T> {
             let root_proportion = Self::root_proportion(*netuid_i);
             log::debug!("root_proportion: {root_proportion:?}");
 
+            // Check if subnet emission is suppressed (compute once to avoid double storage read).
+            let is_suppressed = Self::is_subnet_emission_suppressed(*netuid_i);
+
             // Get root alpha from root prop.
             // When mode is Disable and subnet is suppressed, zero out root alpha
             // so all validator alpha goes to subnet validators.
-            let root_alpha: U96F32 = if Self::is_subnet_emission_suppressed(*netuid_i)
+            let root_alpha: U96F32 = if is_suppressed
                 && suppression_mode == RootSellPressureOnSuppressedSubnetsMode::Disable
             {
                 asfloat!(0)
@@ -245,7 +248,6 @@ impl<T: Config> Pallet<T> {
 
             if root_sell_flag {
                 // Determine disposition of root alpha based on suppression mode.
-                let is_suppressed = Self::is_subnet_emission_suppressed(*netuid_i);
                 if is_suppressed
                     && suppression_mode == RootSellPressureOnSuppressedSubnetsMode::Recycle
                 {
@@ -259,6 +261,9 @@ impl<T: Config> Pallet<T> {
                     ) {
                         Self::record_tao_outflow(*netuid_i, swap_result.amount_paid_out);
                         Self::recycle_tao(swap_result.amount_paid_out);
+                    } else {
+                        // Swap failed: recycle alpha back to subnet to prevent loss.
+                        Self::recycle_subnet_alpha(*netuid_i, root_alpha_currency);
                     }
                 } else {
                     // Enable mode (or non-suppressed subnet): accumulate for root validators.
