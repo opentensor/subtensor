@@ -33,6 +33,7 @@ pub use balance_transfer::BalanceTransferPrecompile;
 pub use crowdloan::CrowdloanPrecompile;
 pub use ed25519::Ed25519Verify;
 pub use extensions::PrecompileExt;
+pub use get_storage::GetStoragePrecompile;
 pub use leasing::LeasingPrecompile;
 pub use metagraph::MetagraphPrecompile;
 pub use neuron::NeuronPrecompile;
@@ -50,6 +51,7 @@ mod balance_transfer;
 mod crowdloan;
 mod ed25519;
 mod extensions;
+pub mod get_storage;
 mod leasing;
 mod metagraph;
 mod neuron;
@@ -75,6 +77,7 @@ where
         + pallet_crowdloan::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
+        + get_storage::RuntimeMetadataProvider
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -112,6 +115,7 @@ where
         + pallet_crowdloan::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
+        + get_storage::RuntimeMetadataProvider
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -136,7 +140,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 27] {
+    pub fn used_addresses() -> [H160; 28] {
         [
             hash(1),
             hash(2),
@@ -165,6 +169,7 @@ where
             hash(VotingPowerPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
             hash(AddressMappingPrecompile::<R>::INDEX),
+            hash(GetStoragePrecompile::<R>::INDEX),
         ]
     }
 }
@@ -180,6 +185,7 @@ where
         + pallet_crowdloan::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
+        + get_storage::RuntimeMetadataProvider
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -272,6 +278,9 @@ where
                     handle,
                     PrecompileEnum::AddressMapping,
                 )
+            }
+            a if a == hash(GetStoragePrecompile::<R>::INDEX) => {
+                GetStoragePrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::GetStorage)
             }
             _ => None,
         }

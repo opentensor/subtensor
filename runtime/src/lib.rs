@@ -1195,6 +1195,12 @@ fn weight_per_gas() -> Weight {
         .unwrap_or_default()
 }
 
+impl subtensor_precompiles::get_storage::RuntimeMetadataProvider for Runtime {
+    fn metadata_ir() -> frame_support::__private::metadata_ir::MetadataIR {
+        Runtime::metadata_ir()
+    }
+}
+
 parameter_types! {
     pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
     pub const GasLimitPovSizeRatio: u64 = 0;

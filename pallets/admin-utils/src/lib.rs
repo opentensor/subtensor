@@ -147,6 +147,8 @@ pub mod pallet {
         AddressMapping,
         /// Voting power precompile
         VotingPower,
+        /// Get storage metadata precompile
+        GetStorage,
     }
 
     #[pallet::type_value]
