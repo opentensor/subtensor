@@ -48,7 +48,7 @@ use crate::{PrecompileExt, PrecompileHandleExt};
 // to stop supporting both precompiles.
 //
 // All the future extensions should happen in StakingPrecompileV2.
-pub(crate) struct StakingPrecompileV2<R>(PhantomData<R>);
+pub struct StakingPrecompileV2<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for StakingPrecompileV2<R>
 where
@@ -451,7 +451,7 @@ where
 }
 
 // Deprecated, exists for backward compatibility.
-pub(crate) struct StakingPrecompile<R>(PhantomData<R>);
+pub struct StakingPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for StakingPrecompile<R>
 where
