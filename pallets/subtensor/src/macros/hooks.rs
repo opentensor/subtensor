@@ -243,6 +243,7 @@ mod hooks {
         //
         fn remove_data_for_dissolved_networks(remaining_weight: Weight) -> Weight {
             let dissolved_networks = DissolvedNetworks::<T>::get();
+            let mut _weight_meter = WeightMeter::with_limit(remaining_weight);
 
             for netuid in dissolved_networks.iter() {
                 Self::finalize_all_subnet_root_dividends(*netuid);
@@ -254,7 +255,6 @@ mod hooks {
 
                 Self::deposit_event(Event::DissolvedNetworkDataCleaned { netuid: *netuid });
             }
-            let mut _weight_meter = WeightMeter::with_limit(remaining_weight);
             Weight::from_parts(0, 0)
             // Self::finalize_all_subnet_root_dividends(netuid);
 
