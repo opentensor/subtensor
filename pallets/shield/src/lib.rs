@@ -3,14 +3,12 @@
 
 extern crate alloc;
 
-use frame_support::traits::IsSubType;
-use frame_support::{pallet_prelude::*, sp_runtime::traits::Hash};
+use frame_support::{pallet_prelude::*, traits::IsSubType};
 use frame_system::{ensure_none, ensure_signed, pallet_prelude::*};
-use sp_runtime::Vec;
-use sp_runtime::traits::Applyable;
-use sp_runtime::traits::Block as BlockT;
-use sp_runtime::traits::Checkable;
-use stp_shield::ShieldedTransaction;
+use sp_runtime::traits::{Applyable, Block as BlockT, Checkable, Hash};
+use stp_shield::{
+    INHERENT_IDENTIFIER, InherentType, LOG_TARGET, ShieldPublicKey, ShieldedTransaction,
+};
 
 use alloc::vec;
 
@@ -28,13 +26,12 @@ mod tests;
 mod extension;
 pub use extension::CheckShieldedTxValidity;
 
-type PublicKey = BoundedVec<u8, ConstU32<2048>>;
-
-type InherentType = Option<Vec<u8>>;
-
 type ExtrinsicOf<Block> = <Block as BlockT>::Extrinsic;
 type CheckedOf<T, Context> = <T as Checkable<Context>>::Checked;
 type ApplyableCallOf<T> = <T as Applyable>::Call;
+
+const MAX_KYBER768_PK_LENGTH: usize = 1184;
+const MAX_EXTRINSIC_DEPTH: u32 = 8;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -56,13 +53,13 @@ pub mod pallet {
 
     // Next block author ML‑KEM‑768 public key bytes.
     #[pallet::storage]
-    pub type NextKey<T> = StorageValue<_, PublicKey, OptionQuery>;
+    pub type NextKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
 
     /// Latest announced ML‑KEM‑768 public key per block author.
     /// This is the key the author will use for decapsulation in their next slot.
     #[pallet::storage]
     pub type AuthorKeys<T: Config> =
-        StorageMap<_, Twox64Concat, T::AuthorityId, PublicKey, OptionQuery>;
+        StorageMap<_, Twox64Concat, T::AuthorityId, ShieldPublicKey, OptionQuery>;
 
     // ----------------- Events & Errors -----------------
 
@@ -101,7 +98,7 @@ pub mod pallet {
         ))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
-            public_key: Option<PublicKey>,
+            public_key: Option<ShieldPublicKey>,
         ) -> DispatchResult {
             ensure_none(origin)?;
 
@@ -110,17 +107,15 @@ pub mod pallet {
                 .ok_or_else(|| Error::<T>::Unreachable)?;
 
             if let Some(public_key) = &public_key {
-                const MAX_KYBER768_PK_LENGTH: usize = 1184;
                 ensure!(
                     public_key.len() == MAX_KYBER768_PK_LENGTH,
                     Error::<T>::BadPublicKeyLen
                 );
-            }
-
-            // Store the announced key for the current author.
-            match public_key {
-                Some(pk) => AuthorKeys::<T>::insert(&author, pk),
-                None => AuthorKeys::<T>::remove(&author),
+                AuthorKeys::<T>::insert(&author, public_key.clone());
+            } else {
+                // If the author did not announce a key, remove his old key from storage,
+                // he will not be able to accept shielded transactions in his next block.
+                AuthorKeys::<T>::remove(&author);
             }
 
             // Expose the next block author's key so users can encrypt for them.
@@ -170,14 +165,15 @@ pub mod pallet {
         type Call = Call<T>;
         type Error = sp_inherents::MakeFatalError<()>;
 
-        const INHERENT_IDENTIFIER: [u8; 8] = *b"shieldpk";
+        const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
         fn create_inherent(data: &InherentData) -> Option<Self::Call> {
             let public_key = data
-                .get_data::<InherentType>(&Self::INHERENT_IDENTIFIER)
-                .ok()??
-                .map(|pk| BoundedVec::truncate_from(pk));
-
+                .get_data::<InherentType>(&INHERENT_IDENTIFIER)
+                .inspect_err(
+                    |e| log::debug!(target: LOG_TARGET, "Failed to get shielded public key inherent data: {:?}", e),
+                )
+                .ok()??;
             Some(Call::announce_next_key { public_key })
         }
 
@@ -196,25 +192,26 @@ impl<T: Config> Pallet<T> {
         CheckedOf<Block::Extrinsic, Context>: Applyable,
         ApplyableCallOf<CheckedOf<Block::Extrinsic, Context>>: IsSubType<Call<T>>,
     {
-        const MAX_EXTRINSIC_DEPTH: u32 = 8;
-
         // Prevent stack overflows by limiting the depth of the extrinsic.
         let encoded = uxt.encode();
         let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
             MAX_EXTRINSIC_DEPTH,
             &mut &encoded[..],
         )
-        .inspect_err(|e| log::error!("Failed to decode extrinsic: {:?}", e))
+        .inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decode shielded extrinsic: {:?}", e),
+        )
         .ok()?;
 
-        // Verify that the signature is good.
+        // Verify that the signature is correct.
         let xt = ExtrinsicOf::<Block>::check(uxt, &Context::default())
-            .inspect_err(|e| log::error!("Failed to check extrinsic: {:?}", e))
+            .inspect_err(
+                |e| log::debug!(target: LOG_TARGET, "Failed to check shielded extrinsic: {:?}", e),
+            )
             .ok()?;
         let call = xt.call();
 
-        let Some(Call::submit_encrypted { ciphertext, .. }) =
-            IsSubType::<Call<T>>::is_sub_type(call)
+        let Some(Call::submit_encrypted { ciphertext }) = IsSubType::<Call<T>>::is_sub_type(call)
         else {
             return None;
         };
@@ -226,7 +223,9 @@ impl<T: Config> Pallet<T> {
         shielded_tx: ShieldedTransaction,
     ) -> Option<<Block as BlockT>::Extrinsic> {
         let mut shared_secret = [0u8; 32];
-        stp_io::crypto::mlkem768_decapsulate(&shielded_tx.kem_ct, &mut shared_secret).ok()?;
+        stp_io::crypto::mlkem768_decapsulate(&shielded_tx.kem_ct, &mut shared_secret).inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decapsulate shielded transaction: {:?}", e),
+        ).ok()?;
 
         let plaintext = stp_io::crypto::aead_decrypt(
             &shared_secret,
@@ -234,13 +233,18 @@ impl<T: Config> Pallet<T> {
             &shielded_tx.aead_ct,
             &[],
         )
+        .inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decrypt shielded transaction: {:?}", e),
+        )
         .ok()?;
 
         if plaintext.is_empty() {
             return None;
         }
 
-        ExtrinsicOf::<Block>::decode(&mut &plaintext[..]).ok()
+        ExtrinsicOf::<Block>::decode(&mut &plaintext[..]).inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decode shielded transaction: {:?}", e),
+        ).ok()
     }
 }
 
