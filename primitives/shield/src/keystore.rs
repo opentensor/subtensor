@@ -1,5 +1,4 @@
 //! MEV Shield Keystore traits
-#![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 

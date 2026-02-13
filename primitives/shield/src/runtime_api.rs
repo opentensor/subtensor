@@ -1,5 +1,4 @@
 //! Runtime API definition for the MEV Shield.
-#![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
