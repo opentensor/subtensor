@@ -21,6 +21,7 @@ subtensor-custom-rpc-runtime-api.workspace = true
 smallvec.workspace = true
 log.workspace = true
 codec = { workspace = true, features = ["derive"] }
+safe-math.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-aura = { workspace = true }
@@ -199,6 +200,7 @@ std = [
 	"pallet-preimage/std",
 	"pallet-commitments/std",
 	"precompile-utils/std",
+	"safe-math/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-core/std",
