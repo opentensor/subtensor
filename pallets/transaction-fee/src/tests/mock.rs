@@ -29,10 +29,7 @@ use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 
 pub const TAO: u64 = 1_000_000_000;
 
-pub type Block = sp_runtime::generic::Block<
-    sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>,
-    UncheckedExtrinsic,
->;
+type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -126,6 +123,12 @@ impl frame_support::traits::OffchainWorker<BlockNumber> for Test {
 parameter_types! {
     pub const OperationalFeeMultiplier: u8 = 5;
     pub FeeMultiplier: Multiplier = Multiplier::one();
+}
+
+impl crate::FeeRecipientProvider<U256> for Test {
+    fn fee_recipient() -> Option<U256> {
+        Some(U256::from(1u64)) // AccountId(1) will receive tx fees
+    }
 }
 
 impl pallet_transaction_payment::Config for Test {
@@ -383,6 +386,14 @@ impl pallet_balances::Config for Test {
     type RuntimeHoldReason = ();
 }
 
+pub struct MockAuthorshipProvider;
+
+impl pallet_subtensor_swap::AuthorshipProvider<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(1u64))
+    }
+}
+
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
@@ -401,6 +412,7 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 pub struct OriginPrivilegeCmp;
@@ -517,7 +529,7 @@ where
             pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0),
         );
 
-        Some(UncheckedExtrinsic::new_signed(call, nonce, (), extra))
+        Some(UncheckedExtrinsic::new_signed(call, nonce.into(), (), extra))
     }
 }
 

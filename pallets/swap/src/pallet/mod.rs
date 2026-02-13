@@ -67,12 +67,15 @@ mod pallet {
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+        
+        /// Provider of current block author
+        type AuthorshipProvider: AuthorshipProvider<Self::AccountId>;
     }
 
     /// Default fee rate if not set
     #[pallet::type_value]
     pub fn DefaultFeeRate() -> u16 {
-        33 // ~0.05 %
+        655 // ~1 %
     }
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
@@ -284,3 +287,10 @@ pub struct TickIndex(i32);
     TypeInfo,
 )]
 pub struct PositionId(u128);
+
+
+/// Allow to query the current block author
+pub trait AuthorshipProvider<AccountId> {
+    /// Return the current block author
+    fn author() -> Option<AccountId>;
+}

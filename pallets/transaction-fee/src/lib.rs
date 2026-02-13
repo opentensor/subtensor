@@ -47,7 +47,7 @@ impl WeightToFeePolynomial for LinearWeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient = WeightToFeeCoefficient {
             coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(50_000), // 0.05 unit per weight
+            coeff_frac: Perbill::from_parts(500_000), // 0.5 unit per weight
             negative: false,
             degree: 1,
         };
@@ -95,6 +95,7 @@ where
     T: frame_system::Config,
     T: pallet_subtensor::Config,
     T: pallet_balances::Config<Balance = u64>,
+    T: FeeRecipientProvider<AccountIdOf<T>>,
 {
     fn on_nonzero_unbalanced(
         imbalance: FungibleImbalance<
@@ -110,6 +111,42 @@ where
         drop(imbalance);
     }
 }
+
+// impl<T>
+//     OnUnbalanced<
+//         FungibleImbalance<
+//             u64,
+//             DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+//             IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+//         >,
+//     > for TransactionFeeHandler<T>
+// where
+//     T: frame_system::Config
+//         + pallet_subtensor::Config
+//         + pallet_balances::Config<Balance = u64>
+//         + pallet_authorship::Config,
+// {
+//     fn on_nonzero_unbalanced(
+//         imbalance: FungibleImbalance<
+//             u64,
+//             DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+//             IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+//         >,
+//     ) {
+//         if let Some(author) = pallet_authorship::Pallet::<T>::author() {
+//             // Pay author instead of burning.
+//             // One of these is the right call depending on your exact fungible API:
+//             // let _ = pallet_balances::Pallet::<T>::resolve(&author, imbalance);
+//             // or: let _ = pallet_balances::Pallet::<T>::deposit(&author, imbalance.peek(), Precision::BestEffort);
+//             //
+//             // Prefer "resolve" (moves the actual imbalance) if available:
+//             let _ = <pallet_balances::Pallet<T> as Balanced<_>>::resolve(&author, imbalance);
+//         } else {
+//             // Fallback: if no author, burn (or just drop).
+//             drop(imbalance);
+//         }
+//     }
+// }
 
 /// Handle Alpha fees
 impl<T> AlphaFeeHandler<T> for TransactionFeeHandler<T>
@@ -416,4 +453,8 @@ where
     fn minimum_balance() -> Self::Balance {
         F::minimum_balance()
     }
+}
+
+pub trait FeeRecipientProvider<A> {
+    fn fee_recipient() -> Option<A>;
 }

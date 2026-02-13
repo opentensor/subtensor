@@ -44,6 +44,7 @@ use pallet_subtensor::rpc_info::{
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::{SimSwapResult, SubnetPrice};
+use pallet_subtensor_swap::AuthorshipProvider;
 use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
 use safe_math::FixedExt;
@@ -104,7 +105,7 @@ use scale_info::TypeInfo;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+use subtensor_transaction_fee::{FeeRecipientProvider, SubtensorTxFeeHandler, TransactionFeeHandler};
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -450,6 +451,36 @@ impl pallet_balances::Config for Runtime {
     type FreezeIdentifier = RuntimeFreezeReason;
     type MaxFreezes = ConstU32<50>;
     type DoneSlashHandler = ();
+}
+
+// Implement FeeRecipientProvider trait for Runtime to satisfy pallet transaction 
+// fee OnUnbalanced trait bounds
+pub struct BlockAuthorFromAura<F>(core::marker::PhantomData<F>);
+
+impl<F: FindAuthor<u32>> BlockAuthorFromAura<F> {
+    pub fn recipient() -> Option<AccountId32> {
+        let binding = frame_system::Pallet::<Runtime>::digest();
+        let digest_logs = binding.logs();
+        let author_index = F::find_author(digest_logs.iter().filter_map(|d| d.as_pre_runtime()))?;
+        let authority_id = pallet_aura::Authorities::<Runtime>::get()
+            .get(author_index as usize)?
+            .clone();
+        Some(AccountId32::new(authority_id.to_raw_vec().try_into().ok()?))
+    }
+}
+
+impl FeeRecipientProvider<AccountId32> for Runtime {
+    fn fee_recipient() -> Option<AccountId32> {
+        BlockAuthorFromAura::<Aura>::recipient()
+    }
+}
+
+impl<F: FindAuthor<u32>> AuthorshipProvider<sp_runtime::AccountId32>
+    for BlockAuthorFromAura<F>
+{
+    fn author() -> Option<sp_runtime::AccountId32> {
+        Self::recipient()
+    }
 }
 
 parameter_types! {
@@ -1117,6 +1148,7 @@ impl pallet_subtensor_swap::Config for Runtime {
     type MinimumReserve = SwapMinimumReserve;
     // TODO: set measured weights when the pallet been benchmarked and the type is generated
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
+    type AuthorshipProvider = BlockAuthorFromAura<Aura>;
 }
 
 use crate::sudo_wrapper::SudoTransactionExtension;

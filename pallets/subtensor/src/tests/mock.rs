@@ -304,6 +304,14 @@ impl crate::Config for Test {
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
 }
 
+pub struct MockAuthorshipProvider;
+
+impl pallet_subtensor_swap::AuthorshipProvider<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(1u64))
+    }
+}
+
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
@@ -322,6 +330,7 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 pub struct OriginPrivilegeCmp;
