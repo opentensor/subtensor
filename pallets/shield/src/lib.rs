@@ -49,9 +49,17 @@ pub mod pallet {
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    // ----------------- Storage -----------------
+    // Current block author ML‑KEM‑768 public key bytes.
+    //
+    // Note: Do not use this to encrypt transactions as this
+    // is only used to validate transactions in the extension.
+    // Use `NextKey` instead.
+    #[pallet::storage]
+    pub type CurrentKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
 
     // Next block author ML‑KEM‑768 public key bytes.
+    //
+    // This is the key that should be used to encrypt transactions.
     #[pallet::storage]
     pub type NextKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
 
@@ -60,8 +68,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type AuthorKeys<T: Config> =
         StorageMap<_, Twox64Concat, T::AuthorityId, ShieldPublicKey, OptionQuery>;
-
-    // ----------------- Events & Errors -----------------
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -105,6 +111,11 @@ pub mod pallet {
             let author = T::FindAuthors::find_current_author()
                 // This should never happen as we are in an inherent.
                 .ok_or_else(|| Error::<T>::Unreachable)?;
+
+            // Shift the key chain: Current ← NextKey.
+            // NextKey was set in the previous block to be the current author's key,
+            // so this naturally tracks the last 2 keys users may have encrypted with.
+            CurrentKey::<T>::set(NextKey::<T>::get());
 
             if let Some(public_key) = &public_key {
                 ensure!(
