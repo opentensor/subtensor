@@ -70,8 +70,7 @@ impl ShieldKeystoreInner {
     }
 
     fn roll_for_next_slot(&mut self) -> TraitResult<()> {
-        std::mem::swap(&mut self.current_pair, &mut self.next_pair);
-        self.next_pair = ShieldKeyPair::generate();
+        self.current_pair = std::mem::replace(&mut self.next_pair, ShieldKeyPair::generate());
         Ok(())
     }
 

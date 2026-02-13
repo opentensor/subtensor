@@ -58,15 +58,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type NextKey<T> = StorageValue<_, PublicKey, OptionQuery>;
 
-    /// Current and next ML‑KEM‑768 public key bytes of all block authors.
+    /// Latest announced ML‑KEM‑768 public key per block author.
+    /// This is the key the author will use for decapsulation in their next slot.
     #[pallet::storage]
-    pub type AuthorKeys<T: Config> = StorageMap<
-        _,
-        Twox64Concat,
-        T::AuthorityId,
-        (Option<PublicKey>, Option<PublicKey>),
-        OptionQuery,
-    >;
+    pub type AuthorKeys<T: Config> =
+        StorageMap<_, Twox64Concat, T::AuthorityId, PublicKey, OptionQuery>;
 
     // ----------------- Events & Errors -----------------
 
@@ -83,34 +79,6 @@ pub mod pallet {
         BadPublicKeyLen,
         /// Unreachable.
         Unreachable,
-    }
-
-    // ----------------- Hooks -----------------
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-            let mut weight = Weight::zero();
-
-            // We clear the next key no matter what happens next.
-            NextKey::<T>::kill();
-            weight = weight.saturating_add(T::DbWeight::get().writes(1_u64));
-
-            weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
-            let Some(author) = T::FindAuthors::find_next_author() else {
-                return weight;
-            };
-
-            weight = weight.saturating_add(T::DbWeight::get().reads(1_u64));
-            let Some((Some(key), _)) = AuthorKeys::<T>::get(author) else {
-                return weight;
-            };
-
-            NextKey::<T>::put(key);
-            weight = weight.saturating_add(T::DbWeight::get().writes(1_u64));
-
-            weight
-        }
     }
 
     // ----------------- Calls -----------------
@@ -149,15 +117,19 @@ pub mod pallet {
                 );
             }
 
-            AuthorKeys::<T>::mutate(author, |keys| {
-                if let Some((current_key, next_key)) = keys {
-                    *current_key = next_key.clone();
-                    *next_key = public_key;
-                } else {
-                    // First time we see this author.
-                    *keys = Some((None, public_key));
+            // Store the announced key for the current author.
+            match public_key {
+                Some(pk) => AuthorKeys::<T>::insert(&author, pk),
+                None => AuthorKeys::<T>::remove(&author),
+            }
+
+            // Expose the next block author's key so users can encrypt for them.
+            NextKey::<T>::kill();
+            if let Some(next_author) = T::FindAuthors::find_next_author() {
+                if let Some(key) = AuthorKeys::<T>::get(&next_author) {
+                    NextKey::<T>::put(key);
                 }
-            });
+            }
 
             Ok(())
         }
