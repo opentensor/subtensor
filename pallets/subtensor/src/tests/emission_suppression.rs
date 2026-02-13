@@ -1138,10 +1138,7 @@ fn test_sudo_set_mode_all_variants_emit_events() {
                 )
             );
 
-            assert_eq!(
-                KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
-                mode,
-            );
+            assert_eq!(KeepRootSellPressureOnSuppressedSubnets::<Test>::get(), mode,);
 
             assert!(
                 System::events().iter().any(|e| {

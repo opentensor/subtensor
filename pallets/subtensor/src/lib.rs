@@ -346,16 +346,7 @@ pub mod pallet {
 
     /// Controls how root alpha dividends are handled on emission-suppressed subnets.
     #[derive(
-        Encode,
-        Decode,
-        Default,
-        TypeInfo,
-        Clone,
-        Copy,
-        PartialEq,
-        Eq,
-        Debug,
-        DecodeWithMemTracking,
+        Encode, Decode, Default, TypeInfo, Clone, Copy, PartialEq, Eq, Debug, DecodeWithMemTracking,
     )]
     pub enum RootSellPressureOnSuppressedSubnetsMode {
         /// Root gets no alpha on suppressed subnets; alpha recycled to subnet.

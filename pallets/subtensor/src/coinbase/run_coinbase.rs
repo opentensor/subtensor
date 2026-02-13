@@ -250,8 +250,7 @@ impl<T: Config> Pallet<T> {
                     && suppression_mode == RootSellPressureOnSuppressedSubnetsMode::Recycle
                 {
                     // Recycle mode: swap alpha → TAO via AMM, then burn the TAO.
-                    let root_alpha_currency =
-                        AlphaCurrency::from(tou64!(root_alpha));
+                    let root_alpha_currency = AlphaCurrency::from(tou64!(root_alpha));
                     if let Ok(swap_result) = Self::swap_alpha_for_tao(
                         *netuid_i,
                         root_alpha_currency,
