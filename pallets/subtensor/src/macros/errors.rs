@@ -280,6 +280,10 @@ mod errors {
         PrecisionLoss,
         /// Deprecated call.
         Deprecated,
+        /// Subnet buyback exceeded the operation rate limit
+        SubnetBuybackRateLimitExceeded,
+        /// Network already dissolved
+        NetworkAlreadyDissolved,
         /// "Add stake and burn" exceeded the operation rate limit
         AddStakeBurnRateLimitExceeded,
     }

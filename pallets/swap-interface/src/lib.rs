@@ -46,6 +46,7 @@ pub trait SwapHandler {
         tao_delta: TaoCurrency,
         alpha_delta: AlphaCurrency,
     ) -> (TaoCurrency, AlphaCurrency);
+
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>);
 }

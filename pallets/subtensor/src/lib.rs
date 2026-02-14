@@ -87,6 +87,7 @@ pub mod pallet {
         traits::{
             OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable, tokens::fungible,
         },
+        weights::{Weight, WeightMeter},
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
@@ -1878,6 +1879,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
+
+    /// --- ITEM ( dissolved_networks ) Networks dissolved but some storage not removed yet
+    #[pallet::storage]
+    pub type DissolvedNetworks<T> = StorageValue<_, Vec<NetUid>, ValueQuery>;
 
     // =======================================
     // ==== VotingPower Storage  ====

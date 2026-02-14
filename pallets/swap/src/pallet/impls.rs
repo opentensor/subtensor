@@ -417,6 +417,20 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta)
     }
 
+    // fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
+    //     EnabledUserLiquidity::<T>::get(netuid)
+    // }
+
+    // fn dissolve_all_liquidity_providers(
+    //     netuid: NetUid,
+    //     remaining_weight: Option<Weight>,
+    // ) -> Weight {
+    //     Self::do_dissolve_all_liquidity_providers(netuid, remaining_weight)
+    // }
+
+    // fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
+    //     EnabledUserLiquidity::<T>::insert(netuid, enabled)
+    // }
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
     }

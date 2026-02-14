@@ -16,7 +16,6 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use crate::CommitmentsInterface;
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
@@ -210,15 +209,22 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubnetNotExists
         );
 
-        Self::finalize_all_subnet_root_dividends(netuid);
+        // Just remove the network from the added networks.
+        NetworksAdded::<T>::remove(netuid);
+
+        let mut dissolved_networks = DissolvedNetworks::<T>::get();
+        ensure!(
+            !dissolved_networks.contains(&netuid),
+            Error::<T>::NetworkAlreadyDissolved
+        );
 
         // --- Perform the cleanup before removing the network.
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
 
-        // --- Remove the network
-        Self::remove_network(netuid);
+        dissolved_networks.push(netuid);
+        DissolvedNetworks::<T>::set(dissolved_networks);
 
         // --- Emit the NetworkRemoved event
         log::info!("NetworkRemoved( netuid:{netuid:?} )");

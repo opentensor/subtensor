@@ -1,5 +1,6 @@
 use super::*;
-use frame_support::weights::Weight;
+use crate::WeightMeterWrapper;
+use frame_support::weights::{Weight, WeightMeter};
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
@@ -389,15 +390,27 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Claim all root dividends for subnet and remove all associated data.
-    pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
+    pub fn finalize_all_subnet_root_dividends(netuid: NetUid, remaining_weight: Weight) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
-        for hotkey in hotkeys.iter() {
-            RootClaimable::<T>::mutate(hotkey, |claimable| {
-                claimable.remove(&netuid);
-            });
+        // Iterate directly without collecting to avoid unnecessary allocation
+        for hotkey in RootClaimable::<T>::iter_keys() {
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1), {});
+
+            WeightMeterWrapper!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                RootClaimable::<T>::mutate(&hotkey, |claimable| {
+                    claimable.remove(&netuid);
+                })
+            );
         }
 
-        let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+        WeightMeterWrapper!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None)
+        );
+        weight_meter.consumed()
     }
 }
