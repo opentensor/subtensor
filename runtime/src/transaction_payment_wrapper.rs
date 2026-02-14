@@ -1,19 +1,54 @@
 use crate::{NORMAL_DISPATCH_BASE_PRIORITY, OPERATIONAL_DISPATCH_PRIORITY, Weight};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_election_provider_support::private::sp_arithmetic::traits::SaturatedConversion;
-use frame_support::dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo};
-use frame_support::pallet_prelude::TypeInfo;
-use pallet_transaction_payment::{ChargeTransactionPayment, Config, Pre, Val};
-use sp_runtime::DispatchResult;
-use sp_runtime::traits::{
-    DispatchInfoOf, DispatchOriginOf, Dispatchable, Implication, PostDispatchInfoOf,
-    TransactionExtension, TransactionExtensionMetadata, ValidateResult,
+use frame_support::{
+    dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
+    pallet_prelude::TypeInfo,
+    traits::IsSubType,
 };
-use sp_runtime::transaction_validity::{
-    TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
+use pallet_shield::AuthorityOriginExt;
+use pallet_transaction_payment::{ChargeTransactionPayment, Config, Pre, Val};
+use sp_runtime::{
+    DispatchResult,
+    traits::{
+        DispatchInfoOf, DispatchOriginOf, Dispatchable, Implication, PostDispatchInfoOf,
+        TransactionExtension, TransactionExtensionMetadata, ValidateResult,
+    },
+    transaction_validity::{
+        TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
+    },
 };
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
+
+/// Helper trait to:
+/// - identify whether a `RuntimeCall` is `MevShield::announce_next_key` via `IsSubType`
+/// - perform the `ensure_validator` origin check
+///
+pub trait MevShieldPrioritySupport: frame_system::Config {
+    fn is_announce_next_key(call: &Self::RuntimeCall) -> bool;
+    fn ensure_validator(origin: DispatchOriginOf<Self::RuntimeCall>) -> bool;
+}
+
+impl<T> MevShieldPrioritySupport for T
+where
+    T: pallet_shield::Config + frame_system::Config,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<pallet_shield::Call<T>>,
+{
+    fn is_announce_next_key(call: &Self::RuntimeCall) -> bool {
+        if let Some(pallet_shield::Call::<T>::announce_next_key { .. }) =
+            IsSubType::<pallet_shield::Call<T>>::is_sub_type(call)
+        {
+            return true;
+        }
+
+        false
+    }
+
+    fn ensure_validator(origin: DispatchOriginOf<Self::RuntimeCall>) -> bool {
+        <T as pallet_shield::Config>::AuthorityOrigin::ensure_validator(origin).is_ok()
+    }
+}
 
 #[freeze_struct("5f10cb9db06873c0")]
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
@@ -43,6 +78,7 @@ impl<T: Config> ChargeTransactionPaymentWrapper<T> {
 
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPaymentWrapper<T>
 where
+    T: MevShieldPrioritySupport,
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
     const IDENTIFIER: &'static str = "ChargeTransactionPaymentWrapper";
@@ -80,7 +116,21 @@ where
                     let base: TransactionPriority = match info.class {
                         DispatchClass::Normal => NORMAL_DISPATCH_BASE_PRIORITY,
                         DispatchClass::Mandatory => NORMAL_DISPATCH_BASE_PRIORITY,
-                        DispatchClass::Operational => OPERATIONAL_DISPATCH_PRIORITY,
+                        DispatchClass::Operational => {
+                            let is_root = frame_system::ensure_root(origin.clone()).is_ok();
+
+                            let is_validator_announce_next_key =
+                                <T as MevShieldPrioritySupport>::is_announce_next_key(call)
+                                    && <T as MevShieldPrioritySupport>::ensure_validator(
+                                        origin.clone(),
+                                    );
+
+                            if is_root || is_validator_announce_next_key {
+                                OPERATIONAL_DISPATCH_PRIORITY
+                            } else {
+                                NORMAL_DISPATCH_BASE_PRIORITY
+                            }
+                        }
                     };
                     base.saturated_into::<TransactionPriority>()
                 };
