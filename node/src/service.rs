@@ -457,7 +457,7 @@ where
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
         let pending_create_inherent_data_providers = move |_, ()| {
             let keystore = shield_keystore.clone();
-            async move { CM::create_inherent_data_providers(slot_duration, keystore) }
+            async move { CM::pending_create_inherent_data_providers(slot_duration, keystore) }
         };
 
         let rpc_methods = consensus_mechanism.rpc_methods(
