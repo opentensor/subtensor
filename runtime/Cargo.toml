@@ -58,6 +58,8 @@ sp-version.workspace = true
 sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
+sp-debug-derive = { workspace = true, features = [] }
+stp-io.workspace = true
 
 # Temporary sudo
 pallet-sudo.workspace = true
@@ -151,6 +153,7 @@ pallet-crowdloan.workspace = true
 
 # Mev Shield
 pallet-shield.workspace = true
+stp-shield.workspace = true
 
 ethereum.workspace = true
 
@@ -275,6 +278,9 @@ std = [
 	"subtensor-chain-extensions/std",
 	"ethereum/std",
 	"pallet-shield/std",
+	"stp-shield/std",
+	"stp-io/std",
+	"sp-debug-derive/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
