@@ -33,12 +33,18 @@ members = [
 	"runtime",
 	"support/*",
 	"chain-extensions",
-	"client/shield"
+	"client/shield",
 ]
 resolver = "2"
 
 [workspace.package]
 edition = "2024"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(substrate_runtime)'] }
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(substrate_runtime)'] }
 
 [workspace.lints.clippy]
 arithmetic-side-effects = "deny"
@@ -72,7 +78,9 @@ subtensor-runtime-common = { default-features = false, path = "common" }
 subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
 subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
 subtensor-chain-extensions = { default-features = false, path = "chain-extensions" }
+stp-io = { path = "primitives/io", default-features = false }
 stp-shield = { path = "primitives/shield", default-features = false }
+stc-shield = { path = "client/shield", default-features = false }
 
 ed25519-dalek = { version = "2.1.0", default-features = false }
 async-trait = "0.1"
