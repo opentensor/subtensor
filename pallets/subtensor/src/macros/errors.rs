@@ -266,7 +266,5 @@ mod errors {
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.
         InvalidSubnetNumber,
-        /// Unintended precision loss when unstaking alpha
-        PrecisionLoss,
     }
 }
