@@ -8294,6 +8294,7 @@ dependencies = [
  "pallet-commitments",
  "pallet-drand",
  "pallet-shield",
+ "pallet-shield-runtime-api",
  "pallet-subtensor",
  "pallet-subtensor-swap-rpc",
  "pallet-subtensor-swap-runtime-api",
@@ -8418,6 +8419,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-shield",
+ "pallet-shield-runtime-api",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
@@ -10657,6 +10659,16 @@ dependencies = [
  "sp-std",
  "sp-weights",
  "subtensor-macros",
+]
+
+[[package]]
+name = "pallet-shield-runtime-api"
+version = "0.0.1"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]

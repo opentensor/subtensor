@@ -135,9 +135,7 @@ pub fn create_benchmark_extrinsic(
         )),
         check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
         frame_system::CheckWeight::<runtime::Runtime>::new(),
-        transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(
-            pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
-        ),
+        transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<runtime::Runtime>::from(0),
         sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
         pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
         pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),

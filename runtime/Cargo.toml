@@ -47,6 +47,7 @@ sp-block-builder.workspace = true
 sp-consensus-aura.workspace = true
 sp-consensus-babe.workspace = true
 sp-core.workspace = true
+sp-io.workspace = true
 sp-storage.workspace = true
 sp-genesis-builder.workspace = true
 sp-inherents.workspace = true
@@ -152,12 +153,12 @@ pallet-crowdloan.workspace = true
 
 # Mev Shield
 pallet-shield.workspace = true
+pallet-shield-runtime-api.workspace = true
 
 ethereum.workspace = true
 
 [dev-dependencies]
 frame-metadata.workspace = true
-sp-io.workspace = true
 sp-tracing.workspace = true
 precompile-utils = { workspace = true, features = ["testing"] }
 
@@ -278,6 +279,7 @@ std = [
 	"subtensor-chain-extensions/std",
 	"ethereum/std",
 	"pallet-shield/std",
+	"pallet-shield-runtime-api/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
