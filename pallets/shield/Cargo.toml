@@ -39,7 +39,6 @@ stp-shield.workspace = true
 # Benchmark-only (optional, activated by runtime-benchmarks feature)
 pallet-aura = { workspace = true, optional = true }
 sp-consensus-aura = { workspace = true, optional = true }
-sp-consensus-slots = { workspace = true, optional = true }
 ml-kem = { workspace = true, optional = true }
 chacha20poly1305 = { workspace = true, optional = true, features = ["std"] }
 rand = { workspace = true, optional = true }
@@ -50,7 +49,6 @@ ml-kem.workspace = true
 chacha20poly1305 = { workspace = true, features = ["std"] }
 rand.workspace = true
 pallet-subtensor-utility.workspace = true
-
 
 [features]
 default = ["std"]
@@ -72,7 +70,10 @@ std = [
 	"stp-shield/std",
 	"pallet-aura?/std",
 	"sp-consensus-aura?/std",
-	"sp-consensus-slots?/std",
+	"chacha20poly1305?/std",
+	"ml-kem?/std",
+	"pallet-subtensor-utility/std",
+	"stc-shield/std",
 ]
 
 runtime-benchmarks = [
@@ -80,13 +81,18 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-aura/runtime-benchmarks",
-	"sp-consensus-aura/runtime-benchmarks",
-	"sp-consensus-slots/runtime-benchmarks",
+	"pallet-subtensor-utility/runtime-benchmarks",
+	"chacha20poly1305",
+	"ml-kem",
+	"pallet-aura",
+	"sp-consensus-aura",
+	"rand",
 ]
 
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-subtensor-utility/try-runtime",
 ]

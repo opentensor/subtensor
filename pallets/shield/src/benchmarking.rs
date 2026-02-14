@@ -2,143 +2,177 @@ use super::*;
 
 use frame_benchmarking::v2::*;
 use frame_support::{BoundedVec, pallet_prelude::ConstU32};
-use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
+use frame_system::RawOrigin;
 use sp_core::sr25519;
-use sp_runtime::traits::Hash as HashT;
 use sp_std::vec;
 
-// /// Helper to build bounded bytes (public key) of a given length.
-// fn bounded_pk<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
-//     let v = vec![7u8; len];
-//     BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
-// }
+use chacha20poly1305::{
+    KeyInit, XChaCha20Poly1305, XNonce,
+    aead::{Aead, Payload},
+};
+use ml_kem::{
+    Ciphertext, KemCore, MlKem768, MlKem768Params,
+    kem::{Decapsulate, DecapsulationKey, Encapsulate},
+};
+use rand::rngs::OsRng;
+use stp_shield::ShieldedTransaction;
 
-/// Helper to build bounded bytes (ciphertext) of a given length.
-// fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
-//     let v = vec![0u8; len];
-//     BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
-// }
+use codec::Encode;
+use sp_consensus_aura::AURA_ENGINE_ID;
+use sp_core::crypto::KeyTypeId;
+use sp_io::crypto::sr25519_generate;
 
-// /// Seed Aura authorities so `EnsureAuraAuthority` passes for a given sr25519 pubkey.
-// ///
-// /// We avoid requiring `ByteArray` on `AuthorityId` by relying on:
-// /// `<T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>`.
-// fn seed_aura_authority_from_sr25519<T>(pubkey: &sr25519::Public)
-// where
-//     T: pallet::Config + pallet_aura::Config,
-//     <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
-// {
-//     let auth_id: <T as pallet_aura::Config>::AuthorityId = (*pubkey).into();
-//     pallet_aura::Authorities::<T>::mutate(|auths| {
-//         let _ = auths.try_push(auth_id);
-//     });
-// }
+/// Seed Aura authorities from sr25519 public keys.
+fn seed_aura_authorities<T>(pubkeys: &[sr25519::Public])
+where
+    T: pallet::Config + pallet_aura::Config,
+    <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
+{
+    pallet_aura::Authorities::<T>::mutate(|auths| {
+        for pk in pubkeys {
+            let auth_id: <T as pallet_aura::Config>::AuthorityId = (*pk).into();
+            let _ = auths.try_push(auth_id);
+        }
+    });
+}
+
+/// Deposit an Aura pre-runtime digest for the given slot.
+fn deposit_slot_digest<T: frame_system::Config>(slot: u64) {
+    frame_system::Pallet::<T>::deposit_log(sp_runtime::DigestItem::PreRuntime(
+        AURA_ENGINE_ID,
+        slot.encode(),
+    ));
+}
+
+/// Build a real max-size encrypted ciphertext (8192 bytes wire format).
+///
+/// Returns `(wire_ciphertext, dec_key)` so the benchmark can measure decryption.
+fn build_max_encrypted_payload() -> (Vec<u8>, DecapsulationKey<MlKem768Params>) {
+    let (dec_key, enc_key) = MlKem768::generate(&mut OsRng);
+    let (kem_ct, shared_secret) = enc_key.encapsulate(&mut OsRng).unwrap();
+
+    // Wire overhead: key_hash(16) + kem_ct_len(2) + kem_ct(1088) + nonce(24) = 1130.
+    // Max aead_ct = 8192 − 1130 = 7062.
+    // Poly1305 tag = 16 bytes ⇒ max plaintext = 7046.
+    let plaintext = vec![0x42u8; 7046];
+
+    let nonce = [0u8; 24];
+    let cipher = XChaCha20Poly1305::new(shared_secret.as_slice().into());
+    let aead_ct = cipher
+        .encrypt(
+            XNonce::from_slice(&nonce),
+            Payload {
+                msg: &plaintext,
+                aad: &[],
+            },
+        )
+        .expect("AEAD encryption must succeed in benchmark setup");
+
+    let kem_ct_bytes = kem_ct.as_slice();
+    let key_hash = [0u8; 16];
+
+    let mut wire = Vec::with_capacity(8192);
+    wire.extend_from_slice(&key_hash);
+    wire.extend_from_slice(&(kem_ct_bytes.len() as u16).to_le_bytes());
+    wire.extend_from_slice(kem_ct_bytes);
+    wire.extend_from_slice(&nonce);
+    wire.extend_from_slice(&aead_ct);
+
+    debug_assert_eq!(wire.len(), 8192);
+
+    (wire, dec_key)
+}
 
 #[benchmarks(
     where
-        // Needed to build a concrete inner call and convert into T::RuntimeCall.
-        <T as pallet::Config>::RuntimeCall: From<frame_system::Call<T>>,
-        // Needed so we can seed Authorities from a dev sr25519 pubkey.
+        T: pallet_aura::Config,
         <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
 )]
 mod benches {
     use super::*;
 
-    // We use the custom value for announce_next_key to charge a higher fee, not the benchmark result.
-    // /// Benchmark `announce_next_key`.
-    // #[benchmark]
-    // fn announce_next_key() {
-    //     // Generate a deterministic dev key in the host keystore (for benchmarks).
-    //     // Any 4-byte KeyTypeId works for generation; it does not affect AccountId derivation.
-    //     const KT: KeyTypeId = KeyTypeId(*b"benc");
-    //     let alice_pub: sr25519::Public = sr25519_generate(KT, Some("//Alice".as_bytes().to_vec()));
-    //     let alice_acc: AccountId32 = alice_pub.into();
-
-    //     // Make this account an Aura authority for the generic runtime.
-    //     seed_aura_authority_from_sr25519::<T>(&alice_pub);
-
-    //     // Valid Kyber768 public key length per pallet check.
-    //     const KYBER768_PK_LEN: usize = 1184;
-    //     let public_key: BoundedVec<u8, ConstU32<2048>> = bounded_pk::<2048>(KYBER768_PK_LEN);
-
-    //     // Measure: dispatch the extrinsic.
-    //     #[extrinsic_call]
-    //     announce_next_key(RawOrigin::Signed(alice_acc.clone()), public_key.clone());
-
-    //     // Assert: NextKey should be set exactly.
-    //     let stored = NextKey::<T>::get().expect("must be set by announce_next_key");
-    //     assert_eq!(stored, public_key);
-    // }
-
-    // Benchmark `submit_encrypted`.
-    // #[benchmark]
-    // fn submit_encrypted() {
-    //     // Any whitelisted caller is fine (no authority requirement).
-    //     let who: T::AccountId = whitelisted_caller();
-
-    //     // Dummy commitment and ciphertext (bounded to 8192).
-    //     let commitment: T::Hash = <T as frame_system::Config>::Hashing::hash(b"bench-commitment");
-    //     const CT_DEFAULT_LEN: usize = 256;
-    //     let ciphertext: BoundedVec<u8, ConstU32<8192>> = super::bounded_ct::<8192>(CT_DEFAULT_LEN);
-
-    //     // Pre-compute expected id to assert postconditions.
-    //     let id: T::Hash =
-    //         <T as frame_system::Config>::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
-
-    //     // Measure: dispatch the extrinsic.
-    //     #[extrinsic_call]
-    //     submit_encrypted(
-    //         RawOrigin::Signed(who.clone()),
-    //         commitment,
-    //         ciphertext.clone(),
-    //     );
-
-    //     // Assert: stored under expected id.
-    //     let got = Submissions::<T>::get(id).expect("submission must exist");
-    //     assert_eq!(got.author, who);
-    //     assert_eq!(
-    //         got.commitment,
-    //         <T as frame_system::Config>::Hashing::hash(b"bench-commitment")
-    //     );
-    //     assert_eq!(got.ciphertext.as_slice(), ciphertext.as_slice());
-    // }
-
-    /// Benchmark `mark_decryption_failed`.
+    /// Worst-case `announce_next_key`: both current and next author exist,
+    /// NextKey is populated (shift to CurrentKey), and the next author has a
+    /// stored key (triggers NextKey write).
     #[benchmark]
-    fn mark_decryption_failed() {
-        // Any account can be the author of the submission.
-        let who: T::AccountId = whitelisted_caller();
-        let submitted_in: BlockNumberFor<T> = frame_system::Pallet::<T>::block_number();
+    fn announce_next_key() {
+        let alice = sr25519_generate(KeyTypeId(*b"aura"), Some("//Alice".as_bytes().to_vec()));
+        let bob = sr25519_generate(KeyTypeId(*b"aura"), Some("//Bob".as_bytes().to_vec()));
 
-        // Build a dummy commitment and ciphertext.
-        let commitment: T::Hash =
-            <T as frame_system::Config>::Hashing::hash(b"bench-mark-decryption-failed");
-        const CT_DEFAULT_LEN: usize = 32;
-        let ciphertext: BoundedVec<u8, ConstU32<8192>> =
-            BoundedVec::truncate_from(vec![0u8; CT_DEFAULT_LEN]);
+        // Seed Aura with [alice, bob].
+        seed_aura_authorities::<T>(&[alice, bob]);
 
-        // Compute the submission id exactly like `submit_encrypted` does.
-        let id: T::Hash =
-            <T as frame_system::Config>::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
+        // Slot 0 → current = authorities[0 % 2] = alice,
+        //          next    = authorities[1 % 2] = bob.
+        deposit_slot_digest::<T>(0);
 
-        // Seed Submissions with an entry for this id.
-        let sub = Submission::<T::AccountId, BlockNumberFor<T>, <T as frame_system::Config>::Hash> {
-            author: who,
-            commitment,
-            ciphertext: ciphertext.clone(),
-            submitted_in,
-        };
-        Submissions::<T>::insert(id, sub);
+        // Pre-populate NextKey so the shift (CurrentKey ← NextKey) writes.
+        let old_next_key: ShieldPublicKey = BoundedVec::truncate_from(vec![0x99; MLKEM768_PK_LEN]);
+        NextKey::<T>::put(old_next_key);
 
-        // Reason for failure.
-        let reason: BoundedVec<u8, ConstU32<256>> =
-            BoundedVec::truncate_from(b"benchmark-decryption-failed".to_vec());
+        // Pre-populate AuthorKeys for the next author (bob) so NextKey gets set.
+        let bob_key: ShieldPublicKey = BoundedVec::truncate_from(vec![0x77; MLKEM768_PK_LEN]);
+        let bob_id: <T as pallet::Config>::AuthorityId = bob.into();
+        AuthorKeys::<T>::insert(&bob_id, bob_key);
 
-        // Measure: dispatch the unsigned extrinsic.
+        // Valid 1184-byte ML-KEM-768 public key.
+        let public_key: ShieldPublicKey = BoundedVec::truncate_from(vec![0x42; MLKEM768_PK_LEN]);
+
         #[extrinsic_call]
-        mark_decryption_failed(RawOrigin::None, id, reason);
+        announce_next_key(RawOrigin::None, Some(public_key.clone()));
 
-        // Assert: submission is removed.
-        assert!(Submissions::<T>::get(id).is_none());
+        // CurrentKey was shifted from old NextKey.
+        assert!(CurrentKey::<T>::get().is_some());
+        // NextKey was set from bob's AuthorKeys entry.
+        assert!(NextKey::<T>::get().is_some());
+        // Alice's AuthorKeys was updated.
+        let alice_id: <T as pallet::Config>::AuthorityId = alice.into();
+        assert_eq!(AuthorKeys::<T>::get(&alice_id), Some(public_key));
+    }
+
+    /// Worst-case `submit_encrypted`: max-size ciphertext (8192 bytes) with
+    /// real ML-KEM-768 + XChaCha20-Poly1305 decryption to account for the
+    /// block proposer's off-chain decrypt cost.
+    #[benchmark]
+    fn submit_encrypted() {
+        let who: T::AccountId = whitelisted_caller();
+
+        // Build a real max-size encrypted payload.
+        let (wire, dec_key) = build_max_encrypted_payload();
+        let ciphertext: BoundedVec<u8, ConstU32<8192>> = BoundedVec::truncate_from(wire);
+
+        #[block]
+        {
+            // 1. On-chain dispatch (event deposit).
+            Pallet::<T>::submit_encrypted(
+                RawOrigin::Signed(who.clone()).into(),
+                ciphertext.clone(),
+            )
+            .expect("submit_encrypted dispatch must succeed");
+
+            // 2. Parse wire-format ciphertext (proposer decode).
+            let shielded_tx =
+                ShieldedTransaction::parse(&ciphertext).expect("wire format must be valid");
+
+            // 3. ML-KEM-768 decapsulate (proposer crypto).
+            let ct = Ciphertext::<MlKem768>::try_from(shielded_tx.kem_ct.as_slice())
+                .expect("kem_ct must be valid ML-KEM-768 ciphertext");
+            let shared_secret = dec_key
+                .decapsulate(&ct)
+                .expect("decapsulation must succeed");
+            let ss: [u8; 32] = shared_secret.into();
+
+            // 4. AEAD decrypt (proposer crypto).
+            let aead = XChaCha20Poly1305::new((&ss).into());
+            let _plaintext = aead
+                .decrypt(
+                    XNonce::from_slice(&shielded_tx.nonce),
+                    Payload {
+                        msg: &shielded_tx.aead_ct,
+                        aad: &[],
+                    },
+                )
+                .expect("AEAD decryption must succeed");
+        }
     }
 }
