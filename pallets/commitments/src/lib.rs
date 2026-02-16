@@ -24,7 +24,7 @@ use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, Weight, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
-use subtensor_runtime_common::{NetUid, WeightMeterWrapper};
+use subtensor_runtime_common::{LoopRemovePrefixWithWeightMeter, NetUid, WeightMeterWrapper};
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,
@@ -570,31 +570,35 @@ impl<T: Config> Pallet<T> {
 
     pub fn purge_netuid(netuid: NetUid, remaining_weight: Weight) -> Weight {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-        WeightMeterWrapper!(
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(CommitmentOf::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            CommitmentOf::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = CommitmentOf::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
+
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(LastCommitment::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            LastCommitment::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = LastCommitment::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
+
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(LastBondsReset::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            LastBondsReset::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = LastBondsReset::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
+
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(RevealedCommitments::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            RevealedCommitments::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = RevealedCommitments::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
+
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(UsedSpaceOf::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            UsedSpaceOf::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = UsedSpaceOf::<T>::clear_prefix(netuid, u32::MAX, None);
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
 

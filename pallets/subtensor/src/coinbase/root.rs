@@ -222,14 +222,6 @@ impl<T: Config> Pallet<T> {
         dissolved_networks.push(netuid);
         DissolvedNetworks::<T>::set(dissolved_networks);
 
-        // --- Perform the cleanup before removing the network.
-        // Self::destroy_alpha_in_out_stakes(netuid)?;
-        // T::SwapInterface::clear_protocol_liquidity(netuid)?;
-        // T::CommitmentsInterface::purge_netuid(netuid);
-
-        // finalize_all_subnet_root_dividends()
-        // remove_network()
-
         log::info!("NetworkRemoved( netuid:{netuid:?} )");
 
         // --- Emit the NetworkRemoved event
@@ -249,7 +241,7 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::remove(netuid);
 
         // --- 2. Remove network count.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(3));
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetworkN::<T>::remove(netuid);
 
         // --- 5. Remove various network-related storages.
@@ -257,30 +249,36 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::remove(netuid);
 
         // --- 6. Remove incentive mechanism memory.
-        WeightMeterWrapper!(
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(Uids::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            Uids::<T>::clear_prefix(netuid, 1024, None)
         );
-
-        let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
 
         let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
         let keys_len = keys.len() as u64;
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(keys_len));
+        WeightMeterWrapper!(
+            weight_meter,
+            T::DbWeight::get().reads_writes(keys_len, keys_len)
+        );
+
         for (_uid, key) in keys {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             IsNetworkMember::<T>::remove(key, netuid);
         }
 
-        let count = Keys::<T>::iter_prefix(netuid).count() as u64;
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(count));
-        let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Keys::<T>::clear_prefix(netuid, 1024, None)
+        );
 
         // --- 8. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in Weights::<T>::iter_prefix(NetUidStorageIndex::ROOT) {
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
             // Create a new vector to hold modified weights.
             let mut modified_weights = weights_i.clone();
             for (subnet_id, weight) in modified_weights.iter_mut() {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
                 // If the root network had a weight pointing to this netuid, set it to 0
                 if subnet_id == &u16::from(netuid) {
                     WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
@@ -459,77 +457,80 @@ impl<T: Config> Pallet<T> {
         LoadedEmission::<T>::remove(netuid);
 
         // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
-        WeightMeterWrapper!(
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(BlockAtRegistration::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            BlockAtRegistration::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(Axons::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            Axons::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(NeuronCertificates::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            Prometheus::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(Prometheus::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get()
-                .writes(AlphaDividendsPerSubnet::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            PendingChildKeys::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get().writes(PendingChildKeys::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            AssociatedEvmAddress::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
-        WeightMeterWrapper!(
-            weight_meter,
-            T::DbWeight::get()
-                .writes(AssociatedEvmAddress::<T>::iter_prefix(netuid).count() as u64)
-        );
-        let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // Commit-reveal / weights commits (all per-net prefixes):
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
+
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(mechanisms as u64));
         for subid in 0..mechanisms {
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
             let netuid_index = Self::get_mechanism_storage_index(netuid, subid.into());
 
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             LastUpdate::<T>::remove(netuid_index);
+
             WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             Incentive::<T>::remove(netuid_index);
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-            WeightMeterWrapper!(
+
+            LoopRemovePrefixWithWeightMeter!(
                 weight_meter,
-                T::DbWeight::get()
-                    .writes(WeightCommits::<T>::iter_prefix(netuid_index).count() as u64)
+                T::DbWeight::get().writes(1),
+                WeightCommits::<T>::clear_prefix(netuid_index, 1024, None)
             );
-            let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
-            let _ = TimelockedWeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
-            WeightMeterWrapper!(
+            LoopRemovePrefixWithWeightMeter!(
                 weight_meter,
-                T::DbWeight::get()
-                    .writes(CRV3WeightCommits::<T>::iter_prefix(netuid_index).count() as u64)
+                T::DbWeight::get().writes(1),
+                TimelockedWeightCommits::<T>::clear_prefix(netuid_index, 1024, None)
             );
-            let _ = CRV3WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
-            WeightMeterWrapper!(
+
+            LoopRemovePrefixWithWeightMeter!(
                 weight_meter,
-                T::DbWeight::get()
-                    .writes(CRV3WeightCommitsV2::<T>::iter_prefix(netuid_index).count() as u64)
+                T::DbWeight::get().writes(1),
+                CRV3WeightCommits::<T>::clear_prefix(netuid_index, 1024, None)
             );
-            let _ = CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, u32::MAX, None);
-            WeightMeterWrapper!(
+
+            LoopRemovePrefixWithWeightMeter!(
                 weight_meter,
-                T::DbWeight::get().writes(Weights::<T>::iter_prefix(netuid_index).count() as u64)
+                T::DbWeight::get().writes(1),
+                CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, 1024, None)
             );
-            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+
+            LoopRemovePrefixWithWeightMeter!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                Weights::<T>::clear_prefix(netuid_index, 1024, None)
+            );
         }
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
@@ -540,12 +541,11 @@ impl<T: Config> Pallet<T> {
         MechanismEmissionSplit::<T>::remove(netuid);
 
         // Last hotkey swap (DMAP where netuid is FIRST key → easy)
-        WeightMeterWrapper!(
+        LoopRemovePrefixWithWeightMeter!(
             weight_meter,
-            T::DbWeight::get()
-                .writes(LastHotkeySwapOnNetuid::<T>::iter_prefix(netuid).count() as u64)
+            T::DbWeight::get().writes(1),
+            LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, 1024, None)
         );
-        let _ = LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // --- 20. Identity maps across versions (netuid-scoped).
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
@@ -566,7 +566,10 @@ impl<T: Config> Pallet<T> {
                 })
                 .map(|(hot, _, _)| hot)
                 .collect();
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
+            WeightMeterWrapper!(
+                weight_meter,
+                T::DbWeight::get().reads_writes(read_count, read_count)
+            );
             for hot in to_rm {
                 WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 ChildkeyTake::<T>::remove(&hot, netuid);
