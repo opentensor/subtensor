@@ -64,7 +64,7 @@ where
         };
 
         // Reject malformed ciphertext regardless of source.
-        let Some(ShieldedTransaction { key_hash, .. }) = ShieldedTransaction::parse(&ciphertext)
+        let Some(ShieldedTransaction { key_hash, .. }) = ShieldedTransaction::parse(ciphertext)
         else {
             return Err(InvalidTransaction::BadProof.into());
         };
