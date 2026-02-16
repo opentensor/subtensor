@@ -151,9 +151,10 @@ pub mod pallet {
             // Expose the next block author's key so users can encrypt for them.
             NextKey::<T>::kill();
             if let Some(next_author) = T::FindAuthors::find_next_author()
-                && let Some(key) = AuthorKeys::<T>::get(&next_author) {
-                    NextKey::<T>::put(key);
-                }
+                && let Some(key) = AuthorKeys::<T>::get(&next_author)
+            {
+                NextKey::<T>::put(key);
+            }
 
             Ok(())
         }

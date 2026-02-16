@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::{AuthorKeys, CurrentKey, Error, HasMigrationRun, MigrationKeyMaxLen, NextKey};
+use crate::{AuthorKeys, CurrentKey, Error, HasMigrationRun, NextKey};
 
 use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
