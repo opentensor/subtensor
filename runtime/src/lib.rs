@@ -2209,7 +2209,7 @@ impl_runtime_apis! {
                 pallet_name,
                 extrinsic_name,
             )?;
-            let group_id = pallet_rate_limiting::CallGroups::<Runtime>::get(&identifier);
+            let group_id = pallet_rate_limiting::CallGroups::<Runtime>::get(identifier);
             let target = RateLimiting::<Runtime>::config_target(&identifier).ok()?;
             let limit = match pallet_rate_limiting::Limits::<Runtime>::get(target)? {
                 RateLimit::Global(kind) => RateLimitConfigRpcResponse::Global(kind),
