@@ -62,11 +62,11 @@ pub trait Crypto {
         msg: PassFatPointerAndRead<&[u8]>,
         aad: PassFatPointerAndRead<&[u8]>,
     ) -> AllocateAndReturnByCodec<Result<Vec<u8>, Error>> {
-        Ok(self
+        self
             .extension::<ShieldKeystoreExt>()
             .expect("No `shield keystore` associated for the current context!")
             .aead_decrypt(*key, *nonce, msg, aad)
-            .map_err(|e| Error::Crypto(e.to_string()))?)
+            .map_err(|e| Error::Crypto(e.to_string()))
     }
 }
 
