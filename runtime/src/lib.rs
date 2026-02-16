@@ -1609,11 +1609,11 @@ pub type TransactionExtensions = (
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
     pallet_subtensor::SubtensorTransactionExtension<Runtime>,
+    pallet_drand::drand_priority::DrandPriority<Runtime>,
     (
-        pallet_drand::drand_priority::DrandPriority<Runtime>,
         frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+        rate_limiting::UnwrappedRateLimitTransactionExtension,
     ),
-    rate_limiting::UnwrappedRateLimitTransactionExtension,
 );
 
 impl PrecompileTxExtensionProvider for Runtime {
