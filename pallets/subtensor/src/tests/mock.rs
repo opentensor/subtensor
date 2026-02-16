@@ -5,6 +5,7 @@
 )]
 
 use core::num::NonZeroU64;
+use std::u64;
 
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
@@ -686,6 +687,14 @@ pub(crate) fn run_to_block_ext(n: u64, enable_events: bool) {
         SubtensorModule::on_initialize(System::block_number());
         Scheduler::on_initialize(System::block_number());
     }
+}
+
+#[allow(dead_code)]
+pub(crate) fn run_block_idle() {
+    SubtensorModule::on_idle(
+        System::block_number(),
+        Weight::from_parts(u64::MAX, u64::MAX),
+    );
 }
 
 #[allow(dead_code)]

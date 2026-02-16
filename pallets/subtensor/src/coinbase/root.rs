@@ -215,9 +215,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NetworkAlreadyDissolved
         );
 
-        // Just remove the network from the added networks.
+        // Just remove the network from the added networks, it is used to check if the network is existed.
         NetworksAdded::<T>::remove(netuid);
+        // Reduce the total networks count.
         TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
+        // Remove the network owner, to avoid a lots of owner only extrinsics.
+        SubnetOwner::<T>::remove(netuid);
 
         dissolved_networks.push(netuid);
         DissolvedNetworks::<T>::set(dissolved_networks);
@@ -232,10 +235,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn remove_network(netuid: NetUid, remaining_weight: Weight) -> Weight {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-
-        // --- 1. Get the owner and remove from SubnetOwner.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
-        let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetOwner::<T>::remove(netuid);
@@ -693,9 +692,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- Final removal logging.
-        log::debug!(
-            "remove_network: netuid={netuid}, owner={owner_coldkey:?} removed successfully"
-        );
+        log::debug!("remove_network: netuid={netuid} removed successfully");
         weight_meter.consumed()
     }
 

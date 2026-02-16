@@ -132,6 +132,10 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) {
+        if DissolvedNetworks::<T>::get().contains(&netuid) {
+            log::debug!("root claim on subnet {netuid} is skipped, network is dissolved");
+            return; // no-op
+        }
         // Subtract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
@@ -393,6 +397,7 @@ impl<T: Config> Pallet<T> {
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid, remaining_weight: Weight) -> Weight {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+
         // Iterate directly without collecting to avoid unnecessary allocation
         for hotkey in RootClaimable::<T>::iter_keys() {
             WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
@@ -409,7 +414,7 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None)
+            RootClaimed::<T>::clear_prefix((netuid,), 1024, None)
         );
         weight_meter.consumed()
     }
