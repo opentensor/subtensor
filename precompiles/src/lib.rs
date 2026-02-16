@@ -10,6 +10,7 @@ use frame_support::{
     dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::Decode,
 };
+use pallet_admin_utils::PrecompileEnum;
 use pallet_evm::{
     AddressMapping, IsPrecompileResult, Precompile, PrecompileHandle, PrecompileResult,
     PrecompileSet,
@@ -24,24 +25,24 @@ use sp_core::{H160, U256, crypto::ByteArray};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup};
 use subtensor_runtime_common::ProxyType;
 
-use pallet_admin_utils::PrecompileEnum;
-
-use crate::address_mapping::*;
-use crate::alpha::*;
-use crate::balance_transfer::*;
-use crate::crowdloan::*;
-use crate::ed25519::*;
 use crate::extensions::*;
-use crate::leasing::*;
-use crate::metagraph::*;
-use crate::neuron::*;
-use crate::proxy::*;
-use crate::sr25519::*;
-use crate::staking::*;
-use crate::storage_query::*;
-use crate::subnet::*;
-use crate::uid_lookup::*;
-use crate::voting_power::*;
+
+pub use address_mapping::AddressMappingPrecompile;
+pub use alpha::AlphaPrecompile;
+pub use balance_transfer::BalanceTransferPrecompile;
+pub use crowdloan::CrowdloanPrecompile;
+pub use ed25519::Ed25519Verify;
+pub use extensions::PrecompileExt;
+pub use leasing::LeasingPrecompile;
+pub use metagraph::MetagraphPrecompile;
+pub use neuron::NeuronPrecompile;
+pub use proxy::ProxyPrecompile;
+pub use sr25519::Sr25519Verify;
+pub use staking::{StakingPrecompile, StakingPrecompileV2};
+pub use storage_query::StorageQueryPrecompile;
+pub use subnet::SubnetPrecompile;
+pub use uid_lookup::UidLookupPrecompile;
+pub use voting_power::VotingPowerPrecompile;
 
 mod address_mapping;
 mod alpha;

@@ -71,11 +71,11 @@ fn signed_extrinsic(call: RuntimeCall, pair: &sr25519::Pair, nonce: u32) -> Unch
         ),
         sudo_wrapper::SudoTransactionExtension::<Runtime>::new(),
         pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+        pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
         (
-            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             check_metadata_hash,
+            node_subtensor_runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
         ),
-        node_subtensor_runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
     );
 
     let payload = SignedPayload::new(call.clone(), extra.clone()).expect("signed payload");

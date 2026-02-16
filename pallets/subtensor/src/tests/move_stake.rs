@@ -610,8 +610,9 @@ fn test_do_move_event_emission() {
 
         // Move stake and capture events
         System::reset_events();
-        let current_price =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        let current_price = U96F32::from_num(
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+        );
         let tao_equivalent = (current_price * U96F32::from_num(alpha)).to_num::<u64>(); // no fee conversion
         assert_ok!(SubtensorModule::do_move_stake(
             RuntimeOrigin::signed(coldkey),

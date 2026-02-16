@@ -620,7 +620,7 @@ fn test_burn_precision_loss() {
 }
 
 #[test]
-fn test_subnet_buyback_success() {
+fn test_add_stake_burn_success() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
@@ -642,8 +642,8 @@ fn test_subnet_buyback_success() {
             TaoCurrency::ZERO
         );
 
-        // Execute subnet_buyback - this stakes TAO to get Alpha, then burns the Alpha
-        assert_ok!(SubtensorModule::subnet_buyback(
+        // Execute add_stake_burn - this stakes TAO to get Alpha, then burns the Alpha
+        assert_ok!(SubtensorModule::add_stake_burn(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
@@ -651,7 +651,7 @@ fn test_subnet_buyback_success() {
             None,
         ));
 
-        // After buyback, hotkey should have zero stake since alpha is burned immediately
+        // After "add stake and burn", hotkey should have zero stake since alpha is burned immediately
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             TaoCurrency::ZERO
@@ -672,18 +672,18 @@ fn test_subnet_buyback_success() {
             )
         }));
 
-        // Verify SubnetBuyback event was emitted
+        // Verify AddStakeBurn event was emitted
         assert!(System::events().iter().any(|e| {
             matches!(
                 &e.event,
-                RuntimeEvent::SubtensorModule(Event::SubnetBuyback { .. })
+                RuntimeEvent::SubtensorModule(Event::AddStakeBurn { .. })
             )
         }));
     });
 }
 
 #[test]
-fn test_subnet_buyback_with_limit_success() {
+fn test_add_stake_burn_with_limit_success() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
@@ -711,8 +711,8 @@ fn test_subnet_buyback_with_limit_success() {
         // With 100 TAO into 1000/1000 pool, price moves from 1.0 to ~1.21
         let limit_price = TaoCurrency::from(2_000_000_000); // 2.0 TAO per Alpha
 
-        // Execute subnet_buyback with limit
-        assert_ok!(SubtensorModule::subnet_buyback(
+        // Execute add_stake_burn with limit
+        assert_ok!(SubtensorModule::add_stake_burn(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
@@ -720,7 +720,7 @@ fn test_subnet_buyback_with_limit_success() {
             Some(limit_price),
         ));
 
-        // After buyback, hotkey should have zero stake since alpha is burned immediately
+        // After "add stake and burn", hotkey should have zero stake since alpha is burned immediately
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             TaoCurrency::ZERO
@@ -753,7 +753,7 @@ fn test_subnet_buyback_with_limit_success() {
 }
 
 #[test]
-fn test_subnet_buyback_non_owner_fails() {
+fn test_add_stake_burn_non_owner_fails() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(2);
@@ -772,9 +772,9 @@ fn test_subnet_buyback_non_owner_fails() {
         // Give non-owner some balance
         SubtensorModule::add_balance_to_coldkey_account(&non_owner_coldkey, amount);
 
-        // Non-owner trying to call subnet_buyback should fail with BadOrigin
+        // Non-owner trying to call add_stake_burn should fail with BadOrigin
         assert_noop!(
-            SubtensorModule::subnet_buyback(
+            SubtensorModule::add_stake_burn(
                 RuntimeOrigin::signed(non_owner_coldkey),
                 hotkey_account_id,
                 netuid,
@@ -787,7 +787,7 @@ fn test_subnet_buyback_non_owner_fails() {
 }
 
 #[test]
-fn test_subnet_buyback_nonexistent_subnet_fails() {
+fn test_add_stake_burn_nonexistent_subnet_fails() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(2);
@@ -796,10 +796,10 @@ fn test_subnet_buyback_nonexistent_subnet_fails() {
         // Give some balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
-        // Try to call subnet_buyback on non-existent subnet
+        // Try to call add_stake_burn on non-existent subnet
         let nonexistent_netuid = NetUid::from(999);
         assert_noop!(
-            SubtensorModule::subnet_buyback(
+            SubtensorModule::add_stake_burn(
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
                 nonexistent_netuid,
@@ -812,7 +812,7 @@ fn test_subnet_buyback_nonexistent_subnet_fails() {
 }
 
 #[test]
-fn test_subnet_buyback_insufficient_balance_fails() {
+fn test_add_stake_burn_insufficient_balance_fails() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(2);
@@ -827,9 +827,9 @@ fn test_subnet_buyback_insufficient_balance_fails() {
             (amount * 10_000_000).into(),
         );
 
-        // Try to call subnet_buyback without sufficient balance
+        // Try to call add_stake_burn without sufficient balance
         assert_noop!(
-            SubtensorModule::subnet_buyback(
+            SubtensorModule::add_stake_burn(
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
                 netuid,
@@ -842,7 +842,7 @@ fn test_subnet_buyback_insufficient_balance_fails() {
 }
 
 #[test]
-fn test_subnet_buyback_rate_limit_exceeded() {
+fn test_add_stake_burn_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
@@ -856,16 +856,16 @@ fn test_subnet_buyback_rate_limit_exceeded() {
         let alpha_in = AlphaCurrency::from(1_000_000_000_000);
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
-        // Give coldkey sufficient balance for multiple buybacks
+        // Give coldkey sufficient balance for multiple "add stake and burn" operations.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount * 10);
 
         assert_eq!(
-            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid)),
+            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid)),
             0
         );
 
-        // First buyback should succeed
-        assert_ok!(SubtensorModule::subnet_buyback(
+        // First "add stake and burn" should succeed
+        assert_ok!(SubtensorModule::add_stake_burn(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
@@ -874,27 +874,27 @@ fn test_subnet_buyback_rate_limit_exceeded() {
         ));
 
         assert_eq!(
-            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid)),
+            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid)),
             SubtensorModule::get_current_block_as_u64()
         );
 
-        // Second buyback immediately after should fail due to rate limit
+        // Second "add stake and burn" immediately after should fail due to rate limit
         assert_noop!(
-            SubtensorModule::subnet_buyback(
+            SubtensorModule::add_stake_burn(
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
                 netuid,
                 amount.into(),
                 None,
             ),
-            Error::<Test>::SubnetBuybackRateLimitExceeded
+            Error::<Test>::AddStakeBurnRateLimitExceeded
         );
 
-        // After stepping past the rate limit, buyback should succeed again
-        let rate_limit = TransactionType::SubnetBuyback.rate_limit_on_subnet::<Test>(netuid);
+        // After stepping past the rate limit, "add stake and burn" should succeed again
+        let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<Test>(netuid);
         step_block(rate_limit as u16);
 
-        assert_ok!(SubtensorModule::subnet_buyback(
+        assert_ok!(SubtensorModule::add_stake_burn(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,

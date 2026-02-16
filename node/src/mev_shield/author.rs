@@ -391,11 +391,11 @@ where
         node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
         pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
         // Keep the same order while staying under the 12-item tuple limit.
+        pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
         (
-            pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
+            node_subtensor_runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
         ),
-        node_subtensor_runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
     );
 
     // 3) Manually construct the `Implicit` tuple that the runtime will also derive.
@@ -430,11 +430,11 @@ where
         (),           // SudoTransactionExtension::Implicit = ()
         (),           // SubtensorTransactionExtension::Implicit = ()
         // Match the nested tuple shape used by TransactionExtensions.
+        (), // DrandPriority::Implicit = ()
         (
-            (),   // DrandPriority::Implicit = ()
             None, // CheckMetadataHash::Implicit = Option<[u8; 32]>
+            (),   // RateLimitTransactionExtension::Implicit = ()
         ),
-        (), // RateLimitTransactionExtension::Implicit = ()
     );
 
     // 4) Build the exact signable payload from call + extra + implicit.
