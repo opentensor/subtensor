@@ -41,7 +41,7 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
-use pallet_subtensor::{AuthorshipProvider, CommitmentsInterface, ProxyInterface};
+use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::{SimSwapResult, SubnetPrice};
 use pallet_subtensor_utility as pallet_utility;
@@ -74,7 +74,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use substrate_fixed::types::U64F64;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
+use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
@@ -104,7 +104,7 @@ use scale_info::TypeInfo;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-use subtensor_transaction_fee::{FeeRecipientProvider, SubtensorTxFeeHandler, TransactionFeeHandler};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -452,12 +452,12 @@ impl pallet_balances::Config for Runtime {
     type DoneSlashHandler = ();
 }
 
-// Implement FeeRecipientProvider trait for Runtime to satisfy pallet transaction 
+// Implement AuthorshipInfo trait for Runtime to satisfy pallet transaction 
 // fee OnUnbalanced trait bounds
 pub struct BlockAuthorFromAura<F>(core::marker::PhantomData<F>);
 
 impl<F: FindAuthor<u32>> BlockAuthorFromAura<F> {
-    pub fn recipient() -> Option<AccountId32> {
+    pub fn get_block_author() -> Option<AccountId32> {
         let binding = frame_system::Pallet::<Runtime>::digest();
         let digest_logs = binding.logs();
         let author_index = F::find_author(digest_logs.iter().filter_map(|d| d.as_pre_runtime()))?;
@@ -468,17 +468,17 @@ impl<F: FindAuthor<u32>> BlockAuthorFromAura<F> {
     }
 }
 
-impl FeeRecipientProvider<AccountId32> for Runtime {
-    fn fee_recipient() -> Option<AccountId32> {
-        BlockAuthorFromAura::<Aura>::recipient()
+impl AuthorshipInfo<AccountId32> for Runtime {
+    fn author() -> Option<AccountId32> {
+        BlockAuthorFromAura::<Aura>::get_block_author()
     }
 }
 
-impl<F: FindAuthor<u32>> AuthorshipProvider<sp_runtime::AccountId32>
+impl<F: FindAuthor<u32>> AuthorshipInfo<sp_runtime::AccountId32>
     for BlockAuthorFromAura<F>
 {
     fn author() -> Option<sp_runtime::AccountId32> {
-        Self::recipient()
+        Self::get_block_author()
     }
 }
 
@@ -2509,6 +2509,7 @@ impl_runtime_apis! {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
             let no_slippage_alpha = U64F64::saturating_from_num(u64::from(tao)).safe_div(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
+            // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 order,
@@ -2537,6 +2538,7 @@ impl_runtime_apis! {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
             let no_slippage_tao = U64F64::saturating_from_num(u64::from(alpha)).saturating_mul(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
+            // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 order,

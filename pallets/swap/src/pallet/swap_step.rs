@@ -121,15 +121,15 @@ where
         if self.delta_in > 0.into() {
             ensure!(delta_out > 0.into(), Error::<T>::ReservesTooLow);
 
-            // Forward 100% of fees to the block author
-            // If case we want to split fees between liquidity pool and validators, it 
+            // Split fees 3/5 vs. 2/5 between liquidity pool and validators.
+            // In case we want just to forward 100% of fees to the block author, it 
             // can be done this way:
             // ```
-            //   let lp_fee = self.fee.to_u64().saturating_mul(3).safe_div(5).into();
-            //   Self::add_fees(self.netuid, lp_fee);
-            //   fee_to_block_author = self.fee.saturating_sub(lp_fee);
+            //     fee_to_block_author = self.fee;
             // ```
-            fee_to_block_author = self.fee;
+            let lp_fee = self.fee.to_u64().saturating_mul(3).safe_div(5).into();
+            Self::add_fees(self.netuid, lp_fee);
+            fee_to_block_author = self.fee.saturating_sub(lp_fee);
         }
 
         Ok(SwapStepResult {

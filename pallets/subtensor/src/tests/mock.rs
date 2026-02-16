@@ -29,7 +29,7 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -155,7 +155,7 @@ parameter_types! {
 
 pub struct MockAuthorshipProvider;
 
-impl crate::pallet::AuthorshipProvider<U256> for MockAuthorshipProvider {
+impl AuthorshipInfo<U256> for MockAuthorshipProvider {
     fn author() -> Option<U256> {
         Some(U256::from(12345u64))
     }

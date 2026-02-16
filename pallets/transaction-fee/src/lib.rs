@@ -31,7 +31,7 @@ use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Balance, Currency, NetUid};
+use subtensor_runtime_common::{AuthorshipInfo, Balance, NetUid};
 
 // Tests
 #[cfg(test)]
@@ -95,7 +95,7 @@ where
     T: frame_system::Config,
     T: pallet_subtensor::Config,
     T: pallet_balances::Config<Balance = u64>,
-    T: FeeRecipientProvider<AccountIdOf<T>>,
+    T: AuthorshipInfo<AccountIdOf<T>>,
 {
     fn on_nonzero_unbalanced(
         imbalance: FungibleImbalance<
@@ -104,49 +104,20 @@ where
             IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
         >,
     ) {
-        let ti_before = pallet_subtensor::TotalIssuance::<T>::get();
-        pallet_subtensor::TotalIssuance::<T>::put(
-            ti_before.saturating_sub(imbalance.peek().into()),
-        );
-        drop(imbalance);
+        if let Some(author) = T::author() {
+            // Pay block author instead of burning.
+            // One of these is the right call depending on your exact fungible API:
+            // let _ = pallet_balances::Pallet::<T>::resolve(&author, imbalance);
+            // or: let _ = pallet_balances::Pallet::<T>::deposit(&author, imbalance.peek(), Precision::BestEffort);
+            //
+            // Prefer "resolve" (moves the actual imbalance) if available:
+            let _ = <pallet_balances::Pallet<T> as Balanced<_>>::resolve(&author, imbalance);
+        } else {
+            // Fallback: if no author, burn (or just drop).
+            drop(imbalance);
+        }
     }
 }
-
-// impl<T>
-//     OnUnbalanced<
-//         FungibleImbalance<
-//             u64,
-//             DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-//             IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-//         >,
-//     > for TransactionFeeHandler<T>
-// where
-//     T: frame_system::Config
-//         + pallet_subtensor::Config
-//         + pallet_balances::Config<Balance = u64>
-//         + pallet_authorship::Config,
-// {
-//     fn on_nonzero_unbalanced(
-//         imbalance: FungibleImbalance<
-//             u64,
-//             DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-//             IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-//         >,
-//     ) {
-//         if let Some(author) = pallet_authorship::Pallet::<T>::author() {
-//             // Pay author instead of burning.
-//             // One of these is the right call depending on your exact fungible API:
-//             // let _ = pallet_balances::Pallet::<T>::resolve(&author, imbalance);
-//             // or: let _ = pallet_balances::Pallet::<T>::deposit(&author, imbalance.peek(), Precision::BestEffort);
-//             //
-//             // Prefer "resolve" (moves the actual imbalance) if available:
-//             let _ = <pallet_balances::Pallet<T> as Balanced<_>>::resolve(&author, imbalance);
-//         } else {
-//             // Fallback: if no author, burn (or just drop).
-//             drop(imbalance);
-//         }
-//     }
-// }
 
 /// Handle Alpha fees
 impl<T> AlphaFeeHandler<T> for TransactionFeeHandler<T>
@@ -453,8 +424,4 @@ where
     fn minimum_balance() -> Self::Balance {
         F::minimum_balance()
     }
-}
-
-pub trait FeeRecipientProvider<A> {
-    fn fee_recipient() -> Option<A>;
 }

@@ -25,7 +25,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, NetUid, TaoCurrency};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -264,7 +264,7 @@ parameter_types! {
 
 pub struct MockAuthorshipProvider;
 
-impl pallet_subtensor::AuthorshipProvider<U256> for MockAuthorshipProvider {
+impl AuthorshipInfo<U256> for MockAuthorshipProvider {
     fn author() -> Option<U256> {
         Some(U256::from(12345u64))
     }

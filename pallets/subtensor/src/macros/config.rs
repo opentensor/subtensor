@@ -9,12 +9,7 @@ mod config {
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use pallet_commitments::GetCommitments;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
-
-    /// Allow to query the current block author
-    pub trait AuthorshipProvider<AccountId> {
-        /// Return the current block author
-        fn author() -> Option<AccountId>;
-    }
+    use subtensor_runtime_common::AuthorshipInfo;
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -66,7 +61,7 @@ mod config {
         type EvmKeyAssociateRateLimit: Get<u64>;
                 
         /// Provider of current block author
-        type AuthorshipProvider: AuthorshipProvider<Self::AccountId>;
+        type AuthorshipProvider: AuthorshipInfo<Self::AccountId>;
 
         /// =================================
         /// ==== Initial Value Constants ====

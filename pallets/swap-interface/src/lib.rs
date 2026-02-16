@@ -58,7 +58,8 @@ where
     fn default_price_limit<C: Currency>() -> C;
 }
 
-#[freeze_struct("97f9be71bd9edd82")]
+/// Externally used swap result (for RPC)
+#[freeze_struct("58ff42da64adce1a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SwapResult<PaidIn, PaidOut>
 where
@@ -69,19 +70,6 @@ where
     pub amount_paid_out: PaidOut,
     pub fee_paid: PaidIn,
     pub fee_to_block_author: PaidIn,
-}
-
-/// Externally used swap result (for RPC)
-#[freeze_struct("c021997f992cfbe4")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
-pub struct SwapResultInfo<PaidIn, PaidOut>
-where
-    PaidIn: Currency,
-    PaidOut: Currency,
-{
-    pub amount_paid_in: PaidIn,
-    pub amount_paid_out: PaidOut,
-    pub fee_paid: PaidIn,
 }
 
 impl<PaidIn, PaidOut> SwapResult<PaidIn, PaidOut>
