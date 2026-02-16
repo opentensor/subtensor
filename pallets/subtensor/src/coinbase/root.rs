@@ -20,7 +20,6 @@ use frame_support::weights::{Weight, WeightMeter};
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators

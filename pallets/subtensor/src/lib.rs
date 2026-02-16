@@ -88,7 +88,7 @@ pub mod pallet {
         traits::{
             OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable, tokens::fungible,
         },
-        weights::{Weight, WeightMeter},
+        weights::Weight,
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
