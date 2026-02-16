@@ -8,8 +8,8 @@ mod config {
 
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use pallet_commitments::GetCommitments;
-    use subtensor_swap_interface::{SwapEngine, SwapHandler};
     use subtensor_runtime_common::AuthorshipInfo;
+    use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -59,7 +59,7 @@ mod config {
 
         /// Rate limit for associating an EVM key.
         type EvmKeyAssociateRateLimit: Get<u64>;
-                
+
         /// Provider of current block author
         type AuthorshipProvider: AuthorshipInfo<Self::AccountId>;
 

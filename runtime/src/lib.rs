@@ -452,7 +452,7 @@ impl pallet_balances::Config for Runtime {
     type DoneSlashHandler = ();
 }
 
-// Implement AuthorshipInfo trait for Runtime to satisfy pallet transaction 
+// Implement AuthorshipInfo trait for Runtime to satisfy pallet transaction
 // fee OnUnbalanced trait bounds
 pub struct BlockAuthorFromAura<F>(core::marker::PhantomData<F>);
 
@@ -474,9 +474,7 @@ impl AuthorshipInfo<AccountId32> for Runtime {
     }
 }
 
-impl<F: FindAuthor<u32>> AuthorshipInfo<sp_runtime::AccountId32>
-    for BlockAuthorFromAura<F>
-{
+impl<F: FindAuthor<u32>> AuthorshipInfo<sp_runtime::AccountId32> for BlockAuthorFromAura<F> {
     fn author() -> Option<sp_runtime::AccountId32> {
         Self::get_block_author()
     }

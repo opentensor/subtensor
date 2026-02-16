@@ -686,9 +686,9 @@ fn test_remove_stake_total_balance_no_change() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        // Set fee rate to 0 so that alpha fee is not moved to block producer
         pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
-        
+
         // Some basic assertions
         assert_eq!(
             SubtensorModule::get_total_stake(),
@@ -909,7 +909,7 @@ fn test_remove_stake_total_issuance_no_change() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        // Set fee rate to 0 so that alpha fee is not moved to block producer
         pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
 
         // Give it some $$$ in his coldkey balance
@@ -1639,7 +1639,7 @@ fn test_clear_small_nominations() {
         let fee = DefaultMinStake::<Test>::get().to_u64();
         let init_balance = amount + fee + ExistentialDeposit::get();
 
-        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        // Set fee rate to 0 so that alpha fee is not moved to block producer
         pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
 
         // Register hot1.
@@ -4097,7 +4097,7 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        // Set fee rate to 0 so that alpha fee is not moved to block producer
         // and the hotkey stake does drop to 0
         pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
 
@@ -4162,7 +4162,7 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        // Set fee rate to 0 so that alpha fee is not moved to block producer
         // to avoid false success in this test
         pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
 

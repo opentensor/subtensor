@@ -284,4 +284,3 @@ pub struct TickIndex(i32);
     TypeInfo,
 )]
 pub struct PositionId(u128);
-

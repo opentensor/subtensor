@@ -122,7 +122,7 @@ where
             ensure!(delta_out > 0.into(), Error::<T>::ReservesTooLow);
 
             // Split fees 3/5 vs. 2/5 between liquidity pool and validators.
-            // In case we want just to forward 100% of fees to the block author, it 
+            // In case we want just to forward 100% of fees to the block author, it
             // can be done this way:
             // ```
             //     fee_to_block_author = self.fee;

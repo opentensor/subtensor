@@ -652,7 +652,10 @@ impl<T: Config> Pallet<T> {
         // (SubnetAlphaIn + SubnetAlphaInProvided) in alpha_reserve(), so it is irrelevant
         // which one to increase.
         // Decrease by fee_to_block_author because it will be staked.
-        let alpha_delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs().saturating_sub(swap_result.fee_to_block_author.into());
+        let alpha_delta = swap_result
+            .paid_in_reserve_delta_i64()
+            .unsigned_abs()
+            .saturating_sub(swap_result.fee_to_block_author.into());
         SubnetAlphaIn::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha_delta.into());
         });
@@ -712,7 +715,12 @@ impl<T: Config> Pallet<T> {
         // Alpha in/out counters are already updated in swap_alpha_for_tao accordingly
         let maybe_block_author_coldkey = T::AuthorshipProvider::author();
         if let Some(block_author_coldkey) = maybe_block_author_coldkey {
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &block_author_coldkey, netuid, swap_result.fee_to_block_author);
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey,
+                &block_author_coldkey,
+                netuid,
+                swap_result.fee_to_block_author,
+            );
         } else {
             // block author is not found, burn this alpha
             Self::burn_subnet_alpha(netuid, swap_result.fee_to_block_author);
@@ -812,7 +820,10 @@ impl<T: Config> Pallet<T> {
         // Increase the balance of the block author
         let maybe_block_author_coldkey = T::AuthorshipProvider::author();
         if let Some(block_author_coldkey) = maybe_block_author_coldkey {
-            Self::add_balance_to_coldkey_account(&block_author_coldkey, swap_result.fee_to_block_author.into());
+            Self::add_balance_to_coldkey_account(
+                &block_author_coldkey,
+                swap_result.fee_to_block_author.into(),
+            );
         } else {
             // Block author is not found - burn this TAO
             // Pallet balances total issuance was taken care of when balance was withdrawn for this swap

@@ -531,7 +531,12 @@ where
             pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0),
         );
 
-        Some(UncheckedExtrinsic::new_signed(call, nonce.into(), (), extra))
+        Some(UncheckedExtrinsic::new_signed(
+            call,
+            nonce.into(),
+            (),
+            extra,
+        ))
     }
 }
 
