@@ -451,12 +451,12 @@ macro_rules! WeightMeterWrapper {
 macro_rules! LoopRemovePrefixWithWeightMeter {
     ( $meter:expr, $weight:expr, $body:expr ) => {{
         loop {
-            if !$meter.can_consume($weight * 1024) {
+            if !$meter.can_consume($weight.saturating_mul(1024)) {
                 return $meter.consumed();
             }
             let result = $body;
 
-            $meter.consume($weight * result.backend as u64);
+            $meter.consume($weight.saturating_mul(result.backend as u64));
             if result.maybe_cursor.is_none() {
                 break;
             }
