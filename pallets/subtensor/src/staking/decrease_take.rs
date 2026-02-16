@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
 
-        // --- 6. Emit the take value.
+        // --- 5. Emit the take value.
         log::debug!("TakeDecreased( coldkey:{coldkey:?}, hotkey:{hotkey:?}, take:{take:?} )");
         Self::deposit_event(Event::TakeDecreased(coldkey, hotkey, take));
 
