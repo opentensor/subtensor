@@ -40,14 +40,14 @@ stp-shield.workspace = true
 pallet-aura = { workspace = true, optional = true }
 sp-consensus-aura = { workspace = true, optional = true }
 ml-kem = { workspace = true, optional = true }
-chacha20poly1305 = { workspace = true, optional = true, features = ["std"] }
-rand = { workspace = true, optional = true }
+chacha20poly1305 = { workspace = true, optional = true }
+rand = { workspace = true, optional = true, features = ["getrandom"] }
 
 [dev-dependencies]
 stc-shield.workspace = true
 ml-kem.workspace = true
-chacha20poly1305 = { workspace = true, features = ["std"] }
-rand.workspace = true
+chacha20poly1305.workspace = true
+rand = { workspace = true, features = ["getrandom"] }
 pallet-subtensor-utility.workspace = true
 
 [features]
@@ -72,6 +72,7 @@ std = [
 	"sp-consensus-aura?/std",
 	"chacha20poly1305?/std",
 	"ml-kem?/std",
+	"rand?/std",
 	"pallet-subtensor-utility/std",
 	"stc-shield/std",
 ]
@@ -87,6 +88,7 @@ runtime-benchmarks = [
 	"pallet-aura",
 	"sp-consensus-aura",
 	"rand",
+	"rand/getrandom",
 ]
 
 try-runtime = [

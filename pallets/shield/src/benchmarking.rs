@@ -4,7 +4,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{BoundedVec, pallet_prelude::ConstU32};
 use frame_system::RawOrigin;
 use sp_core::sr25519;
-use sp_std::vec;
+use sp_std::{vec, vec::Vec};
 
 use chacha20poly1305::{
     KeyInit, XChaCha20Poly1305, XNonce,
@@ -14,6 +14,7 @@ use ml_kem::{
     Ciphertext, KemCore, MlKem768, MlKem768Params,
     kem::{Decapsulate, DecapsulationKey, Encapsulate},
 };
+// use rand::{SeedableRng, rngs::StdRng};
 use rand::rngs::OsRng;
 use stp_shield::ShieldedTransaction;
 
@@ -48,8 +49,13 @@ fn deposit_slot_digest<T: frame_system::Config>(slot: u64) {
 ///
 /// Returns `(wire_ciphertext, dec_key)` so the benchmark can measure decryption.
 fn build_max_encrypted_payload() -> (Vec<u8>, DecapsulationKey<MlKem768Params>) {
+    // let mut rng = StdRng::from_seed([42u8; 32]);
+    // let (dec_key, enc_key) = MlKem768::generate(&mut rng);
+    // let (kem_ct, shared_secret) = enc_key.encapsulate(&mut rng).unwrap();
     let (dec_key, enc_key) = MlKem768::generate(&mut OsRng);
     let (kem_ct, shared_secret) = enc_key.encapsulate(&mut OsRng).unwrap();
+
+
 
     // Wire overhead: key_hash(16) + kem_ct_len(2) + kem_ct(1088) + nonce(24) = 1130.
     // Max aead_ct = 8192 − 1130 = 7062.

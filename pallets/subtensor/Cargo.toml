@@ -141,7 +141,8 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"serde_json/std",
-	"sha2/std"
+	"sha2/std",
+	"rand/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
