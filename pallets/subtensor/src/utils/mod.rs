@@ -7,20 +7,8 @@ pub mod rate_limiting;
 pub mod try_state;
 pub mod voting_power;
 
-#[macro_export]
-macro_rules! WeightMeterWrapper {
-    ( $meter:expr, $weight:expr, $body:expr ) => {{
-        if !$meter.can_consume($weight) {
-            return $meter.consumed();
-        }
-        let _ = $body;
-        $meter.consume($weight);
-    }};
-}
-
 #[cfg(test)]
 mod tests {
-    use core::cell::Cell;
 
     /// Mock weight meter for testing the macro.
     struct MockWeightMeter {
@@ -45,12 +33,8 @@ mod tests {
 
     /// Helper: the macro's early return yields u64, so it must be in a fn returning u64.
     fn run_with_meter(mut meter: MockWeightMeter) -> u64 {
-        WeightMeterWrapper!(meter, 10u64, {
-            // body executes when we can consume
-        });
-        WeightMeterWrapper!(meter, 20u64, {
-            // body executes
-        });
+        WeightMeterWrapper!(meter, 10u64);
+        WeightMeterWrapper!(meter, 20u64);
         meter.consumed()
     }
 
@@ -75,15 +59,8 @@ mod tests {
     #[test]
     fn test_weight_meter_wrapper_body_executes() {
         fn helper() -> u64 {
-            let executed = Cell::new(false);
             let mut meter = MockWeightMeter::with_limit(100);
-            WeightMeterWrapper!(meter, 10u64, {
-                executed.set(true);
-            });
-            assert!(
-                executed.get(),
-                "body should execute when weight is available"
-            );
+            WeightMeterWrapper!(meter, 10u64);
             meter.consumed()
         }
         assert_eq!(helper(), 10);
@@ -91,19 +68,12 @@ mod tests {
 
     #[test]
     fn test_weight_meter_wrapper_body_does_not_execute_when_over_limit() {
-        let executed = Cell::new(false);
         let mut meter = MockWeightMeter::with_limit(5);
-        fn run(executed: &Cell<bool>, meter: &mut MockWeightMeter) -> u64 {
-            WeightMeterWrapper!(meter, 10u64, {
-                executed.set(true);
-            });
+        fn run(meter: &mut MockWeightMeter) -> u64 {
+            WeightMeterWrapper!(meter, 10u64);
             meter.consumed()
         }
-        let consumed = run(&executed, &mut meter);
-        assert!(
-            !executed.get(),
-            "body should not execute when weight exceeds limit"
-        );
+        let consumed = run(&mut meter);
         assert_eq!(consumed, 0);
     }
 }

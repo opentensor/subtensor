@@ -642,6 +642,7 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(0)); // zero TAO
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
         Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
+
         TotalHotkeyAlpha::<Test>::insert(sh, net, AlphaCurrency::from(1_000u64));
 
         let before = SubtensorModule::get_coldkey_balance(&sc);

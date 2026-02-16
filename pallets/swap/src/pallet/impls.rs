@@ -1,5 +1,13 @@
+use super::pallet::*;
+use super::swap_step::{BasicSwapStep, SwapStep};
+use crate::{pallet::Balancer, pallet::balancer::BalancerError};
 use frame_support::storage::{TransactionOutcome, transactional};
-use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
+use frame_support::{
+    ensure,
+    pallet_prelude::DispatchError,
+    traits::Get,
+    weights::{Weight, WeightMeter},
+};
 use safe_math::*;
 use sp_arithmetic::{
     //helpers_128bit,
@@ -7,6 +15,7 @@ use sp_arithmetic::{
 };
 use sp_runtime::{DispatchResult, traits::AccountIdConversion};
 use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::WeightMeterWrapper;
 use subtensor_runtime_common::{
     AlphaCurrency,
     // BalanceOps,
@@ -19,10 +28,6 @@ use subtensor_runtime_common::{
 use subtensor_swap_interface::{
     DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
 };
-
-use super::pallet::*;
-use super::swap_step::{BasicSwapStep, SwapStep};
-use crate::{pallet::Balancer, pallet::balancer::BalancerError};
 
 impl<T: Config> Pallet<T> {
     pub fn current_price(netuid: NetUid) -> U64F64 {
@@ -285,27 +290,42 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
-    pub fn do_clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
+    pub fn do_clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+
         // let protocol_account = Self::protocol_account_id();
 
         // 1) Force-close protocol liquidity, burning proceeds.
+
+        // Record a database read (for reserve state).
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+
+        // Burn all protocol reserves for τ and α.
         let burned_tao = T::TaoReserve::reserve(netuid.into());
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let burned_alpha = T::AlphaReserve::reserve(netuid.into());
-
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         T::TaoReserve::decrease_provided(netuid.into(), burned_tao);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         T::AlphaReserve::decrease_provided(netuid.into(), burned_alpha);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
 
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeesTao::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeesAlpha::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         PalSwapInitialized::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeeRate::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SwapBalancer::<T>::remove(netuid);
 
         log::debug!(
             "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
         );
 
-        Ok(())
+        weight_meter.consumed()
     }
 }
 
@@ -431,8 +451,8 @@ impl<T: Config> SwapHandler for Pallet<T> {
     // fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
     //     EnabledUserLiquidity::<T>::insert(netuid, enabled)
     // }
-    fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
-        Self::do_clear_protocol_liquidity(netuid)
+    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> Weight {
+        Self::do_clear_protocol_liquidity(netuid, remaining_weight)
     }
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>) {
         Self::maybe_initialize_palswap(netuid, maybe_price).unwrap_or_default();

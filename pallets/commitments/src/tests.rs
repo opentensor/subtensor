@@ -2265,7 +2265,7 @@ fn purge_netuid_clears_only_that_netuid() {
         assert!(TimelockedIndex::<Test>::get().contains(&(net_a, who_a1)));
 
         // Act
-        Pallet::<Test>::purge_netuid(net_a);
+        Pallet::<Test>::purge_netuid(net_a, Weight::from_parts(u64::MAX, u64::MAX));
 
         // NET A: everything cleared
         assert_eq!(CommitmentOf::<Test>::iter_prefix(net_a).count(), 0);

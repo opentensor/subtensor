@@ -392,25 +392,22 @@ impl<T: Config> Pallet<T> {
     /// Claim all root dividends for subnet and remove all associated data.
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid, remaining_weight: Weight) -> Weight {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         // Iterate directly without collecting to avoid unnecessary allocation
         for hotkey in RootClaimable::<T>::iter_keys() {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1), {});
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+            let mut claimable = RootClaimable::<T>::get(&hotkey);
+            if claimable.contains_key(&netuid) {
+                claimable.remove(&netuid);
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+                RootClaimable::<T>::insert(&hotkey, claimable);
+            }
 
-            WeightMeterWrapper!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                RootClaimable::<T>::mutate(&hotkey, |claimable| {
-                    claimable.remove(&netuid);
-                })
-            );
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         }
 
-        WeightMeterWrapper!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None)
-        );
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
         weight_meter.consumed()
     }
 }

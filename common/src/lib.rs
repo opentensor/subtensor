@@ -437,6 +437,32 @@ impl TypeInfo for NetUidStorageIndex {
     }
 }
 
+#[macro_export]
+macro_rules! WeightMeterWrapper {
+    ( $meter:expr, $weight:expr ) => {{
+        if !$meter.can_consume($weight) {
+            return $meter.consumed();
+        }
+        $meter.consume($weight);
+    }};
+}
+
+#[macro_export]
+macro_rules! LoopRemovePrefixWithWeightMeter {
+    ( $meter:expr, $weight:expr, $body:expr ) => {{
+        loop {
+            if !$meter.can_consume($weight * 1024) {
+                return $meter.consumed();
+            }
+            let result = $body;
+            $meter.consume($weight * result.backend as u64);
+            if result.maybe_cursor.is_none() {
+                break;
+            }
+        }
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
