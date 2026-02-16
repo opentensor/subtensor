@@ -455,20 +455,103 @@ macro_rules! LoopRemovePrefixWithWeightMeter {
                 return $meter.consumed();
             }
             let result = $body;
+
             $meter.consume($weight * result.backend as u64);
             if result.maybe_cursor.is_none() {
                 break;
             }
         }
+        $meter.consumed()
     }};
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frame_support::weights::WeightMeter;
+
+    struct TestBody {
+        count: u64,
+    }
+
+    struct TestResult {
+        backend: u64,
+        maybe_cursor: Option<()>,
+    }
+
+    impl TestBody {
+        fn new(count: u64) -> Self {
+            Self { count: count }
+        }
+
+        fn execute(&mut self, number: u64) -> TestResult {
+            if self.count >= number {
+                self.count -= number;
+                TestResult {
+                    backend: number,
+                    maybe_cursor: Some(()),
+                }
+            } else {
+                let tmp = self.count;
+                self.count = 0;
+                TestResult {
+                    backend: tmp,
+                    maybe_cursor: None,
+                }
+            }
+        }
+    }
 
     #[test]
     fn netuid_has_u16_bin_repr() {
         assert_eq!(NetUid(5).encode(), 5u16.encode());
+    }
+
+    fn test_weight(remaining_weight: Weight, weight: Weight) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        WeightMeterWrapper!(weight_meter, weight);
+        weight_meter.consumed()
+    }
+
+    fn test_loop(
+        remaining_weight: Weight,
+        weight: Weight,
+        mut body: TestBody,
+        number: u64,
+    ) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        LoopRemovePrefixWithWeightMeter!(weight_meter, weight, body.execute(number));
+        weight_meter.consumed()
+    }
+
+    #[test]
+    fn test_weight_meter_wrapper() {
+        let remaining_weight = Weight::from_parts(200, 200);
+        let used_weight = test_weight(remaining_weight, Weight::from_parts(100, 100));
+        assert_eq!(used_weight, Weight::from_parts(100, 100));
+
+        let used_weight = test_weight(remaining_weight, Weight::from_parts(300, 300));
+        assert_eq!(used_weight, Weight::from_parts(0, 0));
+    }
+
+    #[test]
+    fn test_loop_remove_prefix_with_weight_meter() {
+        // remaining weight matches the body count
+        let body = TestBody::new(1024);
+        let remaining_weight = Weight::from_parts(100 * 1024, 100 * 1024);
+        let used_weight = test_loop(remaining_weight, Weight::from_parts(100, 100), body, 1024);
+        assert_eq!(used_weight, Weight::from_parts(100, 100) * 1024);
+
+        // remaining weight is less than the body count
+        let body = TestBody::new(1025);
+        let remaining_weight = Weight::from_parts(100 * 1024, 100 * 1024);
+        let used_weight = test_loop(remaining_weight, Weight::from_parts(100, 100), body, 1024);
+        assert_eq!(used_weight, Weight::from_parts(100, 100) * 1024);
+
+        // remaining weight is more than the body count
+        let body = TestBody::new(1025);
+        let remaining_weight = Weight::from_parts(100 * 1024 * 2, 100 * 1024 * 2);
+        let used_weight = test_loop(remaining_weight, Weight::from_parts(100, 100), body, 1024);
+        assert_eq!(used_weight, Weight::from_parts(100, 100) * 1025);
     }
 }

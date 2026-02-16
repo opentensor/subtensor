@@ -406,8 +406,11 @@ impl<T: Config> Pallet<T> {
             WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         }
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-        let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None)
+        );
         weight_meter.consumed()
     }
 }
