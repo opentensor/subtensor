@@ -24,7 +24,10 @@ pub mod mock;
 mod tests;
 
 mod extension;
+mod migrations;
 pub use extension::CheckShieldedTxValidity;
+
+type MigrationKeyMaxLen = ConstU32<128>;
 
 type ExtrinsicOf<Block> = <Block as BlockT>::Extrinsic;
 type CheckedOf<T, Context> = <T as Checkable<Context>>::Checked;
@@ -69,6 +72,11 @@ pub mod pallet {
     pub type AuthorKeys<T: Config> =
         StorageMap<_, Twox64Concat, T::AuthorityId, ShieldPublicKey, OptionQuery>;
 
+    /// Stores whether some migration has been run.
+    #[pallet::storage]
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -84,7 +92,18 @@ pub mod pallet {
         Unreachable,
     }
 
-    // ----------------- Calls -----------------
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+
+            weight = weight.saturating_add(
+                migrations::migrate_clear_v1_storage::migrate_clear_v1_storage::<T>(),
+            );
+
+            weight
+        }
+    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
