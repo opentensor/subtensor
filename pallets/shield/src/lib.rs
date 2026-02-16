@@ -129,7 +129,7 @@ pub mod pallet {
 
             let author = T::FindAuthors::find_current_author()
                 // This should never happen as we are in an inherent.
-                .ok_or_else(|| Error::<T>::Unreachable)?;
+                .ok_or(Error::<T>::Unreachable)?;
 
             // Shift the key chain: Current ← NextKey.
             // NextKey was set in the previous block to be the current author's key,
@@ -150,11 +150,10 @@ pub mod pallet {
 
             // Expose the next block author's key so users can encrypt for them.
             NextKey::<T>::kill();
-            if let Some(next_author) = T::FindAuthors::find_next_author() {
-                if let Some(key) = AuthorKeys::<T>::get(&next_author) {
+            if let Some(next_author) = T::FindAuthors::find_next_author()
+                && let Some(key) = AuthorKeys::<T>::get(&next_author) {
                     NextKey::<T>::put(key);
                 }
-            }
 
             Ok(())
         }
@@ -251,7 +250,7 @@ impl<T: Config> Pallet<T> {
             return None;
         };
 
-        ShieldedTransaction::parse(&ciphertext)
+        ShieldedTransaction::parse(ciphertext)
     }
 
     pub fn try_unshield_tx<Block: BlockT>(
