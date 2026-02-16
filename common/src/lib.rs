@@ -481,12 +481,12 @@ mod tests {
 
     impl TestBody {
         fn new(count: u64) -> Self {
-            Self { count: count }
+            Self { count }
         }
 
         fn execute(&mut self, number: u64) -> TestResult {
             if self.count >= number {
-                self.count -= number;
+                self.count = self.count.saturating_sub(number);
                 TestResult {
                     backend: number,
                     maybe_cursor: Some(()),
