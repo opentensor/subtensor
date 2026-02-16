@@ -18,6 +18,7 @@ use frame_support::pallet_prelude::Hooks;
 use frame_support::{
     BoundedVec, assert_noop, assert_ok,
     traits::{Currency, Get, ReservableCurrency},
+    weights::Weight,
 };
 use frame_system::{Pallet as System, RawOrigin};
 
@@ -2298,7 +2299,7 @@ fn purge_netuid_clears_only_that_netuid() {
         assert!(idx_after.contains(&(net_b, who_b)));
 
         // Idempotency
-        Pallet::<Test>::purge_netuid(net_a);
+        Pallet::<Test>::purge_netuid(net_a, Weight::from_parts(u64::MAX, u64::MAX));
         assert_eq!(CommitmentOf::<Test>::iter_prefix(net_a).count(), 0);
         assert!(!TimelockedIndex::<Test>::get().contains(&(net_a, who_a1)));
     });
