@@ -1052,7 +1052,10 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // Run the path under test
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
 
         // No refund for non‑legacy
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1086,7 +1089,10 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
 
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // No refund possible when lock = 0
