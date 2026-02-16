@@ -686,6 +686,9 @@ fn test_remove_stake_total_balance_no_change() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
+        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
+        
         // Some basic assertions
         assert_eq!(
             SubtensorModule::get_total_stake(),
@@ -906,6 +909,9 @@ fn test_remove_stake_total_issuance_no_change() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
+        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
+
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
@@ -971,7 +977,7 @@ fn test_remove_stake_total_issuance_no_change() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake(),
             SubtensorModule::get_network_min_lock() + total_fee.into(),
-            epsilon = TaoCurrency::from(fee) / 1000.into()
+            epsilon = TaoCurrency::from(fee) / 1000.into() + 1.into()
         );
 
         // Check if total issuance is equal to the added stake, even after remove stake (no fee,
@@ -1632,6 +1638,9 @@ fn test_clear_small_nominations() {
         let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
         let fee = DefaultMinStake::<Test>::get().to_u64();
         let init_balance = amount + fee + ExistentialDeposit::get();
+
+        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
 
         // Register hot1.
         register_ok_neuron(netuid, hot1, cold1, 0);
@@ -2794,7 +2803,7 @@ fn test_max_amount_add_stable() {
 // cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_add_dynamic --exact --show-output
 #[test]
 fn test_max_amount_add_dynamic() {
-    // tao_in, alpha_in, limit_price, expected_max_swappable (with 1% fees)
+    // tao_in, alpha_in, limit_price, expected_max_swappable (with 0.05% fees)
     [
         // Zero handling (no panics)
         (
@@ -2808,16 +2817,16 @@ fn test_max_amount_add_dynamic() {
         // Low bounds
         (100, 100, 1_100_000_000, Ok(4)),
         (1_000, 1_000, 1_100_000_000, Ok(48)),
-        (10_000, 10_000, 1_100_000_000, Ok(492)),
+        (10_000, 10_000, 1_100_000_000, Ok(488)),
         // Basic math
-        (1_000_000, 1_000_000, 4_000_000_000, Ok(1_010_000)),
-        (1_000_000, 1_000_000, 9_000_000_000, Ok(2_020_000)),
-        (1_000_000, 1_000_000, 16_000_000_000, Ok(3_030_000)),
+        (1_000_000, 1_000_000, 4_000_000_000, Ok(1_000_500)),
+        (1_000_000, 1_000_000, 9_000_000_000, Ok(2_001_000)),
+        (1_000_000, 1_000_000, 16_000_000_000, Ok(3_001_500)),
         (
             1_000_000_000_000,
             1_000_000_000_000,
             16_000_000_000,
-            Ok(3_030_000_000_000),
+            Ok(3_001_500_000_000),
         ),
         // Normal range values with edge cases
         (
@@ -2865,7 +2874,7 @@ fn test_max_amount_add_dynamic() {
             150_000_000_000,
             100_000_000_000,
             6_000_000_000,
-            Ok(151_500_000_000),
+            Ok(150_075_000_000),
         ),
         // Miscellaneous overflows and underflows
         (u64::MAX / 2, u64::MAX, u64::MAX, Ok(u64::MAX)),
@@ -2997,7 +3006,7 @@ fn test_max_amount_remove_dynamic() {
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
-        // tao_in, alpha_in, limit_price, expected_max_swappable (+ 1% fee)
+        // tao_in, alpha_in, limit_price, expected_max_swappable (+ 0.05% fee)
         [
             // Zero handling (no panics)
             (
@@ -3069,7 +3078,7 @@ fn test_max_amount_remove_dynamic() {
                 )),
             ),
             (200_000_000_000, 100_000_000_000, 1_999_999_999, Ok(24)),
-            (200_000_000_000, 100_000_000_000, 1_999_999_990, Ok(254)),
+            (200_000_000_000, 100_000_000_000, 1_999_999_990, Ok(250)),
             // Miscellaneous overflows and underflows
             (
                 21_000_000_000_000_000,
@@ -3077,7 +3086,7 @@ fn test_max_amount_remove_dynamic() {
                 21_000_000_000_000_000,
                 Ok(17_630_088),
             ),
-            (21_000_000_000_000_000, 1_000_000, u64::MAX, Ok(67_835)),
+            (21_000_000_000_000_000, 1_000_000, u64::MAX, Ok(67_000)),
             (
                 21_000_000_000_000_000,
                 1_000_000_000_000_000_000,
@@ -3090,7 +3099,7 @@ fn test_max_amount_remove_dynamic() {
                 21_000_000_000_000_000,
                 1_000_000_000_000_000_000,
                 20_000_000,
-                Ok(25_048_000_000_000_000),
+                Ok(24_700_000_000_000_000),
             ),
             (
                 21_000_000_000_000_000,
@@ -3435,7 +3444,7 @@ fn test_max_amount_move_dynamic_stable() {
         assert_abs_diff_eq!(
             SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 375_000_000.into())
                 .unwrap(),
-            alpha_in + alpha_in / 100.into(), // + 1% fee
+            alpha_in + alpha_in / 2000.into(), // + 0.05% fee
             epsilon = alpha_in / 10_000.into(),
         );
 
@@ -4088,6 +4097,10 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
+        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        // and the hotkey stake does drop to 0
+        pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
+
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
@@ -4148,6 +4161,10 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
         let amount = 10_000_000_000;
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+        // Set fee rate to 0 so that alpha fee is not moved to block producer 
+        // to avoid false success in this test
+        pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
@@ -5012,7 +5029,7 @@ fn test_remove_stake_full_limit_ok() {
         );
 
         let new_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        assert_abs_diff_eq!(new_balance, 9_008_200_000, epsilon = 1_000_000);
+        assert_abs_diff_eq!(new_balance, 9_086_700_000, epsilon = 1_000_000);
     });
 }
 
@@ -5096,7 +5113,7 @@ fn test_remove_stake_full_limit_ok_with_no_limit_price() {
         );
 
         let new_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        assert_abs_diff_eq!(new_balance, 9_008_200_000, epsilon = 1_000_000);
+        assert_abs_diff_eq!(new_balance, 9_086_700_000, epsilon = 1_000_000);
     });
 }
 
