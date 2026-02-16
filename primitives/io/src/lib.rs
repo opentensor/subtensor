@@ -40,6 +40,7 @@ impl core::fmt::Display for Error {
 #[runtime_interface]
 pub trait Crypto {
     /// Decapsulate a ciphertext using the ML-KEM-768 algorithm.
+    #[allow(clippy::expect_used)]
     fn mlkem768_decapsulate(
         &mut self,
         ciphertext: PassFatPointerAndRead<&[u8]>,
@@ -55,6 +56,7 @@ pub trait Crypto {
     }
 
     /// Decrypt a ciphertext using the XChaCha20-Poly1305 AEAD scheme.
+    #[allow(clippy::expect_used)]
     fn aead_decrypt(
         &mut self,
         key: PassPointerAndRead<&[u8; 32], 32>,
