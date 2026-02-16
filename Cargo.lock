@@ -8289,6 +8289,7 @@ dependencies = [
  "num-traits",
  "pallet-commitments",
  "pallet-drand",
+ "pallet-shield",
  "pallet-subtensor",
  "pallet-subtensor-swap-rpc",
  "pallet-subtensor-swap-runtime-api",
