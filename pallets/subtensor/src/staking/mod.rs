@@ -10,3 +10,4 @@ pub mod recycle_alpha;
 pub mod remove_stake;
 pub mod set_children;
 pub mod stake_utils;
+pub mod staking_safety;
