@@ -1,0 +1,78 @@
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            protobuf-compiler \
+            libprotobuf-dev \
+            libclang-dev \
+            clang \
+            cmake \
+            build-essential
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Build node with release, fast-runtime, and metadata-hash
+        run: |
+          cargo build \
+            --profile release \
+            --features "fast-runtime metadata-hash pow-faucet" \
+            -p node-subtensor
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install start-nodes dependencies
+        working-directory: e2e/start-nodes
+        run: npm install
+
+      - name: Start validator nodes
+        working-directory: e2e/start-nodes
+        run: npx tsx main.ts
+
+      - name: Install polkadot-api for papi CLI
+        working-directory: e2e
+        run: npm install
+
+      - name: Generate PAPI descriptors from running node
+        working-directory: e2e
+        run: |
+          rm -rf .papi
+          npx papi add devnet -w ws://localhost:9944
+
+      - name: Install shared dependencies
+        working-directory: e2e/shared
+        run: npm install
+
+      - name: Install staking-tests dependencies
+        working-directory: e2e/staking-tests
+        run: npm install
+
+      - name: Run staking tests
+        working-directory: e2e/staking-tests
+        run: npm test
