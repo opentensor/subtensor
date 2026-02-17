@@ -1,5 +1,7 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
-use crate::TransactionSource;
+use crate::{
+    AlphaFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler, TransactionSource, WithdrawnFee,
+};
 use frame_support::assert_ok;
 use frame_support::dispatch::GetDispatchInfo;
 use sp_runtime::{
@@ -68,6 +70,129 @@ fn test_remove_stake_fees_tao() {
         // Remove stake extrinsic should pay fees in TAO because ck has sufficient TAO balance
         assert!(actual_tao_fee > 0);
         assert_eq!(actual_alpha_fee, AlphaCurrency::from(0));
+
+        let events = System::events();
+        assert!(events.iter().any(|event_record| {
+            matches!(
+                &event_record.event,
+                RuntimeEvent::TransactionPayment(
+                    pallet_transaction_payment::Event::TransactionFeePaid { .. }
+                )
+            )
+        }));
+        assert!(!events.iter().any(|event_record| {
+            matches!(
+                &event_record.event,
+                RuntimeEvent::SubtensorModule(SubtensorEvent::TransactionFeePaidWithAlpha { .. })
+            )
+        }));
+    });
+}
+
+// cargo test --package subtensor-transaction-fee --lib -- tests::test_emits_alpha_fee_event_from_alpha_withdrawn_branch --exact --show-output
+#[test]
+fn test_emits_alpha_fee_event_from_alpha_withdrawn_branch() {
+    new_test_ext().execute_with(|| {
+        let sn = setup_subnets(1, 1);
+        let alpha_fee: u64 = 42;
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+            hotkey: sn.hotkeys[0],
+            netuid: sn.subnets[0].netuid,
+            amount_unstaked: AlphaCurrency::from(1),
+        });
+        let info = call.get_dispatch_info();
+        let post_info = frame_support::dispatch::PostDispatchInfo::default();
+
+        System::reset_events();
+
+        type FeeHandler = SubtensorTxFeeHandler<Balances, TransactionFeeHandler<Test>>;
+        assert_ok!(<FeeHandler as pallet_transaction_payment::OnChargeTransaction<Test>>::correct_and_deposit_fee(
+            &sn.coldkey,
+            &info,
+            &post_info,
+            0,
+            0,
+            Some(WithdrawnFee::Alpha(alpha_fee)),
+        ));
+
+        System::assert_last_event(RuntimeEvent::SubtensorModule(
+            SubtensorEvent::TransactionFeePaidWithAlpha {
+                who: sn.coldkey,
+                alpha_fee,
+            },
+        ));
+    });
+}
+
+// cargo test --package subtensor-transaction-fee --lib -- tests::test_rejects_multi_subnet_alpha_fee_deduction --exact --show-output
+#[test]
+fn test_rejects_multi_subnet_alpha_fee_deduction() {
+    new_test_ext().execute_with(|| {
+        let sn = setup_subnets(2, 1);
+        let stake_amount = TAO;
+        setup_stake(
+            sn.subnets[0].netuid,
+            &sn.coldkey,
+            &sn.hotkeys[0],
+            stake_amount,
+        );
+        setup_stake(
+            sn.subnets[1].netuid,
+            &sn.coldkey,
+            &sn.hotkeys[0],
+            stake_amount,
+        );
+
+        let alpha_before_0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[0].netuid,
+        );
+        let alpha_before_1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[1].netuid,
+        );
+
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all {
+            hotkey: sn.hotkeys[0],
+        });
+        let alpha_vec =
+            SubtensorTxFeeHandler::<Balances, TransactionFeeHandler<Test>>::fees_in_alpha::<Test>(
+                &sn.coldkey,
+                &call,
+            );
+        assert_eq!(alpha_vec.len(), 2);
+
+        assert!(
+            !<TransactionFeeHandler<Test> as AlphaFeeHandler<Test>>::can_withdraw_in_alpha(
+                &sn.coldkey,
+                &alpha_vec,
+                1,
+            )
+        );
+        assert_eq!(
+            <TransactionFeeHandler<Test> as AlphaFeeHandler<Test>>::withdraw_in_alpha(
+                &sn.coldkey,
+                &alpha_vec,
+                1,
+            ),
+            0
+        );
+
+        let alpha_after_0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[0].netuid,
+        );
+        let alpha_after_1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[1].netuid,
+        );
+
+        assert_eq!(alpha_before_0, alpha_after_0);
+        assert_eq!(alpha_before_1, alpha_after_1);
     });
 }
 

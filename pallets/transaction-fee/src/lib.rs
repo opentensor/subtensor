@@ -66,7 +66,7 @@ pub trait AlphaFeeHandler<T: frame_system::Config> {
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: u64,
-    );
+    ) -> u64;
     fn get_all_netuids_for_coldkey_and_hotkey(
         coldkey: &AccountIdOf<T>,
         hotkey: &AccountIdOf<T>,
@@ -132,68 +132,57 @@ where
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: u64,
     ) -> bool {
-        if alpha_vec.is_empty() {
-            // Alpha vector is empty, nothing to withdraw
+        if alpha_vec.len() != 1 {
+            // Multi-subnet alpha fee deduction is prohibited.
             return false;
         }
 
-        // Divide tao_amount among all alpha entries
-        let tao_per_entry = tao_amount.checked_div(alpha_vec.len() as u64).unwrap_or(0);
-
-        // The rule here is that we should be able to withdraw at least from one entry.
-        // This is not ideal because it may not pay all fees, but UX is the priority
-        // and this approach still provides spam protection.
-        alpha_vec.iter().any(|(hotkey, netuid)| {
-            let alpha_balance =
-                pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey, coldkey, *netuid,
-                );
-            let alpha_per_entry = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
-                *netuid,
-                tao_per_entry.into(),
-            );
-            alpha_balance >= alpha_per_entry
-        })
+        let (hotkey, netuid) = &alpha_vec[0];
+        let alpha_balance = pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey, coldkey, *netuid,
+        );
+        let alpha_fee = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
+            *netuid,
+            tao_amount.into(),
+        );
+        alpha_balance >= alpha_fee
     }
 
     fn withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: u64,
-    ) {
-        if alpha_vec.is_empty() {
-            return;
+    ) -> u64 {
+        if alpha_vec.len() != 1 {
+            return 0;
         }
 
-        let tao_per_entry = tao_amount.checked_div(alpha_vec.len() as u64).unwrap_or(0);
-        if !tao_per_entry.is_zero() {
-            alpha_vec.iter().for_each(|(hotkey, netuid)| {
-                // Divide tao_amount evenly among all alpha entries
-                let alpha_balance =
-                    pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                        hotkey, coldkey, *netuid,
-                    );
-                let mut alpha_equivalent =
-                    pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
-                        *netuid,
-                        tao_per_entry.into(),
-                    );
-                if alpha_equivalent.is_zero() {
-                    alpha_equivalent = alpha_balance;
-                }
-                let alpha_fee = alpha_equivalent.min(alpha_balance);
-
-                // Sell alpha_fee and burn received tao (ignore unstake_from_subnet return)
-                let _ = pallet_subtensor::Pallet::<T>::unstake_from_subnet(
-                    hotkey,
-                    coldkey,
-                    *netuid,
-                    alpha_fee,
-                    0.into(),
-                    true,
-                );
-            });
+        let (hotkey, netuid) = &alpha_vec[0];
+        let alpha_balance = pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            coldkey,
+            *netuid,
+        );
+        let mut alpha_equivalent = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
+            *netuid,
+            tao_amount.into(),
+        );
+        if alpha_equivalent.is_zero() {
+            alpha_equivalent = alpha_balance;
         }
+        let alpha_fee = alpha_equivalent.min(alpha_balance);
+
+        // Sell alpha_fee and burn received tao (ignore unstake_from_subnet return).
+        let _ = pallet_subtensor::Pallet::<T>::unstake_from_subnet(
+            hotkey,
+            coldkey,
+            *netuid,
+            alpha_fee,
+            0.into(),
+            true,
+        );
+
+        alpha_fee.into()
     }
 
     fn get_all_netuids_for_coldkey_and_hotkey(
@@ -212,11 +201,11 @@ where
     }
 }
 
-/// Enum that describes either a withdrawn amount of transaction fee in TAO or the
-/// fact that fee was charged in Alpha (without an amount because it is not needed)
+/// Enum that describes either a withdrawn amount of transaction fee in TAO or
+/// the exact charged Alpha amount.
 pub enum WithdrawnFee<T: frame_system::Config, F: Balanced<AccountIdOf<T>>> {
     Tao(Credit<AccountIdOf<T>, F>),
-    Alpha,
+    Alpha(u64),
 }
 
 /// Custom OnChargeTransaction implementation based on standard FungibleAdapter from transaction_payment
@@ -337,8 +326,8 @@ where
                 let alpha_vec = Self::fees_in_alpha::<T>(who, call);
                 if !alpha_vec.is_empty() {
                     let fee_u64: u64 = fee.into();
-                    OU::withdraw_in_alpha(who, &alpha_vec, fee_u64);
-                    return Ok(Some(WithdrawnFee::Alpha));
+                    let alpha_fee = OU::withdraw_in_alpha(who, &alpha_vec, fee_u64);
+                    return Ok(Some(WithdrawnFee::Alpha(alpha_fee)));
                 }
                 Err(InvalidTransaction::Payment.into())
             }
@@ -405,7 +394,13 @@ where
                     let (tip, fee) = adjusted_paid.split(tip);
                     OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
                 }
-                WithdrawnFee::Alpha => {
+                WithdrawnFee::Alpha(alpha_fee) => {
+                    frame_system::Pallet::<T>::deposit_event(
+                        pallet_subtensor::Event::<T>::TransactionFeePaidWithAlpha {
+                            who: who.clone(),
+                            alpha_fee,
+                        },
+                    );
                     // Subtensor does not refund Alpha fees, charges are final
                 }
             }
