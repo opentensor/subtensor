@@ -50,3 +50,5 @@ scripts/specs/local.json
 
 # Node modules
 node_modules
+
+.claude
