@@ -111,7 +111,7 @@ Inflector = "0.11"
 cfg-expr = "0.15"
 itertools = "0.10"
 macro_magic = { version = "0.5", default-features = false }
-frame-support-procedural-tools = { version = "10.0.0", default-features = false }
+frame-support-procedural-tools = { version = "13.0.1", default-features = false }
 proc-macro-warning = { version = "1", default-features = false }
 expander = "2"
 ahash = { version = "0.8", default-features = false }
