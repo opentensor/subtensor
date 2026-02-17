@@ -1,0 +1,22 @@
+{
+  "name": "shared",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "ISC",
+  "main": "index.ts",
+  "dependencies": {
+    "@polkadot-api/descriptors": "file:../.papi/descriptors",
+    "@polkadot-labs/hdkd": "^0.0.25",
+    "@polkadot-labs/hdkd-helpers": "^0.0.25",
+    "polkadot-api": "^1.22.0",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24"
+  },
+  "prettier": {
+    "singleQuote": false,
+    "trailingComma": "all",
+    "printWidth": 120
+  }
+}

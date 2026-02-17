@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@polkadot-api/descriptors": "file:.papi/descriptors",
     "polkadot-api": "^1.22.0"
   }
 }
