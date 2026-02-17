@@ -5448,7 +5448,7 @@ fn test_staking_records_flow() {
         // Check that outflow has been recorded (less unstaking fees)
         // The block builder will receive a fraction of the fees in alpha and will be forced
         // to unstake it. So, the addition out-flow is recorded for this.
-        let unstaked_block_builder_fraction = 2. / 5.;
+        let unstaked_block_builder_fraction = 4. / 5.;
         let expected_unstake_fee =
             expected_flow * fee_rate * (1. - unstaked_block_builder_fraction);
         assert_abs_diff_eq!(
