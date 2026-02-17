@@ -28,6 +28,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block as BlockT;
 use sp_runtime::traits::NumberFor;
+use stc_shield::InherentDataProvider as ShieldInherentDataProvider;
 use std::{error::Error, sync::Arc};
 use stp_shield::ShieldKeystorePtr;
 
@@ -117,7 +118,7 @@ impl ConsensusMechanism for AuraConsensus {
 
     fn pending_create_inherent_data_providers(
         slot_duration: SlotDuration,
-        shield_keystore: Arc<ShieldKeystore>,
+        shield_keystore: ShieldKeystorePtr,
     ) -> Result<Self::InherentDataProviders, Box<dyn Error + Send + Sync>> {
         let current = sp_timestamp::InherentDataProvider::from_system_time();
         let next_slot = current
