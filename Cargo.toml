@@ -92,7 +92,7 @@ serde-tuple-vec-map = { version = "1.0.1", default-features = false }
 serde_bytes = { version = "0.11.14", default-features = false }
 serde_json = { version = "1.0.141", default-features = false }
 serde_with = { version = "3.14.0", default-features = false }
-smallvec = "1.13.2"
+smallvec = "2.0.0-alpha.12"
 tracing = "0.1"
 tracing-log = "0.2"
 tracing-subscriber = { version = "=0.3.18" }
