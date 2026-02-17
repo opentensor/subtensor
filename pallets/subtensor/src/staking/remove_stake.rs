@@ -538,12 +538,10 @@ impl<T: Config> Pallet<T> {
             let mut distributed: u128 = 0;
 
             for (hot, cold, alpha_val) in &stakers {
-                let prod: u128 = pot_u128.saturating_mul(*alpha_val);
-                let share_u128: u128 = prod.checked_div(total_alpha_value_u128).unwrap_or_default();
-                let share_u64: u64 = share_u128.min(u128::from(u64::MAX)) as u64;
+                let (share_u64, rem) =
+                    Self::compute_prorata_share(*alpha_val, total_alpha_value_u128, pot_u64);
                 distributed = distributed.saturating_add(u128::from(share_u64));
 
-                let rem: u128 = prod.checked_rem(total_alpha_value_u128).unwrap_or_default();
                 portions.push(Portion {
                     _hot: hot.clone(),
                     cold: cold.clone(),
