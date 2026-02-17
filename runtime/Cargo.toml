@@ -140,7 +140,6 @@ fp-account.workspace = true
 
 #drand
 pallet-drand.workspace = true
-getrandom.workspace = true
 tle.workspace = true
 hex.workspace = true
 rand_chacha.workspace = true
@@ -258,7 +257,6 @@ std = [
 	"pallet-hotfix-sufficients/std",
 	"fp-account/std",
 	"pallet-drand/std",
-	"getrandom/std",
 	"tle/std",
 	"ark-serialize/std",
 	"hex/std",
