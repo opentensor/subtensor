@@ -21,7 +21,7 @@ syn = { workspace = true, features = [
 quote.workspace = true
 proc-macro2 = { workspace = true, features = ["span-locations"] }
 walkdir.workspace = true
-rayon = "1.10"
+rayon = "1.11.0"
 
 [workspace]
 members = [
