@@ -138,9 +138,10 @@ where
         }
 
         let (hotkey, netuid) = &alpha_vec[0];
-        let alpha_balance = pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            hotkey, coldkey, *netuid,
-        );
+        let alpha_balance =
+            pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey, coldkey, *netuid,
+            );
         let alpha_fee = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
             *netuid,
             tao_amount.into(),
@@ -158,11 +159,10 @@ where
         }
 
         let (hotkey, netuid) = &alpha_vec[0];
-        let alpha_balance = pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            hotkey,
-            coldkey,
-            *netuid,
-        );
+        let alpha_balance =
+            pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey, coldkey, *netuid,
+            );
         let mut alpha_equivalent = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
             *netuid,
             tao_amount.into(),
