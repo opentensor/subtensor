@@ -4863,6 +4863,7 @@ fn test_swap_fees_tao_correctness() {
         let owner_hotkey = U256::from(1);
         let owner_coldkey = U256::from(2);
         let coldkey = U256::from(4);
+        let block_builder = U256::from(12345u64);
         let amount = 1_000_000_000;
         let owner_balance_before = amount * 10;
         let user_balance_before = amount * 100;
@@ -4871,8 +4872,6 @@ fn test_swap_fees_tao_correctness() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, owner_balance_before);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, user_balance_before);
-        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
-            / u16::MAX as f64;
 
         // Forse-set alpha in and tao reserve to make price equal 0.25
         let tao_reserve = TaoCurrency::from(100_000_000_000);
@@ -4880,8 +4879,11 @@ fn test_swap_fees_tao_correctness() {
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Check starting "total TAO"
-        let total_tao_before =
-            user_balance_before + owner_balance_before + SubnetTAO::<Test>::get(netuid).to_u64();
+        let block_builder_balance_before = SubtensorModule::get_coldkey_balance(&block_builder);
+        let total_tao_before = user_balance_before
+            + owner_balance_before
+            + SubnetTAO::<Test>::get(netuid).to_u64()
+            + block_builder_balance_before;
 
         // Get alpha for owner
         assert_ok!(SubtensorModule::add_stake(
@@ -4890,7 +4892,6 @@ fn test_swap_fees_tao_correctness() {
             netuid,
             amount.into(),
         ));
-        let mut fees = (fee_rate * amount as f64) as u64;
 
         // Add owner coldkey Alpha as concentrated liquidity
         // between current price current price + 0.01
@@ -4909,7 +4910,6 @@ fn test_swap_fees_tao_correctness() {
             ((limit_price * u64::MAX as f64) as u64).into(),
             true
         ));
-        fees += (fee_rate * amount as f64) as u64;
 
         let user_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &owner_hotkey,
@@ -4923,15 +4923,25 @@ fn test_swap_fees_tao_correctness() {
             netuid,
             user_alpha,
         ));
-        // Do not add fees because selling fees are in alpha
+
+        // Cause tao fees to propagate to SubnetTAO
+        let (claimed_tao_fees, _) =
+            <Test as pallet::Config>::SwapInterface::adjust_protocol_liquidity(
+                netuid,
+                0.into(),
+                0.into(),
+            );
+        SubnetTAO::<Test>::mutate(netuid, |tao| *tao += claimed_tao_fees);
 
         // Check ending "total TAO"
         let owner_balance_after = SubtensorModule::get_coldkey_balance(&owner_coldkey);
         let user_balance_after = SubtensorModule::get_coldkey_balance(&coldkey);
+        let block_builder_balance_after = SubtensorModule::get_coldkey_balance(&block_builder);
+
         let total_tao_after = user_balance_after
             + owner_balance_after
             + SubnetTAO::<Test>::get(netuid).to_u64()
-            + fees;
+            + block_builder_balance_after;
 
         // Total TAO does not change, leave some epsilon for rounding
         assert_abs_diff_eq!(total_tao_before, total_tao_after, epsilon = 2);
@@ -5436,7 +5446,11 @@ fn test_staking_records_flow() {
         ));
 
         // Check that outflow has been recorded (less unstaking fees)
-        let expected_unstake_fee = expected_flow * fee_rate;
+        // The block builder will receive a fraction of the fees in alpha and will be forced
+        // to unstake it. So, the addition out-flow is recorded for this.
+        let unstaked_block_builder_fraction = 2. / 5.;
+        let expected_unstake_fee =
+            expected_flow * fee_rate * (1. - unstaked_block_builder_fraction);
         assert_abs_diff_eq!(
             SubnetTaoFlow::<Test>::get(netuid),
             expected_unstake_fee as i64,

@@ -648,14 +648,8 @@ impl<T: Config> Pallet<T> {
             }
         };
 
-        // Increase only the protocol Alpha reserve. We only use the sum of
-        // (SubnetAlphaIn + SubnetAlphaInProvided) in alpha_reserve(), so it is irrelevant
-        // which one to increase.
-        // Decrease by fee_to_block_author because it will be staked.
-        let alpha_delta = swap_result
-            .paid_in_reserve_delta_i64()
-            .unsigned_abs()
-            .saturating_sub(swap_result.fee_to_block_author.into());
+        // Increase only the protocol Alpha reserve
+        let alpha_delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs();
         SubnetAlphaIn::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha_delta.into());
         });
@@ -711,16 +705,21 @@ impl<T: Config> Pallet<T> {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
         }
 
-        // Increase the stake of the block author
-        // Alpha in/out counters are already updated in swap_alpha_for_tao accordingly
+        // Swap (in a fee-less way) the block builder alpha fee
+        let mut fee_outflow = 0_u64;
         let maybe_block_author_coldkey = T::AuthorshipProvider::author();
         if let Some(block_author_coldkey) = maybe_block_author_coldkey {
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                &block_author_coldkey,
+            let bb_swap_result = Self::swap_alpha_for_tao(
                 netuid,
                 swap_result.fee_to_block_author,
+                T::SwapInterface::min_price::<TaoCurrency>(),
+                true,
+            )?;
+            Self::add_balance_to_coldkey_account(
+                &block_author_coldkey,
+                bb_swap_result.amount_paid_out.into(),
             );
+            fee_outflow = bb_swap_result.amount_paid_out.into();
         } else {
             // block author is not found, burn this alpha
             Self::burn_subnet_alpha(netuid, swap_result.fee_to_block_author);
@@ -741,7 +740,12 @@ impl<T: Config> Pallet<T> {
         // }
 
         // Record TAO outflow
-        Self::record_tao_outflow(netuid, swap_result.amount_paid_out.into());
+        Self::record_tao_outflow(
+            netuid,
+            swap_result
+                .amount_paid_out
+                .saturating_add(fee_outflow.into()),
+        );
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
