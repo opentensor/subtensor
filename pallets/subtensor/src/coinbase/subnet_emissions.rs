@@ -4,6 +4,10 @@ use safe_math::FixedExt;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 
+/// Emission suppression threshold (50%). Subnets with suppression fraction
+/// above this value are considered emission-suppressed.
+const EMISSION_SUPPRESSION_THRESHOLD: f64 = 0.5;
+
 impl<T: Config> Pallet<T> {
     pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
         // Filter out root subnet.
@@ -268,7 +272,10 @@ impl<T: Config> Pallet<T> {
         match EmissionSuppressionOverride::<T>::get(netuid) {
             Some(true) => true,
             Some(false) => false,
-            None => EmissionSuppression::<T>::get(netuid) > U64F64::saturating_from_num(0.5),
+            None => {
+                EmissionSuppression::<T>::get(netuid)
+                    > U64F64::saturating_from_num(EMISSION_SUPPRESSION_THRESHOLD)
+            }
         }
     }
 

@@ -516,7 +516,7 @@ fn test_suppressed_subnet_root_alpha_by_default() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 15: Suppress subnet, Disable mode → root gets no alpha
+// Test 15: Suppress subnet, Disable mode → root gets no alpha, validators get more
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
 fn test_suppressed_subnet_no_root_alpha_flag_off() {
@@ -567,11 +567,98 @@ fn test_suppressed_subnet_no_root_alpha_flag_off() {
             "with Disable mode, root should get no alpha on suppressed subnet"
         );
 
-        // But validator emission should be non-zero (all alpha goes to validators).
+        // Validator emission should be non-zero (root alpha recycled to validators).
         let pending_validator = PendingValidatorEmission::<Test>::get(sn1);
         assert!(
             pending_validator > AlphaCurrency::ZERO,
-            "validators should receive all alpha when root alpha is zeroed"
+            "validators should receive recycled root alpha"
+        );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 15b: Disable mode actually recycles root alpha to validators
+// (validators get more than with Enable mode)
+// ─────────────────────────────────────────────────────────────────────────────
+#[test]
+fn test_disable_mode_recycles_root_alpha_to_validators() {
+    new_test_ext(1).execute_with(|| {
+        add_network(NetUid::ROOT, 1, 0);
+        let sn1 = NetUid::from(1);
+        setup_subnet_with_flow(sn1, 10, 100_000_000);
+
+        let hotkey = U256::from(10);
+        let coldkey = U256::from(11);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            1_000_000_000u64.into(),
+        );
+        SubtensorModule::set_tao_weight(u64::MAX);
+        setup_root_with_tao(sn1);
+
+        // Force-suppress sn1.
+        EmissionSuppressionOverride::<Test>::insert(sn1, true);
+
+        let mut subnet_emissions = BTreeMap::new();
+        subnet_emissions.insert(sn1, U96F32::from_num(1_000_000));
+
+        // ── Run with Enable mode first to get baseline ──
+        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(
+            RootSellPressureOnSuppressedSubnetsMode::Enable,
+        );
+        PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+        PendingValidatorEmission::<Test>::insert(sn1, AlphaCurrency::ZERO);
+
+        SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+        let enable_validator = PendingValidatorEmission::<Test>::get(sn1);
+        let enable_root = PendingRootAlphaDivs::<Test>::get(sn1);
+
+        // In Enable mode, root should accumulate some alpha.
+        assert!(
+            enable_root > AlphaCurrency::ZERO,
+            "Enable mode: root should get alpha"
+        );
+
+        // ── Now run with Disable mode ──
+        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(
+            RootSellPressureOnSuppressedSubnetsMode::Disable,
+        );
+        PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+        PendingValidatorEmission::<Test>::insert(sn1, AlphaCurrency::ZERO);
+
+        SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
+
+        let disable_validator = PendingValidatorEmission::<Test>::get(sn1);
+        let disable_root = PendingRootAlphaDivs::<Test>::get(sn1);
+
+        // In Disable mode, root should get nothing.
+        assert_eq!(
+            disable_root,
+            AlphaCurrency::ZERO,
+            "Disable mode: root should get no alpha"
+        );
+
+        // Disable validators should get MORE than Enable validators because
+        // root alpha is recycled to them instead of going to root.
+        assert!(
+            disable_validator > enable_validator,
+            "Disable mode validators ({disable_validator:?}) should get more \
+             than Enable mode ({enable_validator:?}) because root alpha is recycled"
+        );
+
+        // The difference should equal the root alpha from Enable mode
+        // (root alpha is recycled to validators instead).
+        assert_eq!(
+            disable_validator.saturating_sub(enable_validator),
+            enable_root,
+            "difference should equal the root alpha that was recycled"
         );
     });
 }

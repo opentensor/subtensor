@@ -2606,7 +2606,7 @@ mod dispatches {
         #[pallet::call_index(133)]
         #[pallet::weight((
             Weight::from_parts(5_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(1))
+                .saturating_add(T::DbWeight::get().reads(2))
                 .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
             Pays::No
@@ -2679,7 +2679,7 @@ mod dispatches {
         }
 
         /// --- Set the mode for root alpha dividends on emission-suppressed subnets.
-        /// - Disable: root gets no alpha; alpha recycled to subnet validators.
+        /// - Disable: root gets no alpha; root alpha recycled to subnet validators.
         /// - Enable: root still accumulates alpha (old behaviour).
         /// - Recycle: root alpha swapped to TAO via AMM, TAO burned.
         #[pallet::call_index(135)]

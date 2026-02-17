@@ -349,7 +349,7 @@ pub mod pallet {
         Encode, Decode, Default, TypeInfo, Clone, Copy, PartialEq, Eq, Debug, DecodeWithMemTracking,
     )]
     pub enum RootSellPressureOnSuppressedSubnetsMode {
-        /// Root gets no alpha on suppressed subnets; all validator alpha goes to subnet validators.
+        /// Root gets no alpha on suppressed subnets; root alpha recycled to subnet validators.
         #[codec(index = 0)]
         Disable,
         /// Root still accumulates alpha on suppressed subnets (old `true`).
@@ -2447,7 +2447,7 @@ pub mod pallet {
         StorageDoubleMap<_, Identity, NetUid, Blake2_128Concat, T::AccountId, bool, OptionQuery>;
 
     /// Controls how root alpha dividends are handled on emission-suppressed subnets.
-    /// - Disable (0x00): root gets no alpha; alpha recycled to subnet validators.
+    /// - Disable (0x00): root gets no alpha; root alpha recycled to subnet validators.
     /// - Enable  (0x01): root still accumulates alpha (old behaviour).
     /// - Recycle (0x02, default): root alpha swapped to TAO and TAO burned.
     #[pallet::storage]

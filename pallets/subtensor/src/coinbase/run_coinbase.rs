@@ -187,7 +187,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Inject ALPHA for participants.
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
-        let suppression_mode = KeepRootSellPressureOnSuppressedSubnets::<T>::get();
+        let root_sell_pressure_mode = KeepRootSellPressureOnSuppressedSubnets::<T>::get();
 
         for netuid_i in subnets_to_emit_to.iter() {
             // Get alpha_out for this block.
@@ -217,17 +217,9 @@ impl<T: Config> Pallet<T> {
             let is_suppressed = Self::is_subnet_emission_suppressed(*netuid_i);
 
             // Get root alpha from root prop.
-            // When mode is Disable and subnet is suppressed, zero out root alpha
-            // so all validator alpha goes to subnet validators.
-            let root_alpha: U96F32 = if is_suppressed
-                && suppression_mode == RootSellPressureOnSuppressedSubnetsMode::Disable
-            {
-                asfloat!(0)
-            } else {
-                root_proportion
-                    .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
-                    .saturating_mul(asfloat!(0.5)) // 50% to validators.
-            };
+            let root_alpha: U96F32 = root_proportion
+                .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
+                .saturating_mul(asfloat!(0.5)); // 50% to validators.
             log::debug!("root_alpha: {root_alpha:?}");
 
             // Get pending server alpha, which is the miner cut of the alpha out.
@@ -253,7 +245,14 @@ impl<T: Config> Pallet<T> {
             if root_sell_flag {
                 // Determine disposition of root alpha based on suppression mode.
                 if is_suppressed
-                    && suppression_mode == RootSellPressureOnSuppressedSubnetsMode::Recycle
+                    && root_sell_pressure_mode == RootSellPressureOnSuppressedSubnetsMode::Disable
+                {
+                    // Disable mode: recycle root alpha back to subnet validators.
+                    PendingValidatorEmission::<T>::mutate(*netuid_i, |total| {
+                        *total = total.saturating_add(tou64!(root_alpha).into());
+                    });
+                } else if is_suppressed
+                    && root_sell_pressure_mode == RootSellPressureOnSuppressedSubnetsMode::Recycle
                 {
                     // Recycle mode: swap alpha → TAO via AMM, then burn the TAO.
                     let root_alpha_currency = AlphaCurrency::from(tou64!(root_alpha));
