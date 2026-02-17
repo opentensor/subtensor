@@ -49,9 +49,6 @@ use macros::{config, dispatches, errors, events, genesis, hooks};
 mod tests;
 pub mod transaction_extension;
 
-pub mod transaction_extension;
-pub use transaction_extension::SubtensorTransactionExtension;
-
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 

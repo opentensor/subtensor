@@ -70,8 +70,8 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use substrate_fixed::types::U64F64;
 use stp_shield::ShieldedTransaction;
+use substrate_fixed::types::U64F64;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -1644,7 +1644,7 @@ pub type CustomTxExtension = (
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
     pallet_shield::CheckShieldedTxValidity<Runtime>,
-    pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
+    pallet_subtensor::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
 );
 pub type TxExtension = (

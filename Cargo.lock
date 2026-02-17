@@ -73,6 +73,17 @@ dependencies = [
 
 [[package]]
 name = "ahash"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "891477e0c6a8957309ee5c45a6368af3ae14bb510732d2684ffa19af310920f9"
+dependencies = [
+ "getrandom 0.2.17",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
+name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
@@ -17427,7 +17438,7 @@ name = "sp-trie"
 version = "40.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=90497591fd4e23768a410391e7adbd09a45587cf#90497591fd4e23768a410391e7adbd09a45587cf"
 dependencies = [
- "ahash",
+ "ahash 0.8.12",
  "foldhash 0.1.5",
  "hash-db",
  "hashbrown 0.15.5",
@@ -17438,34 +17449,9 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "schnellru",
- "sp-core 37.0.0 (git+https://github.com/opentensor/polkadot-sdk?rev=90497591fd4e23768a410391e7adbd09a45587cf)",
- "sp-externalities 0.30.0 (git+https://github.com/opentensor/polkadot-sdk?rev=90497591fd4e23768a410391e7adbd09a45587cf)",
- "substrate-prometheus-endpoint 0.17.6 (git+https://github.com/opentensor/polkadot-sdk?rev=90497591fd4e23768a410391e7adbd09a45587cf)",
- "thiserror 1.0.69",
- "tracing",
- "trie-db",
- "trie-root",
-]
-
-[[package]]
-name = "sp-trie"
-version = "40.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?rev=90497591fd4e23768a410391e7adbd09a45587cf#90497591fd4e23768a410391e7adbd09a45587cf"
-dependencies = [
- "ahash",
- "foldhash 0.1.5",
- "hash-db",
- "hashbrown 0.15.5",
- "memory-db",
- "nohash-hasher",
- "parity-scale-codec",
- "parking_lot 0.12.5",
- "rand 0.8.5",
- "scale-info",
- "schnellru",
- "sp-core 37.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?rev=90497591fd4e23768a410391e7adbd09a45587cf)",
- "sp-externalities 0.30.0 (git+https://github.com/paritytech/polkadot-sdk.git?rev=90497591fd4e23768a410391e7adbd09a45587cf)",
- "substrate-prometheus-endpoint 0.17.6 (git+https://github.com/paritytech/polkadot-sdk.git?rev=90497591fd4e23768a410391e7adbd09a45587cf)",
+ "sp-core",
+ "sp-externalities",
+ "substrate-prometheus-endpoint",
  "thiserror 1.0.69",
  "tracing",
  "trie-db",

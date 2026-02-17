@@ -88,6 +88,7 @@ fn build_max_encrypted_payload() -> (Vec<u8>, DecapsulationKey<MlKem768Params>) 
     where
         T: pallet_aura::Config,
         <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
+        <T as pallet::Config>::AuthorityId: From<sr25519::Public>,
 )]
 mod benches {
     use super::*;
