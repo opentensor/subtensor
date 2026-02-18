@@ -38,7 +38,7 @@ export const log = (message: string) => console.log(`[${new Date().toISOString()
 export const startNode = (opts: NodeOptions): Node => {
   const nameArgs = SUBSTRATE_SHORTCUTS.has(opts.name) ? [`--${opts.name}`] : ["--name", opts.name];
 
-  const process = spawn(opts.binaryPath, [
+  const child = spawn(opts.binaryPath, [
     ...nameArgs,
     ...["--chain", opts.chainSpec],
     ...["--base-path", opts.basePath],
@@ -52,11 +52,11 @@ export const startNode = (opts: NodeOptions): Node => {
   ]);
 
   let lastStderr = "";
-  process.stderr?.on("data", (chunk: Buffer) => {
+  child.stderr?.on("data", (chunk: Buffer) => {
     lastStderr = chunk.toString();
   });
-  process.on("error", (error) => console.error(`${opts.name} (error): ${error}`));
-  process.on("close", (code) => {
+  child.on("error", (error) => console.error(`${opts.name} (error): ${error}`));
+  child.on("close", (code) => {
     if (code !== 0 && code !== null) {
       log(`${opts.name}: process crashed with code ${code}. Last stderr: ${lastStderr}`);
     } else {
@@ -69,7 +69,7 @@ export const startNode = (opts: NodeOptions): Node => {
     binaryPath: opts.binaryPath,
     rpcPort: opts.rpcPort,
     port: opts.port,
-    process,
+    process: child,
   };
 };
 
@@ -146,3 +146,4 @@ export function innerEnsure(
     node.process.stderr?.on("data", fn);
   });
 }
+

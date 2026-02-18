@@ -7,8 +7,6 @@ import { xxhashAsU8a } from "@polkadot/util-crypto";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { NodeSubtensorApi } from "../node-subtensor/index.js";
 
-export { connectClient, createKeyring, getAccountNonce, getBalance } from "e2e-shared/client.js";
-
 export const getNextKey = async (
   client: DedotClient<NodeSubtensorApi>,
 ): Promise<Uint8Array | undefined> => {
