@@ -26,6 +26,8 @@ pub enum CustomTransactionError {
     EvmKeyAssociateRateLimitExceeded,
     ColdkeySwapDisputed,
     InvalidRealAccount,
+    FailedShieldedTxParsing,
+    InvalidShieldedTxPubKeyHash,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -55,6 +57,8 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
             CustomTransactionError::ColdkeySwapDisputed => 21,
             CustomTransactionError::InvalidRealAccount => 22,
+            CustomTransactionError::FailedShieldedTxParsing => 23,
+            CustomTransactionError::InvalidShieldedTxPubKeyHash => 24,
         }
     }
 }
