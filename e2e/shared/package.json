@@ -5,10 +5,12 @@
   "exports": {
     "./node.js": "./node.ts",
     "./chainspec.js": "./chainspec.ts",
-    "./sequencer.js": "./sequencer.ts"
+    "./sequencer.js": "./sequencer.ts",
+    "./client.js": "./client.ts"
   },
   "dependencies": {
-    "@polkadot/keyring": "catalog:"
+    "@polkadot/keyring": "catalog:",
+    "dedot": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
