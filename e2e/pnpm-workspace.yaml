@@ -7,6 +7,7 @@ catalog:
   "@dedot/cli": "^1.0.4"
   "@noble/ciphers": "^2.1.1"
   "@polkadot/keyring": "^14.0.1"
+  "@polkadot/util": "^14.0.1"
   "@polkadot/util-crypto": "^14.0.1"
   "@types/node": "^24"
   "dedot": "^1.0.4"
