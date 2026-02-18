@@ -1,6 +1,6 @@
 use crate::{
     BalancesCall, Call, ColdkeySwapScheduled, Config, CustomTransactionError, Error, Pallet,
-    TransactionType,
+    SubnetOwner, TransactionType,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
@@ -47,6 +47,13 @@ where
 
     pub fn check_weights_min_stake(who: &T::AccountId, netuid: NetUid) -> bool {
         Pallet::<T>::check_weights_min_stake(who, netuid)
+    }
+
+    /// Check if the caller is the subnet owner or root origin.
+    /// Returns true if the caller is the subnet owner, false otherwise.
+    /// Note: Root origin is allowed but we can't detect it here, so it will be checked in dispatch.
+    pub fn is_subnet_owner(who: &T::AccountId, netuid: NetUid) -> bool {
+        SubnetOwner::<T>::get(netuid) == *who
     }
 
     pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
@@ -117,6 +124,8 @@ where
         _source: TransactionSource,
     ) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
         // Ensure the transaction is signed, else we just skip the extension.
+        // Note: Root origin is allowed for subnet owner calls but we can't detect it here,
+        // so it will be validated in the dispatch function.
         let Some(who) = origin.as_system_origin_signer() else {
             return Ok((Default::default(), None, origin));
         };
@@ -296,6 +305,30 @@ where
                         }
                     }
                     Err(_) => Err(CustomTransactionError::UidNotFound.into()),
+                }
+            }
+            // Filter incorrect subnet owner calls
+            // These calls require subnet owner validation and should be filtered
+            // in the transaction pool to prevent invalid transactions from being added.
+            Some(Call::start_call { netuid, .. }) => {
+                if Self::is_subnet_owner(who, *netuid) {
+                    Ok((Default::default(), Some(who.clone()), origin))
+                } else {
+                    Err(CustomTransactionError::InvalidSubnetOwner.into())
+                }
+            }
+            Some(Call::update_symbol { netuid, .. }) => {
+                if Self::is_subnet_owner(who, *netuid) {
+                    Ok((Default::default(), Some(who.clone()), origin))
+                } else {
+                    Err(CustomTransactionError::InvalidSubnetOwner.into())
+                }
+            }
+            Some(Call::sudo_set_root_claim_threshold { netuid, .. }) => {
+                if Self::is_subnet_owner(who, *netuid) {
+                    Ok((Default::default(), Some(who.clone()), origin))
+                } else {
+                    Err(CustomTransactionError::InvalidSubnetOwner.into())
                 }
             }
             _ => Ok((Default::default(), Some(who.clone()), origin)),
