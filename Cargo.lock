@@ -10573,6 +10573,7 @@ dependencies = [
  "stp-io",
  "stp-shield",
  "subtensor-macros",
+ "subtensor-runtime-common",
 ]
 
 [[package]]

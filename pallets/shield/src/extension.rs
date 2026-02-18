@@ -11,6 +11,7 @@ use sp_runtime::traits::{
 };
 use sp_runtime::transaction_validity::TransactionSource;
 use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::CustomTransactionError;
 
 #[freeze_struct("dabd89c6963de25d")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
@@ -66,7 +67,7 @@ where
         // Reject malformed ciphertext regardless of source.
         let Some(ShieldedTransaction { key_hash, .. }) = ShieldedTransaction::parse(ciphertext)
         else {
-            return Err(InvalidTransaction::BadProof.into());
+            return Err(CustomTransactionError::FailedShieldedTxParsing.into());
         };
 
         // Only enforce the key_hash check during block building/import.
@@ -79,7 +80,7 @@ where
                 .any(|k| k.as_ref().is_some_and(|k| twox_128(&k[..]) == key_hash));
 
             if !matches_any {
-                return Err(InvalidTransaction::BadProof.into());
+                return Err(CustomTransactionError::InvalidShieldedTxPubKeyHash.into());
             }
         }
 
@@ -94,7 +95,7 @@ mod tests {
     use frame_support::dispatch::GetDispatchInfo;
     use frame_support::pallet_prelude::{BoundedVec, ConstU32};
     use sp_runtime::traits::TxBaseImplication;
-    use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
+    use sp_runtime::transaction_validity::TransactionValidityError;
 
     /// Build wire-format ciphertext with a given key_hash.
     /// Layout: key_hash(16) || kem_ct_len(2 LE) || kem_ct(N) || nonce(24) || aead_ct(rest)
@@ -169,9 +170,7 @@ mod tests {
             });
             assert_eq!(
                 validate_ext(Some(1), &call, TransactionSource::InBlock),
-                Err(TransactionValidityError::Invalid(
-                    InvalidTransaction::BadProof
-                ))
+                Err(CustomTransactionError::FailedShieldedTxParsing.into())
             );
         });
     }
@@ -184,9 +183,7 @@ mod tests {
             });
             assert_eq!(
                 validate_ext(Some(1), &call, TransactionSource::External),
-                Err(TransactionValidityError::Invalid(
-                    InvalidTransaction::BadProof
-                ))
+                Err(CustomTransactionError::FailedShieldedTxParsing.into())
             );
         });
     }
@@ -217,9 +214,7 @@ mod tests {
             let call = make_submit_call([0xFF; 16]);
             assert_eq!(
                 validate_ext(Some(1), &call, TransactionSource::InBlock),
-                Err(TransactionValidityError::Invalid(
-                    InvalidTransaction::BadProof
-                ))
+                Err(CustomTransactionError::InvalidShieldedTxPubKeyHash.into())
             );
         });
     }
@@ -230,9 +225,7 @@ mod tests {
             let call = make_submit_call(twox_128(&PK_A));
             assert_eq!(
                 validate_ext(Some(1), &call, TransactionSource::InBlock),
-                Err(TransactionValidityError::Invalid(
-                    InvalidTransaction::BadProof
-                ))
+                Err(CustomTransactionError::InvalidShieldedTxPubKeyHash.into())
             );
         });
     }

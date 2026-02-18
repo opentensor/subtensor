@@ -9,7 +9,6 @@ use frame_system::{self as system, ensure_signed};
 pub use pallet::*;
 
 use codec::{Decode, Encode};
-use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::{
     dispatch::{self, DispatchResult, DispatchResultWithPostInfo},
     ensure,
