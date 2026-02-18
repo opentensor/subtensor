@@ -12,6 +12,7 @@ use frame_support::{
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
+use subtensor_runtime_common::CustomTransactionError;
 
 mod test {
     use std::net::{Ipv4Addr, Ipv6Addr};
