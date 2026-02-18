@@ -1,0 +1,15 @@
+packages:
+  - shared
+  - shield
+
+catalog:
+  "@dedot/chaintypes": "^0.234.0"
+  "@dedot/cli": "^1.0.4"
+  "@noble/ciphers": "^2.1.1"
+  "@polkadot/keyring": "^14.0.1"
+  "@polkadot/util-crypto": "^14.0.1"
+  "@types/node": "^24"
+  "dedot": "^1.0.4"
+  "mlkem": "^2.5.0"
+  "prettier": "^3.0.0"
+  "vitest": "^4.0.0"
