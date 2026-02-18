@@ -1,7 +1,5 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
-use crate::{
-    AlphaFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler, TransactionSource, WithdrawnFee,
-};
+use crate::{AlphaFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler, TransactionSource};
 use frame_support::assert_ok;
 use frame_support::dispatch::GetDispatchInfo;
 use sp_runtime::{
@@ -86,41 +84,6 @@ fn test_remove_stake_fees_tao() {
                 RuntimeEvent::SubtensorModule(SubtensorEvent::TransactionFeePaidWithAlpha { .. })
             )
         }));
-    });
-}
-
-// cargo test --package subtensor-transaction-fee --lib -- tests::test_emits_alpha_fee_event_from_alpha_withdrawn_branch --exact --show-output
-#[test]
-fn test_emits_alpha_fee_event_from_alpha_withdrawn_branch() {
-    new_test_ext().execute_with(|| {
-        let sn = setup_subnets(1, 1);
-        let alpha_fee: u64 = 42;
-        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
-            hotkey: sn.hotkeys[0],
-            netuid: sn.subnets[0].netuid,
-            amount_unstaked: AlphaCurrency::from(1),
-        });
-        let info = call.get_dispatch_info();
-        let post_info = frame_support::dispatch::PostDispatchInfo::default();
-
-        System::reset_events();
-
-        type FeeHandler = SubtensorTxFeeHandler<Balances, TransactionFeeHandler<Test>>;
-        assert_ok!(<FeeHandler as pallet_transaction_payment::OnChargeTransaction<Test>>::correct_and_deposit_fee(
-            &sn.coldkey,
-            &info,
-            &post_info,
-            0,
-            0,
-            Some(WithdrawnFee::Alpha(alpha_fee)),
-        ));
-
-        System::assert_last_event(RuntimeEvent::SubtensorModule(
-            SubtensorEvent::TransactionFeePaidWithAlpha {
-                who: sn.coldkey,
-                alpha_fee,
-            },
-        ));
     });
 }
 
@@ -234,6 +197,8 @@ fn test_remove_stake_fees_alpha() {
             amount_unstaked: unstake_amount,
         });
 
+        System::reset_events();
+
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
         let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
@@ -258,6 +223,36 @@ fn test_remove_stake_fees_alpha() {
         // Remove stake extrinsic should pay fees in Alpha
         assert_eq!(actual_tao_fee, 0);
         assert!(actual_alpha_fee > 0.into());
+
+        let events = System::events();
+        let alpha_event = events
+            .iter()
+            .position(|event_record| {
+                matches!(
+                    &event_record.event,
+                    RuntimeEvent::SubtensorModule(SubtensorEvent::TransactionFeePaidWithAlpha {
+                        who,
+                        alpha_fee,
+                    }) if who == &sn.coldkey && *alpha_fee == u64::from(actual_alpha_fee)
+                )
+            })
+            .expect("expected TransactionFeePaidWithAlpha event");
+        let tao_event = events
+            .iter()
+            .position(|event_record| {
+                matches!(
+                    &event_record.event,
+                    RuntimeEvent::TransactionPayment(
+                        pallet_transaction_payment::Event::TransactionFeePaid { who, .. }
+                    ) if who == &sn.coldkey
+                )
+            })
+            .expect("expected TransactionFeePaid event");
+
+        assert!(
+            alpha_event < tao_event,
+            "expected TransactionFeePaidWithAlpha before TransactionFeePaid"
+        );
     });
 }
 
