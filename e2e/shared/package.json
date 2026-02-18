@@ -1,0 +1,17 @@
+{
+  "name": "e2e-shared",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./node.js": "./node.ts",
+    "./chainspec.js": "./chainspec.ts",
+    "./sequencer.js": "./sequencer.ts"
+  },
+  "dependencies": {
+    "@polkadot/keyring": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
