@@ -8,6 +8,7 @@ export default defineConfig({
     hookTimeout: 300_000,
     fileParallelism: false,
     globalSetup: "./setup.ts",
+    setupFiles: ["./setup.ts"],
     include: ["tests/**/*.test.ts"],
     sequence: {
       sequencer: AlphabeticalSequencer,

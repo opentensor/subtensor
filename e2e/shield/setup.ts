@@ -22,7 +22,13 @@ const STATE_FILE = "/tmp/e2e-shield-nodes.json";
 export type NetworkState = {
   binaryPath: string;
   chainSpec: string;
-  nodes: { name: string; rpcPort: number; port: number; pid: number; basePath: string }[];
+  nodes: {
+    name: string;
+    rpcPort: number;
+    port: number;
+    pid: number;
+    basePath: string;
+  }[];
 };
 
 const nodes: Node[] = [];
