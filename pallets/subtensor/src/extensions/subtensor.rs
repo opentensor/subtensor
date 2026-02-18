@@ -1,7 +1,4 @@
-use crate::{
-    BalancesCall, Call, CheckColdkeySwap, Config, CustomTransactionError, Error, Pallet,
-    TransactionType,
-};
+use crate::{BalancesCall, Call, CheckColdkeySwap, Config, Error, Pallet, TransactionType};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
@@ -18,7 +15,7 @@ use sp_runtime::{
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{CustomTransactionError, NetUid, NetUidStorageIndex};
 
 const ADD_STAKE_BURN_PRIORITY_BOOST: u64 = 100;
 

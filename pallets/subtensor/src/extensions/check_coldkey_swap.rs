@@ -1,4 +1,4 @@
-use crate::{Call, ColdkeySwapAnnouncements, ColdkeySwapDisputes, Config, CustomTransactionError};
+use crate::{Call, ColdkeySwapAnnouncements, ColdkeySwapDisputes, Config};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
@@ -14,6 +14,7 @@ use sp_runtime::{
 };
 use sp_std::marker::PhantomData;
 use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::CustomTransactionError;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type OriginOf<T> = <T as frame_system::Config>::RuntimeOrigin;
