@@ -16,7 +16,7 @@ use ml_kem::{
     EncodedSizeUser, MlKem768Params,
     kem::{Encapsulate, EncapsulationKey},
 };
-use rand::rngs::OsRng;
+use rand_chacha::{ChaChaRng, rand_core::SeedableRng};
 use stc_shield::MemoryShieldKeystore;
 use std::sync::Arc;
 
@@ -278,13 +278,14 @@ fn try_decode_shielded_tx_returns_none_when_depth_exceeded() {
 
 #[test]
 fn try_unshield_tx_decrypts_extrinsic() {
+    let mut rng = ChaChaRng::from_seed([42u8; 32]);
     let keystore = Arc::new(MemoryShieldKeystore::new());
 
     // Client side: read the announced public key and encapsulate.
     let pk_bytes = keystore.next_public_key().unwrap();
     let enc_key =
         EncapsulationKey::<MlKem768Params>::from_bytes(pk_bytes.as_slice().try_into().unwrap());
-    let (kem_ct, shared_secret) = enc_key.encapsulate(&mut OsRng).unwrap();
+    let (kem_ct, shared_secret) = enc_key.encapsulate(&mut rng).unwrap();
 
     // Build the inner extrinsic that we'll encrypt.
     let inner_call = RuntimeCall::System(frame_system::Call::remark {
