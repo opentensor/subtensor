@@ -19637,7 +19637,7 @@ dependencies = [
 [[package]]
 name = "stc-shield"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=90497591fd4e23768a410391e7adbd09a45587cf#90497591fd4e23768a410391e7adbd09a45587cf"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=63332fd67a3e676b064b5ecde8ddad308714e42f#63332fd67a3e676b064b5ecde8ddad308714e42f"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -19669,7 +19669,7 @@ dependencies = [
 [[package]]
 name = "stp-shield"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=90497591fd4e23768a410391e7adbd09a45587cf#90497591fd4e23768a410391e7adbd09a45587cf"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=63332fd67a3e676b064b5ecde8ddad308714e42f#63332fd67a3e676b064b5ecde8ddad308714e42f"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
