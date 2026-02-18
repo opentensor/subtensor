@@ -5447,14 +5447,14 @@ fn test_staking_records_flow() {
 
         // Check that outflow has been recorded (less unstaking fees)
         // The block builder will receive a fraction of the fees in alpha and will be forced
-        // to unstake it. So, the addition out-flow is recorded for this.
-        let unstaked_block_builder_fraction = 4. / 5.;
+        // to unstake it. So, the additional out-flow is recorded for this.
+        let unstaked_block_builder_fraction = 1.;
         let expected_unstake_fee =
             expected_flow * fee_rate * (1. - unstaked_block_builder_fraction);
         assert_abs_diff_eq!(
             SubnetTaoFlow::<Test>::get(netuid),
             expected_unstake_fee as i64,
-            epsilon = (expected_unstake_fee / 100.0) as i64
+            epsilon = ((expected_unstake_fee / 100.0) as i64).max(1)
         );
     });
 }

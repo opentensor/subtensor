@@ -79,7 +79,7 @@ mod pallet {
     /// Pool receives the portion returned by this function
     #[pallet::type_value]
     pub fn DefaultFeeSplit() -> Perbill {
-        Perbill::from_rational(1u32, 5u32)
+        Perbill::zero()
     }
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
