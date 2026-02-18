@@ -31,7 +31,7 @@ use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Balance, Currency, NetUid};
+use subtensor_runtime_common::{AuthorshipInfo, Balance, NetUid};
 
 // Tests
 #[cfg(test)]
@@ -47,7 +47,7 @@ impl WeightToFeePolynomial for LinearWeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient = WeightToFeeCoefficient {
             coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(50_000), // 0.05 unit per weight
+            coeff_frac: Perbill::from_parts(500_000), // 0.5 unit per weight
             negative: false,
             degree: 1,
         };
@@ -95,6 +95,7 @@ where
     T: frame_system::Config,
     T: pallet_subtensor::Config,
     T: pallet_balances::Config<Balance = u64>,
+    T: AuthorshipInfo<AccountIdOf<T>>,
 {
     fn on_nonzero_unbalanced(
         imbalance: FungibleImbalance<
@@ -103,11 +104,18 @@ where
             IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
         >,
     ) {
-        let ti_before = pallet_subtensor::TotalIssuance::<T>::get();
-        pallet_subtensor::TotalIssuance::<T>::put(
-            ti_before.saturating_sub(imbalance.peek().into()),
-        );
-        drop(imbalance);
+        if let Some(author) = T::author() {
+            // Pay block author instead of burning.
+            // One of these is the right call depending on your exact fungible API:
+            // let _ = pallet_balances::Pallet::<T>::resolve(&author, imbalance);
+            // or: let _ = pallet_balances::Pallet::<T>::deposit(&author, imbalance.peek(), Precision::BestEffort);
+            //
+            // Prefer "resolve" (moves the actual imbalance) if available:
+            let _ = <pallet_balances::Pallet<T> as Balanced<_>>::resolve(&author, imbalance);
+        } else {
+            // Fallback: if no author, burn (or just drop).
+            drop(imbalance);
+        }
     }
 }
 
