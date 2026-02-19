@@ -528,5 +528,10 @@ mod events {
             /// Alpha burned
             alpha: AlphaCurrency,
         },
+        /// data for a dissolved network has been cleaned up.
+        DissolvedNetworkDataCleaned {
+            /// The subnet ID
+            netuid: NetUid,
+        },
     }
 }

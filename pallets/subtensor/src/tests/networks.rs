@@ -642,6 +642,7 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(0)); // zero TAO
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
         Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
+
         TotalHotkeyAlpha::<Test>::insert(sh, net, AlphaCurrency::from(1_000u64));
 
         let before = SubtensorModule::get_coldkey_balance(&sc);
@@ -766,7 +767,10 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // 7. Run the (now credit-to-coldkey) logic
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
 
         // 8. Expected τ shares via largest remainder
         let prod1 = (tao_pot as u128) * a1;
@@ -922,7 +926,10 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         let expected_refund = lock.saturating_sub(owner_emission_tao);
 
         // ── 6) run distribution (credits τ to coldkeys, wipes α state) ─────
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
 
         // ── 7) post checks ──────────────────────────────────────────────────
         for i in 0..N {
@@ -1006,7 +1013,10 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // Run the path under test
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
 
         // Owner received their refund…
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1052,7 +1062,10 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // Run the path under test
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
 
         // No refund for non‑legacy
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1086,7 +1099,10 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
 
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // No refund possible when lock = 0

@@ -801,7 +801,7 @@ fn test_liquidate_pal_simple_ok_and_clears() {
         assert!(PalSwapInitialized::<Test>::get(netuid));
 
         // ACT
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // All single-key maps should not have the key after liquidation
         assert!(!FeeRate::<Test>::contains_key(netuid));
@@ -827,7 +827,7 @@ fn test_clear_protocol_liquidity_green_path() {
 
         // --- Act ---
         // Green path: just clear protocol liquidity and wipe all V3 state.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // Fee globals
         assert!(!FeesTao::<Test>::contains_key(netuid));
@@ -840,7 +840,7 @@ fn test_clear_protocol_liquidity_green_path() {
         assert!(!FeeRate::<Test>::contains_key(netuid));
 
         // --- And it's idempotent ---
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
         assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
     });
 }

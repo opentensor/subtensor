@@ -5,6 +5,7 @@
 )]
 
 use core::num::NonZeroU64;
+use std::u64;
 
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
@@ -343,7 +344,9 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(_netuid: NetUid) {}
+    fn purge_netuid(_netuid: NetUid, remaining_weight: Weight) -> Weight {
+        remaining_weight
+    }
 }
 
 parameter_types! {
@@ -693,6 +696,14 @@ pub(crate) fn run_to_block_ext(n: u64, enable_events: bool) {
         SubtensorModule::on_initialize(System::block_number());
         Scheduler::on_initialize(System::block_number());
     }
+}
+
+#[allow(dead_code)]
+pub(crate) fn run_block_idle() {
+    SubtensorModule::on_idle(
+        System::block_number(),
+        Weight::from_parts(u64::MAX, u64::MAX),
+    );
 }
 
 #[allow(dead_code)]

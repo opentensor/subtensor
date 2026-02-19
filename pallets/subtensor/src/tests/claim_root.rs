@@ -1,14 +1,16 @@
 #![allow(clippy::expect_used)]
 
+use super::mock::run_block_idle;
 use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::{
     RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
 };
 use crate::{
-    DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
-    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
-    SubnetTAO, SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
+    DefaultMinRootClaimAmount, DissolvedNetworks, Error, MAX_NUM_ROOT_CLAIMS,
+    MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys,
+    PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold, StakingColdkeys,
+    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice, SubnetTAO,
+    SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
@@ -1386,6 +1388,10 @@ fn test_claim_root_on_network_deregistration() {
         // Claim root via network deregistration
 
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+
+        DissolvedNetworks::<Test>::set(vec![netuid]);
+
+        run_block_idle();
 
         assert!(!RootClaimed::<Test>::contains_key((
             netuid, &hotkey, &coldkey,
